@@ -3,18 +3,20 @@ comment: Handles MCP tools/list calls
 ↓BuildResponse [steps.SimpleStep-1761232472957]: 
   comment: Handle tools/list
   expression: |
-    'var JSON_RPC_VERSION = "2.0";
-    var MCP_PROTOCOL_VERSION = "2025-06-18";
-    var requestSource = requestIdJson;
-    if ((requestSource === null || requestSource === undefined || String(requestSource).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
-      requestSource = mcp_request_id_json;
+    'var MCP_PROTOCOL_VERSION = "2025-06-18";
+    var requestIdValue = mcp_request_id;
+    if (typeof requestIdValue === "undefined") {
+      var requestSource = (typeof requestIdJson !== "undefined") ? requestIdJson : null;
+      if ((requestSource === null || requestSource === undefined || String(requestSource).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
+        requestSource = mcp_request_id_json;
+      }
+      if (requestSource != null && String(requestSource).length > 0) {
+        try { requestIdValue = JSON.parse(String(requestSource)); } catch (e) { requestIdValue = requestSource; }
+      } else {
+        requestIdValue = null;
+      }
     }
-    var requestIdValue = null;
-    if (requestSource != null && String(requestSource).length > 0) {
-      try { requestIdValue = JSON.parse(String(requestSource)); } catch (e) { requestIdValue = requestSource; }
-    } else {
-      requestIdValue = null;
-    }
+    if (typeof mcp_request_id === "undefined") { mcp_request_id = requestIdValue; }
     var paramsSource = paramsJson;
     if ((paramsSource === null || paramsSource === undefined || String(paramsSource).length === 0) && typeof mcp_params_json !== "undefined" && mcp_params_json !== null) {
       paramsSource = mcp_params_json;
@@ -27,13 +29,13 @@ comment: Handles MCP tools/list calls
     var categories = ["admin", "project", "invoke"];
     var cursorValue = null;
     if (params && params.cursor !== undefined && params.cursor !== null) { cursorValue = String(params.cursor); }
-    var response = { jsonrpc: JSON_RPC_VERSION, id: requestIdValue };
+    var payload = {};
     function makeTool(name, title, description, inputSchema, category) { var tool = { name: name, title: title, description: description, inputSchema: inputSchema || { type: "object", properties: {}, additionalProperties: false } }; if (category) { tool.metadata = { category: category }; } return tool; }
     if (cursorValue !== null && categories.indexOf(cursorValue) === -1) {
-      response.error = { code: -32602, message: "Unknown tools cursor", data: { cursor: cursorValue } };
+      payload.error = { code: -32602, message: "Unknown tools cursor", data: { cursor: cursorValue } };
       mcp_response_status = "400";
       mcp_has_body = true;
-      mcp_response_payload = response;
+      mcp_response_payload = payload;
     } else {
       var index = cursorValue !== null ? categories.indexOf(cursorValue) : 0;
       if (index < 0) { index = 0; }
@@ -53,10 +55,10 @@ comment: Handles MCP tools/list calls
       }
       var result = { tools: tools };
       if (index + 1 < categories.length) { result.nextCursor = categories[index + 1]; }
-      response.result = result;
+      payload.result = result;
       mcp_response_status = "200";
       mcp_has_body = true;
-      mcp_response_payload = response;
+      mcp_response_payload = payload;
     }'
 ↓HydrateInputs [steps.SimpleStep-1761232472955]: 
   comment: Populate request variables
@@ -87,70 +89,65 @@ comment: Handles MCP tools/list calls
       - SmartType: 
         - ↑mode: JS
         - →→: mcp_protocol_version || "2025-06-18"
-↓BodySwitch [steps.IfStep-1761219993186]: 
+↓WhenHasBody [steps.IfStep-1761235321011]: 
   condition: mcp_has_body
-  ↓ResolvedBody [steps.ThenStep-1761219993188]: 
-    ↓jsonrpc [steps.JsonToXmlStep-1761219993190]: 
-      jsonObject: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: mcp_response_payload.jsonrpc
+  ↓WhenHasBodyThen [steps.ThenStep-1761235321013]: 
+    ↓jsonrpc [steps.JsonFieldStep-1761235321015]: 
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
             - →→: jsonrpc
-    ↓EmitId [steps.IfStep-1761219993192]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
-      ↓IdBody [steps.ThenStep-1761219993194]: 
-        ↓id [steps.JsonToXmlStep-1761219993196]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.id
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: id
-    ↓EmitResult [steps.IfStep-1761219993198]: 
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: "2.0"
+    ↓id [steps.JsonFieldStep-1761235321017]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: id
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: (function(){var id = mcp_request_id; return (id === undefined) ? null : id;})()
+    ↓EmitResult [steps.IfStep-1761235321019]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
-      ↓ResultBody [steps.ThenStep-1761219993200]: 
-        ↓result [steps.JsonToXmlStep-1761219993202]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.result
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: result
-    ↓EmitError [steps.IfStep-1761219993204]: 
+      ↓ResultField [steps.JsonFieldStep-1761235321021]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: result
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: mcp_response_payload.result
+    ↓EmitError [steps.IfStep-1761235321023]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
-      ↓ErrorBody [steps.ThenStep-1761219993206]: 
-        ↓error [steps.JsonToXmlStep-1761219993208]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.error
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: error
+      ↓ErrorField [steps.JsonFieldStep-1761235321025]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: mcp_response_payload.error
 ↓requestIdJson [variables.RequestableVariable-1761219993176]: 
   comment: JSON representation of request id
 ↓paramsJson [variables.RequestableVariable-1761219993178]: 

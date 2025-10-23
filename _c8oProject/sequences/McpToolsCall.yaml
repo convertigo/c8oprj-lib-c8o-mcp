@@ -3,20 +3,22 @@ comment: Handles MCP tools/call calls
 ↓BuildResponse [steps.SimpleStep-1761232472961]: 
   comment: Handle tools/call
   expression: |
-    'var JSON_RPC_VERSION = "2.0";
-    var MCP_PROTOCOL_VERSION = "2025-06-18";
+    'var MCP_PROTOCOL_VERSION = "2025-06-18";
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var ProductVersion = Packages.com.twinsoft.convertigo.engine.ProductVersion;
-    var requestSource = requestIdJson;
-    if ((requestSource === null || requestSource === undefined || String(requestSource).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
-      requestSource = mcp_request_id_json;
+    var requestIdValue = mcp_request_id;
+    if (typeof requestIdValue === "undefined") {
+      var requestSource = (typeof requestIdJson !== "undefined") ? requestIdJson : null;
+      if ((requestSource === null || requestSource === undefined || String(requestSource).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
+        requestSource = mcp_request_id_json;
+      }
+      if (requestSource != null && String(requestSource).length > 0) {
+        try { requestIdValue = JSON.parse(String(requestSource)); } catch (e) { requestIdValue = requestSource; }
+      } else {
+        requestIdValue = null;
+      }
     }
-    var requestIdValue = null;
-    if (requestSource != null && String(requestSource).length > 0) {
-      try { requestIdValue = JSON.parse(String(requestSource)); } catch (e) { requestIdValue = requestSource; }
-    } else {
-      requestIdValue = null;
-    }
+    if (typeof mcp_request_id === "undefined") { mcp_request_id = requestIdValue; }
     var paramsSource = paramsJson;
     if ((paramsSource === null || paramsSource === undefined || String(paramsSource).length === 0) && typeof mcp_params_json !== "undefined" && mcp_params_json !== null) {
       paramsSource = mcp_params_json;
@@ -25,20 +27,20 @@ comment: Handles MCP tools/call calls
     if (paramsSource != null && String(paramsSource).length > 0) {
       try { params = JSON.parse(String(paramsSource)); } catch (e) { params = {}; }
     }
-    var response = { jsonrpc: JSON_RPC_VERSION, id: requestIdValue };
+    var payload = {};
     var statusValue = "200";
     var toolName = params && typeof params.name === "string" ? params.name : "";
     var args = params ? params.arguments : undefined;
     if (toolName.length === 0) {
-      response.error = { code: -32602, message: "Missing tool name" };
+      payload.error = { code: -32602, message: "Missing tool name" };
       statusValue = "400";
     } else {
       if (args === undefined || args === null) { args = {}; }
       if (typeof args !== "object" || Array.isArray(args)) {
-        response.error = { code: -32602, message: "Tool arguments must be an object", data: { name: toolName } };
+        payload.error = { code: -32602, message: "Tool arguments must be an object", data: { name: toolName } };
         statusValue = "400";
       } else {
-        function toolCallResult(content, isError) { var payload = { content: content }; if (isError === true) { payload.isError = true; } return payload; }
+        function toolCallResult(content, isError) { var value = { content: content }; if (isError === true) { value.isError = true; } return value; }
         function mcpListProjects() { var names = []; try { var projectsDir = new java.io.File(Engine.PROJECTS_PATH); if (projectsDir.exists()) { var children = projectsDir.listFiles(); if (children != null) { for (var i = 0; i < children.length; i++) { var child = children[i]; if (child.isDirectory()) { var marker = new java.io.File(child, "c8oProject.yaml"); if (marker.exists()) { names.push(String(child.getName())); } } } } } } catch (ignore) {} names.sort(); return names; }
         function mcpCollectEngineMetrics() { var runtime = java.lang.Runtime.getRuntime(); return { memoryBytes: { used: runtime.totalMemory() - runtime.freeMemory(), free: runtime.freeMemory(), total: runtime.totalMemory(), max: runtime.maxMemory() }, uptimeMs: java.lang.System.currentTimeMillis() - Engine.startStopDate, projectCount: mcpListProjects().length }; }
         function mcpNormalizeDepth(value) { if (value === undefined || value === null || value === "") { return 1; } var depth = Number(value); if (isNaN(depth) || depth < 0) { depth = 1; } if (depth > 3) { depth = 3; } return Math.floor(depth); }
@@ -47,35 +49,35 @@ comment: Handles MCP tools/call calls
         try {
           switch (toolName) {
             case "admin.get-engine-version":
-              response.result = toolCallResult([{ type: "text", text: String(ProductVersion.productVersion) }]);
+              payload.result = toolCallResult([{ type: "text", text: String(ProductVersion.productVersion) }]);
               statusValue = "200";
               break;
             case "admin.get-engine-metrics":
-              response.result = toolCallResult([{ type: "json", json: mcpCollectEngineMetrics() }]);
+              payload.result = toolCallResult([{ type: "json", json: mcpCollectEngineMetrics() }]);
               statusValue = "200";
               break;
             case "project.describe-tree":
               var describeResult = describeProjectTree(args);
               if (describeResult.ok) {
-                response.result = describeResult.result;
+                payload.result = describeResult.result;
                 statusValue = "200";
               } else {
-                response.error = { code: describeResult.code || -32603, message: describeResult.message || "Failed to describe project" };
-                if (describeResult.data) { response.error.data = describeResult.data; }
+                payload.error = { code: describeResult.code || -32603, message: describeResult.message || "Failed to describe project" };
+                if (describeResult.data) { payload.error.data = describeResult.data; }
                 statusValue = describeResult.status || "400";
               }
               break;
             case "invoke.list-projects":
-              response.result = toolCallResult([{ type: "json", json: { projects: mcpListProjects() } }]);
+              payload.result = toolCallResult([{ type: "json", json: { projects: mcpListProjects() } }]);
               statusValue = "200";
               break;
             default:
-              response.error = { code: -32601, message: "Unknown tool", data: { name: toolName } };
+              payload.error = { code: -32601, message: "Unknown tool", data: { name: toolName } };
               statusValue = "404";
               break;
           }
         } catch (err) {
-          response.error = { code: -32001, message: "Tool execution failed", data: { name: toolName, message: String(err) } };
+          payload.error = { code: -32001, message: "Tool execution failed", data: { name: toolName, message: String(err) } };
           statusValue = "500";
         }
       }
@@ -83,7 +85,7 @@ comment: Handles MCP tools/call calls
     mcp_protocol_version = MCP_PROTOCOL_VERSION;
     mcp_response_status = statusValue;
     mcp_has_body = true;
-    mcp_response_payload = response;'
+    mcp_response_payload = payload;'
 ↓HydrateInputs [steps.SimpleStep-1761232472959]: 
   comment: Populate request variables
   expression: |
@@ -113,70 +115,65 @@ comment: Handles MCP tools/call calls
       - SmartType: 
         - ↑mode: JS
         - →→: mcp_protocol_version || "2025-06-18"
-↓BodySwitch [steps.IfStep-1761219993221]: 
+↓WhenHasBody [steps.IfStep-1761235322021]: 
   condition: mcp_has_body
-  ↓ResolvedBody [steps.ThenStep-1761219993223]: 
-    ↓jsonrpc [steps.JsonToXmlStep-1761219993225]: 
-      jsonObject: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: mcp_response_payload.jsonrpc
+  ↓WhenHasBodyThen [steps.ThenStep-1761235322023]: 
+    ↓jsonrpc [steps.JsonFieldStep-1761235322025]: 
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
             - →→: jsonrpc
-    ↓EmitId [steps.IfStep-1761219993227]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
-      ↓IdBody [steps.ThenStep-1761219993229]: 
-        ↓id [steps.JsonToXmlStep-1761219993231]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.id
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: id
-    ↓EmitResult [steps.IfStep-1761219993233]: 
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: "2.0"
+    ↓id [steps.JsonFieldStep-1761235322027]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: id
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: (function(){var id = mcp_request_id; return (id === undefined) ? null : id;})()
+    ↓EmitResult [steps.IfStep-1761235322029]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
-      ↓ResultBody [steps.ThenStep-1761219993235]: 
-        ↓result [steps.JsonToXmlStep-1761219993237]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.result
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: result
-    ↓EmitError [steps.IfStep-1761219993239]: 
+      ↓ResultField [steps.JsonFieldStep-1761235322031]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: result
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: mcp_response_payload.result
+    ↓EmitError [steps.IfStep-1761235322033]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
-      ↓ErrorBody [steps.ThenStep-1761219993241]: 
-        ↓error [steps.JsonToXmlStep-1761219993243]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.error
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: error
+      ↓ErrorField [steps.JsonFieldStep-1761235322035]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: mcp_response_payload.error
 ↓requestIdJson [variables.RequestableVariable-1761219993211]: 
   comment: JSON representation of request id
 ↓paramsJson [variables.RequestableVariable-1761219993213]: 

@@ -365,132 +365,76 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       - SmartType: 
         - ↑mode: JS
         - →→: mcp_protocol_version || "2025-06-18"
-↓BodySwitch [steps.IfStep-1761220294354]: 
+↓NormalizePayload [steps.SimpleStep-1761235320000]: 
+  comment: Flatten helper payloads into MCP envelope
+  expression: |
+    'if (mcp_response_payload && typeof mcp_response_payload === "object" && mcp_response_payload !== null) {
+      if (mcp_response_payload.hasOwnProperty("jsonrpc") && (mcp_response_payload.hasOwnProperty("result") || mcp_response_payload.hasOwnProperty("error"))) {
+        var normalized = {};
+        if (mcp_response_payload.hasOwnProperty("result")) { normalized.result = mcp_response_payload.result; }
+        if (mcp_response_payload.hasOwnProperty("error")) { normalized.error = mcp_response_payload.error; }
+        mcp_response_payload = normalized;
+      }
+    }'
+↓WhenHasBody [steps.IfStep-1761235320001]: 
   condition: mcp_has_body
-  ↓ResolvedBody [steps.ThenStep-1761220294356]: 
-    ↓jsonrpc [steps.JsonToXmlStep-1761220294358]: 
-      jsonObject: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: mcp_response_payload.jsonrpc
+  ↓WhenHasBodyThen [steps.ThenStep-1761235320003]: 
+    ↓jsonrpc [steps.JsonFieldStep-1761235320005]: 
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
             - →→: jsonrpc
-    ↓EmitId [steps.IfStep-1761220294360]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
-      ↓IdBody [steps.ThenStep-1761220294362]: 
-        ↓id [steps.JsonToXmlStep-1761220294364]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.id
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: id
-    ↓EmitResult [steps.IfStep-1761220294366]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
-      ↓ResultBody [steps.ThenStep-1761220294368]: 
-        ↓result [steps.JsonToXmlStep-1761220294370]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.result
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: result
-    ↓EmitError [steps.IfStep-1761220294372]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
-      ↓ErrorBody [steps.ThenStep-1761220294374]: 
-        ↓error [steps.JsonToXmlStep-1761220294376]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.error
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: error
-↓jsonrpc [steps.JsonFieldStep-1761223679033]: 
-  key: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: PLAIN
-        - →→: jsonrpc
-  value: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: JSON_RPC_VERSION
-↓id [steps.JsonFieldStep-1761223757017]: 
-  key: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: PLAIN
-        - →→: id
-  value: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: mcp_request_id
-↓IfExistThenElse [steps.IfExistThenElseStep-1761223872898]: 
-  sourceDefinition: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
-      - com.twinsoft.convertigo.beans.common.XMLVector: 
-        - java.lang.String: 
-          - ↑value: 1761223805560
-        - java.lang.String: 
-          - ↑value: ./sequence/document/error
-  ↓jThen [steps.ThenStep-1761223876252]: 
-    ↓Copy [steps.XMLCopyStep-1761223916846]: 
-      sourceDefinition: 
+      value: 
         - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
-          - com.twinsoft.convertigo.beans.common.XMLVector: 
-            - java.lang.String: 
-              - ↑value: 1761223805560
-            - java.lang.String: 
-              - ↑value: ./sequence/document/error
-  ↓jElse [steps.ElseStep-1761223876254]: 
-    ↓result [steps.JsonObjectStep-1761224041833]: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: JSON_RPC_VERSION
+    ↓id [steps.JsonFieldStep-1761235320007]: 
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
-            - →→: result
-      ↓Copy [steps.XMLCopyStep-1761223987416]: 
-        sourceDefinition: 
+            - →→: id
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: (function(){var id = mcp_request_id; return (id === undefined) ? null : id;})()
+    ↓EmitResult [steps.IfStep-1761235320009]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
+      ↓ResultField [steps.JsonFieldStep-1761235320011]: 
+        key: 
           - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
-            - com.twinsoft.convertigo.beans.common.XMLVector: 
-              - java.lang.String: 
-                - ↑value: 1761223805560
-              - java.lang.String: 
-                - ↑value: ./sequence/document/*
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: result
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: mcp_response_payload.result
+    ↓EmitError [steps.IfStep-1761235320013]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
+      ↓ErrorField [steps.JsonFieldStep-1761235320015]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: mcp_response_payload.error
 ↓request [variables.RequestableVariable-1761214359621]: 
   comment: JSON-RPC request payload
   required: true
