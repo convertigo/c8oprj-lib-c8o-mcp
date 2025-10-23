@@ -1,0 +1,166 @@
+accessibility: Hidden
+comment: Handles MCP tools/call calls
+↓BuildResponse [steps.SimpleStep-1761219993215]: 
+  comment: Handle tools/call
+  expression: |
+    'var JSON_RPC_VERSION = "2.0";
+    var MCP_PROTOCOL_VERSION = "2025-06-18";
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var ProductVersion = Packages.com.twinsoft.convertigo.engine.ProductVersion;
+    var requestIdValue = null;
+    if (requestIdJson != null && String(requestIdJson).length > 0) {
+      try { requestIdValue = JSON.parse(String(requestIdJson)); } catch (e) { requestIdValue = requestIdJson; }
+    } else {
+      requestIdValue = null;
+    }
+    var params = {};
+    if (paramsJson != null && String(paramsJson).length > 0) {
+      try { params = JSON.parse(String(paramsJson)); } catch (e) { params = {}; }
+    }
+    var response = { jsonrpc: JSON_RPC_VERSION, id: requestIdValue };
+    var statusValue = "200";
+    var toolName = params && typeof params.name === "string" ? params.name : "";
+    var args = params ? params.arguments : undefined;
+    if (toolName.length === 0) {
+      response.error = { code: -32602, message: "Missing tool name" };
+      statusValue = "400";
+    } else {
+      if (args === undefined || args === null) { args = {}; }
+      if (typeof args !== "object" || Array.isArray(args)) {
+        response.error = { code: -32602, message: "Tool arguments must be an object", data: { name: toolName } };
+        statusValue = "400";
+      } else {
+        function toolCallResult(content, isError) { var payload = { content: content }; if (isError === true) { payload.isError = true; } return payload; }
+        function mcpListProjects() { var names = []; try { var projectsDir = new java.io.File(Engine.PROJECTS_PATH); if (projectsDir.exists()) { var children = projectsDir.listFiles(); if (children != null) { for (var i = 0; i < children.length; i++) { var child = children[i]; if (child.isDirectory()) { var marker = new java.io.File(child, "c8oProject.yaml"); if (marker.exists()) { names.push(String(child.getName())); } } } } } } catch (ignore) {} names.sort(); return names; }
+        function mcpCollectEngineMetrics() { var runtime = java.lang.Runtime.getRuntime(); return { memoryBytes: { used: runtime.totalMemory() - runtime.freeMemory(), free: runtime.freeMemory(), total: runtime.totalMemory(), max: runtime.maxMemory() }, uptimeMs: java.lang.System.currentTimeMillis() - Engine.startStopDate, projectCount: mcpListProjects().length }; }
+        function mcpNormalizeDepth(value) { if (value === undefined || value === null || value === "") { return 1; } var depth = Number(value); if (isNaN(depth) || depth < 0) { depth = 1; } if (depth > 3) { depth = 3; } return Math.floor(depth); }
+        function mcpBuildNode(dbo, level, maxDepth) { var node = { name: String(dbo.getName()), type: String(dbo.getClass().getSimpleName()) }; if (dbo.getComment) { var commentValue = dbo.getComment(); if (commentValue != null) { var commentString = String(commentValue); if (commentString.length > 0) { node.comment = commentString; } } } if (level < maxDepth) { var children = []; if (dbo instanceof Packages.com.twinsoft.convertigo.beans.core.Project) { var seqIt = dbo.getSequencesList().iterator(); while (seqIt.hasNext()) { children.push(mcpBuildNode(seqIt.next(), level + 1, maxDepth)); } var connectorIt = dbo.getConnectorsList().iterator(); while (connectorIt.hasNext()) { children.push(mcpBuildNode(connectorIt.next(), level + 1, maxDepth)); } var mapper = dbo.getUrlMapper(); if (mapper != null) { children.push(mcpBuildNode(mapper, level + 1, maxDepth)); } } else if (dbo instanceof Packages.com.twinsoft.convertigo.beans.core.UrlMapper) { var mappingIt = dbo.getMappingList().iterator(); while (mappingIt.hasNext()) { children.push(mcpBuildNode(mappingIt.next(), level + 1, maxDepth)); } } else if (dbo instanceof Packages.com.twinsoft.convertigo.beans.rest.PathMapping) { var opIt = dbo.getOperationList().iterator(); while (opIt.hasNext()) { children.push(mcpBuildNode(opIt.next(), level + 1, maxDepth)); } } else if (dbo instanceof Packages.com.twinsoft.convertigo.beans.core.Sequence) { var vars = []; var varIt = dbo.getVariablesList().iterator(); while (varIt.hasNext()) { var varObj = varIt.next(); vars.push({ name: String(varObj.getName()), type: String(varObj.getClass().getSimpleName()) }); } if (vars.length > 0) { node.variables = vars; } } if (children.length > 0) { node.children = children; } } return node; }
+        function describeProjectTree(args) { args = args || {}; var projectName = args.project; if (typeof projectName !== "string" || projectName.length === 0) { return { ok: false, status: "400", code: -32602, message: "Missing project name" }; } var depth = mcpNormalizeDepth(args.depth); var projectInstance = null; try { projectInstance = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName); } catch (ignore) {} if (projectInstance == null) { return { ok: false, status: "404", code: -32602, message: "Unknown project", data: { project: projectName } }; } var tree = mcpBuildNode(projectInstance, 0, depth); return { ok: true, status: "200", result: { content: [{ type: "json", json: tree }] } }; }
+        try {
+          switch (toolName) {
+            case "admin.get-engine-version":
+              response.result = toolCallResult([{ type: "text", text: "Convertigo engine version: " + String(ProductVersion.productVersion) }]);
+              statusValue = "200";
+              break;
+            case "admin.get-engine-metrics":
+              response.result = toolCallResult([{ type: "json", json: mcpCollectEngineMetrics() }]);
+              statusValue = "200";
+              break;
+            case "project.describe-tree":
+              var description = describeProjectTree(args);
+              if (description.ok) {
+                response.result = description.result;
+                statusValue = "200";
+              } else {
+                response.error = { code: description.code, message: description.message };
+                if (description.data !== undefined) { response.error.data = description.data; }
+                statusValue = String(description.status || "400");
+              }
+              break;
+            case "invoke.list-projects":
+              response.result = toolCallResult([{ type: "json", json: { projects: mcpListProjects() } }]);
+              statusValue = "200";
+              break;
+            default:
+              response.error = { code: -32601, message: "Unknown tool", data: { name: toolName } };
+              statusValue = "404";
+              break;
+          }
+        } catch (err) {
+          response.error = { code: -32001, message: "Tool execution failed", data: { name: toolName, message: String(err) } };
+          statusValue = "500";
+        }
+      }
+    }
+    mcp_protocol_version = MCP_PROTOCOL_VERSION;
+    mcp_response_status = statusValue;
+    mcp_has_body = true;
+    mcp_response_payload = response;'
+↓ApplyStatus [steps.SetResponseStatusStep-1761219993217]: 
+  statusCode: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_response_status || 200
+↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761219993219]: 
+  headerName: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: MCP-Protocol-Version
+  headerValue: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_protocol_version || "2025-06-18"
+↓BodySwitch [steps.IfStep-1761219993221]: 
+  condition: mcp_has_body
+  ↓ResolvedBody [steps.ThenStep-1761219993223]: 
+    ↓jsonrpc [steps.JsonToXmlStep-1761219993225]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: mcp_response_payload.jsonrpc
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: jsonrpc
+    ↓EmitId [steps.IfStep-1761219993227]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
+      ↓IdBody [steps.ThenStep-1761219993229]: 
+        ↓id [steps.JsonToXmlStep-1761219993231]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.id
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: id
+    ↓EmitResult [steps.IfStep-1761219993233]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
+      ↓ResultBody [steps.ThenStep-1761219993235]: 
+        ↓result [steps.JsonToXmlStep-1761219993237]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.result
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: result
+    ↓EmitError [steps.IfStep-1761219993239]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
+      ↓ErrorBody [steps.ThenStep-1761219993241]: 
+        ↓error [steps.JsonToXmlStep-1761219993243]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.error
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: error
+↓requestIdJson [variables.RequestableVariable-1761219993211]: 
+  comment: JSON representation of request id
+↓paramsJson [variables.RequestableVariable-1761219993213]: 
+  comment: JSON stringified params

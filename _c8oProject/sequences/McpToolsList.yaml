@@ -1,0 +1,140 @@
+accessibility: Hidden
+comment: Handles MCP tools/list calls
+↓BuildResponse [steps.SimpleStep-1761219993180]: 
+  comment: Handle tools/list
+  expression: |
+    'var JSON_RPC_VERSION = "2.0";
+    var MCP_PROTOCOL_VERSION = "2025-06-18";
+    var requestIdValue = null;
+    if (requestIdJson != null && String(requestIdJson).length > 0) {
+      try { requestIdValue = JSON.parse(String(requestIdJson)); } catch (e) { requestIdValue = requestIdJson; }
+    } else {
+      requestIdValue = null;
+    }
+    var params = {};
+    if (paramsJson != null && String(paramsJson).length > 0) {
+      try { params = JSON.parse(String(paramsJson)); } catch (e) { params = {}; }
+    }
+    mcp_protocol_version = MCP_PROTOCOL_VERSION;
+    var categories = ["admin", "project", "invoke"];
+    var cursorValue = null;
+    if (params && params.cursor !== undefined && params.cursor !== null) { cursorValue = String(params.cursor); }
+    var response = { jsonrpc: JSON_RPC_VERSION, id: requestIdValue };
+    function makeTool(name, title, description, inputSchema, category) { var tool = { name: name, title: title, description: description, inputSchema: inputSchema || { type: "object", properties: {}, additionalProperties: false } }; if (category) { tool.metadata = { category: category }; } return tool; }
+    if (cursorValue !== null && categories.indexOf(cursorValue) === -1) {
+      response.error = { code: -32602, message: "Unknown tools cursor", data: { cursor: cursorValue } };
+      mcp_response_status = "400";
+      mcp_has_body = true;
+      mcp_response_payload = response;
+    } else {
+      var index = cursorValue !== null ? categories.indexOf(cursorValue) : 0;
+      if (index < 0) { index = 0; }
+      var category = categories[index];
+      var tools = [];
+      switch (category) {
+        case "admin":
+          tools.push(makeTool("admin.get-engine-version", "Get engine version", "Returns the running Convertigo engine version.", null, "admin"));
+          tools.push(makeTool("admin.get-engine-metrics", "Get engine metrics", "Returns basic runtime metrics (memory, uptime, project count).", null, "admin"));
+          break;
+        case "project":
+          tools.push(makeTool("project.describe-tree", "Describe project tree", "Returns the logical structure of a Convertigo project up to a given depth.", { type: "object", properties: { project: { type: "string", description: "Project name" }, depth: { type: "integer", minimum: 0, maximum: 3, description: "Hierarchy depth (default 1)" } }, required: ["project"], additionalProperties: false }, "project"));
+          break;
+        case "invoke":
+          tools.push(makeTool("invoke.list-projects", "List available projects", "Lists the Convertigo projects available on this engine.", null, "invoke"));
+          break;
+      }
+      var result = { tools: tools };
+      if (index + 1 < categories.length) { result.nextCursor = categories[index + 1]; }
+      response.result = result;
+      mcp_response_status = "200";
+      mcp_has_body = true;
+      mcp_response_payload = response;
+    }'
+↓ApplyStatus [steps.SetResponseStatusStep-1761219993182]: 
+  statusCode: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_response_status || 200
+↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761219993184]: 
+  headerName: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: MCP-Protocol-Version
+  headerValue: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_protocol_version || "2025-06-18"
+↓BodySwitch [steps.IfStep-1761219993186]: 
+  condition: mcp_has_body
+  ↓ResolvedBody [steps.ThenStep-1761219993188]: 
+    ↓jsonrpc [steps.JsonToXmlStep-1761219993190]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: mcp_response_payload.jsonrpc
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: jsonrpc
+    ↓EmitId [steps.IfStep-1761219993192]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
+      ↓IdBody [steps.ThenStep-1761219993194]: 
+        ↓id [steps.JsonToXmlStep-1761219993196]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.id
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: id
+    ↓EmitResult [steps.IfStep-1761219993198]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
+      ↓ResultBody [steps.ThenStep-1761219993200]: 
+        ↓result [steps.JsonToXmlStep-1761219993202]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.result
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: result
+    ↓EmitError [steps.IfStep-1761219993204]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
+      ↓ErrorBody [steps.ThenStep-1761219993206]: 
+        ↓error [steps.JsonToXmlStep-1761219993208]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.error
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: error
+↓requestIdJson [variables.RequestableVariable-1761219993176]: 
+  comment: JSON representation of request id
+↓paramsJson [variables.RequestableVariable-1761219993178]: 
+  comment: JSON stringified params

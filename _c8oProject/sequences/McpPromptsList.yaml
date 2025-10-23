@@ -1,0 +1,103 @@
+accessibility: Hidden
+comment: Handles MCP prompts/list calls
+↓BuildResponse [steps.SimpleStep-1761219993314]: 
+  comment: Emit static result
+  expression: |
+    'var JSON_RPC_VERSION = "2.0";
+    var MCP_PROTOCOL_VERSION = "2025-06-18";
+    var requestIdValue = null;
+    if (requestIdJson != null && String(requestIdJson).length > 0) {
+      try { requestIdValue = JSON.parse(String(requestIdJson)); } catch (e) { requestIdValue = requestIdJson; }
+    } else {
+      requestIdValue = null;
+    }
+    mcp_protocol_version = MCP_PROTOCOL_VERSION;
+    mcp_response_status = "200";
+    mcp_has_body = true;
+    mcp_response_payload = { jsonrpc: JSON_RPC_VERSION, id: requestIdValue, result: { prompts: [] } };'
+↓ApplyStatus [steps.SetResponseStatusStep-1761219993316]: 
+  statusCode: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_response_status || 200
+↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761219993318]: 
+  headerName: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: MCP-Protocol-Version
+  headerValue: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_protocol_version || "2025-06-18"
+↓BodySwitch [steps.IfStep-1761219993320]: 
+  condition: mcp_has_body
+  ↓ResolvedBody [steps.ThenStep-1761219993322]: 
+    ↓jsonrpc [steps.JsonToXmlStep-1761219993324]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: mcp_response_payload.jsonrpc
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: jsonrpc
+    ↓EmitId [steps.IfStep-1761219993326]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
+      ↓IdBody [steps.ThenStep-1761219993328]: 
+        ↓id [steps.JsonToXmlStep-1761219993330]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.id
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: id
+    ↓EmitResult [steps.IfStep-1761219993332]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
+      ↓ResultBody [steps.ThenStep-1761219993334]: 
+        ↓result [steps.JsonToXmlStep-1761219993336]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.result
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: result
+    ↓EmitError [steps.IfStep-1761219993338]: 
+      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
+      ↓ErrorBody [steps.ThenStep-1761219993340]: 
+        ↓error [steps.JsonToXmlStep-1761219993342]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: mcp_response_payload.error
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: error
+↓requestIdJson [variables.RequestableVariable-1761219993312]: 
+  comment: JSON representation of request id

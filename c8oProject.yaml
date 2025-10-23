@@ -6,4 +6,13 @@
   httpSessionTimeout: 60
   ↓void [connectors.SqlConnector]: 🗏 connectors/void.yaml
   ↓McpEndpoint [sequences.GenericSequence]: 🗏 sequences/McpEndpoint.yaml
+  ↓McpErrorResponse [sequences.GenericSequence]: 🗏 sequences/McpErrorResponse.yaml
+  ↓McpInitialize [sequences.GenericSequence]: 🗏 sequences/McpInitialize.yaml
+  ↓McpMethodNotFound [sequences.GenericSequence]: 🗏 sequences/McpMethodNotFound.yaml
+  ↓McpNotificationsInitialized [sequences.GenericSequence]: 🗏 sequences/McpNotificationsInitialized.yaml
+  ↓McpPing [sequences.GenericSequence]: 🗏 sequences/McpPing.yaml
+  ↓McpPromptsList [sequences.GenericSequence]: 🗏 sequences/McpPromptsList.yaml
+  ↓McpResourcesList [sequences.GenericSequence]: 🗏 sequences/McpResourcesList.yaml
+  ↓McpToolsCall [sequences.GenericSequence]: 🗏 sequences/McpToolsCall.yaml
+  ↓McpToolsList [sequences.GenericSequence]: 🗏 sequences/McpToolsList.yaml
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml

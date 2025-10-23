@@ -1,462 +1,340 @@
 comment: Handles MCP Streamable HTTP JSON-RPC requests.
-↓PrepareEnvelope [steps.SimpleStep-1761214378389]: 
-  comment: Parse request and prepare routing
+↓PrepareEnvelope [steps.SimpleStep-1761220234191]: 
+  comment: Parse request and prepare dispatch
   expression: |
-    'JSON_RPC_VERSION = "2.0";
-    MCP_PROTOCOL_VERSION = "2025-06-18";
+    'var JSON_RPC_VERSION = "2.0";
+    var MCP_PROTOCOL_VERSION = "2025-06-18";
     mcp_protocol_version = MCP_PROTOCOL_VERSION;
     mcp_response_status = "200";
     mcp_response_payload = null;
     mcp_has_body = false;
-    mcp_abort = false;
-    mcp_handled = false;
+    mcp_error = false;
+    mcp_error_status = "";
+    mcp_error_code = null;
+    mcp_error_message = "";
+    mcp_error_data_json = "";
     mcp_method = null;
-    mcp_request_object = null;
-    mcp_request_params = {};
-    mcp_request_id = null;
-    function mcpMakeResult(result) {
-      var payload = { jsonrpc: JSON_RPC_VERSION, result: result };
-      if (mcp_request_id !== null && mcp_request_id !== undefined) {
-        payload.id = mcp_request_id;
-      } else if (mcp_request_object && mcp_request_object.hasOwnProperty("id")) {
-        payload.id = mcp_request_object.id;
-      } else {
-        payload.id = null;
-      }
-      return payload;
+    mcp_request_id = undefined;
+    mcp_request_id_json = "";
+    mcp_params_json = "{}";
+    mcp_header_version = "";
+    if (context.httpServletRequest != null) {
+      var headerValue = context.httpServletRequest.getHeader("MCP-Protocol-Version");
+      if (headerValue != null) { mcp_header_version = String(headerValue); }
     }
-    function mcpMakeError(code, message, data) {
-      var payload = { jsonrpc: JSON_RPC_VERSION, error: { code: code, message: message } };
-      if (mcp_request_id !== null && mcp_request_id !== undefined) {
-        payload.id = mcp_request_id;
-      } else if (mcp_request_object && mcp_request_object.hasOwnProperty("id")) {
-        payload.id = mcp_request_object.id;
-      } else {
-        payload.id = null;
-      }
+    function recordError(status, code, message, data) {
+      mcp_error = true;
+      mcp_error_status = String(status);
+      mcp_error_code = Number(code);
+      mcp_error_message = String(message);
       if (data !== undefined && data !== null) {
-        payload.error.data = data;
+        try { mcp_error_data_json = JSON.stringify(data); } catch (e) { mcp_error_data_json = JSON.stringify({ raw: String(data) }); }
+      } else {
+        mcp_error_data_json = "";
       }
-      return payload;
-    }
-    function mcpExtractParams(envelope) {
-      if (!envelope || envelope.params === undefined || envelope.params === null) {
-        return {};
-      }
-      if (typeof envelope.params !== "object") {
-        return envelope.params;
-      }
-      return envelope.params;
-    }
-    function mcpListProjects() {
-      var EngineClass = Packages.com.twinsoft.convertigo.engine.Engine;
-      var names = [];
-      try {
-        var projectsDir = new java.io.File(EngineClass.PROJECTS_PATH);
-        if (projectsDir.exists()) {
-          var children = projectsDir.listFiles();
-          if (children != null) {
-            for (var i = 0; i < children.length; i++) {
-              var child = children[i];
-              if (child.isDirectory()) {
-                var marker = new java.io.File(child, "c8oProject.yaml");
-                if (marker.exists()) {
-                  names.push(String(child.getName()));
-                }
-              }
-            }
-          }
-        }
-      } catch (ignore) {}
-      names.sort();
-      return names;
-    }
-    function mcpCollectEngineMetrics() {
-      var EngineClass = Packages.com.twinsoft.convertigo.engine.Engine;
-      var runtime = java.lang.Runtime.getRuntime();
-      return {
-        memoryBytes: {
-          used: runtime.totalMemory() - runtime.freeMemory(),
-          free: runtime.freeMemory(),
-          total: runtime.totalMemory(),
-          max: runtime.maxMemory()
-        },
-        uptimeMs: java.lang.System.currentTimeMillis() - EngineClass.startStopDate,
-        projectCount: mcpListProjects().length
-      };
-    }
-    function mcpNormalizeDepth(value) {
-      if (value === undefined || value === null || value === "") {
-        return 1;
-      }
-      var depth = Number(value);
-      if (isNaN(depth) || depth < 0) {
-        depth = 1;
-      }
-      if (depth > 3) {
-        depth = 3;
-      }
-      return Math.floor(depth);
-    }
-    function mcpBuildNode(dbo, level, maxDepth) {
-      var node = {
-        name: String(dbo.getName()),
-        type: String(dbo.getClass().getSimpleName())
-      };
-      if (dbo.getComment) {
-        var commentValue = dbo.getComment();
-        if (commentValue != null) {
-          var commentString = String(commentValue);
-          if (commentString.length > 0) {
-            node.comment = commentString;
-          }
-        }
-      }
-      if (level < maxDepth) {
-        var children = [];
-        if (dbo instanceof Packages.com.twinsoft.convertigo.beans.core.Project) {
-          var seqIt = dbo.getSequencesList().iterator();
-          while (seqIt.hasNext()) {
-            children.push(mcpBuildNode(seqIt.next(), level + 1, maxDepth));
-          }
-          var connectorIt = dbo.getConnectorsList().iterator();
-          while (connectorIt.hasNext()) {
-            children.push(mcpBuildNode(connectorIt.next(), level + 1, maxDepth));
-          }
-          var mapper = dbo.getUrlMapper();
-          if (mapper != null) {
-            children.push(mcpBuildNode(mapper, level + 1, maxDepth));
-          }
-        } else if (dbo instanceof Packages.com.twinsoft.convertigo.beans.core.UrlMapper) {
-          var mappingIt = dbo.getMappingList().iterator();
-          while (mappingIt.hasNext()) {
-            children.push(mcpBuildNode(mappingIt.next(), level + 1, maxDepth));
-          }
-        } else if (dbo instanceof Packages.com.twinsoft.convertigo.beans.rest.PathMapping) {
-          var opIt = dbo.getOperationList().iterator();
-          while (opIt.hasNext()) {
-            children.push(mcpBuildNode(opIt.next(), level + 1, maxDepth));
-          }
-        } else if (dbo instanceof Packages.com.twinsoft.convertigo.beans.core.Sequence) {
-          var vars = [];
-          var varIt = dbo.getVariablesList().iterator();
-          while (varIt.hasNext()) {
-            var varObj = varIt.next();
-            vars.push({ name: String(varObj.getName()), type: String(varObj.getClass().getSimpleName()) });
-          }
-          if (vars.length > 0) {
-            node.variables = vars;
-          }
-        }
-        if (children.length > 0) {
-          node.children = children;
-        }
-      }
-      return node;
-    }
-    function mcpDescribeProjectTree(args) {
-      args = args || {};
-      var projectName = args.project;
-      if (typeof projectName !== "string" || projectName.length === 0) {
-        return { ok: false, status: "400", code: -32602, message: "Missing project name" };
-      }
-      var depth = mcpNormalizeDepth(args.depth);
-      var EngineClass = Packages.com.twinsoft.convertigo.engine.Engine;
-      var projectInstance = null;
-      try {
-        projectInstance = EngineClass.theApp.databaseObjectsManager.getOriginalProjectByName(projectName);
-      } catch (ignore) {}
-      if (projectInstance == null) {
-        return { ok: false, status: "404", code: -32602, message: "Unknown project", data: { project: projectName } };
-      }
-      var tree = mcpBuildNode(projectInstance, 0, depth);
-      return { ok: true, status: "200", result: { content: [{ type: "json", json: tree }] } };
     }
     try {
       if (request == null || String(request).trim().length === 0) {
-        mcp_response_status = "400";
-        mcp_response_payload = mcpMakeError(-32700, "Empty request body");
-        mcp_abort = true;
+        recordError(400, -32700, "Empty request body");
       } else {
-        mcp_request_object = JSON.parse(String(request));
-        if (!mcp_request_object || typeof mcp_request_object !== "object" || Array.isArray(mcp_request_object)) {
-          mcp_response_status = "400";
-          mcp_response_payload = mcpMakeError(-32600, "Invalid request payload");
-          mcp_abort = true;
+        var requestObject = JSON.parse(String(request));
+        if (!requestObject || typeof requestObject !== "object" || Array.isArray(requestObject)) {
+          recordError(400, -32600, "Invalid request payload");
+        } else {
+          if (requestObject.hasOwnProperty("id")) {
+            mcp_request_id = requestObject.id;
+            try { mcp_request_id_json = JSON.stringify(requestObject.id); } catch (idError) { mcp_request_id_json = JSON.stringify(String(requestObject.id)); }
+          } else {
+            mcp_request_id = undefined;
+            mcp_request_id_json = "";
+          }
+          if (requestObject.jsonrpc !== undefined && requestObject.jsonrpc !== JSON_RPC_VERSION) {
+            recordError(400, -32600, "Unsupported JSON-RPC version", { expected: JSON_RPC_VERSION, received: requestObject.jsonrpc });
+          } else if (typeof requestObject.method !== "string" || requestObject.method.length === 0) {
+            recordError(400, -32600, "Missing method name");
+          } else {
+            mcp_method = requestObject.method;
+            var params = requestObject.params;
+            if (params === undefined || params === null) { params = {}; }
+            try { mcp_params_json = JSON.stringify(params); } catch (paramsError) { mcp_params_json = "{}"; }
+          }
         }
       }
     } catch (parseError) {
-      mcp_response_status = "400";
-      mcp_response_payload = mcpMakeError(-32700, "Invalid JSON", { message: String(parseError) });
-      mcp_abort = true;
+      recordError(400, -32700, "Invalid JSON", { message: String(parseError) });
     }
-    if (!mcp_abort) {
-      if (mcp_request_object.hasOwnProperty("id")) {
-        mcp_request_id = mcp_request_object.id;
-      }
-      if (mcp_request_object.jsonrpc !== undefined && mcp_request_object.jsonrpc !== JSON_RPC_VERSION) {
-        mcp_response_status = "400";
-        mcp_response_payload = mcpMakeError(-32600, "Unsupported JSON-RPC version", { expected: JSON_RPC_VERSION, received: mcp_request_object.jsonrpc });
-        mcp_abort = true;
-      } else if (typeof mcp_request_object.method !== "string" || mcp_request_object.method.length === 0) {
-        mcp_response_status = "400";
-        mcp_response_payload = mcpMakeError(-32600, "Missing method name");
-        mcp_abort = true;
-      } else {
-        mcp_method = mcp_request_object.method;
-        mcp_request_params = mcpExtractParams(mcp_request_object);
-      }
-    }
-    if (mcp_response_payload !== null) {
-      mcp_has_body = true;
-    }'
-↓RouteInitialize [steps.IfStep-1761214451635]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "initialize"'
-  ↓RouteInitializeThen [steps.ThenStep-1761214451637]: 
-    ↓InitializeLogic [steps.SimpleStep-1761214451639]: 
-      comment: Handle initialize method
+    '
+↓HasError [steps.IfStep-1761220234193]: 
+  condition: mcp_error
+  ↓HasErrorThen [steps.ThenStep-1761220234195]: 
+    ↓HasErrorContext [steps.SimpleStep-1761220234197]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "initialize") {
-          var headerVersion = "";
-          if (context.httpServletRequest != null) {
-            var headerValue = context.httpServletRequest.getHeader("MCP-Protocol-Version");
-            if (headerValue != null) {
-              headerVersion = String(headerValue);
-            }
-          }
-          if (headerVersion && headerVersion.length > 0 && headerVersion !== MCP_PROTOCOL_VERSION) {
-            mcp_response_status = "400";
-            mcp_response_payload = mcpMakeError(-32600, "Unsupported MCP protocol version", { supported: MCP_PROTOCOL_VERSION, received: headerVersion });
-          } else {
-            mcp_response_status = "200";
-            mcp_response_payload = mcpMakeResult({
-              protocolVersion: MCP_PROTOCOL_VERSION,
-              capabilities: {
-                tools: { listChanged: false },
-                resources: { listChanged: false },
-                prompts: { listChanged: false },
-                logging: {}
-              },
-              serverInfo: { name: "convertigo-mcp", title: "Convertigo MCP Server", version: "0.1.0" },
-              instructions: "Use Convertigo MCP tools to inspect and manage the engine."
-            });
-          }
-          mcp_handled = true;
-        }'
-↓RouteToolsList [steps.IfStep-1761214451641]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "tools/list"'
-  ↓RouteToolsListThen [steps.ThenStep-1761214451643]: 
-    ↓ToolsListLogic [steps.SimpleStep-1761214451645]: 
-      comment: Handle tools/list method
+        context.set("mcp_error_status", mcp_error_status || "400");
+        context.set("mcp_error_code", mcp_error_code);
+        context.set("mcp_error_message", mcp_error_message || "Internal error");
+        context.set("mcp_error_data_json", mcp_error_data_json);
+        context.set("mcp_request_id_json", mcp_request_id_json);
+    ↓CallMcpErrorResponse [steps.SequenceStep-1761220234199]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpErrorResponse
+    ↓AdoptError [steps.SimpleStep-1761220234201]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "tools/list") {
-          var TOOL_CATEGORIES = ["admin", "project", "invoke"];
-          function makeTool(name, title, description, inputSchema, category) {
-            var tool = { name: name, title: title, description: description, inputSchema: inputSchema || { type: "object", properties: {}, additionalProperties: false } };
-            if (category) {
-              tool.metadata = { category: category };
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
             }
-            return tool;
-          }
-          var cursor = null;
-          if (mcp_request_params && mcp_request_params.cursor != null) {
-            cursor = String(mcp_request_params.cursor);
-          }
-          var index = 0;
-          if (cursor !== null) {
-            index = TOOL_CATEGORIES.indexOf(cursor);
-            if (index === -1) {
-              mcp_response_status = "400";
-              mcp_response_payload = mcpMakeError(-32602, "Unknown tools cursor", { cursor: cursor });
-              mcp_handled = true;
-            }
-          }
-          if (!mcp_handled) {
-            var category = TOOL_CATEGORIES[index];
-            var tools;
-            switch (category) {
-              case "admin":
-                tools = [
-                  makeTool("admin.get-engine-version", "Get engine version", "Returns the running Convertigo engine version.", null, "admin"),
-                  makeTool("admin.get-engine-metrics", "Get engine metrics", "Returns basic runtime metrics (memory, uptime, project count).", null, "admin")
-                ];
-                break;
-              case "project":
-                tools = [
-                  makeTool(
-                    "project.describe-tree",
-                    "Describe project tree",
-                    "Returns the logical structure of a Convertigo project up to a given depth.",
-                    {
-                      type: "object",
-                      properties: {
-                        project: { type: "string", description: "Project name" },
-                        depth: { type: "integer", minimum: 0, maximum: 3, description: "Hierarchy depth (default 1)" }
-                      },
-                      required: ["project"],
-                      additionalProperties: false
-                    },
-                    "project"
-                  )
-                ];
-                break;
-              case "invoke":
-                tools = [
-                  makeTool("invoke.list-projects", "List available projects", "Lists the Convertigo projects available on this engine.", null, "invoke")
-                ];
-                break;
-              default:
-                tools = [];
-                break;
-            }
-            var payload = { tools: tools };
-            if (index + 1 < TOOL_CATEGORIES.length) {
-              payload.nextCursor = TOOL_CATEGORIES[index + 1];
-            }
-            mcp_response_status = "200";
-            mcp_response_payload = mcpMakeResult(payload);
-            mcp_handled = true;
-          }
-        }'
-↓RouteToolsCall [steps.IfStep-1761214451647]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "tools/call"'
-  ↓RouteToolsCallThen [steps.ThenStep-1761214451649]: 
-    ↓ToolsCallLogic [steps.SimpleStep-1761214451651]: 
-      comment: Handle tools/call method
-      expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "tools/call") {
-          var name = mcp_request_params ? mcp_request_params.name : null;
-          if (typeof name !== "string" || name.length === 0) {
-            mcp_response_status = "400";
-            mcp_response_payload = mcpMakeError(-32602, "Missing tool name");
-            mcp_handled = true;
-          } else {
-            var args = mcp_request_params.arguments;
-            if (args === undefined || args === null) {
-              args = {};
-            }
-            if (typeof args !== "object") {
-              mcp_response_status = "400";
-              mcp_response_payload = mcpMakeError(-32602, "Tool arguments must be an object", { name: name });
-              mcp_handled = true;
-            } else {
-              function toolCallResult(content, isError) {
-                var payload = { content: content };
-                if (isError === true) {
-                  payload.isError = true;
-                }
-                return payload;
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
               }
-              try {
-                switch (name) {
-                  case "admin.get-engine-version":
-                    var ProductVersion = Packages.com.twinsoft.convertigo.engine.ProductVersion;
-                    mcp_response_status = "200";
-                    mcp_response_payload = mcpMakeResult(toolCallResult([{ type: "text", text: "Convertigo engine version: " + String(ProductVersion.productVersion) }]));
-                    break;
-                  case "admin.get-engine-metrics":
-                    mcp_response_status = "200";
-                    mcp_response_payload = mcpMakeResult(toolCallResult([{ type: "json", json: mcpCollectEngineMetrics() }]));
-                    break;
-                  case "project.describe-tree":
-                    var description = mcpDescribeProjectTree(args);
-                    if (description.ok) {
-                      mcp_response_status = "200";
-                      mcp_response_payload = mcpMakeResult(description.result);
-                    } else {
-                      mcp_response_status = "" + (description.status || "400");
-                      mcp_response_payload = mcpMakeError(description.code, description.message, description.data);
-                    }
-                    break;
-                  case "invoke.list-projects":
-                    mcp_response_status = "200";
-                    mcp_response_payload = mcpMakeResult(toolCallResult([{ type: "json", json: { projects: mcpListProjects() } }]));
-                    break;
-                  default:
-                    mcp_response_status = "404";
-                    mcp_response_payload = mcpMakeError(-32601, "Unknown tool", { name: name });
-                    break;
-                }
-              } catch (err) {
-                mcp_response_status = "500";
-                mcp_response_payload = mcpMakeError(-32001, "Tool execution failed", { name: name, message: String(err) });
-              }
-              mcp_handled = true;
             }
           }
-        }'
-↓RouteNotificationsInitialized [steps.IfStep-1761214451653]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "notifications/initialized"'
-  ↓RouteNotificationsInitializedThen [steps.ThenStep-1761214451655]: 
-    ↓NotificationsLogic [steps.SimpleStep-1761214451657]: 
-      comment: Handle notifications/initialized
+        }
+        mcp_method = null;
+        '
+↓RouteInitialize [steps.IfStep-1761220234203]: 
+  condition: '!mcp_error && mcp_method === "initialize"'
+  ↓RouteInitializeThen [steps.ThenStep-1761220234205]: 
+    ↓RouteInitializeContext [steps.SimpleStep-1761220234207]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "notifications/initialized") {
-          mcp_response_status = "202";
-          mcp_response_payload = null;
-          mcp_handled = true;
-        }'
-↓RoutePing [steps.IfStep-1761214451659]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "ping"'
-  ↓RoutePingThen [steps.ThenStep-1761214451661]: 
-    ↓PingLogic [steps.SimpleStep-1761214451663]: 
-      comment: Handle ping method
+        context.set("mcp_request_id_json", mcp_request_id_json);
+        context.set("mcp_header_version", mcp_header_version);
+    ↓CallMcpInitialize [steps.SequenceStep-1761220234209]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpInitialize
+    ↓AdoptInitialize [steps.SimpleStep-1761220234211]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "ping") {
-          mcp_response_status = "200";
-          mcp_response_payload = mcpMakeResult({});
-          mcp_handled = true;
-        }'
-↓RoutePromptsList [steps.IfStep-1761214451665]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "prompts/list"'
-  ↓RoutePromptsListThen [steps.ThenStep-1761214451667]: 
-    ↓PromptsLogic [steps.SimpleStep-1761214451669]: 
-      comment: Handle prompts/list
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RouteToolsList [steps.IfStep-1761220234213]: 
+  condition: '!mcp_error && mcp_method === "tools/list"'
+  ↓RouteToolsListThen [steps.ThenStep-1761220234215]: 
+    ↓RouteToolsListContext [steps.SimpleStep-1761220234217]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "prompts/list") {
-          mcp_response_status = "200";
-          mcp_response_payload = mcpMakeResult({ prompts: [] });
-          mcp_handled = true;
-        }'
-↓RouteResourcesList [steps.IfStep-1761214451671]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method === "resources/list"'
-  ↓RouteResourcesListThen [steps.ThenStep-1761214451673]: 
-    ↓ResourcesLogic [steps.SimpleStep-1761214451675]: 
-      comment: Handle resources/list
+        context.set("mcp_request_id_json", mcp_request_id_json);
+        context.set("mcp_params_json", mcp_params_json);
+    ↓CallMcpToolsList [steps.SequenceStep-1761220234219]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpToolsList
+    ↓AdoptToolsList [steps.SimpleStep-1761220234221]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method === "resources/list") {
-          mcp_response_status = "200";
-          mcp_response_payload = mcpMakeResult({ resources: [] });
-          mcp_handled = true;
-        }'
-↓RouteUnknown [steps.IfStep-1761214451677]: 
-  condition: '!mcp_abort && !mcp_handled && mcp_method !== null'
-  ↓RouteUnknownThen [steps.ThenStep-1761214451679]: 
-    ↓UnknownLogic [steps.SimpleStep-1761214451681]: 
-      comment: Handle unknown methods
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RouteToolsCall [steps.IfStep-1761220234223]: 
+  condition: '!mcp_error && mcp_method === "tools/call"'
+  ↓RouteToolsCallThen [steps.ThenStep-1761220234225]: 
+    ↓RouteToolsCallContext [steps.SimpleStep-1761220234227]: 
       expression: |
-        'if (!mcp_abort && !mcp_handled && mcp_method !== null) {
-          mcp_response_status = "404";
-          mcp_response_payload = mcpMakeError(-32601, "Method not found", { method: mcp_method });
-          mcp_handled = true;
-        }'
-↓FinalizeResponse [steps.SimpleStep-1761214451683]: 
-  comment: Normalize response flags
-  expression: |
-    'if (mcp_response_status === undefined || mcp_response_status === null) {
-      mcp_response_status = "200";
-    } else {
-      mcp_response_status = "" + mcp_response_status;
-    }
-    mcp_has_body = mcp_response_payload !== null;'
-↓ApplyStatus [steps.SetResponseStatusStep-1761214451685]: 
+        context.set("mcp_request_id_json", mcp_request_id_json);
+        context.set("mcp_params_json", mcp_params_json);
+    ↓CallMcpToolsCall [steps.SequenceStep-1761220234229]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpToolsCall
+    ↓AdoptToolsCall [steps.SimpleStep-1761220234231]: 
+      expression: |
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RouteNotificationsInitialized [steps.IfStep-1761220234233]: 
+  condition: '!mcp_error && mcp_method === "notifications/initialized"'
+  ↓RouteNotificationsInitializedThen [steps.ThenStep-1761220234235]: 
+    ↓CallMcpNotificationsInitialized [steps.SequenceStep-1761220234237]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpNotificationsInitialized
+    ↓AdoptNotifications [steps.SimpleStep-1761220234239]: 
+      expression: |
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RoutePing [steps.IfStep-1761220234241]: 
+  condition: '!mcp_error && mcp_method === "ping"'
+  ↓RoutePingThen [steps.ThenStep-1761220234243]: 
+    ↓RoutePingContext [steps.SimpleStep-1761220234245]: 
+      expression: context.set("mcp_request_id_json", mcp_request_id_json);
+    ↓CallMcpPing [steps.SequenceStep-1761220234247]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpPing
+    ↓AdoptPing [steps.SimpleStep-1761220234249]: 
+      expression: |
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RoutePromptsList [steps.IfStep-1761220234251]: 
+  condition: '!mcp_error && mcp_method === "prompts/list"'
+  ↓RoutePromptsListThen [steps.ThenStep-1761220234253]: 
+    ↓RoutePromptsListContext [steps.SimpleStep-1761220234255]: 
+      expression: context.set("mcp_request_id_json", mcp_request_id_json);
+    ↓CallMcpPromptsList [steps.SequenceStep-1761220234257]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpPromptsList
+    ↓AdoptPrompts [steps.SimpleStep-1761220234259]: 
+      expression: |
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RouteResourcesList [steps.IfStep-1761220234261]: 
+  condition: '!mcp_error && mcp_method === "resources/list"'
+  ↓RouteResourcesListThen [steps.ThenStep-1761220234263]: 
+    ↓RouteResourcesListContext [steps.SimpleStep-1761220234265]: 
+      expression: context.set("mcp_request_id_json", mcp_request_id_json);
+    ↓CallMcpResourcesList [steps.SequenceStep-1761220234267]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpResourcesList
+    ↓AdoptResources [steps.SimpleStep-1761220234269]: 
+      expression: |
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓RouteMethodNotFound [steps.IfStep-1761220234271]: 
+  condition: '!mcp_error && mcp_method !== null'
+  ↓RouteMethodNotFoundThen [steps.ThenStep-1761220234273]: 
+    ↓RouteMethodNotFoundContext [steps.SimpleStep-1761220234275]: 
+      expression: |
+        context.set("mcp_request_id_json", mcp_request_id_json);
+        context.set("mcp_method_name", mcp_method);
+    ↓CallMcpMethodNotFound [steps.SequenceStep-1761220234277]: 
+      inheritTransactionCtx: true
+      output: true
+      sourceSequence: ConvertigoMCP.McpMethodNotFound
+    ↓AdoptNotFound [steps.SimpleStep-1761220234279]: 
+      expression: |
+        'var doc = context.outputDocument;
+        if (doc != null) {
+          var root = doc.getDocumentElement();
+          if (root != null) {
+            while (root.hasChildNodes()) {
+              root.removeChild(root.getFirstChild());
+            }
+            var attrs = root.getAttributes();
+            if (attrs != null) {
+              while (attrs.getLength() > 0) {
+                root.removeAttributeNode(attrs.item(0));
+              }
+            }
+          }
+        }
+        mcp_method = null;
+        '
+↓ApplyStatus [steps.SetResponseStatusStep-1761220294350]: 
   statusCode: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: JS
         - →→: mcp_response_status || 200
-↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761214451687]: 
+↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761220294352]: 
   headerName: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -469,10 +347,10 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       - SmartType: 
         - ↑mode: JS
         - →→: mcp_protocol_version || "2025-06-18"
-↓BodySwitch [steps.IfStep-1761214451689]: 
+↓BodySwitch [steps.IfStep-1761220294354]: 
   condition: mcp_has_body
-  ↓ResolvedBody [steps.ThenStep-1761214451691]: 
-    ↓jsonrpc [steps.JsonToXmlStep-1761214451693]: 
+  ↓ResolvedBody [steps.ThenStep-1761220294356]: 
+    ↓jsonrpc [steps.JsonToXmlStep-1761220294358]: 
       jsonObject: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -485,10 +363,10 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
           - SmartType: 
             - ↑mode: PLAIN
             - →→: jsonrpc
-    ↓EmitId [steps.IfStep-1761214451695]: 
+    ↓EmitId [steps.IfStep-1761220294360]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
-      ↓IdBody [steps.ThenStep-1761214451697]: 
-        ↓id [steps.JsonToXmlStep-1761214451699]: 
+      ↓IdBody [steps.ThenStep-1761220294362]: 
+        ↓id [steps.JsonToXmlStep-1761220294364]: 
           jsonObject: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -501,10 +379,10 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: id
-    ↓EmitResult [steps.IfStep-1761214451701]: 
+    ↓EmitResult [steps.IfStep-1761220294366]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
-      ↓ResultBody [steps.ThenStep-1761214451703]: 
-        ↓result [steps.JsonToXmlStep-1761214451705]: 
+      ↓ResultBody [steps.ThenStep-1761220294368]: 
+        ↓result [steps.JsonToXmlStep-1761220294370]: 
           jsonObject: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -517,10 +395,10 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: result
-    ↓EmitError [steps.IfStep-1761214451707]: 
+    ↓EmitError [steps.IfStep-1761220294372]: 
       condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
-      ↓ErrorBody [steps.ThenStep-1761214451709]: 
-        ↓error [steps.JsonToXmlStep-1761214451711]: 
+      ↓ErrorBody [steps.ThenStep-1761220294374]: 
+        ↓error [steps.JsonToXmlStep-1761220294376]: 
           jsonObject: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
