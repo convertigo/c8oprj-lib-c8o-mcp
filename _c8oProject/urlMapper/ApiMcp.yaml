@@ -1,0 +1,9 @@
+path: /mcp
+↓Post [rest.PostOperation]: 
+  comment: Streamable HTTP entry point for MCP requests
+  targetRequestable: ConvertigoMCP.McpEndpoint
+  ↓request [rest.BodyParameter-1761203524284]: 
+    comment: JSON-RPC request body
+    inputContent: noConvert
+    mappedVariableName: request
+    required: true

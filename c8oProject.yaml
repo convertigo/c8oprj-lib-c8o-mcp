@@ -5,4 +5,5 @@
   corsOrigin: =Origin
   httpSessionTimeout: 60
   ↓void [connectors.SqlConnector]: 🗏 connectors/void.yaml
-  ↓NewSequence [sequences.GenericSequence]: 🗏 sequences/NewSequence.yaml
+  ↓McpEndpoint [sequences.GenericSequence]: 🗏 sequences/McpEndpoint.yaml
+  ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
