@@ -93,10 +93,15 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       ↓HasErrorContext [steps.SimpleStep-1761220234197]: 
         expression: |
           context.set("mcp_error_status", mcp_error_status || "400");
+          context.set("status", mcp_error_status || "400");
           context.set("mcp_error_code", mcp_error_code);
+          context.set("code", mcp_error_code);
           context.set("mcp_error_message", mcp_error_message || "Internal error");
+          context.set("message", mcp_error_message || "Internal error");
           context.set("mcp_error_data_json", mcp_error_data_json);
+          context.set("dataJson", mcp_error_data_json);
           context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
       ↓CallMcpErrorResponse [steps.SequenceStep-1761220234199]: 
         inheritTransactionCtx: true
         output: true
@@ -126,7 +131,9 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       ↓RouteInitializeContext [steps.SimpleStep-1761220234207]: 
         expression: |
           context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
           context.set("mcp_header_version", mcp_header_version);
+          context.set("headerVersion", mcp_header_version);
       ↓CallMcpInitialize [steps.SequenceStep-1761220234209]: 
         inheritTransactionCtx: true
         output: true
@@ -156,7 +163,9 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       ↓RouteToolsListContext [steps.SimpleStep-1761220234217]: 
         expression: |
           context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
           context.set("mcp_params_json", mcp_params_json);
+          context.set("paramsJson", mcp_params_json);
       ↓CallMcpToolsList [steps.SequenceStep-1761220234219]: 
         inheritTransactionCtx: true
         output: true
@@ -186,7 +195,9 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       ↓RouteToolsCallContext [steps.SimpleStep-1761220234227]: 
         expression: |
           context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
           context.set("mcp_params_json", mcp_params_json);
+          context.set("paramsJson", mcp_params_json);
       ↓CallMcpToolsCall [steps.SequenceStep-1761220234229]: 
         inheritTransactionCtx: true
         output: true
@@ -245,7 +256,9 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
     condition: '!mcp_error && mcp_method === "prompts/list"'
     ↓RoutePromptsListThen [steps.ThenStep-1761220234253]: 
       ↓RoutePromptsListContext [steps.SimpleStep-1761220234255]: 
-        expression: context.set("mcp_request_id_json", mcp_request_id_json);
+        expression: |
+          context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
       ↓CallMcpPromptsList [steps.SequenceStep-1761220234257]: 
         inheritTransactionCtx: true
         output: true
@@ -273,7 +286,9 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
     condition: '!mcp_error && mcp_method === "resources/list"'
     ↓RouteResourcesListThen [steps.ThenStep-1761220234263]: 
       ↓RouteResourcesListContext [steps.SimpleStep-1761220234265]: 
-        expression: context.set("mcp_request_id_json", mcp_request_id_json);
+        expression: |
+          context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
       ↓CallMcpResourcesList [steps.SequenceStep-1761220234267]: 
         inheritTransactionCtx: true
         output: true
@@ -304,7 +319,9 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       ↓RouteMethodNotFoundContext [steps.SimpleStep-1761220234275]: 
         expression: |
           context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("requestIdJson", mcp_request_id_json);
           context.set("mcp_method_name", mcp_method);
+          context.set("method", mcp_method);
       ↓CallMcpMethodNotFound [steps.SequenceStep-1761220234277]: 
         inheritTransactionCtx: true
         output: true

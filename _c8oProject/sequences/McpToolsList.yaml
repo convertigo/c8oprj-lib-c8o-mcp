@@ -1,19 +1,27 @@
 accessibility: Hidden
 comment: Handles MCP tools/list calls
-↓BuildResponse [steps.SimpleStep-1761219993180]: 
+↓BuildResponse [steps.SimpleStep-1761232472957]: 
   comment: Handle tools/list
   expression: |
     'var JSON_RPC_VERSION = "2.0";
     var MCP_PROTOCOL_VERSION = "2025-06-18";
+    var requestSource = requestIdJson;
+    if ((requestSource === null || requestSource === undefined || String(requestSource).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
+      requestSource = mcp_request_id_json;
+    }
     var requestIdValue = null;
-    if (requestIdJson != null && String(requestIdJson).length > 0) {
-      try { requestIdValue = JSON.parse(String(requestIdJson)); } catch (e) { requestIdValue = requestIdJson; }
+    if (requestSource != null && String(requestSource).length > 0) {
+      try { requestIdValue = JSON.parse(String(requestSource)); } catch (e) { requestIdValue = requestSource; }
     } else {
       requestIdValue = null;
     }
+    var paramsSource = paramsJson;
+    if ((paramsSource === null || paramsSource === undefined || String(paramsSource).length === 0) && typeof mcp_params_json !== "undefined" && mcp_params_json !== null) {
+      paramsSource = mcp_params_json;
+    }
     var params = {};
-    if (paramsJson != null && String(paramsJson).length > 0) {
-      try { params = JSON.parse(String(paramsJson)); } catch (e) { params = {}; }
+    if (paramsSource != null && String(paramsSource).length > 0) {
+      try { params = JSON.parse(String(paramsSource)); } catch (e) { params = {}; }
     }
     mcp_protocol_version = MCP_PROTOCOL_VERSION;
     var categories = ["admin", "project", "invoke"];
@@ -49,6 +57,15 @@ comment: Handles MCP tools/list calls
       mcp_response_status = "200";
       mcp_has_body = true;
       mcp_response_payload = response;
+    }'
+↓HydrateInputs [steps.SimpleStep-1761232472955]: 
+  comment: Populate request variables
+  expression: |
+    'if ((typeof requestIdJson === "undefined" || requestIdJson === null || String(requestIdJson).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
+      requestIdJson = mcp_request_id_json;
+    }
+    if ((typeof paramsJson === "undefined" || paramsJson === null || String(paramsJson).length === 0) && typeof mcp_params_json !== "undefined" && mcp_params_json !== null) {
+      paramsJson = mcp_params_json;
     }'
 ↓ApplyStatus [steps.SetResponseStatusStep-1761219993182]: 
   statusCode: 
