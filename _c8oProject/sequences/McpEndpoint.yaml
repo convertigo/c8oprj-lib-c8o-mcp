@@ -1,4 +1,24 @@
 comment: Handles MCP Streamable HTTP JSON-RPC requests.
+↓parse [steps.JsonToXmlStep-1761224758388]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: JSON.parse(request)
+  jsonSample: |
+    '{
+      "jsonrpc": "2.0",
+      "id": 42,
+      "method": "ping"
+     }'
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: parse
+  output: false
 ↓PrepareEnvelope [steps.SimpleStep-1761220234191]: 
   comment: Parse request and prepare dispatch
   expression: |
@@ -64,269 +84,250 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
       recordError(400, -32700, "Invalid JSON", { message: String(parseError) });
     }
     '
-↓HasError [steps.IfStep-1761220234193]: 
-  condition: mcp_error
-  ↓HasErrorThen [steps.ThenStep-1761220234195]: 
-    ↓HasErrorContext [steps.SimpleStep-1761220234197]: 
-      expression: |
-        context.set("mcp_error_status", mcp_error_status || "400");
-        context.set("mcp_error_code", mcp_error_code);
-        context.set("mcp_error_message", mcp_error_message || "Internal error");
-        context.set("mcp_error_data_json", mcp_error_data_json);
-        context.set("mcp_request_id_json", mcp_request_id_json);
-    ↓CallMcpErrorResponse [steps.SequenceStep-1761220234199]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpErrorResponse
-    ↓AdoptError [steps.SimpleStep-1761220234201]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+↓complex [steps.XMLComplexStep-1761223805560]: 
+  nodeName: sub
+  output: false
+  ↓HasError [steps.IfStep-1761220234193]: 
+    condition: mcp_error
+    ↓HasErrorThen [steps.ThenStep-1761220234195]: 
+      ↓HasErrorContext [steps.SimpleStep-1761220234197]: 
+        expression: |
+          context.set("mcp_error_status", mcp_error_status || "400");
+          context.set("mcp_error_code", mcp_error_code);
+          context.set("mcp_error_message", mcp_error_message || "Internal error");
+          context.set("mcp_error_data_json", mcp_error_data_json);
+          context.set("mcp_request_id_json", mcp_request_id_json);
+      ↓CallMcpErrorResponse [steps.SequenceStep-1761220234199]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpErrorResponse
+      ↓AdoptError [steps.SimpleStep-1761220234201]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RouteInitialize [steps.IfStep-1761220234203]: 
-  condition: '!mcp_error && mcp_method === "initialize"'
-  ↓RouteInitializeThen [steps.ThenStep-1761220234205]: 
-    ↓RouteInitializeContext [steps.SimpleStep-1761220234207]: 
-      expression: |
-        context.set("mcp_request_id_json", mcp_request_id_json);
-        context.set("mcp_header_version", mcp_header_version);
-    ↓CallMcpInitialize [steps.SequenceStep-1761220234209]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpInitialize
-    ↓AdoptInitialize [steps.SimpleStep-1761220234211]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+          mcp_method = null;
+          '
+  ↓RouteInitialize [steps.IfStep-1761220234203]: 
+    condition: '!mcp_error && mcp_method === "initialize"'
+    ↓RouteInitializeThen [steps.ThenStep-1761220234205]: 
+      ↓RouteInitializeContext [steps.SimpleStep-1761220234207]: 
+        expression: |
+          context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("mcp_header_version", mcp_header_version);
+      ↓CallMcpInitialize [steps.SequenceStep-1761220234209]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpInitialize
+      ↓AdoptInitialize [steps.SimpleStep-1761220234211]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RouteToolsList [steps.IfStep-1761220234213]: 
-  condition: '!mcp_error && mcp_method === "tools/list"'
-  ↓RouteToolsListThen [steps.ThenStep-1761220234215]: 
-    ↓RouteToolsListContext [steps.SimpleStep-1761220234217]: 
-      expression: |
-        context.set("mcp_request_id_json", mcp_request_id_json);
-        context.set("mcp_params_json", mcp_params_json);
-    ↓CallMcpToolsList [steps.SequenceStep-1761220234219]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpToolsList
-    ↓AdoptToolsList [steps.SimpleStep-1761220234221]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+          mcp_method = null;
+          '
+  ↓RouteToolsList [steps.IfStep-1761220234213]: 
+    condition: '!mcp_error && mcp_method === "tools/list"'
+    ↓RouteToolsListThen [steps.ThenStep-1761220234215]: 
+      ↓RouteToolsListContext [steps.SimpleStep-1761220234217]: 
+        expression: |
+          context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("mcp_params_json", mcp_params_json);
+      ↓CallMcpToolsList [steps.SequenceStep-1761220234219]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpToolsList
+      ↓AdoptToolsList [steps.SimpleStep-1761220234221]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RouteToolsCall [steps.IfStep-1761220234223]: 
-  condition: '!mcp_error && mcp_method === "tools/call"'
-  ↓RouteToolsCallThen [steps.ThenStep-1761220234225]: 
-    ↓RouteToolsCallContext [steps.SimpleStep-1761220234227]: 
-      expression: |
-        context.set("mcp_request_id_json", mcp_request_id_json);
-        context.set("mcp_params_json", mcp_params_json);
-    ↓CallMcpToolsCall [steps.SequenceStep-1761220234229]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpToolsCall
-    ↓AdoptToolsCall [steps.SimpleStep-1761220234231]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+          mcp_method = null;
+          '
+  ↓RouteToolsCall [steps.IfStep-1761220234223]: 
+    condition: '!mcp_error && mcp_method === "tools/call"'
+    ↓RouteToolsCallThen [steps.ThenStep-1761220234225]: 
+      ↓RouteToolsCallContext [steps.SimpleStep-1761220234227]: 
+        expression: |
+          context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("mcp_params_json", mcp_params_json);
+      ↓CallMcpToolsCall [steps.SequenceStep-1761220234229]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpToolsCall
+      ↓AdoptToolsCall [steps.SimpleStep-1761220234231]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RouteNotificationsInitialized [steps.IfStep-1761220234233]: 
-  condition: '!mcp_error && mcp_method === "notifications/initialized"'
-  ↓RouteNotificationsInitializedThen [steps.ThenStep-1761220234235]: 
-    ↓CallMcpNotificationsInitialized [steps.SequenceStep-1761220234237]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpNotificationsInitialized
-    ↓AdoptNotifications [steps.SimpleStep-1761220234239]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+          mcp_method = null;
+          '
+  ↓RouteNotificationsInitialized [steps.IfStep-1761220234233]: 
+    condition: '!mcp_error && mcp_method === "notifications/initialized"'
+    ↓RouteNotificationsInitializedThen [steps.ThenStep-1761220234235]: 
+      ↓CallMcpNotificationsInitialized [steps.SequenceStep-1761220234237]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpNotificationsInitialized
+      ↓AdoptNotifications [steps.SimpleStep-1761220234239]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RoutePing [steps.IfStep-1761220234241]: 
-  condition: '!mcp_error && mcp_method === "ping"'
-  ↓RoutePingThen [steps.ThenStep-1761220234243]: 
-    ↓RoutePingContext [steps.SimpleStep-1761220234245]: 
-      expression: context.set("mcp_request_id_json", mcp_request_id_json);
+          mcp_method = null;
+          '
+  ↓jIf [steps.IfStep-1761224157356]: 
+    condition: '!mcp_error && mcp_method === "ping"'
     ↓CallMcpPing [steps.SequenceStep-1761220234247]: 
       inheritTransactionCtx: true
-      output: true
       sourceSequence: ConvertigoMCP.McpPing
-    ↓AdoptPing [steps.SimpleStep-1761220234249]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+  ↓RoutePromptsList [steps.IfStep-1761220234251]: 
+    condition: '!mcp_error && mcp_method === "prompts/list"'
+    ↓RoutePromptsListThen [steps.ThenStep-1761220234253]: 
+      ↓RoutePromptsListContext [steps.SimpleStep-1761220234255]: 
+        expression: context.set("mcp_request_id_json", mcp_request_id_json);
+      ↓CallMcpPromptsList [steps.SequenceStep-1761220234257]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpPromptsList
+      ↓AdoptPrompts [steps.SimpleStep-1761220234259]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RoutePromptsList [steps.IfStep-1761220234251]: 
-  condition: '!mcp_error && mcp_method === "prompts/list"'
-  ↓RoutePromptsListThen [steps.ThenStep-1761220234253]: 
-    ↓RoutePromptsListContext [steps.SimpleStep-1761220234255]: 
-      expression: context.set("mcp_request_id_json", mcp_request_id_json);
-    ↓CallMcpPromptsList [steps.SequenceStep-1761220234257]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpPromptsList
-    ↓AdoptPrompts [steps.SimpleStep-1761220234259]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+          mcp_method = null;
+          '
+  ↓RouteResourcesList [steps.IfStep-1761220234261]: 
+    condition: '!mcp_error && mcp_method === "resources/list"'
+    ↓RouteResourcesListThen [steps.ThenStep-1761220234263]: 
+      ↓RouteResourcesListContext [steps.SimpleStep-1761220234265]: 
+        expression: context.set("mcp_request_id_json", mcp_request_id_json);
+      ↓CallMcpResourcesList [steps.SequenceStep-1761220234267]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpResourcesList
+      ↓AdoptResources [steps.SimpleStep-1761220234269]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RouteResourcesList [steps.IfStep-1761220234261]: 
-  condition: '!mcp_error && mcp_method === "resources/list"'
-  ↓RouteResourcesListThen [steps.ThenStep-1761220234263]: 
-    ↓RouteResourcesListContext [steps.SimpleStep-1761220234265]: 
-      expression: context.set("mcp_request_id_json", mcp_request_id_json);
-    ↓CallMcpResourcesList [steps.SequenceStep-1761220234267]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpResourcesList
-    ↓AdoptResources [steps.SimpleStep-1761220234269]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
+          mcp_method = null;
+          '
+  ↓RouteMethodNotFound [steps.IfStep-1761220234271]: 
+    condition: '!mcp_error && mcp_method !== null'
+    isEnabled: false
+    ↓RouteMethodNotFoundThen [steps.ThenStep-1761220234273]: 
+      ↓RouteMethodNotFoundContext [steps.SimpleStep-1761220234275]: 
+        expression: |
+          context.set("mcp_request_id_json", mcp_request_id_json);
+          context.set("mcp_method_name", mcp_method);
+      ↓CallMcpMethodNotFound [steps.SequenceStep-1761220234277]: 
+        inheritTransactionCtx: true
+        output: true
+        sourceSequence: ConvertigoMCP.McpMethodNotFound
+      ↓AdoptNotFound [steps.SimpleStep-1761220234279]: 
+        expression: |
+          'var doc = context.outputDocument;
+          if (doc != null) {
+            var root = doc.getDocumentElement();
+            if (root != null) {
+              while (root.hasChildNodes()) {
+                root.removeChild(root.getFirstChild());
+              }
+              var attrs = root.getAttributes();
+              if (attrs != null) {
+                while (attrs.getLength() > 0) {
+                  root.removeAttributeNode(attrs.item(0));
+                }
               }
             }
           }
-        }
-        mcp_method = null;
-        '
-↓RouteMethodNotFound [steps.IfStep-1761220234271]: 
-  condition: '!mcp_error && mcp_method !== null'
-  ↓RouteMethodNotFoundThen [steps.ThenStep-1761220234273]: 
-    ↓RouteMethodNotFoundContext [steps.SimpleStep-1761220234275]: 
-      expression: |
-        context.set("mcp_request_id_json", mcp_request_id_json);
-        context.set("mcp_method_name", mcp_method);
-    ↓CallMcpMethodNotFound [steps.SequenceStep-1761220234277]: 
-      inheritTransactionCtx: true
-      output: true
-      sourceSequence: ConvertigoMCP.McpMethodNotFound
-    ↓AdoptNotFound [steps.SimpleStep-1761220234279]: 
-      expression: |
-        'var doc = context.outputDocument;
-        if (doc != null) {
-          var root = doc.getDocumentElement();
-          if (root != null) {
-            while (root.hasChildNodes()) {
-              root.removeChild(root.getFirstChild());
-            }
-            var attrs = root.getAttributes();
-            if (attrs != null) {
-              while (attrs.getLength() > 0) {
-                root.removeAttributeNode(attrs.item(0));
-              }
-            }
-          }
-        }
-        mcp_method = null;
-        '
+          mcp_method = null;
+          '
 ↓ApplyStatus [steps.SetResponseStatusStep-1761220294350]: 
   statusCode: 
     - xmlizable: 
@@ -411,6 +412,68 @@ comment: Handles MCP Streamable HTTP JSON-RPC requests.
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: error
+↓jsonrpc [steps.JsonFieldStep-1761223679033]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: jsonrpc
+  value: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: JSON_RPC_VERSION
+↓id [steps.JsonFieldStep-1761223757017]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: id
+  value: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcp_request_id
+↓IfExistThenElse [steps.IfExistThenElseStep-1761223872898]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1761223805560
+        - java.lang.String: 
+          - ↑value: ./sequence/document/error
+  ↓jThen [steps.ThenStep-1761223876252]: 
+    ↓Copy [steps.XMLCopyStep-1761223916846]: 
+      sourceDefinition: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: 1761223805560
+            - java.lang.String: 
+              - ↑value: ./sequence/document/error
+  ↓jElse [steps.ElseStep-1761223876254]: 
+    ↓result [steps.JsonObjectStep-1761224041833]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: result
+      ↓Copy [steps.XMLCopyStep-1761223987416]: 
+        sourceDefinition: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+            - com.twinsoft.convertigo.beans.common.XMLVector: 
+              - java.lang.String: 
+                - ↑value: 1761223805560
+              - java.lang.String: 
+                - ↑value: ./sequence/document/*
 ↓request [variables.RequestableVariable-1761214359621]: 
   comment: JSON-RPC request payload
   required: true

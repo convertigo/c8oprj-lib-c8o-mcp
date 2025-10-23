@@ -1,103 +1,30 @@
 accessibility: Hidden
 comment: Handles MCP ping calls
-↓BuildResponse [steps.SimpleStep-1761219993281]: 
-  comment: Emit static result
-  expression: |
-    'var JSON_RPC_VERSION = "2.0";
-    var MCP_PROTOCOL_VERSION = "2025-06-18";
-    var requestIdValue = null;
-    if (requestIdJson != null && String(requestIdJson).length > 0) {
-      try { requestIdValue = JSON.parse(String(requestIdJson)); } catch (e) { requestIdValue = requestIdJson; }
-    } else {
-      requestIdValue = null;
-    }
-    mcp_protocol_version = MCP_PROTOCOL_VERSION;
-    mcp_response_status = "200";
-    mcp_has_body = true;
-    mcp_response_payload = { jsonrpc: JSON_RPC_VERSION, id: requestIdValue, result: {} };'
-↓ApplyStatus [steps.SetResponseStatusStep-1761219993283]: 
-  statusCode: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: mcp_response_status || 200
-↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761219993285]: 
-  headerName: 
+↓content [steps.JsonArrayStep-1761224204557]: 
+  key: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: PLAIN
-        - →→: MCP-Protocol-Version
-  headerValue: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: mcp_protocol_version || "2025-06-18"
-↓BodySwitch [steps.IfStep-1761219993287]: 
-  condition: mcp_has_body
-  ↓ResolvedBody [steps.ThenStep-1761219993289]: 
-    ↓jsonrpc [steps.JsonToXmlStep-1761219993291]: 
-      jsonObject: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: mcp_response_payload.jsonrpc
+        - →→: content
+  ↓object [steps.JsonObjectStep-1761224216752]: 
+    ↓type [steps.JsonFieldStep-1761224227196]: 
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
-            - →→: jsonrpc
-    ↓EmitId [steps.IfStep-1761219993293]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('id')
-      ↓IdBody [steps.ThenStep-1761219993295]: 
-        ↓id [steps.JsonToXmlStep-1761219993297]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.id
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: id
-    ↓EmitResult [steps.IfStep-1761219993299]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
-      ↓ResultBody [steps.ThenStep-1761219993301]: 
-        ↓result [steps.JsonToXmlStep-1761219993303]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.result
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: result
-    ↓EmitError [steps.IfStep-1761219993305]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
-      ↓ErrorBody [steps.ThenStep-1761219993307]: 
-        ↓error [steps.JsonToXmlStep-1761219993309]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_payload.error
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: error
-↓requestIdJson [variables.RequestableVariable-1761219993279]: 
-  comment: JSON representation of request id
+            - →→: type
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: json
+    ↓json [steps.JsonObjectStep-1761224257755]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: json
