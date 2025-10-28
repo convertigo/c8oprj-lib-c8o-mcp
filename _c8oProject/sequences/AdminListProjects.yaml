@@ -69,7 +69,8 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
         projectsList.add(projectMap);
         totalProjects++;
       } catch(e) {
-        Engine.logBeans.warn(''[MCP] AdminListProjects error for project '' + projectName, e);
+        //Engine.logBeans.warn(''[MCP] AdminListProjects error for project '' + projectName, e);
+    	log.warn(''[MCP] AdminListProjects error for project '' + projectName + " " + e);
       }
     }
     var summary = new java.util.LinkedHashMap();
