@@ -5,9 +5,11 @@
   corsOrigin: =Origin
   httpSessionTimeout: 60
   ↓void [connectors.SqlConnector]: 🗏 connectors/void.yaml
+  ↓AdminListProjects [sequences.GenericSequence]: 🗏 sequences/AdminListProjects.yaml
   ↓McpEndpoint [sequences.GenericSequence]: 🗏 sequences/McpEndpoint.yaml
+  ↓McpEndpointOld [sequences.GenericSequence]: 🗏 sequences/McpEndpointOld.yaml
   ↓McpErrorResponse [sequences.GenericSequence]: 🗏 sequences/McpErrorResponse.yaml
-  ↓McpInitialize [sequences.GenericSequence]: 🗏 sequences/McpInitialize.yaml
+  ↓McpInitializeOld [sequences.GenericSequence]: 🗏 sequences/McpInitializeOld.yaml
   ↓McpMethodNotFound [sequences.GenericSequence]: 🗏 sequences/McpMethodNotFound.yaml
   ↓McpNotificationsInitialized [sequences.GenericSequence]: 🗏 sequences/McpNotificationsInitialized.yaml
   ↓McpPing [sequences.GenericSequence]: 🗏 sequences/McpPing.yaml

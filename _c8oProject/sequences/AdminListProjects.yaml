@@ -1,0 +1,312 @@
+accessibility: Hidden
+comment: Lists installed Convertigo projects with metadata for MCP admin tooling.
+↓Init [steps.SimpleStep-1761646433174]: 
+  comment: Collect project metadata for JSON output
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
+    var DateFormat = Packages.java.text.DateFormat;
+    var Date = Packages.java.util.Date;
+    var File = Packages.java.io.File;
+    var Locale = Packages.java.util.Locale;
+    var includeTemplatesFlag = false;
+    try { includeTemplatesFlag = String(includeTemplates == null ? '''' : includeTemplates).trim().equalsIgnoreCase(''true''); } catch(e) {}
+    var locale = Locale.getDefault();
+    var df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
+    var dbom = Engine.theApp.databaseObjectsManager;
+    var names = dbom.getAllProjectNamesList();
+    var projectsList = new java.util.ArrayList();
+    var totalProjects = 0;
+    var skippedTemplates = 0;
+    for (var i = 0; i < names.size(); i++) {
+      var projectName = names.get(i);
+      var isTemplate = projectName != null && projectName.startsWith(''mobilebuilder_tpl_'');
+      if (!includeTemplatesFlag && isTemplate) { skippedTemplates++; continue; }
+      try {
+        var project = dbom.getOriginalProjectByName(projectName);
+        if (project == null) { continue; }
+        var comment = project.getComment();
+        if (comment == null) { comment = ''''; }
+        try {
+          var json = new JSONObject(comment);
+          var localeKey = locale.getLanguage();
+          var block = null;
+          if (json.has(localeKey)) { block = json.getJSONObject(localeKey); }
+          else { var keys = json.keys(); if (keys.hasNext()) { block = json.getJSONObject(keys.next().toString()); } }
+          if (block != null) {
+            comment = project.getName();
+            if (block.has(''displayName'')) { comment = block.getString(''displayName''); }
+            if (block.has(''comment'')) { comment = comment + '': '' + block.getString(''comment''); }
+          }
+        } catch(ignore) {}
+        comment = comment.replaceAll(''<.*?>'', '''');
+        if (comment.length() > 200) { comment = comment.substring(0, 197) + ''...''; }
+        var carFile = new File(Engine.projectDir(projectName) + ''.car'');
+        var deployTs = carFile.exists() ? carFile.lastModified() : -1;
+        var deployDate = deployTs > 0 ? df.format(new Date(deployTs)) : ''n/a'';
+        var exportedInfo = project.getInfoForProperty(''exported'', df, locale);
+        var exportedTs = project.getExportTime();
+        var projectMap = new java.util.LinkedHashMap();
+        projectMap.put(''name'', projectName);
+        projectMap.put(''comment'', comment);
+        projectMap.put(''version'', project.getVersion());
+        projectMap.put(''exported'', exportedInfo != null ? String(exportedInfo) : ''n/a'');
+        projectMap.put(''exportedTs'', exportedTs > 0 ? java.lang.Long.valueOf(exportedTs) : null);
+        projectMap.put(''deployDate'', deployDate);
+        projectMap.put(''deployTs'', deployTs > 0 ? java.lang.Long.valueOf(deployTs) : null);
+        projectMap.put(''hasUndefinedSymbols'', java.lang.Boolean.valueOf(dbom.symbolsProjectCheckUndefined(projectName)));
+        projectMap.put(''isTemplate'', java.lang.Boolean.valueOf(isTemplate));
+        var missingDependencies = false;
+        var references = project.getReferenceList();
+        for (var r = 0; r < references.size(); r++) {
+          var ref = references.get(r);
+          if (ref instanceof Packages.com.twinsoft.convertigo.beans.references.ProjectSchemaReference) {
+            var pr = ref;
+            if (pr.getParser().isValid() && dbom.getOriginalProjectByName(pr.getParser().getProjectName(), true) == null) { missingDependencies = true; break; }
+          }
+        }
+        projectMap.put(''missingDependencies'', java.lang.Boolean.valueOf(missingDependencies));
+        projectsList.add(projectMap);
+        totalProjects++;
+      } catch(e) {
+        Engine.logBeans.warn(''[MCP] AdminListProjects error for project '' + projectName, e);
+      }
+    }
+    var summary = new java.util.LinkedHashMap();
+    summary.put(''total'', java.lang.Integer.valueOf(totalProjects));
+    summary.put(''skippedTemplates'', java.lang.Integer.valueOf(skippedTemplates));
+    summary.put(''includeTemplates'', java.lang.Boolean.valueOf(includeTemplatesFlag));
+    summary.put(''timestamp'', java.lang.Long.valueOf(java.lang.System.currentTimeMillis()));
+    projectsList = projectsList;
+    summary = summary;
+    '
+↓Result [steps.JsonObjectStep-1761646433176]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓Summary [steps.JsonObjectStep-1761646433178]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: summary
+    ↓Total [steps.JsonFieldStep-1761646433180]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: total
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summary.get("total")
+    ↓SkippedTemplates [steps.JsonFieldStep-1761646433182]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: skippedTemplates
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summary.get("skippedTemplates")
+    ↓IncludeTemplates [steps.JsonFieldStep-1761646433184]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: includeTemplates
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summary.get("includeTemplates")
+    ↓Timestamp [steps.JsonFieldStep-1761646433186]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: timestamp
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summary.get("timestamp")
+  ↓Projects [steps.JsonArrayStep-1761646433188]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projects
+    ↓ProjectsIterator [steps.SimpleIteratorStep-1761646433190]: 
+      expression: projectsList
+      ↓Project [steps.JsonObjectStep-1761646433192]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: project
+        ↓Name [steps.JsonFieldStep-1761646433194]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("name")
+        ↓Comment [steps.JsonFieldStep-1761646433196]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: comment
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("comment")
+        ↓Version [steps.JsonFieldStep-1761646433198]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: version
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("version")
+        ↓Exported [steps.JsonFieldStep-1761646433200]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: exported
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("exported")
+        ↓IfExportedTs [steps.IfStep-1761646433202]: 
+          condition: item.get('exportedTs') != null
+          ↓ThenExportedTs [steps.ThenStep-1761646433204]: 
+            ↓ExportedTs [steps.JsonFieldStep-1761646433206]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: exportedTs
+              type: number
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: item.get('exportedTs')
+        ↓IfDeployTs [steps.IfStep-1761646433208]: 
+          condition: item.get('deployTs') != null
+          ↓ThenDeployTs [steps.ThenStep-1761646433210]: 
+            ↓DeployTs [steps.JsonFieldStep-1761646433212]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: deployTs
+              type: number
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: item.get('deployTs')
+        ↓DeployDate [steps.JsonFieldStep-1761646433214]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: deployDate
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("deployDate")
+        ↓HasUndefinedSymbols [steps.JsonFieldStep-1761646433216]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: hasUndefinedSymbols
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("hasUndefinedSymbols")
+        ↓IsTemplate [steps.JsonFieldStep-1761646433218]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: isTemplate
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("isTemplate")
+        ↓MissingDependencies [steps.JsonFieldStep-1761646433220]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: missingDependencies
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.get("missingDependencies")
+↓includeTemplates [variables.RequestableVariable-1761646433172]: 
+  comment: Set to true to include template projects such as mobilebuilder templates.
+  value: false
