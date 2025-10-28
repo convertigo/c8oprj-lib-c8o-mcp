@@ -52,6 +52,44 @@ Set to true to include template projects such as mobilebuilder templates.
 
 </p></blockquote></details>
 
+<details><summary><b>McpEndpoint</b> : Handles MCP JSON-RPC requests (initialize, notifications, tools, ping)</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpEndpoint
+
+Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;request
+</td>
+<td>
+JSON-RPC request payload
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>McpEndpointEvents</b></summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpEndpointEvents
+
+
+</p></blockquote></details>
+
 <details><summary><b>McpEndpointOld</b> : Handles MCP Streamable HTTP JSON-RPC requests</summary><blockquote><p>
 
 
@@ -412,6 +450,17 @@ JSON representation of request id
 <details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
 
 
+<details><summary><b>Get</b></summary><blockquote><p>
+
+
+### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") Get
+
+
+</p></blockquote></details>
+
+<details><summary><b>Post</b> : Streamable HTTP entry point for MCP requests</summary><blockquote><p>
+
+
 ### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") Post
 
 Streamable HTTP entry point for MCP requests
@@ -437,6 +486,7 @@ JSON-RPC request body
 </tr>
 </table>
 
+</p></blockquote></details>
 </p></blockquote></details>
 </p></blockquote></details>
 </p></blockquote></details>

@@ -1,4 +1,4 @@
-comment: Handles MCP JSON-RPC requests (initialize/ping).
+comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
 ↓ProcessRequest [steps.SimpleStep-1761665463918]: 
   comment: Parse JSON-RPC request and prepare response
   expression: |
@@ -47,51 +47,94 @@ comment: Handles MCP JSON-RPC requests (initialize/ping).
     if (!error && headerVersion && headerVersion !== MCP_PROTOCOL_VERSION) {
       makeError(400, -32600, "Unsupported MCP protocol version", { supported: MCP_PROTOCOL_VERSION, received: headerVersion });
     }
-    if (!error) {
-      if (methodName === "initialize") {
-        var requestedVersion = params && params.protocolVersion !== undefined ? String(params.protocolVersion) : MCP_PROTOCOL_VERSION;
-        if (requestedVersion !== MCP_PROTOCOL_VERSION) {
-          makeError(400, -32602, "Unsupported protocolVersion", { supported: MCP_PROTOCOL_VERSION, received: requestedVersion });
-        }
-      } else if (methodName === "notifications/initialized") {
-        // notification, handled later
-      } else if (methodName === "ping") {
-        // keep status 200
-      } else if (methodName === null) {
-        makeError(400, -32600, "Missing method name");
-      } else {
-        makeError(404, -32601, "Method not found", { method: methodName });
-      }
-    }
     var idValue = (requestId === undefined) ? null : requestId;
     var response = null;
-    if (!error && methodName === "initialize") {
-      response = {
-        jsonrpc: JSON_RPC_VERSION,
-        id: idValue,
-        result: {
-          protocolVersion: MCP_PROTOCOL_VERSION,
-          capabilities: {
-            tools: { listChanged: false },
-            resources: { listChanged: false },
-            prompts: { listChanged: false },
-            logging: {}
+    if (!error) {
+      if (methodName === "initialize") {
+        response = {
+          jsonrpc: JSON_RPC_VERSION,
+          id: idValue,
+          result: {
+            protocolVersion: MCP_PROTOCOL_VERSION,
+            capabilities: {
+              tools: { listChanged: false },
+              resources: { listChanged: false },
+              prompts: { listChanged: false },
+              logging: {}
+            },
+            serverInfo: { name: "convertigo-mcp", title: "Convertigo MCP Server", version: "0.1.0" },
+            instructions: "Use Convertigo MCP tools to inspect and manage the engine."
+          }
+        };
+      } else if (methodName === "notifications/initialized") {
+        status = "204";
+        hasBody = false;
+      } else if (methodName === "ping") {
+        response = { jsonrpc: JSON_RPC_VERSION, id: idValue, result: { ok: true } };
+      } else if (methodName === "tools/list") {
+        var tools = [{
+          name: "admin.list-projects",
+          title: "List Convertigo projects",
+          description: "Returns the projects installed on the Convertigo engine.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              includeTemplates: {
+                type: "boolean",
+                description: "Include template projects such as mobilebuilder templates.",
+                default: false
+              }
+            },
+            additionalProperties: false
           },
-          serverInfo: { name: "convertigo-mcp", title: "Convertigo MCP Server", version: "0.1.0" },
-          instructions: "Use Convertigo MCP tools to inspect and manage the engine."
+          metadata: { category: "admin" }
+        }];
+        response = { jsonrpc: JSON_RPC_VERSION, id: idValue, result: { tools: tools } };
+      } else if (methodName === "tools/call") {
+        var toolName = params && typeof params.name === "string" ? params.name : "";
+        if (!toolName) {
+          makeError(400, -32602, "Missing tool name");
+        } else if (toolName !== "admin.list-projects") {
+          makeError(404, -32601, "Unknown tool", { name: toolName });
+        } else {
+          var includeTemplatesArg = false;
+          try {
+            if (params.arguments && params.arguments.includeTemplates !== undefined) {
+              includeTemplatesArg = Boolean(params.arguments.includeTemplates);
+            }
+          } catch (ignored) {}
+          var payload = {
+            projects: [],
+            summary: {
+              total: 0,
+              includeTemplates: includeTemplatesArg
+            }
+          };
+          response = {
+            jsonrpc: JSON_RPC_VERSION,
+            id: idValue,
+            result: {
+              content: [{
+                type: "text",
+                text: JSON.stringify(payload, null, 2)
+              }]
+            }
+          };
         }
-      };
-    } else if (!error && methodName === "notifications/initialized") {
-      status = "204";
-      response = null;
-      hasBody = false;
-    } else if (!error && methodName === "ping") {
-      response = { jsonrpc: JSON_RPC_VERSION, id: idValue, result: { ok: true } };
-    } else {
-      if (!error) {
-        error = { code: -32601, message: "Method not found", data: { method: methodName } };
-        status = "404";
+      } else if (methodName === "logging/setLevel") {
+        var levelValue = params && typeof params.level === "string" ? params.level.toLowerCase() : "";
+        var supportedLevels = ["trace", "debug", "info", "warn", "error"];
+        if (supportedLevels.indexOf(levelValue) === -1) {
+          levelValue = "info";
+        }
+        response = { jsonrpc: JSON_RPC_VERSION, id: idValue, result: {} };
+    
       }
+    }
+    if (!error && response === null && hasBody) {
+      makeError(404, -32601, "Method not found", { method: methodName });
+    }
+    if (error) {
       response = { jsonrpc: JSON_RPC_VERSION, id: idValue, error: error };
       hasBody = true;
     }
