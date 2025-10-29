@@ -1,4 +1,6 @@
 path: /mcp
+↓Get [rest.GetOperation-1761839223002]: 
+  targetRequestable: ConvertigoMCP.McpPing
 ↓Post [rest.PostOperation]: 
   comment: Streamable HTTP entry point for MCP requests
   targetRequestable: ConvertigoMCP.McpEndpoint

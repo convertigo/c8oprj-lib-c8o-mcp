@@ -1,153 +1,49 @@
 accessibility: Hidden
 comment: Handles MCP tools/list calls
-↓BuildResponse [steps.SimpleStep-1761232472957]: 
-  comment: Handle tools/list
-  expression: |
-    'var MCP_PROTOCOL_VERSION = "2025-06-18";
-    var requestIdValue = mcp_request_id;
-    if (typeof requestIdValue === "undefined") {
-      var requestSource = (typeof requestIdJson !== "undefined") ? requestIdJson : null;
-      if ((requestSource === null || requestSource === undefined || String(requestSource).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
-        requestSource = mcp_request_id_json;
-      }
-      if (requestSource != null && String(requestSource).length > 0) {
-        try { requestIdValue = JSON.parse(String(requestSource)); } catch (e) { requestIdValue = requestSource; }
-      } else {
-        requestIdValue = null;
-      }
-    }
-    if (typeof mcp_request_id === "undefined") { mcp_request_id = requestIdValue; }
-    var paramsSource = paramsJson;
-    if ((paramsSource === null || paramsSource === undefined || String(paramsSource).length === 0) && typeof mcp_params_json !== "undefined" && mcp_params_json !== null) {
-      paramsSource = mcp_params_json;
-    }
-    var params = {};
-    if (paramsSource != null && String(paramsSource).length > 0) {
-      try { params = JSON.parse(String(paramsSource)); } catch (e) { params = {}; }
-    }
-    mcp_protocol_version = MCP_PROTOCOL_VERSION;
-    var categories = ["admin", "project", "invoke"];
-    var cursorValue = null;
-    if (params && params.cursor !== undefined && params.cursor !== null) { cursorValue = String(params.cursor); }
-    var payload = {};
-    function makeTool(name, title, description, inputSchema, category) { var tool = { name: name, title: title, description: description, inputSchema: inputSchema || { type: "object", properties: {}, additionalProperties: false } }; if (category) { tool.metadata = { category: category }; } return tool; }
-    if (cursorValue !== null && categories.indexOf(cursorValue) === -1) {
-      payload.error = { code: -32602, message: "Unknown tools cursor", data: { cursor: cursorValue } };
-      mcp_response_status = "400";
-      mcp_has_body = true;
-      mcp_response_payload = payload;
-    } else {
-      var index = cursorValue !== null ? categories.indexOf(cursorValue) : 0;
-      if (index < 0) { index = 0; }
-      var category = categories[index];
-      var tools = [];
-      switch (category) {
-        case "admin":
-          tools.push(makeTool("admin.get-engine-version", "Get engine version", "Returns the running Convertigo engine version.", null, "admin"));
-          tools.push(makeTool("admin.get-engine-metrics", "Get engine metrics", "Returns basic runtime metrics (memory, uptime, project count).", null, "admin"));
-          break;
-        case "project":
-          tools.push(makeTool("project.describe-tree", "Describe project tree", "Returns the logical structure of a Convertigo project up to a given depth.", { type: "object", properties: { project: { type: "string", description: "Project name" }, depth: { type: "integer", minimum: 0, maximum: 3, description: "Hierarchy depth (default 1)" } }, required: ["project"], additionalProperties: false }, "project"));
-          break;
-        case "invoke":
-          tools.push(makeTool("invoke.list-projects", "List available projects", "Lists the Convertigo projects available on this engine.", null, "invoke"));
-          break;
-      }
-      var result = { tools: tools };
-      if (index + 1 < categories.length) { result.nextCursor = categories[index + 1]; }
-      payload.result = result;
-      mcp_response_status = "200";
-      mcp_has_body = true;
-      mcp_response_payload = payload;
-    }'
-↓HydrateInputs [steps.SimpleStep-1761232472955]: 
-  comment: Populate request variables
-  expression: |
-    'if ((typeof requestIdJson === "undefined" || requestIdJson === null || String(requestIdJson).length === 0) && typeof mcp_request_id_json !== "undefined" && mcp_request_id_json !== null) {
-      requestIdJson = mcp_request_id_json;
-    }
-    if ((typeof paramsJson === "undefined" || paramsJson === null || String(paramsJson).length === 0) && typeof mcp_params_json !== "undefined" && mcp_params_json !== null) {
-      paramsJson = mcp_params_json;
-    }'
-↓ApplyStatus [steps.SetResponseStatusStep-1761219993182]: 
-  statusCode: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: mcp_response_status || 200
-↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761219993184]: 
-  headerName: 
+↓result [steps.JsonObjectStep-1761842731828]: 
+  key: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: PLAIN
-        - →→: MCP-Protocol-Version
-  headerValue: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: mcp_protocol_version || "2025-06-18"
-↓WhenHasBody [steps.IfStep-1761235321011]: 
-  condition: mcp_has_body
-  ↓WhenHasBodyThen [steps.ThenStep-1761235321013]: 
-    ↓jsonrpc [steps.JsonFieldStep-1761235321015]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: jsonrpc
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: '"2.0"'
-    ↓id [steps.JsonFieldStep-1761235321017]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: id
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: '(function(){var id = mcp_request_id; return (id === undefined) ? null : id;})()'
-    ↓EmitResult [steps.IfStep-1761235321019]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('result')
-      ↓ResultField [steps.JsonFieldStep-1761235321021]: 
-        key: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: PLAIN
-              - →→: result
-        value: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: JS
-              - →→: mcp_response_payload.result
-    ↓EmitError [steps.IfStep-1761235321023]: 
-      condition: mcp_response_payload && mcp_response_payload.hasOwnProperty('error')
-      ↓ErrorField [steps.JsonFieldStep-1761235321025]: 
-        key: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: PLAIN
-              - →→: error
-        value: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: JS
-              - →→: mcp_response_payload.error
+        - →→: result
+  ↓tools [steps.JsonArrayStep-1761842731831]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: tools
+    ↓jIterator [steps.SimpleIteratorStep-1761842731834]: 
+      expression: context.project.getSequencesList()
+      ↓Check [steps.SimpleStep-1761842731837]: 
+        expression: |
+          'sequence = null;
+          var name = item.getName();
+          if (name.startsWith("Tools_")) {
+          	sequence = name;
+          }
+          '
+      ↓jIf [steps.IfStep-1761842731840]: 
+        condition: sequence != null
+        ↓Call_InternalListToolsInfo [steps.SequenceStep-1761842731843]: 
+          sourceSequence: ConvertigoMCP.InternalListToolsInfo
+          ↓sequence [variables.StepVariable-1761842731846]: 
+          ↓includeOutputSchema [variables.StepVariable-1762253398095]: 
+            comment: Set to true to append JSON schema metadata.
+            value: true
+          ↓includeOutputSample [variables.StepVariable-1762253398097]: 
+            comment: Set to true to append sample payload.
+            value: false
+        ↓Copy [steps.XMLCopyStep-1761842731855]: 
+          sourceDefinition: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+              - com.twinsoft.convertigo.beans.common.XMLVector: 
+                - java.lang.String: 
+                  - ↑value: 1761842731843
+                - java.lang.String: 
+                  - ↑value: ./document/tool
 ↓requestIdJson [variables.RequestableVariable-1761219993176]: 
   comment: JSON representation of request id
 ↓paramsJson [variables.RequestableVariable-1761219993178]: 

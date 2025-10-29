@@ -219,38 +219,34 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.get("exported")
-        ↓IfExportedTs [steps.IfStep-1761646433202]: 
-          condition: item.get('exportedTs') != null
-          ↓ExportedTs [steps.JsonFieldStep-1761646433206]: 
-            key: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                - SmartType: 
-                  - ↑mode: PLAIN
-                  - →→: exportedTs
-            type: number
-            value: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                - SmartType: 
-                  - ↑mode: JS
-                  - →→: item.get('exportedTs')
-        ↓IfDeployTs [steps.IfStep-1761646433208]: 
-          condition: item.get('deployTs') != null
-          ↓DeployTs [steps.JsonFieldStep-1761646433212]: 
-            key: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                - SmartType: 
-                  - ↑mode: PLAIN
-                  - →→: deployTs
-            type: number
-            value: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                - SmartType: 
-                  - ↑mode: JS
-                  - →→: item.get('deployTs')
+        ↓ExportedTs [steps.JsonFieldStep-1761646433206]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: exportedTs
+          type: number
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item.get(''exportedTs'') ? item.get(''exportedTs'') : -1'
+        ↓DeployTs [steps.JsonFieldStep-1761646433212]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: deployTs
+          type: number
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item.get(''deployTs'') ? item.get(''deployTs'') : -1'
         ↓DeployDate [steps.JsonFieldStep-1761646433214]: 
           key: 
             - xmlizable: 

@@ -24,10 +24,9 @@ accessibility: Private
     		myvar.setDefaultValue(this[k]);
     		callStep.addVariable(myvar);
     	}
-    }
-    '
+    }'
 ↓Call [steps.SequenceStep-1761735196040]: 
-  sourceSequence: ConvertigoMCP.McpEndpoint
+  sourceSequence: ConvertigoMCP.InternalCallStub
 ↓Copy [steps.XMLCopyStep-1761735196043]: 
   sourceDefinition: 
     - xmlizable: 
@@ -39,8 +38,3 @@ accessibility: Private
           - ↑value: ./document/*
 ↓_sequence [variables.RequestableVariable-1761735196046]: 
 ↓_variables [variables.RequestableVariable-1761735669343]: 
-↓Test1 [core.TestCase-1753965176256]: 
-  ↓_sequence [variables.TestCaseVariable-1761735196050]: 
-    value: Test1
-  ↓param [variables.TestCaseVariable-1761735196053]: 
-    value: ok

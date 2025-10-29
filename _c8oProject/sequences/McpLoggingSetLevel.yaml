@@ -1,0 +1,12 @@
+comment: Handles MCP logging/setLevel requests
+↓setLevel [steps.LogStep-1762186600934]: 
+  expression: '"McpLoggingSetLevel: " + paramsJson'
+↓result [steps.JsonObjectStep-1761836840071]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓paramsJson [variables.RequestableVariable-1761836840067]: 
+  comment: Raw params JSON from MCP request

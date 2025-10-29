@@ -6,22 +6,16 @@
   httpSessionTimeout: 60
   version: 0.0.1
   ↓void [connectors.SqlConnector]: 🗏 connectors/void.yaml
-  ↓CallEcho [sequences.GenericSequence-1761735414111]: 🗏 sequences/CallEcho.yaml
-  ↓Echo [sequences.GenericSequence-1761735360816]: 🗏 sequences/Echo.yaml
   ↓InternalCall [sequences.GenericSequence-1753965105243]: 🗏 sequences/InternalCall.yaml
+  ↓InternalCallStub [sequences.GenericSequence-1761756735550]: 🗏 sequences/InternalCallStub.yaml
   ↓InternalJsonSchema [sequences.GenericSequence-1761736078534]: 🗏 sequences/InternalJsonSchema.yaml
-  ↓InternalListTools [sequences.GenericSequence]: 🗏 sequences/InternalListTools.yaml
   ↓InternalListToolsInfo [sequences.GenericSequence]: 🗏 sequences/InternalListToolsInfo.yaml
   ↓McpEndpoint [sequences.GenericSequence]: 🗏 sequences/McpEndpoint.yaml
   ↓McpEndpointOld [sequences.GenericSequence]: 🗏 sequences/McpEndpointOld.yaml
   ↓McpErrorResponse [sequences.GenericSequence]: 🗏 sequences/McpErrorResponse.yaml
-  ↓McpInitializeOld [sequences.GenericSequence]: 🗏 sequences/McpInitializeOld.yaml
-  ↓McpMethodNotFound [sequences.GenericSequence]: 🗏 sequences/McpMethodNotFound.yaml
-  ↓McpNotificationsInitialized [sequences.GenericSequence]: 🗏 sequences/McpNotificationsInitialized.yaml
+  ↓McpInitialize [sequences.GenericSequence]: 🗏 sequences/McpInitialize.yaml
+  ↓McpLoggingSetLevel [sequences.GenericSequence]: 🗏 sequences/McpLoggingSetLevel.yaml
   ↓McpPing [sequences.GenericSequence]: 🗏 sequences/McpPing.yaml
-  ↓McpPromptsList [sequences.GenericSequence]: 🗏 sequences/McpPromptsList.yaml
-  ↓McpResourcesList [sequences.GenericSequence]: 🗏 sequences/McpResourcesList.yaml
-  ↓McpToolsCall [sequences.GenericSequence]: 🗏 sequences/McpToolsCall.yaml
   ↓McpToolsList [sequences.GenericSequence]: 🗏 sequences/McpToolsList.yaml
   ↓Tools_Admin_ListProjects [sequences.GenericSequence]: 🗏 sequences/Tools_Admin_ListProjects.yaml
   ↓ConvertigoWorkflow_reference [references.ProjectSchemaReference]: 

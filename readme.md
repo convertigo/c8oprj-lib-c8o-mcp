@@ -13,6 +13,7 @@ For more technical informations : [documentation](./project.md)
     - [Mappings](#mappings)
         - [/mcp](#mcp)
             - [Operations](#operations)
+                - [Get](#get)
                 - [Post](#post)
 
 
@@ -49,6 +50,8 @@ For more technical informations : [documentation](./project.md)
 #### /mcp
 
 ##### Operations
+
+###### Get
 
 ###### Post
 

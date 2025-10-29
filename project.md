@@ -30,52 +30,6 @@ does nothing
 <details><summary><span style="color:DarkGoldenRod"><i>Sequences</i></span></summary><blockquote><p>
 
 
-<details><summary><b>CallEcho</b></summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") CallEcho
-
-
-</p></blockquote></details>
-
-<details><summary><b>Echo</b></summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") Echo
-
-
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;v1
-</td>
-<td>
-
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;v2
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
 <details><summary><b>InternalCall</b></summary><blockquote><p>
 
 
@@ -114,6 +68,14 @@ comment
 
 </p></blockquote></details>
 
+<details><summary><b>InternalCallStub</b></summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") InternalCallStub
+
+
+</p></blockquote></details>
+
 <details><summary><b>InternalJsonSchema</b> : compute jsonschema of a sequence</summary><blockquote><p>
 
 
@@ -144,14 +106,6 @@ comment
 
 </p></blockquote></details>
 
-<details><summary><b>InternalListTools</b></summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") InternalListTools
-
-
-</p></blockquote></details>
-
 <details><summary><b>InternalListToolsInfo</b></summary><blockquote><p>
 
 
@@ -169,6 +123,22 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeOutputSample
+</td>
+<td>
+Set to true to append sample payload.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeOutputSchema
+</td>
+<td>
+Set to true to append JSON schema metadata.
+</td>
 </tr>
 <tr>
 <td>
@@ -284,32 +254,16 @@ Optional JSON data
 Error message
 </td>
 </tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;status
-</td>
-<td>
-HTTP status to apply
-</td>
-</tr>
 </table>
 
 </p></blockquote></details>
 
-<details><summary><b>McpInitializeOld</b> : Handles MCP initialize calls</summary><blockquote><p>
+<details><summary><b>McpInitialize</b> : Builds the MCP initialize response</summary><blockquote><p>
 
 
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpInitializeOld
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpInitialize
 
-Handles MCP initialize calls
+Builds the MCP initialize response
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -324,166 +278,22 @@ comment
 </tr>
 <tr>
 <td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;headerVersion
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;initProtocol
 </td>
 <td>
-Protocol version from header
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
+
 </td>
 </tr>
 </table>
 
 </p></blockquote></details>
 
-<details><summary><b>McpMethodNotFound</b> : Builds method not found responses</summary><blockquote><p>
+<details><summary><b>McpLoggingSetLevel</b> : Handles MCP logging/setLevel requests</summary><blockquote><p>
 
 
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpMethodNotFound
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpLoggingSetLevel
 
-Builds method not found responses
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;method
-</td>
-<td>
-Unknown method
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>McpNotificationsInitialized</b> : Handles MCP notifications/initialized calls</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpNotificationsInitialized
-
-Handles MCP notifications/initialized calls
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>McpPing</b> : Handles MCP ping calls</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpPing
-
-Handles MCP ping calls
-</p></blockquote></details>
-
-<details><summary><b>McpPromptsList</b> : Handles MCP prompts/list calls</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpPromptsList
-
-Handles MCP prompts/list calls
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>McpResourcesList</b> : Handles MCP resources/list calls</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpResourcesList
-
-Handles MCP resources/list calls
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>McpToolsCall</b> : Handles MCP tools/call calls</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpToolsCall
-
-Handles MCP tools/call calls
+Handles MCP logging/setLevel requests
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -501,19 +311,19 @@ comment
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;paramsJson
 </td>
 <td>
-JSON stringified params
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestIdJson
-</td>
-<td>
-JSON representation of request id
+Raw params JSON from MCP request
 </td>
 </tr>
 </table>
 
+</p></blockquote></details>
+
+<details><summary><b>McpPing</b> : Builds the MCP ping response</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpPing
+
+Builds the MCP ping response
 </p></blockquote></details>
 
 <details><summary><b>McpToolsList</b> : Handles MCP tools/list calls</summary><blockquote><p>
@@ -602,6 +412,17 @@ Set to true to include template projects such as mobilebuilder templates.
 <details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
 
 
+<details><summary><b>Get</b></summary><blockquote><p>
+
+
+### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") Get
+
+
+</p></blockquote></details>
+
+<details><summary><b>Post</b> : Streamable HTTP entry point for MCP requests</summary><blockquote><p>
+
+
 ### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") Post
 
 Streamable HTTP entry point for MCP requests
@@ -627,6 +448,7 @@ JSON-RPC request body
 </tr>
 </table>
 
+</p></blockquote></details>
 </p></blockquote></details>
 </p></blockquote></details>
 </p></blockquote></details>

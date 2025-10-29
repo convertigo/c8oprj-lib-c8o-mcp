@@ -12,10 +12,15 @@ accessibility: Hidden
       return { title: title, description: description };
     }
     
+    var requestable = context.project.getSequenceByName(sequence);
+    if (!requestable) {
+      throw new Error("Sequence not found: " + sequence);
+    }
     var tokens = sequence.split("_");
     var category = tokens[1];
     var toolName = tokens.slice(2).join("_");
-    var meta = splitComment(context.project.getSequenceByName(sequence).getComment());'
+    var meta = splitComment(requestable.getComment());
+    '
 ↓tool [steps.JsonObjectStep-1761747546750]: 
   key: 
     - xmlizable: 
@@ -61,7 +66,7 @@ accessibility: Hidden
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: toolName
+          - →→: category + "." + toolName
   ↓title [steps.JsonFieldStep-1761747402672]: 
     key: 
       - xmlizable: 
@@ -88,10 +93,10 @@ accessibility: Hidden
         - SmartType: 
           - ↑mode: JS
           - →→: meta.description
-  ↓Call_Sequence [steps.SequenceStep-1761747876802]: 
+  ↓Call_InternalJsonSchema [steps.SequenceStep-1761747876802]: 
     sourceSequence: ConvertigoMCP.InternalJsonSchema
     ↓sequence [variables.StepVariable-1761747876804]: 
-  ↓Copy [steps.XMLCopyStep-1761748175710]: 
+  ↓CopyInputSchema [steps.XMLCopyStep-1761893242328]: 
     sourceDefinition: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
@@ -99,5 +104,40 @@ accessibility: Hidden
           - java.lang.String: 
             - ↑value: 1761747876802
           - java.lang.String: 
-            - ↑value: ./document/result/*
+            - ↑value: ./document/result/inputSchema
+  ↓IfIncludeSchema [steps.IfStep-1761749574621]: 
+    condition: includeOutputSchema == "true"
+    ↓CopySchema [steps.XMLCopyStep-1761748175710]: 
+      sourceDefinition: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: 1761747876802
+            - java.lang.String: 
+              - ↑value: ./document/result/outputSchema
+  ↓IfIncludeSample [steps.IfStep-1761749574623]: 
+    condition: includeOutputSample == "true"
+    ↓CopySample [steps.XMLCopyStep-1761749574625]: 
+      sourceDefinition: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: 1761747876802
+            - java.lang.String: 
+              - ↑value: ./document/result/outputSample
 ↓sequence [variables.RequestableVariable-1761746202865]: 
+↓includeOutputSchema [variables.RequestableVariable-1761749574615]: 
+  comment: Set to true to append JSON schema metadata.
+  value: false
+↓includeOutputSample [variables.RequestableVariable-1761749574617]: 
+  comment: Set to true to append sample payload.
+  value: false
+↓ListProject [core.TestCase-1761916877103]: 
+  ↓sequence [variables.TestCaseVariable-1761916878074]: 
+    value: Tools_Admin_ListProjects
+  ↓includeSchema [variables.TestCaseVariable-1761916878076]: 
+    value: false
+  ↓includeSample [variables.TestCaseVariable-1761916878078]: 
+    value: false

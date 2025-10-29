@@ -1,30 +1,9 @@
 accessibility: Hidden
-comment: Handles MCP ping calls
-↓content [steps.JsonArrayStep-1761224204557]: 
+comment: Builds the MCP ping response
+↓result [steps.JsonObjectStep-1761755022130]: 
   key: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: PLAIN
-        - →→: content
-  ↓object [steps.JsonObjectStep-1761224216752]: 
-    ↓type [steps.JsonFieldStep-1761224227196]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: type
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: json
-    ↓json [steps.JsonObjectStep-1761224257755]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: json
+        - →→: result
