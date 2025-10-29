@@ -90,3 +90,6 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - If you need environment changes (new Docker services, database access), coordinate with the repository maintainers before editing `docker-compose.yml`.
 
 Stay disciplined with exports and testing—Convertigo’s XML/YAML structure is unforgiving if steps drift out of sync with the server.
+
+## Test with inspector
+npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:18080/convertigo/api/mcp

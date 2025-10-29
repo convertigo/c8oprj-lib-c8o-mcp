@@ -1,0 +1,46 @@
+accessibility: Private
+↓init [steps.SimpleStep-1761735196037]: 
+  expression: |
+    'if (!_sequence) {
+    	throw "_sequence should be defined";
+    }
+    __sequence = _sequence;
+    delete _sequence;
+    
+    try {
+    	let vars = JSON.parse(_variables);
+    	for (let k in vars) {
+    		this[k] = vars[k];
+    	}
+    } finally {
+    	delete _variables;
+    }
+    
+    var callStep = context.requestedObject.getStep("Call");
+    for (let k in this) {
+    	if (Object.prototype.toString.call(this[k]) === "[object String]") {
+    		let myvar = new com.twinsoft.convertigo.beans.variables.StepVariable();
+    		myvar.setName(k);
+    		myvar.setDefaultValue(this[k]);
+    		callStep.addVariable(myvar);
+    	}
+    }
+    '
+↓Call [steps.SequenceStep-1761735196040]: 
+  sourceSequence: ConvertigoMCP.McpEndpoint
+↓Copy [steps.XMLCopyStep-1761735196043]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1761735196040
+        - java.lang.String: 
+          - ↑value: ./document/*
+↓_sequence [variables.RequestableVariable-1761735196046]: 
+↓_variables [variables.RequestableVariable-1761735669343]: 
+↓Test1 [core.TestCase-1753965176256]: 
+  ↓_sequence [variables.TestCaseVariable-1761735196050]: 
+    value: Test1
+  ↓param [variables.TestCaseVariable-1761735196053]: 
+    value: ok

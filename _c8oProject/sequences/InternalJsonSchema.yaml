@@ -1,0 +1,200 @@
+comment: compute jsonschema of a sequence
+↓Compute [steps.SimpleStep-1761739838619]: 
+  comment: Build example payload and JSON schema for the target sequence
+  expression: |
+    'if (!sequence) {
+      throw new Error("sequence should be defined");
+    }
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
+    var requestable = project.getSequenceByName(sequence);
+    if (requestable == null) {
+      throw new Error("Sequence not found: " + sequence);
+    }
+    var schemaManager = Engine.theApp.schemaManager;
+    var xmlSchema = schemaManager.getSchemaForProject(project.getName());
+    var SchemaMeta = Packages.com.twinsoft.convertigo.engine.enums.SchemaMeta;
+    var XmlSchemaUtils = Packages.com.twinsoft.convertigo.engine.util.XmlSchemaUtils;
+    var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+    var RhinoUtils = Packages.com.twinsoft.convertigo.engine.util.RhinoUtils;
+    var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
+    var JSONArray = Packages.org.codehaus.jettison.json.JSONArray;
+    var xso = SchemaMeta.getXmlSchemaObject(xmlSchema, requestable);
+    if (xso == null) {
+      throw new Error("Unable to resolve schema for sequence " + sequence);
+    }
+    var document = XmlSchemaUtils.getDomInstance(xso);
+    var jsonString = XMLUtils.XmlToJson(document.getDocumentElement(), true, true);
+    var root = new JSONObject(jsonString);
+    var responseName = requestable.getXsdTypePrefix() + requestable.getName() + "Response";
+    var response = root.getJSONObject("document").getJSONObject(responseName).getJSONObject("response");
+    function sampleValueForType(type) {
+      type = ("" + (type || "string")).toLowerCase();
+      if (type === "number" || type === "double" || type === "float") {
+        return java.lang.Double.valueOf(0);
+      }
+      if (type === "integer" || type === "long" || type === "int") {
+        return java.lang.Long.valueOf(0);
+      }
+      if (type === "bool" || type === "boolean") {
+        return java.lang.Boolean.FALSE;
+      }
+      return "";
+    }
+    function normalize(value) {
+      if (value === null || value === JSONObject.NULL) {
+        return JSONObject.NULL;
+      }
+      if (value instanceof JSONObject) {
+        var result = new JSONObject();
+        var keys = value.keys();
+        while (keys.hasNext()) {
+          var key = keys.next();
+          if ("attr".equals(key) || "text".equals(key)) {
+            continue;
+          }
+          var child = value.get(key);
+          if (child instanceof JSONObject) {
+            var attr = child.optJSONObject("attr");
+            if (attr != null && attr.has("originalKeyName")) {
+              var newKey = attr.optString("originalKeyName", key);
+              var type = attr.optString("type", "string");
+              result.put(newKey, sampleValueForType(type));
+              continue;
+            }
+            var normalizedChild = normalize(child);
+            if (normalizedChild !== null && normalizedChild !== undefined) {
+              result.put(key, normalizedChild);
+            }
+          } else if (child instanceof JSONArray) {
+            var normalizedArray = normalize(child);
+            result.put(key, normalizedArray);
+          } else {
+            result.put(key, child);
+          }
+        }
+        if (result.has("error")) {
+          var err = result.get("error");
+          if (err instanceof JSONObject && err.length() === 0) {
+            result.remove("error");
+          }
+        }
+        return result;
+      }
+      if (value instanceof JSONArray) {
+        var out = new JSONArray();
+        if (value.length() > 0) {
+          out.put(normalize(value.get(0)));
+        }
+        return out;
+      }
+      return value;
+    }
+    function buildSchema(value) {
+      if (value === null || value === JSONObject.NULL) {
+        var nullSchema = new JSONObject();
+        nullSchema.put("type", "null");
+        return nullSchema;
+      }
+      if (value instanceof JSONObject) {
+        var objSchema = new JSONObject();
+        objSchema.put("type", "object");
+        var props = new JSONObject();
+        var required = new JSONArray();
+        var keys = value.keys();
+        while (keys.hasNext()) {
+          var key = keys.next();
+          var childSchema = buildSchema(value.get(key));
+          props.put(key, childSchema);
+          required.put(key);
+        }
+        objSchema.put("properties", props);
+        objSchema.put("required", required);
+        objSchema.put("additionalProperties", true);
+        return objSchema;
+      }
+      if (value instanceof JSONArray) {
+        var arrSchema = new JSONObject();
+        arrSchema.put("type", "array");
+        if (value.length() > 0) {
+          arrSchema.put("items", buildSchema(value.get(0)));
+        } else {
+          arrSchema.put("items", new JSONObject());
+        }
+        return arrSchema;
+      }
+      var schema = new JSONObject();
+      var clazz = value != null && value.getClass ? String(value.getClass().getName()) : typeof value;
+      if (clazz === "java.lang.Boolean" || (typeof value === "boolean")) {
+        schema.put("type", "boolean");
+      } else if (clazz === "java.lang.Integer" || clazz === "java.lang.Long" || clazz === "java.math.BigInteger") {
+        schema.put("type", "integer");
+      } else if (clazz === "java.lang.Double" || clazz === "java.lang.Float" || clazz === "java.math.BigDecimal") {
+        schema.put("type", "number");
+      } else if (value instanceof java.lang.Number) {
+        schema.put("type", "number");
+      } else {
+        schema.put("type", "string");
+      }
+      return schema;
+    }
+    var normalized = normalize(response);
+    if (normalized.has("attr")) {
+      normalized.remove("attr");
+    }
+    var schemaJson = buildSchema(normalized);
+    this.schemaJson = RhinoUtils.jsonParse(schemaJson.toString());
+    this.exampleJson = RhinoUtils.jsonParse(normalized.toString());
+    this.sequenceName = sequence;
+    '
+↓Result [steps.JsonToXmlStep-1761739838621]: 
+  isEnabled: false
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: '({ sequence: sequenceName, schema: schemaJson, example: exampleJson })'
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓result [steps.JsonObjectStep-1761747759787]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓schema [steps.JsonToXmlStep-1761747781996]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: schemaJson
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: schema
+  ↓example [steps.JsonToXmlStep-1761747818965]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: exampleJson
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: result
+↓sequence [variables.RequestableVariable-1761736117068]: 
+↓ListProjects [core.TestCase-1761743595399]: 
+  ↓sequence [variables.TestCaseVariable-1761743595915]: 
+    value: Tools_Admin_ListProjects

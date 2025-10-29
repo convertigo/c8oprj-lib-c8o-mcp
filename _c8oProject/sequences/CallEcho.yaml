@@ -1,0 +1,9 @@
+↓Init [steps.SimpleStep-1761735440188]: 
+  expression: |
+    '_sequence = "Echo";
+    _variables = JSON.stringify({v1: "toto"});'
+↓Call_Sequence [steps.SequenceStep-1761735426417]: 
+  output: true
+  sourceSequence: ConvertigoMCP.Call
+  ↓_sequence [variables.StepVariable-1761735426419]: 
+  ↓_variables [variables.StepVariable-1761735826428]: 

@@ -1,0 +1,103 @@
+accessibility: Hidden
+↓Init [steps.SimpleStep-1761747208206]: 
+  expression: |
+    'function splitComment(text) {
+      if (!text) { return { title: "", description: "" }; }
+      text = ("" + text).trim();
+      if (text.length === 0) { return { title: "", description: "" }; }
+      var parts = text.split(/\r?\n/);
+      var title = parts[0].trim();
+      var description = "";
+      if (parts.length > 1) { description = parts.slice(1).join("\n").trim(); }
+      return { title: title, description: description };
+    }
+    
+    var tokens = sequence.split("_");
+    var category = tokens[1];
+    var toolName = tokens.slice(2).join("_");
+    var meta = splitComment(context.project.getSequenceByName(sequence).getComment());'
+↓tool [steps.JsonObjectStep-1761747546750]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: tool
+  ↓sequence [steps.JsonFieldStep-1761747176931]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: sequence
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: sequence
+  ↓category [steps.JsonFieldStep-1761747194465]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: category
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: category
+  ↓name [steps.JsonFieldStep-1761747351659]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: name
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: toolName
+  ↓title [steps.JsonFieldStep-1761747402672]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: title
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'meta.title && meta.title.length ? meta.title : toolName'
+  ↓description [steps.JsonFieldStep-1761747412279]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: description
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: meta.description
+  ↓Call_Sequence [steps.SequenceStep-1761747876802]: 
+    sourceSequence: ConvertigoMCP.InternalJsonSchema
+    ↓sequence [variables.StepVariable-1761747876804]: 
+  ↓Copy [steps.XMLCopyStep-1761748175710]: 
+    sourceDefinition: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+        - com.twinsoft.convertigo.beans.common.XMLVector: 
+          - java.lang.String: 
+            - ↑value: 1761747876802
+          - java.lang.String: 
+            - ↑value: ./document/result/*
+↓sequence [variables.RequestableVariable-1761746202865]: 

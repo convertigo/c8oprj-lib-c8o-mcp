@@ -57,7 +57,9 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
           result: {
             protocolVersion: MCP_PROTOCOL_VERSION,
             capabilities: {
-              tools: { listChanged: false },
+              tools: {
+                listChanged: false
+              },
               resources: { listChanged: false },
               prompts: { listChanged: false },
               logging: {}
@@ -86,6 +88,36 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
               }
             },
             additionalProperties: false
+          },
+          outputSchema: {
+            type: "object",
+            properties: {
+              projects: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    comment: { type: "string" },
+                    version: { type: "string" },
+                    exported: { type: "string" },
+                    deployDate: { type: "string" },
+                    isTemplate: { type: "boolean" },
+                    missingDependencies: { type: "boolean" }
+                  },
+                  required: ["name"]
+                }
+              },
+              summary: {
+                type: "object",
+                properties: {
+                  total: { type: "integer" },
+                  includeTemplates: { type: "boolean" }
+                },
+                required: ["total", "includeTemplates"]
+              }
+            },
+            required: ["projects", "summary"]
           },
           metadata: { category: "admin" }
         }];
@@ -117,7 +149,14 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
               content: [{
                 type: "text",
                 text: JSON.stringify(payload, null, 2)
-              }]
+              }],
+              structuredContent: {
+                type: "json",
+                schema: {
+                  type: "object"
+                },
+                data: payload
+              }
             }
           };
         }
@@ -166,65 +205,62 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
         - →→: mcp_protocol_version || '2025-06-18'
 ↓EmitBody [steps.IfStep-1761665463924]: 
   condition: mcp_has_body
-  ↓ThenBody [steps.ThenStep-1761665463926]: 
-    ↓jsonrpc [steps.JsonToXmlStep-1761665463928]: 
+  ↓jsonrpc [steps.JsonToXmlStep-1761665463928]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: mcp_response_object.jsonrpc
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: jsonrpc
+  ↓id [steps.JsonToXmlStep-1761665463930]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: mcp_response_object.id
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: id
+  ↓HasResult [steps.IfStep-1761665463932]: 
+    condition: mcp_response_object && mcp_response_object.hasOwnProperty('result')
+    ↓result [steps.JsonToXmlStep-1761665463936]: 
       jsonObject: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: JS
-            - →→: mcp_response_object.jsonrpc
+            - →→: mcp_response_object.result
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
-            - →→: jsonrpc
-    ↓id [steps.JsonToXmlStep-1761665463930]: 
+            - →→: result
+  ↓HasError [steps.IfStep-1761665463938]: 
+    condition: mcp_response_object && mcp_response_object.hasOwnProperty('error')
+    ↓error [steps.JsonToXmlStep-1761665463942]: 
       jsonObject: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: JS
-            - →→: mcp_response_object.id
+            - →→: mcp_response_object.error
       key: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: PLAIN
-            - →→: id
-    ↓HasResult [steps.IfStep-1761665463932]: 
-      condition: mcp_response_object && mcp_response_object.hasOwnProperty('result')
-      ↓ThenResult [steps.ThenStep-1761665463934]: 
-        ↓result [steps.JsonToXmlStep-1761665463936]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_object.result
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: result
-    ↓HasError [steps.IfStep-1761665463938]: 
-      condition: mcp_response_object && mcp_response_object.hasOwnProperty('error')
-      ↓ThenError [steps.ThenStep-1761665463940]: 
-        ↓error [steps.JsonToXmlStep-1761665463942]: 
-          jsonObject: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: mcp_response_object.error
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: error
+            - →→: error
 ↓request [variables.RequestableVariable-1761651022843]: 
   comment: JSON-RPC request payload
   required: true
