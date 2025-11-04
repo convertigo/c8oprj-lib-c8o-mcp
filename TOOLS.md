@@ -8,6 +8,8 @@ tool catalog.
 
 ## Meta / Introspection
 - [ ] `MetaListPalette` — list database objects that can be created at root or under a given parent (filterable by allowed types).
+- [x] `DatabaseObjectPropertiesSet` — update properties on a database object by QName.
+- [x] `DatabaseObjectPropertiesGet` — read metadata and property values for a database object identified by QName.
 - [ ] `MetaDescribeObject` — return metadata for a specific database object (type, path, properties).
 
 ## Project Discovery

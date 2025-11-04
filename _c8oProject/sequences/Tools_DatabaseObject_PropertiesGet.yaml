@@ -1,0 +1,467 @@
+comment: Returns metadata and property values for a database object identified by its QName.
+↓Init [steps.SimpleStep-1762266930543]: 
+  comment: Collect bean information and properties list
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
+    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
+    var ITagsProperty = Packages.com.twinsoft.convertigo.beans.core.ITagsProperty;
+    var EnumUtils = Packages.com.twinsoft.convertigo.engine.util.EnumUtils;
+    
+    if (!qname || String(qname).trim().length === 0) { throw new Error("qname is required"); }
+    qname = String(qname);
+    var dbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(qname);
+    if (dbo == null) { throw new Error("Database object not found: " + qname); }
+    
+    var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
+    var descriptors = beanInfo.getPropertyDescriptors();
+    var properties = [];
+    var categories = [];
+    
+    function pushCategory(category) {
+      if (categories.indexOf(category) === -1) {
+        categories.push(category);
+      }
+    }
+    
+    for (var i = 0; i < descriptors.length; i++) {
+      var pd = descriptors[i];
+      var getter = pd.getReadMethod();
+      if (getter == null) { continue; }
+      var name = pd.getName();
+      if (name === "class") { continue; }
+      var entry = {};
+      entry.name = name;
+      entry.displayName = pd.getDisplayName() != null ? String(pd.getDisplayName()) : name;
+      entry.description = pd.getShortDescription() != null ? String(pd.getShortDescription()) : "";
+      entry.hidden = Boolean(pd.isHidden());
+      entry.expert = Boolean(pd.isExpert());
+      var category = pd.getValue(MySimpleBeanInfo.CATEGORY);
+      if (category == null || String(category).trim().length === 0) {
+        category = pd.isExpert() ? "Expert" : "Base properties";
+      } else {
+        category = String(category);
+      }
+      entry.category = category;
+      pushCategory(category);
+      entry.disabled = Boolean(java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.DISABLE)));
+      entry.multiline = Boolean(java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.MULTILINE)));
+      entry.scriptable = Boolean(java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.SCRIPTABLE)));
+      var propertyType = pd.getPropertyType();
+      entry.type = propertyType != null ? propertyType.getName() : "";
+      var value = null;
+      try { value = getter.invoke(dbo, null); } catch (e) { value = null; }
+      entry.valueClass = value != null ? value.getClass().getName() : "";
+      entry.valuePreview = value != null ? String(value) : "";
+      var sourceValue = dbo.getCompilablePropertySourceValue(name);
+      entry.sourceValue = sourceValue != null ? String(sourceValue) : "";
+      entry.ciphered = Boolean(dbo.isCipheredProperty(name));
+      entry.traceable = Boolean(dbo.isTraceableProperty(name));
+      var nillable = java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE));
+      entry.nillable = Boolean(nillable);
+      var isNullFlag = false;
+      if (nillable) {
+        try {
+          var isNullMethod = dbo.getClass().getMethod("isNullProperty", [java.lang.String.class]);
+          isNullFlag = Boolean(java.lang.Boolean.TRUE.equals(isNullMethod.invoke(dbo, [name])));
+        } catch (ignore) {}
+      }
+      entry.isNull = isNullFlag;
+      var editorClass = pd.getPropertyEditorClass();
+      entry.editorClass = editorClass != null ? editorClass.getName() : "";
+      var possibleValues = [];
+      if (dbo instanceof ITagsProperty) {
+        try {
+          var tags = dbo.getTagsForProperty(name);
+          if (tags != null) {
+            for (var t = 0; t < tags.length; t++) {
+              possibleValues.push(String(tags[t]));
+            }
+          }
+        } catch (ignore) {}
+      } else if (editorClass != null) {
+        try {
+          var names = EnumUtils.toNames(editorClass);
+          if (names != null) {
+            for (var n = 0; n < names.length; n++) {
+              possibleValues.push(String(names[n]));
+            }
+          }
+        } catch (ignore) {}
+      }
+      entry.possibleValues = possibleValues;
+      properties.push(entry);
+    }
+    
+    var propertiesList = properties;
+    var propertiesCount = properties.length;
+    var categoriesList = categories;
+    var targetClassName = dbo.getClass().getName();
+    var beanDescriptor = beanInfo.getBeanDescriptor();
+    var beanDisplayName = beanDescriptor != null && beanDescriptor.getDisplayName() != null ? String(beanDescriptor.getDisplayName()) : "";'
+↓Result [steps.JsonObjectStep-1762266930545]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓QName [steps.JsonFieldStep-1762266930547]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: qname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: qname
+  ↓ClassName [steps.JsonFieldStep-1762266930549]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: className
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: targetClassName
+  ↓DisplayName [steps.JsonFieldStep-1762266930551]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: displayName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: beanDisplayName
+  ↓PropertyCount [steps.JsonFieldStep-1762266930553]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: propertyCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: propertiesCount
+  ↓Categories [steps.JsonArrayStep-1762266930555]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: categories
+    ↓CategoriesIterator [steps.SimpleIteratorStep-1762266930557]: 
+      expression: categoriesList
+      ↓Category [steps.JsonFieldStep-1762266930559]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: value
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: item
+  ↓Properties [steps.JsonArrayStep-1762266930561]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: properties
+    ↓PropertiesIterator [steps.SimpleIteratorStep-1762266930563]: 
+      expression: propertiesList
+      ↓Property [steps.JsonObjectStep-1762266930565]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: property
+        ↓PropertyName [steps.JsonFieldStep-1762266930567]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.name
+        ↓DisplayNameField [steps.JsonFieldStep-1762266930569]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: displayName
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.displayName
+        ↓DescriptionField [steps.JsonFieldStep-1762266930571]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: description
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.description
+        ↓CategoryField [steps.JsonFieldStep-1762266930573]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: category
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.category
+        ↓TypeField [steps.JsonFieldStep-1762266930575]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: type
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.type
+        ↓ValuePreviewField [steps.JsonFieldStep-1762266930577]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: valuePreview
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.valuePreview
+        ↓ValueClassField [steps.JsonFieldStep-1762266930579]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: valueClass
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.valueClass
+        ↓SourceValueField [steps.JsonFieldStep-1762266930581]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: sourceValue
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.sourceValue
+        ↓CipheredField [steps.JsonFieldStep-1762266930583]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: ciphered
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.ciphered
+        ↓TraceableField [steps.JsonFieldStep-1762266930585]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: traceable
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.traceable
+        ↓HiddenField [steps.JsonFieldStep-1762266930587]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: hidden
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.hidden
+        ↓ExpertField [steps.JsonFieldStep-1762266930589]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: expert
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.expert
+        ↓DisabledField [steps.JsonFieldStep-1762266930591]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: disabled
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.disabled
+        ↓MultilineField [steps.JsonFieldStep-1762266930593]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: multiline
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.multiline
+        ↓ScriptableField [steps.JsonFieldStep-1762266930595]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: scriptable
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.scriptable
+        ↓NillableField [steps.JsonFieldStep-1762266930597]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: nillable
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.nillable
+        ↓IsNullField [steps.JsonFieldStep-1762266930599]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: isNull
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.isNull
+        ↓EditorClassField [steps.JsonFieldStep-1762266930601]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: editorClass
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.editorClass
+        ↓PossibleValues [steps.JsonArrayStep-1762266930603]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: possibleValues
+          ↓PossibleIterator [steps.SimpleIteratorStep-1762266930605]: 
+            expression: item.possibleValues
+            ↓PossibleValueField [steps.JsonFieldStep-1762266930607]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: value
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: item
+↓qname [variables.RequestableVariable-1762266930541]: 
+  comment: Database object QName (project[.path...] format)
+  required: true

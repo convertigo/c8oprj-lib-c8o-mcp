@@ -125,6 +125,7 @@ comment: compute jsonschema of a sequence
     if (responseSource && responseSource.result) { responseSource = responseSource.result; }
     var normalizedResponse = normalizeNode(responseSource);
     schemaJson = buildSchemaNode(normalizedResponse);
+    delete schemaJson.required;
     exampleJson = normalizedResponse;
 ↓result [steps.JsonObjectStep-1761747759787]: 
   key: 

@@ -4,7 +4,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.1
+  version: 0.0.2
   ↓void [connectors.SqlConnector]: 🗏 connectors/void.yaml
   ↓InternalCall [sequences.GenericSequence-1753965105243]: 🗏 sequences/InternalCall.yaml
   ↓InternalCallStub [sequences.GenericSequence-1761756735550]: 🗏 sequences/InternalCallStub.yaml
@@ -18,6 +18,8 @@
   ↓McpPing [sequences.GenericSequence]: 🗏 sequences/McpPing.yaml
   ↓McpToolsList [sequences.GenericSequence]: 🗏 sequences/McpToolsList.yaml
   ↓Tools_Admin_ListProjects [sequences.GenericSequence]: 🗏 sequences/Tools_Admin_ListProjects.yaml
+  ↓Tools_DatabaseObject_PropertiesGet [sequences.GenericSequence]: 🗏 sequences/Tools_DatabaseObject_PropertiesGet.yaml
+  ↓Tools_DatabaseObject_PropertiesSet [sequences.GenericSequence]: 🗏 sequences/Tools_DatabaseObject_PropertiesSet.yaml
   ↓ConvertigoWorkflow_reference [references.ProjectSchemaReference]: 
     projectName: ConvertigoWorkflow
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
