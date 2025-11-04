@@ -1,4 +1,4 @@
-path: /mcp
+path: /mcp/
 ↓Get [rest.GetOperation-1761839223002]: 
   targetRequestable: ConvertigoMCP.mcp_ping
 ↓Post [rest.PostOperation]: 

@@ -20,14 +20,14 @@ comment: Handles MCP tools/list calls
         expression: |
           'sequence = null;
           var name = item.getName();
-          if (name.startsWith("Tools_")) {
+          if (name.startsWith("tools_")) {
           	sequence = name;
           }
           '
       ↓jIf [steps.IfStep-1761842731840]: 
         condition: sequence != null
         ↓Call_InternalListToolsInfo [steps.SequenceStep-1761842731843]: 
-          sourceSequence: ConvertigoMCP.InternalListToolsInfo
+          sourceSequence: ConvertigoMCP.internal_list_tools_info
           ↓sequence [variables.StepVariable-1761842731846]: 
           ↓includeOutputSchema [variables.StepVariable-1762253398095]: 
             comment: Set to true to append JSON schema metadata.

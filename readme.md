@@ -15,6 +15,10 @@ For more technical informations : [documentation](./project.md)
             - [Operations](#operations)
                 - [Get](#get)
                 - [Post](#post)
+        - [/mcp/](#mcp-1)
+            - [Operations](#operations-1)
+                - [Get](#get-1)
+                - [Post](#post-1)
 
 
 ## Installation
@@ -48,6 +52,27 @@ For more technical informations : [documentation](./project.md)
 ### Mappings
 
 #### /mcp
+
+##### Operations
+
+###### Get
+
+###### Post
+
+Streamable HTTP entry point for MCP requests
+
+**Parameters**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>request</td><td>JSON-RPC request body</td>
+</tr>
+</table>
+
+#### /mcp/
 
 ##### Operations
 

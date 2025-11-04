@@ -1,4 +1,5 @@
 accessibility: Private
+comment: used for internal call
 ↓init [steps.SimpleStep-1761735196037]: 
   expression: |
     'if (!_sequence) {
@@ -26,7 +27,7 @@ accessibility: Private
     	}
     }'
 ↓Call [steps.SequenceStep-1761735196040]: 
-  sourceSequence: ConvertigoMCP.InternalCallStub
+  sourceSequence: ConvertigoMCP.internal_call_stub
 ↓Copy [steps.XMLCopyStep-1761735196043]: 
   sourceDefinition: 
     - xmlizable: 

@@ -1,0 +1,223 @@
+comment: Refreshes the Eclipse Project Explorer for a target database object
+↓InitContext [steps.SimpleStep-1762342576346]: 
+  comment: Prepare refresh context
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var System = java.lang.System;
+    requestedQName = qname == null ? "" : String(qname).trim();
+    studioMode = Engine.isStudioMode();
+    resultTimestamp = System.currentTimeMillis();
+    resultStatus = studioMode ? "pending" : "skipped";
+    resultMessage = studioMode ? "Waiting for refresh" : "Refresh skipped: Convertigo Studio required";
+    resultError = "";
+    resultRefreshed = false;
+    resultRefreshedQName = "";
+    resultTargetQName = "";
+    resultQName = requestedQName;
+    resultStudioMode = studioMode;
+    refreshExecuted = false;
+    canRefresh = studioMode && requestedQName.length > 0;
+    if (!studioMode) {
+      resultStatus = "skipped";
+      resultMessage = "Refresh skipped: Convertigo Studio required";
+    }
+    if (!requestedQName.length) {
+      resultStatus = studioMode ? "error" : "skipped";
+      resultMessage = "QName is required";
+      canRefresh = false;
+    }
+    refreshTarget = null;
+    pluginInstance = null;'
+↓IfCanRefresh [steps.IfStep-1762342576348]: 
+  comment: Attempt refresh only when running in Studio with a QName
+  condition: canRefresh
+  ↓PerformRefresh [steps.SimpleStep-1762342576350]: 
+    comment: Run Project Explorer refresh inside the UI thread
+    expression: |
+      'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      var Runnable = Packages.java.lang.Runnable;
+      try {
+        refreshTarget = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(requestedQName);
+      } catch (lookupError) {
+        resultStatus = "error";
+        resultMessage = "Unable to resolve QName: " + requestedQName;
+        resultError = String(lookupError);
+      }
+      if (refreshTarget == null) {
+        if (resultStatus == "pending") {
+          resultStatus = "error";
+          resultMessage = "Database object not found: " + requestedQName;
+        }
+      } else {
+        resultTargetQName = refreshTarget.getQName();
+        pluginInstance = ConvertigoPlugin.getDefault();
+        if (pluginInstance == null) {
+          resultStatus = "skipped";
+          resultMessage = "Project Explorer view not available";
+        } else {
+          ConvertigoPlugin.syncExec(new Runnable({ run: function() {
+            try {
+              var view = pluginInstance.getProjectExplorerView();
+              if (view == null) {
+                resultStatus = "skipped";
+                resultMessage = "Project Explorer view not available";
+                return;
+              }
+              view.reloadDatabaseObject(refreshTarget);
+              resultStatus = "refreshed";
+              resultMessage = "Project Explorer refreshed";
+              resultRefreshed = true;
+              resultRefreshedQName = refreshTarget.getQName();
+              refreshExecuted = true;
+            } catch (uiError) {
+              resultStatus = "error";
+              resultMessage = String(uiError);
+              resultError = String(uiError);
+            }
+          }}));
+        }
+      }'
+↓result [steps.JsonObjectStep-1762342576352]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1762342576354]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1762342576356]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓qname [steps.JsonFieldStep-1762342576358]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: qname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultQName
+  ↓targetQName [steps.JsonFieldStep-1762342576360]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: targetQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTargetQName
+  ↓refreshed [steps.JsonFieldStep-1762342576362]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: refreshed
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultRefreshed
+  ↓refreshedQName [steps.JsonFieldStep-1762342576364]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: refreshedQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultRefreshedQName
+  ↓studioMode [steps.JsonFieldStep-1762342576366]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: studioMode
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStudioMode
+  ↓timestamp [steps.JsonFieldStep-1762342576368]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimestamp
+  ↓error [steps.JsonFieldStep-1762342576370]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: error
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultError
+  ↓executed [steps.JsonFieldStep-1762342576372]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: executed
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: refreshExecuted
+↓qname [variables.RequestableVariable-1762342576374]: 
+  comment: Database object QName to refresh inside the Studio Project Explorer

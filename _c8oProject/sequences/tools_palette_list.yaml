@@ -1,0 +1,551 @@
+comment: Lists palette categories and database object templates allowed under a parent.
+↓InitContext [steps.SimpleStep-1762338110018]: 
+  comment: Prepare helpers and resolve parent
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
+    
+    var targetRaw = target == null ? "" : String(target).trim();
+    var includeDynamicFlag = true;
+    if (includeDynamic != null && String(includeDynamic).length > 0) {
+      includeDynamicFlag = /true/i.test(String(includeDynamic));
+    }
+    
+    var parentDbo = null;
+    var folderTypeValue = "";
+    if (targetRaw.length > 0) {
+      var candidates = [];
+      candidates.push(targetRaw);
+      var lower = targetRaw.toLowerCase();
+      if (lower !== targetRaw) {
+        candidates.push(lower);
+      }
+      var colonIndex = targetRaw.indexOf(":");
+      if (colonIndex !== -1) {
+        var leftPart = targetRaw.substring(0, colonIndex);
+        var namePart = targetRaw.substring(colonIndex + 1);
+        var dotIndex = leftPart.lastIndexOf(".");
+        if (dotIndex !== -1) {
+          var base = leftPart.substring(0, dotIndex);
+          var suffix = namePart;
+          var suffixLower = namePart.toLowerCase();
+          candidates.push(leftPart + ":" + suffixLower);
+          candidates.push(base + "." + suffix);
+          if (suffixLower !== suffix) {
+            candidates.push(base + "." + suffixLower);
+          }
+        }
+      }
+      for (var i = 0; i < candidates.length; i++) {
+        try {
+          parentDbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(candidates[i]);
+          if (parentDbo != null) {
+            break;
+          }
+        } catch (ignoredCandidates) {}
+      }
+    }
+    
+    var parentQNameValue = parentDbo != null ? parentDbo.getQName() : "";
+    var parentClassNameValue = parentDbo != null ? parentDbo.getClass().getName() : "";
+    
+    paletteCategories = [];
+    categoryIndex = {};
+    paletteParent = parentDbo;
+    paletteFolderType = null;
+    paletteIncludeDynamic = includeDynamicFlag ? true : false;
+    
+    resultInfo = {
+      target: targetRaw,
+      parentQName: parentQNameValue,
+      parentClass: parentClassNameValue,
+      folderType: folderTypeValue,
+      includeDynamic: paletteIncludeDynamic,
+      categories: 0
+    };
+    
+    function ensureCategory(name, type) {
+      var catName = name && name.length ? name : "General";
+      var key = catName.toLowerCase();
+      var existing = categoryIndex[key];
+      if (!existing) {
+        existing = { name: catName, type: type || "Category", items: [] };
+        categoryIndex[key] = existing;
+        paletteCategories.push(existing);
+      }
+      return existing;
+    }
+    
+    function splitDescription(raw) {
+      if (!raw) {
+        return { short: "", long: "" };
+      }
+      var parts = String(raw).split("|");
+      var shortDesc = parts.length > 0 ? parts[0].trim() : "";
+      var longDesc = parts.length > 1 ? parts.slice(1).join("|").trim() : "";
+      return { short: shortDesc, long: longDesc };
+    }
+    
+    ensureCategoryRef = ensureCategory;
+    splitDescriptionRef = splitDescription;
+    '
+↓LoadBeans [steps.SimpleStep-1762338110020]: 
+  comment: Collect palette beans from explorer
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var DatabaseObjectsManager = Packages.com.twinsoft.convertigo.engine.DatabaseObjectsManager;
+    var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
+    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
+    var BeanInfo = Packages.java.beans.BeanInfo;
+    
+    var parentDbo = paletteParent;
+    var folderType = paletteFolderType;
+    
+    var explorer = Engine.theApp.getDboExplorerManager();
+    var groups = explorer.getGroups();
+    var groupIt = groups.iterator();
+    while (groupIt.hasNext()) {
+      var group = groupIt.next();
+      var groupName = group.getName();
+      var categoryIt = group.getCategories().iterator();
+      while (categoryIt.hasNext()) {
+        var category = categoryIt.next();
+        var categoryName = category.getName().isEmpty() ? groupName : category.getName();
+        var beansIt = category.getBeans().iterator();
+        while (beansIt.hasNext()) {
+          var beans = beansIt.next();
+          var catLabel = beans.getName().isEmpty() ? categoryName : beans.getName();
+          var beanIt = beans.getBeans().iterator();
+          while (beanIt.hasNext()) {
+            var bean = beanIt.next();
+            var className = bean.getClassName();
+            if ((className.startsWith("com.twinsoft.convertigo.beans.ngx.components.") ||
+                 className.startsWith("com.twinsoft.convertigo.beans.mobile.components.")) &&
+                !className.endsWith("PageComponent")) {
+              continue;
+            }
+    
+            var isAllowed = false;
+            try {
+              var force = false;
+              if (parentDbo != null) {
+                if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.core.Sequence) {
+                  force = className.startsWith("com.twinsoft.convertigo.beans.steps.") ||
+                          className.startsWith("com.twinsoft.convertigo.beans.variables.Step");
+                } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent) {
+                  force = className.startsWith("com.twinsoft.convertigo.beans.ngx.");
+                } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.mobile.components.ApplicationComponent) {
+                  force = className.startsWith("com.twinsoft.convertigo.beans.mobile.");
+                }
+              }
+              if (parentDbo != null) {
+                isAllowed = force || DatabaseObjectsManager.checkParent(parentDbo.getClass(), bean);
+              }
+              if (folderType != null && isAllowed) {
+                isAllowed = DatabaseObject.getFolderType(Packages.java.lang.Class.forName(className)) == folderType;
+              }
+            } catch (eCheck) {}
+    
+            if (!isAllowed) {
+              continue;
+            }
+    
+            try {
+              var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
+              var beanInfo = beanInfoClass.getConstructor().newInstance();
+              var descriptor = beanInfo.getBeanDescriptor();
+              var description = bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented |";
+              var descParts = splitDescriptionRef(description);
+              var iconPath = MySimpleBeanInfo.getIconName(beanInfo, BeanInfo.ICON_COLOR_32x32);
+              var categoryObj = ensureCategoryRef(catLabel, "Category");
+              categoryObj.items.push({
+                type: "dbo",
+                id: className,
+                name: descriptor.getDisplayName(),
+                className: className,
+                description: description,
+                shortDescription: descParts.short,
+                longDescription: descParts.long,
+                icon: iconPath,
+                builtin: true,
+                additional: false,
+                group: groupName,
+                category: catLabel
+              });
+            } catch (eInfo) {}
+          }
+        }
+      }
+    }
+    '
+↓LoadDynamic [steps.SimpleStep-1762338110022]: 
+  comment: Collect dynamic UI components
+  expression: |
+    'if (paletteIncludeDynamic) {
+      // Dynamic palette entries not yet implemented for MCP tooling.
+    }
+    '
+↓Finalize [steps.SimpleStep-1762338110024]: 
+  comment: Sort categories and prune empties
+  expression: |
+    'function sortInsensitive(a, b) {
+      var an = (a.name || "").toLowerCase();
+      var bn = (b.name || "").toLowerCase();
+      if (an < bn) { return -1; }
+      if (an > bn) { return 1; }
+      return 0;
+    }
+    
+    paletteCategories = paletteCategories.filter(function(cat) {
+      return cat.items && cat.items.length;
+    });
+    
+    for (var i = 0; i < paletteCategories.length; i++) {
+      var cat = paletteCategories[i];
+      cat.items.sort(sortInsensitive);
+    }
+    
+    paletteCategories.sort(sortInsensitive);
+    resultInfo.categories = paletteCategories.length;
+    '
+↓BuildResult [steps.JsonObjectStep-1762338110026]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓Query [steps.JsonObjectStep-1762338110028]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: query
+    ↓Target [steps.JsonFieldStep-1762338110030]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: target
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.target
+    ↓ParentQName [steps.JsonFieldStep-1762338110032]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: parentQName
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.parentQName
+    ↓ParentClass [steps.JsonFieldStep-1762338110034]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: parentClass
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.parentClass
+    ↓FolderType [steps.JsonFieldStep-1762338110036]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: folderType
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.folderType
+    ↓IncludeDynamic [steps.JsonFieldStep-1762338110038]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: includeDynamic
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.includeDynamic
+    ↓Categories [steps.JsonFieldStep-1762338110040]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: categories
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.categories
+  ↓Categories [steps.JsonArrayStep-1762338110042]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: categories
+    ↓CategoriesIterator [steps.SimpleIteratorStep-1762338110044]: 
+      expression: paletteCategories
+      ↓CategoryObject [steps.JsonObjectStep-1762338110046]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: category
+        ↓Name [steps.JsonFieldStep-1762338110048]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.name
+        ↓Type [steps.JsonFieldStep-1762338110050]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: type
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.type
+        ↓Group [steps.JsonFieldStep-1762338110052]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: group
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.group || item.name
+        ↓ItemCount [steps.JsonFieldStep-1762338110054]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: itemCount
+          type: number
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.items.length
+        ↓Items [steps.JsonArrayStep-1762338110056]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: items
+          ↓ItemsIterator [steps.SimpleIteratorStep-1762338110058]: 
+            expression: item.items
+            ↓ItemObject [steps.JsonObjectStep-1762338110060]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: item
+              ↓Type [steps.JsonFieldStep-1762338110062]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: type
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.type
+              ↓Id [steps.JsonFieldStep-1762338110064]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: id
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.id
+              ↓Name [steps.JsonFieldStep-1762338110066]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: name
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.name
+              ↓ClassName [steps.JsonFieldStep-1762338110068]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: className
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.className
+              ↓Description [steps.JsonFieldStep-1762338110070]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: description
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.description
+              ↓ShortDescription [steps.JsonFieldStep-1762338110072]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: shortDescription
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.shortDescription
+              ↓LongDescription [steps.JsonFieldStep-1762338110074]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: longDescription
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.longDescription
+              ↓Icon [steps.JsonFieldStep-1762338110076]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: icon
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.icon
+              ↓Builtin [steps.JsonFieldStep-1762338110078]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: builtin
+                type: bool
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.builtin
+              ↓Additional [steps.JsonFieldStep-1762338110080]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: additional
+                type: bool
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.additional
+              ↓Group [steps.JsonFieldStep-1762338110082]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: group
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.group
+              ↓Category [steps.JsonFieldStep-1762338110084]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: category
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.category
+↓target [variables.RequestableVariable-1762338110014]: 
+  comment: Parent QName (optionally suffixed with :FolderType)
+↓includeDynamic [variables.RequestableVariable-1762338110016]: 
+  comment: Set to true to include dynamic (Angular/ION) components

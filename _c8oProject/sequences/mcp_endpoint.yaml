@@ -16,6 +16,8 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
     }
     
     var requestIdJson = null;
+    var requestIdValue = null;
+    var requestIdType = "";
     var paramsObject = {};
     var parseError = null;
     var methodName = null;
@@ -34,19 +36,39 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
           parseError = { status: "400", code: -32600, message: "Invalid request payload" };
         } else {
-          try {
-            requestIdJson = JSON.stringify(parsed.id);
-          } catch (e) {}
-          if (parsed.jsonrpc !== undefined && parsed.jsonrpc !== JSON_RPC_VERSION) {
-            parseError = { status: "400", code: -32600, message: "Unsupported JSON-RPC version", data: { expected: JSON_RPC_VERSION, received: parsed.jsonrpc }};
-          } else if (typeof parsed.method !== "string" || parsed.method.length === 0) {
-            parseError = { status: "400", code: -32600, message: "Missing method name" };
-          } else if (headerVersion && headerVersion.length > 0 && headerVersion !== SUPPORTED_PROTOCOL) {
-            parseError = { status: "400", code: -32600, message: "Unsupported MCP protocol version", data: { supported: SUPPORTED_PROTOCOL, received: headerVersion }};
+          if (parsed.hasOwnProperty("id")) {
+            requestIdValue = parsed.id;
+            var idType = requestIdValue === null ? "null" : typeof requestIdValue;
+            if (idType === "object") {
+              idType = "null";
+            }
+            if (idType !== "string" && idType !== "number" && idType !== "null") {
+              parseError = { status: "400", code: -32600, message: "Invalid id type" };
+            } else {
+              requestIdType = idType;
+              try {
+                requestIdJson = JSON.stringify(parsed.id);
+              } catch (eId) {
+                requestIdJson = null;
+              }
+            }
           } else {
-            methodName = parsed.method;
-            if (parsed.params !== undefined && parsed.params !== null) {
-              paramsObject = parsed.params;
+            requestIdJson = null;
+            requestIdValue = null;
+            requestIdType = "";
+          }
+          if (!parseError) {
+            if (parsed.jsonrpc !== undefined && parsed.jsonrpc !== JSON_RPC_VERSION) {
+              parseError = { status: "400", code: -32600, message: "Unsupported JSON-RPC version", data: { expected: JSON_RPC_VERSION, received: parsed.jsonrpc }};
+            } else if (typeof parsed.method !== "string" || parsed.method.length === 0) {
+              parseError = { status: "400", code: -32600, message: "Missing method name" };
+            } else if (headerVersion && headerVersion.length > 0 && headerVersion !== SUPPORTED_PROTOCOL) {
+              parseError = { status: "400", code: -32600, message: "Unsupported MCP protocol version", data: { supported: SUPPORTED_PROTOCOL, received: headerVersion }};
+            } else {
+              methodName = parsed.method;
+              if (parsed.params !== undefined && parsed.params !== null) {
+                paramsObject = parsed.params;
+              }
             }
           }
         }
@@ -60,7 +82,7 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
   ↓jThen [steps.ThenStep-1762187848344]: 
     ↓onParseError [steps.SimpleStep-1762188056679]: 
       expression: |
-        'callSequence = "McpErrorResponse";
+        'callSequence = "mcp_error_response";
         responseStatus = parseError.status || "400";
         callVariables = { status: String(responseStatus), code: String(parseError.code), message: parseError.message, dataJson: parseError.data ? JSON.stringify(parseError.data) : "", requestIdJson: requestIdJson };
         '
@@ -70,65 +92,95 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
         'var paramsJson = "{}";
         try { paramsJson = JSON.stringify(paramsObject); } catch (_p) { paramsJson = "{}"; }
         if (methodName === "initialize") {
-            callSequence = "McpInitialize";
+            callSequence = "mcp_initialize";
             callVariables = { initProtocol: SUPPORTED_PROTOCOL };
         } else if (methodName === "notifications/initialized") {
           responseStatus = "202";
           responseHasBody = false;
         } else if (methodName === "ping") {
-          callSequence = "McpPing";
+          callSequence = "mcp_ping";
         } else if (methodName === "tools/list") {
-          callSequence = "McpToolsList";
+          callSequence = "mcp_tools_list";
           callVariables = { paramsJson: paramsJson };
         } else if (methodName === "tools/call") {
-          var toolName = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
+          var toolNameRaw = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
           var toolArgs = paramsObject && typeof paramsObject.arguments === "object" && !Array.isArray(paramsObject.arguments) ? paramsObject.arguments : {};
-          function toPascalCase(segment) {
-            if (!segment) { return ""; }
-            var parts = String(segment).split(/[^A-Za-z0-9]+/);
-            var out = [];
-            for (var i = 0; i < parts.length; i++) {
-              var token = parts[i];
-              if (!token) { continue; }
-              out.push(token.charAt(0).toUpperCase() + token.substring(1));
-            }
-            return out.length > 0 ? out.join("") : String(segment);
-          }
-          if (!toolName || toolName.length === 0) {
-            callSequence = "McpErrorResponse";
-            responseStatus = "400";
-            callVariables = { status: "400", code: "-32602", message: "Missing tool name", requestIdJson: requestIdJson };
-          } else {
-            var nameParts = toolName.split(/\./);
-            if (nameParts.length < 2) {
-              callSequence = "McpErrorResponse";
-              responseStatus = "400";
-              callVariables = { status: "400", code: "-32602", message: "Invalid tool identifier", dataJson: JSON.stringify({ name: toolName }), requestIdJson: requestIdJson };
+          var targetSequence = "";
+          var mappingError = null;
+          function sanitizeToken(value, replaceWithUnderscore) {
+            var token = String(value || "").toLowerCase();
+            if (replaceWithUnderscore) {
+              token = token.replace(/[^a-z0-9]+/g, "_");
             } else {
-              var category = toPascalCase(nameParts[0]);
-              var actionSegments = [];
-              for (var s = 1; s < nameParts.length; s++) { actionSegments.push(toPascalCase(nameParts[s])); }
-              var actionName = actionSegments.join("_");
-              var targetSequence = "Tools_" + category + (actionName.length > 0 ? "_" + actionName : "");
-              var targetProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
-              var requestable = targetProject ? targetProject.getSequenceByName(targetSequence) : null;
-              if (requestable == null) {
-                callSequence = "McpErrorResponse";
-                responseStatus = "404";
-                callVariables = { status: "404", code: "-32601", message: "Unknown tool", dataJson: JSON.stringify({ name: toolName, sequence: targetSequence }), requestIdJson: requestIdJson };
+              token = token.replace(/[^a-z0-9-]+/g, "-");
+            }
+            token = token.replace(/[_-]{2,}/g, function(match) { return match.charAt(0); });
+            token = token.replace(/^[-_]+|[-_]+$/g, "");
+            return token;
+          }
+          if (!toolNameRaw || String(toolNameRaw).trim().length === 0) {
+            mappingError = { status: "400", code: "-32602", message: "Missing tool name" };
+          } else {
+            var normalizedName = String(toolNameRaw).trim();
+            if (normalizedName.indexOf(''.'') !== -1) {
+              var dotParts = normalizedName.split(''.'');
+              if (dotParts.length < 2) {
+                mappingError = { status: "400", code: "-32602", message: "Invalid tool identifier", data: { name: toolNameRaw } };
               } else {
-                callSequence = targetSequence;
-                responseStatus = "200";
-                callVariables = toolArgs || {};
+                var cat = sanitizeToken(dotParts[0], true);
+                var actionTokens = [];
+                for (var di = 1; di < dotParts.length; di++) {
+                  var clean = sanitizeToken(dotParts[di], true);
+                  if (clean.length) { actionTokens.push(clean); }
+                }
+                if (!cat.length || actionTokens.length === 0) {
+                  mappingError = { status: "400", code: "-32602", message: "Invalid tool identifier", data: { name: toolNameRaw } };
+                } else {
+                  targetSequence = "tools_" + cat + "_" + actionTokens.join("_");
+                }
+              }
+            } else {
+              var slug = sanitizeToken(normalizedName, false);
+              var parts = slug.split(''-'');
+              if (parts.length < 2) {
+                parts = sanitizeToken(normalizedName, true).split(''_'');
+              }
+              if (parts.length < 2) {
+                mappingError = { status: "400", code: "-32602", message: "Invalid tool identifier", data: { name: toolNameRaw } };
+              } else {
+                var catSlug = sanitizeToken(parts.shift(), true);
+                var actionSlug = sanitizeToken(parts.join(''-''), true);
+                if (!catSlug.length || !actionSlug.length) {
+                  mappingError = { status: "400", code: "-32602", message: "Invalid tool identifier", data: { name: toolNameRaw } };
+                } else {
+                  targetSequence = "tools_" + catSlug + "_" + actionSlug;
+                }
               }
             }
           }
+          if (mappingError) {
+            callSequence = "mcp_error_response";
+            responseStatus = mappingError.status;
+            callVariables = { status: mappingError.status, code: mappingError.code, message: mappingError.message, dataJson: mappingError.data ? JSON.stringify(mappingError.data) : "", requestIdJson: requestIdJson };
+          } else {
+            var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
+            var requestable = projectRef ? projectRef.getSequenceByName(targetSequence) : null;
+            if (requestable == null) {
+              callSequence = "mcp_error_response";
+              responseStatus = "404";
+              callVariables = { status: "404", code: "-32601", message: "Unknown tool", dataJson: JSON.stringify({ name: toolNameRaw, sequence: targetSequence }), requestIdJson: requestIdJson };
+            } else {
+              callSequence = targetSequence;
+              responseStatus = "200";
+              callVariables = toolArgs || {};
+            }
+          }
         } else if (methodName === "logging/setLevel") {
-          callSequence = "McpLoggingSetLevel";
+          callSequence = "mcp_logging_set_level";
           responseStatus = "200";
           callVariables = { requestIdJson: requestIdJson, paramsJson: paramsJson };
         } else {
-          callSequence = "McpErrorResponse";
+          callSequence = "mcp_error_response";
           responseStatus = "404";
           callVariables = { status: "404", code: "-32601", message: "Method not implemented", dataJson: JSON.stringify({ method: methodName }), requestIdJson: requestIdJson };
         }'
@@ -161,7 +213,7 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
         _variables = JSON.stringify(callVariables);
         
     ↓Call_InternalCall [steps.SequenceStep-1761755111966]: 
-      sourceSequence: ConvertigoMCP.InternalCall
+      sourceSequence: ConvertigoMCP.internal_call
       ↓_sequence [variables.StepVariable-1761755111968]: 
       ↓_variables [variables.StepVariable-1761755111970]: 
     ↓ErrorJsonrpc [steps.JsonFieldStep-1761755202001]: 
@@ -179,19 +231,53 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
             - →→: JSON_RPC_VERSION
     ↓jIf [steps.IfStep-1762185359341]: 
       condition: requestIdJson != null
-      ↓ErrorId [steps.JsonFieldStep-1761755202003]: 
-        key: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: PLAIN
-              - →→: id
-        value: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: JS
-              - →→: requestIdJson
+      ↓IdNumberCond [steps.IfStep-1762275161155]: 
+        condition: requestIdType === "number"
+        ↓IdNumber [steps.JsonFieldStep-1762275161157]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: id
+          type: number
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: requestIdValue
+      ↓IdNullCond [steps.IfStep-1762275161159]: 
+        condition: requestIdType === "null"
+        ↓IdNull [steps.JsonFieldStep-1762275161161]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: id
+          type: nul
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: null
+      ↓IdStringCond [steps.IfStep-1762275161163]: 
+        condition: requestIdType === "string"
+        ↓IdString [steps.JsonFieldStep-1762275161165]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: id
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: requestIdValue
     ↓IfError [steps.IfExistStep-1761755111974]: 
       condition: IfError
       sourceDefinition: 
