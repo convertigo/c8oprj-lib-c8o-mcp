@@ -1,93 +1,26 @@
 comment: Updates properties of a database object using QName and key/value pairs.
+↓IncludeHelpers [steps.SimpleStep-1762351387306]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
 ↓Init [steps.SimpleStep-1762268328547]: 
   comment: Apply property updates
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
-    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
-    var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
-    
-    if (!qname || String(qname).trim().length === 0) { throw new Error("qname is required"); }
-    qname = String(qname);
-    var dbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(qname);
-    if (dbo == null) { throw new Error("Database object not found: " + qname); }
+    'var dbo = C8O.dbo.resolve(qname, { messagePrefix: "qname" });
     var projectRef = dbo.getProject ? dbo.getProject() : null;
-    
-    var updates = JSON.parse(properties);
-    
-    var commitFlag = true;
-    if (commit !== undefined && commit !== null) {
-      var flagText = String(commit).trim().toLowerCase();
-      commitFlag = !(flagText === "false" || flagText === "0" || flagText === "no");
-    }
-    
-    var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
-    var descriptors = beanInfo.getPropertyDescriptors();
-    var descriptorMap = {};
-    for (var i = 0; i < descriptors.length; i++) {
-      descriptorMap[descriptors[i].getName()] = descriptors[i];
-    }
-    
-    function toPreview(value) {
-      if (value === null || value === undefined) { return ""; }
-      if (typeof value === "string") { return value; }
-      if (typeof value === "object") { try { return JSON.stringify(value); } catch (ignore) { return String(value); } }
-      return String(value);
-    }
     
     var appliedEntries = [];
     var skippedEntries = [];
     var errorEntries = [];
     
-    var propertyNames = Object.keys(updates);
-    for (var p = 0; p < propertyNames.length; p++) {
-      var name = propertyNames[p];
-      var pd = descriptorMap[name];
-      if (!pd) {
-        skippedEntries.push({ name: name, reason: "Unknown property" });
-        continue;
-      }
-      var setter = pd.getWriteMethod();
-      if (setter == null) {
-        skippedEntries.push({ name: name, reason: "Read-only property" });
-        continue;
-      }
-      var getter = pd.getReadMethod();
-      var previousValue = null;
-      if (getter != null) {
-        try { previousValue = getter.invoke(dbo, null); } catch (ignore) {}
-      }
-      var rawValue = updates[name];
-      var preparedValue = rawValue;
-      if (rawValue !== null && rawValue !== undefined && typeof rawValue === "object") {
-        preparedValue = JSON.stringify(rawValue);
-      }
-      var propertyType = pd.getPropertyType();
-      var compiledValue = null;
-      var applyNull = (rawValue === null || rawValue === undefined);
-      try {
-        if (!applyNull) {
-          compiledValue = dbo.compileProperty(propertyType, name, preparedValue);
-        }
-        if (applyNull && propertyType.isPrimitive()) {
-          skippedEntries.push({ name: name, reason: "Cannot assign null to primitive" });
-          continue;
-        }
-        var invokeArgs = applyNull ? [null] : [compiledValue];
-        setter.invoke(dbo, invokeArgs);
-        if (java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE))) {
-          try {
-            var setNull = dbo.getClass().getMethod("setNullProperty", [java.lang.String.class, java.lang.Boolean.class]);
-            setNull.invoke(dbo, [name, java.lang.Boolean.valueOf(applyNull)]);
-          } catch (ignore) {}
-        }
-        appliedEntries.push({
-          name: name,
-          previousValue: toPreview(previousValue),
-          newValue: toPreview(rawValue)
-        });
-      } catch (e) {
-        errorEntries.push({ name: name, message: String(e) });
+    var updates = C8O.dbo.parsePropertyUpdates(properties, errorEntries);
+    var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    
+    if (updates && Object.keys(updates).length > 0) {
+      var applyResult = C8O.dbo.applyPropertyUpdates(dbo, updates);
+      appliedEntries = applyResult.applied;
+      skippedEntries = applyResult.skipped;
+      if (applyResult.errors.length) {
+        Array.prototype.push.apply(errorEntries, applyResult.errors);
       }
     }
     
@@ -95,21 +28,15 @@ comment: Updates properties of a database object using QName and key/value pairs
     if (appliedEntries.length > 0) {
       dbo.hasChanged = true;
       if (projectRef != null) { projectRef.hasChanged = true; }
-      if (commitFlag) {
-        try {
-          Engine.theApp.databaseObjectsManager.exportProject(projectRef);
-          exportedFlag = true;
-        } catch (exportError) {
-          errorEntries.push({ name: "__export__", message: String(exportError) });
-        }
-      }
+      var exportResult = C8O.dbo.exportProjectIfNeeded(projectRef, commitFlag, errorEntries);
+      exportedFlag = exportResult.exported;
     }
     
     var summaryInfo = {
       updated: appliedEntries.length,
       skipped: skippedEntries.length,
       errors: errorEntries.length,
-      keys: propertyNames.join(",")
+      keys: Object.keys(updates || {}).join(",")
     };
     
     updatedEntries = appliedEntries;
@@ -117,7 +44,8 @@ comment: Updates properties of a database object using QName and key/value pairs
     errorEntriesOut = errorEntries;
     targetClassName = dbo.getClass().getName();
     exported = exportedFlag;
-    summaryData = summaryInfo;'
+    summaryData = summaryInfo;
+    '
 ↓Result [steps.JsonObjectStep-1762268328549]: 
   key: 
     - xmlizable: 

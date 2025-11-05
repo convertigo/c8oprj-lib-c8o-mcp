@@ -1,4 +1,7 @@
 comment: Returns metadata and property values for a database object identified by its QName.
+↓IncludeHelpers [steps.SimpleStep-1762400001003]: 
+  comment: Load shared helpers
+  expression: include("js/databaseobject.js");
 ↓Init [steps.SimpleStep-1762266930543]: 
   comment: Collect bean information and properties list
   expression: |
@@ -7,68 +10,146 @@ comment: Returns metadata and property values for a database object identified b
     var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
     var ITagsProperty = Packages.com.twinsoft.convertigo.beans.core.ITagsProperty;
     var EnumUtils = Packages.com.twinsoft.convertigo.engine.util.EnumUtils;
+    var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
     
-    if (!qname || String(qname).trim().length === 0) { throw new Error("qname is required"); }
+    var includeRawXml = false;
+    
+    if (!qname || String(qname).trim().length === 0) {
+      throw new Error("qname is required");
+    }
     qname = String(qname);
     var dbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(qname);
-    if (dbo == null) { throw new Error("Database object not found: " + qname); }
+    if (dbo == null) {
+      throw new Error("Database object not found: " + qname);
+    }
+    
+    var filterText = properties ? String(properties).trim() : "";
+    var includeMap = null;
+    if (filterText.length) {
+      includeMap = {};
+      try {
+        var parsedFilter = JSON.parse(filterText);
+        if (Array.isArray(parsedFilter)) {
+          for (var fi = 0; fi < parsedFilter.length; fi++) {
+            var key = String(parsedFilter[fi]).trim();
+            if (key.length) {
+              includeMap[key.toLowerCase()] = true;
+            }
+          }
+        } else if (typeof parsedFilter === "string") {
+          var key = parsedFilter.trim();
+          if (key.length) {
+            includeMap[key.toLowerCase()] = true;
+          }
+        }
+      } catch (_ignoreFilter) {
+        var parts = filterText.split('','');
+        for (var pi = 0; pi < parts.length; pi++) {
+          var key = parts[pi].trim();
+          if (key.length) {
+            includeMap[key.toLowerCase()] = true;
+          }
+        }
+      }
+      if (Object.keys(includeMap).length === 0) {
+        includeMap = null;
+      }
+    }
     
     var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
     var descriptors = beanInfo.getPropertyDescriptors();
-    var properties = [];
-    var categories = [];
     
-    function pushCategory(category) {
-      if (categories.indexOf(category) === -1) {
-        categories.push(category);
-      }
-    }
+    var properties = [];
+    
+    var pushCategory = function () {};
     
     for (var i = 0; i < descriptors.length; i++) {
       var pd = descriptors[i];
       var getter = pd.getReadMethod();
-      if (getter == null) { continue; }
+      if (getter == null) {
+        continue;
+      }
       var name = pd.getName();
-      if (name === "class") { continue; }
+      if (name === "class") {
+        continue;
+      }
+    
+      if (includeMap && !includeMap[name.toLowerCase()]) {
+        continue;
+      }
+    
+      var setter = pd.getWriteMethod();
+      var readOnly = setter == null;
+      if (readOnly && includeMap == null) {
+        continue;
+      }
+    
       var entry = {};
       entry.name = name;
-      entry.displayName = pd.getDisplayName() != null ? String(pd.getDisplayName()) : name;
+      entry.title = pd.getDisplayName() != null ? String(pd.getDisplayName()) : name;
       entry.description = pd.getShortDescription() != null ? String(pd.getShortDescription()) : "";
-      entry.hidden = Boolean(pd.isHidden());
-      entry.expert = Boolean(pd.isExpert());
-      var category = pd.getValue(MySimpleBeanInfo.CATEGORY);
-      if (category == null || String(category).trim().length === 0) {
-        category = pd.isExpert() ? "Expert" : "Base properties";
-      } else {
-        category = String(category);
+    
+      var propertyType = pd.getPropertyType();
+      entry.type = propertyType != null ? String(propertyType.getName()) : "";
+    
+      var value = null;
+      try {
+        value = getter.invoke(dbo, null);
+      } catch (_ignoreValue) {
+        value = null;
       }
-      entry.category = category;
-      pushCategory(category);
-      entry.disabled = Boolean(java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.DISABLE)));
+      if (value instanceof NativeJavaObject) {
+        value = value.unwrap();
+      }
+    
+      entry.expert = Boolean(pd.isExpert());
       entry.multiline = Boolean(java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.MULTILINE)));
       entry.scriptable = Boolean(java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.SCRIPTABLE)));
-      var propertyType = pd.getPropertyType();
-      entry.type = propertyType != null ? propertyType.getName() : "";
-      var value = null;
-      try { value = getter.invoke(dbo, null); } catch (e) { value = null; }
-      entry.valueClass = value != null ? value.getClass().getName() : "";
-      entry.valuePreview = value != null ? String(value) : "";
-      var sourceValue = dbo.getCompilablePropertySourceValue(name);
-      entry.sourceValue = sourceValue != null ? String(sourceValue) : "";
-      entry.ciphered = Boolean(dbo.isCipheredProperty(name));
-      entry.traceable = Boolean(dbo.isTraceableProperty(name));
-      var nillable = java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE));
-      entry.nillable = Boolean(nillable);
-      var isNullFlag = false;
-      if (nillable) {
-        try {
-          var isNullMethod = dbo.getClass().getMethod("isNullProperty", [java.lang.String.class]);
-          isNullFlag = Boolean(java.lang.Boolean.TRUE.equals(isNullMethod.invoke(dbo, [name])));
-        } catch (ignore) {}
+      entry.readOnly = readOnly;
+    
+      var friendly = C8O.dbo.normalizeValue(pd, value);
+      var valueKind = "null";
+    
+      if (friendly === null || friendly === undefined) {
+        friendly = null;
+        valueKind = "null";
+      } else if (typeof friendly === "string") {
+        valueKind = "string";
+      } else if (typeof friendly === "number") {
+        friendly = Number(friendly);
+        valueKind = "number";
+      } else if (typeof friendly === "boolean") {
+        valueKind = "boolean";
+      } else if (Array.isArray(friendly)) {
+        friendly = JSON.parse(JSON.stringify(friendly));
+        valueKind = "array";
+      } else if (typeof friendly === "object") {
+        if (friendly && friendly.mode !== undefined) {
+          valueKind = "smartType";
+        } else {
+          valueKind = "object";
+        }
+        friendly = JSON.parse(JSON.stringify(friendly));
+      } else {
+        friendly = String(friendly);
+        valueKind = "string";
       }
-      entry.isNull = isNullFlag;
-      var editorClass = pd.getPropertyEditorClass();
-      entry.editorClass = editorClass != null ? editorClass.getName() : "";
+    
+      entry.value = friendly;
+      entry.valueKind = valueKind;
+    
+      if (includeRawXml) {
+        try {
+          entry.valueXml = C8O.xml.serialize(value);
+        } catch (serializeError) {
+          entry.valueXml = null;
+          entry.valueXmlError = String(serializeError);
+        }
+      } else {
+        entry.valueXml = null;
+        entry.valueXmlError = null;
+      }
+    
       var possibleValues = [];
       if (dbo instanceof ITagsProperty) {
         try {
@@ -78,27 +159,41 @@ comment: Returns metadata and property values for a database object identified b
               possibleValues.push(String(tags[t]));
             }
           }
-        } catch (ignore) {}
-      } else if (editorClass != null) {
+        } catch (_ignoreTags) {}
+      } else {
         try {
-          var names = EnumUtils.toNames(editorClass);
-          if (names != null) {
-            for (var n = 0; n < names.length; n++) {
-              possibleValues.push(String(names[n]));
+          var editorClass = pd.getPropertyEditorClass();
+          if (editorClass != null) {
+            var names = EnumUtils.toNames(editorClass);
+            if (names != null) {
+              for (var n = 0; n < names.length; n++) {
+                possibleValues.push(String(names[n]));
+              }
             }
           }
-        } catch (ignore) {}
+        } catch (_ignoreEnum) {}
       }
-      entry.possibleValues = possibleValues;
+      entry.options = possibleValues.length ? JSON.parse(JSON.stringify(possibleValues)) : null;
+    
+      var nillable = java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE));
+      entry.nillable = Boolean(nillable);
+      entry.isNull = false;
+      if (nillable) {
+        try {
+          var isNullMethod = dbo.getClass().getMethod("isNullProperty", [java.lang.String.class]);
+          entry.isNull = Boolean(java.lang.Boolean.TRUE.equals(isNullMethod.invoke(dbo, [name])));
+        } catch (_ignoreNull) {}
+      }
+    
       properties.push(entry);
     }
     
-    var propertiesList = properties;
-    var propertiesCount = properties.length;
-    var categoriesList = categories;
-    var targetClassName = dbo.getClass().getName();
     var beanDescriptor = beanInfo.getBeanDescriptor();
-    var beanDisplayName = beanDescriptor != null && beanDescriptor.getDisplayName() != null ? String(beanDescriptor.getDisplayName()) : "";'
+    propertiesList = properties;
+    propertiesCount = properties.length;
+    targetClassName = dbo.getClass().getName();
+    beanDisplayName = beanDescriptor != null && beanDescriptor.getDisplayName() != null ? String(beanDescriptor.getDisplayName()) : "";
+    '
 ↓Result [steps.JsonObjectStep-1762266930545]: 
   key: 
     - xmlizable: 
@@ -160,6 +255,7 @@ comment: Returns metadata and property values for a database object identified b
           - ↑mode: JS
           - →→: propertiesCount
   ↓Categories [steps.JsonArrayStep-1762266930555]: 
+    isEnabled: false
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -216,13 +312,13 @@ comment: Returns metadata and property values for a database object identified b
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: PLAIN
-                - →→: displayName
+                - →→: title
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item.displayName
+                - →→: item.title
         ↓DescriptionField [steps.JsonFieldStep-1762266930571]: 
           key: 
             - xmlizable: 
@@ -237,6 +333,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.description
         ↓CategoryField [steps.JsonFieldStep-1762266930573]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -263,6 +360,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.type
         ↓ValuePreviewField [steps.JsonFieldStep-1762266930577]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -276,6 +374,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.valuePreview
         ↓ValueClassField [steps.JsonFieldStep-1762266930579]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -289,6 +388,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.valueClass
         ↓SourceValueField [steps.JsonFieldStep-1762266930581]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -301,7 +401,56 @@ comment: Returns metadata and property values for a database object identified b
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.sourceValue
+        ↓ValueXmlObject [steps.JsonObjectStep-1762400000002]: 
+          isEnabled: false
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: valueXml
+          ↓ValueXmlRoot [steps.JsonFieldStep-1762400000003]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: root
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: 'item.valueXml ? item.valueXml.root : null'
+          ↓ValueXmlData [steps.JsonFieldStep-1762400000004]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: data
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: 'item.valueXml ? JSON.parse(item.valueXml.data == null ? "null" : item.valueXml.data.toString()) : null'
+        ↓ValueXmlErrorField [steps.JsonFieldStep-1762400000008]: 
+          isEnabled: false
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: valueXmlError
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item.valueXmlError ? item.valueXmlError : null'
         ↓CipheredField [steps.JsonFieldStep-1762266930583]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -316,6 +465,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.ciphered
         ↓TraceableField [steps.JsonFieldStep-1762266930585]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -330,6 +480,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.traceable
         ↓HiddenField [steps.JsonFieldStep-1762266930587]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -363,14 +514,14 @@ comment: Returns metadata and property values for a database object identified b
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: PLAIN
-                - →→: disabled
+                - →→: readOnly
           type: bool
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item.disabled
+                - →→: item.readOnly
         ↓MultilineField [steps.JsonFieldStep-1762266930593]: 
           key: 
             - xmlizable: 
@@ -428,6 +579,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.isNull
         ↓EditorClassField [steps.JsonFieldStep-1762266930601]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -441,14 +593,15 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.editorClass
         ↓PossibleValues [steps.JsonArrayStep-1762266930603]: 
+          isEnabled: false
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: PLAIN
-                - →→: possibleValues
+                - →→: options
           ↓PossibleIterator [steps.SimpleIteratorStep-1762266930605]: 
-            expression: item.possibleValues
+            expression: 'item.options ? item.options : []'
             ↓PossibleValueField [steps.JsonFieldStep-1762266930607]: 
               key: 
                 - xmlizable: 
@@ -462,6 +615,250 @@ comment: Returns metadata and property values for a database object identified b
                   - SmartType: 
                     - ↑mode: JS
                     - →→: item
+        ↓ValueKindField [steps.JsonFieldStep-1762364560613]: 
+          isEnabled: false
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: valueKind
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.valueKind
+        ↓ValueString [steps.IfStep-1762364608427]: 
+          condition: item.valueKind === "string"
+          ↓ValueFieldString [steps.JsonFieldStep-1762364622369]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.value
+        ↓ValueNumber [steps.IfStep-1762364641170]: 
+          condition: item.valueKind === "number"
+          ↓ValueFieldNumber [steps.JsonFieldStep-1762364641822]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            type: number
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.value
+        ↓ValueBoolean [steps.IfStep-1762364641288]: 
+          condition: item.valueKind === "boolean"
+          ↓ValueFieldBoolean [steps.JsonFieldStep-1762364641878]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            type: bool
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.value
+        ↓ValueNull [steps.IfStep-1762364641399]: 
+          condition: item.valueKind === "null"
+          ↓ValueFieldNull [steps.JsonFieldStep-1762364641931]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            type: nul
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: null
+        ↓ValueArray [steps.IfStep-1762364641507]: 
+          condition: item.valueKind === "array"
+          ↓ValueArrayRoot [steps.JsonArrayStep-1762364642086]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            ↓ValueArrayIterator [steps.SimpleIteratorStep-1762364642136]: 
+              expression: item.value
+              ↓ValueArrayItem [steps.JsonFieldStep-1762364642190]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: value
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item
+        ↓ValueObject [steps.IfStep-1762364641607]: 
+          condition: item.valueKind === "object"
+          ↓ValueFieldObject [steps.JsonFieldStep-1762364641985]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: 'item.value == null ? null : JSON.parse(JSON.stringify(item.value))'
+        ↓ValueSmartType [steps.IfStep-1762364641723]: 
+          condition: item.valueKind === "smartType"
+          ↓ValueFieldSmartType [steps.JsonFieldStep-1762364642035]: 
+            isEnabled: false
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: 'item.value == null ? null : JSON.parse(JSON.stringify(item.value))'
+          ↓ValueSmartTypeObject [steps.JsonObjectStep-1762364802683]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: value
+            ↓ValueSmartTypeMode [steps.JsonFieldStep-1762364810304]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: mode
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: 'item.value && item.value.mode ? String(item.value.mode) : null'
+            ↓ValueSmartTypeExpression [steps.JsonFieldStep-1762364818770]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: expression
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: 'item.value && item.value.expression !== undefined ? item.value.expression : null'
+            ↓ValueSmartTypeSourcesIf [steps.IfStep-1762364826474]: 
+              condition: '!!(item.value && item.value.sources && item.value.sources.length > 0)'
+              ↓ValueSmartTypeSources [steps.JsonArrayStep-1762364833927]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: sources
+                ↓ValueSmartTypeSourcesIterator [steps.SimpleIteratorStep-1762364840049]: 
+                  expression: item.value.sources
+                  ↓ValueSmartTypeSourceItem [steps.JsonFieldStep-1762364847302]: 
+                    key: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: PLAIN
+                          - →→: value
+                    value: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: JS
+                          - →→: item
+        ↓OptionsField [steps.JsonFieldStep-1762366561149]: 
+          isEnabled: false
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: options
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item.options && item.options.length ? item.options : null'
+        ↓OptionsIf [steps.IfStep-1762366587671]: 
+          condition: Boolean(item.options && item.options.length)
+          ↓OptionsValue [steps.JsonFieldStep-1762366595517]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: options
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.options
+          ↓OptionsArray [steps.JsonArrayStep-1762366650711]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: options
+            ↓OptionsArrayIterator [steps.SimpleIteratorStep-1762366659716]: 
+              expression: item.options
+              ↓OptionItem [steps.JsonFieldStep-1762366669699]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: value
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item
 ↓qname [variables.RequestableVariable-1762266930541]: 
   comment: Database object QName (project[.path...] format)
   required: true
+↓properties [variables.RequestableVariable-1762366292880]: 
+  cachedKey: false
+  comment: Optional property filter (JSON array or comma separated)
+  description: List of property names to include (JSON array or comma separated string)

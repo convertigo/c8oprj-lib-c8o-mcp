@@ -1,0 +1,180 @@
+comment: |
+  Project JS Get
+  Read a helper script from the project's js directory
+↓InitContext [steps.SimpleStep-1762350567241]: 
+  comment: Validate input and load file content
+  expression: |
+    'var project = context.project;
+    if (!project) { throw new Error("No project context"); }
+    var jsDir = new java.io.File(project.getDirPath(), "js");
+    var filenameText = filename == null ? "" : String(filename).trim();
+    if (!filenameText.length) { throw new Error("filename is required"); }
+    var normalized = filenameText.replace(/\\/g, "/");
+    while (normalized.indexOf("//") >= 0) { normalized = normalized.replace("//", "/"); }
+    if (normalized.startsWith("/")) { normalized = normalized.substring(1); }
+    requestedName = normalized;
+    var baseFile = jsDir.getCanonicalFile();
+    var basePath = baseFile.toPath();
+    var targetFile = new java.io.File(baseFile, normalized).getCanonicalFile();
+    var targetPath = targetFile.toPath();
+    if (!targetPath.startsWith(basePath)) { throw new Error("Invalid filename: " + normalized); }
+    directoryExists = jsDir.exists();
+    fileExists = targetFile.exists();
+    fileCanonicalPath = String(targetFile.getPath());
+    fileRelativePath = basePath.relativize(targetPath).toString();
+    resultTimestamp = java.lang.System.currentTimeMillis();
+    if (fileExists) {
+      var bytes = java.nio.file.Files.readAllBytes(targetPath);
+      fileContent = new java.lang.String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+      resultStatus = "ok";
+      resultMessage = "File loaded";
+      resultBytes = bytes.length;
+    } else {
+      fileContent = "";
+      resultStatus = directoryExists ? "missing" : "uninitialized";
+      resultMessage = directoryExists ? "File not found" : "js directory not created";
+      resultBytes = 0;
+    }'
+↓result [steps.JsonObjectStep-1762350567243]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1762350567245]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1762350567247]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓filename [steps.JsonFieldStep-1762350567249]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: filename
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: requestedName
+  ↓path [steps.JsonFieldStep-1762350567251]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: path
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: fileCanonicalPath
+  ↓relativePath [steps.JsonFieldStep-1762350567253]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: relativePath
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: fileRelativePath
+  ↓exists [steps.JsonFieldStep-1762350567255]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: exists
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: fileExists
+  ↓directoryExists [steps.JsonFieldStep-1762350567257]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: directoryExists
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: directoryExists
+  ↓bytes [steps.JsonFieldStep-1762350567259]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: bytes
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBytes
+  ↓timestamp [steps.JsonFieldStep-1762350567261]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimestamp
+  ↓content [steps.JsonFieldStep-1762350567263]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: content
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: fileContent
+↓filename [variables.RequestableVariable-1762350567265]: 
+  comment: File path relative to the project's js/ directory

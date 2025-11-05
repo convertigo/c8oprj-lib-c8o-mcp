@@ -1,42 +1,28 @@
 comment: Creates a new database object relative to an existing one.
+↓IncludeHelpers [steps.SimpleStep-1762351369353]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
 ↓InitContext [steps.SimpleStep-1762339712893]: 
   comment: Resolve parent/sibling and validate input
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
-    var StringUtils = Packages.org.apache.commons.lang3.StringUtils;
+    'var ProjectClass = Packages.com.twinsoft.convertigo.beans.core.Project;
     
-    var relatedRaw = related == null ? "" : String(related).trim();
-    var modeText = mode == null ? "inside" : String(mode).trim().toLowerCase();
-    var classNameText = className == null ? "" : String(className).trim();
-    var nameText = name == null ? "" : String(name).trim();
-    var propertiesText = properties == null ? "" : String(properties).trim();
-    var commitFlag = true;
-    if (commit !== undefined && commit !== null) {
-      var commitText = String(commit).trim().toLowerCase();
-      commitFlag = !(commitText === "false" || commitText === "0" || commitText === "no");
-    }
-    
-    if (!classNameText.length) {
-      throw new Error("className is required");
-    }
-    if (!relatedRaw.length) {
-      throw new Error("related is required");
+    var relatedDbo = C8O.dbo.resolve(related, { messagePrefix: "related" });
+    var modeText = C8O.util.toTrimmedString(mode).toLowerCase();
+    if (!modeText.length) {
+      modeText = "inside";
     }
     var allowedModes = { "inside": true, "before": true, "after": true };
     if (!allowedModes[modeText]) {
       modeText = "inside";
     }
-    
-    var relatedDbo = null;
-    try {
-      relatedDbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(relatedRaw);
-    } catch (e) {
-      throw new Error("Unable to resolve related QName: " + relatedRaw);
+    var classNameText = C8O.util.toTrimmedString(className);
+    if (!classNameText.length) {
+      throw new Error("className is required");
     }
-    if (relatedDbo == null) {
-      throw new Error("Database object not found for related QName: " + relatedRaw);
-    }
+    var nameText = C8O.util.toTrimmedString(name);
+    var propertiesText = C8O.util.toTrimmedString(properties);
+    var commitFlag = C8O.util.parseCommitFlag(commit, true);
     
     var parentDbo = null;
     var siblingDbo = null;
@@ -54,7 +40,7 @@ comment: Creates a new database object relative to an existing one.
     try {
       projectRef = parentDbo.getProject();
     } catch (ignoredProject) {}
-    if (projectRef == null && parentDbo instanceof Packages.com.twinsoft.convertigo.beans.core.Project) {
+    if (projectRef == null && parentDbo instanceof ProjectClass) {
       projectRef = parentDbo;
     }
     
@@ -84,7 +70,7 @@ comment: Creates a new database object relative to an existing one.
     }
     
     creationMode = modeText;
-    creationRelated = relatedRaw;
+    creationRelated = relatedDbo.getFullQName();
     creationClassName = classNameText;
     creationRequestedName = nameText;
     creationProperties = propertiesText;
@@ -114,9 +100,6 @@ comment: Creates a new database object relative to an existing one.
   comment: Instantiate and attach new database object
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
-    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
-    var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
     
     var parent = creationParent;
     if (parent == null) {
@@ -140,7 +123,7 @@ comment: Creates a new database object relative to an existing one.
       try {
         newDbo.setName(creationRequestedName);
       } catch (nameError) {
-        throw new Error("Unable to set name ''" + creationRequestedName + "'': " + nameError);
+        throw new Error("Unable to set name ''''" + creationRequestedName + "'''': " + nameError);
       }
     }
     
@@ -175,81 +158,13 @@ comment: Creates a new database object relative to an existing one.
     }
     
     if (creationPropertiesProvided) {
-      var updates = null;
-      try {
-        updates = JSON.parse(creationProperties);
-      } catch (parseError) {
-        creationPropertiesErrors.push({ name: "__parse__", message: String(parseError) });
-        updates = null;
-      }
-      if (updates && typeof updates === "object") {
-        var beanInfo = CachedIntrospector.getBeanInfo(newDbo.getClass());
-        var descriptors = beanInfo.getPropertyDescriptors();
-        var descriptorMap = {};
-        for (var i = 0; i < descriptors.length; i++) {
-          descriptorMap[descriptors[i].getName()] = descriptors[i];
-        }
-        var propertyNames = Object.keys(updates);
-        for (var p = 0; p < propertyNames.length; p++) {
-          var propName = propertyNames[p];
-          var descriptor = descriptorMap[propName];
-          if (!descriptor) {
-            creationPropertiesSkipped.push({ name: propName, reason: "Unknown property" });
-            continue;
-          }
-          var setter = descriptor.getWriteMethod();
-          if (setter == null) {
-            creationPropertiesSkipped.push({ name: propName, reason: "Read-only property" });
-            continue;
-          }
-          var getter = descriptor.getReadMethod();
-          var previousValue = null;
-          if (getter != null) {
-            try { previousValue = getter.invoke(newDbo, null); } catch (ignoredPrev) {}
-          }
-          var rawValue = updates[propName];
-          var preparedValue = rawValue;
-          if (rawValue !== null && rawValue !== undefined && typeof rawValue === "object") {
-            try {
-              preparedValue = JSON.stringify(rawValue);
-            } catch (stringifyError) {
-              preparedValue = String(rawValue);
-            }
-          }
-          var propertyType = descriptor.getPropertyType();
-          var applyNull = (rawValue === null || rawValue === undefined || (typeof rawValue === "string" && rawValue.length === 0));
-          try {
-            var compiledValue = null;
-            if (!applyNull) {
-              compiledValue = newDbo.compileProperty(propertyType, propName, preparedValue);
-            }
-            if (applyNull) {
-              if (propertyType.isPrimitive()) {
-                creationPropertiesSkipped.push({ name: propName, reason: "Cannot assign null to primitive" });
-                continue;
-              }
-              setter.invoke(newDbo, [null]);
-              try {
-                var setNull = newDbo.getClass().getMethod("setNullProperty", [java.lang.String.class, java.lang.Boolean.class]);
-                setNull.invoke(newDbo, [propName, java.lang.Boolean.TRUE]);
-              } catch (ignoredNull) {}
-            } else {
-              setter.invoke(newDbo, [compiledValue]);
-              if (java.lang.Boolean.TRUE.equals(descriptor.getValue(MySimpleBeanInfo.NILLABLE))) {
-                try {
-                  var clearNull = newDbo.getClass().getMethod("setNullProperty", [java.lang.String.class, java.lang.Boolean.class]);
-                  clearNull.invoke(newDbo, [propName, java.lang.Boolean.FALSE]);
-                } catch (ignoredClear) {}
-              }
-            }
-            creationPropertiesApplied.push({
-              name: propName,
-              previousValue: previousValue == null ? "" : String(previousValue),
-              newValue: rawValue
-            });
-          } catch (applyError) {
-            creationPropertiesErrors.push({ name: propName, message: String(applyError) });
-          }
+      var parsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);
+      if (parsedUpdates && Object.keys(parsedUpdates).length > 0) {
+        var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);
+        creationPropertiesApplied = applyResult.applied;
+        creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);
+        if (applyResult.errors.length) {
+          Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors);
         }
       }
     }
@@ -265,25 +180,10 @@ comment: Creates a new database object relative to an existing one.
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var exportResult = C8O.dbo.exportProjectIfNeeded(createdProject, creationCommit, creationPropertiesErrors);
+    creationExported = exportResult.exported;
+    creationExportMessage = exportResult.message || "";
     
-    var exportMessage = "";
-    var exported = false;
-    if (creationCommit) {
-      try {
-        if (createdProject != null) {
-          Engine.theApp.databaseObjectsManager.exportProject(createdProject);
-          exported = true;
-        }
-      } catch (exportError) {
-        exportMessage = String(exportError);
-        creationPropertiesErrors.push({ name: "__export__", message: exportMessage });
-      }
-    }
-    
-    creationExported = exported;
-    creationExportMessage = exportMessage;
-    '
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
   condition: createdObject != null && createdParentQName && createdParentQName.length > 0

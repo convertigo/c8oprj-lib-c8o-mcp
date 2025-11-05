@@ -1,4 +1,7 @@
 comment: Returns direct children of a database object. When qname is empty, lists all projects.
+↓IncludeHelpers [steps.SimpleStep-1762351412957]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
 ↓Sequence_JS [steps.SimpleStep-1762271829926]: 
   comment: Collect children metadata
   expression: |
@@ -15,17 +18,10 @@ comment: Returns direct children of a database object. When qname is empty, list
     if (sourceQName.length > 0) {
       GetChildren.getChildren(sourceQName, root, 1);
     } else {
-      var names = Engine.theApp.databaseObjectsManager.getAllProjectNamesList();
+      var names = manager.getAllProjectNamesList();
       for (var i = 0; i < names.size(); i++) {
         GetChildren.getChildren(names.get(i), root, 0);
       }
-    }
-    
-    function toBoolean(value) {
-      if (value === null || value === undefined) {
-        return null;
-      }
-      return String(value) === "true";
     }
     
     function mapAttributes(node) {
@@ -36,26 +32,14 @@ comment: Returns direct children of a database object. When qname is empty, list
       var shortQName = attr.qname || "";
       var resolvedQName = shortQName;
       if (shortQName.length > 0) {
-        try {
-          var dbo = manager.getDatabaseObjectByQName(shortQName);
-          if (dbo != null) {
-            resolvedQName = String(dbo.getFullQName());
-          }
-        } catch (e) {
-          resolvedQName = shortQName;
+        var resolvedDbo = C8O.dbo.resolve(shortQName, { optional: true });
+        if (resolvedDbo != null) {
+          resolvedQName = String(resolvedDbo.getFullQName());
         }
       }
-      var priority = attr.priority !== undefined ? Number(attr.priority) : 0;
+      var priority = Number(attr.priority !== undefined ? attr.priority : 0);
       if (isNaN(priority)) {
         priority = 0;
-      }
-      var enabledFlag = toBoolean(attr.isEnabled);
-      if (enabledFlag === null) {
-        enabledFlag = false;
-      }
-      var inheritedFlag = toBoolean(attr.isInherited);
-      if (inheritedFlag === null) {
-        inheritedFlag = false;
       }
       return {
         qname: resolvedQName,
@@ -64,9 +48,9 @@ comment: Returns direct children of a database object. When qname is empty, list
         comment: attr.comment || "",
         beanClass: attr.beanClass || "",
         priority: priority,
-        hasChildren: toBoolean(attr.hasChildren) === true,
-        isEnabled: enabledFlag,
-        isInherited: inheritedFlag
+        hasChildren: C8O.util.toBoolean(attr.hasChildren, false) === true,
+        isEnabled: C8O.util.toBoolean(attr.isEnabled, false) === true,
+        isInherited: C8O.util.toBoolean(attr.isInherited, false) === true
       };
     }
     
