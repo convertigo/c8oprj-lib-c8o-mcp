@@ -1,0 +1,347 @@
+accessibility: Hidden
+comment: Renames a database object and optionally refactors references.
+↓IncludeHelpers [steps.SimpleStep-1762370249176]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
+↓IncludeOperations [steps.SimpleStep-1762370255465]: 
+  comment: Load database object operations helpers
+  expression: include("js/databaseobject_ops.js");
+↓Init [steps.SimpleStep-1762370265795]: 
+  comment: Execute rename operation and gather state
+  expression: |
+    'var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    var renameResult = C8O.dbo.renameObject({ qname: qname, name: name, update: update });
+    
+    renameInfo = renameResult;
+    renameErrors = Array.isArray(renameResult.errors) ? renameResult.errors : [];
+    renameCommit = commitFlag;
+    renameProject = renameResult.project || null;
+    renameExported = false;
+    renameExportMessage = "";
+    renameRenamed = Boolean(renameResult.renamed);
+    renameDone = renameRenamed;
+    renameClassName = renameResult.className || "";
+    renameQName = renameResult.qname || qname;
+    renameNewQName = renameResult.newQName || renameQName;
+    renameOldName = renameResult.oldName || "";
+    renameNewName = renameResult.newName || name || "";
+    renameParentQName = renameResult.parentQName || "";
+    renameUpdateMode = renameResult.updateMode || update || "UPDATE_NONE";
+    renameUpdatedIds = Array.isArray(renameResult.updatedIds) ? renameResult.updatedIds : [];
+    renameProjectName = renameResult.projectName || "";
+    renameShouldRefresh = renameRenamed && renameParentQName.length > 0;
+    renameSummaryRenamed = renameRenamed ? 1 : 0;
+    renameSummaryErrors = renameErrors.length;'
+↓Export [steps.SimpleStep-1762370273289]: 
+  comment: Export project if requested
+  expression: |
+    var exportResult = C8O.dbo.exportProjectIfNeeded(renameProject, renameCommit, renameErrors);
+    renameExported = exportResult.exported;
+    renameExportMessage = exportResult.message || "";
+↓IfRefreshParent [steps.IfStep-1762370280715]: 
+  comment: Refresh parent folder when renamed
+  condition: renameShouldRefresh
+  ↓PrepareRefresh [steps.SimpleStep-1762370286279]: 
+    comment: Save current qname and point to parent
+    expression: |
+      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
+      previousRefreshQNameValue = previousRefreshQNameDefined ? qname : null;
+      qname = renameParentQName;'
+  ↓RefreshParent [steps.SequenceStep-1762370291970]: 
+    comment: Invoke Studio refresh for parent
+    sourceSequence: ConvertigoMCP.internal_studio_refresh
+  ↓RestoreRefreshScope [steps.SimpleStep-1762370298194]: 
+    comment: Restore original qname after refresh
+    expression: |
+      'if (previousRefreshQNameDefined) {
+        qname = previousRefreshQNameValue;
+      } else {
+        qname = null;
+      }
+      previousRefreshQNameDefined = false;
+      previousRefreshQNameValue = null;'
+↓Result [steps.JsonObjectStep-1762370308150]: 
+  comment: Build response payload
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓FieldQName [steps.JsonFieldStep-1762370319367]: 
+    comment: Original object QName
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: qname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameQName
+  ↓FieldNewQName [steps.JsonFieldStep-1762370319429]: 
+    comment: New QName after rename
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: newQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameNewQName
+  ↓FieldOldName [steps.JsonFieldStep-1762370319477]: 
+    comment: Previous name
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: oldName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameOldName
+  ↓FieldNewName [steps.JsonFieldStep-1762370319531]: 
+    comment: Current name
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: newName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameNewName
+  ↓FieldClassName [steps.JsonFieldStep-1762370319580]: 
+    comment: Java class
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: className
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameClassName
+  ↓FieldParent [steps.JsonFieldStep-1762370319625]: 
+    comment: Parent QName
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: parentQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameParentQName
+  ↓FieldUpdateMode [steps.JsonFieldStep-1762370319675]: 
+    comment: Reference update mode
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: updateMode
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameUpdateMode
+  ↓FieldProject [steps.JsonFieldStep-1762370319725]: 
+    comment: Project name
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameProjectName
+  ↓FieldRenamed [steps.JsonFieldStep-1762370319778]: 
+    comment: Rename succeeded
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: renamed
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameRenamed
+  ↓FieldExported [steps.JsonFieldStep-1762370320001]: 
+    comment: Project exported
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: exported
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameExported
+  ↓FieldExportMessage [steps.JsonFieldStep-1762370320156]: 
+    comment: Export message
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: exportMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameExportMessage
+  ↓Summary [steps.JsonObjectStep-1762370327691]: 
+    comment: Summary information
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: summary
+    ↓SummaryRenamed [steps.JsonFieldStep-1762370336196]: 
+      comment: Number of renamed objects
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: renamed
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: renameSummaryRenamed
+    ↓SummaryErrors [steps.JsonFieldStep-1762370336254]: 
+      comment: Number of errors
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: errors
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: renameSummaryErrors
+  ↓UpdatedIds [steps.JsonArrayStep-1762370341700]: 
+    comment: Reference updates performed
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: updatedIds
+    ↓UpdatedIdsIterator [steps.SimpleIteratorStep-1762370352351]: 
+      comment: Iterate updated references
+      expression: renameUpdatedIds
+      ↓UpdatedIdField [steps.JsonFieldStep-1762370360942]: 
+        comment: Updated reference id
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: id
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: 'item != null ? String(item) : ""'
+  ↓Errors [steps.JsonArrayStep-1762370368313]: 
+    comment: Errors encountered
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errors
+    ↓ErrorsIterator [steps.SimpleIteratorStep-1762370386406]: 
+      comment: Iterate errors
+      expression: renameErrors
+      ↓ErrorEntry [steps.JsonObjectStep-1762370391571]: 
+        comment: Error entry
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        ↓ErrorName [steps.JsonFieldStep-1762370397602]: 
+          comment: Error name
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.name ? String(item.name) : ""'
+        ↓ErrorMessage [steps.JsonFieldStep-1762370403444]: 
+          comment: Error message
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: message
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.message ? String(item.message) : ""'
+↓qname [variables.RequestableVariable-1762372541309]: 
+  comment: Database object QName to rename (project[.path] format)
+  required: true
+↓name [variables.RequestableVariable-1762419992935]: 
+  comment: New name to assign
+  required: true
+↓update [variables.RequestableVariable-1762420001177]: 
+  comment: 'Reference update mode: update_none (default), update_local, update_all'
+  value: update_none
+↓commit [variables.RequestableVariable-1762420007663]: 
+  comment: 'Optional: set to false to defer project export'

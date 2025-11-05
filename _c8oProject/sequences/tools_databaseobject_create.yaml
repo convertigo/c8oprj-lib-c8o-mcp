@@ -70,7 +70,7 @@ comment: Creates a new database object relative to an existing one.
     }
     
     creationMode = modeText;
-    creationRelated = relatedDbo.getFullQName();
+    creationRelated = String(relatedDbo.getFullQName());
     creationClassName = classNameText;
     creationRequestedName = nameText;
     creationProperties = propertiesText;
@@ -81,13 +81,13 @@ comment: Creates a new database object relative to an existing one.
     creationAfter = afterValue;
     creationAfterNumber = afterValue != null ? afterValue.longValue() : null;
     creationProject = projectRef;
-    creationProjectName = projectRef != null ? projectRef.getName() : "";
-    creationSiblingQName = siblingDbo != null ? siblingDbo.getFullQName() : "";
+    creationProjectName = projectRef != null ? String(projectRef.getName()) : "";
+    creationSiblingQName = siblingDbo != null ? String(siblingDbo.getFullQName()) : "";
     creationTimestamp = java.lang.System.currentTimeMillis();
     
     createdObject = null;
     createdQName = "";
-    createdParentQName = parentDbo.getQName();
+    createdParentQName = String(parentDbo.getQName());
     createdName = "";
     createdClassName = "";
     creationExported = false;
@@ -171,10 +171,10 @@ comment: Creates a new database object relative to an existing one.
     
     newDbo.hasChanged = true;
     createdObject = newDbo;
-    createdQName = newDbo.getFullQName();
-    createdName = newDbo.getName();
+    createdQName = String(newDbo.getFullQName());
+    createdName = String(newDbo.getName());
     createdClassName = newDbo.getClass().getName();
-    createdParentQName = parent.getQName();
+    createdParentQName = String(parent.getQName());
     createdProject = projectRef;
     '
 ↓Finalize [steps.SimpleStep-1762339712897]: 

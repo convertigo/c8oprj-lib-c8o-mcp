@@ -1,0 +1,237 @@
+accessibility: Hidden
+comment: Removes a database object from the project tree.
+↓IncludeHelpers [steps.SimpleStep-1762369220416]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
+↓IncludeOperations [steps.SimpleStep-1762369227948]: 
+  comment: Load database object operations helpers
+  expression: include("js/databaseobject_ops.js");
+↓Init [steps.SimpleStep-1762369237566]: 
+  comment: Resolve target and execute removal
+  expression: |
+    'var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    var removal = C8O.dbo.removeObject({ qname: qname });
+    
+    deleteInfo = removal;
+    deleteErrors = Array.isArray(removal.errors) ? removal.errors : [];
+    deleteCommit = commitFlag;
+    deleteProject = removal.project || null;
+    deleteExported = false;
+    deleteExportMessage = "";
+    deleteSuccess = Boolean(removal.removed);
+    deleteParentQName = removal.parentQName || "";
+    deleteClassName = removal.className || "";
+    deleteProjectName = removal.projectName || "";
+    deleteSummaryRemoved = deleteSuccess ? 1 : 0;
+    deleteSummaryErrors = deleteErrors.length;
+    deleteShouldRefresh = deleteSuccess && deleteParentQName.length > 0;'
+↓Export [steps.SimpleStep-1762369246170]: 
+  comment: Export project when requested
+  expression: |
+    var exportResult = C8O.dbo.exportProjectIfNeeded(deleteProject, deleteCommit, deleteErrors);
+    deleteExported = exportResult.exported;
+    deleteExportMessage = exportResult.message || "";
+↓IfStudioRefresh [steps.IfStep-1762369254814]: 
+  comment: Refresh Studio tree if parent needs update
+  condition: deleteShouldRefresh
+  ↓PrepareRefreshCall [steps.SimpleStep-1762369264083]: 
+    comment: Preserve qname scope and target parent
+    expression: |
+      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
+      previousRefreshQNameValue = previousRefreshQNameDefined ? qname : null;
+      qname = deleteParentQName;'
+  ↓CallInternalStudioRefresh [steps.SequenceStep-1762369274549]: 
+    comment: Trigger Studio refresh on deleted parent node
+    sourceSequence: ConvertigoMCP.internal_studio_refresh
+  ↓RestoreRefreshScope [steps.SimpleStep-1762369291229]: 
+    comment: Restore original qname value
+    expression: |
+      'if (previousRefreshQNameDefined) {
+        qname = previousRefreshQNameValue;
+      } else {
+        qname = null;
+      }
+      previousRefreshQNameDefined = false;
+      previousRefreshQNameValue = null;'
+↓Result [steps.JsonObjectStep-1762369337024]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓QName [steps.JsonFieldStep-1762369346225]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: qname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'deleteInfo ? deleteInfo.qname : qname'
+  ↓ClassName [steps.JsonFieldStep-1762369356802]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: className
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteClassName
+  ↓ParentQName [steps.JsonFieldStep-1762369369561]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: parentQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteParentQName
+  ↓ProjectName [steps.JsonFieldStep-1762369380800]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteProjectName
+  ↓Removed [steps.JsonFieldStep-1762369391988]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: removed
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteSuccess
+  ↓Exported [steps.JsonFieldStep-1762369400440]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: exported
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteExported
+  ↓ExportMessage [steps.JsonFieldStep-1762369410179]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: exportMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteExportMessage
+  ↓Summary [steps.JsonObjectStep-1762369419967]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: summary
+    ↓SummaryRemoved [steps.JsonFieldStep-1762369430716]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: removed
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: deleteSummaryRemoved
+    ↓SummaryErrors [steps.JsonFieldStep-1762369440630]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: errors
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: deleteSummaryErrors
+  ↓Errors [steps.JsonArrayStep-1762369450054]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errors
+    ↓ErrorsIterator [steps.SimpleIteratorStep-1762369459702]: 
+      expression: deleteErrors
+      ↓ErrorEntry [steps.JsonObjectStep-1762369469001]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        ↓ErrorName [steps.JsonFieldStep-1762369480721]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.name ? String(item.name) : ""'
+        ↓ErrorMessage [steps.JsonFieldStep-1762369490103]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: message
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.message ? String(item.message) : ""'
+↓qname [variables.RequestableVariable-1762372536796]: 
+  comment: Database object QName to delete (project[.path] format)
+  required: true
+↓commit [variables.RequestableVariable-1762419976851]: 
+  comment: 'Optional: set to false to defer project export'

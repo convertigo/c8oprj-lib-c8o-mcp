@@ -20,8 +20,11 @@
   ↓tools_admin_list_projects [sequences.GenericSequence]: 🗏 sequences/tools_admin_list_projects.yaml
   ↓tools_databaseobject_children [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_children.yaml
   ↓tools_databaseobject_create [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_create.yaml
+  ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml
+  ↓tools_databaseobject_move [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_move.yaml
   ↓tools_databaseobject_properties_get [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_properties_get.yaml
   ↓tools_databaseobject_properties_set [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_properties_set.yaml
+  ↓tools_databaseobject_rename [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_rename.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml

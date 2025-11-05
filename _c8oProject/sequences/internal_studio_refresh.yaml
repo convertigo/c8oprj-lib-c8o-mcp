@@ -50,7 +50,7 @@ comment: Refreshes the Eclipse Project Explorer for a target database object
           resultMessage = "Database object not found: " + requestedQName;
         }
       } else {
-        resultTargetQName = refreshTarget.getQName();
+        resultTargetQName = String(refreshTarget.getQName());
         pluginInstance = ConvertigoPlugin.getDefault();
         if (pluginInstance == null) {
           resultStatus = "skipped";
@@ -68,7 +68,7 @@ comment: Refreshes the Eclipse Project Explorer for a target database object
               resultStatus = "refreshed";
               resultMessage = "Project Explorer refreshed";
               resultRefreshed = true;
-              resultRefreshedQName = refreshTarget.getQName();
+              resultRefreshedQName = String(refreshTarget.getQName());
               refreshExecuted = true;
             } catch (uiError) {
               resultStatus = "error";

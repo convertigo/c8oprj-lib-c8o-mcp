@@ -46,7 +46,7 @@ comment: Lists palette categories and database object templates allowed under a 
       }
     }
     
-    var parentQNameValue = parentDbo != null ? parentDbo.getQName() : "";
+    var parentQNameValue = parentDbo != null ? String(parentDbo.getQName()) : "";
     var parentClassNameValue = parentDbo != null ? parentDbo.getClass().getName() : "";
     
     paletteCategories = [];

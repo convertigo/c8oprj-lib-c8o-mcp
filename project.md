@@ -494,6 +494,66 @@ Reference QName (acts as parent, or sibling for before/after)
 
 </p></blockquote></details>
 
+<details><summary><b>tools_databaseobject_delete</b> : Removes a database object from the project tree</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_delete
+
+Removes a database object from the project tree.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
+</td>
+<td>
+Database object QName (project[.path...] format)
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_databaseobject_move</b> : Moves or reorders a database object within the project tree</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_move
+
+Moves or reorders a database object within the project tree.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
+</td>
+<td>
+Database object QName (project[.path...] format)
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>tools_databaseobject_properties_get</b> : Returns metadata and property values for a database object identified by its QName</summary><blockquote><p>
 
 
@@ -511,6 +571,14 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;properties
+</td>
+<td>
+Optional property filter (JSON array or comma separated)
+</td>
 </tr>
 <tr>
 <td>
@@ -570,6 +638,36 @@ Database object QName (project[.path...] format)
 
 </p></blockquote></details>
 
+<details><summary><b>tools_databaseobject_rename</b> : Renames a database object and optionally refactors references</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_rename
+
+Renames a database object and optionally refactors references.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
+</td>
+<td>
+Database object QName (project[.path...] format)
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>tools_palette_list</b> : Lists palette categories and database object templates allowed under a parent</summary><blockquote><p>
 
 
@@ -602,6 +700,76 @@ Set to true to include dynamic (Angular/ION) components
 </td>
 <td>
 Parent QName (optionally suffixed with :FolderType)
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_js_get</b> : Project JS Get</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_js_get
+
+Project JS Get
+Read a helper script from the project's js directory
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filename
+</td>
+<td>
+File path relative to the project's js/ directory
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_js_set</b> : Project JS Set</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_js_set
+
+Project JS Set
+Write or replace a helper script in the project's js directory
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;content
+</td>
+<td>
+JavaScript source to store in the file
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filename
+</td>
+<td>
+File path relative to the project's js/ directory
 </td>
 </tr>
 </table>
