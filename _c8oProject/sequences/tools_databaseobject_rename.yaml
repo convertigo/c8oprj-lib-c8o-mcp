@@ -1,4 +1,4 @@
-accessibility: Hidden
+accessibility: Private
 comment: Renames a database object and optionally refactors references.
 ↓IncludeHelpers [steps.SimpleStep-1762370249176]: 
   comment: Load shared database helpers

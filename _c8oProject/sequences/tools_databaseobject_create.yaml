@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Creates a new database object relative to an existing one.
 ↓IncludeHelpers [steps.SimpleStep-1762351369353]: 
   comment: Load shared database helpers

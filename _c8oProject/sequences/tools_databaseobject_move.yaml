@@ -1,4 +1,4 @@
-accessibility: Hidden
+accessibility: Private
 comment: Moves or reorders a database object within the project tree.
 ↓IncludeHelpers [steps.SimpleStep-1762369896957]: 
   comment: Load shared database helpers

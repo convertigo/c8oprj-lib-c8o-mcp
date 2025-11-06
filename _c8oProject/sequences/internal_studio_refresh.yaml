@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Refreshes the Eclipse Project Explorer for a target database object
 ↓InitContext [steps.SimpleStep-1762342576346]: 
   comment: Prepare refresh context

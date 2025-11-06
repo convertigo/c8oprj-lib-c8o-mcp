@@ -1,4 +1,4 @@
-accessibility: Hidden
+accessibility: Private
 comment: Lists installed Convertigo projects with metadata for MCP admin tooling.
 ↓Init [steps.SimpleStep-1761646433174]: 
   comment: Collect project metadata for JSON output

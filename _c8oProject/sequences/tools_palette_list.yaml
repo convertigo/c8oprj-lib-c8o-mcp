@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Lists palette categories and database object templates allowed under a parent.
 ↓InitContext [steps.SimpleStep-1762338110018]: 
   comment: Prepare helpers and resolve parent

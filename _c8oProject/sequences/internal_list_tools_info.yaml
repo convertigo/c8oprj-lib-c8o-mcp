@@ -1,4 +1,4 @@
-accessibility: Hidden
+accessibility: Private
 ↓Init [steps.SimpleStep-1761747208206]: 
   expression: |
     'function splitComment(text) {

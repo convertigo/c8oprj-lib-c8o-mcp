@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Handles MCP logging/setLevel requests
 ↓setLevel [steps.LogStep-1762186600934]: 
   expression: '"McpLoggingSetLevel: " + paramsJson'

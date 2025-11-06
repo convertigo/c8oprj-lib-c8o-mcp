@@ -1,4 +1,4 @@
-accessibility: Hidden
+accessibility: Private
 comment: Removes a database object from the project tree.
 ↓IncludeHelpers [steps.SimpleStep-1762369220416]: 
   comment: Load shared database helpers

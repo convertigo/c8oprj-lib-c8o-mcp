@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Returns metadata and property values for a database object identified by its QName.
 ↓IncludeHelpers [steps.SimpleStep-1762400001003]: 
   comment: Load shared helpers

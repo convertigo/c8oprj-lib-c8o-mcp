@@ -1,3 +1,4 @@
+accessibility: Private
 comment: compute jsonschema of a sequence
 ↓Init [steps.SimpleStep-1761913099503]: 
   comment: Load schema metadata for request/response payloads
