@@ -17,9 +17,9 @@ C8O.util.toTrimmedString = function (value) {
 };
 
 /**
- * Parses commit-style flags ("false", "0", "no") into booleans.
+ * Parses auto-save flags ("false", "0", "no") into booleans.
  */
-C8O.util.parseCommitFlag = function (value, defaultValue) {
+C8O.util.parseAutoSaveFlag = function (value, defaultValue) {
   if (value === undefined || value === null) {
     return defaultValue === undefined ? true : !!defaultValue;
   }
@@ -31,6 +31,13 @@ C8O.util.parseCommitFlag = function (value, defaultValue) {
     return true;
   }
   return defaultValue === undefined ? true : !!defaultValue;
+};
+
+/**
+ * Backward-compatible alias for legacy commit flag parsing.
+ */
+C8O.util.parseCommitFlag = function (value, defaultValue) {
+  return C8O.util.parseAutoSaveFlag(value, defaultValue);
 };
 
 /**

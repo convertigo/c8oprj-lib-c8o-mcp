@@ -435,19 +435,66 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   return rawSpec;
 };
 
-C8O.dbo.exportProjectIfNeeded = function (project, commitFlag, errors) {
-  if (!commitFlag || project == null) {
-    return { exported: false, message: "" };
-  }
+C8O.dbo.saveProject = function (project, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  if (project == null) {
+    var message = "No project reference provided";
+    if (errors && errors.push) {
+      errors.push({ name: "__save__", message: message });
+    }
+    return { saved: false, message: message };
+  }
   try {
     Engine.theApp.databaseObjectsManager.exportProject(project);
-    return { exported: true, message: "" };
-  } catch (exportError) {
-    var message = String(exportError);
+    return { saved: true, message: "" };
+  } catch (saveError) {
+    var message = String(saveError);
     if (errors && errors.push) {
-      errors.push({ name: "__export__", message: message });
+      errors.push({ name: "__save__", message: message });
     }
-    return { exported: false, message: message };
+    return { saved: false, message: message };
   }
+};
+
+C8O.dbo.saveProjectIfNeeded = function (project, autoSaveFlag, errors) {
+  if (!autoSaveFlag) {
+    return { saved: false, message: "", skipped: true };
+  }
+  return C8O.dbo.saveProject(project, errors);
+};
+
+C8O.dbo.reloadProject = function (projectOrName, errors) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var name = "";
+  if (projectOrName != null) {
+    if (typeof projectOrName === 'string') {
+      name = C8O.util.toTrimmedString(projectOrName);
+    } else if (projectOrName.getName) {
+      name = String(projectOrName.getName());
+    } else if (projectOrName.getQName) {
+      name = String(projectOrName.getQName());
+    }
+  }
+  if (!name.length) {
+    var message = "Project name is required";
+    if (errors && errors.push) {
+      errors.push({ name: "__reload__", message: message });
+    }
+    return { reloaded: false, message: message };
+  }
+  try {
+    Engine.theApp.databaseObjectsManager.reloadProject(name);
+    return { reloaded: true, message: "" };
+  } catch (reloadError) {
+    var message = String(reloadError);
+    if (errors && errors.push) {
+      errors.push({ name: "__reload__", message: message });
+    }
+    return { reloaded: false, message: message };
+  }
+};
+
+C8O.dbo.exportProjectIfNeeded = function (project, commitFlag, errors) {
+  var result = C8O.dbo.saveProjectIfNeeded(project, commitFlag, errors);
+  return { exported: result.saved === true, message: result.message || "" };
 };
