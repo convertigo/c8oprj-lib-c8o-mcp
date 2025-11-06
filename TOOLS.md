@@ -21,6 +21,8 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `palette-list`                | `tools_palette_list.yaml`                   | Enumerate creatable database-object templates for a parent or root. |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
+| `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
+| `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 
 ### Shared infrastructure
 

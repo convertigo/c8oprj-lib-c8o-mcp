@@ -28,6 +28,8 @@
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml
+  ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
+  ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓ConvertigoWorkflow_reference [references.ProjectSchemaReference]: 
     projectName: ConvertigoWorkflow
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml

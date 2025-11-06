@@ -1,0 +1,181 @@
+comment: Save a Convertigo project to disk (engine export).
+↓IncludeHelpers [steps.SimpleStep-1762445150491]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
+↓Init [steps.SimpleStep-1762445170359]: 
+  comment: Resolve project and perform save
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    
+    var providedName = C8O.util.toTrimmedString(project);
+    if (!providedName.length && context && context.project) {
+      providedName = String(context.project.getName());
+    }
+    
+    var projectRef = null;
+    if (providedName.length) {
+      try {
+        projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(providedName);
+      } catch (_ignoredLookup) {}
+    }
+    if (projectRef == null && context && context.project) {
+      projectRef = context.project;
+    }
+    
+    var resolvedName = projectRef != null ? String(projectRef.getName()) : providedName;
+    var errorEntries = [];
+    var saveResult = C8O.dbo.saveProject(projectRef, errorEntries);
+    
+    projectSaveProvided = providedName;
+    projectSaveName = resolvedName;
+    projectSaveSaved = saveResult.saved === true;
+    projectSaveMessage = saveResult.message || "";
+    projectSaveTimestamp = java.lang.System.currentTimeMillis();
+    projectSaveErrors = errorEntries;
+    projectSaveStatus = projectSaveSaved ? "saved" : (projectRef == null ? "missing" : "skipped");
+    '
+↓Result [steps.JsonObjectStep-1762445207554]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓project [steps.JsonFieldStep-1762445249207]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveName
+  ↓provided [steps.JsonFieldStep-1762445267261]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: provided
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveProvided
+  ↓saved [steps.JsonFieldStep-1762445288598]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: saved
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveSaved
+  ↓found [steps.JsonFieldStep-1762445642405]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: found
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveStatus !== "missing"
+  ↓status [steps.JsonFieldStep-1762445304694]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveStatus
+  ↓message [steps.JsonFieldStep-1762445320923]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveMessage
+  ↓timestamp [steps.JsonFieldStep-1762445345107]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveTimestamp
+  ↓errors [steps.JsonArrayStep-1762445359534]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errors
+    ↓ErrorsIterator [steps.SimpleIteratorStep-1762445396257]: 
+      expression: projectSaveErrors
+      ↓ErrorEntry [steps.JsonObjectStep-1762445440871]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        ↓name [steps.JsonFieldStep-1762445521558]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.name ? String(item.name) : ""'
+        ↓message [steps.JsonFieldStep-1762445546704]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: message
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.message ? String(item.message) : ""'
+↓project [variables.RequestableVariable-1762445570911]: 
+  comment: Project technical name (optional). Defaults to current context project when omitted.

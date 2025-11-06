@@ -9,35 +9,55 @@ comment: Renames a database object and optionally refactors references.
 ↓Init [steps.SimpleStep-1762370265795]: 
   comment: Execute rename operation and gather state
   expression: |
-    'var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    'var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
+    if ((autoSaveInput === null || autoSaveInput === undefined) && typeof commit !== "undefined") {
+      autoSaveInput = commit;
+    }
+    var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
+    
     var renameResult = C8O.dbo.renameObject({ qname: qname, name: name, update: update });
+    
+    var classNameText = renameResult.className ? String(renameResult.className) : "";
+    var qnameText = renameResult.qname ? String(renameResult.qname) : String(qname);
+    var newQNameText = renameResult.newQName ? String(renameResult.newQName) : qnameText;
+    var oldNameText = renameResult.oldName ? String(renameResult.oldName) : "";
+    var newNameText = renameResult.newName ? String(renameResult.newName) : (name ? String(name) : "");
+    var parentQNameText = renameResult.parentQName ? String(renameResult.parentQName) : "";
+    var updateModeText = renameResult.updateMode ? String(renameResult.updateMode) : (update ? String(update) : "UPDATE_NONE");
+    var projectNameText = renameResult.projectName ? String(renameResult.projectName) : "";
+    var updatedIdsList = Array.isArray(renameResult.updatedIds) ? renameResult.updatedIds : [];
     
     renameInfo = renameResult;
     renameErrors = Array.isArray(renameResult.errors) ? renameResult.errors : [];
-    renameCommit = commitFlag;
+    renameAutoSave = autoSaveFlag;
     renameProject = renameResult.project || null;
-    renameExported = false;
-    renameExportMessage = "";
+    renameSaved = false;
+    renameSaveMessage = "";
+    renameAutoSaveApplied = autoSaveFlag;
     renameRenamed = Boolean(renameResult.renamed);
     renameDone = renameRenamed;
-    renameClassName = renameResult.className || "";
-    renameQName = renameResult.qname || qname;
-    renameNewQName = renameResult.newQName || renameQName;
-    renameOldName = renameResult.oldName || "";
-    renameNewName = renameResult.newName || name || "";
-    renameParentQName = renameResult.parentQName || "";
-    renameUpdateMode = renameResult.updateMode || update || "UPDATE_NONE";
-    renameUpdatedIds = Array.isArray(renameResult.updatedIds) ? renameResult.updatedIds : [];
-    renameProjectName = renameResult.projectName || "";
-    renameShouldRefresh = renameRenamed && renameParentQName.length > 0;
+    renameClassName = classNameText;
+    renameQName = qnameText;
+    renameNewQName = newQNameText;
+    renameOldName = oldNameText;
+    renameNewName = newNameText;
+    renameParentQName = parentQNameText;
+    renameUpdateMode = updateModeText;
+    renameUpdatedIds = updatedIdsList;
+    renameProjectName = projectNameText;
+    renameShouldRefresh = renameRenamed && parentQNameText.length > 0;
     renameSummaryRenamed = renameRenamed ? 1 : 0;
-    renameSummaryErrors = renameErrors.length;'
+    renameSummaryErrors = renameErrors.length;
+    '
 ↓Export [steps.SimpleStep-1762370273289]: 
   comment: Export project if requested
   expression: |
-    var exportResult = C8O.dbo.exportProjectIfNeeded(renameProject, renameCommit, renameErrors);
-    renameExported = exportResult.exported;
-    renameExportMessage = exportResult.message || "";
+    var saveResult = C8O.dbo.saveProjectIfNeeded(renameProject, renameAutoSave, renameErrors);
+    var savedFlag = saveResult.saved === true;
+    renameSaved = savedFlag;
+    renameSaveMessage = saveResult.message || "";
+    renameAutoSaveApplied = renameAutoSave;
+    
 ↓IfRefreshParent [steps.IfStep-1762370280715]: 
   comment: Refresh parent folder when renamed
   condition: renameShouldRefresh
@@ -195,35 +215,49 @@ comment: Renames a database object and optionally refactors references.
         - SmartType: 
           - ↑mode: JS
           - →→: renameRenamed
-  ↓FieldExported [steps.JsonFieldStep-1762370320001]: 
+  ↓saved [steps.JsonFieldStep-1762370320001]: 
     comment: Project exported
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exported
+          - →→: saved
     type: bool
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: renameExported
-  ↓FieldExportMessage [steps.JsonFieldStep-1762370320156]: 
+          - →→: renameSaved
+  ↓saveMessage [steps.JsonFieldStep-1762370320156]: 
     comment: Export message
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exportMessage
+          - →→: saveMessage
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: renameExportMessage
+          - →→: renameSaveMessage
+  ↓autoSave [steps.JsonFieldStep-1762444727328]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: autoSave
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: renameAutoSaveApplied
   ↓Summary [steps.JsonObjectStep-1762370327691]: 
     comment: Summary information
     key: 
@@ -247,6 +281,34 @@ comment: Renames a database object and optionally refactors references.
           - SmartType: 
             - ↑mode: JS
             - →→: renameSummaryRenamed
+    ↓saved [steps.JsonFieldStep-1762444751161]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: saved
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: renameSaved
+    ↓autoSave [steps.JsonFieldStep-1762444766487]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: autoSave
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: renameAutoSaveApplied
     ↓SummaryErrors [steps.JsonFieldStep-1762370336254]: 
       comment: Number of errors
       key: 
@@ -343,5 +405,5 @@ comment: Renames a database object and optionally refactors references.
 ↓update [variables.RequestableVariable-1762420001177]: 
   comment: 'Reference update mode: update_none (default), update_local, update_all'
   value: update_none
-↓commit [variables.RequestableVariable-1762420007663]: 
+↓autoSave [variables.RequestableVariable-1762420007663]: 
   comment: 'Optional: set to false to defer project export'

@@ -22,7 +22,12 @@ comment: Creates a new database object relative to an existing one.
     }
     var nameText = C8O.util.toTrimmedString(name);
     var propertiesText = C8O.util.toTrimmedString(properties);
-    var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    
+    var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
+    if ((autoSaveInput === null || autoSaveInput === undefined) && typeof commit !== "undefined") {
+      autoSaveInput = commit;
+    }
+    var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
     
     var parentDbo = null;
     var siblingDbo = null;
@@ -70,12 +75,12 @@ comment: Creates a new database object relative to an existing one.
     }
     
     creationMode = modeText;
-    creationRelated = String(relatedDbo.getFullQName());
+    creationRelated = String(relatedDbo.getFullQName ? relatedDbo.getFullQName() : relatedDbo.getQName());
     creationClassName = classNameText;
     creationRequestedName = nameText;
     creationProperties = propertiesText;
     creationPropertiesProvided = propertiesText.length > 0;
-    creationCommit = commitFlag;
+    creationAutoSave = autoSaveFlag;
     creationParent = parentDbo;
     creationSibling = siblingDbo;
     creationAfter = afterValue;
@@ -87,11 +92,12 @@ comment: Creates a new database object relative to an existing one.
     
     createdObject = null;
     createdQName = "";
-    createdParentQName = String(parentDbo.getQName());
+    createdParentQName = parentDbo != null ? String(parentDbo.getFullQName ? parentDbo.getFullQName() : parentDbo.getQName()) : "";
     createdName = "";
     createdClassName = "";
-    creationExported = false;
-    creationExportMessage = "";
+    creationSaved = false;
+    creationSaveMessage = "";
+    creationAutoSaveApplied = autoSaveFlag;
     creationPropertiesApplied = [];
     creationPropertiesSkipped = [];
     creationPropertiesErrors = [];
@@ -180,9 +186,11 @@ comment: Creates a new database object relative to an existing one.
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |
-    var exportResult = C8O.dbo.exportProjectIfNeeded(createdProject, creationCommit, creationPropertiesErrors);
-    creationExported = exportResult.exported;
-    creationExportMessage = exportResult.message || "";
+    var saveResult = C8O.dbo.saveProjectIfNeeded(createdProject, creationAutoSave, creationPropertiesErrors);
+    var savedFlag = saveResult.saved === true;
+    creationSaved = savedFlag;
+    creationSaveMessage = saveResult.message || "";
+    creationAutoSaveApplied = creationAutoSave;
     
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
@@ -353,33 +361,47 @@ comment: Creates a new database object relative to an existing one.
         - SmartType: 
           - ↑mode: JS
           - →→: creationAfterNumber
-  ↓exported [steps.JsonFieldStep-1762339712921]: 
+  ↓saved [steps.JsonFieldStep-1762339712921]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exported
+          - →→: saved
     type: bool
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: creationExported
-  ↓exportMessage [steps.JsonFieldStep-1762339712923]: 
+          - →→: creationSaved
+  ↓saveMessage [steps.JsonFieldStep-1762339712923]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exportMessage
+          - →→: saveMessage
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: creationExportMessage
+          - →→: creationSaveMessage
+  ↓autoSave [steps.JsonFieldStep-1762444289079]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: autoSave
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: creationAutoSaveApplied
   ↓timestamp [steps.JsonFieldStep-1762339712925]: 
     key: 
       - xmlizable: 
@@ -499,5 +521,5 @@ comment: Creates a new database object relative to an existing one.
   comment: Optional name for the new object
 ↓properties [variables.RequestableVariable-1762339712889]: 
   comment: Optional JSON object with property values
-↓commit [variables.RequestableVariable-1762339712891]: 
+↓autoSave [variables.RequestableVariable-1762339712891]: 
   comment: Set to false to skip automatic export

@@ -9,37 +9,56 @@ comment: Moves or reorders a database object within the project tree.
 ↓Init [steps.SimpleStep-1762369937820]: 
   comment: Prepare move operation and shared state
   expression: |
-    'var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    'var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
+    if ((autoSaveInput === null || autoSaveInput === undefined) && typeof commit !== "undefined") {
+      autoSaveInput = commit;
+    }
+    var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
+    
     var moveResult = C8O.dbo.moveObject({ qname: qname, target: target, position: position });
+    
+    var classNameText = moveResult.className ? String(moveResult.className) : "";
+    var qnameText = moveResult.qname ? String(moveResult.qname) : String(qname);
+    var nameText = moveResult.name ? String(moveResult.name) : "";
+    var fromParentText = moveResult.fromParent ? String(moveResult.fromParent) : "";
+    var toParentText = moveResult.toParent ? String(moveResult.toParent) : "";
+    var projectNameText = moveResult.projectName ? String(moveResult.projectName) : "";
+    var positionText = moveResult.position ? String(moveResult.position) : (position || "inside");
+    var afterValue = moveResult.after != null ? moveResult.after : null;
     
     moveInfo = moveResult;
     moveErrors = Array.isArray(moveResult.errors) ? moveResult.errors : [];
-    moveCommit = commitFlag;
+    moveAutoSave = autoSaveFlag;
     moveProject = moveResult.project || null;
-    moveExported = false;
-    moveExportMessage = "";
+    moveSaved = false;
+    moveSaveMessage = "";
+    moveAutoSaveApplied = autoSaveFlag;
     moveDone = Boolean(moveResult.done);
     moveMoved = Boolean(moveResult.moved);
     moveReordered = Boolean(moveResult.reordered);
-    moveClassName = moveResult.className || "";
-    moveQName = moveResult.qname || qname;
-    moveName = moveResult.name || "";
-    moveFromParent = moveResult.fromParent || "";
-    moveToParent = moveResult.toParent || "";
-    movePosition = moveResult.position || position || "inside";
-    moveAfter = moveResult.after != null ? moveResult.after : null;
-    moveProjectName = moveResult.projectName || "";
-    moveShouldRefreshFrom = moveDone && moveFromParent.length > 0;
-    moveShouldRefreshTo = moveDone && moveToParent.length > 0 && moveToParent !== moveFromParent;
+    moveClassName = classNameText;
+    moveQName = qnameText;
+    moveName = nameText;
+    moveFromParent = fromParentText;
+    moveToParent = toParentText;
+    movePosition = positionText;
+    moveAfter = afterValue;
+    moveProjectName = projectNameText;
+    moveShouldRefreshFrom = moveDone && fromParentText.length > 0;
+    moveShouldRefreshTo = moveDone && toParentText.length > 0 && toParentText !== fromParentText;
     moveSummaryMoved = moveMoved ? 1 : 0;
     moveSummaryReordered = moveReordered ? 1 : 0;
-    moveSummaryErrors = moveErrors.length;'
+    moveSummaryErrors = moveErrors.length;
+    '
 ↓Export [steps.SimpleStep-1762369943166]: 
   comment: Export project if requested
   expression: |
-    var exportResult = C8O.dbo.exportProjectIfNeeded(moveProject, moveCommit, moveErrors);
-    moveExported = exportResult.exported;
-    moveExportMessage = exportResult.message || "";
+    var saveResult = C8O.dbo.saveProjectIfNeeded(moveProject, moveAutoSave, moveErrors);
+    var savedFlag = saveResult.saved === true;
+    moveSaved = savedFlag;
+    moveSaveMessage = saveResult.message || "";
+    moveAutoSaveApplied = moveAutoSave;
+    
 ↓IfRefreshFrom [steps.IfStep-1762369949336]: 
   comment: Refresh original parent when move succeeded
   condition: moveShouldRefreshFrom
@@ -235,35 +254,49 @@ comment: Moves or reorders a database object within the project tree.
         - SmartType: 
           - ↑mode: JS
           - →→: moveDone
-  ↓FieldExported [steps.JsonFieldStep-1762370066280]: 
+  ↓saved [steps.JsonFieldStep-1762370066280]: 
     comment: Project exported
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exported
+          - →→: saved
     type: bool
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: moveExported
-  ↓FieldExportMessage [steps.JsonFieldStep-1762370066329]: 
+          - →→: moveSaved
+  ↓saveMessage [steps.JsonFieldStep-1762370066329]: 
     comment: Export message
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exportMessage
+          - →→: saveMessage
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: moveExportMessage
+          - →→: moveSaveMessage
+  ↓autoSave [steps.JsonFieldStep-1762444577992]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: autoSave
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: moveAutoSaveApplied
   ↓Summary [steps.JsonObjectStep-1762370072801]: 
     comment: Operation summary
     key: 
@@ -287,6 +320,34 @@ comment: Moves or reorders a database object within the project tree.
           - SmartType: 
             - ↑mode: JS
             - →→: moveSummaryMoved
+    ↓saved [steps.JsonFieldStep-1762444603283]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: saved
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: moveSaved
+    ↓autoSave [steps.JsonFieldStep-1762444617731]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: autoSave
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: moveAutoSaveApplied
     ↓SummaryReordered [steps.JsonFieldStep-1762370088569]: 
       comment: Number of reordered operations
       key: 
@@ -373,5 +434,5 @@ comment: Moves or reorders a database object within the project tree.
 ↓position [variables.RequestableVariable-1762419976855]: 
   comment: 'Insert position: inside (default), before, after'
   value: inside
-↓commit [variables.RequestableVariable-1762419981982]: 
+↓autoSave [variables.RequestableVariable-1762419981982]: 
   comment: 'Optional: set to false to defer project export'

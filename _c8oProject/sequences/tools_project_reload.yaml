@@ -1,0 +1,150 @@
+comment: Reload a Convertigo project from disk (discard unsaved runtime state).
+↓IncludeHelpers [steps.SimpleStep-1762445690829]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
+↓Init [steps.SimpleStep-1762445709653]: 
+  comment: Resolve project and perform reload
+  expression: |
+    'var providedName = C8O.util.toTrimmedString(project);
+    if (!providedName.length && context && context.project) {
+      providedName = String(context.project.getName());
+    }
+    
+    var errorEntries = [];
+    var reloadResult;
+    if (providedName.length) {
+      reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
+    } else {
+      var missingMessage = "Project name is required";
+      errorEntries.push({ name: "__reload__", message: missingMessage });
+      reloadResult = { reloaded: false, message: missingMessage };
+    }
+    
+    var reloadedFlag = reloadResult.reloaded === true;
+    var statusText = reloadedFlag ? "reloaded" : (providedName.length ? "failed" : "missing");
+    
+    projectReloadRequested = providedName;
+    projectReloadReloaded = reloadedFlag;
+    projectReloadMessage = reloadResult.message || "";
+    projectReloadTimestamp = java.lang.System.currentTimeMillis();
+    projectReloadErrors = errorEntries;
+    projectReloadStatus = statusText;
+    '
+↓Result [steps.JsonObjectStep-1762445747313]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓project [steps.JsonFieldStep-1762445780832]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadRequested
+  ↓reloaded [steps.JsonFieldStep-1762445799436]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: reloaded
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadReloaded
+  ↓status [steps.JsonFieldStep-1762445818609]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadStatus
+  ↓message [steps.JsonFieldStep-1762445833816]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadMessage
+  ↓timestamp [steps.JsonFieldStep-1762445853008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadTimestamp
+  ↓errors [steps.JsonArrayStep-1762445873293]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errors
+    ↓ErrorsIterator [steps.SimpleIteratorStep-1762445882879]: 
+      expression: projectReloadErrors
+      ↓ErrorEntry [steps.JsonObjectStep-1762445905429]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        ↓name [steps.JsonFieldStep-1762445924212]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.name ? String(item.name) : ""'
+        ↓message [steps.JsonFieldStep-1762445944026]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: message
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.message ? String(item.message) : ""'
+↓project [variables.RequestableVariable-1762445963717]: 
+  comment: Project technical name (optional). Defaults to current context project when omitted.

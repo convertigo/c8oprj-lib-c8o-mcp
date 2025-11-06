@@ -13,7 +13,7 @@ comment: Updates properties of a database object using QName and key/value pairs
     var errorEntries = [];
     
     var updates = C8O.dbo.parsePropertyUpdates(properties, errorEntries);
-    var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSave, true);
     
     if (updates && Object.keys(updates).length > 0) {
       var applyResult = C8O.dbo.applyPropertyUpdates(dbo, updates);
@@ -24,28 +24,33 @@ comment: Updates properties of a database object using QName and key/value pairs
       }
     }
     
-    var exportedFlag = false;
+    var saveResult = { saved: false, message: "" };
     if (appliedEntries.length > 0) {
       dbo.hasChanged = true;
       if (projectRef != null) { projectRef.hasChanged = true; }
-      var exportResult = C8O.dbo.exportProjectIfNeeded(projectRef, commitFlag, errorEntries);
-      exportedFlag = exportResult.exported;
+      saveResult = C8O.dbo.saveProjectIfNeeded(projectRef, autoSaveFlag, errorEntries);
     }
     
+    var savedFlag = saveResult.saved === true;
     var summaryInfo = {
       updated: appliedEntries.length,
       skipped: skippedEntries.length,
       errors: errorEntries.length,
-      keys: Object.keys(updates || {}).join(",")
+      keys: Object.keys(updates || {}).join(","),
+      autoSave: autoSaveFlag,
+      saved: savedFlag,
+      saveMessage: saveResult.message || ""
     };
     
     updatedEntries = appliedEntries;
     skippedEntriesOut = skippedEntries;
     errorEntriesOut = errorEntries;
     targetClassName = dbo.getClass().getName();
-    exported = exportedFlag;
-    summaryData = summaryInfo;
-    '
+    autoSaveApplied = autoSaveFlag;
+    saved = savedFlag;
+    saveMessage = summaryInfo.saveMessage;
+    exported = savedFlag;
+    summaryData = summaryInfo;'
 ↓Result [steps.JsonObjectStep-1762268328549]: 
   key: 
     - xmlizable: 
@@ -155,6 +160,47 @@ comment: Updates properties of a database object using QName and key/value pairs
           - SmartType: 
             - ↑mode: JS
             - →→: summaryData.keys
+    ↓AutoSave [steps.JsonFieldStep-1762442623354]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: autoSave
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryData.autoSave
+    ↓Saved [steps.JsonFieldStep-1762442647058]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: saved
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryData.saved
+    ↓SaveMessage [steps.JsonFieldStep-1762442681722]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: saveMessage
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryData.saveMessage
   ↓Updated [steps.JsonArrayStep-1762268328567]: 
     key: 
       - xmlizable: 
@@ -294,10 +340,51 @@ comment: Updates properties of a database object using QName and key/value pairs
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.message
+  ↓Saved [steps.JsonFieldStep-1762442575510]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: saved
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: saved
+  ↓SaveMessage [steps.JsonFieldStep-1762442603426]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: saveMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: saveMessage
+  ↓AutoSave [steps.JsonFieldStep-1762443803637]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: autoSave
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: autoSaveApplied
 ↓qname [variables.RequestableVariable-1762268328541]: 
   comment: Database object QName (project[.path...] format)
   required: true
 ↓properties [variables.RequestableVariable-1762268328543]: 
   comment: JSON object mapping property names to new values
-↓commit [variables.RequestableVariable-1762268328545]: 
-  comment: Set to false to skip project export
+↓autoSave [variables.RequestableVariable-1762268328545]: 
+  comment: Set to false to skip automatic save

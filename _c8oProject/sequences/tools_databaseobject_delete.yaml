@@ -9,28 +9,42 @@ comment: Removes a database object from the project tree.
 ↓Init [steps.SimpleStep-1762369237566]: 
   comment: Resolve target and execute removal
   expression: |
-    'var commitFlag = C8O.util.parseCommitFlag(commit, true);
+    'var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
+    if ((autoSaveInput === null || autoSaveInput === undefined) && typeof commit !== "undefined") {
+      autoSaveInput = commit;
+    }
+    var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
+    
     var removal = C8O.dbo.removeObject({ qname: qname });
+    
+    var parentQNameText = removal.parentQName ? String(removal.parentQName) : "";
+    var projectNameText = removal.projectName ? String(removal.projectName) : "";
+    var classNameText = removal.className ? String(removal.className) : "";
     
     deleteInfo = removal;
     deleteErrors = Array.isArray(removal.errors) ? removal.errors : [];
-    deleteCommit = commitFlag;
+    deleteAutoSave = autoSaveFlag;
     deleteProject = removal.project || null;
-    deleteExported = false;
-    deleteExportMessage = "";
+    deleteSaved = false;
+    deleteSaveMessage = "";
+    deleteAutoSaveApplied = autoSaveFlag;
     deleteSuccess = Boolean(removal.removed);
-    deleteParentQName = removal.parentQName || "";
-    deleteClassName = removal.className || "";
-    deleteProjectName = removal.projectName || "";
+    deleteParentQName = parentQNameText;
+    deleteClassName = classNameText;
+    deleteProjectName = projectNameText;
     deleteSummaryRemoved = deleteSuccess ? 1 : 0;
     deleteSummaryErrors = deleteErrors.length;
-    deleteShouldRefresh = deleteSuccess && deleteParentQName.length > 0;'
+    deleteShouldRefresh = deleteSuccess && parentQNameText.length > 0;
+    '
 ↓Export [steps.SimpleStep-1762369246170]: 
   comment: Export project when requested
   expression: |
-    var exportResult = C8O.dbo.exportProjectIfNeeded(deleteProject, deleteCommit, deleteErrors);
-    deleteExported = exportResult.exported;
-    deleteExportMessage = exportResult.message || "";
+    var saveResult = C8O.dbo.saveProjectIfNeeded(deleteProject, deleteAutoSave, deleteErrors);
+    var savedFlag = saveResult.saved === true;
+    deleteSaved = savedFlag;
+    deleteSaveMessage = saveResult.message || "";
+    deleteAutoSaveApplied = deleteAutoSave;
+    
 ↓IfStudioRefresh [steps.IfStep-1762369254814]: 
   comment: Refresh Studio tree if parent needs update
   condition: deleteShouldRefresh
@@ -126,33 +140,47 @@ comment: Removes a database object from the project tree.
         - SmartType: 
           - ↑mode: JS
           - →→: deleteSuccess
-  ↓Exported [steps.JsonFieldStep-1762369400440]: 
+  ↓saved [steps.JsonFieldStep-1762369400440]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exported
+          - →→: saved
     type: bool
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: deleteExported
-  ↓ExportMessage [steps.JsonFieldStep-1762369410179]: 
+          - →→: deleteSaved
+  ↓saveMessage [steps.JsonFieldStep-1762369410179]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: exportMessage
+          - →→: saveMessage
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: deleteExportMessage
+          - →→: deleteSaveMessage
+  ↓autoSave [steps.JsonFieldStep-1762444413939]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: autoSave
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: deleteAutoSaveApplied
   ↓Summary [steps.JsonObjectStep-1762369419967]: 
     key: 
       - xmlizable: 
@@ -174,6 +202,34 @@ comment: Removes a database object from the project tree.
           - SmartType: 
             - ↑mode: JS
             - →→: deleteSummaryRemoved
+    ↓saved [steps.JsonFieldStep-1762444430321]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: saved
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: deleteSaved
+    ↓autoSave [steps.JsonFieldStep-1762444445570]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: autoSave
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: deleteAutoSaveApplied
     ↓SummaryErrors [steps.JsonFieldStep-1762369440630]: 
       key: 
         - xmlizable: 
@@ -233,5 +289,5 @@ comment: Removes a database object from the project tree.
 ↓qname [variables.RequestableVariable-1762372536796]: 
   comment: Database object QName to delete (project[.path] format)
   required: true
-↓commit [variables.RequestableVariable-1762419976851]: 
+↓autoSave [variables.RequestableVariable-1762419976851]: 
   comment: 'Optional: set to false to defer project export'
