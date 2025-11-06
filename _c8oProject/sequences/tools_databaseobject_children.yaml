@@ -11,6 +11,13 @@ comment: Returns direct children of a database object. When qname is empty, list
     
     var manager = Engine.theApp.databaseObjectsManager;
     var sourceQName = qname ? String(qname).trim() : "";
+    var filterRaw = filter == null ? "" : String(filter);
+    var filterText = filterRaw.trim();
+    var hasFilter = filterText.length > 0;
+    if (hasFilter) {
+      filterText = filterText.toLowerCase();
+    }
+    
     var doc = XMLUtils.getDefaultDocumentBuilder().newDocument();
     var root = doc.createElement("children");
     doc.appendChild(root);
@@ -77,19 +84,32 @@ comment: Returns direct children of a database object. When qname is empty, list
     var mappedChildren = [];
     for (var idx = 0; idx < rawChildren.length; idx++) {
       var mapped = mapAttributes(rawChildren[idx]);
-      if (mapped) {
-        mappedChildren.push(mapped);
+      if (!mapped) {
+        continue;
       }
+      if (hasFilter) {
+        var nameLower = (mapped.name || "").toLowerCase();
+        var commentLower = (mapped.comment || "").toLowerCase();
+        var categoryLower = (mapped.category || "").toLowerCase();
+        var qnameLower = (mapped.qname || "").toLowerCase();
+        if (nameLower.indexOf(filterText) === -1 &&
+            commentLower.indexOf(filterText) === -1 &&
+            categoryLower.indexOf(filterText) === -1 &&
+            qnameLower.indexOf(filterText) === -1) {
+          continue;
+        }
+      }
+      mappedChildren.push(mapped);
     }
     
     queryData = {
       qname: sourceQName,
       hasParent: sourceQName.length > 0,
-      total: mappedChildren.length
+      total: mappedChildren.length,
+      filter: hasFilter ? filterRaw : ""
     };
     parentData = mapAttributes(parentNode);
-    childrenData = mappedChildren;
-    '
+    childrenData = mappedChildren;'
 ↓object [steps.JsonObjectStep-1762271829928]: 
   comment: Build result
   key: 
@@ -147,6 +167,19 @@ comment: Returns direct children of a database object. When qname is empty, list
           - SmartType: 
             - ↑mode: JS
             - →→: queryData.total
+    ↓Filter [steps.JsonFieldStep-1762438174089]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: filter
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: queryData.filter
   ↓array [steps.JsonArrayStep-1762271829938]: 
     comment: Children list
     key: 
@@ -287,3 +320,5 @@ comment: Returns direct children of a database object. When qname is empty, list
                 - →→: item.isInherited
 ↓qname [variables.RequestableVariable-1762270810298]: 
   comment: Database object QName. Leave empty to list projects.
+↓filter [variables.RequestableVariable-1762437976673]: 
+  comment: Optional case-insensitive filter applied on name, comment, category and QName.

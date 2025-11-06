@@ -23,12 +23,12 @@ comment: Returns metadata and property values for a database object identified b
       throw new Error("Database object not found: " + qname);
     }
     
-    var filterText = properties ? String(properties).trim() : "";
+    var includeSelectorText = properties ? String(properties).trim() : "";
     var includeMap = null;
-    if (filterText.length) {
+    if (includeSelectorText.length) {
       includeMap = {};
       try {
-        var parsedFilter = JSON.parse(filterText);
+        var parsedFilter = JSON.parse(includeSelectorText);
         if (Array.isArray(parsedFilter)) {
           for (var fi = 0; fi < parsedFilter.length; fi++) {
             var key = String(parsedFilter[fi]).trim();
@@ -43,7 +43,7 @@ comment: Returns metadata and property values for a database object identified b
           }
         }
       } catch (_ignoreFilter) {
-        var parts = filterText.split('','');
+        var parts = includeSelectorText.split('','');
         for (var pi = 0; pi < parts.length; pi++) {
           var key = parts[pi].trim();
           if (key.length) {
@@ -54,6 +54,12 @@ comment: Returns metadata and property values for a database object identified b
       if (Object.keys(includeMap).length === 0) {
         includeMap = null;
       }
+    }
+    
+    var filterText = filter ? String(filter).trim() : "";
+    var hasFilter = filterText.length > 0;
+    if (hasFilter) {
+      filterText = filterText.toLowerCase();
     }
     
     var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
@@ -174,6 +180,42 @@ comment: Returns metadata and property values for a database object identified b
         } catch (_ignoreEnum) {}
       }
       entry.options = possibleValues.length ? JSON.parse(JSON.stringify(possibleValues)) : null;
+    
+      if (hasFilter) {
+        var match = false;
+        var haystacks = [entry.name, entry.title, entry.description, entry.type];
+        for (var h = 0; h < haystacks.length && !match; h++) {
+          var hv = haystacks[h];
+          if (hv && String(hv).toLowerCase().indexOf(filterText) !== -1) {
+            match = true;
+          }
+        }
+        if (!match && entry.options) {
+          for (var ov = 0; ov < entry.options.length; ov++) {
+            var optVal = entry.options[ov];
+            if (optVal && String(optVal).toLowerCase().indexOf(filterText) !== -1) {
+              match = true;
+              break;
+            }
+          }
+        }
+        if (!match) {
+          if (entry.valueKind === "string" && entry.value) {
+            match = String(entry.value).toLowerCase().indexOf(filterText) !== -1;
+          } else if (entry.valueKind === "array" && entry.value) {
+            try {
+              match = JSON.stringify(entry.value).toLowerCase().indexOf(filterText) !== -1;
+            } catch (_ignoreArrayStringify) {}
+          } else if (entry.valueKind === "object" || entry.valueKind === "smartType") {
+            try {
+              match = JSON.stringify(entry.value).toLowerCase().indexOf(filterText) !== -1;
+            } catch (_ignoreObjectStringify) {}
+          }
+        }
+        if (!match) {
+          continue;
+        }
+      }
     
       var nillable = java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE));
       entry.nillable = Boolean(nillable);
@@ -862,3 +904,5 @@ comment: Returns metadata and property values for a database object identified b
   cachedKey: false
   comment: Optional property filter (JSON array or comma separated)
   description: List of property names to include (JSON array or comma separated string)
+↓filter [variables.RequestableVariable-1762427651198]: 
+  comment: Optional case-insensitive filter applied on property name, title and description.

@@ -1,40 +1,93 @@
-# Convertigo MCP Tooling Checklist
+# Convertigo MCP tools
 
-This file tracks the low-level Convertigo sequences (“tools”) that power the MCP
-server. Each entry should be backed by a sequence in `ConvertigoMCP` following
-the naming convention `CategoryVerbAction` (CamelCase, no spaces). Check the box
-once the sequence exists, emits JSON-only output, and is wired into the MCP
-tool catalog.
+This document tracks the MCP tools currently exposed by the
+`ConvertigoMCP` project and lists the next tools we plan to build. The tool
+names shown here are the exact identifiers returned by `tools/list`
+(lowercase, category prefix, hyphen separator). Each tool is implemented by a
+Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.yaml`.
 
-## Meta / Introspection
-- [ ] `MetaListPalette` — list database objects that can be created at root or under a given parent (filterable by allowed types).
-- [x] `DatabaseObjectPropertiesSet` — update properties on a database object by QName.
-- [x] `DatabaseObjectPropertiesGet` — read metadata and property values for a database object identified by QName.
-- [ ] `MetaDescribeObject` — return metadata for a specific database object (type, path, properties).
+## Delivered tools
 
-## Project Discovery
-- [ ] `ProjectDescribeTree` — breadth-limited traversal of a project’s connectors, sequences, pages, and steps.
-- [ ] `ProjectFetchSource` — fetch the serialized YAML of a database object with checksum/hash.
-- [ ] `ProjectSearch` — locate objects/steps by name, comment, or smart source pattern.
-- [ ] `ProjectListSymbols` — expose environment and symbol definitions with visibility flags.
+| Tool name                     | Sequence file                               | Summary |
+|-------------------------------|---------------------------------------------|---------|
+| `admin-list-projects`         | `tools_admin_list_projects.yaml`            | List installed projects with metadata (templates, versions, exports…). |
+| `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List direct children for a database object (or projects when `qname` is empty). |
+| `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). |
+| `databaseobject-delete`       | `tools_databaseobject_delete.yaml`          | Delete a database object, optionally exporting and refreshing Studio. |
+| `databaseobject-move`         | `tools_databaseobject_move.yaml`            | Move or reorder a database object with Studio refresh support. |
+| `databaseobject-rename`       | `tools_databaseobject_rename.yaml`          | Rename a database object and optionally refactor references. |
+| `databaseobject-properties-get` | `tools_databaseobject_properties_get.yaml` | Retrieve metadata, property descriptors, smart-type previews, schema. |
+| `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties (including XMLizable / SmartType handling). |
+| `palette-list`                | `tools_palette_list.yaml`                   | Enumerate creatable database-object templates for a parent or root. |
+| `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
+| `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
 
-## Project Authoring (Mutations)
-- [ ] `ProjectEnsureSequence` — create or update a sequence scaffold (comment, accessibility, variables).
-- [ ] `ProjectAddStep` — append a child step under a parent path with specified bean/config.
-- [ ] `ProjectUpdateProperty` — change a property or smart source on an existing database object.
-- [ ] `ProjectBindSource` — update step bindings (JSON field, mobile smart source, etc.).
-- [ ] `ProjectRemoveObject` — delete a database object safely with dependency checks.
-- [ ] `ProjectCommitMutation` — export/persist project after pending mutations (supports dry run reporting).
+### Shared infrastructure
 
-## Execution & Validation
-- [ ] `InvokeRequestable` — execute a sequence/transaction with input variables, returning payload and logs.
-- [ ] `InvokeRunTestCase` — trigger a stored TestCase and report assertion results.
-- [ ] `InvokeExportProject` — force project export and return file paths/checksums.
+| File(s)                                    | Purpose |
+|--------------------------------------------|---------|
+| `internal_json_schema.yaml`                | Build JSON Schema + sample payloads for tool inputs/outputs. |
+| `internal_list_tools_info.yaml`, `mcp_tools_list.yaml` | Discover `tools_*` sequences and expose catalog to MCP clients. |
+| `internal_studio_refresh.yaml`             | Refresh the Eclipse Project Explorer after mutations when Studio is present. |
+| `js/databaseobject.js`, `js/databaseobject_ops.js`, `js/util.js`, `js/xmlizable.js` | Shared Rhino helpers for parsing JSON, handling SmartType/XMLizable values, and performing mutations. |
 
-## Monitoring / Admin
-- [x] `AdminListProjects` — enumerate installed Convertigo projects with status info.
-- [ ] `AdminGetEngineStatus` — expose engine version, uptime, sessions, and health indicators.
-- [ ] `AdminGetEngineMetrics` — return key runtime metrics (memory, threads, JVM stats).
+## Backlog
 
-_Next steps_: implement one tool end-to-end (sequence + MCP wiring) before tackling
-the rest, ensuring JSON schema and error handling patterns are nailed down.
+The following tools adopt the same naming style (category prefix + hyphenated
+action). When a future tool reuses existing `databaseobject-*` helpers this is
+noted in the description.
+
+### Meta / introspection
+- [ ] `meta-describe-object` — Optional lightweight descriptor returning only
+  high-level metadata (type, parent, enabled, comment). We may reuse
+  `databaseobject-properties-get` if consumers accept the richer output.
+- [ ] `meta-filter` — Common filtering helper used by several tools (`admin-list-projects`,
+  `databaseobject-children`, `databaseobject-properties-get`, `palette-list`) to perform
+  case-insensitive search on names/comments.
+
+### Project discovery
+- [ ] `project-describe-tree` — Breadth-limited traversal of part of a project
+  to understand overall structure (reuses `databaseobject-children` under the hood).
+- [ ] `project-fetch-source` — Retrieve the serialized YAML (and checksum) for a
+  database object identified by QName.
+- [ ] `project-search` — Search database objects by name/comment and optionally
+  smart-source fragments.
+- [ ] `project-list-symbols` — Expose symbol/environment definitions with their
+  scope/visibility.
+
+### Database object authoring / mutations
+- [ ] `databaseobject-ensure-sequence` — Ensure a sequence scaffold exists with
+  desired metadata (likely wrapping `databaseobject-create` + properties set).
+- [ ] `databaseobject-add-step` — Append a child step using a palette template
+  below a parent path.
+- [ ] `databaseobject-update-property` — Convenience wrapper around
+  `databaseobject-properties-set` for single-property edits.
+- [ ] `databaseobject-bind-source` — Helper for updating JSON/mobile sources or
+  bindings in steps.
+- [ ] `databaseobject-remove` — Higher-level remove with dependency / safety
+  checks that ultimately calls `databaseobject-delete`.
+- [ ] `databaseobject-commit` — Export/persist the project after pending
+  mutations (supports dry run reporting, triggers Studio refresh as needed).
+
+### Execution & validation
+- [ ] `invoke-requestable` — Execute a sequence/transaction with input
+  variables, return payload, status, and logs.
+- [ ] `invoke-run-testcase` — Trigger a TestCase and report assertion results.
+- [ ] `invoke-export-project` — Force a project export and return file paths or
+  checksums.
+
+### Monitoring / admin
+- [ ] `admin-get-engine-status` — Expose engine version, uptime, active
+  sessions, health indicators.
+- [ ] `admin-get-engine-metrics` — Return runtime metrics (memory, GC, thread
+  counts, etc.).
+
+### Generic search
+- [ ] `databaseobject-search` — Leverage `DatabaseObjectSearchQuery` (Studio search
+  helper) to locate database objects by name/comment/smart sources and return
+  matching QNames.
+
+---
+
+Update this file each time a tool is added or renamed so that it stays in sync
+with the actual `tools/list` MCP catalog.

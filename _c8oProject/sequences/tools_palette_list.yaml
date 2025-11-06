@@ -2,13 +2,34 @@ comment: Lists palette categories and database object templates allowed under a 
 ↓InitContext [steps.SimpleStep-1762338110018]: 
   comment: Prepare helpers and resolve parent
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    '
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
     
     var targetRaw = target == null ? "" : String(target).trim();
     var includeDynamicFlag = true;
     if (includeDynamic != null && String(includeDynamic).length > 0) {
       includeDynamicFlag = /true/i.test(String(includeDynamic));
+    }
+    
+    var filterRaw = filter == null ? "" : String(filter);
+    var filterText = filterRaw.trim();
+    var hasFilter = filterText.length > 0;
+    if (hasFilter) {
+      filterText = filterText.toLowerCase();
+    }
+    
+    var limitRaw = limit == null ? "" : String(limit).trim();
+    var limitValue = 0;
+    if (limitRaw.length > 0) {
+      try {
+        limitValue = parseInt(limitRaw, 10);
+        if (isNaN(limitValue) || !isFinite(limitValue) || limitValue < 0) {
+          limitValue = 0;
+        }
+      } catch (_ignoreLimit) {
+        limitValue = 0;
+      }
     }
     
     var parentDbo = null;
@@ -54,6 +75,13 @@ comment: Lists palette categories and database object templates allowed under a 
     paletteParent = parentDbo;
     paletteFolderType = null;
     paletteIncludeDynamic = includeDynamicFlag ? true : false;
+    paletteFilterInfo = {
+      hasFilter: hasFilter,
+      text: filterText,
+      raw: filterRaw
+    };
+    paletteLimit = limitValue > 0 ? limitValue : 0;
+    paletteItemCount = 0;
     
     resultInfo = {
       target: targetRaw,
@@ -61,7 +89,11 @@ comment: Lists palette categories and database object templates allowed under a 
       parentClass: parentClassNameValue,
       folderType: folderTypeValue,
       includeDynamic: paletteIncludeDynamic,
-      categories: 0
+      filter: hasFilter ? filterRaw : "",
+      limit: paletteLimit > 0 ? paletteLimit : null,
+      categories: 0,
+      returned: 0,
+      truncated: false
     };
     
     function ensureCategory(name, type) {
@@ -100,19 +132,22 @@ comment: Lists palette categories and database object templates allowed under a 
     
     var parentDbo = paletteParent;
     var folderType = paletteFolderType;
+    var filterInfo = paletteFilterInfo || { hasFilter: false, text: "" };
+    var limitValue = paletteLimit > 0 ? paletteLimit : 0;
+    var stopCollect = false;
     
     var explorer = Engine.theApp.getDboExplorerManager();
     var groups = explorer.getGroups();
     var groupIt = groups.iterator();
-    while (groupIt.hasNext()) {
+    while (groupIt.hasNext() && !stopCollect) {
       var group = groupIt.next();
       var groupName = group.getName();
       var categoryIt = group.getCategories().iterator();
-      while (categoryIt.hasNext()) {
+      while (categoryIt.hasNext() && !stopCollect) {
         var category = categoryIt.next();
         var categoryName = category.getName().isEmpty() ? groupName : category.getName();
         var beansIt = category.getBeans().iterator();
-        while (beansIt.hasNext()) {
+        while (beansIt.hasNext() && !stopCollect) {
           var beans = beansIt.next();
           var catLabel = beans.getName().isEmpty() ? categoryName : beans.getName();
           var beanIt = beans.getBeans().iterator();
@@ -120,18 +155,18 @@ comment: Lists palette categories and database object templates allowed under a 
             var bean = beanIt.next();
             var className = bean.getClassName();
             if ((className.startsWith("com.twinsoft.convertigo.beans.ngx.components.") ||
-                 className.startsWith("com.twinsoft.convertigo.beans.mobile.components.")) &&
+                className.startsWith("com.twinsoft.convertigo.beans.mobile.components.")) &&
                 !className.endsWith("PageComponent")) {
               continue;
             }
     
-            var isAllowed = false;
+            var isAllowed = parentDbo == null;
             try {
               var force = false;
               if (parentDbo != null) {
                 if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.core.Sequence) {
                   force = className.startsWith("com.twinsoft.convertigo.beans.steps.") ||
-                          className.startsWith("com.twinsoft.convertigo.beans.variables.Step");
+                            className.startsWith("com.twinsoft.convertigo.beans.variables.Step");
                 } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent) {
                   force = className.startsWith("com.twinsoft.convertigo.beans.ngx.");
                 } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.mobile.components.ApplicationComponent) {
@@ -141,7 +176,7 @@ comment: Lists palette categories and database object templates allowed under a 
               if (parentDbo != null) {
                 isAllowed = force || DatabaseObjectsManager.checkParent(parentDbo.getClass(), bean);
               }
-              if (folderType != null && isAllowed) {
+              if (folderType != null && folderType.length && isAllowed) {
                 isAllowed = DatabaseObject.getFolderType(Packages.java.lang.Class.forName(className)) == folderType;
               }
             } catch (eCheck) {}
@@ -157,8 +192,7 @@ comment: Lists palette categories and database object templates allowed under a 
               var description = bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented |";
               var descParts = splitDescriptionRef(description);
               var iconPath = MySimpleBeanInfo.getIconName(beanInfo, BeanInfo.ICON_COLOR_32x32);
-              var categoryObj = ensureCategoryRef(catLabel, "Category");
-              categoryObj.items.push({
+              var entry = {
                 type: "dbo",
                 id: className,
                 name: descriptor.getDisplayName(),
@@ -171,13 +205,43 @@ comment: Lists palette categories and database object templates allowed under a 
                 additional: false,
                 group: groupName,
                 category: catLabel
-              });
+              };
+    
+              if (filterInfo.hasFilter) {
+                var ft = filterInfo.text;
+                var matches = false;
+                function contains(value) {
+                  return value && String(value).toLowerCase().indexOf(ft) != -1;
+                }
+                if (contains(entry.name) || contains(entry.className) || contains(entry.shortDescription) ||
+                    contains(entry.longDescription) || contains(entry.description) || contains(entry.group) ||
+                    contains(entry.category)) {
+                  matches = true;
+                }
+                if (!matches) {
+                  continue;
+                }
+              }
+    
+              var categoryObj = ensureCategoryRef(catLabel, "Category");
+              categoryObj.items.push(entry);
+              paletteItemCount++;
+    
+              if (limitValue > 0 && paletteItemCount >= limitValue) {
+                stopCollect = true;
+                break;
+              }
             } catch (eInfo) {}
           }
+          if (stopCollect) {
+            break;
+          }
+        }
+        if (stopCollect) {
+          break;
         }
       }
-    }
-    '
+    }'
 ↓LoadDynamic [steps.SimpleStep-1762338110022]: 
   comment: Collect dynamic UI components
   expression: |
@@ -207,6 +271,9 @@ comment: Lists palette categories and database object templates allowed under a 
     
     paletteCategories.sort(sortInsensitive);
     resultInfo.categories = paletteCategories.length;
+    resultInfo.returned = paletteItemCount;
+    resultInfo.limit = paletteLimit > 0 ? paletteLimit : null;
+    resultInfo.truncated = paletteLimit > 0 && paletteItemCount >= paletteLimit;
     '
 ↓BuildResult [steps.JsonObjectStep-1762338110026]: 
   key: 
@@ -302,6 +369,61 @@ comment: Lists palette categories and database object templates allowed under a 
           - SmartType: 
             - ↑mode: JS
             - →→: resultInfo.categories
+    ↓Filter [steps.JsonFieldStep-1762427757680]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: filter
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.filter
+    ↓Limit [steps.JsonFieldStep-1762440875250]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: limit
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.limit
+    ↓Returned [steps.JsonFieldStep-1762440886503]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: returned
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.returned
+    ↓Truncated [steps.JsonFieldStep-1762440895812]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: truncated
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.truncated
   ↓Categories [steps.JsonArrayStep-1762338110042]: 
     key: 
       - xmlizable: 
@@ -549,3 +671,7 @@ comment: Lists palette categories and database object templates allowed under a 
   comment: Parent QName (optionally suffixed with :FolderType)
 ↓includeDynamic [variables.RequestableVariable-1762338110016]: 
   comment: Set to true to include dynamic (Angular/ION) components
+↓filter [variables.RequestableVariable-1762427734000]: 
+  comment: Optional case-insensitive filter applied on palette category and item names.
+↓limit [variables.RequestableVariable-1762440860118]: 
+  comment: Optional maximum number of items to return (default 0 = unlimited).

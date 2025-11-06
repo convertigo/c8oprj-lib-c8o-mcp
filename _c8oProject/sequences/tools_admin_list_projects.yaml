@@ -9,8 +9,17 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
     var Date = Packages.java.util.Date;
     var File = Packages.java.io.File;
     var Locale = Packages.java.util.Locale;
+    
     var includeTemplatesFlag = false;
     try { includeTemplatesFlag = String(includeTemplates == null ? '''' : includeTemplates).trim().equalsIgnoreCase(''true''); } catch(e) {}
+    
+    var filterRaw = filter == null ? '''' : String(filter);
+    var filterText = filterRaw.trim();
+    var hasFilter = filterText.length > 0;
+    if (hasFilter) {
+      filterText = filterText.toLowerCase();
+    }
+    
     var locale = Locale.getDefault();
     var df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
     var dbom = Engine.theApp.databaseObjectsManager;
@@ -18,6 +27,7 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
     var projectsList = new java.util.ArrayList();
     var totalProjects = 0;
     var skippedTemplates = 0;
+    
     for (var i = 0; i < names.size(); i++) {
       var projectName = names.get(i);
       var isTemplate = projectName != null && projectName.startsWith(''mobilebuilder_tpl_'');
@@ -32,7 +42,12 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
           var localeKey = locale.getLanguage();
           var block = null;
           if (json.has(localeKey)) { block = json.getJSONObject(localeKey); }
-          else { var keys = json.keys(); if (keys.hasNext()) { block = json.getJSONObject(keys.next().toString()); } }
+          else {
+            var keys = json.keys();
+            if (keys.hasNext()) {
+              block = json.getJSONObject(keys.next().toString());
+            }
+          }
           if (block != null) {
             comment = project.getName();
             if (block.has(''displayName'')) { comment = block.getString(''displayName''); }
@@ -41,6 +56,15 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
         } catch(ignore) {}
         comment = comment.replaceAll(''<.*?>'', '''');
         if (comment.length() > 200) { comment = comment.substring(0, 197) + ''...''; }
+    
+        if (hasFilter) {
+          var nameLower = projectName != null ? projectName.toLowerCase() : '''';
+          var commentLower = comment != null ? comment.toLowerCase() : '''';
+          if (nameLower.indexOf(filterText) == -1 && commentLower.indexOf(filterText) == -1) {
+            continue;
+          }
+        }
+    
         var carFile = new File(Engine.projectDir(projectName) + ''.car'');
         var deployTs = carFile.exists() ? carFile.lastModified() : -1;
         var deployDate = deployTs > 0 ? df.format(new Date(deployTs)) : ''n/a'';
@@ -62,25 +86,29 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
           var ref = references.get(r);
           if (ref instanceof Packages.com.twinsoft.convertigo.beans.references.ProjectSchemaReference) {
             var pr = ref;
-            if (pr.getParser().isValid() && dbom.getOriginalProjectByName(pr.getParser().getProjectName(), true) == null) { missingDependencies = true; break; }
+            if (pr.getParser().isValid() && dbom.getOriginalProjectByName(pr.getParser().getProjectName(), true) == null) {
+              missingDependencies = true;
+              break;
+            }
           }
         }
         projectMap.put(''missingDependencies'', java.lang.Boolean.valueOf(missingDependencies));
         projectsList.add(projectMap);
         totalProjects++;
       } catch(e) {
-        //Engine.logBeans.warn(''[MCP] AdminListProjects error for project '' + projectName, e);
-    	log.warn(''[MCP] AdminListProjects error for project '' + projectName + " " + e);
+        log.warn(''[MCP] AdminListProjects error for project '' + projectName + '' '' + e);
       }
     }
+    
     var summary = new java.util.LinkedHashMap();
     summary.put(''total'', java.lang.Integer.valueOf(totalProjects));
     summary.put(''skippedTemplates'', java.lang.Integer.valueOf(skippedTemplates));
     summary.put(''includeTemplates'', java.lang.Boolean.valueOf(includeTemplatesFlag));
+    summary.put(''filter'', hasFilter ? filterRaw : '''');
     summary.put(''timestamp'', java.lang.Long.valueOf(java.lang.System.currentTimeMillis()));
+    
     projectsList = projectsList;
-    summary = summary;
-    '
+    summary = summary;'
 ↓Result [steps.JsonObjectStep-1761646433176]: 
   key: 
     - xmlizable: 
@@ -151,6 +179,19 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
           - SmartType: 
             - ↑mode: JS
             - →→: summary.get("timestamp")
+    ↓Filter [steps.JsonFieldStep-1762438097622]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: filter
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summary.get("filter")
   ↓Projects [steps.JsonArrayStep-1761646433188]: 
     key: 
       - xmlizable: 
@@ -305,3 +346,5 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
 ↓includeTemplates [variables.RequestableVariable-1761646433172]: 
   comment: Set to true to include template projects such as mobilebuilder templates.
   value: false
+↓filter [variables.RequestableVariable-1762437969473]: 
+  comment: Optional case-insensitive filter applied on project name and description.
