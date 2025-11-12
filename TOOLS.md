@@ -23,6 +23,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
+| `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content with optional type filters. |
 
 ### Shared infrastructure
 
@@ -85,9 +86,6 @@ noted in the description.
   counts, etc.).
 
 ### Generic search
-- [ ] `databaseobject-search` — Leverage `DatabaseObjectSearchQuery` (Studio search
-  helper) to locate database objects by name/comment/smart sources and return
-  matching QNames.
 
 ---
 
