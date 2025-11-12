@@ -107,17 +107,40 @@ comment: compute jsonschema of a sequence
       return { type: "string" };
     }
     
+    function pruneInternalKeys(value) {
+      if (value === null || value === undefined) { return value; }
+      if (Array.isArray(value)) {
+        if (value.length === 0) { return value; }
+        value[0] = pruneInternalKeys(value[0]);
+        return value;
+      }
+      if (typeof value === "object") {
+        var keys = Object.keys(value);
+        for (var i = 0; i < keys.length; i++) {
+          var key = keys[i];
+          if (key && key.charAt && key.charAt(0) === "_") {
+            delete value[key];
+            continue;
+          }
+          value[key] = pruneInternalKeys(value[key]);
+        }
+      }
+      return value;
+    }
+    
     function extractPayloadNode(model, key) {
       if (!model) { return null; }
       var container = model.document || model;
       return container ? container[key] : null;
-    }'
+    }
+    '
 ↓BuildModels [steps.SimpleStep-1761913099509]: 
   comment: Compute input/output schema details
   expression: |
     var requestSource = extractPayloadNode(requestModel, requestPayloadName);
     if (requestSource == null) { requestSource = {}; }
     var normalizedRequest = normalizeNode(requestSource);
+    normalizedRequest = pruneInternalKeys(normalizedRequest);
     inputSchemaJson = buildSchemaNode(normalizedRequest);
     if (inputSchemaJson && typeof inputSchemaJson === "object") { inputSchemaJson.additionalProperties = false; }
     var responseSource = extractPayloadNode(responseModel, responsePayloadName);
@@ -128,6 +151,7 @@ comment: compute jsonschema of a sequence
     schemaJson = buildSchemaNode(normalizedResponse);
     delete schemaJson.required;
     exampleJson = normalizedResponse;
+    
 ↓result [steps.JsonObjectStep-1761747759787]: 
   key: 
     - xmlizable: 

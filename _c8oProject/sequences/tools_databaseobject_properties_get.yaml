@@ -63,6 +63,31 @@ comment: Returns metadata and property values for a database object identified b
       filterText = filterText.toLowerCase();
     }
     
+    var defaultLimit = 25;
+    var maxLimit = 200;
+    var limitValue = defaultLimit;
+    if (typeof limit !== "undefined" && limit !== null) {
+      try {
+        var parsedLimit = parseInt(String(limit).trim(), 10);
+        if (!isNaN(parsedLimit)) {
+          limitValue = parsedLimit;
+        }
+      } catch (_ignoreLimit) {}
+    }
+    if (limitValue < 1) { limitValue = defaultLimit; }
+    if (limitValue > maxLimit) { limitValue = maxLimit; }
+    
+    var cursorRaw = typeof _nextCursor === "undefined" || _nextCursor == null ? "" : String(_nextCursor).trim();
+    var startIndex = 0;
+    if (cursorRaw.length > 0) {
+      try {
+        var parsedCursor = parseInt(cursorRaw, 10);
+        if (!isNaN(parsedCursor) && parsedCursor >= 0) {
+          startIndex = parsedCursor;
+        }
+      } catch (_ignoreCursor) {}
+    }
+    
     var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
     var descriptors = beanInfo.getPropertyDescriptors();
     
@@ -231,11 +256,34 @@ comment: Returns metadata and property values for a database object identified b
       properties.push(entry);
     }
     
+    var totalMatching = properties.length;
+    var effectiveStart = startIndex;
+    if (effectiveStart < 0) { effectiveStart = 0; }
+    if (effectiveStart > totalMatching) { effectiveStart = totalMatching; }
+    var endIndex = effectiveStart + limitValue;
+    if (endIndex > totalMatching) { endIndex = totalMatching; }
+    var pagedProperties = [];
+    for (var pos = effectiveStart; pos < endIndex; pos++) {
+      pagedProperties.push(properties[pos]);
+    }
+    var returnedCount = pagedProperties.length;
+    var hasMorePages = endIndex < totalMatching;
+    var nextCursorValue = hasMorePages ? String(endIndex) : "";
+    
     var beanDescriptor = beanInfo.getBeanDescriptor();
-    propertiesList = properties;
-    propertiesCount = properties.length;
+    propertiesList = pagedProperties;
+    propertiesCount = totalMatching;
     targetClassName = dbo.getClass().getName();
     beanDisplayName = beanDescriptor != null && beanDescriptor.getDisplayName() != null ? String(beanDescriptor.getDisplayName()) : "";
+    paginationInfo = {
+      startIndex: effectiveStart,
+      limit: limitValue,
+      returned: returnedCount,
+      hasMore: hasMorePages,
+      nextCursor: nextCursorValue,
+      cursorInput: cursorRaw
+    };
+    nextCursorToken = nextCursorValue;
     '
 ↓Result [steps.JsonObjectStep-1762266930545]: 
   key: 
@@ -898,6 +946,88 @@ comment: Returns metadata and property values for a database object identified b
                     - SmartType: 
                       - ↑mode: JS
                       - →→: item
+  ↓StartIndex [steps.JsonFieldStep-1762956982822]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: startIndex
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: paginationInfo.startIndex
+  ↓Limit [steps.JsonFieldStep-1762956992434]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: limit
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: paginationInfo.limit
+  ↓Returned [steps.JsonFieldStep-1762956992586]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: returned
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: paginationInfo.returned
+  ↓HasMore [steps.JsonFieldStep-1762956992745]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: hasMore
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: paginationInfo.hasMore
+  ↓CursorInput [steps.JsonFieldStep-1762956992902]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: cursorInput
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: paginationInfo.cursorInput
+  ↓NextCursor [steps.JsonFieldStep-1762957037381]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: nextCursor
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: nextCursorToken
 ↓qname [variables.RequestableVariable-1762266930541]: 
   comment: Database object QName (project[.path...] format)
   required: true
@@ -907,3 +1037,8 @@ comment: Returns metadata and property values for a database object identified b
   description: List of property names to include (JSON array or comma separated string)
 ↓filter [variables.RequestableVariable-1762427651198]: 
   comment: Optional case-insensitive filter applied on property name, title and description.
+↓limit [variables.RequestableVariable-1762957045399]: 
+  comment: Maximum number of properties to return per call (1-200, default 25).
+  value: 25
+↓_nextCursor [variables.RequestableVariable-1762957057288]: 
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

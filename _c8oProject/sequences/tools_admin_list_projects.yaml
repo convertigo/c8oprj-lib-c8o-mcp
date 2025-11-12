@@ -20,6 +20,31 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
       filterText = filterText.toLowerCase();
     }
     
+    var defaultLimit = 10;
+    var maxLimit = 100;
+    var limitValue = defaultLimit;
+    if (typeof limit !== ''undefined'' && limit !== null) {
+      try {
+        var parsedLimit = parseInt(String(limit).trim(), 10);
+        if (!isNaN(parsedLimit)) {
+          limitValue = parsedLimit;
+        }
+      } catch(ignoreLimit) {}
+    }
+    if (limitValue < 1) { limitValue = defaultLimit; }
+    if (limitValue > maxLimit) { limitValue = maxLimit; }
+    
+    var cursorRaw = typeof _nextCursor === ''undefined'' || _nextCursor == null ? '''' : String(_nextCursor).trim();
+    var startIndex = 0;
+    if (cursorRaw.length > 0) {
+      try {
+        var parsedCursor = parseInt(cursorRaw, 10);
+        if (!isNaN(parsedCursor) && parsedCursor >= 0) {
+          startIndex = parsedCursor;
+        }
+      } catch(ignoreCursor) {}
+    }
+    
     var locale = Locale.getDefault();
     var df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale);
     var dbom = Engine.theApp.databaseObjectsManager;
@@ -100,15 +125,36 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
       }
     }
     
+    var effectiveStart = startIndex;
+    if (effectiveStart < 0) { effectiveStart = 0; }
+    if (effectiveStart > totalProjects) { effectiveStart = totalProjects; }
+    var endIndex = effectiveStart + limitValue;
+    if (endIndex > totalProjects) { endIndex = totalProjects; }
+    var pagedList = new java.util.ArrayList();
+    for (var idx = effectiveStart; idx < endIndex; idx++) {
+      pagedList.add(projectsList.get(idx));
+    }
+    var returnedCount = pagedList.size();
+    var hasMorePages = endIndex < totalProjects;
+    var nextCursorValue = hasMorePages ? String(endIndex) : '''';
+    
     var summary = new java.util.LinkedHashMap();
     summary.put(''total'', java.lang.Integer.valueOf(totalProjects));
     summary.put(''skippedTemplates'', java.lang.Integer.valueOf(skippedTemplates));
     summary.put(''includeTemplates'', java.lang.Boolean.valueOf(includeTemplatesFlag));
     summary.put(''filter'', hasFilter ? filterRaw : '''');
     summary.put(''timestamp'', java.lang.Long.valueOf(java.lang.System.currentTimeMillis()));
+    summary.put(''startIndex'', java.lang.Integer.valueOf(effectiveStart));
+    summary.put(''limit'', java.lang.Integer.valueOf(limitValue));
+    summary.put(''returned'', java.lang.Integer.valueOf(returnedCount));
+    summary.put(''hasMore'', java.lang.Boolean.valueOf(hasMorePages));
+    summary.put(''nextCursor'', nextCursorValue);
+    summary.put(''cursorInput'', cursorRaw);
     
-    projectsList = projectsList;
-    summary = summary;'
+    projectsList = pagedList;
+    summary = summary;
+    nextCursorToken = nextCursorValue;
+    '
 ↓Result [steps.JsonObjectStep-1761646433176]: 
   key: 
     - xmlizable: 
@@ -343,8 +389,26 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.get("missingDependencies")
+  ↓NextCursor [steps.JsonFieldStep-1762954280312]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: nextCursor
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: nextCursorToken
 ↓includeTemplates [variables.RequestableVariable-1761646433172]: 
   comment: Set to true to include template projects such as mobilebuilder templates.
   value: false
 ↓filter [variables.RequestableVariable-1762437969473]: 
   comment: Optional case-insensitive filter applied on project name and description.
+↓limit [variables.RequestableVariable-1762954306215]: 
+  comment: Maximum number of projects to return per call (1-100, default 10).
+  value: 10
+↓_nextCursor [variables.RequestableVariable-1762954361919]: 
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

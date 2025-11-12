@@ -3,8 +3,7 @@ comment: Lists palette categories and database object templates allowed under a 
 ↓InitContext [steps.SimpleStep-1762338110018]: 
   comment: Prepare helpers and resolve parent
   expression: |
-    '
-    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
     
     var targetRaw = target == null ? "" : String(target).trim();
@@ -31,6 +30,28 @@ comment: Lists palette categories and database object templates allowed under a 
       } catch (_ignoreLimit) {
         limitValue = 0;
       }
+    }
+    
+    var cursorRaw = "";
+    if (typeof _nextCursor !== "undefined" && _nextCursor !== null) {
+      var cursorText = String(_nextCursor).trim();
+      if (cursorText.length && cursorText.toLowerCase() !== "undefined" && cursorText.indexOf("org.mozilla.javascript.Undefined") !== 0) {
+        cursorRaw = cursorText;
+      }
+    }
+    var startIndexValue = 0;
+    if (cursorRaw.length > 0) {
+      try {
+        var parsedCursor = parseInt(cursorRaw, 10);
+        if (!isNaN(parsedCursor) && parsedCursor >= 0) {
+          startIndexValue = parsedCursor;
+        }
+      } catch (_ignoredCursor) {}
+    }
+    
+    if (limitValue <= 0) {
+      cursorRaw = "";
+      startIndexValue = 0;
     }
     
     var parentDbo = null;
@@ -82,6 +103,11 @@ comment: Lists palette categories and database object templates allowed under a 
       raw: filterRaw
     };
     paletteLimit = limitValue > 0 ? limitValue : 0;
+    paletteStartIndex = startIndexValue;
+    paletteNextCursor = "";
+    paletteHasMore = false;
+    paletteTotalMatches = 0;
+    paletteCursorInput = cursorRaw;
     paletteItemCount = 0;
     
     resultInfo = {
@@ -92,9 +118,14 @@ comment: Lists palette categories and database object templates allowed under a 
       includeDynamic: paletteIncludeDynamic,
       filter: hasFilter ? filterRaw : "",
       limit: paletteLimit > 0 ? paletteLimit : null,
+      startIndex: startIndexValue,
+      cursorInput: cursorRaw,
       categories: 0,
       returned: 0,
-      truncated: false
+      truncated: false,
+      hasMore: false,
+      nextCursor: "",
+      totalMatches: 0
     };
     
     function ensureCategory(name, type) {
@@ -120,8 +151,7 @@ comment: Lists palette categories and database object templates allowed under a 
     }
     
     ensureCategoryRef = ensureCategory;
-    splitDescriptionRef = splitDescription;
-    '
+    splitDescriptionRef = splitDescription;'
 ↓LoadBeans [steps.SimpleStep-1762338110020]: 
   comment: Collect palette beans from explorer
   expression: |
@@ -135,6 +165,10 @@ comment: Lists palette categories and database object templates allowed under a 
     var folderType = paletteFolderType;
     var filterInfo = paletteFilterInfo || { hasFilter: false, text: "" };
     var limitValue = paletteLimit > 0 ? paletteLimit : 0;
+    var startIndex = paletteStartIndex > 0 ? paletteStartIndex : 0;
+    var totalMatches = 0;
+    var windowCount = 0;
+    var hasMore = false;
     var stopCollect = false;
     
     var explorer = Engine.theApp.getDboExplorerManager();
@@ -224,14 +258,20 @@ comment: Lists palette categories and database object templates allowed under a 
                 }
               }
     
-              var categoryObj = ensureCategoryRef(catLabel, "Category");
-              categoryObj.items.push(entry);
-              paletteItemCount++;
+              totalMatches++;
+              if (limitValue > 0 && totalMatches <= startIndex) {
+                continue;
+              }
     
-              if (limitValue > 0 && paletteItemCount >= limitValue) {
+              if (limitValue > 0 && windowCount >= limitValue) {
+                hasMore = true;
                 stopCollect = true;
                 break;
               }
+    
+              var categoryObj = ensureCategoryRef(catLabel, "Category");
+              categoryObj.items.push(entry);
+              windowCount++;
             } catch (eInfo) {}
           }
           if (stopCollect) {
@@ -242,7 +282,12 @@ comment: Lists palette categories and database object templates allowed under a 
           break;
         }
       }
-    }'
+    }
+    
+    paletteItemCount = windowCount;
+    paletteTotalMatches = totalMatches;
+    paletteHasMore = hasMore;
+    paletteNextCursor = limitValue > 0 && hasMore ? String(startIndex + windowCount) : "";'
 ↓LoadDynamic [steps.SimpleStep-1762338110022]: 
   comment: Collect dynamic UI components
   expression: |
@@ -274,8 +319,12 @@ comment: Lists palette categories and database object templates allowed under a 
     resultInfo.categories = paletteCategories.length;
     resultInfo.returned = paletteItemCount;
     resultInfo.limit = paletteLimit > 0 ? paletteLimit : null;
-    resultInfo.truncated = paletteLimit > 0 && paletteItemCount >= paletteLimit;
-    '
+    resultInfo.startIndex = paletteStartIndex || 0;
+    resultInfo.cursorInput = paletteCursorInput || "";
+    resultInfo.hasMore = paletteHasMore === true;
+    resultInfo.nextCursor = resultInfo.hasMore ? (paletteNextCursor || String((paletteStartIndex || 0) + paletteItemCount)) : "";
+    resultInfo.truncated = resultInfo.hasMore;
+    resultInfo.totalMatches = paletteTotalMatches || (paletteStartIndex || 0) + paletteItemCount;'
 ↓BuildResult [steps.JsonObjectStep-1762338110026]: 
   key: 
     - xmlizable: 
@@ -668,6 +717,74 @@ comment: Lists palette categories and database object templates allowed under a 
                     - SmartType: 
                       - ↑mode: JS
                       - →→: item.category
+  ↓StartIndex [steps.JsonFieldStep-1762959166774]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: startIndex
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInfo.startIndex
+  ↓CursorInput [steps.JsonFieldStep-1762959176310]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: cursorInput
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInfo.cursorInput
+  ↓HasMore [steps.JsonFieldStep-1762959186321]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: hasMore
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInfo.hasMore
+  ↓NextCursor [steps.JsonFieldStep-1762959195684]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: nextCursor
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInfo.nextCursor
+  ↓TotalMatches [steps.JsonFieldStep-1762959205237]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: totalMatches
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInfo.totalMatches
 ↓target [variables.RequestableVariable-1762338110014]: 
   comment: Parent QName (optionally suffixed with :FolderType)
 ↓includeDynamic [variables.RequestableVariable-1762338110016]: 
@@ -676,3 +793,5 @@ comment: Lists palette categories and database object templates allowed under a 
   comment: Optional case-insensitive filter applied on palette category and item names.
 ↓limit [variables.RequestableVariable-1762440860118]: 
   comment: Optional maximum number of items to return (default 0 = unlimited).
+↓_nextCursor [variables.RequestableVariable-1762959329821]: 
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

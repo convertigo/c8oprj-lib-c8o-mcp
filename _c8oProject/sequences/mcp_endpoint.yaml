@@ -92,6 +92,21 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
       expression: |
         'var paramsJson = "{}";
         try { paramsJson = JSON.stringify(paramsObject); } catch (_p) { paramsJson = "{}"; }
+        var metaObject = paramsObject && typeof paramsObject._meta === "object" ? paramsObject._meta : null;
+        var metaNextCursor = metaObject && metaObject.nextCursor !== undefined ? metaObject.nextCursor : null;
+        var metaProgressToken = metaObject && metaObject.progressToken !== undefined ? metaObject.progressToken : null;
+        function injectMeta(target) {
+          if (!target || typeof target !== "object") { return; }
+          if (metaNextCursor !== null && metaNextCursor !== undefined) {
+            var cursorText = String(metaNextCursor);
+            if (cursorText.length > 0) {
+              target._nextCursor = cursorText;
+            }
+          }
+          if (metaProgressToken !== null && metaProgressToken !== undefined) {
+            target._progressToken = metaProgressToken;
+          }
+        }
         if (methodName === "initialize") {
             callSequence = "mcp_initialize";
             callVariables = { initProtocol: SUPPORTED_PROTOCOL };
@@ -103,6 +118,7 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
         } else if (methodName === "tools/list") {
           callSequence = "mcp_tools_list";
           callVariables = { paramsJson: paramsJson };
+          injectMeta(callVariables);
         } else if (methodName === "tools/call") {
           var toolNameRaw = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
           var toolArgs = paramsObject && typeof paramsObject.arguments === "object" && !Array.isArray(paramsObject.arguments) ? paramsObject.arguments : {};
@@ -174,6 +190,7 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
               callSequence = targetSequence;
               responseStatus = "200";
               callVariables = toolArgs || {};
+              injectMeta(callVariables);
             }
           }
         } else if (methodName === "logging/setLevel") {
@@ -184,7 +201,8 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
           callSequence = "mcp_error_response";
           responseStatus = "404";
           callVariables = { status: "404", code: "-32601", message: "Method not implemented", dataJson: JSON.stringify({ method: methodName }), requestIdJson: requestIdJson };
-        }'
+        }
+        '
 ↓ApplyStatus [steps.SetResponseStatusStep-1761755111962]: 
   statusCode: 
     - xmlizable: 
