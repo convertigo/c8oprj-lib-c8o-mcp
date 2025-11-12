@@ -1,5 +1,86 @@
 accessibility: Private
 comment: Handles MCP tools/list calls
+↓ParseParams [steps.SimpleStep-1762961037030]: 
+  comment: Extract limit from paramsJson
+  expression: |
+    'var paramsObject = {};
+    try {
+      if (paramsJson && paramsJson.length) {
+        paramsObject = JSON.parse(paramsJson);
+      }
+    } catch (_ignoredParse) {}
+    if (paramsObject && paramsObject.limit !== undefined && paramsObject.limit !== null) {
+      limit = paramsObject.limit;
+    }
+    '
+↓Init [steps.SimpleStep-1762960828140]: 
+  comment: Prepare tool list and pagination
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var limitText = limit == null ? "" : String(limit).trim();
+    var maxLimit = 500;
+    var limitValue = 0;
+    if (limitText.length > 0) {
+      try {
+        var parsedLimit = parseInt(limitText, 10);
+        if (!isNaN(parsedLimit)) {
+          limitValue = parsedLimit;
+        }
+      } catch (_ignoredLimit) {}
+    }
+    if (limitValue < 0) { limitValue = 0; }
+    if (limitValue > maxLimit) { limitValue = maxLimit; }
+    
+    var cursorRaw = "";
+    if (typeof _nextCursor !== "undefined" && _nextCursor !== null) {
+      var cursorText = String(_nextCursor).trim();
+      if (cursorText.length && cursorText.toLowerCase() !== "undefined" && cursorText.indexOf("org.mozilla.javascript.Undefined") !== 0) {
+        cursorRaw = cursorText;
+      }
+    }
+    var startIndex = 0;
+    if (cursorRaw.length > 0) {
+      try {
+        var parsedCursor = parseInt(cursorRaw, 10);
+        if (!isNaN(parsedCursor) && parsedCursor >= 0) {
+          startIndex = parsedCursor;
+        }
+      } catch (_ignoredCursor) {}
+    }
+    
+    var toolNames = [];
+    try {
+      var sequences = context.project.getSequencesList();
+      var iterator = sequences.iterator();
+      while (iterator.hasNext()) {
+        var seq = iterator.next();
+        if (!seq) { continue; }
+        try {
+          var seqName = seq.getName();
+          if (seqName && seqName.startsWith("tools_")) {
+            toolNames.push(seqName);
+          }
+        } catch (_ignoredName) {}
+      }
+    } catch (_ignoredSequences) {}
+    
+    var totalCount = toolNames.length;
+    if (startIndex < 0) { startIndex = 0; }
+    if (startIndex > totalCount) { startIndex = totalCount; }
+    var endIndex = limitValue > 0 ? Math.min(totalCount, startIndex + limitValue) : totalCount;
+    var windowList = toolNames.slice(startIndex, endIndex);
+    var hasMore = limitValue > 0 && endIndex < totalCount;
+    var nextCursorValue = hasMore ? String(endIndex) : "";
+    
+    toolNamesWindow = windowList;
+    toolsTotalCount = totalCount;
+    toolsStartIndex = startIndex;
+    toolsLimitValue = limitValue;
+    toolsLimitOutput = limitValue > 0 ? limitValue : null;
+    toolsReturnedCount = windowList.length;
+    toolsCursorInput = cursorRaw;
+    toolsHasMore = hasMore;
+    toolsNextCursor = nextCursorValue;'
 ↓result [steps.JsonObjectStep-1761842731828]: 
   key: 
     - xmlizable: 
@@ -15,17 +96,17 @@ comment: Handles MCP tools/list calls
           - ↑mode: PLAIN
           - →→: tools
     ↓jIterator [steps.SimpleIteratorStep-1761842731834]: 
-      expression: context.project.getSequencesList()
+      expression: toolNamesWindow || []
       ↓Check [steps.SimpleStep-1761842731837]: 
         expression: |
           'sequence = null;
-          var name = item.getName();
-          if (name.startsWith("tools_")) {
-          	sequence = name;
-          }
-          '
+          toolItemValid = false;
+          if (item != null) {
+            sequence = String(item);
+            toolItemValid = sequence.length > 0;
+          }'
       ↓jIf [steps.IfStep-1761842731840]: 
-        condition: sequence != null
+        condition: toolItemValid
         ↓Call_InternalListToolsInfo [steps.SequenceStep-1761842731843]: 
           sourceSequence: ConvertigoMCP.internal_list_tools_info
           ↓sequence [variables.StepVariable-1761842731846]: 
@@ -44,7 +125,115 @@ comment: Handles MCP tools/list calls
                   - ↑value: 1761842731843
                 - java.lang.String: 
                   - ↑value: ./document/tool
+  ↓query [steps.JsonObjectStep-1762960886930]: 
+    comment: Pagination metadata
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: query
+    ↓StartIndex [steps.JsonFieldStep-1762960893185]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: startIndex
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsStartIndex
+    ↓Limit [steps.JsonFieldStep-1762960903281]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: limit
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsLimitValue
+    ↓Returned [steps.JsonFieldStep-1762960909300]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: returned
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsReturnedCount
+    ↓Total [steps.JsonFieldStep-1762960914339]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: total
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsTotalCount
+    ↓CursorInput [steps.JsonFieldStep-1762960940516]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: cursorInput
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsCursorInput
+    ↓HasMore [steps.JsonFieldStep-1762960947020]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: hasMore
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsHasMore
+  ↓NextCursor [steps.JsonFieldStep-1762960952772]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: nextCursor
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: toolsNextCursor
 ↓requestIdJson [variables.RequestableVariable-1761219993176]: 
   comment: JSON representation of request id
 ↓paramsJson [variables.RequestableVariable-1761219993178]: 
   comment: JSON stringified params
+↓limit [variables.RequestableVariable-1762960856386]: 
+  comment: Optional maximum number of tools to return (default 0 = no limit).
+↓_nextCursor [variables.RequestableVariable-1762960860944]: 
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

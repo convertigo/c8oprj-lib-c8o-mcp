@@ -25,6 +25,30 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 | `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content with optional type filters. |
 
+### Pagination helpers
+
+Many tools accept a `limit` argument (declared as a string in the schema for
+compatibility with Convertigo requestable variables) and expose pagination
+metadata in their result. Forward the `nextCursor` token via `_meta.nextCursor`
+between requests to stream the remaining entries.
+
+| Tool name | Notes |
+|-----------|-------|
+| `admin-list-projects` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
+| `databaseobject-children` | `query.startIndex`, `query.limit`, `query.returned`, `query.hasMore`, and `nextCursor` describe each slice. |
+| `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
+| `databaseobject-search` | Returns `query` metadata plus a `nextCursor` token when more matches exist. |
+| `palette-list` | `limit` bounds the number of templates; `query.startIndex`, `query.limit`, `query.returned`, and `nextCursor` mirror MCP expectations. |
+| `tools/list` | The MCP catalog itself is paginated; send `_meta.nextCursor` from one response to fetch the next batch of tools. |
+
+All paginated responses emit:
+
+- `result.query` — includes the original cursor, start index, requested limit,
+  returned count, and total match count.
+- `result.nextCursor` — empty string when there is nothing more to fetch.
+
+This keeps the API stateless and compliant with the JSON-RPC MCP guidelines.
+
 ### Shared infrastructure
 
 | File(s)                                    | Purpose |
