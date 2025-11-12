@@ -1,0 +1,103 @@
+comment: Handles MCP prompts/call requests
+↓IncludePromptsHelper [steps.SimpleStep-1762968988833]: 
+  comment: Load prompts helper
+  expression: include("js/prompts.js");
+↓LookupPrompt [steps.SimpleStep-1762969029126]: 
+  comment: Find prompt entry and content
+  expression: |
+    'var promptEntry = c8oFindPromptByName(name);
+    if (!promptEntry) {
+      throw new Error("Prompt not found: " + name);
+    }
+    promptContent = c8oReadPromptFile(promptEntry);
+    promptMeta = promptEntry;'
+↓Result [steps.JsonObjectStep-1762969037235]: 
+  comment: Build prompt response
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓Name [steps.JsonFieldStep-1762969045591]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: name
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.name || name || ""
+  ↓Title [steps.JsonFieldStep-1762969052464]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: title
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.title || ""
+  ↓Description [steps.JsonFieldStep-1762969058613]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: description
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.description || ""
+  ↓Messages [steps.JsonArrayStep-1762969065619]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: messages
+    ↓Message [steps.JsonObjectStep-1762969073733]: 
+      comment: Single message
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: message
+      ↓Role [steps.JsonFieldStep-1762969082561]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: role
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: system
+      ↓Content [steps.JsonFieldStep-1762969091427]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: content
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: promptContent || ""
+↓name [variables.RequestableVariable-1762968982055]: 
+  comment: Prompt identifier to fetch

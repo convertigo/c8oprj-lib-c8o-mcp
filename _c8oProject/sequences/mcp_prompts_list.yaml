@@ -1,0 +1,84 @@
+comment: Handles MCP prompts/list requests
+↓IncludePromptsHelper [steps.SimpleStep-1762968897394]: 
+  comment: Load common prompts helper
+  expression: include("js/prompts.js");
+↓LoadIndex [steps.SimpleStep-1762968904423]: 
+  comment: Load prompts index
+  expression: promptsIndex = c8oLoadPromptsIndex();
+↓Result [steps.JsonObjectStep-1762968913123]: 
+  comment: Build MCP response
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓Prompts [steps.JsonArrayStep-1762968927254]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: prompts
+    ↓Iterator [steps.SimpleIteratorStep-1762968933892]: 
+      expression: promptsIndex || []
+      ↓Prompt [steps.JsonObjectStep-1762968941890]: 
+        comment: Single prompt entry
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: prompt
+        ↓Name [steps.JsonFieldStep-1762968948885]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.name
+        ↓Title [steps.JsonFieldStep-1762968954906]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: title
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.title || ""
+        ↓Description [steps.JsonFieldStep-1762968960805]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: description
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.description || ""
+        ↓File [steps.JsonFieldStep-1762968967189]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: file
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.file || ""
