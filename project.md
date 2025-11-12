@@ -68,6 +68,103 @@ comment
 
 </p></blockquote></details>
 
+<details><summary><b>databaseobject-search</b> : Search database objects (substring / regex / type)</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_search
+
+Search database objects by serializing each object to YAML (same as the Studio search) and matching either a substring or a regular expression. The tool reports every match with context (QName, parent, project, databaseType, etc.) so you can jump directly to the right element.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Search string (substring or regex depending on <code>useRegExp</code>). Leave empty to return no matches.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
+</td>
+<td>
+Optional root QName. When empty, every project in the workspace is scanned.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum number of matches to return (1-1000, default 200). The response also indicates if more matches are available via <code>summary.hasMore</code>.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;matchCase
+</td>
+<td>
+Set to true to perform a case-sensitive substring search. (Regexes support inline flags, but this switch mimics the Studio UI.)
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;useRegExp
+</td>
+<td>
+Set to true to interpret the search string as a Java regular expression (same syntax as the Studio search dialog).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;objectType
+</td>
+<td>
+Optional database object type filter. The value must match <code>DatabaseObject#getDatabaseType()</code>.<br/>
+Common values include <code>Project</code>, <code>Connector</code>, <code>Sequence</code>, <code>Transaction</code>, <code>Step</code>, <code>TestCase</code>, <code>ScreenClass</code>, <code>MobileApplication</code>, <code>PageComponent</code>, and <code>UIComponent</code>.<br/>
+You can discover the exact string for any object by running a search once and reading the <code>databaseType</code> field in the returned matches.
+</td>
+</tr>
+</table>
+
+<span style="color:DarkGoldenRod">Example</span>
+
+```bash
+curl -s http://localhost:18080/convertigo/api/mcp \
+  -H 'content-type: application/json' \
+  -H 'mcp-protocol-version: 2025-06-18' \
+  --data-raw '{
+    "method":"tools/call",
+    "jsonrpc":"2.0",
+    "id":1,
+    "params":{
+      "name":"databaseobject-search",
+      "arguments":{
+        "filter":"Call_InternalJsonSchema",
+        "limit":"5",
+        "objectType":"Sequence"
+      }
+    }
+  }'
+```
+
+Each element in <code>result.matches</code> contains the fully qualified QName, parent QName, owning project, Java class, depth, priority, enabled flag, and the newly added <code>databaseType</code> so you can plug the value back into <code>objectType</code> filters.
+
+The tool also returns <code>result.types</code>, a list of every <code>databaseType</code> encountered under the selected scope together with their occurrence counts. Use this array to present suggestions to a user/LLM (e.g. "Sequence", "Step", "PageComponent", …) or to validate that the filter value you plan to use actually exists in the project.
+
+</p></blockquote></details>
+
 <details><summary><b>internal_call_stub</b></summary><blockquote><p>
 
 
@@ -384,6 +481,14 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter applied on project name and description.
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeTemplates
 </td>
 <td>
@@ -411,6 +516,14 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter applied on name, comment, category and QName.
+</td>
 </tr>
 <tr>
 <td>
@@ -444,18 +557,18 @@ comment
 </tr>
 <tr>
 <td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;className
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;autoSave
 </td>
 <td>
-Fully qualified database object class
+Set to false to skip automatic export
 </td>
 </tr>
 <tr>
 <td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;commit
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;className
 </td>
 <td>
-Set to false to skip automatic export
+Fully qualified database object class
 </td>
 </tr>
 <tr>
@@ -514,10 +627,18 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;autoSave
+</td>
+<td>
+Optional: set to false to defer project export
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
 </td>
 <td>
-Database object QName (project[.path...] format)
+Database object QName to delete (project[.path] format)
 </td>
 </tr>
 </table>
@@ -544,10 +665,34 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;autoSave
+</td>
+<td>
+Optional: set to false to defer project export
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;position
+</td>
+<td>
+Insert position: inside (default), before, after
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
 </td>
 <td>
-Database object QName (project[.path...] format)
+Source database object QName to move (project[.path] format)
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;target
+</td>
+<td>
+Destination QName: container (inside) or sibling (before/after)
 </td>
 </tr>
 </table>
@@ -571,6 +716,14 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter applied on property name, title and description.
+</td>
 </tr>
 <tr>
 <td>
@@ -612,10 +765,10 @@ comment
 </tr>
 <tr>
 <td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;commit
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;autoSave
 </td>
 <td>
-Set to false to skip project export
+Set to false to skip automatic save
 </td>
 </tr>
 <tr>
@@ -658,10 +811,34 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;autoSave
+</td>
+<td>
+Optional: set to false to defer project export
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;name
+</td>
+<td>
+New name to assign
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
 </td>
 <td>
-Database object QName (project[.path...] format)
+Database object QName to rename (project[.path] format)
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;update
+</td>
+<td>
+Reference update mode: update_none (default), update_local, update_all
 </td>
 </tr>
 </table>
@@ -688,10 +865,26 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter applied on palette category and item names.
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeDynamic
 </td>
 <td>
 Set to true to include dynamic (Angular/ION) components
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Optional maximum number of items to return (default 0 = unlimited).
 </td>
 </tr>
 <tr>
@@ -770,6 +963,66 @@ JavaScript source to store in the file
 </td>
 <td>
 File path relative to the project's js/ directory
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_reload</b> : Reload a Convertigo project from disk (discard unsaved runtime state)</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_reload
+
+Reload a Convertigo project from disk (discard unsaved runtime state).
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Project technical name (optional). Defaults to current context project when omitted.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_save</b> : Save a Convertigo project to disk (engine export)</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_save
+
+Save a Convertigo project to disk (engine export).
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Project technical name (optional). Defaults to current context project when omitted.
 </td>
 </tr>
 </table>
