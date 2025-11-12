@@ -1,7 +1,23 @@
 accessibility: Private
 comment: Handles MCP logging/setLevel requests
+↓Init [steps.SimpleStep-1762963032300]: 
+  comment: Parse requested level and prepare response
+  expression: |
+    'var logLevelInfo = { requested: "", normalized: "", applied: "", success: true, message: "" };
+    var parsedParams = {};
+    try { if (paramsJson && paramsJson.length) { parsedParams = JSON.parse(paramsJson); } } catch (e) { logLevelInfo.success = false; logLevelInfo.message = "Invalid params JSON"; }
+    var requested = "";
+    if (parsedParams && typeof parsedParams.level === "string") { requested = parsedParams.level.trim(); }
+    logLevelInfo.requested = requested;
+    var allowed = { trace: "TRACE", debug: "DEBUG", info: "INFO", warn: "WARN", warning: "WARN", error: "ERROR" };
+    var normalized = "";
+    if (requested && allowed[requested.toLowerCase()]) { normalized = allowed[requested.toLowerCase()]; } else if (!logLevelInfo.message) { logLevelInfo.message = requested ? "Unsupported level (accepted: trace, debug, info, warn, error)" : "No level provided"; logLevelInfo.success = false; }
+    if (!normalized) { normalized = "INFO"; }
+    logLevelInfo.normalized = normalized;
+    logLevelInfo.applied = normalized;
+    if (!logLevelInfo.message) { logLevelInfo.message = "Logging level accepted"; }'
 ↓setLevel [steps.LogStep-1762186600934]: 
-  expression: '"McpLoggingSetLevel: " + paramsJson'
+  expression: '"McpLoggingSetLevel -> requested=" + (logLevelInfo ? logLevelInfo.requested : "") + ", applied=" + (logLevelInfo ? logLevelInfo.applied : "")'
 ↓result [steps.JsonObjectStep-1761836840071]: 
   key: 
     - xmlizable: 
@@ -9,5 +25,85 @@ comment: Handles MCP logging/setLevel requests
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
+  ↓Acknowledged [steps.JsonFieldStep-1762963046636]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: acknowledged
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'logLevelInfo ? logLevelInfo.success : false'
+  ↓Requested [steps.JsonFieldStep-1762963052091]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: requested
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'logLevelInfo ? logLevelInfo.requested : ""'
+  ↓Level [steps.JsonFieldStep-1762963057564]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: level
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'logLevelInfo ? logLevelInfo.normalized : ""'
+  ↓Applied [steps.JsonFieldStep-1762963067248]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: applied
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'logLevelInfo ? logLevelInfo.applied : ""'
+  ↓Success [steps.JsonFieldStep-1762963073633]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: success
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'logLevelInfo ? logLevelInfo.success : false'
+  ↓Message [steps.JsonFieldStep-1762963082713]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'logLevelInfo ? logLevelInfo.message : ""'
 ↓paramsJson [variables.RequestableVariable-1761836840067]: 
   comment: Raw params JSON from MCP request
