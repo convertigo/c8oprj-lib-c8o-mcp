@@ -390,6 +390,16 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   }
 
   var propertyType = pd != null ? pd.getPropertyType() : null;
+  var propertyTypeName = propertyType != null ? String(propertyType.getName()) : "";
+  if (!propertyTypeName && propertyType != null && propertyType.getClass) {
+    try {
+      propertyTypeName = String(propertyType.getClass().getName());
+    } catch (_ignoreTypeName) {}
+  }
+
+  if (propertyTypeName === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType") {
+    return C8O.dbo._buildMobileSmartSourceType(rawSpec);
+  }
 
   if (C8O.dbo._isSmartTypeClass(propertyType)) {
     if (typeof rawSpec === 'object' && rawSpec !== null && rawSpec.root && rawSpec.data !== undefined) {
@@ -433,6 +443,79 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   }
 
   return rawSpec;
+};
+
+C8O.dbo._buildMobileSmartSourceType = function (spec) {
+  var MobileSmartSourceType = Packages.com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType;
+  var Mode = Packages.com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType.Mode;
+
+  if (spec instanceof MobileSmartSourceType) {
+    return spec;
+  }
+
+  var modeToken = null;
+  var valueToken = null;
+
+  if (spec && typeof spec === "object") {
+    if (spec.mode) {
+      modeToken = String(spec.mode).trim();
+    } else if (spec.type) {
+      modeToken = String(spec.type).trim();
+    }
+
+    if (spec.value != null) {
+      valueToken = String(spec.value);
+    } else if (spec.text != null) {
+      valueToken = String(spec.text);
+    } else if (spec.expression != null) {
+      valueToken = String(spec.expression);
+    } else if (spec.smartValue != null) {
+      valueToken = String(spec.smartValue);
+    } else if (spec.data != null && typeof spec.data === "string") {
+      valueToken = spec.data;
+    }
+
+    if (spec.source != null && valueToken == null) {
+      valueToken = typeof spec.source === "string" ? spec.source : JSON.stringify(spec.source);
+    }
+  } else if (spec != null) {
+    valueToken = String(spec);
+  }
+
+  if (!modeToken && typeof valueToken === "string") {
+    var idx = valueToken.indexOf(":");
+    if (idx > 0) {
+      var prefix = valueToken.substring(0, idx).trim();
+      if (prefix && /^(plain|script|source)$/i.test(prefix)) {
+        modeToken = prefix;
+        valueToken = valueToken.substring(idx + 1);
+      }
+    }
+  }
+
+  var mode = Mode.PLAIN;
+  if (modeToken) {
+    try {
+      mode = Mode.valueOf(modeToken.trim().toUpperCase());
+    } catch (_ignoreMode) {
+      mode = Mode.PLAIN;
+    }
+  }
+
+  var smart = new MobileSmartSourceType();
+  smart.setMode(mode);
+  var smartValue = valueToken != null ? valueToken : "";
+
+  if (mode === Mode.SOURCE) {
+    if (typeof smartValue === "object") {
+      smartValue = JSON.stringify(smartValue);
+    }
+    if (smartValue == null || smartValue.length === 0) {
+      smartValue = "{}";
+    }
+  }
+  smart.setSmartValue(smartValue);
+  return smart;
 };
 
 C8O.dbo.saveProject = function (project, errors) {
