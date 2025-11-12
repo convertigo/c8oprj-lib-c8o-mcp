@@ -34,7 +34,7 @@ if (methodName === "initialize") {
   callSequence = "mcp_prompts_list";
   callVariables = {};
   injectMeta(callVariables);
-} else if (methodName === "prompts/call") {
+} else if (methodName === "prompts/call" || methodName === "prompts/get") {
   var promptNameRaw = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
   var promptName = String(promptNameRaw || "").trim();
   if (!promptName.length) {
@@ -50,6 +50,29 @@ if (methodName === "initialize") {
   } else {
     callSequence = "mcp_prompts_call";
     callVariables = { name: promptName };
+    injectMeta(callVariables);
+  }
+} else if (methodName === "resources/list") {
+  var listCursor = paramsObject && typeof paramsObject.cursor === "string" ? paramsObject.cursor : "";
+  callSequence = "mcp_resources_list";
+  callVariables = { cursor: listCursor };
+  injectMeta(callVariables);
+} else if (methodName === "resources/read") {
+  var resourceUriRaw = paramsObject && typeof paramsObject.uri === "string" ? paramsObject.uri : "";
+  var resourceUri = String(resourceUriRaw || "").trim();
+  if (!resourceUri.length) {
+    callSequence = "mcp_error_response";
+    responseStatus = "400";
+    callVariables = {
+      status: "400",
+      code: "-32602",
+      message: "Missing resource uri",
+      dataJson: JSON.stringify({ uri: resourceUriRaw }),
+      requestIdJson: requestIdJson
+    };
+  } else {
+    callSequence = "mcp_resources_read";
+    callVariables = { uri: resourceUri };
     injectMeta(callVariables);
   }
 } else if (methodName === "tools/list") {

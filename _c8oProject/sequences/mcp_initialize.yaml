@@ -55,6 +55,48 @@ comment: Builds the MCP initialize response
           - SmartType: 
             - ↑mode: PLAIN
             - →→: logging
+    ↓prompts [steps.JsonObjectStep-1762970391777]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: prompts
+      ↓listChanged [steps.JsonFieldStep-1762970396729]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: listChanged
+        type: bool
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: false
+    ↓ResourcesCapability [steps.JsonObjectStep-1762971841661]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: resources
+      ↓ResourcesListChanged [steps.JsonFieldStep-1762971846993]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: listChanged
+        type: bool
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: false
   ↓serverInfo [steps.JsonObjectStep-1761754374065]: 
     key: 
       - xmlizable: 

@@ -85,19 +85,39 @@ comment: Handles MCP prompts/call requests
             - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
             - SmartType: 
               - ↑mode: PLAIN
-              - →→: system
-      ↓Content [steps.JsonFieldStep-1762969091427]: 
+              - →→: assistant
+      ↓Content [steps.JsonObjectStep-1762971346784]: 
         key: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
             - SmartType: 
               - ↑mode: PLAIN
               - →→: content
-        value: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: JS
-              - →→: promptContent || ""
+        ↓Type [steps.JsonFieldStep-1762971351756]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: type
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: text
+        ↓Text [steps.JsonFieldStep-1762971356166]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: text
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: promptContent || ""
 ↓name [variables.RequestableVariable-1762968982055]: 
   comment: Prompt identifier to fetch

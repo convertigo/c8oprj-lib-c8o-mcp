@@ -18,6 +18,8 @@
   ↓mcp_ping [sequences.GenericSequence]: 🗏 sequences/mcp_ping.yaml
   ↓mcp_prompts_call [sequences.GenericSequence]: 🗏 sequences/mcp_prompts_call.yaml
   ↓mcp_prompts_list [sequences.GenericSequence]: 🗏 sequences/mcp_prompts_list.yaml
+  ↓mcp_resources_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_list.yaml
+  ↓mcp_resources_read [sequences.GenericSequence]: 🗏 sequences/mcp_resources_read.yaml
   ↓mcp_tools_list [sequences.GenericSequence]: 🗏 sequences/mcp_tools_list.yaml
   ↓tools_admin_list_projects [sequences.GenericSequence]: 🗏 sequences/tools_admin_list_projects.yaml
   ↓tools_databaseobject_children [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_children.yaml

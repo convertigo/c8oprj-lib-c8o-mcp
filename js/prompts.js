@@ -1,48 +1,9 @@
+if (typeof C8O === "undefined" || typeof C8O.project === "undefined") {
+  include("js/util.js");
+}
+
 function c8oResolvePromptsDirectory() {
-  var File = Packages.java.io.File;
-  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-  var project = null;
-  if (context && context.requestedObject && context.requestedObject.getProject) {
-    try {
-      project = context.requestedObject.getProject();
-    } catch (_ignore) {
-      project = null;
-    }
-  }
-  if (project == null) {
-    var name = null;
-    if (context && context.projectName) {
-      name = String(context.projectName);
-    } else if (context && context.project) {
-      name = String(context.project);
-    }
-    if (!name || !name.length) {
-      name = "ConvertigoMCP";
-    }
-    project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(name);
-  }
-  if (project == null) {
-    throw new Error("Unable to resolve project for prompts helper");
-  }
-  if (project.getDirFile) {
-    var dirFile = project.getDirFile();
-    if (dirFile != null) {
-      return dirFile;
-    }
-  }
-  if (project.getDirPath) {
-    var dirPath = project.getDirPath();
-    if (dirPath != null) {
-      return new File(String(dirPath));
-    }
-  }
-  if (project.getProjectDirectory) {
-    var dirValue = project.getProjectDirectory();
-    if (dirValue != null) {
-      return dirValue instanceof File ? dirValue : new File(String(dirValue));
-    }
-  }
-  throw new Error("Project directory not available for prompts helper");
+  return C8O.project.resolveProjectDirectory({ projectName: "ConvertigoMCP" });
 }
 
 function c8oLoadPromptsIndex() {

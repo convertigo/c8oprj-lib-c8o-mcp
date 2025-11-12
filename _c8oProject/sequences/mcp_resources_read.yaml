@@ -1,0 +1,84 @@
+comment: Handles MCP resources/read requests
+↓IncludeResourcesHelper [steps.SimpleStep-1762971750056]: 
+  comment: Load resources helper
+  expression: include("js/resources.js");
+↓LoadResource [steps.SimpleStep-1762971755547]: 
+  comment: Resolve requested resource
+  expression: |
+    'var uriText = C8O.util.toTrimmedString(uri || "");
+    if (!uriText.length) {
+      throw new Error("Resource URI is required");
+    }
+    var entry = c8oFindResourceByUri(uriText);
+    if (!entry) {
+      throw new Error("Resource not found: " + uriText);
+    }
+    resourceMeta = entry;
+    resourceText = c8oReadResourceFile(entry);'
+↓Result [steps.JsonObjectStep-1762971761706]: 
+  comment: Build MCP resources/read response
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓Contents [steps.JsonArrayStep-1762971784392]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: contents
+    ↓Iterator [steps.SimpleIteratorStep-1762971795114]: 
+      expression: 'resourceMeta ? [resourceMeta] : []'
+      ↓Content [steps.JsonObjectStep-1762971801780]: 
+        comment: Single resource payload
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: content
+        ↓Uri [steps.JsonFieldStep-1762971810272]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: uri
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.uri || uri || ""
+        ↓MimeType [steps.JsonFieldStep-1762971814923]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: mimeType
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.mimeType || "text/plain"
+        ↓Text [steps.JsonFieldStep-1762971820165]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: text
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'resourceText != null ? String(resourceText) : ""'
+↓uri [variables.RequestableVariable-1762971825860]: 
+  comment: Resource URI to read
+  required: true

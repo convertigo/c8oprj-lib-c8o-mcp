@@ -8,6 +8,53 @@ if (typeof C8O === "undefined") {
 }
 
 C8O.util = C8O.util || {};
+C8O.project = C8O.project || {};
+
+C8O.project.resolveProjectDirectory = function (options) {
+  var File = Packages.java.io.File;
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var opts = options || {};
+  var projectInstance = null;
+  if (opts.project) {
+    projectInstance = opts.project;
+  } else if (context && context.requestedObject && context.requestedObject.getProject) {
+    try {
+      projectInstance = context.requestedObject.getProject();
+    } catch (_ignore) {
+      projectInstance = null;
+    }
+  }
+  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "ConvertigoMCP";
+  if (!projectInstance) {
+    projectInstance = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName));
+  }
+  if (projectInstance == null) {
+    throw new Error("Unable to resolve project '" + projectName + "'");
+  }
+  var dirFile = null;
+  if (projectInstance.getDirFile) {
+    var df = projectInstance.getDirFile();
+    if (df != null) {
+      dirFile = df;
+    }
+  }
+  if (!dirFile && projectInstance.getDirPath) {
+    var dirPath = projectInstance.getDirPath();
+    if (dirPath != null) {
+      dirFile = new File(String(dirPath));
+    }
+  }
+  if (!dirFile && projectInstance.getProjectDirectory) {
+    var value = projectInstance.getProjectDirectory();
+    if (value != null) {
+      dirFile = value instanceof File ? value : new File(String(value));
+    }
+  }
+  if (!dirFile) {
+    throw new Error("Project directory is not available for '" + projectName + "'");
+  }
+  return dirFile;
+};
 
 /**
  * Returns a trimmed string representation or an empty string when null/undefined.
@@ -116,4 +163,3 @@ C8O.util.makeFileResult = function (status, message, extras) {
   }
   return result;
 };
-
