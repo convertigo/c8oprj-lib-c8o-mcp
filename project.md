@@ -1179,6 +1179,44 @@ Project technical name (optional). Defaults to current context project when omit
 </table>
 
 </p></blockquote></details>
+
+<details><summary><b>tools_requestable_execute</b></summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_requestable_execute
+
+
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;requestable
+</td>
+<td>
+Format: <project>[.<connector>].<requestable>
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;variables
+</td>
+<td>
+Optional JSON object with request variables
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
 </p></blockquote></details>
 
 <details><summary><span style="color:DarkGoldenRod"><i>Rest Web Service</i></span></summary><blockquote><p>

@@ -1,0 +1,191 @@
+accessibility: Private
+↓IncludeUtil [steps.SimpleStep-1763053874391]: 
+  comment: Load helper utilities
+  expression: include("js/util.js");
+↓Init [steps.SimpleStep-1763053899221]: 
+  comment: Parse request parameters
+  expression: |
+    'var errors = [];
+    var requestText = C8O.util.toTrimmedString(requestable);
+    if (!requestText.length) {
+        throw new Error(''requestable is required'');
+    }
+    var parts = requestText.split(''.'');
+    if (parts.length < 2) {
+        throw new Error(''requestable must be <project>[.<connector>].<requestable>'');
+    }
+    var projectName = parts[0];
+    var targetConnector = null;
+    var targetName = null;
+    var isSequence = false;
+    if (parts.length == 2) {
+        isSequence = true;
+        targetName = parts[1];
+    } else {
+        targetConnector = parts[1];
+        targetName = parts.slice(2).join(''.'');
+    }
+    if (!targetName || !targetName.length) {
+        throw new Error(''requestable name is missing'');
+    }
+    var variablesText = C8O.util.toTrimmedString(variables);
+    var variablesObject = {};
+    if (variablesText.length) {
+        try {
+            variablesObject = JSON.parse(variablesText);
+            if (variablesObject == null || typeof variablesObject !== ''object'' || Array.isArray(variablesObject)) {
+                throw new Error();
+            }
+        } catch (parseError) {
+            throw new Error(''variables must be a JSON object: '' + parseError);
+        }
+    }
+    executionPlan = {
+        requestable: requestText,
+        project: projectName,
+        connector: targetConnector,
+        name: targetName,
+        isSequence: isSequence,
+        variables: variablesObject
+    };'
+↓ConfigureCalls [steps.SimpleStep-1763055844366]: 
+  comment: Configure dynamic call targets and variables
+  expression: |
+    'if (!executionPlan) {
+        throw new Error(''Execution plan is missing'');
+    }
+    function findStepByName(container, targetName) {
+        if (!container || !targetName) {
+            return null;
+        }
+        var currentName = null;
+        try {
+            currentName = container.getName ? String(container.getName()) : null;
+        } catch (_ignoreName) {
+            currentName = null;
+        }
+        if (currentName && currentName === targetName) {
+            return container;
+        }
+        var children = null;
+        try {
+            children = container.getSteps ? container.getSteps() : null;
+        } catch (_ignoreChildren) {
+            children = null;
+        }
+        if (!children) {
+            return null;
+        }
+        var iterator = children.iterator();
+        while (iterator.hasNext()) {
+            var child = iterator.next();
+            var resolved = findStepByName(child, targetName);
+            if (resolved) {
+                return resolved;
+            }
+        }
+        return null;
+    }
+    var StepVariable = Packages.com.twinsoft.convertigo.beans.variables.StepVariable;
+    function clearVariables(step) {
+        if (!step) {
+            return;
+        }
+        var current = step.getVariables();
+        if (current == null) {
+            return;
+        }
+        var iter = current.iterator();
+        var toRemove = [];
+        while (iter.hasNext()) {
+            toRemove.push(iter.next());
+        }
+        for (var i = 0; i < toRemove.length; i++) {
+            step.remove(toRemove[i]);
+        }
+    }
+    function addVariables(step, vars) {
+        if (!step || !vars) {
+            return;
+        }
+        for (var key in vars) {
+            if (!Object.prototype.hasOwnProperty.call(vars, key)) {
+                continue;
+            }
+            var value = vars[key];
+            if (value === null || typeof value === ''undefined'') {
+                continue;
+            }
+            if (Object.prototype.toString.call(value) === ''[object Array]'') {
+                for (var i = 0; i < value.length; i++) {
+                    addSingle(step, key, value[i]);
+                }
+            } else if (typeof value === ''object'') {
+                addSingle(step, key, JSON.stringify(value));
+            } else {
+                addSingle(step, key, value);
+            }
+        }
+    }
+    function addSingle(step, key, rawValue) {
+        if (rawValue === null || typeof rawValue === ''undefined'') {
+            return;
+        }
+        var stepVar = new StepVariable();
+        stepVar.setName(String(key));
+        stepVar.setDefaultValue(String(rawValue));
+        step.addVariable(stepVar);
+    }
+    var seqStep = findStepByName(context.requestedObject, ''CallSequence'');
+    var txStep = findStepByName(context.requestedObject, ''CallTransaction'');
+    if (executionPlan.isSequence) {
+        if (!seqStep) {
+            throw new Error(''CallSequence step not found'');
+        }
+        seqStep.setSourceSequence(executionPlan.project + ''.'' + executionPlan.name);
+        clearVariables(seqStep);
+        addVariables(seqStep, executionPlan.variables);
+    } else {
+        if (!executionPlan.connector) {
+            throw new Error(''connector is required for transactions'');
+        }
+        if (!txStep) {
+            throw new Error(''CallTransaction step not found'');
+        }
+        txStep.setSourceTransaction(executionPlan.project + ''.'' + executionPlan.connector + ''.'' + executionPlan.name);
+        clearVariables(txStep);
+        addVariables(txStep, executionPlan.variables);
+    }'
+↓CallWrapper [steps.XMLComplexStep-1763056061207]: 
+  nodeName: CallWrapper
+  output: false
+  ↓SwitchTarget [steps.IfThenElseStep-1763056222502]: 
+    condition: executionPlan && executionPlan.isSequence === true
+    ↓Then [steps.ThenStep-1763056351508]: 
+      ↓CallSequence [steps.SequenceStep-1763056380581]: 
+        sourceSequence: ConvertigoMCP.internal_call_stub
+    ↓Else [steps.ElseStep-1763056367864]: 
+      ↓CallTransaction [steps.TransactionStep-1763056393878]: 
+        sourceTransaction: ConvertigoMCP.void.void
+↓result [steps.JsonObjectStep-1763066359376]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓CopyPayload [steps.XMLCopyStep-1763057084997]: 
+    sourceDefinition: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+        - com.twinsoft.convertigo.beans.common.XMLVector: 
+          - java.lang.String: 
+            - ↑value: 1763056061207
+          - java.lang.String: 
+            - ↑value: ./*/document/*
+↓requestable [variables.RequestableVariable-1763053821400]: 
+  comment: 'Format: <project>[.<connector>].<requestable>'
+  required: true
+↓variables [variables.RequestableVariable-1763053833825]: 
+  comment: Optional JSON object with request variables
+  value: '{}'
