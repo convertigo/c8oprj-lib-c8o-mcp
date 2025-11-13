@@ -1,5 +1,8 @@
 accessibility: Private
 comment: Lists palette categories and database object templates allowed under a parent.
+↓IncludeHelpers [steps.SimpleStep-1763034294509]: 
+  comment: Load shared palette helpers
+  expression: include("js/palette.js");
 ↓InitContext [steps.SimpleStep-1762338110018]: 
   comment: Prepare helpers and resolve parent
   expression: |
@@ -288,6 +291,32 @@ comment: Lists palette categories and database object templates allowed under a 
     paletteTotalMatches = totalMatches;
     paletteHasMore = hasMore;
     paletteNextCursor = limitValue > 0 && hasMore ? String(startIndex + windowCount) : "";'
+↓AugmentEntries [steps.SimpleStep-1763034311544]: 
+  comment: Compute property hints and creation templates
+  expression: |
+    'if (typeof C8O !== "undefined" && C8O.palette && paletteCategories) {
+      for (var i = 0; i < paletteCategories.length; i++) {
+        var category = paletteCategories[i];
+        if (!category || !category.items) {
+          continue;
+        }
+        for (var j = 0; j < category.items.length; j++) {
+          var item = category.items[j];
+          if (!item || !item.className) {
+            continue;
+          }
+          try {
+            var templateDetails = C8O.palette.describePaletteEntry(item);
+            if (templateDetails) {
+              item.nameSuggestion = templateDetails.nameSuggestion;
+              item.creationTemplate = templateDetails.creationTemplate;
+              item.propertyHints = templateDetails.propertyHints;
+            }
+          } catch (_ignoreTemplate) {}
+        }
+      }
+    }
+    '
 ↓LoadDynamic [steps.SimpleStep-1762338110022]: 
   comment: Collect dynamic UI components
   expression: |
@@ -717,6 +746,420 @@ comment: Lists palette categories and database object templates allowed under a 
                     - SmartType: 
                       - ↑mode: JS
                       - →→: item.category
+              ↓NameSuggestion [steps.JsonFieldStep-1763034337263]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: nameSuggestion
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: item.nameSuggestion || ""
+              ↓CreationTemplate [steps.JsonObjectStep-1763034634954]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: creationTemplate
+                ↓Related [steps.JsonFieldStep-1763034653508]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: related
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: (item.creationTemplate && item.creationTemplate.related) || "<parent QName>"
+                ↓Mode [steps.JsonFieldStep-1763034669361]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: mode
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: (item.creationTemplate && item.creationTemplate.mode) || "inside"
+                ↓TemplateClassName [steps.JsonFieldStep-1763034686562]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: className
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: (item.creationTemplate && item.creationTemplate.className) || item.className
+                ↓TemplateName [steps.JsonFieldStep-1763034700699]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: name
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: (item.creationTemplate && item.creationTemplate.name) || item.nameSuggestion || item.name
+                ↓TemplateProperties [steps.JsonArrayStep-1763034714719]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: properties
+                  ↓TemplatePropertiesIterator [steps.SimpleIteratorStep-1763034731057]: 
+                    expression: '(item.creationTemplate && item.creationTemplate.properties) ? item.creationTemplate.properties : []'
+                    ↓TemplateProperty [steps.JsonObjectStep-1763034742787]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: TemplateProperty
+                      ↓PropertyName [steps.JsonFieldStep-1763034751204]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: name
+                        value: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: JS
+                              - →→: item.name
+                      ↓PropertyKind [steps.JsonFieldStep-1763034767672]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: kind
+                        value: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: JS
+                              - →→: item.kind || "string"
+                      ↓PropertyValue [steps.JsonFieldStep-1763034779710]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: value
+                        value: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: JS
+                              - →→: '(item.kind === "smartType" || item.kind === "xmlVector" || item.kind === "array") ? null : item.value'
+                      ↓PropertySmartType [steps.JsonObjectStep-1763034847436]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: smartType
+                        ↓SmartTypeMode [steps.JsonFieldStep-1763034934029]: 
+                          key: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: PLAIN
+                                - →→: mode
+                          value: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: JS
+                                - →→: 'item.kind === "smartType" ? (item.value && item.value.mode) : null'
+                        ↓SmartTypeExpression [steps.JsonFieldStep-1763034970422]: 
+                          key: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: PLAIN
+                                - →→: expression
+                          value: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: JS
+                                - →→: '(item.kind === "smartType" && item.value) ? item.value.expression : null'
+                        ↓SmartTypeSources [steps.JsonArrayStep-1763034985294]: 
+                          key: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: PLAIN
+                                - →→: sources
+                          ↓SmartTypeSourcesIterator [steps.SimpleIteratorStep-1763035007139]: 
+                            expression: '(item.kind === "smartType" && item.value && item.value.sources) ? item.value.sources : []'
+                            ↓SmartTypeSourceValue [steps.JsonFieldStep-1763035023854]: 
+                              key: 
+                                - xmlizable: 
+                                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                                  - SmartType: 
+                                    - ↑mode: PLAIN
+                                    - →→: SmartTypeSourceValue
+                              value: 
+                                - xmlizable: 
+                                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                                  - SmartType: 
+                                    - ↑mode: JS
+                                    - →→: item
+                      ↓PropertyArrayValue [steps.JsonArrayStep-1763035047994]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: arrayValue
+                        ↓PropertyArrayIterator [steps.SimpleIteratorStep-1763035065510]: 
+                          expression: '((item.kind === "xmlVector" || item.kind === "array") && item.value) ? item.value : []'
+                          ↓ArrayItem [steps.JsonFieldStep-1763035108769]: 
+                            key: 
+                              - xmlizable: 
+                                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                                - SmartType: 
+                                  - ↑mode: PLAIN
+                                  - →→: ArrayItem
+                            value: 
+                              - xmlizable: 
+                                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                                - SmartType: 
+                                  - ↑mode: JS
+                                  - →→: item
+                ↓TemplatePayloadJson [steps.JsonFieldStep-1763035595868]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: payloadJson
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: (item.creationTemplate && item.creationTemplate.payloadJson) || ""
+              ↓PropertyHints [steps.JsonArrayStep-1763035129767]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: propertyHints
+                ↓PropertyHintsIterator [steps.SimpleIteratorStep-1763035144651]: 
+                  expression: item.propertyHints || []
+                  ↓PropertyHint [steps.JsonObjectStep-1763035176655]: 
+                    key: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: PLAIN
+                          - →→: PropertyHint
+                    ↓HintName [steps.JsonFieldStep-1763035187035]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: name
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.name
+                    ↓HintKind [steps.JsonFieldStep-1763035203353]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: kind
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.kind
+                    ↓HintType [steps.JsonFieldStep-1763035221613]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: type
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.type || ""
+                    ↓HintDescription [steps.JsonFieldStep-1763035237905]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: description
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.description || ""
+                    ↓HintExamplePreview [steps.JsonFieldStep-1763035254496]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: examplePreview
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: (function(val){ if (val === null || typeof val === 'undefined') { return null; } if (typeof val === 'object') { try { return JSON.stringify(val); } catch (e) { return String(val); } } return val; })(item.exampleValue)
+                    ↓HintSmartType [steps.JsonObjectStep-1763035293098]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: smartType
+                      ↓HintSmartTypeMode [steps.JsonFieldStep-1763035306968]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: mode
+                        value: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: JS
+                              - →→: 'item.kind === "smartType" ? (item.exampleValue && item.exampleValue.mode) : null'
+                      ↓HintSmartTypeExpression [steps.JsonFieldStep-1763035326593]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: expression
+                        value: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: JS
+                              - →→: '(item.kind === "smartType" && item.exampleValue) ? item.exampleValue.expression : null'
+                      ↓HintSmartTypeSources [steps.JsonArrayStep-1763035344447]: 
+                        key: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                            - SmartType: 
+                              - ↑mode: PLAIN
+                              - →→: sources
+                        ↓HintSmartTypeSourcesIterator [steps.SimpleIteratorStep-1763035358204]: 
+                          expression: '(item.kind === "smartType" && item.exampleValue && item.exampleValue.sources) ? item.exampleValue.sources : []'
+                          ↓HintSmartTypeSourceValue [steps.JsonFieldStep-1763035396547]: 
+                            key: 
+                              - xmlizable: 
+                                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                                - SmartType: 
+                                  - ↑mode: PLAIN
+                                  - →→: HintSmartTypeSourceValue
+                            value: 
+                              - xmlizable: 
+                                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                                - SmartType: 
+                                  - ↑mode: JS
+                                  - →→: item
+                    ↓HintArrayValue [steps.JsonArrayStep-1763035415224]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: arrayExample
+                      ↓HintArrayIterator [steps.SimpleIteratorStep-1763035431281]: 
+                        expression: '((item.kind === "xmlVector" || item.kind === "array") && item.exampleValue) ? item.exampleValue : []'
+                        ↓HintArrayEntry [steps.JsonFieldStep-1763035449999]: 
+                          key: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: PLAIN
+                                - →→: HintArrayEntry
+                          value: 
+                            - xmlizable: 
+                              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                              - SmartType: 
+                                - ↑mode: JS
+                                - →→: item
+                    ↓HintExpert [steps.JsonFieldStep-1763035470271]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: expert
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.expert === true
+                    ↓HintHidden [steps.JsonFieldStep-1763035492762]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: hidden
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.hidden === true
+                    ↓HintReadOnly [steps.JsonFieldStep-1763035507524]: 
+                      key: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: PLAIN
+                            - →→: readOnly
+                      value: 
+                        - xmlizable: 
+                          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                          - SmartType: 
+                            - ↑mode: JS
+                            - →→: item.readOnly === true
   ↓StartIndex [steps.JsonFieldStep-1762959166774]: 
     key: 
       - xmlizable: 

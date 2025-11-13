@@ -581,3 +581,203 @@ C8O.dbo.exportProjectIfNeeded = function (project, commitFlag, errors) {
   var result = C8O.dbo.saveProjectIfNeeded(project, commitFlag, errors);
   return { exported: result.saved === true, message: result.message || "" };
 };
+
+
+C8O.dbo.instantiateClass = function (className) {
+  var text = C8O.util.toTrimmedString(className || "");
+  if (!text.length) {
+    return null;
+  }
+  try {
+    var targetClass = Packages.java.lang.Class.forName(text);
+    var constructor = targetClass.getDeclaredConstructor();
+    constructor.setAccessible(true);
+    return constructor.newInstance();
+  } catch (_ignoreInstantiation) {
+    return null;
+  }
+};
+
+C8O.dbo._isXMLizableClass = function (propertyType) {
+  if (!propertyType) {
+    return false;
+  }
+  try {
+    var xmlizableClass = Packages.com.twinsoft.convertigo.beans.common.XMLizable;
+    return xmlizableClass.isAssignableFrom(propertyType);
+  } catch (_ignoreXmlizable) {
+    try {
+      var name = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return name === "com.twinsoft.convertigo.beans.common.XMLizable";
+    } catch (_ignoreNameXmlizable) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._getBooleanDescriptorFlag = function (descriptor, key) {
+  if (!descriptor || !key) {
+    return false;
+  }
+  try {
+    var value = descriptor.getValue(key);
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (value instanceof Packages.java.lang.Boolean) {
+      return value.booleanValue();
+    }
+    if (value != null) {
+      return /true/i.test(String(value));
+    }
+  } catch (_ignoreFlag) {}
+  return false;
+};
+
+C8O.dbo._propertyKindFromType = function (propertyType) {
+  if (C8O.dbo._isSmartTypeClass(propertyType)) {
+    return "smartType";
+  }
+  if (C8O.dbo._isXMLVectorClass(propertyType)) {
+    return "xmlVector";
+  }
+  if (C8O.dbo._isXMLizableClass(propertyType)) {
+    return "xmlizable";
+  }
+  if (!propertyType) {
+    return "object";
+  }
+  try {
+    if (propertyType.isEnum && propertyType.isEnum()) {
+      return "enum";
+    }
+  } catch (_ignoreEnum) {}
+  var typeName = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+  switch (typeName) {
+    case "java.lang.Boolean":
+    case "boolean":
+      return "boolean";
+    case "java.lang.Integer":
+    case "java.lang.Long":
+    case "java.lang.Double":
+    case "java.lang.Float":
+    case "int":
+    case "long":
+    case "double":
+    case "float":
+      return "number";
+    case "java.lang.String":
+    case "char":
+    case "java.lang.CharSequence":
+      return "string";
+    default:
+      if (typeName.indexOf("java.util.List") === 0 || typeName.indexOf("java.util.Collection") === 0) {
+        return "array";
+      }
+      return "object";
+  }
+};
+
+C8O.dbo._exampleValueForKind = function (kind, fallback) {
+  if (fallback !== null && fallback !== undefined) {
+    return fallback;
+  }
+  switch (kind) {
+    case "string":
+      return "";
+    case "number":
+      return 0;
+    case "boolean":
+      return false;
+    case "smartType":
+      return { mode: "PLAIN", expression: "" };
+    case "xmlVector":
+    case "array":
+      return [];
+    default:
+      return null;
+  }
+};
+
+C8O.dbo.describePropertyDescriptor = function (descriptor, sampleInstance) {
+  if (!descriptor) {
+    return null;
+  }
+  var name = descriptor.getName ? String(descriptor.getName()) : "";
+  if (!name.length || name === "class") {
+    return null;
+  }
+  var propertyType = descriptor.getPropertyType ? descriptor.getPropertyType() : null;
+  var readMethod = descriptor.getReadMethod ? descriptor.getReadMethod() : null;
+  var writeMethod = descriptor.getWriteMethod ? descriptor.getWriteMethod() : null;
+  var defaultValue = null;
+  if (sampleInstance && readMethod) {
+    try {
+      defaultValue = readMethod.invoke(sampleInstance, null);
+    } catch (_ignoreRead) {}
+  }
+  var normalizedValue = C8O.dbo.normalizeValue(descriptor, defaultValue);
+  var kind = C8O.dbo._propertyKindFromType(propertyType);
+  var exampleValue = C8O.dbo._exampleValueForKind(kind, normalizedValue);
+  var description = "";
+  try {
+    description = descriptor.getShortDescription ? String(descriptor.getShortDescription() || "") : "";
+  } catch (_ignoreDesc) {}
+  var displayName = "";
+  try {
+    displayName = descriptor.getDisplayName ? String(descriptor.getDisplayName() || name) : name;
+  } catch (_ignoreDisplay) {
+    displayName = name;
+  }
+  return {
+    name: name,
+    displayName: displayName,
+    description: description,
+    type: propertyType && propertyType.getName ? String(propertyType.getName()) : "",
+    kind: kind,
+    hidden: C8O.dbo._getBooleanDescriptorFlag(descriptor, "hidden"),
+    expert: C8O.dbo._getBooleanDescriptorFlag(descriptor, "expert"),
+    scriptable: C8O.dbo._getBooleanDescriptorFlag(descriptor, "scriptable"),
+    nillable: C8O.dbo._getBooleanDescriptorFlag(descriptor, "nillable"),
+    readOnly: writeMethod == null,
+    defaultValue: normalizedValue,
+    exampleValue: exampleValue
+  };
+};
+
+C8O.dbo.describeBeanProperties = function (beanInfo) {
+  var list = [];
+  if (!beanInfo) {
+    return list;
+  }
+  var descriptors = [];
+  try {
+    descriptors = beanInfo.getPropertyDescriptors();
+  } catch (_ignoreDescriptors) {
+    descriptors = [];
+  }
+  var beanDescriptor = null;
+  try {
+    beanDescriptor = beanInfo.getBeanDescriptor();
+  } catch (_ignoreBeanDescriptor) {}
+  var sampleInstance = null;
+  if (beanDescriptor != null) {
+    try {
+      var beanClass = beanDescriptor.getBeanClass();
+      if (beanClass != null) {
+        var constructor = beanClass.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        sampleInstance = constructor.newInstance();
+      }
+    } catch (_ignoreInstance) {
+      sampleInstance = null;
+    }
+  }
+  for (var i = 0; i < descriptors.length; i++) {
+    var hint = C8O.dbo.describePropertyDescriptor(descriptors[i], sampleInstance);
+    if (hint) {
+      list.push(hint);
+    }
+  }
+  return list;
+};
