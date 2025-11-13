@@ -23,6 +23,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
+| `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |
 | `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content with optional type filters. |
 
 ### Pagination helpers
@@ -97,9 +98,7 @@ noted in the description.
   mutations (supports dry run reporting, triggers Studio refresh as needed).
 
 ### Execution & validation
-- [ ] `invoke-requestable` — Execute a sequence/transaction with input
-  variables, return payload, status, and logs.
-- [ ] `invoke-run-testcase` — Trigger a TestCase and report assertion results.
+- [ ] `invoke-testcase` — Trigger a TestCase and report assertion results.
 - [ ] `invoke-export-project` — Force a project export and return file paths or
   checksums.
 

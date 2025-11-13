@@ -73,6 +73,7 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - [ ] Add project mutation helpers (property editing, controlled sequence updates) once server-side guards are ready.
 - [ ] Introduce cross-project invocation utilities with robust input validation and result streaming.
 - [ ] Document regression tests / automated curls to validate MCP contract after each change.
+- [ ] Clean up `resources/list` pagination (only emit `nextCursor` when a page really follows) and add onboarding resources/prompts so MCP clients learn Convertigo conventions before mutating projects.
 
 ## Testing Checklist
 - `initialize` responds 200 with protocol info, no nested `result.result`.

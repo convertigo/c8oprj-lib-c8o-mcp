@@ -6,5 +6,29 @@
     "description": "High-level structure and conventions for the Convertigo MCP project.",
     "mimeType": "text/markdown",
     "file": "convertigo_overview.md"
+  },
+  {
+    "uri": "convertigo://resources/convertigo-mcp-usage",
+    "name": "Convertigo MCP Usage Guide",
+    "title": "Convertigo MCP Usage Guide",
+    "description": "How to call our MCP endpoint, preferred tools, and test the REST sequences.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_mcp_usage.md"
+  },
+  {
+    "uri": "convertigo://resources/convertigo-context-api",
+    "name": "Convertigo Context API (minimal)",
+    "title": "Convertigo Context (JS API guardrails)",
+    "description": "Summarizes safe ways to read the engine context and reminds that arbitrary fields such as context.wordsData are forbidden.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_context_api.md"
+  },
+  {
+    "uri": "convertigo://resources/convertigo-sequence-quickstart",
+    "name": "Convertigo Sequence Quickstart",
+    "title": "Convertigo Sequence Quickstart",
+    "description": "Step-by-step workflow: palette-list \u2192 create \u2192 properties-set \u2192 save \u2192 curl test.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_sequence_quickstart.md"
   }
 ]

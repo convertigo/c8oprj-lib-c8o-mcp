@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Handles MCP prompts/call requests
 ↓IncludePromptsHelper [steps.SimpleStep-1762968988833]: 
   comment: Load prompts helper

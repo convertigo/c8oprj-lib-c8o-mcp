@@ -566,7 +566,7 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
     return { reloaded: false, message: message };
   }
   try {
-    Engine.theApp.databaseObjectsManager.reloadProject(name);
+    Engine.theApp.databaseObjectsManager.getStudioProjects().reloadProject(name);
     return { reloaded: true, message: "" };
   } catch (reloadError) {
     var message = String(reloadError);

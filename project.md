@@ -68,103 +68,6 @@ comment
 
 </p></blockquote></details>
 
-<details><summary><b>databaseobject-search</b> : Search database objects (substring / regex / type)</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_search
-
-Search database objects by serializing each object to YAML (same as the Studio search) and matching either a substring or a regular expression. The tool reports every match with context (QName, parent, project, databaseType, etc.) so you can jump directly to the right element.
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
-</td>
-<td>
-Search string (substring or regex depending on <code>useRegExp</code>). Leave empty to return no matches.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
-</td>
-<td>
-Optional root QName. When empty, every project in the workspace is scanned.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
-</td>
-<td>
-Maximum number of matches to return (1-1000, default 200). The response also indicates if more matches are available via <code>summary.hasMore</code>.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;matchCase
-</td>
-<td>
-Set to true to perform a case-sensitive substring search. (Regexes support inline flags, but this switch mimics the Studio UI.)
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;useRegExp
-</td>
-<td>
-Set to true to interpret the search string as a Java regular expression (same syntax as the Studio search dialog).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;objectType
-</td>
-<td>
-Optional database object type filter. The value must match <code>DatabaseObject#getDatabaseType()</code>.<br/>
-Common values include <code>Project</code>, <code>Connector</code>, <code>Sequence</code>, <code>Transaction</code>, <code>Step</code>, <code>TestCase</code>, <code>ScreenClass</code>, <code>MobileApplication</code>, <code>PageComponent</code>, and <code>UIComponent</code>.<br/>
-You can discover the exact string for any object by running a search once and reading the <code>databaseType</code> field in the returned matches.
-</td>
-</tr>
-</table>
-
-<span style="color:DarkGoldenRod">Example</span>
-
-```bash
-curl -s http://localhost:18080/convertigo/api/mcp \
-  -H 'content-type: application/json' \
-  -H 'mcp-protocol-version: 2025-06-18' \
-  --data-raw '{
-    "method":"tools/call",
-    "jsonrpc":"2.0",
-    "id":1,
-    "params":{
-      "name":"databaseobject-search",
-      "arguments":{
-        "filter":"Call_InternalJsonSchema",
-        "limit":"5",
-        "objectType":"Sequence"
-      }
-    }
-  }'
-```
-
-Each element in <code>result.matches</code> contains the fully qualified QName, parent QName, owning project, Java class, depth, priority, enabled flag, and the newly added <code>databaseType</code> so you can plug the value back into <code>objectType</code> filters.
-
-The tool also returns <code>result.types</code>, a list of every <code>databaseType</code> encountered under the selected scope together with their occurrence counts. Use this array to present suggestions to a user/LLM (e.g. "Sequence", "Step", "PageComponent", …) or to validate that the filter value you plan to use actually exists in the project.
-
-</p></blockquote></details>
-
 <details><summary><b>internal_call_stub</b></summary><blockquote><p>
 
 
@@ -423,6 +326,104 @@ Raw params JSON from MCP request
 Builds the MCP ping response
 </p></blockquote></details>
 
+<details><summary><b>mcp_prompts_call</b> : Handles MCP prompts/call requests</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") mcp_prompts_call
+
+Handles MCP prompts/call requests
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;name
+</td>
+<td>
+Prompt identifier to fetch
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>mcp_prompts_list</b> : Handles MCP prompts/list requests</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") mcp_prompts_list
+
+Handles MCP prompts/list requests
+</p></blockquote></details>
+
+<details><summary><b>mcp_resources_list</b> : Handles MCP resources/list requests</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") mcp_resources_list
+
+Handles MCP resources/list requests
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;cursor
+</td>
+<td>
+Optional pagination cursor
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>mcp_resources_read</b> : Handles MCP resources/read requests</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") mcp_resources_read
+
+Handles MCP resources/read requests
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;uri
+</td>
+<td>
+Resource URI to read
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>mcp_tools_list</b> : Handles MCP tools/list calls</summary><blockquote><p>
 
 
@@ -440,6 +441,22 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Optional maximum number of tools to return (default 0 = no limit).
+</td>
 </tr>
 <tr>
 <td>
@@ -481,6 +498,14 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
 </td>
 <td>
@@ -493,6 +518,14 @@ Optional case-insensitive filter applied on project name and description.
 </td>
 <td>
 Set to true to include template projects such as mobilebuilder templates.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum number of projects to return per call (1-100, default 10).
 </td>
 </tr>
 </table>
@@ -519,10 +552,26 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
 </td>
 <td>
 Optional case-insensitive filter applied on name, comment, category and QName.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum number of children to return per call (1-200, default 25).
 </td>
 </tr>
 <tr>
@@ -719,10 +768,26 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
 </td>
 <td>
 Optional case-insensitive filter applied on property name, title and description.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum number of properties to return per call (1-200, default 25).
 </td>
 </tr>
 <tr>
@@ -845,6 +910,84 @@ Reference update mode: update_none (default), update_local, update_all
 
 </p></blockquote></details>
 
+<details><summary><b>tools_databaseobject_search</b> : Search database objects (name/comment/QName)</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_search
+
+Search database objects (name/comment/QName).
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter (space-separated tokens).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum number of matches to return (1-1000, default 200).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;matchCase
+</td>
+<td>
+Set to true for case-sensitive search.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;objectType
+</td>
+<td>
+Optional database object type filter (use * for any type).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
+</td>
+<td>
+Optional root database object QName (default: all projects).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;useRegExp
+</td>
+<td>
+Set to true to interpret the search string as a regular expression.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>tools_palette_list</b> : Lists palette categories and database object templates allowed under a parent</summary><blockquote><p>
 
 
@@ -862,6 +1005,14 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
 </tr>
 <tr>
 <td>

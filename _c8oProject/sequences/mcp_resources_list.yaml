@@ -1,3 +1,4 @@
+accessibility: Private
 comment: Handles MCP resources/list requests
 ↓IncludeResourcesHelper [steps.SimpleStep-1762971662712]: 
   comment: Load resources helper

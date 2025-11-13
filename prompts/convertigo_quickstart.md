@@ -31,11 +31,13 @@
 | `palette-list` | Discover creatable steps/components for a parent. |
 | `project-js-get` / `project-js-set` | Manage helper JS files used via `include()`. |
 | `project-save` / `project-reload` | Persist or reload a project. |
+| `requestable-execute` | Run a sequence/transaction internally and inspect its response without HTTP. |
 | `databaseobject-search` | Full-text/regex search across YAML definitions. |
 
 ## Best practices
 - Keep responses concise but structured; LLM clients expect JSON arrays/objects matching the schema.
 - When exposing a new tool, document it via a comment in the sequence (first line = title, rest = description).
+- Test chaque séquence via `requestable-execute` avant d'imaginer un `curl` `.json`; ne passe en HTTP que si le test MCP réussit et que le serveur est joignable.
 - Test each tool via `curl` (or MCP Inspector) and ensure pagination fields work.
 - Leverage `internal_*` helpers (schema generation, tool introspection) instead of duplicating logic.
 
