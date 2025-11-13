@@ -460,7 +460,7 @@ comment: Returns direct children of a database object. When qname is empty, list
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: nextCursorToken
+          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
 ↓qname [variables.RequestableVariable-1762270810298]: 
   comment: Database object QName. Leave empty to list projects.
 ↓filter [variables.RequestableVariable-1762437976673]: 

@@ -228,7 +228,7 @@ comment: Handles MCP tools/list calls
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: toolsNextCursor
+          - →→: 'toolsNextCursor && String(toolsNextCursor).length > 0 ? toolsNextCursor : null'
 ↓requestIdJson [variables.RequestableVariable-1761219993176]: 
   comment: JSON representation of request id
 ↓paramsJson [variables.RequestableVariable-1761219993178]: 

@@ -759,7 +759,7 @@ comment: Search database objects (name/comment/QName).
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: nextCursorToken
+          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
 ↓qname [variables.RequestableVariable-1762941528442]: 
   comment: 'Optional root database object QName (default: all projects).'
 ↓filter [variables.RequestableVariable-1762941538776]: 

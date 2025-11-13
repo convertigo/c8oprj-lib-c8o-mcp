@@ -24,11 +24,14 @@ comment: Handles MCP resources/list requests
     }
     var slice = catalog.slice(startIndex, startIndex + pageSize);
     var nextCursor = "";
+    var hasNext = false;
     if (startIndex + slice.length < catalog.length) {
       nextCursor = String(startIndex + slice.length);
+      hasNext = true;
     }
     resourcesPage = slice;
     resourcesNextCursor = nextCursor;
+    resourcesHasNextCursor = hasNext;
     resourcesQuery = {
       total: catalog.length,
       startIndex: startIndex,
@@ -126,18 +129,27 @@ comment: Handles MCP resources/list requests
               - SmartType: 
                 - ↑mode: JS
                 - →→: item && item.mimeType || "text/plain"
-  ↓NextCursor [steps.JsonFieldStep-1762971733807]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: resourcesNextCursor || ""
+↓Meta [steps.JsonObjectStep-1763045447449]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: meta
+  ↓IfHasCursor [steps.IfStep-1763045455630]: 
+    condition: resourcesHasNextCursor === true
+    ↓NextCursor [steps.JsonFieldStep-1763045467373]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: String(resourcesNextCursor)
 ↓cursor [variables.RequestableVariable-1762971739821]: 
   comment: Optional pagination cursor

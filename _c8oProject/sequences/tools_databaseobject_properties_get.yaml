@@ -1027,7 +1027,7 @@ comment: Returns metadata and property values for a database object identified b
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: nextCursorToken
+          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
 ↓qname [variables.RequestableVariable-1762266930541]: 
   comment: Database object QName (project[.path...] format)
   required: true

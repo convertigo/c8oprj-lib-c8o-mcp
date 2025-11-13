@@ -401,7 +401,7 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: nextCursorToken
+          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
 ↓includeTemplates [variables.RequestableVariable-1761646433172]: 
   comment: Set to true to include template projects such as mobilebuilder templates.
   value: false
