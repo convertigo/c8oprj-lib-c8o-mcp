@@ -163,3 +163,189 @@ C8O.util.makeFileResult = function (status, message, extras) {
   }
   return result;
 };
+
+
+C8O.requestable = C8O.requestable || {};
+
+C8O.requestable._findChild = function (container, options) {
+  var opts = options || {};
+  function matches(node) {
+    if (!node) {
+      return false;
+    }
+    var matchesName = !opts.name;
+    if (!matchesName) {
+      try {
+        matchesName = node.getName && String(node.getName()) === opts.name;
+      } catch (_ignoreName) {
+        matchesName = false;
+      }
+    }
+    var matchesClass = !opts.className;
+    if (!matchesClass) {
+      try {
+        matchesClass = node.getClass() && String(node.getClass().getName()) === opts.className;
+      } catch (_ignoreClass) {
+        matchesClass = false;
+      }
+    }
+    return matchesName && matchesClass;
+  }
+
+  function walk(node) {
+    if (!node) {
+      return null;
+    }
+    if (matches(node)) {
+      return node;
+    }
+    var children = null;
+    try {
+      children = node.getDatabaseObjectChildren ? node.getDatabaseObjectChildren() : null;
+    } catch (_ignoreChildren) {
+      children = null;
+    }
+    if (!children) {
+      return null;
+    }
+    for (var i = 0; i < children.size(); i++) {
+      var child = children.get(i);
+      var found = walk(child);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  if (!container) {
+    return null;
+  }
+  var roots = null;
+  try {
+    roots = container.getDatabaseObjectChildren ? container.getDatabaseObjectChildren() : null;
+  } catch (_ignoreRoot) {
+    roots = null;
+  }
+  if (!roots) {
+    return null;
+  }
+  for (var i = 0; i < roots.size(); i++) {
+    var target = walk(roots.get(i));
+    if (target) {
+      return target;
+    }
+  }
+  return null;
+};
+
+C8O.requestable._clearVariables = function (step) {
+  if (!step) {
+    return;
+  }
+  var vars = null;
+  try {
+    vars = step.getVariables ? step.getVariables() : null;
+  } catch (_ignoreVars) {
+    vars = null;
+  }
+  if (!vars) {
+    return;
+  }
+  var iter = vars.iterator();
+  var buffer = [];
+  while (iter.hasNext()) {
+    buffer.push(iter.next());
+  }
+  for (var i = 0; i < buffer.length; i++) {
+    step.remove(buffer[i]);
+  }
+};
+
+C8O.requestable._addVariables = function (step, map) {
+  if (!step || !map) {
+    return;
+  }
+  var StepVariable = Packages.com.twinsoft.convertigo.beans.variables.StepVariable;
+  function addSingle(key, rawValue) {
+    if (rawValue === null || rawValue === undefined) {
+      return;
+    }
+    var sv = new StepVariable();
+    sv.setName(String(key));
+    sv.setValueOrNull(String(rawValue));
+    step.addVariable(sv);
+  }
+  for (var key in map) {
+    if (!Object.prototype.hasOwnProperty.call(map, key)) {
+      continue;
+    }
+    var value = map[key];
+    if (value === null || value === undefined) {
+      continue;
+    }
+    try {
+      this[key] = value;
+    } catch (_ignoreAssign) {}
+    if (Object.prototype.toString.call(value) === '[object Array]') {
+      for (var i = 0; i < value.length; i++) {
+        addSingle(key, value[i]);
+      }
+    } else if (typeof value === 'object') {
+      addSingle(key, JSON.stringify(value));
+    } else {
+      addSingle(key, value);
+    }
+  }
+};
+
+/**
+ * Configures the CallSequence/CallTransaction steps inside tools_requestable_execute
+ * so that sequences/transactions can be invoked without relying on a separate internal_call.
+ */
+C8O.requestable.configureExecutor = function (executionPlan) {
+  if (Packages.com.twinsoft.convertigo.engine.Engine.logEngine) {
+    Packages.com.twinsoft.convertigo.engine.Engine.logEngine.debug('[tools_requestable_execute] configuring ' + (executionPlan && executionPlan.requestable ? executionPlan.requestable : 'n/a'));
+  }
+  if (!executionPlan) {
+    throw new Error('Execution plan is missing');
+  }
+
+  var EngineLog = Packages.com.twinsoft.convertigo.engine.Engine.logEngine;
+  var SequenceClassName = 'com.twinsoft.convertigo.beans.steps.SequenceStep';
+  var TransactionClassName = 'com.twinsoft.convertigo.beans.steps.TransactionStep';
+
+  var seqStep = C8O.requestable._findChild(context.requestedObject, { name: 'CallSequence', className: SequenceClassName });
+  var txStep = C8O.requestable._findChild(context.requestedObject, { name: 'CallTransaction', className: TransactionClassName });
+
+  if (executionPlan.isSequence) {
+    if (!seqStep) {
+      throw new Error('CallSequence step not found');
+    }
+    seqStep.setSourceSequence(executionPlan.project + '.' + executionPlan.name);
+    C8O.requestable._clearVariables(seqStep);
+    C8O.requestable._addVariables(seqStep, executionPlan.variables || {});
+    if (EngineLog) {
+      var seqCount = seqStep.getVariables() != null ? seqStep.getVariables().size() : 0;
+      EngineLog.debug('[tools_requestable_execute] sequence vars=' + seqCount + ' target=' + executionPlan.project + '.' + executionPlan.name);
+    }
+    if (txStep) {
+      C8O.requestable._clearVariables(txStep);
+    }
+    return;
+  }
+
+  if (!executionPlan.connector) {
+    throw new Error('connector is required for transactions');
+  }
+  if (!txStep) {
+    throw new Error('CallTransaction step not found');
+  }
+  txStep.setSourceTransaction(executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
+  C8O.requestable._clearVariables(txStep);
+  C8O.requestable._addVariables(txStep, executionPlan.variables || {});
+  if (EngineLog) {
+    var txCount = txStep.getVariables() != null ? txStep.getVariables().size() : 0;
+    EngineLog.debug('[tools_requestable_execute] transaction vars=' + txCount + ' target=' + executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
+  }
+};

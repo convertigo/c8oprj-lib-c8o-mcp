@@ -22,7 +22,7 @@ comment: used for internal call
     	if (Object.prototype.toString.call(this[k]) === "[object String]") {
     		let myvar = new com.twinsoft.convertigo.beans.variables.StepVariable();
     		myvar.setName(k);
-    		myvar.setDefaultValue(this[k]);
+    		myvar.setValueOrNull(this[k]);
     		callStep.addVariable(myvar);
     	}
     }'

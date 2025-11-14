@@ -8,6 +8,7 @@
 - **Sequence**: executable unit composed of steps (SimpleStep, JsonFieldStep, IfStep, etc.). Each object has a `QName` like `Project.sq:sequence.st:Step`.
 - **Steps** share a Rhino scope, so large scripts should be split into multiple SimpleStep blocks or externalized via `include("js/...")`.
 - **DatabaseObject helpers**: use the existing MCP tools (`databaseobject-*`, `palette-list`, `palette-describe`, `project-save`) instead of editing YAML manually.
+- **Test early**: as soon as the skeleton exists, run `tools/call convertigo.requestable-execute {"requestable":"Project.sequence","variables":"{...}"}` to validate before touching curl.
 
 ## MCP tooling workflow
 1. `tools/list` → discover available tools (pagination via `limit` + `_meta.nextCursor`).
