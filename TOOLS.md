@@ -18,7 +18,8 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `databaseobject-rename`       | `tools_databaseobject_rename.yaml`          | Rename a database object and optionally refactor references. |
 | `databaseobject-properties-get` | `tools_databaseobject_properties_get.yaml` | Retrieve metadata, property descriptors, smart-type previews, schema. |
 | `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties (including XMLizable / SmartType handling). |
-| `palette-list`                | `tools_palette_list.yaml`                   | Enumerate creatable database-object templates for a parent or root (now including creation templates + property hints). |
+| `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). |
+| `palette-describe`            | `tools_palette_describe.yaml`               | Detailed description of a specific palette entry (creation template, property hints). |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
@@ -39,7 +40,8 @@ between requests to stream the remaining entries.
 | `databaseobject-children` | `query.startIndex`, `query.limit`, `query.returned`, `query.hasMore`, and `nextCursor` describe each slice. |
 | `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
 | `databaseobject-search` | Returns `query` metadata plus a `nextCursor` token when more matches exist. |
-| `palette-list` | `limit` bounds the number of templates; `query.startIndex`, `query.limit`, `query.returned`, and `nextCursor` mirror MCP expectations. Each item now includes:<br/>• `creationTemplate` → structured object with `related`, `mode`, `className`, `name`, `properties[]`, and `payloadJson` (ready-to-paste JSON for `databaseobject-create`).<br/>• `propertyHints[]` → per-property metadata (`kind`, `type`, expert/hidden flags) plus inline smartType/array examples.<br/>• `nameSuggestion` → safe identifier generated from the bean's display name. |
+| `palette-list` | Compact response (category, className, shortDescription, `describe.tool/arguments`). Pair with `palette-describe` for the heavy data. `limit`, `filter`, and pagination metadata follow the standard pattern. |
+| `palette-describe` | Accepts `className` from `palette-list`. Returns the entry metadata, `creationTemplate` (ready for `databaseobject-create`), and `propertyHints` (name, type, default/example, flags). |
 | `tools/list` | The MCP catalog itself is paginated; send `_meta.nextCursor` from one response to fetch the next batch of tools. |
 
 All paginated responses emit:

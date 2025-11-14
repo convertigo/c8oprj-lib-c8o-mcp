@@ -8,8 +8,8 @@ This walkthrough illustrates the typical workflow for building a sequence via MC
    - `databaseobject-create` with `related="codex_tooling"`, `className="com.twinsoft.convertigo.beans.sequences.GenericSequence"`, `name="my_sequence"`, `mode="inside"`.
    - Call `project-save` (or keep `autoSave=true`).
 3. **Add request variables**
-   - Use `palette-list` targeting `codex_tooling.sq:my_sequence` (filter `Request single`).
-   - Copy the `creationTemplate.payloadJson`, swap `<parent QName>` for `codex_tooling.sq:my_sequence`, and feed it to `databaseobject-create` to add `RequestableVariable` objects.
+   - Use `palette-list` targeting `codex_tooling.sq:my_sequence` (filter `Request single`). Each item now includes a `describe` block (tool + arguments) you can reuse directly.
+   - Call `palette-describe` with that block to inspect `result.template.payloadJson`, swap `<parent QName>` for `codex_tooling.sq:my_sequence`, then feed it to `databaseobject-create` to add `RequestableVariable` objects.
 4. **Bootstrap the response**
    - Add a `JsonObjectStep` (again via `palette-list` → `databaseobject-create`) returning `{ "status": "ready" }`.
    - Test immédiatement via `requestable-execute` (préféré même si curl fonctionnerait) :

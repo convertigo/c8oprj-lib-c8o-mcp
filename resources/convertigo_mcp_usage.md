@@ -12,6 +12,10 @@ This resource explains the conventions that MCP clients should follow when they 
   - `databaseobject-create` / `-delete` / `-move` / `-rename`
   - `databaseobject-properties-get` / `-set`
   - `project-save` / `project-reload`
+- Palette workflow:
+  - `palette-list` returns a compact catalog (name, class, summary) and already embeds `describe.tool` / `describe.arguments`.
+  - Use the returned `describe` block (usually `{ "tool": "palette-describe", "arguments": { "className": ... } }`) instead of hard-coding class names.
+  - `palette-describe` responds with `result.template` (creation payload) and `result.propertyHints` (per-property guidance) ready for `databaseobject-create` / `databaseobject-properties-set`.
 - For `databaseobject-create`, always specify:
   - `qname`: parent object (e.g., `codex_tooling.sq:hash_sha256`)
   - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
@@ -39,7 +43,7 @@ This resource explains the conventions that MCP clients should follow when they 
 
 ## Run Checklist (before / during / after)
 1. **Discover context**: call `resources/list` and read `convertigo-overview`, `convertigo-mcp-usage`, and `convertigo-context-api`.
-2. **Plan**: outline the MCP calls (`palette-list` → `databaseobject-create` → `databaseobject-properties-set` → `project-save` → test).
+2. **Plan**: outline the MCP calls (`palette-list` → `palette-describe` → `databaseobject-create` → `databaseobject-properties-set` → `project-save` → test).
 3. **Create a skeleton**: create the sequence, add variables + a stub JSON response, and test immediately via `.json`.
 4. **Iterate**: after each edit, save (autoSave or `project-save`) and rerun the curl test to catch mistakes early.
 5. **Store data safely**: keep temporary arrays in JS locals or official storages (`project`, `server`, `context.httpSession`). Never add custom fields to `context`.

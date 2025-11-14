@@ -7,7 +7,7 @@
 ## Core concepts
 - **Sequence**: executable unit composed of steps (SimpleStep, JsonFieldStep, IfStep, etc.). Each object has a `QName` like `Project.sq:sequence.st:Step`.
 - **Steps** share a Rhino scope, so large scripts should be split into multiple SimpleStep blocks or externalized via `include("js/...")`.
-- **DatabaseObject helpers**: use the existing MCP tools (`databaseobject-*`, `palette-list`, `project-save`) instead of editing YAML manually.
+- **DatabaseObject helpers**: use the existing MCP tools (`databaseobject-*`, `palette-list`, `palette-describe`, `project-save`) instead of editing YAML manually.
 
 ## MCP tooling workflow
 1. `tools/list` → discover available tools (pagination via `limit` + `_meta.nextCursor`).
@@ -28,7 +28,8 @@
 | `databaseobject-children` | Browse the tree starting from a `qname`. |
 | `databaseobject-properties-get` | Inspect properties (smart types, values, schema info). |
 | `databaseobject-properties-set` | Update properties (handles SmartType, XMLizable). |
-| `palette-list` | Discover creatable steps/components for a parent. |
+| `palette-list` | Discover creatable steps/components for a parent (each entry embeds a `describe` block pointing to `palette-describe`). |
+| `palette-describe` | Fetch the detailed template/property hints for a palette entry selected from `palette-list`. |
 | `project-js-get` / `project-js-set` | Manage helper JS files used via `include()`. |
 | `project-save` / `project-reload` | Persist or reload a project. |
 | `requestable-execute` | Run a sequence/transaction internally and inspect its response without HTTP. |

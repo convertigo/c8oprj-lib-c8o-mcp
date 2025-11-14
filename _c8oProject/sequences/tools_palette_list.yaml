@@ -305,14 +305,21 @@ comment: Lists palette categories and database object templates allowed under a 
           if (!item || !item.className) {
             continue;
           }
+          var classNameValue = String(item.className);
+          item.className = classNameValue;
           try {
-            var templateDetails = C8O.palette.describePaletteEntry(item);
-            if (templateDetails) {
-              item.nameSuggestion = templateDetails.nameSuggestion;
-              item.creationTemplate = templateDetails.creationTemplate;
-              item.propertyHints = templateDetails.propertyHints;
+            item.nameSuggestion = C8O.palette.suggestTechnicalName(item.name || classNameValue);
+          } catch (_ignoreSuggestion) {
+            if (!item.nameSuggestion) {
+              item.nameSuggestion = classNameValue;
             }
-          } catch (_ignoreTemplate) {}
+          }
+          item.describe = {
+            tool: "palette-describe",
+            arguments: {
+              className: classNameValue
+            }
+          };
         }
       }
     }
@@ -641,6 +648,7 @@ comment: Lists palette categories and database object templates allowed under a 
                       - ↑mode: JS
                       - →→: item.className
               ↓Description [steps.JsonFieldStep-1762338110070]: 
+                isEnabled: false
                 key: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -667,6 +675,7 @@ comment: Lists palette categories and database object templates allowed under a 
                       - ↑mode: JS
                       - →→: item.shortDescription
               ↓LongDescription [steps.JsonFieldStep-1762338110074]: 
+                isEnabled: false
                 key: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -760,6 +769,7 @@ comment: Lists palette categories and database object templates allowed under a 
                       - ↑mode: JS
                       - →→: item.nameSuggestion || ""
               ↓CreationTemplate [steps.JsonObjectStep-1763034634954]: 
+                isEnabled: false
                 key: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -964,6 +974,7 @@ comment: Lists palette categories and database object templates allowed under a 
                         - ↑mode: JS
                         - →→: (item.creationTemplate && item.creationTemplate.payloadJson) || ""
               ↓PropertyHints [steps.JsonArrayStep-1763035129767]: 
+                isEnabled: false
                 key: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -1160,6 +1171,46 @@ comment: Lists palette categories and database object templates allowed under a 
                           - SmartType: 
                             - ↑mode: JS
                             - →→: item.readOnly === true
+              ↓ItemDescribe [steps.JsonObjectStep-1763072534115]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: describe
+                ↓DescribeTool [steps.JsonFieldStep-1763104091753]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: tool
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: 'item.describe && item.describe.tool ? item.describe.tool : ''palette-describe'''
+                ↓DescribeArguments [steps.JsonObjectStep-1763104091769]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: arguments
+                  ↓DescribeArgumentClassName [steps.JsonFieldStep-1763104091785]: 
+                    key: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: PLAIN
+                          - →→: className
+                    value: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: JS
+                          - →→: 'item.describe && item.describe.arguments && item.describe.arguments.className ? item.describe.arguments.className : item.className'
   ↓StartIndex [steps.JsonFieldStep-1762959166774]: 
     key: 
       - xmlizable: 
