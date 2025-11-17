@@ -10,9 +10,6 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
     var File = Packages.java.io.File;
     var Locale = Packages.java.util.Locale;
     
-    var includeTemplatesFlag = false;
-    try { includeTemplatesFlag = String(includeTemplates == null ? '''' : includeTemplates).trim().equalsIgnoreCase(''true''); } catch(e) {}
-    
     var filterRaw = filter == null ? '''' : String(filter);
     var filterText = filterRaw.trim();
     var hasFilter = filterText.length > 0;
@@ -51,12 +48,9 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
     var names = dbom.getAllProjectNamesList();
     var projectsList = new java.util.ArrayList();
     var totalProjects = 0;
-    var skippedTemplates = 0;
     
     for (var i = 0; i < names.size(); i++) {
       var projectName = names.get(i);
-      var isTemplate = projectName != null && projectName.startsWith(''mobilebuilder_tpl_'');
-      if (!includeTemplatesFlag && isTemplate) { skippedTemplates++; continue; }
       try {
         var project = dbom.getOriginalProjectByName(projectName);
         if (project == null) { continue; }
@@ -100,24 +94,8 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
         projectMap.put(''comment'', comment);
         projectMap.put(''version'', project.getVersion());
         projectMap.put(''exported'', exportedInfo != null ? String(exportedInfo) : ''n/a'');
-        projectMap.put(''exportedTs'', exportedTs > 0 ? java.lang.Long.valueOf(exportedTs) : null);
         projectMap.put(''deployDate'', deployDate);
-        projectMap.put(''deployTs'', deployTs > 0 ? java.lang.Long.valueOf(deployTs) : null);
-        projectMap.put(''hasUndefinedSymbols'', java.lang.Boolean.valueOf(dbom.symbolsProjectCheckUndefined(projectName)));
-        projectMap.put(''isTemplate'', java.lang.Boolean.valueOf(isTemplate));
-        var missingDependencies = false;
-        var references = project.getReferenceList();
-        for (var r = 0; r < references.size(); r++) {
-          var ref = references.get(r);
-          if (ref instanceof Packages.com.twinsoft.convertigo.beans.references.ProjectSchemaReference) {
-            var pr = ref;
-            if (pr.getParser().isValid() && dbom.getOriginalProjectByName(pr.getParser().getProjectName(), true) == null) {
-              missingDependencies = true;
-              break;
-            }
-          }
-        }
-        projectMap.put(''missingDependencies'', java.lang.Boolean.valueOf(missingDependencies));
+    
         projectsList.add(projectMap);
         totalProjects++;
       } catch(e) {
@@ -140,8 +118,6 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
     
     var summary = new java.util.LinkedHashMap();
     summary.put(''total'', java.lang.Integer.valueOf(totalProjects));
-    summary.put(''skippedTemplates'', java.lang.Integer.valueOf(skippedTemplates));
-    summary.put(''includeTemplates'', java.lang.Boolean.valueOf(includeTemplatesFlag));
     summary.put(''filter'', hasFilter ? filterRaw : '''');
     summary.put(''timestamp'', java.lang.Long.valueOf(java.lang.System.currentTimeMillis()));
     summary.put(''startIndex'', java.lang.Integer.valueOf(effectiveStart));
@@ -153,8 +129,7 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
     
     projectsList = pagedList;
     summary = summary;
-    nextCursorToken = nextCursorValue;
-    '
+    nextCursorToken = nextCursorValue;'
 ↓Result [steps.JsonObjectStep-1761646433176]: 
   key: 
     - xmlizable: 
@@ -162,82 +137,6 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-  ↓Summary [steps.JsonObjectStep-1761646433178]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: summary
-    ↓Total [steps.JsonFieldStep-1761646433180]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: total
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: summary.get("total")
-    ↓SkippedTemplates [steps.JsonFieldStep-1761646433182]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: skippedTemplates
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: summary.get("skippedTemplates")
-    ↓IncludeTemplates [steps.JsonFieldStep-1761646433184]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: includeTemplates
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: summary.get("includeTemplates")
-    ↓Timestamp [steps.JsonFieldStep-1761646433186]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: timestamp
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: summary.get("timestamp")
-    ↓Filter [steps.JsonFieldStep-1762438097622]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: filter
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: summary.get("filter")
   ↓Projects [steps.JsonArrayStep-1761646433188]: 
     key: 
       - xmlizable: 
@@ -306,34 +205,6 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.get("exported")
-        ↓ExportedTs [steps.JsonFieldStep-1761646433206]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: exportedTs
-          type: number
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: 'item.get(''exportedTs'') ? item.get(''exportedTs'') : -1'
-        ↓DeployTs [steps.JsonFieldStep-1761646433212]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: deployTs
-          type: number
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: 'item.get(''deployTs'') ? item.get(''deployTs'') : -1'
         ↓DeployDate [steps.JsonFieldStep-1761646433214]: 
           key: 
             - xmlizable: 
@@ -347,48 +218,20 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.get("deployDate")
-        ↓HasUndefinedSymbols [steps.JsonFieldStep-1761646433216]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: hasUndefinedSymbols
-          type: bool
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.get("hasUndefinedSymbols")
-        ↓IsTemplate [steps.JsonFieldStep-1761646433218]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: isTemplate
-          type: bool
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.get("isTemplate")
-        ↓MissingDependencies [steps.JsonFieldStep-1761646433220]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: missingDependencies
-          type: bool
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.get("missingDependencies")
+  ↓Total [steps.JsonFieldStep-1763396815783]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: total
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'summary != null ? summary.get("total") : 0'
   ↓NextCursor [steps.JsonFieldStep-1762954280312]: 
     key: 
       - xmlizable: 
@@ -402,9 +245,6 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
         - SmartType: 
           - ↑mode: JS
           - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
-↓includeTemplates [variables.RequestableVariable-1761646433172]: 
-  comment: Set to true to include template projects such as mobilebuilder templates.
-  value: false
 ↓filter [variables.RequestableVariable-1762437969473]: 
   comment: Optional case-insensitive filter applied on project name and description.
 ↓limit [variables.RequestableVariable-1762954306215]: 

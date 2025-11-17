@@ -70,6 +70,8 @@ comment: Renames a database object and optionally refactors references.
   ↓RefreshParent [steps.SequenceStep-1762370291970]: 
     comment: Invoke Studio refresh for parent
     sourceSequence: ConvertigoMCP.internal_studio_refresh
+    ↓qname [variables.StepVariable-1763398717736]: 
+      comment: Database object QName to refresh inside the Studio Project Explorer
   ↓RestoreRefreshScope [steps.SimpleStep-1762370298194]: 
     comment: Restore original qname after refresh
     expression: |

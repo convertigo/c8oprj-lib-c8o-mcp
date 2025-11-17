@@ -71,6 +71,8 @@ comment: Moves or reorders a database object within the project tree.
   ↓RefreshFrom [steps.SequenceStep-1762369963045]: 
     comment: Invoke Studio refresh for source parent
     sourceSequence: ConvertigoMCP.internal_studio_refresh
+    ↓qname [variables.StepVariable-1763398724059]: 
+      comment: Database object QName to refresh inside the Studio Project Explorer
   ↓RestoreFromScope [steps.SimpleStep-1762369969481]: 
     comment: Restore original qname after refresh
     expression: |
@@ -93,6 +95,8 @@ comment: Moves or reorders a database object within the project tree.
   ↓RefreshTo [steps.SequenceStep-1762369987169]: 
     comment: Invoke Studio refresh for destination parent
     sourceSequence: ConvertigoMCP.internal_studio_refresh
+    ↓qname [variables.StepVariable-1763398726139]: 
+      comment: Database object QName to refresh inside the Studio Project Explorer
   ↓RestoreToScope [steps.SimpleStep-1762369992496]: 
     comment: Restore qname after destination refresh
     expression: |

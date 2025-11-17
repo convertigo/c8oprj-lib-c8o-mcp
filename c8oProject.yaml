@@ -37,6 +37,4 @@
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml
-  ↓ConvertigoWorkflow_reference [references.ProjectSchemaReference]: 
-    projectName: ConvertigoWorkflow
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml

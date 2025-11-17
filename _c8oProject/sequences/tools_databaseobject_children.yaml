@@ -5,159 +5,7 @@ comment: Returns direct children of a database object. When qname is empty, list
   expression: include("js/databaseobject.js");
 ↓Sequence_JS [steps.SimpleStep-1762271829926]: 
   comment: Collect children metadata
-  expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
-    var GetChildren = Packages.com.twinsoft.convertigo.engine.admin.services.database_objects.GetChildren;
-    
-    var manager = Engine.theApp.databaseObjectsManager;
-    var sourceQName = qname ? String(qname).trim() : "";
-    var filterRaw = filter == null ? "" : String(filter);
-    var filterText = filterRaw.trim();
-    var hasFilter = filterText.length > 0;
-    if (hasFilter) {
-      filterText = filterText.toLowerCase();
-    }
-    
-    var defaultLimit = 25;
-    var maxLimit = 200;
-    var limitValue = defaultLimit;
-    if (typeof limit !== "undefined" && limit !== null) {
-      try {
-        var parsedLimit = parseInt(String(limit).trim(), 10);
-        if (!isNaN(parsedLimit)) {
-          limitValue = parsedLimit;
-        }
-      } catch(ignoreLimit) {}
-    }
-    if (limitValue < 1) { limitValue = defaultLimit; }
-    if (limitValue > maxLimit) { limitValue = maxLimit; }
-    
-    var cursorRaw = typeof _nextCursor === "undefined" || _nextCursor == null ? "" : String(_nextCursor).trim();
-    var startIndex = 0;
-    if (cursorRaw.length > 0) {
-      try {
-        var parsedCursor = parseInt(cursorRaw, 10);
-        if (!isNaN(parsedCursor) && parsedCursor >= 0) {
-          startIndex = parsedCursor;
-        }
-      } catch(ignoreCursor) {}
-    }
-    
-    var doc = XMLUtils.getDefaultDocumentBuilder().newDocument();
-    var root = doc.createElement("children");
-    doc.appendChild(root);
-    
-    if (sourceQName.length > 0) {
-      GetChildren.getChildren(sourceQName, root, 1);
-    } else {
-      var names = manager.getAllProjectNamesList();
-      for (var i = 0; i < names.size(); i++) {
-        GetChildren.getChildren(names.get(i), root, 0);
-      }
-    }
-    
-    function mapAttributes(node) {
-      if (!node) {
-        return null;
-      }
-      var attr = node.attr || {};
-      var shortQName = attr.qname || "";
-      var resolvedQName = shortQName;
-      if (shortQName.length > 0) {
-        var resolvedDbo = C8O.dbo.resolve(shortQName, { optional: true });
-        if (resolvedDbo != null) {
-          resolvedQName = String(resolvedDbo.getFullQName());
-        }
-      }
-      var priority = Number(attr.priority !== undefined ? attr.priority : 0);
-      if (isNaN(priority)) {
-        priority = 0;
-      }
-      return {
-        qname: resolvedQName,
-        name: attr.name || "",
-        category: attr.category || "",
-        comment: attr.comment || "",
-        beanClass: attr.beanClass || "",
-        priority: priority,
-        hasChildren: C8O.util.toBoolean(attr.hasChildren, false) === true,
-        isEnabled: C8O.util.toBoolean(attr.isEnabled, false) === true,
-        isInherited: C8O.util.toBoolean(attr.isInherited, false) === true
-      };
-    }
-    
-    function asArray(value) {
-      if (!value) {
-        return [];
-      }
-      return Array.isArray(value) ? value : [value];
-    }
-    
-    var json = JSON.parse(XMLUtils.XmlToJson(root, true, true));
-    var rawChildren = [];
-    var parentNode = null;
-    
-    if (sourceQName.length > 0) {
-      if (json.children && json.children.dbo) {
-        parentNode = json.children.dbo;
-        rawChildren = asArray(parentNode.dbo);
-      }
-    } else if (json.children && json.children.dbo) {
-      rawChildren = asArray(json.children.dbo);
-    }
-    
-    var mappedChildren = [];
-    for (var idx = 0; idx < rawChildren.length; idx++) {
-      var mapped = mapAttributes(rawChildren[idx]);
-      if (!mapped) {
-        continue;
-      }
-      if (hasFilter) {
-        var nameLower = (mapped.name || "").toLowerCase();
-        var commentLower = (mapped.comment || "").toLowerCase();
-        var categoryLower = (mapped.category || "").toLowerCase();
-        var qnameLower = (mapped.qname || "").toLowerCase();
-        if (nameLower.indexOf(filterText) === -1 &&
-            commentLower.indexOf(filterText) === -1 &&
-            categoryLower.indexOf(filterText) === -1 &&
-            qnameLower.indexOf(filterText) === -1) {
-          continue;
-        }
-      }
-      mappedChildren.push(mapped);
-    }
-    
-    var totalChildren = mappedChildren.length;
-    var effectiveStart = startIndex;
-    if (effectiveStart < 0) { effectiveStart = 0; }
-    if (effectiveStart > totalChildren) { effectiveStart = totalChildren; }
-    var endIndex = effectiveStart + limitValue;
-    if (endIndex > totalChildren) { endIndex = totalChildren; }
-    var pagedChildren = [];
-    for (var pos = effectiveStart; pos < endIndex; pos++) {
-      pagedChildren.push(mappedChildren[pos]);
-    }
-    var returnedCount = pagedChildren.length;
-    var hasMorePages = endIndex < totalChildren;
-    var nextCursorValue = hasMorePages ? String(endIndex) : "";
-    
-    queryData = {
-      qname: sourceQName,
-      hasParent: sourceQName.length > 0,
-      total: totalChildren,
-      filter: hasFilter ? filterRaw : "",
-      startIndex: effectiveStart,
-      limit: limitValue,
-      returned: returnedCount,
-      hasMore: hasMorePages,
-      nextCursor: nextCursorValue,
-      cursorInput: cursorRaw
-    };
-    parentData = mapAttributes(parentNode);
-    childrenData = pagedChildren;
-    nextCursorToken = nextCursorValue;
-    '
+  expression: include("js/tools_databaseobject_children.js");
 ↓object [steps.JsonObjectStep-1762271829928]: 
   comment: Build result
   key: 
@@ -166,150 +14,6 @@ comment: Returns direct children of a database object. When qname is empty, list
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-  ↓object [steps.JsonObjectStep-1762271829930]: 
-    comment: Query information
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: query
-    ↓field [steps.JsonFieldStep-1762271829932]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: qname
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.qname
-    ↓field1 [steps.JsonFieldStep-1762271829934]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: hasParent
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.hasParent
-    ↓field2 [steps.JsonFieldStep-1762271829936]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: total
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.total
-    ↓Filter [steps.JsonFieldStep-1762438174089]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: filter
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.filter
-    ↓StartIndex [steps.JsonFieldStep-1762956367766]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: startIndex
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.startIndex
-    ↓Limit [steps.JsonFieldStep-1762956373876]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: limit
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.limit
-    ↓Returned [steps.JsonFieldStep-1762956382825]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: returned
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.returned
-    ↓HasMore [steps.JsonFieldStep-1762956388699]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: hasMore
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.hasMore
-    ↓NextCursor [steps.JsonFieldStep-1762956397068]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: nextCursor
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.nextCursor
-    ↓CursorInput [steps.JsonFieldStep-1762956404111]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: cursorInput
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: queryData.cursorInput
   ↓array [steps.JsonArrayStep-1762271829938]: 
     comment: Children list
     key: 
@@ -353,6 +57,35 @@ comment: Returns direct children of a database object. When qname is empty, list
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.name
+        ↓fieldDisplayName [steps.JsonFieldStep-1763396747342]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: displayName
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.displayName
+        ↓HasChildrenIf [steps.IfStep-1763398068151]: 
+          condition: item.hasChildren === true
+          ↓HasChildren [steps.JsonFieldStep-1763398340099]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: hasChildren
+            type: bool
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: true
         ↓field2 [steps.JsonFieldStep-1762271829948]: 
           key: 
             - xmlizable: 
@@ -366,32 +99,19 @@ comment: Returns direct children of a database object. When qname is empty, list
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.category
-        ↓field3 [steps.JsonFieldStep-1762271829950]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: comment
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.comment
         ↓field5 [steps.JsonFieldStep-1762271830237]: 
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: PLAIN
-                - →→: beanClass
+                - →→: className
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item.beanClass
+                - →→: item.className
         ↓field6 [steps.JsonFieldStep-1762271830239]: 
           key: 
             - xmlizable: 
@@ -399,55 +119,26 @@ comment: Returns direct children of a database object. When qname is empty, list
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: priority
-          type: number
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.priority
-        ↓field7 [steps.JsonFieldStep-1762271830241]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: hasChildren
-          type: bool
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.hasChildren
-        ↓field8 [steps.JsonFieldStep-1762271830243]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: isEnabled
-          type: bool
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.isEnabled
-        ↓field9 [steps.JsonFieldStep-1762271830245]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: isInherited
-          type: bool
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.isInherited
+  ↓Total [steps.JsonFieldStep-1763396766385]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: total
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: totalChildren
   ↓NextCursor [steps.JsonFieldStep-1762956410073]: 
     key: 
       - xmlizable: 
@@ -470,3 +161,17 @@ comment: Returns direct children of a database object. When qname is empty, list
   value: 25
 ↓_nextCursor [variables.RequestableVariable-1762956425230]: 
   comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+↓ConvertigoMCP [core.TestCase]: 
+  ↓qname [variables.TestCaseVariable-1763393814917]: 
+    value: ConvertigoMCP
+  ↓filter [variables.TestCaseVariable-1763393814919]: 
+  ↓limit [variables.TestCaseVariable-1763393814921]: 
+    value: 5
+  ↓_nextCursor [variables.TestCaseVariable-1763393814923]: 
+↓ConvertigoMCP_list_tools_info [core.TestCase]: 
+  ↓qname [variables.TestCaseVariable-1763395406405]: 
+    value: ConvertigoMCP.sq:internal_list_tools_info
+  ↓filter [variables.TestCaseVariable-1763395406408]: 
+  ↓limit [variables.TestCaseVariable-1763395406411]: 
+    value: 5
+  ↓_nextCursor [variables.TestCaseVariable-1763395406414]: 

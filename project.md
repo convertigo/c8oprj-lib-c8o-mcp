@@ -3,14 +3,6 @@
 
 Mashup Sequencer project
 
-<details><summary><span style="color:DarkGoldenRod"><i>References</i></span></summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/references/images/ProjectSchemaReference_16x16.png?raw=true "ProjectSchemaReference") ConvertigoWorkflow
-
-
-</p></blockquote></details>
-
 <details><summary><span style="color:DarkGoldenRod"><i>Connectors</i></span></summary><blockquote><p>
 
 
@@ -510,14 +502,6 @@ Opaque cursor forwarded from MCP _meta.nextCursor (internal).
 </td>
 <td>
 Optional case-insensitive filter applied on project name and description.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeTemplates
-</td>
-<td>
-Set to true to include template projects such as mobilebuilder templates.
 </td>
 </tr>
 <tr>
