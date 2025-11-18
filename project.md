@@ -1018,12 +1018,12 @@ Fully-qualified class name returned by palette-list item.className
 
 </p></blockquote></details>
 
-<details><summary><b>tools_palette_list</b> : Lists palette categories and database object templates allowed under a parent</summary><blockquote><p>
+<details><summary><b>tools_palette_list</b> : Lists palette categories (name, class, short summary) and adds a 'hints' block reminding you to call palette-describe for templates + property details</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_palette_list
 
-Lists palette categories and database object templates allowed under a parent.
+Lists palette categories (name, class, short summary) and adds a 'hints' block reminding you to call palette-describe for templates + property details.
 
 <span style="color:DarkGoldenRod">Variables</span>
 

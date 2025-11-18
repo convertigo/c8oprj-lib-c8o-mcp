@@ -6,6 +6,9 @@ if (typeof C8O === "undefined") {
 
 C8O.palette = C8O.palette || {};
 
+C8O.palette._describeSummaryCache = {};
+C8O.palette._listCountCache = {};
+
 C8O.palette._MAX_TEMPLATE_PROPS = 12;
 C8O.palette._MAX_PROPERTY_HINTS = 32;
 
@@ -38,11 +41,13 @@ C8O.palette.describePaletteEntry = function (entry) {
   }
   var className = String(entry.className);
   var displayName = entry.name || "";
-  var beanInfo = null;
-  try {
-    var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
-    beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
-  } catch (_ignoreBeanInfo) {}
+  var beanInfo = entry.beanInfo || null;
+  if (!beanInfo) {
+    try {
+      var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
+      beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
+    } catch (_ignoreBeanInfo) {}
+  }
   return C8O.palette.describeBeanTemplate({
     className: className,
     beanInfo: beanInfo,
@@ -126,4 +131,79 @@ C8O.palette.describeBeanTemplate = function (options) {
     propertyHints: visibleHints,
     creationTemplate: creationTemplate
   };
+};
+
+C8O.palette._getDescribeSummary = function (className, options) {
+  className = C8O.util.toTrimmedString(className || "");
+  if (!className.length) {
+    return null;
+  }
+  var cache = C8O.palette._describeSummaryCache;
+  if (cache.hasOwnProperty(className)) {
+    return cache[className];
+  }
+  var describeData = null;
+  try {
+    describeData = C8O.palette.describePaletteEntry({
+      className: className,
+      name: options && options.displayName ? options.displayName : "",
+      beanInfo: options && options.beanInfo ? options.beanInfo : null
+    });
+  } catch (_ignoreSummaryError) {}
+  if (!describeData) {
+    cache[className] = null;
+    return null;
+  }
+  var propertyHintCount = describeData.propertyHints ? describeData.propertyHints.length : 0;
+  var templatePropertyCount = describeData.creationTemplate && describeData.creationTemplate.properties ? describeData.creationTemplate.properties.length : 0;
+  var summary = {
+    propertyHintCount: propertyHintCount,
+    templatePropertyCount: templatePropertyCount,
+    propertyCount: propertyHintCount || templatePropertyCount
+  };
+  cache[className] = summary;
+  return summary;
+};
+
+C8O.palette.attachListEntrySummary = function (item, options) {
+  if (!item) {
+    return;
+  }
+  var summary = C8O.palette._getDescribeSummary(item.className, options || {});
+  if (!summary) {
+    return;
+  }
+  item.propertyCount = summary.propertyCount || summary.propertyHintCount || 0;
+};
+
+C8O.palette.computeListEntryCounts = function (className) {
+  className = C8O.util.toTrimmedString(className || "");
+  if (!className.length) {
+    return null;
+  }
+  var cache = C8O.palette._listCountCache;
+  if (cache.hasOwnProperty(className)) {
+    return cache[className];
+  }
+  var counts = null;
+  try {
+    var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
+    var beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
+    var propHints = C8O.dbo.describeBeanProperties(beanInfo);
+    if (propHints && propHints.length) {
+      var hintCount = 0;
+      for (var i = 0; i < propHints.length; i++) {
+        var hint = propHints[i];
+        if (!hint || hint.hidden) {
+          continue;
+        }
+        hintCount++;
+      }
+      counts = {
+        propertyCount: hintCount
+      };
+    }
+  } catch (_ignoreCounts) {}
+  cache[className] = counts;
+  return counts;
 };

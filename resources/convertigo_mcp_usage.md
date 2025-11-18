@@ -13,9 +13,9 @@ This resource explains the conventions that MCP clients should follow when they 
   - `databaseobject-properties-get` / `-set`
   - `project-save` / `project-reload`
 - Palette workflow:
-  - `palette-list` returns a compact catalog (name, class, summary) and already embeds `describe.tool` / `describe.arguments`.
-  - Use the returned `describe` block (usually `{ "tool": "palette-describe", "arguments": { "className": ... } }`) instead of hard-coding class names.
-  - `palette-describe` responds with `result.template` (creation payload) and `result.propertyHints` (per-property guidance) ready for `databaseobject-create` / `databaseobject-properties-set`.
+  - `palette-list` renvoie uniquement les champs utiles (`name`, `className`, `shortDescription`, `nameSuggestion`, `propertyCount`, `describeClassName`). Utilise `describeClassName` avec `palette-describe` pour récupérer le template complet.
+  - Le bloc `hints.describe` explique comment utiliser `describeClassName` (plus besoin d’un bloc `describe` répété sur chaque entrée).
+  - `palette-describe` retourne un objet léger (`entry`, `template`, `propertyHints`). Chaque hint inclut `scriptable`, `multiline` et `nillable` avec une valeur booléenne claire (true/false) pour faciliter le paramétrage.
 - Tree navigation via `databaseobject-children`:
   - Accepts `depth` (1-5, default 1). When `depth > 1`, each item may expose a nested `children` array.
   - Filters (`filter` variable) run after traversal; a node stays visible if it matches itself or any descendant matches.
