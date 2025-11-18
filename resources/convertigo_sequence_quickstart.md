@@ -8,29 +8,33 @@ This walkthrough illustrates the typical workflow for building a sequence via MC
    - `databaseobject-create` with `related="codex_tooling"`, `className="com.twinsoft.convertigo.beans.sequences.GenericSequence"`, `name="my_sequence"`, `mode="inside"`.
    - Call `project-save` (or keep `autoSave=true`).
 3. **Add request variables**
-   - Use `palette-list` targeting `codex_tooling.sq:my_sequence` (filter `Request single`). Each item now includes a `describe` block (tool + arguments) you can reuse directly.
-   - Call `palette-describe` with that block to inspect `result.template.payloadJson`, swap `<parent QName>` for `codex_tooling.sq:my_sequence`, then feed it to `databaseobject-create` to add `RequestableVariable` objects.
-4. **Bootstrap the response**
+   - Use `palette-list` targeting `codex_tooling.sq:my_sequence` (filter `Request single`). Grab the `describeClassName` for the item you need.
+   - Call `palette-describe` with that class name, inspect `result.template` (replace `<parent QName>` with `codex_tooling.sq:my_sequence`), then feed the payload to `databaseobject-create` to add the `RequestableVariable` objects.
+4. **Expose request data via `InputVariablesStep`**
+   - Insert an `InputVariablesStep` at the top of the sequence (palette → `Input variables` entry). It materializes the incoming request variables as XML so SmartTypes can source them.
+   - When you bind a transaction/sequence step variable to a request value, never reference the variable name directly. Instead, use the SmartType array `["<stepPriority>", "./<var>/text()"]` where `<stepPriority>` is the priority of the `InputVariablesStep`. Example from `lib_BaseRow.AdminUserCreate`: the `username` step variable uses `["1729005249299", "./email/text()"]` to read the `email` request variable that the `InputVariablesStep` produced.
+   - The same rule applies to chaining outputs: to reuse the token returned by another step, point to that step's priority and the XPath to the data (e.g., `["1728982368849", "./document/Bearer/text()"]`). This is the canonical Convertigo pattern for SmartType sources.
+5. **Bootstrap the response**
    - Add a `JsonObjectStep` (again via `palette-list` → `databaseobject-create`) returning `{ "status": "ready" }`.
-   - Test immédiatement via `requestable-execute` (c’est le **seul** test obligatoire) :
+   - Test immediately with `requestable-execute` (this is the **only** mandatory test):
      ```json
      {
        "requestable": "codex_tooling.my_sequence",
        "variables": "{\\"sentence\\":\\"Hello\\"}"
      }
      ```
-     Conseils :
-     - `variables` doit toujours être **une chaîne JSON** représentant un objet clé/valeur (pas un tableau, pas un querystring).
-     - Via `codex exec`, commence par `tools/call convertigo.requestable-execute …` et observe le JSON. Ne passe au HTTP **que si l’utilisateur l’exige explicitement** (dans ce cas, consulte `convertigo-mcp-usage` pour le rappel curl).
-   - Si le serveur HTTP n’est pas disponible (environnement sandbox), contente-toi du test MCP et mentionne-le dans ton rapport.
-5. **Add logic gradually**
+     Tips:
+     - `variables` must always be a JSON string representing a key/value object (never an array or query string).
+     - When using `codex exec`, start with `tools/call convertigo.requestable-execute …` and review the JSON output. Only fall back to plain HTTP if the user explicitly asks (see `convertigo-mcp-usage` for the curl reminder).
+   - If the HTTP server is unavailable (sandboxed CLI), stick to the MCP test and note it in your report.
+6. **Add logic gradually**
    - Insert `SimpleStep` blocks for JavaScript logic, `JsonFieldStep`/`JsonArrayStep` for output.
    - After each addition: `project-save` (ou `autoSave=true`) → rerun `requestable-execute`.
-6. **Validate inputs**
+7. **Validate inputs**
    - If a variable is required, set `databaseobject-properties-set` → `required=true` and describe the allowed values in `comment`.
-7. **Final verification**
-   - Fournis le résultat `requestable-execute` dans ton compte-rendu. Ne lance un curl final que si l’utilisateur le demande ou si tu peux confirmer que `localhost:18080` est accessible.
-8. **Cleanup**
+8. **Final verification**
+   - Attach the final `requestable-execute` output in your summary. Run an HTTP curl only if the user explicitly requests it or you can confirm `localhost:18080` is reachable.
+9. **Cleanup**
    - Remove draft sequences/steps using `databaseobject-delete` if they are not part of the final solution.
 
 Following this loop ensures you catch errors (missing variables, typos, context misuse) on the smallest possible diff.

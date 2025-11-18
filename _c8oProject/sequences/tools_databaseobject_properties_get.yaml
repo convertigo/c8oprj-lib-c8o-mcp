@@ -14,6 +14,12 @@ comment: Returns metadata and property values for a database object identified b
     var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
     
     var includeRawXml = false;
+    var includeHintsFlag = false;
+    try {
+      includeHintsFlag = C8O.util.toBoolean(includeHints, false) === true;
+    } catch (_ignoreIncludeHints) {
+      includeHintsFlag = String(includeHints || "").toLowerCase() === "true";
+    }
     
     if (!qname || String(qname).trim().length === 0) {
       throw new Error("qname is required");
@@ -205,7 +211,14 @@ comment: Returns metadata and property values for a database object identified b
           }
         } catch (_ignoreEnum) {}
       }
-      entry.options = possibleValues.length ? JSON.parse(JSON.stringify(possibleValues)) : null;
+      entry.options = includeHintsFlag && possibleValues.length ? JSON.parse(JSON.stringify(possibleValues)) : null;
+      var llmHintKey = "";
+      try {
+        llmHintKey = dbo.getClass().getName() + "#" + name;
+      } catch (_ignoreHintKey) {}
+      if (includeHintsFlag && llmHintKey && C8O.dbo && C8O.dbo.LLM_HINTS && C8O.dbo.LLM_HINTS[llmHintKey]) {
+        entry.llmHint = String(C8O.dbo.LLM_HINTS[llmHintKey]);
+      }
     
       if (hasFilter) {
         var match = false;

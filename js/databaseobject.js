@@ -13,6 +13,10 @@ if (typeof C8O === "undefined") {
 C8O.util = C8O.util || {};
 C8O.dbo = C8O.dbo || {};
 
+C8O.dbo.LLM_HINTS = C8O.dbo.LLM_HINTS || {
+  "com.twinsoft.convertigo.beans.variables.StepVariable#sourceDefinition": "SmartType sources must be JSON arrays of the form [\"<stepPriority>\", \"<xpath>\"]. The first element is the numeric priority of the step exposing the XML (e.g. the InputVariablesStep or another step), the second element is the XPath (for example ./email/text()). Do not reference request variable names or QNames directly."
+};
+
 /**
  * Returns a trimmed string representation or an empty string when null/undefined.
  */

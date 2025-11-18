@@ -13,9 +13,9 @@ This resource explains the conventions that MCP clients should follow when they 
   - `databaseobject-properties-get` / `-set`
   - `project-save` / `project-reload`
 - Palette workflow:
-  - `palette-list` renvoie uniquement les champs utiles (`name`, `className`, `shortDescription`, `nameSuggestion`, `propertyCount`, `describeClassName`). Utilise `describeClassName` avec `palette-describe` pour récupérer le template complet.
-  - Le bloc `hints.describe` explique comment utiliser `describeClassName` (plus besoin d’un bloc `describe` répété sur chaque entrée).
-  - `palette-describe` retourne un objet léger (`entry`, `template`, `propertyHints`). Chaque hint inclut `scriptable`, `multiline` et `nillable` avec une valeur booléenne claire (true/false) pour faciliter le paramétrage.
+  - `palette-list` now returns only the essentials (`name`, `className`, `shortDescription`, `nameSuggestion`, `propertyCount`, `describeClassName`). Use `describeClassName` with `palette-describe` to retrieve the full template.
+  - The shared `hints.describe` block reminds you to call `palette-describe` with that `describeClassName` instead of relying on per-item instructions.
+  - `palette-describe` emits a compact object (`entry`, `template`, `propertyHints`). Each hint includes `scriptable`, `multiline`, and `nillable` flags (true/false) when applicable so you can configure properties accurately.
 - Tree navigation via `databaseobject-children`:
   - Accepts `depth` (1-5, default 1). When `depth > 1`, each item may expose a nested `children` array.
   - Filters (`filter` variable) run after traversal; a node stays visible if it matches itself or any descendant matches.
@@ -30,11 +30,11 @@ This resource explains the conventions that MCP clients should follow when they 
   - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
   - `mode`: `inside`, `before`, `after`, or `lastChild`
   - `properties`: JSON object with the properties to override (booleans without quotes, e.g., `{ "required": true }`)
-- `databaseobject-properties-get` returns a lightweight view by default (name, title, type, current value). When you really need the long HTML descriptions or to know whether `expert`, `readOnly`, etc. are false, call it with `includeHints=true`.
+- `databaseobject-properties-get` returns a lightweight view by default (name, title, type, current value). Call it with `includeHints=true` if you also need the verbose descriptions, option lists, and the `llmHint` guidance we provide for tricky properties (e.g., SmartType sources).
 - After mutating objects, call `project-save` (or set `autoSave=true`) so the YAML export stays in sync.
 
 ## Testing & Verification
-- Commence par `requestable-execute`. Exemple (note l'échappement JSON):
+- Start with `requestable-execute`. Example (note the JSON escaping):
   ```bash
   codex exec \
     --config 'mcp.servers.convertigo.type="http"' \
@@ -43,8 +43,8 @@ This resource explains the conventions that MCP clients should follow when they 
     --config 'ask-for-approval=never' \
     tools/call convertigo.requestable-execute '{"requestable":"codex_tooling.analyze_sentence","variables":"{\"sentence\":\"Hello world!\"}"}'
   ```
-  `variables` doit toujours être une chaîne JSON représentant un objet clé/valeur (pas un querystring).
-- Les tests HTTP (`curl .../.json`) sont **optionnels** : n'en lance un que si l'utilisateur le demande explicitement **et** que tu es certain que `localhost:18080` est accessible. Dans ce cas, appuie-toi sur l’exemple suivant :
+- `variables` must always be a JSON string representing a key/value object (never a query string).
+- HTTP tests (`curl .../.json`) are **optional** — run one only if the user explicitly asks **and** you are sure `localhost:18080` is reachable. When you do, follow this pattern:
   ```bash
   curl -s "http://localhost:18080/convertigo/projects/codex_tooling/.json?__sequence=hash_sha256&text=hello"
   ```
@@ -53,10 +53,10 @@ This resource explains the conventions that MCP clients should follow when they 
 ## Run Checklist (before / during / after)
 1. **Discover context**: call `resources/list` and read `convertigo-overview`, `convertigo-mcp-usage`, and `convertigo-context-api`.
 2. **Plan**: outline the MCP calls (`palette-list` → `palette-describe` → `databaseobject-create` → `databaseobject-properties-set` → `project-save` → test).
-3. **Create a skeleton**: create the sequence, add variables + a stub JSON response, et teste immédiatement via `requestable-execute`.
+3. **Create a skeleton**: create the sequence, add variables plus a stub JSON response, and test immediately via `requestable-execute`.
 4. **Iterate**: after each edit, save (autoSave or `project-save`) and rerun `requestable-execute` to catch mistakes early.
 5. **Store data safely**: keep temporary arrays in JS locals or official storages (`project`, `server`, `context.httpSession`). Never add custom fields to `context`.
-6. **Final validation**: capture the final `requestable-execute` output (et, si vraiment demandé, le curl associé) pour ton rapport en précisant les paramètres utilisés.
+6. **Final validation**: capture the final `requestable-execute` output (and, if explicitly requested, the matching curl) and note which parameters you used.
 7. **Cleanup**: remove exploratory sequences/steps via the MCP tools once the goal is met.
 
 Expose this document to LLM clients via `resources/list`/`resources/read` so they can discover the good practices before mutating the project.
