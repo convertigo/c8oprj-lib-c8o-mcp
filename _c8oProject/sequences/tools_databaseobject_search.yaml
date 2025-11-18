@@ -5,283 +5,7 @@ comment: Search database objects (name/comment/QName).
   expression: include("js/databaseobject.js");
 ↓Init [steps.SimpleStep-1762941143551]: 
   comment: Scan database objects and collect matches
-  expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var ProjectClass = Packages.com.twinsoft.convertigo.beans.core.Project;
-    var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
-    var YamlConverter = Packages.com.twinsoft.convertigo.engine.util.YamlConverter;
-    var Pattern = Packages.java.util.regex.Pattern;
-    
-    var sourceQName = C8O.util.toTrimmedString(qname);
-    var searchRaw = filter == null ? "" : String(filter);
-    var searchText = searchRaw.trim();
-    var matchCaseFlag = C8O.util.toBoolean(matchCase, false) === true;
-    var useRegExpFlag = C8O.util.toBoolean(useRegExp, false) === true;
-    var objectTypeText = objectType == null ? "*" : String(objectType).trim();
-    if (!objectTypeText.length) {
-      objectTypeText = "*";
-    }
-    
-    var defaultLimit = 200;
-    var maxLimit = 1000;
-    var limitValue = defaultLimit;
-    if (limit != null) {
-      try {
-        var parsedLimit = parseInt(String(limit).trim(), 10);
-        if (!isNaN(parsedLimit)) {
-          limitValue = parsedLimit;
-        }
-      } catch (_ignoredLimit) {}
-    }
-    if (limitValue < 1) { limitValue = 1; }
-    if (limitValue > maxLimit) { limitValue = maxLimit; }
-    
-    var cursorRaw = "";
-    if (_nextCursor !== undefined && _nextCursor !== null) {
-      var cursorText = String(_nextCursor).trim();
-      if (cursorText.length && cursorText.toLowerCase() !== "undefined" && cursorText.indexOf("org.mozilla.javascript.Undefined") !== 0) {
-        cursorRaw = cursorText;
-      }
-    }
-    var startIndex = 0;
-    if (cursorRaw.length > 0) {
-      try {
-        var parsedCursor = parseInt(cursorRaw, 10);
-        if (!isNaN(parsedCursor) && parsedCursor >= 0) {
-          startIndex = parsedCursor;
-        }
-      } catch (_ignoredCursor) {}
-    }
-    var pageUpperBound = startIndex + limitValue;
-    
-    var searchActive = searchText.length > 0;
-    var pattern = null;
-    var substringText = matchCaseFlag ? searchText : searchText.toLowerCase();
-    if (useRegExpFlag && searchActive) {
-      try {
-        pattern = matchCaseFlag ? Pattern.compile(searchText) : Pattern.compile(searchText, Pattern.CASE_INSENSITIVE);
-      } catch (_ignoredPattern) {}
-    }
-    
-    var manager = Engine.theApp.databaseObjectsManager;
-    var matchesWindow = [];
-    var typesCount = {};
-    var scanned = 0;
-    var totalMatches = 0;
-    var hasMore = false;
-    
-    function buildRecord(dbo, depth) {
-      var record = {};
-      var fullQName = "";
-      try { fullQName = String(dbo.getFullQName()); }
-      catch (_ignoredFull) {
-        try { fullQName = String(dbo.getQName()); } catch (_ignoredShort) {}
-      }
-      record.qname = fullQName;
-      try { record.name = String(dbo.getName()); } catch (_ignoredNameField) { record.name = ""; }
-      var comment = "";
-      try {
-        var rawComment = dbo.getComment();
-        if (rawComment != null) {
-          comment = String(rawComment).replace(/\s+/g, " ").trim();
-        }
-      } catch (_ignoredComment) {}
-      if (comment.length > 512) {
-        comment = comment.substring(0, 509) + "...";
-      }
-      record.comment = comment;
-      try { record.className = dbo.getClass().getName(); } catch (_ignoredCls) { record.className = ""; }
-      var parentQName = "";
-      try {
-        var parent = dbo.getParent();
-        if (parent != null) {
-          parentQName = parent.getFullQName ? String(parent.getFullQName()) : String(parent.getQName());
-        }
-      } catch (_ignoredParent) {}
-      record.parentQName = parentQName;
-      var projectName = "";
-      try {
-        var projectRef = dbo.getProject();
-        if (projectRef != null) {
-          projectName = String(projectRef.getName());
-        }
-      } catch (_ignoredProj) {
-        if (dbo instanceof ProjectClass) {
-          projectName = String(dbo.getName());
-        }
-      }
-      record.project = projectName;
-      record.depth = depth;
-      try {
-        record.priority = dbo.priority !== undefined ? Number(dbo.priority) : null;
-      } catch (_ignoredPriority) {
-        record.priority = null;
-      }
-      try {
-        record.enabled = dbo.isEnabled ? Boolean(dbo.isEnabled()) : true;
-      } catch (_ignoredEnabled) {
-        record.enabled = true;
-      }
-      try {
-        record.databaseType = dbo.getDatabaseType ? String(dbo.getDatabaseType()) : "";
-      } catch (_ignoredDbType) {
-        record.databaseType = "";
-      }
-      return record;
-    }
-    
-    function matchesObjectType(dbo) {
-      if (objectTypeText === "*" || objectTypeText.length === 0) {
-        return true;
-      }
-      try {
-        return objectTypeText.equalsIgnoreCase ? objectTypeText.equalsIgnoreCase(dbo.getDatabaseType()) : objectTypeText === dbo.getDatabaseType();
-      } catch (_ignoredType) {
-        try {
-          return objectTypeText === String(dbo.getDatabaseType());
-        } catch (_ignoredStringType) {
-          return false;
-        }
-      }
-    }
-    
-    function matchesSearch(dbo) {
-      if (!searchActive) {
-        return false;
-      }
-      var text = "";
-      try {
-        text = YamlConverter.toYaml(dbo.toXml(XMLUtils.createDom()));
-      } catch (_ignoredYaml) {
-        try {
-          text = dbo.toString();
-        } catch (_ignoredToString) {
-          text = "";
-        }
-      }
-      if (text == null) {
-        text = "";
-      }
-      if (useRegExpFlag && pattern != null) {
-        return pattern.matcher(text).find();
-      }
-      var haystack = matchCaseFlag ? text : text.toLowerCase();
-      return haystack.indexOf(substringText) !== -1;
-    }
-    
-    function pushType(record) {
-      var key = record.databaseType || "";
-      if (!key.length) {
-        key = "unknown";
-      }
-      typesCount[key] = (typesCount[key] || 0) + 1;
-    }
-    
-    if (searchActive) {
-      var stack = [];
-      var projectNames = manager.getAllProjectNamesList();
-    
-      function pushNode(dbo, depth) {
-        if (!dbo) {
-          return;
-        }
-        stack.push({ dbo: dbo, depth: depth });
-      }
-    
-      if (sourceQName.length > 0) {
-        var rootDbo = C8O.dbo.resolve(sourceQName, { messagePrefix: "qname" });
-        pushNode(rootDbo, 0);
-      } else {
-        for (var i = 0; i < projectNames.size(); i++) {
-          var projectName = projectNames.get(i);
-          try {
-            var project = manager.getOriginalProjectByName(projectName);
-            if (project != null) {
-              pushNode(project, 0);
-            }
-          } catch (_ignoredProject) {}
-        }
-      }
-    
-      var abortSearch = false;
-    
-      while (stack.length > 0) {
-        if (abortSearch) {
-          break;
-        }
-        var entry = stack.pop();
-        var dbo = entry.dbo;
-        var depth = entry.depth || 0;
-        if (!dbo) {
-          continue;
-        }
-        scanned++;
-        var typeMatch = matchesObjectType(dbo);
-        var searchMatch = typeMatch && matchesSearch(dbo);
-        if (searchMatch) {
-          var currentIndex = totalMatches;
-          totalMatches++;
-          if (currentIndex >= startIndex && matchesWindow.length < limitValue) {
-            var record = buildRecord(dbo, depth);
-            matchesWindow.push(record);
-            pushType(record);
-          } else if (currentIndex >= pageUpperBound) {
-            hasMore = true;
-            abortSearch = true;
-            break;
-          }
-        }
-        var children = null;
-        try {
-          children = dbo.getDatabaseObjectChildren();
-        } catch (_ignoredChildren) {}
-        if (children != null) {
-          for (var idx = children.size() - 1; idx >= 0; idx--) {
-            var child = children.get(idx);
-            if (child != null) {
-              stack.push({ dbo: child, depth: depth + 1 });
-            }
-          }
-        }
-      }
-    }
-    
-    var nextCursorValue = hasMore ? String(startIndex + matchesWindow.length) : "";
-    var typesList = [];
-    var typeKeys = Object.keys(typesCount);
-    if (typeKeys.length > 1) {
-      typeKeys.sort();
-    }
-    for (var tk = 0; tk < typeKeys.length; tk++) {
-      var typeName = typeKeys[tk];
-      typesList.push({ name: typeName, count: typesCount[typeName] });
-    }
-    
-    searchQuery = {
-      qname: sourceQName,
-      search: searchRaw,
-      matchCase: matchCaseFlag,
-      useRegExp: useRegExpFlag,
-      objectType: objectTypeText,
-      limit: limitValue,
-      active: searchActive,
-      startIndex: startIndex,
-      cursorInput: cursorRaw
-    };
-    searchSummary = {
-      scanned: scanned,
-      returned: matchesWindow.length,
-      hasMore: hasMore,
-      startIndex: startIndex,
-      limit: limitValue,
-      cursorInput: cursorRaw,
-      nextCursor: nextCursorValue,
-      timestamp: java.lang.System.currentTimeMillis()
-    };
-    searchMatches = matchesWindow;
-    TypesIterator = typesList;
-    nextCursorToken = nextCursorValue;
-    '
+  expression: include("js/tools_databaseobject_search.js");
 ↓Result [steps.JsonObjectStep-1762941254770]: 
   comment: Build response object
   key: 
@@ -290,268 +14,61 @@ comment: Search database objects (name/comment/QName).
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-  ↓Query [steps.JsonObjectStep-1762941269668]: 
-    comment: Query metadata
+  ↓ScannedField [steps.JsonFieldStep-1763465583873]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: query
-    ↓QueryQName [steps.JsonFieldStep-1762941283875]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: qname
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.qname
-    ↓QueryFilter [steps.JsonFieldStep-1762941293201]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: search
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.search
-    ↓QueryLimit [steps.JsonFieldStep-1762941304459]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: limit
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.limit
-    ↓MatchCase [steps.JsonFieldStep-1762941314650]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: matchCase
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.matchCase
-    ↓UseRegExp [steps.JsonFieldStep-1762942290304]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: useRegExp
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.useRegExp
-    ↓ObjectType [steps.JsonFieldStep-1762942309556]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: objectType
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.objectType
-    ↓QueryActive [steps.JsonFieldStep-1762942329659]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: active
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.active
-    ↓Query_StartIndex [steps.JsonFieldStep-1762957475331]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: startIndex
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.startIndex
-    ↓Query_Limit [steps.JsonFieldStep-1762957475689]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: limit
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.limit
-    ↓Query_CursorInput [steps.JsonFieldStep-1762957475851]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: cursorInput
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchQuery.cursorInput
-  ↓Summary [steps.JsonObjectStep-1762941328042]: 
-    comment: Execution summary
+          - →→: scanned
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'searchSummary ? searchSummary.scanned : 0'
+  ↓ReturnedField [steps.JsonFieldStep-1763465610506]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: summary
-    ↓SummaryScanned [steps.JsonFieldStep-1762941339900]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: scanned
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.scanned
-    ↓SummaryReturned [steps.JsonFieldStep-1762941352510]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: returned
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.returned
-    ↓SummaryHasMore [steps.JsonFieldStep-1762941363192]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: hasMore
-      type: bool
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.hasMore
-    ↓SummaryTimestamp [steps.JsonFieldStep-1762941374859]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: timestamp
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.timestamp
-    ↓Summary_StartIndex [steps.JsonFieldStep-1762957487416]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: startIndex
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.startIndex
-    ↓Summary_Limit [steps.JsonFieldStep-1762957487573]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: limit
-      type: number
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.limit
-    ↓Summary_CursorInput [steps.JsonFieldStep-1762957487716]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: cursorInput
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.cursorInput
-    ↓Summary_NextCursor [steps.JsonFieldStep-1762957487859]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: nextCursor
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: searchSummary.nextCursor
+          - →→: returned
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'searchSummary ? searchSummary.returned : 0'
+  ↓HasMoreField [steps.JsonFieldStep-1763465619559]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: hasMore
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'searchSummary ? Boolean(searchSummary.hasMore) : false'
+  ↓NextCursorField [steps.JsonFieldStep-1763465686393]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: nextCursor
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'searchSummary && searchSummary.nextCursor && String(searchSummary.nextCursor).length > 0 ? searchSummary.nextCursor : null'
   ↓Matches [steps.JsonArrayStep-1762941383896]: 
     comment: Matching database objects
     key: 
@@ -597,19 +114,6 @@ comment: Search database objects (name/comment/QName).
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.name
-        ↓MatchProject [steps.JsonFieldStep-1762941452184]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: project
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.project
         ↓MatchClass [steps.JsonFieldStep-1762941462034]: 
           key: 
             - xmlizable: 
@@ -623,46 +127,6 @@ comment: Search database objects (name/comment/QName).
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.className
-        ↓MatchComment [steps.JsonFieldStep-1762941472028]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: comment
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.comment
-        ↓MatchParent [steps.JsonFieldStep-1762941480659]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: parentQName
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.parentQName
-        ↓MatchDepth [steps.JsonFieldStep-1762941491151]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: depth
-          type: number
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.depth
         ↓MatchPriority [steps.JsonFieldStep-1762941502117]: 
           key: 
             - xmlizable: 
@@ -670,83 +134,38 @@ comment: Search database objects (name/comment/QName).
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: priority
-          type: number
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item.priority
-        ↓MatchEnabled [steps.JsonFieldStep-1762941512509]: 
+                - →→: 'item.priority && String(item.priority).length > 0 ? item.priority : null'
+        ↓MatchContext [steps.JsonFieldStep-1763468145436]: 
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: PLAIN
-                - →→: enabled
-          type: bool
+                - →→: context
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item.enabled
+                - →→: 'item.context ? item.context : null'
         ↓MatchType [steps.JsonFieldStep-1762943000000]: 
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: PLAIN
-                - →→: databaseType
+                - →→: type
           value: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.databaseType
-  ↓Types [steps.JsonArrayStep-1762943504857]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: types
-    ↓TypesIterator [steps.SimpleIteratorStep-1762943526274]: 
-      expression: TypesIterator
-      ↓TypeObject [steps.JsonObjectStep-1762943539626]: 
-        key: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: PLAIN
-              - →→: TypeObject
-        ↓TypeName [steps.JsonFieldStep-1762943555347]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: name
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.name
-        ↓TypeCount [steps.JsonFieldStep-1762943567146]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: count
-          type: number
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.count
   ↓NextCursor [steps.JsonFieldStep-1762957502629]: 
     key: 
       - xmlizable: 
@@ -776,3 +195,15 @@ comment: Search database objects (name/comment/QName).
   value: '*'
 ↓_nextCursor [variables.RequestableVariable-1762957543690]: 
   comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+↓ByPriority [core.TestCase-1763465053816]: 
+  ↓qname [variables.TestCaseVariable-1763465054743]: 
+    value: ConvertigoMCP
+  ↓filter [variables.TestCaseVariable-1763465054745]: 
+    value: 1762941254770
+  ↓limit [variables.TestCaseVariable-1763465054747]: 
+    value: 200
+  ↓matchCase [variables.TestCaseVariable-1763465054749]: 
+  ↓useRegExp [variables.TestCaseVariable-1763465054751]: 
+  ↓objectType [variables.TestCaseVariable-1763465054753]: 
+    value: '*'
+  ↓_nextCursor [variables.TestCaseVariable-1763465054755]: 

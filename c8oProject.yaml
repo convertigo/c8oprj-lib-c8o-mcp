@@ -1,7 +1,7 @@
 ↑convertigo: 8.0.0.m006
 ↓ConvertigoMCP [core.Project]: 
   comment: Mashup Sequencer project
-  contextTimeout: 59
+  contextTimeout: 58
   corsOrigin: =Origin
   httpSessionTimeout: 60
   version: 0.0.2

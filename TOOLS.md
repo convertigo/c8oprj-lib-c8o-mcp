@@ -25,7 +25,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |
-| `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content with optional type filters. |
+| `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content; output now reports `scanned`, `returned`, `hasMore`, `nextCursor`, and a lean `matches[]`. |
 
 ### Pagination helpers
 
@@ -39,7 +39,7 @@ between requests to stream the remaining entries.
 | `admin-list-projects` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
 | `databaseobject-children` | Reports `total` + `nextCursor` and, when `depth > 1`, embeds nested `children` arrays for the filtered subset. |
 | `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
-| `databaseobject-search` | Returns `query` metadata plus a `nextCursor` token when more matches exist. |
+| `databaseobject-search` | Returns `scanned`, `returned`, `hasMore`, and `nextCursor` at the root; `matches[]` contains only the essentials (`qname`, `name`, `className`, `type`, `priority`). |
 | `palette-list` | Compact response (category, className, shortDescription, `describe.tool/arguments`). Pair with `palette-describe` for the heavy data. `limit`, `filter`, and pagination metadata follow the standard pattern. |
 | `palette-describe` | Accepts `className` from `palette-list`. Returns the entry metadata, `creationTemplate` (ready for `databaseobject-create`), and `propertyHints` (name, type, default/example, flags). |
 | `tools/list` | The MCP catalog itself is paginated; send `_meta.nextCursor` from one response to fetch the next batch of tools. |
