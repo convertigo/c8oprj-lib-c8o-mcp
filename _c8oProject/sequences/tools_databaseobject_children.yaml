@@ -70,6 +70,21 @@ comment: List database object children (or projects when qname is empty). Suppor
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.displayName
+        ↓PriorityIf [steps.IfStep-1763463453132]: 
+          condition: item.priority && String(item.priority) !== "0"
+          ↓PriorityField [steps.JsonFieldStep-1763463597515]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: priority
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.priority
         ↓HasChildrenIf [steps.IfStep-1763398068151]: 
           condition: item.hasChildren === true
           ↓HasChildren [steps.JsonFieldStep-1763398340099]: 
@@ -127,19 +142,6 @@ comment: List database object children (or projects when qname is empty). Suppor
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.className
-        ↓field6 [steps.JsonFieldStep-1762271830239]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: priority
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.priority
   ↓Total [steps.JsonFieldStep-1763396766385]: 
     key: 
       - xmlizable: 

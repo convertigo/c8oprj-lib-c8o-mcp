@@ -516,12 +516,12 @@ Maximum number of projects to return per call (1-100, default 10).
 
 </p></blockquote></details>
 
-<details><summary><b>tools_databaseobject_children</b> : Returns direct children of a database object</summary><blockquote><p>
+<details><summary><b>tools_databaseobject_children</b> : List database object children (or projects when qname is empty)</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_children
 
-Returns direct children of a database object. When qname is empty, lists all projects. Supports optional recursion (`depth`, default 1, max 5). Filters run after traversal so a parent stays visible when any descendant matches the search criteria.
+List database object children (or projects when qname is empty). Supports recursion via depth (1-5) and filters keep ancestors when descendants match.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -544,6 +544,14 @@ Opaque cursor forwarded from MCP _meta.nextCursor (internal).
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;depth
+</td>
+<td>
+Maximum depth for recursion (1 = direct children).
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
 </td>
 <td>
@@ -556,14 +564,6 @@ Optional case-insensitive filter applied on name, comment, category and QName.
 </td>
 <td>
 Maximum number of children to return per call (1-200, default 25).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;depth
-</td>
-<td>
-Traversal depth (1-5). Values greater than 1 return nested `children` arrays; filters keep ancestors when descendants match.
 </td>
 </tr>
 <tr>
@@ -772,6 +772,14 @@ Opaque cursor forwarded from MCP _meta.nextCursor (internal).
 </td>
 <td>
 Optional case-insensitive filter applied on property name, title and description.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeHints
+</td>
+<td>
+Set to true to include verbose property descriptions and hints in the response.
 </td>
 </tr>
 <tr>

@@ -30,6 +30,7 @@ This resource explains the conventions that MCP clients should follow when they 
   - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
   - `mode`: `inside`, `before`, `after`, or `lastChild`
   - `properties`: JSON object with the properties to override (booleans without quotes, e.g., `{ "required": true }`)
+- `databaseobject-properties-get` returns a lightweight view by default (name, title, type, current value). When you really need the long HTML descriptions or to know whether `expert`, `readOnly`, etc. are false, call it with `includeHints=true`.
 - After mutating objects, call `project-save` (or set `autoSave=true`) so the YAML export stays in sync.
 
 ## Testing & Verification
