@@ -521,7 +521,7 @@ Maximum number of projects to return per call (1-100, default 10).
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_children
 
-Returns direct children of a database object. When qname is empty, lists all projects.
+Returns direct children of a database object. When qname is empty, lists all projects. Supports optional recursion (`depth`, default 1, max 5). Filters run after traversal so a parent stays visible when any descendant matches the search criteria.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -556,6 +556,14 @@ Optional case-insensitive filter applied on name, comment, category and QName.
 </td>
 <td>
 Maximum number of children to return per call (1-200, default 25).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;depth
+</td>
+<td>
+Traversal depth (1-5). Values greater than 1 return nested `children` arrays; filters keep ancestors when descendants match.
 </td>
 </tr>
 <tr>

@@ -11,7 +11,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | Tool name                     | Sequence file                               | Summary |
 |-------------------------------|---------------------------------------------|---------|
 | `admin-list-projects`         | `tools_admin_list_projects.yaml`            | List installed projects with metadata (templates, versions, exports…). |
-| `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List direct children for a database object (or projects when `qname` is empty). |
+| `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List database object children (or projects when `qname` is empty) with optional recursion via `depth` and ancestor-preserving filters. |
 | `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). |
 | `databaseobject-delete`       | `tools_databaseobject_delete.yaml`          | Delete a database object, optionally exporting and refreshing Studio. |
 | `databaseobject-move`         | `tools_databaseobject_move.yaml`            | Move or reorder a database object with Studio refresh support. |
@@ -37,20 +37,19 @@ between requests to stream the remaining entries.
 | Tool name | Notes |
 |-----------|-------|
 | `admin-list-projects` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
-| `databaseobject-children` | `query.startIndex`, `query.limit`, `query.returned`, `query.hasMore`, and `nextCursor` describe each slice. |
+| `databaseobject-children` | Reports `total` + `nextCursor` and, when `depth > 1`, embeds nested `children` arrays for the filtered subset. |
 | `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
 | `databaseobject-search` | Returns `query` metadata plus a `nextCursor` token when more matches exist. |
 | `palette-list` | Compact response (category, className, shortDescription, `describe.tool/arguments`). Pair with `palette-describe` for the heavy data. `limit`, `filter`, and pagination metadata follow the standard pattern. |
 | `palette-describe` | Accepts `className` from `palette-list`. Returns the entry metadata, `creationTemplate` (ready for `databaseobject-create`), and `propertyHints` (name, type, default/example, flags). |
 | `tools/list` | The MCP catalog itself is paginated; send `_meta.nextCursor` from one response to fetch the next batch of tools. |
 
-All paginated responses emit:
+All paginated responses emit `result.nextCursor` (empty string when finished). Most
+tools also include a `summary` or `total` field so LLMs can estimate the remaining
+items while keeping payloads compact.
 
-- `result.query` — includes the original cursor, start index, requested limit,
-  returned count, and total match count.
-- `result.nextCursor` — empty string when there is nothing more to fetch.
-
-This keeps the API stateless and compliant with the JSON-RPC MCP guidelines.
+This keeps the API stateless and compliant with the JSON-RPC MCP guidelines while
+reducing context usage.
 
 ### Shared infrastructure
 

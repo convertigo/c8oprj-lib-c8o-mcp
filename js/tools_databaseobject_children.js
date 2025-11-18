@@ -11,6 +11,16 @@ if (hasFilter) {
   filterText = filterText.toLowerCase();
 }
 
+var depthRaw = depth == null ? "" : String(depth).trim();
+var depthLimit = parseInt(depthRaw, 10);
+if (isNaN(depthLimit) || depthLimit < 1) {
+  depthLimit = 1;
+}
+var maxDepth = 5;
+if (depthLimit > maxDepth) {
+  depthLimit = maxDepth;
+}
+
 var defaultLimit = 25;
 var maxLimit = 200;
 var limitValue = defaultLimit;
@@ -36,17 +46,43 @@ if (cursorRaw.length > 0) {
   } catch(ignoreCursor) {}
 }
 
-var doc = XMLUtils.getDefaultDocumentBuilder().newDocument();
-var root = doc.createElement("children");
-doc.appendChild(root);
-
-if (sourceQName.length > 0) {
-  GetChildren.getChildren(sourceQName, root, 1);
-} else {
-  var names = manager.getAllProjectNamesList();
-  for (var i = 0; i < names.size(); i++) {
-    GetChildren.getChildren(names.get(i), root, 0);
+function asArray(value) {
+  if (!value) {
+    return [];
   }
+  return Array.isArray(value) ? value : [value];
+}
+
+function fetchRawChildren(qnameValue) {
+  var doc = XMLUtils.getDefaultDocumentBuilder().newDocument();
+  var root = doc.createElement("children");
+  doc.appendChild(root);
+
+  if (qnameValue && qnameValue.length > 0) {
+    GetChildren.getChildren(qnameValue, root, 1);
+  } else {
+    var names = manager.getAllProjectNamesList();
+    var rawProjects = [];
+    for (var p = 0; p < names.size(); p++) {
+      rawProjects.push(names.get(p));
+    }
+    rawProjects.sort();
+    for (var i = 0; i < rawProjects.length; i++) {
+      GetChildren.getChildren(rawProjects[i], root, 0);
+    }
+  }
+
+  var json = JSON.parse(XMLUtils.XmlToJson(root, true, true));
+  var result = { parentNode: null, children: [] };
+  if (qnameValue && qnameValue.length > 0) {
+    if (json.children && json.children.dbo) {
+      result.parentNode = json.children.dbo;
+      result.children = asArray(result.parentNode.dbo);
+    }
+  } else if (json.children && json.children.dbo) {
+    result.children = asArray(json.children.dbo);
+  }
+  return result;
 }
 
 function resolveDboQName(shortQName) {
@@ -60,7 +96,7 @@ function resolveDboQName(shortQName) {
   return { qname: shortQName, dbo: null };
 }
 
-function mapAttributes(node) {
+function mapAttributes(node, remainingDepth) {
   if (!node) {
     return null;
   }
@@ -81,79 +117,105 @@ function mapAttributes(node) {
     className: attr.beanClass || "",
     priority: "" + priority
   };
+
   var hasChildrenFlag = C8O.util.toBoolean(attr.hasChildren, false) === true;
-  if (hasChildrenFlag) {
+  var canExpand = remainingDepth > 1 && hasChildrenFlag && resolution.qname.length > 0;
+  if (canExpand) {
+    var nested = collectChildren(resolution.qname, remainingDepth - 1).children;
+    if (nested.length > 0) {
+      entry.children = nested;
+    }
+  }
+
+  if (!entry.children && hasChildrenFlag) {
     entry.hasChildren = true;
   }
-  var isEnabledFlag = attr.isEnabled == null ? true : C8O.util.toBoolean(attr.isEnabled, true);
-  if (!isEnabledFlag) {
-    entry.isEnabled = false;
-  }
-  entry._filterComment = attr.comment || "";
+
   return entry;
 }
 
-function asArray(value) {
-  if (!value) {
-    return [];
-  }
-  return Array.isArray(value) ? value : [value];
-}
-
-var json = JSON.parse(XMLUtils.XmlToJson(root, true, true));
-var rawChildren = [];
-var parentNode = null;
-
-if (sourceQName.length > 0) {
-  if (json.children && json.children.dbo) {
-    parentNode = json.children.dbo;
-    rawChildren = asArray(parentNode.dbo);
-  }
-} else if (json.children && json.children.dbo) {
-  rawChildren = asArray(json.children.dbo);
-}
-
-var mappedChildren = [];
-for (var idx = 0; idx < rawChildren.length; idx++) {
-  var mapped = mapAttributes(rawChildren[idx]);
-  if (!mapped) {
-    continue;
-  }
-  if (hasFilter) {
-    var nameLower = (mapped.name || "").toLowerCase();
-    var categoryLower = (mapped.category || "").toLowerCase();
-    var classLower = (mapped.className || "").toLowerCase();
-    var commentLower = (mapped._filterComment || "").toLowerCase();
-    var qnameLower = (mapped.qname || "").toLowerCase();
-    if (nameLower.indexOf(filterText) === -1 &&
-        categoryLower.indexOf(filterText) === -1 &&
-        classLower.indexOf(filterText) === -1 &&
-        commentLower.indexOf(filterText) === -1 &&
-        qnameLower.indexOf(filterText) === -1) {
+function collectChildren(qnameValue, remainingDepth) {
+  var raw = fetchRawChildren(qnameValue);
+  var childrenList = [];
+  var nodes = raw.children || [];
+  for (var idx = 0; idx < nodes.length; idx++) {
+    var mapped = mapAttributes(nodes[idx], remainingDepth);
+    if (!mapped) {
       continue;
     }
+    childrenList.push(mapped);
   }
-  delete mapped._filterComment;
-  mappedChildren.push(mapped);
+  return { parentNode: raw.parentNode, children: childrenList };
 }
 
-var totalChildren = mappedChildren.length;
+function matchesFilter(entry) {
+  if (!hasFilter) {
+    return true;
+  }
+  var nameLower = (entry.name || "").toLowerCase();
+  var displayNameLower = (entry.displayName || "").toLowerCase();
+  var categoryLower = (entry.category || "").toLowerCase();
+  var qnameLower = (entry.qname || "").toLowerCase();
+  if (nameLower.indexOf(filterText) !== -1) {
+    return true;
+  }
+  if (displayNameLower.indexOf(filterText) !== -1) {
+    return true;
+  }
+  if (categoryLower.indexOf(filterText) !== -1) {
+    return true;
+  }
+  if (qnameLower.indexOf(filterText) !== -1) {
+    return true;
+  }
+  return false;
+}
+
+function filterEntries(entries) {
+  if (!hasFilter) {
+    return entries;
+  }
+  var filtered = [];
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i];
+    var childEntries = [];
+    if (entry.children && entry.children.length > 0) {
+      childEntries = filterEntries(entry.children.slice());
+    }
+    var nodeMatches = matchesFilter(entry);
+    if (childEntries.length > 0) {
+      entry.children = childEntries;
+    } else if (entry.children) {
+      delete entry.children;
+    }
+    if (nodeMatches || childEntries.length > 0) {
+      filtered.push(entry);
+    }
+  }
+  return filtered;
+}
+
+var rootCollection = collectChildren(sourceQName, depthLimit);
+if (hasFilter) {
+  rootCollection.children = filterEntries(rootCollection.children.slice());
+}
+var mappedChildren = rootCollection.children;
+var parentNode = rootCollection.parentNode;
+
+var totalChildrenCount = mappedChildren.length;
 var effectiveStart = startIndex;
 if (effectiveStart < 0) { effectiveStart = 0; }
-if (effectiveStart > totalChildren) { effectiveStart = totalChildren; }
+if (effectiveStart > totalChildrenCount) { effectiveStart = totalChildrenCount; }
 var endIndex = effectiveStart + limitValue;
-if (endIndex > totalChildren) { endIndex = totalChildren; }
+if (endIndex > totalChildrenCount) { endIndex = totalChildrenCount; }
 var pagedChildren = [];
 for (var pos = effectiveStart; pos < endIndex; pos++) {
   pagedChildren.push(mappedChildren[pos]);
 }
-var returnedCount = pagedChildren.length;
-var hasMorePages = endIndex < totalChildren;
+var hasMorePages = endIndex < totalChildrenCount;
 var nextCursorValue = hasMorePages ? String(endIndex) : "";
 
-parentData = mapAttributes(parentNode);
-if (parentData) {
-  delete parentData._filterComment;
-}
+parentData = mapAttributes(parentNode, depthLimit);
 childrenData = pagedChildren;
+totalChildren = totalChildrenCount;
 nextCursorToken = nextCursorValue;

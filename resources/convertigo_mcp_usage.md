@@ -16,6 +16,15 @@ This resource explains the conventions that MCP clients should follow when they 
   - `palette-list` returns a compact catalog (name, class, summary) and already embeds `describe.tool` / `describe.arguments`.
   - Use the returned `describe` block (usually `{ "tool": "palette-describe", "arguments": { "className": ... } }`) instead of hard-coding class names.
   - `palette-describe` responds with `result.template` (creation payload) and `result.propertyHints` (per-property guidance) ready for `databaseobject-create` / `databaseobject-properties-set`.
+- Tree navigation via `databaseobject-children`:
+  - Accepts `depth` (1-5, default 1). When `depth > 1`, each item may expose a nested `children` array.
+  - Filters (`filter` variable) run after traversal; a node stays visible if it matches itself or any descendant matches.
+  - Pagination combines with recursion: `limit` applies to the top-level nodes, `nextCursor` resumes from the same level.
+  - Example MCP call:
+    ```bash
+    tools/call convertigo.databaseobject-children '{"qname":"ConvertigoMCP","depth":"2","filter":"Copy","limit":"5"}'
+    ```
+    Always forward `_meta.nextCursor` when the response returns a non-empty `nextCursor` field.
 - For `databaseobject-create`, always specify:
   - `qname`: parent object (e.g., `codex_tooling.sq:hash_sha256`)
   - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
