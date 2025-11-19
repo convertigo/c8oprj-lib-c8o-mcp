@@ -1,0 +1,5 @@
+logs/
+workspace/
+*.log
+prompt_[0-9]*.txt
+
