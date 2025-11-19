@@ -11,6 +11,19 @@ C8O.palette._listCountCache = {};
 
 C8O.palette._MAX_TEMPLATE_PROPS = 12;
 C8O.palette._MAX_PROPERTY_HINTS = 32;
+C8O.palette._NULL_SENTINEL = "__c8o_palette_null__";
+C8O.palette._DESCRIBE_CACHE_KEY = "c8o.palette.describeSummary";
+C8O.palette._COUNT_CACHE_KEY = "c8o.palette.listCounts";
+
+C8O.palette._getProjectCacheBucket = function (key, fallback) {
+  if (C8O.cache && typeof C8O.cache.getProjectMap === "function") {
+    var bucket = C8O.cache.getProjectMap(key);
+    if (bucket) {
+      return bucket;
+    }
+  }
+  return fallback;
+};
 
 C8O.palette.suggestTechnicalName = function (label) {
   var raw = C8O.util.toTrimmedString(label || "");
@@ -138,9 +151,15 @@ C8O.palette._getDescribeSummary = function (className, options) {
   if (!className.length) {
     return null;
   }
-  var cache = C8O.palette._describeSummaryCache;
-  if (cache.hasOwnProperty(className)) {
-    return cache[className];
+  var cache = C8O.palette._getProjectCacheBucket(
+    C8O.palette._DESCRIBE_CACHE_KEY,
+    C8O.palette._describeSummaryCache
+  );
+  var cached = cache && Object.prototype.hasOwnProperty.call(cache, className)
+    ? cache[className]
+    : undefined;
+  if (typeof cached !== "undefined") {
+    return cached === C8O.palette._NULL_SENTINEL ? null : cached;
   }
   var describeData = null;
   try {
@@ -150,21 +169,22 @@ C8O.palette._getDescribeSummary = function (className, options) {
       beanInfo: options && options.beanInfo ? options.beanInfo : null
     });
   } catch (_ignoreSummaryError) {}
-  if (!describeData) {
-    cache[className] = null;
-    return null;
+  var summary = null;
+  if (describeData) {
+    var propertyHintCount = describeData.propertyHints ? describeData.propertyHints.length : 0;
+    var templatePropertyCount = describeData.creationTemplate && describeData.creationTemplate.properties ? describeData.creationTemplate.properties.length : 0;
+    summary = {
+      propertyHintCount: propertyHintCount,
+      templatePropertyCount: templatePropertyCount,
+      propertyCount: propertyHintCount || templatePropertyCount
+    };
   }
-  var propertyHintCount = describeData.propertyHints ? describeData.propertyHints.length : 0;
-  var templatePropertyCount = describeData.creationTemplate && describeData.creationTemplate.properties ? describeData.creationTemplate.properties.length : 0;
-  var summary = {
-    propertyHintCount: propertyHintCount,
-    templatePropertyCount: templatePropertyCount,
-    propertyCount: propertyHintCount || templatePropertyCount
-  };
-  cache[className] = summary;
+  if (!cache) {
+    cache = {};
+  }
+  cache[className] = summary ? summary : C8O.palette._NULL_SENTINEL;
   return summary;
 };
-
 C8O.palette.attachListEntrySummary = function (item, options) {
   if (!item) {
     return;
@@ -181,9 +201,15 @@ C8O.palette.computeListEntryCounts = function (className) {
   if (!className.length) {
     return null;
   }
-  var cache = C8O.palette._listCountCache;
-  if (cache.hasOwnProperty(className)) {
-    return cache[className];
+  var cache = C8O.palette._getProjectCacheBucket(
+    C8O.palette._COUNT_CACHE_KEY,
+    C8O.palette._listCountCache
+  );
+  var cached = cache && Object.prototype.hasOwnProperty.call(cache, className)
+    ? cache[className]
+    : undefined;
+  if (typeof cached !== "undefined") {
+    return cached === C8O.palette._NULL_SENTINEL ? null : cached;
   }
   var counts = null;
   try {
@@ -204,6 +230,9 @@ C8O.palette.computeListEntryCounts = function (className) {
       };
     }
   } catch (_ignoreCounts) {}
-  cache[className] = counts;
+  if (!cache) {
+    cache = {};
+  }
+  cache[className] = counts ? counts : C8O.palette._NULL_SENTINEL;
   return counts;
 };

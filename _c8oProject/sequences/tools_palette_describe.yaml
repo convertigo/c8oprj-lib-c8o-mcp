@@ -341,6 +341,21 @@ comment: Describes palette entries (properties, creation hints).
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: true
+        ↓LlmHintIf [steps.IfStep-1763554782919]: 
+          condition: item && typeof item.llmHint !== 'undefined' && item.llmHint !== null
+          ↓LlmHintField [steps.JsonFieldStep-1763554797054]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: llmHint
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.llmHint
 ↓className [variables.RequestableVariable-1763068454112]: 
   comment: Fully-qualified class name returned by palette-list item.className
   required: true
@@ -348,3 +363,7 @@ comment: Describes palette entries (properties, creation hints).
   ↓className [variables.TestCaseVariable-1763471190830]: 
     required: true
     value: com.twinsoft.convertigo.beans.steps.ElementStep
+↓xmlCopy [core.TestCase-1763471189986]: 
+  ↓className [variables.TestCaseVariable-1763552299440]: 
+    required: true
+    value: com.twinsoft.convertigo.beans.steps.XMLCopyStep

@@ -45,10 +45,11 @@ function mapTemplate(template) {
   };
 }
 
-function mapHints(hints) {
+function mapHints(hints, className) {
   if (!hints || !hints.length) {
     return [];
   }
+  var classLabel = C8O.util ? C8O.util.toTrimmedString(className || "") : String(className || "");
   var results = [];
   for (var i = 0; i < hints.length; i++) {
     var hint = hints[i];
@@ -71,6 +72,14 @@ function mapHints(hints) {
     }
     if (hint.nillable === true) {
       hintPayload.nillable = true;
+    }
+    if (classLabel && C8O && C8O.dbo && typeof C8O.dbo.resolveLlmHint === "function") {
+      try {
+        var resolved = C8O.dbo.resolveLlmHint(classLabel, hint.name, hint);
+        if (resolved) {
+          hintPayload.llmHint = String(resolved);
+        }
+      } catch (_ignoreHint) {}
     }
     results.push(hintPayload);
   }
@@ -155,7 +164,7 @@ try {
 } catch (_ignoreDescribe) {}
 
 var templateMeta = describeData && describeData.creationTemplate ? mapTemplate(describeData.creationTemplate) : null;
-var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints) : [];
+var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints, requestedClass) : [];
 
 paletteDescribeEntry = entryPayload;
 paletteDescribeTemplate = templateMeta;

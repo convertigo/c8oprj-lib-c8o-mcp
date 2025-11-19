@@ -74,6 +74,7 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - [ ] Introduce cross-project invocation utilities with robust input validation and result streaming.
 - [ ] Document regression tests / automated curls to validate MCP contract after each change.
 - [ ] Clean up `resources/list` pagination (only emit `nextCursor` when a page really follows) and add onboarding resources/prompts so MCP clients learn Convertigo conventions before mutating projects.
+- [ ] Add a general-purpose MCP file-edit tool (non-YAML) so docs/prompts/resources can be updated without touching the Convertigo YAML exports.
 
 ## Testing Checklist
 - `initialize` responds 200 with protocol info, no nested `result.result`.

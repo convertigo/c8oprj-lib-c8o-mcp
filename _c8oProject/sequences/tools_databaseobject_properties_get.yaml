@@ -318,6 +318,9 @@ comment: Returns metadata and property values for a database object identified b
       resultPriority = "";
     }
     '
+↓AttachLlmHints [steps.SimpleStep-1763552479975]: 
+  comment: Attach llmHint when includeHints=true
+  expression: '''var wantHints=false;try{wantHints=C8O&&C8O.util?C8O.util.toBoolean(includeHints,false)===true:false;}catch(_ignoreFlag){}if(!wantHints&&typeof includeHints!==\''undefined\''&&includeHints!==null){try{wantHints=String(includeHints).toLowerCase()===\''true\'';}catch(_ignoreIncludeString){}}if(!wantHints||!propertiesList||!propertiesList.length||!C8O||!C8O.dbo||!C8O.dbo.resolveLlmHint){return;}var targetClass=targetClassName||\''\'';for(var i=0;i<propertiesList.length;i++){var prop=propertiesList[i];if(!prop||!prop.name){continue;}var hint=C8O.dbo.resolveLlmHint(targetClass,prop.name,prop);if(hint){prop.llmHint=String(hint);}}'''
 ↓Result [steps.JsonObjectStep-1762266930545]: 
   key: 
     - xmlizable: 
@@ -542,6 +545,21 @@ comment: Returns metadata and property values for a database object identified b
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.sourceValue
+        ↓LlmHintIf [steps.IfStep-1763545554725]: 
+          condition: (function(){if(!item){return false;}if(typeof item.llmHint!=='undefined'&&item.llmHint!==null){return true;}if(!C8O||!C8O.dbo||!C8O.dbo.resolveLlmHint){return false;}try{var computed=C8O.dbo.resolveLlmHint(targetClassName||'',item.name,item);if(computed){item.llmHint=String(computed);return true;}}catch(_ignoreLlm){return false;}return false;})()
+          ↓LlmHintField [steps.JsonFieldStep-1763545666733]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: llmHint
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: (function(){if(!item){return null;}if(typeof item.llmHint!=='undefined'&&item.llmHint!==null){return String(item.llmHint);}if(!C8O||!C8O.dbo||!C8O.dbo.resolveLlmHint){return null;}var computed=C8O.dbo.resolveLlmHint(targetClassName||'',item.name,item);return computed?String(computed):null;})()
         ↓ValueXmlObject [steps.JsonObjectStep-1762400000002]: 
           isEnabled: false
           key: 
@@ -1128,4 +1146,16 @@ comment: Returns metadata and property values for a database object identified b
     value: 25
   ↓_nextCursor [variables.TestCaseVariable-1763463187073]: 
   ↓includeHints [variables.TestCaseVariable-1763463199585]: 
+    value: true
+↓XMLCopyHints [core.TestCase-1763461968578]: 
+  ↓qname [variables.TestCaseVariable-1763549602765]: 
+    required: true
+    value: ConvertigoMCP.internal_call.Copy
+  ↓properties [variables.TestCaseVariable-1763549602768]: 
+    description: List of property names to include (JSON array or comma separated string)
+  ↓filter [variables.TestCaseVariable-1763549602771]: 
+  ↓limit [variables.TestCaseVariable-1763549602774]: 
+    value: 25
+  ↓_nextCursor [variables.TestCaseVariable-1763549602777]: 
+  ↓includeHints [variables.TestCaseVariable-1763549602780]: 
     value: true

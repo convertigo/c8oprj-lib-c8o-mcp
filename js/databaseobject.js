@@ -12,10 +12,152 @@ if (typeof C8O === "undefined") {
 
 C8O.util = C8O.util || {};
 C8O.dbo = C8O.dbo || {};
+C8O.cache = C8O.cache || {};
 
-C8O.dbo.LLM_HINTS = C8O.dbo.LLM_HINTS || {
-  "com.twinsoft.convertigo.beans.variables.StepVariable#sourceDefinition": "SmartType sources must be JSON arrays of the form [\"<stepPriority>\", \"<xpath>\"]. The first element is the numeric priority of the step exposing the XML (e.g. the InputVariablesStep or another step), the second element is the XPath (for example ./email/text()). Do not reference request variable names or QNames directly."
+(function () {
+  function getProjectStore() {
+    try {
+      if (typeof context !== "undefined" && context && context.project) {
+        var project = context.project;
+        if (project && typeof project.get === "function" && typeof project.set === "function") {
+          return project;
+        }
+      }
+    } catch (_ignoreProjectStore) {}
+    return null;
+  }
+
+  C8O.cache._getProjectStore = getProjectStore;
+
+  C8O.cache.getProjectValue = function (key) {
+    var store = getProjectStore();
+    if (!store) {
+      return null;
+    }
+    var value = store.get(key);
+    return typeof value === "undefined" ? null : value;
+  };
+
+  C8O.cache.setProjectValue = function (key, value) {
+    var store = getProjectStore();
+    if (!store) {
+      return false;
+    }
+    store.set(key, value);
+    return true;
+  };
+
+  C8O.cache.getProjectMap = function (key) {
+    var store = getProjectStore();
+    if (!store) {
+      return null;
+    }
+    var bucket = store.get(key);
+    if (!bucket || typeof bucket !== "object") {
+      bucket = {};
+      store.set(key, bucket);
+    }
+    return bucket;
+  };
+})();
+
+
+C8O.dbo.LLM_HINTS = C8O.dbo.LLM_HINTS || {};
+
+var SINGLE_SOURCE_HINT =
+  'SmartType sources must be JSON arrays of the form ["<stepPriority>", "<xpath>"]. ' +
+  'The first element is the numeric priority of the step exposing the XML (for example an InputVariablesStep), ' +
+  'the second element is the XPath to the desired node (for example ./email/text()). ' +
+  'Do not reference requestable variable names or QNames directly.';
+
+var SMART_TYPE_VALUE_HINT =
+  'SmartType values are JSON objects like {"mode":"PLAIN","expression":"text"}. ' +
+  'Use "mode":"JS" with "expression":"<javascript>" for evaluated expressions, or "mode":"SOURCE" with a ' +
+  '"sources":[["<stepPriority>","<xpath>"]] array to pull data from another step.';
+
+var MULTI_SOURCES_HINT =
+  'sourcesDefinition expects an array of entries, each entry providing a label, a SmartType source (same ["<stepPriority>", "<xpath>"] structure), and an optional fallback value. ' +
+  'Build it as a JSON array of objects such as { description: "optional", source: ["1234567890", "./text()"], defaultValue: "" } so the picker-style data is preserved.';
+
+var singleSourceClasses = [
+  "com.twinsoft.convertigo.beans.variables.StepVariable",
+  "com.twinsoft.convertigo.beans.steps.IfExistStep",
+  "com.twinsoft.convertigo.beans.steps.IfExistThenElseStep",
+  "com.twinsoft.convertigo.beans.steps.IsInStep",
+  "com.twinsoft.convertigo.beans.steps.IsInThenElseStep",
+  "com.twinsoft.convertigo.beans.steps.IteratorStep",
+  "com.twinsoft.convertigo.beans.steps.JsonSourceStep",
+  "com.twinsoft.convertigo.beans.steps.SimpleSourceStep",
+  "com.twinsoft.convertigo.beans.steps.SmtpStep",
+  "com.twinsoft.convertigo.beans.steps.SourceStep",
+  "com.twinsoft.convertigo.beans.steps.WriteBase64Step",
+  "com.twinsoft.convertigo.beans.steps.WriteCSVStep",
+  "com.twinsoft.convertigo.beans.steps.WriteJSONStep",
+  "com.twinsoft.convertigo.beans.steps.WriteXMLStep",
+  "com.twinsoft.convertigo.beans.steps.XMLAttributeStep",
+  "com.twinsoft.convertigo.beans.steps.XMLCopyStep",
+  "com.twinsoft.convertigo.beans.steps.XMLCountStep",
+  "com.twinsoft.convertigo.beans.steps.XMLElementStep",
+  "com.twinsoft.convertigo.beans.steps.XMLSortStep",
+  "com.twinsoft.convertigo.beans.steps.XMLSplitStep",
+  "com.twinsoft.convertigo.beans.steps.XMLTransformStep"
+];
+
+for (var i = 0; i < singleSourceClasses.length; i++) {
+  C8O.dbo.LLM_HINTS[singleSourceClasses[i] + "#sourceDefinition"] = SINGLE_SOURCE_HINT;
+}
+
+var multiSourceProperties = [
+  { className: "com.twinsoft.convertigo.beans.steps.XMLConcatStep", property: "sourcesDefinition" },
+  { className: "com.twinsoft.convertigo.beans.steps.XMLDateTimeStep", property: "sourcesDefinition" }
+];
+
+for (var j = 0; j < multiSourceProperties.length; j++) {
+  var entry = multiSourceProperties[j];
+  C8O.dbo.LLM_HINTS[entry.className + "#" + entry.property] = MULTI_SOURCES_HINT;
+}
+
+C8O.dbo.getSmartTypeValueHint = function () {
+  return SMART_TYPE_VALUE_HINT;
 };
+
+C8O.dbo.resolveLlmHint = function (className, propertyName, propertyEntry) {
+  var classLabel = className == null ? "" : String(className);
+  var propertyLabel = propertyName == null ? "" : String(propertyName);
+  var key = classLabel + "#" + propertyLabel;
+  if (C8O.dbo.LLM_HINTS && C8O.dbo.LLM_HINTS[key]) {
+    return String(C8O.dbo.LLM_HINTS[key]);
+  }
+  var normalizedName = propertyLabel.toLowerCase();
+  if (normalizedName === "sourcedefinition") {
+    return SINGLE_SOURCE_HINT;
+  }
+  if (normalizedName === "sourcesdefinition") {
+    return MULTI_SOURCES_HINT;
+  }
+  if (propertyEntry) {
+    var kind = propertyEntry.kind || propertyEntry.valueKind || "";
+    if (kind) {
+      kind = String(kind).toLowerCase();
+      if (kind === "smarttype") {
+        return SMART_TYPE_VALUE_HINT;
+      }
+    }
+    var typeName = propertyEntry.type ? String(propertyEntry.type).toLowerCase() : "";
+    if (typeName.indexOf("smarttype") !== -1) {
+      return SMART_TYPE_VALUE_HINT;
+    }
+  }
+  return null;
+};
+
+
+
+
+
+
+
+
 
 /**
  * Returns a trimmed string representation or an empty string when null/undefined.
