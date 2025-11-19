@@ -5,26 +5,24 @@ comment: used for internal call
     'if (!_sequence) {
     	throw "_sequence should be defined";
     }
-    __sequence = _sequence;
-    delete _sequence;
+    
+    var callStep = context.requestedObject.getStep("Call");
     
     try {
     	let vars = JSON.parse(_variables);
+    	vars.__sequence = _sequence;
     	for (let k in vars) {
-    		this[k] = vars[k];
-    	}
-    } finally {
-    	delete _variables;
-    }
-    
-    var callStep = context.requestedObject.getStep("Call");
-    for (let k in this) {
-    	if (Object.prototype.toString.call(this[k]) === "[object String]") {
+    		if (Object.prototype.toString.call(vars[k]) != "[object String]") {
+    			vars[k] = JSON.stringify(vars[k]);
+    		}
     		let myvar = new com.twinsoft.convertigo.beans.variables.StepVariable();
     		myvar.setName(k);
-    		myvar.setValueOrNull(this[k]);
+    		myvar.setValueOrNull(vars[k]);
     		callStep.addVariable(myvar);
     	}
+    } finally {
+    	delete _sequence;
+    	delete _variables;
     }'
 ↓Call [steps.SequenceStep-1761735196040]: 
   sourceSequence: ConvertigoMCP.internal_call_stub

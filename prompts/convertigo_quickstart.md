@@ -47,5 +47,8 @@ Before sending MCP calls, read the exposed resources via `resources/list` (espec
 - Test each tool via `curl` (or MCP Inspector) and ensure pagination fields work.
 - Leverage `internal_*` helpers (schema generation, tool introspection) instead of duplicating logic.
 
+- Finish every run with a brief \"MCP critique\": list any confusing responses, missing tools, or UX gaps you noticed so the platform can improve.
+
 You can now explore `tools/list`, `palette-list`, and `databaseobject-*` to inspect or modify the current Convertigo project.
+
 

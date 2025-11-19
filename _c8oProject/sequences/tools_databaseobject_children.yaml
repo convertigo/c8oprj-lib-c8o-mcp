@@ -156,19 +156,21 @@ comment: List database object children (or projects when qname is empty). Suppor
         - SmartType: 
           - ↑mode: JS
           - →→: totalChildren
-  ↓NextCursor [steps.JsonFieldStep-1762956410073]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
+  ↓NextCursorIf [steps.IfStep-1763569701665]: 
+    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    ↓NextCursor [steps.JsonFieldStep-1763569707091]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: nextCursorToken
 ↓qname [variables.RequestableVariable-1762270810298]: 
   comment: Database object QName. Leave empty to list projects.
 ↓filter [variables.RequestableVariable-1762437976673]: 

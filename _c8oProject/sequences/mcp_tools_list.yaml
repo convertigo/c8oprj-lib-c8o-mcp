@@ -216,19 +216,21 @@ comment: Handles MCP tools/list calls
           - SmartType: 
             - ↑mode: JS
             - →→: toolsHasMore
-  ↓NextCursor [steps.JsonFieldStep-1762960952772]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'toolsNextCursor && String(toolsNextCursor).length > 0 ? toolsNextCursor : null'
+  ↓NextCursorIf [steps.IfStep-1763569682852]: 
+    condition: toolsNextCursor != null && String(toolsNextCursor).length > 0
+    ↓NextCursor [steps.JsonFieldStep-1763569689633]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: toolsNextCursor
 ↓requestIdJson [variables.RequestableVariable-1761219993176]: 
   comment: JSON representation of request id
 ↓paramsJson [variables.RequestableVariable-1761219993178]: 

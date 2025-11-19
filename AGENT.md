@@ -75,8 +75,8 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - [ ] Document regression tests / automated curls to validate MCP contract after each change.
 - [ ] Clean up `resources/list` pagination (only emit `nextCursor` when a page really follows) and add onboarding resources/prompts so MCP clients learn Convertigo conventions before mutating projects.
 - [ ] Add a general-purpose MCP file-edit tool (non-YAML) so docs/prompts/resources can be updated without touching the Convertigo YAML exports.
-- [ ] Improve databaseobject-* error reporting: if a supplied QName is invalid (e.g. codex_test.sq), return a structured MCP error suggesting the nearest valid ancestor or pointing to databaseobject-children qname=" to list projects.
-- [ ] Detect repeated failures on unknown QNames and hint the caller to trim segments (drop .sq, etc.) until a valid object is found instead of burning dozens of calls.
+- [x] Improve databaseobject-* error reporting: if a supplied QName is invalid (e.g. codex_test.sq), return a structured MCP error suggesting the nearest valid ancestor or pointing to databaseobject-children qname=" to list projects.
+- [x] Detect repeated failures on unknown QNames and hint the caller to trim segments (drop .sq, etc.) until a valid object is found instead of burning dozens of calls.
 - [ ] Update palette-list/palette-describe/databaseobject-children to warn when 	arget is empty or irrelevant, nudging clients to provide a scoped QName rather than streaming the entire catalog.
 - [ ] Bubble up Convertigo sequence errors (e.g. Database object not found: codex_test.sq) into MCP JSON-RPC rror.data so LLMs immediately see the root cause.
 - [ ] (Future) add a create project helper; until then, when a create fails because the parent project is missing, respond with guidance to import/create the project before retrying.
@@ -102,3 +102,10 @@ Stay disciplined with exports and testing—Convertigo’s XML/YAML structure is
 ## Test with inspector
 npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:18080/convertigo/api/mcp
 
+
+
+- [ ] Accept dictionaries for databaseobject-properties-set (or clearly document properties must be a JSON string) to avoid 'Properties payload must be a JSON object' confusion (see run 20251119_183859).
+
+- [ ] Improve databaseobject-create/dbo-children error responses when qname casing is wrong (e.g. codex_test.sq vs codex_test): return a clear 'QName not found' with suggestions instead of silent failures.
+
+- [ ] Update quickstart/docs with examples showing case-sensitive QNames (Codex stumbled matching codex_test.sq:...Word vs .word).

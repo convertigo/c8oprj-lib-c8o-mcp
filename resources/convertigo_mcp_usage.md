@@ -31,6 +31,7 @@ This resource explains the conventions that MCP clients should follow when they 
   - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
   - `mode`: `inside`, `before`, `after`, or `lastChild`
   - `properties`: JSON object with the properties to override (booleans without quotes, e.g., `{ "required": true }`)
+- `databaseobject-properties-set` follows the same rule: `properties` **must** be a JSON object such as `{"comment":"Write here","output":true}`. Never send an array of `{name,value}` entries. When a property needs a special structure (SmartType, XMLVector, etc.), call `palette-describe` or `databaseobject-properties-get` with `includeHints=true` first.
 - `databaseobject-properties-get` returns a lightweight view by default (name, title, type, current value). Call it with `includeHints=true` if you also need the verbose descriptions, option lists, and the `llmHint` guidance we provide for tricky properties (e.g., SmartType sources).
 - After mutating objects, call `project-save` (or set `autoSave=true`) so the YAML export stays in sync.
 

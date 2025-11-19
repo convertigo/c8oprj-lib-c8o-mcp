@@ -1,4 +1,4 @@
-﻿Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Once done, acknowledge that you refreshed those guides and continue with the following plan.
+Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Once done, acknowledge that you refreshed those guides and continue with the following plan.
 
 In the `codex_test` project, create a sequence `analyze_sentence` with one input variable `sentence` (string). The sequence must return a JSON document containing a `words` array. Each entry must include:
 - `text`: the word lowercased with simple punctuation removed,
@@ -9,3 +9,4 @@ In the `codex_test` project, create a sequence `analyze_sentence` with one input
 Use only the Convertigo MCP tools (`palette-list`, `palette-describe`, `databaseobject-create`/`databaseobject-properties-set`, `project-save`, etc.). Test as soon as you have a JSON skeleton (even an empty array) using `tools/call convertigo.requestable-execute {"requestable":"codex_test.analyze_sentence","variables":"{\"sentence\":\"Hello\"}"}`. Re-run `convertigo.requestable-execute` after each significant change, and keep the final proof with `sentence=Hello world!`. Only fall back to plain HTTP if `requestable-execute` works and you are explicitly asked to.
 
 If `analyze_sentence` already exists, just run the tests above and confirm the current behaviour.
+End the run with a short "MCP critique" describing what felt confusing, which tools were missing, and any UX improvements that would have helped.

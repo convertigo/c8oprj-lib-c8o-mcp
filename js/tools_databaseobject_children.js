@@ -10,6 +10,11 @@ var hasFilter = filterText.length > 0;
 if (hasFilter) {
   filterText = filterText.toLowerCase();
 }
+if (sourceQName.length > 0) {
+  // Fail fast with helpful hints if the provided QName is invalid.
+  C8O.dbo.resolve(sourceQName, { messagePrefix: "qname" });
+}
+
 
 var depthRaw = depth == null ? "" : String(depth).trim();
 var depthLimit = parseInt(depthRaw, 10);
@@ -219,3 +224,4 @@ parentData = mapAttributes(parentNode, depthLimit);
 childrenData = pagedChildren;
 totalChildren = totalChildrenCount;
 nextCursorToken = nextCursorValue;
+

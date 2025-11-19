@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Shared helpers for ConvertigoMCP sequences.
  * These functions run in the Rhino context used by Convertigo sequences.
  */
@@ -175,6 +175,129 @@ C8O.dbo.requireProject = function (context) {
 /**
  * Resolves a database object by QName. Throws when not found unless optional.
  */
+C8O.dbo._extractProjectName = function (qname) {
+  var input = C8O.util.toTrimmedString(qname);
+  if (!input.length) {
+    return "";
+  }
+  var dotIndex = input.indexOf(".");
+  var colonIndex = input.indexOf(":");
+  var cutIndex = -1;
+  if (dotIndex === -1 && colonIndex === -1) {
+    cutIndex = -1;
+  } else if (dotIndex === -1) {
+    cutIndex = colonIndex;
+  } else if (colonIndex === -1) {
+    cutIndex = dotIndex;
+  } else {
+    cutIndex = Math.min(dotIndex, colonIndex);
+  }
+  if (cutIndex <= 0) {
+    return input;
+  }
+  return input.substring(0, cutIndex);
+};
+
+C8O.dbo._listProjectNames = function () {
+  var names = [];
+  try {
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var javaNames = Engine.theApp.databaseObjectsManager.getAllProjectNamesList();
+    if (javaNames != null) {
+      for (var i = 0; i < javaNames.size(); i++) {
+        names.push(String(javaNames.get(i)));
+      }
+    }
+  } catch (_ignoreProjects) {}
+  return names;
+};
+
+C8O.dbo._findExistingAncestor = function (qname) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var manager = Engine.theApp.databaseObjectsManager;
+  var candidate = C8O.util.toTrimmedString(qname);
+  var seen = {};
+  while (candidate.length) {
+    var dot = candidate.lastIndexOf(".");
+    var colon = candidate.lastIndexOf(":");
+    var cut = Math.max(dot, colon);
+    if (cut <= 0) {
+      break;
+    }
+    candidate = candidate.substring(0, cut);
+    if (!candidate.length || seen[candidate]) {
+      continue;
+    }
+    seen[candidate] = true;
+    try {
+      var ancestor = manager.getDatabaseObjectByQName(candidate);
+      if (ancestor != null) {
+        return ancestor;
+      }
+    } catch (_ignoreAncestor) {}
+  }
+  return null;
+};
+
+C8O.dbo._buildResolveError = function (qname, opts, rootError) {
+  var prefix = opts && opts.messagePrefix ? String(opts.messagePrefix) + ": " : "";
+  var baseMessage = prefix + "Database object not found: " + qname;
+  var hints = [];
+  var projectName = C8O.dbo._extractProjectName(qname);
+  if (projectName) {
+    var knownProjects = C8O.dbo._listProjectNames();
+    var hasProject = false;
+    for (var i = 0; i < knownProjects.length; i++) {
+      if (knownProjects[i] === projectName) {
+        hasProject = true;
+        break;
+      }
+    }
+    if (!hasProject) {
+      hints.push(
+        "Project \"" +
+          projectName +
+          "\" is not loaded. Run tools_admin_list_projects to inspect available projects or import \"" +
+          projectName +
+          "\" before targeting it."
+      );
+    }
+  }
+  var ancestor = C8O.dbo._findExistingAncestor(qname);
+  if (ancestor != null) {
+    var ancestorQName = "";
+    try {
+      ancestorQName = ancestor.getFullQName ? String(ancestor.getFullQName()) : String(ancestor);
+    } catch (_ignoreQName) {
+      ancestorQName = String(ancestor);
+    }
+    var ancestorClass = "";
+    try {
+      ancestorClass = ancestor.getClass ? String(ancestor.getClass().getName()) : "";
+    } catch (_ignoreClass) {}
+    var ancestorLabel = ancestorQName;
+    if (ancestorClass && ancestorClass.length) {
+      ancestorLabel += " (" + ancestorClass + ")";
+    }
+    hints.push(
+      "Closest existing ancestor: " +
+        ancestorLabel +
+        ". Call tools_databaseobject_children with qname \"" +
+        ancestorQName +
+        "\" to enumerate its children."
+    );
+  }
+  if (!hints.length) {
+    hints.push('Call tools_admin_list_projects or tools_databaseobject_children with qname="" to list available roots.');
+  }
+  var message = baseMessage + ". " + hints.join(" ");
+  var error = new Error(message);
+  if (rootError && rootError.stack) {
+    error.stack = rootError.stack;
+  }
+  return error;
+};
+
 C8O.dbo.resolve = function (qname, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
@@ -184,15 +307,21 @@ C8O.dbo.resolve = function (qname, options) {
   }
   try {
     var dbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(text);
-    if (dbo == null && !opts.optional) {
-      throw new Error("Database object not found: " + text);
+    if (dbo == null) {
+      if (opts.optional) {
+        return null;
+      }
+      throw C8O.dbo._buildResolveError(text, opts);
     }
     return dbo;
   } catch (lookupError) {
     if (opts.optional) {
       return null;
     }
-    throw lookupError instanceof Error ? lookupError : new Error(String(lookupError));
+    if (lookupError instanceof Error) {
+      throw C8O.dbo._buildResolveError(text, opts, lookupError);
+    }
+    throw C8O.dbo._buildResolveError(text, opts, new Error(String(lookupError)));
   }
 };
 

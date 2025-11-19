@@ -1095,19 +1095,21 @@ comment: Returns metadata and property values for a database object identified b
         - SmartType: 
           - ↑mode: JS
           - →→: paginationInfo.cursorInput
-  ↓NextCursor [steps.JsonFieldStep-1762957037381]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
+  ↓NextCursorIf [steps.IfStep-1763569717960]: 
+    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    ↓NextCursor [steps.JsonFieldStep-1763569725895]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: nextCursorToken
 ↓qname [variables.RequestableVariable-1762266930541]: 
   comment: Database object QName (project[.path...] format)
   required: true

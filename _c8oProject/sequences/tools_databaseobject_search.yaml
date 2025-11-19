@@ -56,19 +56,21 @@ comment: Search database objects (name/comment/QName).
         - SmartType: 
           - ↑mode: JS
           - →→: 'searchSummary ? Boolean(searchSummary.hasMore) : false'
-  ↓NextCursorField [steps.JsonFieldStep-1763465686393]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'searchSummary && searchSummary.nextCursor && String(searchSummary.nextCursor).length > 0 ? searchSummary.nextCursor : null'
+  ↓NextCursorFieldIf [steps.IfStep-1763569738244]: 
+    condition: searchSummary != null && searchSummary.nextCursor != null && String(searchSummary.nextCursor).length > 0
+    ↓NextCursorField [steps.JsonFieldStep-1763569743645]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: searchSummary.nextCursor
   ↓Matches [steps.JsonArrayStep-1762941383896]: 
     comment: Matching database objects
     key: 
@@ -166,19 +168,21 @@ comment: Search database objects (name/comment/QName).
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.databaseType
-  ↓NextCursor [steps.JsonFieldStep-1762957502629]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
+  ↓NextCursorIf [steps.IfStep-1763569756302]: 
+    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    ↓NextCursor [steps.JsonFieldStep-1763569761744]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: nextCursorToken
 ↓qname [variables.RequestableVariable-1762941528442]: 
   comment: 'Optional root database object QName (default: all projects).'
 ↓filter [variables.RequestableVariable-1762941538776]: 

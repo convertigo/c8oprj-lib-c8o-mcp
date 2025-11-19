@@ -232,19 +232,21 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
         - SmartType: 
           - ↑mode: JS
           - →→: 'summary != null ? summary.get("total") : 0'
-  ↓NextCursor [steps.JsonFieldStep-1762954280312]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'nextCursorToken && String(nextCursorToken).length > 0 ? nextCursorToken : null'
+  ↓NextCursorIf [steps.IfStep-1763569660028]: 
+    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    ↓NextCursor [steps.JsonFieldStep-1763569666433]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: nextCursorToken
 ↓filter [variables.RequestableVariable-1762437969473]: 
   comment: Optional case-insensitive filter applied on project name and description.
 ↓limit [variables.RequestableVariable-1762954306215]: 

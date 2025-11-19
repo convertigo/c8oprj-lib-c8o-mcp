@@ -551,19 +551,6 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
         - SmartType: 
           - ↑mode: JS
           - →→: Boolean(resultInfo && resultInfo.hasMore)
-  ↓NextCursor [steps.JsonFieldStep-1762959195684]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: nextCursor
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'resultInfo && resultInfo.nextCursor && String(resultInfo.nextCursor).length > 0 ? resultInfo.nextCursor : null'
   ↓TotalMatches [steps.JsonFieldStep-1762959205237]: 
     key: 
       - xmlizable: 
@@ -625,6 +612,21 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
           - SmartType: 
             - ↑mode: PLAIN
             - →→: Use describe.tool with arguments.className to fetch creation template and property hints.
+  ↓NextCursorIf [steps.IfStep-1763569773859]: 
+    condition: resultInfo != null && resultInfo.nextCursor != null && String(resultInfo.nextCursor).length > 0
+    ↓NextCursor [steps.JsonFieldStep-1763569779641]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: resultInfo.nextCursor
 ↓target [variables.RequestableVariable-1762338110014]: 
   comment: Parent QName (optionally suffixed with :FolderType)
 ↓includeDynamic [variables.RequestableVariable-1762338110016]: 
