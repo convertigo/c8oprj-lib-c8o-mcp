@@ -68,13 +68,19 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - [x] Provide initial `tools/list` for admin/project/invoke categories.
 - [x] Expose baseline `tools/call` functions (`admin.get-engine-version`, `admin.get-engine-metrics`, `project.describe-tree`, `invoke.list-projects`).
 - [ ] Normalize all helper sequences to emit plain payload objects (no nested envelopes); ensure JSON-RPC compliance end-to-end.
-- [ ] Implement error/status propagation without relying on stale Convertigo `SetResponseStatusStep` artefacts.
+- [x] Implement error/status propagation without relying on stale Convertigo `SetResponseStatusStep` artefacts.
 - [ ] Flesh out monitoring tools (thread dump, cache management, log access).
 - [ ] Add project mutation helpers (property editing, controlled sequence updates) once server-side guards are ready.
 - [ ] Introduce cross-project invocation utilities with robust input validation and result streaming.
 - [ ] Document regression tests / automated curls to validate MCP contract after each change.
 - [ ] Clean up `resources/list` pagination (only emit `nextCursor` when a page really follows) and add onboarding resources/prompts so MCP clients learn Convertigo conventions before mutating projects.
 - [ ] Add a general-purpose MCP file-edit tool (non-YAML) so docs/prompts/resources can be updated without touching the Convertigo YAML exports.
+- [ ] Improve databaseobject-* error reporting: if a supplied QName is invalid (e.g. codex_test.sq), return a structured MCP error suggesting the nearest valid ancestor or pointing to databaseobject-children qname=" to list projects.
+- [ ] Detect repeated failures on unknown QNames and hint the caller to trim segments (drop .sq, etc.) until a valid object is found instead of burning dozens of calls.
+- [ ] Update palette-list/palette-describe/databaseobject-children to warn when 	arget is empty or irrelevant, nudging clients to provide a scoped QName rather than streaming the entire catalog.
+- [ ] Bubble up Convertigo sequence errors (e.g. Database object not found: codex_test.sq) into MCP JSON-RPC rror.data so LLMs immediately see the root cause.
+- [ ] (Future) add a create project helper; until then, when a create fails because the parent project is missing, respond with guidance to import/create the project before retrying.
+- [ ] Update the default Codex prompts so the agent ends with a short report on missing MCP capabilities / UX gaps, giving us qualitative feedback automatically.
 
 ## Testing Checklist
 - `initialize` responds 200 with protocol info, no nested `result.result`.
@@ -95,3 +101,4 @@ Stay disciplined with exports and testing—Convertigo’s XML/YAML structure is
 
 ## Test with inspector
 npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:18080/convertigo/api/mcp
+

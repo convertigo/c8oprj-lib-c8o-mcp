@@ -1,6 +1,6 @@
-﻿Start by calling `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Write a short numbered summary of the key points **before doing anything else**.
+﻿Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Once done, acknowledge that you refreshed those guides and continue with the following plan.
 
-After that, work in the `codex_test` project and create a sequence `analyze_sentence` with one input variable `sentence` (string). The sequence must return a JSON document containing a `words` array. Each entry must include:
+In the `codex_test` project, create a sequence `analyze_sentence` with one input variable `sentence` (string). The sequence must return a JSON document containing a `words` array. Each entry must include:
 - `text`: the word lowercased with simple punctuation removed,
 - `length`: number of characters,
 - `vowels`: count of vowels (a,e,i,o,u,y),

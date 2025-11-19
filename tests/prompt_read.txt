@@ -1,1 +1,0 @@
-﻿Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Output a short numbered summary of what you learned from both documents, and do nothing else afterwards.
