@@ -14,7 +14,7 @@ This document summarizes the structure of the `ConvertigoMCP` project that power
 - `resources/` — Markdown or JSON resources exposed through `resources/list` & `resources/read`.
 
 ## Tools Already Implemented
-- Project & tree inspection: `admin-list-projects`, `databaseobject-children`, `databaseobject-search`.
+- Project & tree inspection: `project-list`, `databaseobject-children`, `databaseobject-search`.
 - CRUD helpers: `databaseobject-create|delete|move|rename`, `databaseobject-properties-get|set`.
 - Palette discovery: `palette-list`.
 - Project lifecycle: `project-save`, `project-reload`, `project-js-get`, `project-js-set`.

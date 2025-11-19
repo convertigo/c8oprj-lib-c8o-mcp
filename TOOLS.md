@@ -10,7 +10,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 
 | Tool name                     | Sequence file                               | Summary |
 |-------------------------------|---------------------------------------------|---------|
-| `admin-list-projects`         | `tools_admin_list_projects.yaml`            | List installed projects with metadata (templates, versions, exports…). |
+| `project-list`         | `tools_project_list.yaml`            | List installed projects with metadata (templates, versions, exports…). |
 | `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List database object children (or projects when `qname` is empty) with optional recursion via `depth` and ancestor-preserving filters. |
 | `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). |
 | `databaseobject-delete`       | `tools_databaseobject_delete.yaml`          | Delete a database object, optionally exporting and refreshing Studio. |
@@ -36,7 +36,7 @@ between requests to stream the remaining entries.
 
 | Tool name | Notes |
 |-----------|-------|
-| `admin-list-projects` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
+| `project-list` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
 | `databaseobject-children` | Reports `total` + `nextCursor` and, when `depth > 1`, embeds nested `children` arrays for the filtered subset. |
 | `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
 | `databaseobject-search` | Returns `scanned`, `returned`, `hasMore`, and `nextCursor` at the root; `matches[]` contains only the essentials (`qname`, `name`, `className`, `type`, `priority`). |
@@ -70,7 +70,7 @@ noted in the description.
 - [ ] `meta-describe-object` — Optional lightweight descriptor returning only
   high-level metadata (type, parent, enabled, comment). We may reuse
   `databaseobject-properties-get` if consumers accept the richer output.
-- [ ] `meta-filter` — Common filtering helper used by several tools (`admin-list-projects`,
+- [ ] `meta-filter` — Common filtering helper used by several tools (`project-list`,
   `databaseobject-children`, `databaseobject-properties-get`, `palette-list`) to perform
   case-insensitive search on names/comments.
 

@@ -21,7 +21,6 @@
   ↓mcp_resources_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_list.yaml
   ↓mcp_resources_read [sequences.GenericSequence]: 🗏 sequences/mcp_resources_read.yaml
   ↓mcp_tools_list [sequences.GenericSequence]: 🗏 sequences/mcp_tools_list.yaml
-  ↓tools_admin_list_projects [sequences.GenericSequence]: 🗏 sequences/tools_admin_list_projects.yaml
   ↓tools_databaseobject_children [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_children.yaml
   ↓tools_databaseobject_create [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_create.yaml
   ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml
@@ -34,6 +33,7 @@
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml
+  ↓tools_project_list [sequences.GenericSequence]: 🗏 sequences/tools_project_list.yaml
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml

@@ -257,7 +257,7 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
       hints.push(
         "Project \"" +
           projectName +
-          "\" is not loaded. Run tools_admin_list_projects to inspect available projects or import \"" +
+          "\" is not loaded. Run project-list to inspect available projects or import \"" +
           projectName +
           "\" before targeting it."
       );
@@ -288,7 +288,7 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
     );
   }
   if (!hints.length) {
-    hints.push('Call tools_admin_list_projects or tools_databaseobject_children with qname="" to list available roots.');
+    hints.push('Call tool_project-list to list available roots.');
   }
   var message = baseMessage + ". " + hints.join(" ");
   var error = new Error(message);

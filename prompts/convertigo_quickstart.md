@@ -27,7 +27,7 @@ Before sending MCP calls, read the exposed resources via `resources/list` (espec
 ## Useful tools
 | Tool | Purpose |
 |------|---------|
-| `admin-list-projects` | List projects + metadata. `limit` and `_meta.nextCursor` supported. |
+| `project-list` | List projects + metadata. `limit` and `_meta.nextCursor` supported. |
 | `databaseobject-children` | Browse the tree starting from a `qname`. |
 | `databaseobject-properties-get` | Inspect properties (smart types, values, schema info). |
 | `databaseobject-properties-set` | Update properties (handles SmartType, XMLizable). |

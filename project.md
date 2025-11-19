@@ -470,52 +470,6 @@ JSON representation of request id
 
 </p></blockquote></details>
 
-<details><summary><b>tools_admin_list_projects</b> : Lists installed Convertigo projects with metadata for MCP admin tooling</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_admin_list_projects
-
-Lists installed Convertigo projects with metadata for MCP admin tooling.
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
-</td>
-<td>
-Opaque cursor forwarded from MCP _meta.nextCursor (internal).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
-</td>
-<td>
-Optional case-insensitive filter applied on project name and description.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
-</td>
-<td>
-Maximum number of projects to return per call (1-100, default 10).
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
 <details><summary><b>tools_databaseobject_children</b> : List database object children (or projects when qname is empty)</summary><blockquote><p>
 
 
@@ -1144,6 +1098,52 @@ JavaScript source to store in the file
 </td>
 <td>
 File path relative to the project's js/ directory
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_list</b> : Lists installed Convertigo projects with metadata for MCP admin tooling</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_list
+
+Lists installed Convertigo projects with metadata for MCP admin tooling.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter applied on project name and description.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum number of projects to return per call (1-100, default 10).
 </td>
 </tr>
 </table>
