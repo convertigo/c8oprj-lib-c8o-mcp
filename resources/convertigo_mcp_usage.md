@@ -16,6 +16,7 @@ This resource explains the conventions that MCP clients should follow when they 
   - `palette-list` now returns only the essentials (`name`, `className`, `shortDescription`, `nameSuggestion`, `propertyCount`, `describeClassName`). Use `describeClassName` with `palette-describe` to retrieve the full template.
   - The shared `hints.describe` block reminds you to call `palette-describe` with that `describeClassName` instead of relying on per-item instructions.
   - `palette-describe` emits a compact object (`entry`, `template`, `propertyHints`). Each hint includes `scriptable`, `multiline`, and `nillable` flags (true/false) when applicable so you can configure properties accurately.
+  - Each `propertyHints[]` entry also exposes `llmHint` when a property is tricky (SmartType arrays, XMLVector sources). Always read it before mutating properties.
 - Tree navigation via `databaseobject-children`:
   - Accepts `depth` (1-5, default 1). When `depth > 1`, each item may expose a nested `children` array.
   - Filters (`filter` variable) run after traversal; a node stays visible if it matches itself or any descendant matches.
@@ -51,8 +52,8 @@ This resource explains the conventions that MCP clients should follow when they 
 - Keep an eye on the engine log: `/Users/nicolas/dev/convertigo/runtime-ConvertigoStudio/.metadata/.plugins/com.twinsoft.convertigo.studio/logs/engine.log`.
 
 ## Run Checklist (before / during / after)
-1. **Discover context**: call `resources/list` and read `convertigo-overview`, `convertigo-mcp-usage`, and `convertigo-context-api`.
-2. **Plan**: outline the MCP calls (`palette-list` → `palette-describe` → `databaseobject-create` → `databaseobject-properties-set` → `project-save` → test).
+1. **Discover context**: call `resources/list` and read `convertigo-overview`, `convertigo-mcp-usage`, `convertigo_sequence_quickstart`, and `convertigo_context_api`.
+2. **Plan**: outline the MCP calls (`palette-list` -> `palette-describe` -> `databaseobject-create` -> `databaseobject-properties-set` -> `project-save` -> test).
 3. **Create a skeleton**: create the sequence, add variables plus a stub JSON response, and test immediately via `requestable-execute`.
 4. **Iterate**: after each edit, save (autoSave or `project-save`) and rerun `requestable-execute` to catch mistakes early.
 5. **Store data safely**: keep temporary arrays in JS locals or official storages (`project`, `server`, `context.httpSession`). Never add custom fields to `context`.
@@ -60,3 +61,4 @@ This resource explains the conventions that MCP clients should follow when they 
 7. **Cleanup**: remove exploratory sequences/steps via the MCP tools once the goal is met.
 
 Expose this document to LLM clients via `resources/list`/`resources/read` so they can discover the good practices before mutating the project.
+
