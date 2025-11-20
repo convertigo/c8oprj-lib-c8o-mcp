@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Shared helpers for ConvertigoMCP sequences.
  * These functions run in the Rhino context used by Convertigo sequences.
  */
@@ -334,6 +334,13 @@ C8O.dbo.parsePropertyUpdates = function (text, errors) {
     return {};
   }
   var parsed = C8O.util.tryParseJson(trimmed, errors, "properties");
+  // If caller provided a JSON string (e.g., "\"{...}\""), try to parse it again.
+  if (parsed && typeof parsed === "string") {
+    var nested = C8O.util.tryParseJson(parsed, errors, "properties");
+    if (nested) {
+      parsed = nested;
+    }
+  }
   if (!parsed) {
     return {};
   }
@@ -1056,3 +1063,4 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
+

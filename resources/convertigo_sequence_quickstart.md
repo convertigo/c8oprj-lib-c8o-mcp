@@ -4,13 +4,13 @@ This walkthrough illustrates the typical workflow for building a sequence via MC
 Before editing, read the key resources exposed via `resources/list` (at minimum `convertigo_mcp_usage`, this quickstart, and `convertigo_context_api`) so you fully understand the guardrails Codex must follow.
 
 1. **Inspect the tree**
-   - `databaseobject-children` on `codex_tooling.sq` to make sure the sequence name is free.
+   - QNames are **case-sensitive**. Start from the project root: call `project-list` to spot your project, then `databaseobject-children` on `<project>` (no `.sq`) to confirm names before creating anything.
 2. **Create the sequence**
-   - `databaseobject-create` with `related="codex_tooling"`, `className="com.twinsoft.convertigo.beans.sequences.GenericSequence"`, `name="my_sequence"`, `mode="inside"`.
+   - `databaseobject-create` with `related="<project>"`, `className="com.twinsoft.convertigo.beans.sequences.GenericSequence"`, `name="my_sequence"`, `mode="inside"`.
    - Call `project-save` (or keep `autoSave=true`).
 3. **Add request variables**
-   - Use `palette-list` targeting `codex_tooling.sq:my_sequence` (filter `Request single`). Grab the `describeClassName` for the item you need.
-   - Call `palette-describe` with that class name. Use `result.template.payloadJson` (replace `<parent QName>` with `codex_tooling.sq:my_sequence`) as the payload for `databaseobject-create`, and read `result.propertyHints[]` - each hint carries a `llmHint` string when a property needs a specific format (SmartType `sourceDefinition`, XMLVector lists, etc.).
+   - Use `palette-list` targeting `<project>.sq:my_sequence` (filter `Request single`). Grab the `describeClassName` for the item you need.
+   - Call `palette-describe` with that class name. Use `result.template.payloadJson` (replace `<parent QName>` with `<project>.sq:my_sequence`) as the payload for `databaseobject-create`, and read `result.propertyHints[]` - each hint carries a `llmHint` string when a property needs a specific format (SmartType `sourceDefinition`, XMLVector lists, etc.).
 4. **Expose request data via `InputVariablesStep`**
    - Insert an `InputVariablesStep` at the top of the sequence (palette -> `Input variables` entry). It materializes the incoming request variables as XML so SmartTypes can source them.
    - When you bind a transaction/sequence step variable to a request value, never reference the variable name directly. Instead, use the SmartType array `["<stepPriority>", "./<var>/text()"]` where `<stepPriority>` is the priority of the `InputVariablesStep`. Example from `lib_BaseRow.AdminUserCreate`: the `username` step variable uses `["1729005249299", "./email/text()"]` to read the `email` request variable that the `InputVariablesStep` produced.
@@ -20,7 +20,7 @@ Before editing, read the key resources exposed via `resources/list` (at minimum 
    - Test immediately with `requestable-execute` (this is the **only** mandatory test):
      ```json
      {
-       "requestable": "codex_tooling.my_sequence",
+       "requestable": "<project>.my_sequence",
        "variables": "{\\"sentence\\":\\"Hello\\"}"
      }
      ```
@@ -40,6 +40,8 @@ Before editing, read the key resources exposed via `resources/list` (at minimum 
    - Remove draft sequences/steps using `databaseobject-delete` if they are not part of the final solution.
 
 Following this loop ensures you catch errors (missing variables, typos, context misuse) on the smallest possible diff.
+
+
 
 
 

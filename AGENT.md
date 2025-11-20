@@ -64,6 +64,8 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - Convertigo Codex helper project (privileged EXEC): `data/workspace/projects/ConvertigoCodexAgent/`
 
 ## Roadmap
+- [ ] Tolerate SmartType values provided as JSON strings in properties-set/create (auto-parse when possible, better error otherwise).
+- [ ] Clarify QNames do not include .sq; users keep trying codex_test.sq so reinforce the existing "closest ancestor" hint.
 - [x] Export MCP entry point (`McpEndpoint`) with routing to initialize, tools, resources, prompts, notifications, ping.
 - [x] Provide initial `tools/list` for admin/project/invoke categories.
 - [x] Expose baseline `tools/call` functions (`admin.get-engine-version`, `admin.get-engine-metrics`, `project.describe-tree`, `invoke.list-projects`).
@@ -104,8 +106,13 @@ npx @modelcontextprotocol/inspector --transport http --server-url http://localho
 
 
 
-- [ ] Accept dictionaries for databaseobject-properties-set (or clearly document properties must be a JSON string) to avoid 'Properties payload must be a JSON object' confusion (see run 20251119_183859).
+- [x] Accept dictionaries for databaseobject-properties-set (or clearly document properties must be a JSON string) to avoid 'Properties payload must be a JSON object' confusion (see run 20251119_183859).
 
 - [ ] Improve databaseobject-create/dbo-children error responses when qname casing is wrong (e.g. codex_test.sq vs codex_test): return a clear 'QName not found' with suggestions instead of silent failures.
 
 - [ ] Update quickstart/docs with examples showing case-sensitive QNames (Codex stumbled matching codex_test.sq:...Word vs .word).
+
+- [x] Tolerate SmartType/property values given as JSON strings in databaseobject-properties-set/create (parses stringified JSON after the first parse).
+- [ ] Document clearly that properties payloads must be JSON objects (or JSON strings representing objects), not arrays of `{name,value}`; point to *-describe for expected formats.
+- [ ] Reinforce “no .sq in QNames” guidance in docs/prompts and in invalid-QName errors (suggest project list then databaseobject-children without the suffix).
+- [ ] Add prompt tail asking the agent to report MCP UX gaps encountered during the run.

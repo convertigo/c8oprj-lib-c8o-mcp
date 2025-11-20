@@ -39,16 +39,11 @@ Before sending MCP calls, read the exposed resources via `resources/list` (espec
 | `databaseobject-search` | Full-text/regex search across YAML definitions. |
 
 ## Best practices
-- Start every session with `resources/list` + `resources/read` for the guides mentioned above; include a short summary in your reasoning so you do not skip them.
-- Lorsque tu crées des objets, passe toujours par `palette-list` -> `palette-describe` et lis les `propertyHints[].llmHint` pour connaître le format attendu (SmartType sources, XMLVector, etc.). Utilise ensuite `databaseobject-properties-get includeHints=true` pour revalider.
-- Keep responses concise but structured; LLM clients expect JSON arrays/objects matching the schema.
-- When exposing a new tool, document it via a comment in the sequence (first line = title, rest = description).
-- Test chaque séquence via `requestable-execute` avant d'imaginer un `curl` `.json`; ne passe en HTTP que si le test MCP réussit et que le serveur est joignable.
-- Test each tool via `curl` (or MCP Inspector) and ensure pagination fields work.
-- Leverage `internal_*` helpers (schema generation, tool introspection) instead of duplicating logic.
-
-- Finish every run with a brief \"MCP critique\": list any confusing responses, missing tools, or UX gaps you noticed so the platform can improve.
+- Start every session with `resources/list` + `resources/read` for the guides above; add a short recap in your reasoning.
+- QNames are case-sensitive: run `project-list`, then `databaseobject-children` on `<project>` (no `.sq`) to copy the exact casing before create/mutate.
+- Create/modify via `palette-list` -> `palette-describe` -> `databaseobject-create`/`databaseobject-properties-set`; consult `propertyHints[].llmHint` or `databaseobject-properties-get includeHints=true` before posting SmartType/XMLVector values.
+- Prefer `requestable-execute` for tests; use curl only if explicitly requested and reachable.
+- Keep Rhino code small and reusable (`js/*.js` + `include()`); never add custom fields to `context`.
+- End each run with a short MCP critique (confusing responses, missing tools, UX gaps).
 
 You can now explore `tools/list`, `palette-list`, and `databaseobject-*` to inspect or modify the current Convertigo project.
-
-

@@ -25,7 +25,7 @@ This resource explains the conventions that MCP clients should follow when they 
     ```bash
     tools/call convertigo.databaseobject-children '{"qname":"ConvertigoMCP","depth":"2","filter":"Copy","limit":"5"}'
     ```
-    Always forward `_meta.nextCursor` when the response returns a non-empty `nextCursor` field.
+    Always forward `_meta.nextCursor` when the response returns a non-empty `nextCursor` field. QNames are case-sensitive; if you hit "QName not found", call `databaseobject-children` on the parent project (no `.sq`) to copy the exact casing before retrying.
 - For `databaseobject-create`, always specify:
   - `qname`: parent object (e.g., `codex_tooling.sq:hash_sha256`)
   - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
@@ -63,3 +63,4 @@ This resource explains the conventions that MCP clients should follow when they 
 
 Expose this document to LLM clients via `resources/list`/`resources/read` so they can discover the good practices before mutating the project.
 
+\n

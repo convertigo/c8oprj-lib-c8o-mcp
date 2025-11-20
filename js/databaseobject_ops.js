@@ -243,7 +243,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     }
 
     var isOrdering = parentDestination.equals(currentParent);
-    var isMoving = !isOrdering && DboUtils.canCut(dbo);
+    var isMoving = !isOrdering;
     if (!isOrdering && !isMoving) {
       throw new Error("Move operation not permitted for " + sourceQName);
     }
@@ -309,3 +309,6 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     };
   };
 })();
+
+
+
