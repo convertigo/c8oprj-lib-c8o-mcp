@@ -83,7 +83,7 @@ function buildRecord(dbo, depth, contextSnippet) {
   if (comment.length > 0) {
     record.comment = comment;
   }
-  try { record.className = dbo.getClass().getName(); } catch (_ignoredCls) { record.className = ""; }
+  try { record.className = C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : dbo.getClass().getName(); } catch (_ignoredCls) { record.className = ""; }
   var priorityValue = null;
   try {
     if (dbo.priority !== undefined && dbo.priority !== null) {
@@ -263,3 +263,5 @@ searchSummary = {
 };
 searchMatches = matchesWindow;
 nextCursorToken = nextCursorValue;
+
+

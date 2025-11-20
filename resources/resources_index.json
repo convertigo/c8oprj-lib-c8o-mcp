@@ -27,8 +27,16 @@
     "uri": "convertigo://resources/convertigo-sequence-quickstart",
     "name": "Convertigo Sequence Quickstart",
     "title": "Convertigo Sequence Quickstart",
-    "description": "Step-by-step workflow: palette-list \u2192 palette-describe \u2192 create \u2192 properties-set \u2192 save \u2192 curl test.",
+    "description": "Step-by-step workflow: palette-list → palette-describe → create → properties-set → save → curl test.",
     "mimeType": "text/markdown",
     "file": "convertigo_sequence_quickstart.md"
+  },
+  {
+    "uri": "convertigo://resources/convertigo-json-quickref",
+    "name": "Convertigo JSON Steps Quickref",
+    "title": "Convertigo JSON Steps Quickref",
+    "description": "Cheat sheet for JsonObject/JsonArray/iterator steps, priority ordering, and SmartType sourcing.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_json_quickref.md"
   }
 ]

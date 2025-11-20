@@ -38,7 +38,7 @@ function mapTemplate(template) {
   return {
     related: toJsString(template.related || "<parent QName>"),
     mode: toJsString(template.mode || "inside"),
-    className: toJsString(template.className || ""),
+    className: C8O.util.fromFqcn ? C8O.util.fromFqcn(template.className || "") : toJsString(template.className || ""),
     name: toJsString(template.name || ""),
     payloadJson: toJsString(template.payloadJson || ""),
     properties: props
@@ -127,7 +127,7 @@ function locateEntry(classNameText) {
   return null;
 }
 
-var requestedClass = C8O.util.toTrimmedString(className || "");
+var requestedClass = C8O.util.toFqcn(className || "");
 if (!requestedClass.length) {
   throw new Error("className is required");
 }
@@ -144,7 +144,7 @@ var iconPath = MySimpleBeanInfo.getIconName(match.beanInfo, BeanInfo.ICON_COLOR_
 var displayName = toJsString(descriptor.getDisplayName());
 
 var entryPayload = {
-  className: requestedClass,
+  className: C8O.util.fromFqcn ? C8O.util.fromFqcn(requestedClass) : requestedClass,
   name: displayName,
   shortDescription: descParts.short,
   longDescription: descParts.long,
@@ -172,7 +172,7 @@ paletteDescribeTemplateProperties = templateMeta ? templateMeta.properties : [];
 paletteDescribeTemplateMeta = templateMeta ? {
   related: templateMeta.related,
   mode: templateMeta.mode,
-  className: templateMeta.className,
+  className: C8O.util.fromFqcn ? C8O.util.fromFqcn(templateMeta.className) : templateMeta.className,
   name: templateMeta.name,
   payloadJson: templateMeta.payloadJson
 } : null;
@@ -180,3 +180,7 @@ paletteDescribeHints = hintsPayload;
 paletteDescribeNameSuggestion = describeData && describeData.nameSuggestion ?
   describeData.nameSuggestion :
   C8O.palette.suggestTechnicalName(displayName || requestedClass);
+
+
+
+

@@ -1,12 +1,12 @@
 # Convertigo Sequence Quickstart
 
 This walkthrough illustrates the typical workflow for building a sequence via MCP tools only. Adapt the class names/variables to your own use case.
-Before editing, read the key resources exposed via `resources/list` (at minimum `convertigo_mcp_usage`, this quickstart, and `convertigo_context_api`) so you fully understand the guardrails Codex must follow.
+Before editing, read the key resources exposed via `resources/list` (at minimum `convertigo_mcp_usage`, this quickstart, `convertigo_context_api`, and `convertigo_json_quickref` for JSON step patterns) so you fully understand the guardrails Codex must follow.
 
 1. **Inspect the tree**
    - QNames are **case-sensitive**. Start from the project root: call `project-list` to spot your project, then `databaseobject-children` on `<project>` (no `.sq`) to confirm names before creating anything.
 2. **Create the sequence**
-   - `databaseobject-create` with `related="<project>"`, `className="com.twinsoft.convertigo.beans.sequences.GenericSequence"`, `name="my_sequence"`, `mode="inside"`.
+   - `databaseobject-create` with `related="<project>"`, `className="sequences.GenericSequence"`, `name="my_sequence"`, `mode="inside"`.
    - Call `project-save` (or keep `autoSave=true`).
 3. **Add request variables**
    - Use `palette-list` targeting `<project>.sq:my_sequence` (filter `Request single`). Grab the `describeClassName` for the item you need.
@@ -40,6 +40,8 @@ Before editing, read the key resources exposed via `resources/list` (at minimum 
    - Remove draft sequences/steps using `databaseobject-delete` if they are not part of the final solution.
 
 Following this loop ensures you catch errors (missing variables, typos, context misuse) on the smallest possible diff.
+
+
 
 
 

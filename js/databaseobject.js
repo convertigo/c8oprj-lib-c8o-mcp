@@ -13,6 +13,22 @@ if (typeof C8O === "undefined") {
 C8O.util = C8O.util || {};
 C8O.dbo = C8O.dbo || {};
 C8O.cache = C8O.cache || {};
+// Classname helpers: Convertigo beans live under com.twinsoft.convertigo.beans.*
+var _BEANS_PREFIX = "com.twinsoft.convertigo.beans.";
+C8O.util.toFqcn = C8O.util.toFqcn || function (name) {
+  var text = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(name || "") : String(name || "");
+  if (!text.length) {
+    return text;
+  }
+  return text.indexOf("com.") === 0 ? text : _BEANS_PREFIX + text;
+};
+C8O.util.fromFqcn = C8O.util.fromFqcn || function (name) {
+  var text = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(name || "") : String(name || "");
+  if (!text.length) {
+    return text;
+  }
+  return text.indexOf(_BEANS_PREFIX) === 0 ? text.substring(_BEANS_PREFIX.length) : text;
+};
 
 (function () {
   function getProjectStore() {
@@ -866,7 +882,7 @@ C8O.dbo.exportProjectIfNeeded = function (project, commitFlag, errors) {
 
 
 C8O.dbo.instantiateClass = function (className) {
-  var text = C8O.util.toTrimmedString(className || "");
+  var text = C8O.util.toFqcn ? C8O.util.toFqcn(className || "") : (C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || ""));
   if (!text.length) {
     return null;
   }
@@ -1063,4 +1079,8 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
+
+
+
+
 

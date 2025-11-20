@@ -13,7 +13,7 @@ This resource explains the conventions that MCP clients should follow when they 
   - `databaseobject-properties-get` / `-set`
   - `project-save` / `project-reload`
 - Palette workflow:
-  - `palette-list` now returns only the essentials (`name`, `className`, `shortDescription`, `nameSuggestion`, `propertyCount`, `describeClassName`). Use `describeClassName` with `palette-describe` to retrieve the full template.
+  - See `convertigo_json_quickref` for a one-page cheat sheet on JsonObject/JsonArray/iterator patterns and step ordering.\r\n  - `palette-list` now returns only the essentials (`name`, `className`, `shortDescription`, `nameSuggestion`, `propertyCount`, `describeClassName`). Use `describeClassName` with `palette-describe` to retrieve the full template.
   - The shared `hints.describe` block reminds you to call `palette-describe` with that `describeClassName` instead of relying on per-item instructions.
   - `palette-describe` emits a compact object (`entry`, `template`, `propertyHints`). Each hint includes `scriptable`, `multiline`, and `nillable` flags (true/false) when applicable so you can configure properties accurately.
   - Each `propertyHints[]` entry also exposes `llmHint` when a property is tricky (SmartType arrays, XMLVector sources). Always read it before mutating properties.
@@ -28,12 +28,13 @@ This resource explains the conventions that MCP clients should follow when they 
     Always forward `_meta.nextCursor` when the response returns a non-empty `nextCursor` field. QNames are case-sensitive; if you hit "QName not found", call `databaseobject-children` on the parent project (no `.sq`) to copy the exact casing before retrying.
 - For `databaseobject-create`, always specify:
   - `qname`: parent object (e.g., `codex_tooling.sq:hash_sha256`)
-  - `className`: fully-qualified Java class (e.g., `com.twinsoft.convertigo.beans.variables.RequestableVariable`)
+  - `className`: short bean class name (Convertigo auto-prefixes `com.twinsoft.convertigo.beans.`), e.g., `variables.RequestableVariable`
   - `mode`: `inside`, `before`, `after`, or `lastChild`
   - `properties`: JSON object with the properties to override (booleans without quotes, e.g., `{ "required": true }`)
-- `databaseobject-properties-set` follows the same rule: `properties` **must** be a JSON object such as `{"comment":"Write here","output":true}`. Never send an array of `{name,value}` entries. When a property needs a special structure (SmartType, XMLVector, etc.), call `palette-describe` or `databaseobject-properties-get` with `includeHints=true` first.
+- `databaseobject-properties-set` follows the same rule: `properties` **must** be a JSON object such as `{"comment":"Write here","output":true}` (or a JSON string representing that object). Never send an array of `{name,value}` entries. When a property needs a special structure (SmartType, XMLVector, etc.), call `palette-describe` or `databaseobject-properties-get` with `includeHints=true` first.
 - `databaseobject-properties-get` returns a lightweight view by default (name, title, type, current value). Call it with `includeHints=true` if you also need the verbose descriptions, option lists, and the `llmHint` guidance we provide for tricky properties (e.g., SmartType sources).
 - After mutating objects, call `project-save` (or set `autoSave=true`) so the YAML export stays in sync.
+- QNames are **case-sensitive** and must not include the `.sq` suffix. If you get a QName error, retry with the project name only (no suffix) via `databaseobject-children` to grab the exact casing, then reuse that QName.
 
 ## Testing & Verification
 - Start with `requestable-execute`. Example (note the JSON escaping):
@@ -64,3 +65,5 @@ This resource explains the conventions that MCP clients should follow when they 
 Expose this document to LLM clients via `resources/list`/`resources/read` so they can discover the good practices before mutating the project.
 
 \n
+
+

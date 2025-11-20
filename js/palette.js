@@ -52,12 +52,13 @@ C8O.palette.describePaletteEntry = function (entry) {
   if (!entry || !entry.className) {
     return null;
   }
-  var className = String(entry.className);
+  var fqcn = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(entry.className) : String(entry.className);
+  var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : fqcn;
   var displayName = entry.name || "";
   var beanInfo = entry.beanInfo || null;
   if (!beanInfo) {
     try {
-      var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
+      var beanInfoClass = Packages.java.lang.Class.forName(fqcn + "BeanInfo");
       beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
     } catch (_ignoreBeanInfo) {}
   }
@@ -71,6 +72,7 @@ C8O.palette.describePaletteEntry = function (entry) {
 C8O.palette.describeBeanTemplate = function (options) {
   options = options || {};
   var className = C8O.util.toTrimmedString(options.className || "");
+  var fqcn = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(className) : className;
   if (!className.length) {
     return null;
   }
@@ -147,7 +149,7 @@ C8O.palette.describeBeanTemplate = function (options) {
 };
 
 C8O.palette._getDescribeSummary = function (className, options) {
-  className = C8O.util.toTrimmedString(className || "");
+  className = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(className || "") : (C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || ""));
   if (!className.length) {
     return null;
   }
@@ -189,7 +191,9 @@ C8O.palette.attachListEntrySummary = function (item, options) {
   if (!item) {
     return;
   }
-  var summary = C8O.palette._getDescribeSummary(item.className, options || {});
+  var fqcn = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(item.className || "") : (item.className || "");
+  var summary = C8O.palette._getDescribeSummary(fqcn, options || {});
+  item.className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : fqcn;
   if (!summary) {
     return;
   }
@@ -197,7 +201,7 @@ C8O.palette.attachListEntrySummary = function (item, options) {
 };
 
 C8O.palette.computeListEntryCounts = function (className) {
-  className = C8O.util.toTrimmedString(className || "");
+  className = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(className || "") : (C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || ""));
   if (!className.length) {
     return null;
   }
@@ -213,7 +217,7 @@ C8O.palette.computeListEntryCounts = function (className) {
   }
   var counts = null;
   try {
-    var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
+    var beanInfoClass = Packages.java.lang.Class.forName(fqcn + "BeanInfo");
     var beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
     var propHints = C8O.dbo.describeBeanProperties(beanInfo);
     if (propHints && propHints.length) {
@@ -236,3 +240,4 @@ C8O.palette.computeListEntryCounts = function (className) {
   cache[className] = counts ? counts : C8O.palette._NULL_SENTINEL;
   return counts;
 };
+

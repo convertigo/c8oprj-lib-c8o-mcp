@@ -8,5 +8,8 @@ In the `codex_test` project, create a sequence `analyze_sentence` with one input
 
 Use only the Convertigo MCP tools (`palette-list`, `palette-describe`, `databaseobject-create`/`databaseobject-properties-set`, `project-save`, etc.). Test as soon as you have a JSON skeleton (even an empty array) using `tools/call convertigo.requestable-execute {"requestable":"codex_test.analyze_sentence","variables":"{\"sentence\":\"Hello\"}"}`. Re-run `convertigo.requestable-execute` after each significant change, and keep the final proof with `sentence=Hello world!`. Only fall back to plain HTTP if `requestable-execute` works and you are explicitly asked to.
 
+QNames are case-sensitive and must not include the `.sq` suffix. Use `databaseobject-children` on the project name to confirm casing if you hit a QName error. For `databaseobject-properties-set`, `properties` must be a JSON object (or a JSON string of an object), never an array of `{name,value}`; check `palette-describe` or `databaseobject-properties-get` with `includeHints=true` for SmartType formats before setting values.
+
 If `analyze_sentence` already exists, just run the tests above and confirm the current behaviour.
 End the run with a short "MCP critique" describing what felt confusing, which tools were missing, and any UX improvements that would have helped.
+
