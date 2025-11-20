@@ -40,7 +40,7 @@ comment: Builds JSON-RPC error envelopes for MCP
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: JSON.parse(dataJson)
+          - →→: 'dataJson && String(dataJson).trim().length ? JSON.parse(dataJson) : {}'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType

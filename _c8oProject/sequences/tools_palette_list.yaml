@@ -191,10 +191,11 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
           var beanIt = beans.getBeans().iterator();
           while (beanIt.hasNext()) {
             var bean = beanIt.next();
-            var className = bean.getClassName();
-            if ((className.startsWith("com.twinsoft.convertigo.beans.ngx.components.") ||
-                className.startsWith("com.twinsoft.convertigo.beans.mobile.components.")) &&
-                !className.endsWith("PageComponent")) {
+            var classFqcn = bean.getClassName();
+            var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(classFqcn) : String(classFqcn || "");
+            if ((classFqcn.indexOf("com.twinsoft.convertigo.beans.ngx.components.") === 0 ||
+                classFqcn.indexOf("com.twinsoft.convertigo.beans.mobile.components.") === 0) &&
+                classFqcn.indexOf("PageComponent") === -1) {
               continue;
             }
     
@@ -203,19 +204,19 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
               var force = false;
               if (parentDbo != null) {
                 if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.core.Sequence) {
-                  force = className.startsWith("com.twinsoft.convertigo.beans.steps.") ||
-                            className.startsWith("com.twinsoft.convertigo.beans.variables.Step");
+                  force = classFqcn.indexOf("com.twinsoft.convertigo.beans.steps.") === 0 ||
+                            classFqcn.indexOf("com.twinsoft.convertigo.beans.variables.Step") === 0;
                 } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent) {
-                  force = className.startsWith("com.twinsoft.convertigo.beans.ngx.");
+                  force = classFqcn.indexOf("com.twinsoft.convertigo.beans.ngx.") === 0;
                 } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.mobile.components.ApplicationComponent) {
-                  force = className.startsWith("com.twinsoft.convertigo.beans.mobile.");
+                  force = classFqcn.indexOf("com.twinsoft.convertigo.beans.mobile.") === 0;
                 }
               }
               if (parentDbo != null) {
                 isAllowed = force || DatabaseObjectsManager.checkParent(parentDbo.getClass(), bean);
               }
               if (folderType != null && folderType.length && isAllowed) {
-                isAllowed = DatabaseObject.getFolderType(Packages.java.lang.Class.forName(className)) == folderType;
+                isAllowed = DatabaseObject.getFolderType(Packages.java.lang.Class.forName(classFqcn)) == folderType;
               }
             } catch (eCheck) {}
     
@@ -224,7 +225,7 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
             }
     
             try {
-              var beanInfoClass = Packages.java.lang.Class.forName(className + "BeanInfo");
+              var beanInfoClass = Packages.java.lang.Class.forName(classFqcn + "BeanInfo");
               var beanInfo = beanInfoClass.getConstructor().newInstance();
               var descriptor = beanInfo.getBeanDescriptor();
               var description = bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented |";
@@ -262,35 +263,58 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
               }
     
               totalMatches++;
-              if (limitValue > 0 && totalMatches <= startIndex) {
+              if (totalMatches <= startIndex) {
                 continue;
               }
     
               if (limitValue > 0 && windowCount >= limitValue) {
                 hasMore = true;
+                paletteHasMore = true;
+                paletteNextCursor = String(startIndex + windowCount);
+                resultInfo.hasMore = true;
+                resultInfo.nextCursor = paletteNextCursor;
                 stopCollect = true;
                 break;
               }
     
-              var categoryObj = ensureCategoryRef(catLabel, "Category");
-              categoryObj.items.push(entry);
               windowCount++;
-            } catch (eInfo) {}
+              paletteItemCount++;
+    
+              try {
+                C8O.palette.attachListEntrySummary(entry, { displayName: entry.name, beanInfo: beanInfo });
+              } catch (_ignoreSummary) {}
+    
+              var infoCounts = null;
+              try {
+                infoCounts = C8O.palette.computeListEntryCounts(classFqcn);
+                if (infoCounts && infoCounts.propertyCount != null) {
+                  entry.propertyCount = infoCounts.propertyCount;
+                }
+              } catch (_ignoreCounts) {}
+    
+              var cat = ensureCategoryRef(catLabel, "Category");
+              cat.items.push(entry);
+              if (limitValue > 0 && paletteItemCount >= limitValue) {
+                hasMore = true;
+                paletteHasMore = true;
+                paletteNextCursor = String(startIndex + paletteItemCount);
+                resultInfo.hasMore = true;
+                resultInfo.nextCursor = paletteNextCursor;
+                stopCollect = true;
+                break;
+              }
+            } catch (_ignoreBean) {}
           }
-          if (stopCollect) {
-            break;
-          }
-        }
-        if (stopCollect) {
-          break;
         }
       }
     }
     
-    paletteItemCount = windowCount;
-    paletteTotalMatches = totalMatches;
-    paletteHasMore = hasMore;
-    paletteNextCursor = limitValue > 0 && hasMore ? String(startIndex + windowCount) : "";'
+    resultInfo.categories = paletteCategories.length;
+    resultInfo.returned = paletteItemCount;
+    resultInfo.totalMatches = totalMatches;
+    resultInfo.nextCursor = paletteNextCursor;
+    resultInfo.hasMore = paletteHasMore;
+    paletteTotalMatches = totalMatches;'
 ↓AugmentEntries [steps.SimpleStep-1763034311544]: 
   comment: Compute property hints and creation templates
   expression: |
@@ -362,9 +386,6 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
           }
           if (entry.describe) {
             delete entry.describe;
-          }
-          if (!entry.describeClassName && entry.className) {
-            entry.describeClassName = entry.className;
           }
         }
       }
@@ -524,19 +545,6 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
                     - SmartType: 
                       - ↑mode: JS
                       - →→: 'item && item.propertyCount ? item.propertyCount : 0'
-              ↓DescribeClassName [steps.JsonFieldStep-1763476149747]: 
-                key: 
-                  - xmlizable: 
-                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType: 
-                      - ↑mode: PLAIN
-                      - →→: describeClassName
-                value: 
-                  - xmlizable: 
-                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType: 
-                      - ↑mode: JS
-                      - →→: 'item && item.describeClassName ? item.describeClassName : item.className'
   ↓HasMore [steps.JsonFieldStep-1762959186321]: 
     key: 
       - xmlizable: 

@@ -3,6 +3,18 @@ comment: Returns metadata and property values for a database object identified b
 ↓IncludeHelpers [steps.SimpleStep-1762400001003]: 
   comment: Load shared helpers
   expression: include("js/databaseobject.js");
+↓NormalizeQName [steps.SimpleStep-1763678166336]: 
+  expression: |
+    'if (typeof qname !== "undefined" && qname != null) {
+      try {
+        var resolved = C8O.dbo && typeof C8O.dbo.resolve === "function"
+          ? C8O.dbo.resolve(String(qname), { messagePrefix: "" })
+          : null;
+        if (resolved && resolved.getQName) {
+          qname = String(resolved.getQName());
+        }
+      } catch (_ignoreResolve) {}
+    }'
 ↓Init [steps.SimpleStep-1762266930543]: 
   comment: Collect bean information and properties list
   expression: |

@@ -119,7 +119,7 @@ function mapAttributes(node, remainingDepth) {
     name: logicalName,
     displayName: displayName || logicalName,
     category: attr.category || "",
-    className: C8O.util.fromFqcn ? C8O.util.fromFqcn(attr.beanClass || "") : (attr.beanClass || "")
+    className: C8O.util.fromFqcn ? C8O.util.fromFqcn(attr.beanClass || "") : (attr.beanClass || ""),
     priority: "" + priority
   };
 
@@ -224,6 +224,7 @@ parentData = mapAttributes(parentNode, depthLimit);
 childrenData = pagedChildren;
 totalChildren = totalChildrenCount;
 nextCursorToken = nextCursorValue;
+
 
 
 
