@@ -152,9 +152,34 @@ C8O.schemaTool = {
 
     var prio = 0;
     try { prio = dbo.getPriority ? dbo.getPriority() : 0; } catch (_ignorePrio) {}
+    try {
+      var beanInfo = java.beans.Introspector.getBeanInfo(dbo.getClass());
+      var pds = beanInfo.getPropertyDescriptors();
+      for (var i = 0; i < pds.length; i++) {
+        var pd = pds[i];
+        if (!pd || pd.getName() !== "priority") { continue; }
+        var getter = pd.getReadMethod();
+        if (getter) {
+          try { prio = getter.invoke(dbo, null); } catch (_ignoreGetter) {}
+        }
+        break;
+      }
+    } catch (_ignoreIntrospect) {}
+    try { if (typeof dbo.priority !== "undefined") { prio = dbo.priority; } } catch (_ignorePriorityField) {}
+    try {
+      var dboFromManager = com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(dbo.getQName());
+      if (dboFromManager && dboFromManager.getPriority) {
+        var managerPrio = dboFromManager.getPriority();
+        if (managerPrio != null) { prio = managerPrio; }
+      }
+    } catch (_ignoreDboManager) {}
     var dboInfo = { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) };
-    if (prio && prio != 0) { dboInfo.priority = String(prio); }
-
+    try {
+      var prioStr = String(prio);
+      if (prioStr !== "0") {
+        dboInfo.priority = prioStr;
+      }
+    } catch (_ignorePrioStrFinal) {}
     var response = {
       dbo: dboInfo,
       type: t
@@ -194,3 +219,4 @@ C8O.schemaTool = {
     return response;
   }
 };
+
