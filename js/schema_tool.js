@@ -48,6 +48,8 @@ C8O.schemaTool = {
     var XmlSchemaUtils = com.twinsoft.convertigo.engine.util.XmlSchemaUtils;
     var RequestableObjectClass = java.lang.Class.forName("com.twinsoft.convertigo.beans.core.RequestableObject");
     var QName = javax.xml.namespace.QName;
+    var XmlSchemaElement = Packages.org.apache.ws.commons.schema.XmlSchemaElement;
+    var XmlSchemaParticle = Packages.org.apache.ws.commons.schema.XmlSchemaParticle;
 
     var xmlSchema = Engine.theApp.schemaManager.getSchemaForProject(project.getName());
     if (xmlSchema == null) {
@@ -67,14 +69,7 @@ C8O.schemaTool = {
       };
     }
 
-    var collection = SchemaMeta.getCollection(schemaObject);
-    if (collection == null) {
-      return {
-        dbo: { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) },
-        type: t,
-        message: "Schema collection missing"
-      };
-    }
+    var collection = SchemaMeta.getCollection(xmlSchema);
 
     var element = null;
     if (RequestableObjectClass.isInstance(dbo)) {
@@ -82,18 +77,24 @@ C8O.schemaTool = {
       var requestName = dbo.getName();
       var responseName = dbo.getXsdTypePrefix() + dbo.getName() + "Response";
       var targetName = internal ? requestName : responseName;
-      element = collection.getElementByQName(new QName(ns, targetName));
-      if (element == null && !internal) {
+      element = collection != null ? collection.getElementByQName(new QName(ns, targetName)) : null;
+      if (element == null && !internal && collection != null) {
         element = collection.getElementByQName(new QName(ns, requestName));
       }
     }
+    if (element == null && schemaObject instanceof XmlSchemaElement) {
+      element = schemaObject;
+    }
+    if (element == null && schemaObject instanceof XmlSchemaParticle) {
+      try { element = SchemaMeta.getContainerXmlSchemaElement(schemaObject); } catch (_ignore) {}
+    }
     if (element == null) {
       try {
-        element = internal && typeof schemaObject.getInternalElement === "function" ? schemaObject.getInternalElement() : null;
-      } catch (_ignore) {}
-    }
-    if (element == null && schemaObject.getElement) {
-      element = schemaObject.getElement();
+        var qn = SchemaMeta.getQName(schemaObject);
+        if (qn && collection) {
+          element = collection.getElementByQName(qn);
+        }
+      } catch (_ignoreQ) {}
     }
     if (element == null) {
       return {
@@ -103,8 +104,13 @@ C8O.schemaTool = {
       };
     }
 
+    var prio = 0;
+    try { prio = dbo.getPriority ? dbo.getPriority() : 0; } catch (_ignorePrio) {}
+    var dboInfo = { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) };
+    if (prio && prio != 0) { dboInfo.priority = String(prio); }
+
     var response = {
-      dbo: { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) },
+      dbo: dboInfo,
       type: t
     };
     var domSample = XmlSchemaUtils.getDomInstance(element);
