@@ -25,6 +25,8 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |
+| databaseobject-schema       | 	ools_databaseobject_schema.yaml          | Return a minimal schema/sample for a requestable or request node (	ype=xml|json|jsonschema; internal=true for sourceDefinition view). |
+
 | `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content; output now reports `scanned`, `returned`, `hasMore`, `nextCursor`, and a lean `matches[]`. |
 
 ### Pagination helpers
@@ -115,3 +117,4 @@ noted in the description.
 
 Update this file each time a tool is added or renamed so that it stays in sync
 with the actual `tools/list` MCP catalog.
+

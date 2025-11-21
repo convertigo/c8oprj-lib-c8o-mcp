@@ -67,3 +67,9 @@ Expose this document to LLM clients via `resources/list`/`resources/read` so the
 \n
 
 
+## Tool: databaseobject-schema
+Use `tools/call databaseobject-schema` to fetch a lightweight schema/sample for a requestable or step.
+- `qname` (required): database object QName
+- `type` (optional): `xml` (default), `json`, or `jsonschema`
+- `internal` (optional): `true` to target the sourceDefinition/internal view (useful for input pickers); `false` for output payloads.
+Fields are omitted when no schema is available (e.g., non-requestable objects).
