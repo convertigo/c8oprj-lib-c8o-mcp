@@ -84,7 +84,7 @@ var SINGLE_SOURCE_HINT =
   'SmartType sources must be JSON arrays of the form ["<stepPriority>", "<xpath>"]. ' +
   'The first element is the numeric priority of the step exposing the XML (for example an InputVariablesStep), ' +
   'the second element is the XPath to the desired node (for example ./email/text()). ' +
-  'Do not reference requestable variable names or QNames directly.';
+  'Do not reference requestable variable names or QNames directly, and never merge both values into a single string (e.g., no "123,./text()").';
 
 var SMART_TYPE_VALUE_HINT =
   'SmartType values are JSON objects like {"mode":"PLAIN","expression":"text"}. ' +
@@ -358,11 +358,14 @@ C8O.dbo.parsePropertyUpdates = function (text, errors) {
     }
   }
   if (!parsed) {
+    if (errors && errors.push) {
+      errors.push({ name: "properties", message: "Properties payload must be a JSON object (use {} when empty, or call palette-describe for a template)." });
+    }
     return {};
   }
   if (!C8O.util.isPlainObject(parsed)) {
     if (errors && errors.push) {
-      errors.push({ name: "properties", message: "Properties payload must be a JSON object" });
+      errors.push({ name: "properties", message: "Properties payload must be a JSON object (use {} when empty, or call palette-describe for a template)." });
     }
     return {};
   }
@@ -1079,6 +1082,8 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
+
+
 
 
 

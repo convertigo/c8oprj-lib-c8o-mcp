@@ -113,6 +113,12 @@ comment: Creates a new database object relative to an existing one.
       throw new Error("Parent database object is not defined");
     }
     
+    if (creationClassName) {
+      try {
+        creationClassName = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(creationClassName) : creationClassName;
+      } catch (_ignoreFqcn) {}
+    }
+    
     var targetClass = null;
     try {
       targetClass = java.lang.Class.forName(creationClassName);
@@ -182,8 +188,7 @@ comment: Creates a new database object relative to an existing one.
     createdName = String(newDbo.getName());
     createdClassName = newDbo.getClass().getName();
     createdParentQName = String(parent.getQName());
-    createdProject = projectRef;
-    '
+    createdProject = projectRef;'
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |

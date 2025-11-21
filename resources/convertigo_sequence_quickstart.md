@@ -10,9 +10,8 @@ Before editing, read the key resources exposed via `resources/list` (at minimum 
    - Call `project-save` (or keep `autoSave=true`).
 3. **Add request variables**
    - Use `palette-list` targeting `<project>.sq:my_sequence` (filter `Request single`). Grab the `describeClassName` for the item you need.
-   - Call `palette-describe` with that class name. Use `result.template.payloadJson` (replace `<parent QName>` with `<project>.sq:my_sequence`) as the payload for `databaseobject-create`, and read `result.propertyHints[]` - each hint carries a `llmHint` string when a property needs a specific format (SmartType `sourceDefinition`, XMLVector lists, etc.).
-4. **Expose request data via `InputVariablesStep`**
-   - Insert an `InputVariablesStep` at the top of the sequence (palette -> `Input variables` entry). It materializes the incoming request variables as XML so SmartTypes can source them.
+   - Call `palette-describe` with that class name. Use `result.template.payloadJson` (replace `<parent QName>` with `<project>.sq:my_sequence`) as the payload for `databaseobject-create`, and read `result.propertyHints[]` - each hint carries a `llmHint` string when a property needs a specific format (SmartType `sourceDefinition`, XMLVector lists, etc.). If you have no properties to set, pass {} (empty object) rather than an array or empty string.
+4. **Expose request data via `InputVariablesStep`**\r\n   - Insert an `InputVariablesStep` at the top of the sequence (palette -> `Input variables` entry) when you need XPath sources for SmartTypes. Request variables are already available in JS scope; the InputVariables step is only to expose them as XML for SmartType sourcing.
    - When you bind a transaction/sequence step variable to a request value, never reference the variable name directly. Instead, use the SmartType array `["<stepPriority>", "./<var>/text()"]` where `<stepPriority>` is the priority of the `InputVariablesStep`. Example from `lib_BaseRow.AdminUserCreate`: the `username` step variable uses `["1729005249299", "./email/text()"]` to read the `email` request variable that the `InputVariablesStep` produced.
    - The same rule applies to chaining outputs: to reuse the token returned by another step, point to that step's priority and the XPath to the data (e.g., `["1728982368849", "./document/Bearer/text()"]`). This is the canonical Convertigo pattern for SmartType sources.
 5. **Bootstrap the response**
@@ -40,6 +39,7 @@ Before editing, read the key resources exposed via `resources/list` (at minimum 
    - Remove draft sequences/steps using `databaseobject-delete` if they are not part of the final solution.
 
 Following this loop ensures you catch errors (missing variables, typos, context misuse) on the smallest possible diff.
+
 
 
 

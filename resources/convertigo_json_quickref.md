@@ -6,7 +6,8 @@
 - **Items**: inside the iterator, add a `JsonObjectStep` (one item). Add `JsonFieldStep` children for each property (`text`, `length`, etc.). `JsonFieldStep.key`=PLAIN name, `value`=JS expression (often `item.*`), set `type` when numeric/boolean.
 - **Ordering**: step priorities define order. Use `databaseobject-children` to inspect priorities; `databaseobject-move` to reorder when needed.
 - **SmartTypes**: if a property expects a `sourceDefinition` SmartType, use the `[priority, xpath]` array on the **input step** you want to source (see `palette-describe` `propertyHints[].llmHint`).
-- **Iteration tip**: keep intermediate data in a local JS array (e.g., `var wordsData = [...]`) and point the iterator to it; avoid custom fields on `context`.
+- **Iteration tip**: keep intermediate data in a local JS array (e.g., `var wordsData = [...]`) and point the iterator to it; avoid custom fields on `context`. Request variables are already available in JS; use `InputVariablesStep` only when you need XPath sources for SmartTypes.
 - **Testing**: after each change, run `tools/call convertigo.requestable-execute {"requestable":"<project>.sequence","variables":"{\"sentence\":\"Hello\"}"}`.
+
 
 
