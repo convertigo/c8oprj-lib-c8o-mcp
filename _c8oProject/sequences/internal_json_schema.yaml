@@ -1,5 +1,6 @@
 accessibility: Private
 comment: compute jsonschema of a sequence
+responseExpiryDate: absolute,600
 ↓Init [steps.SimpleStep-1761913099503]: 
   comment: Load schema metadata for request/response payloads
   expression: |

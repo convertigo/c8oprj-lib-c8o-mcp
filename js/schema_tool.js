@@ -11,6 +11,26 @@ function fromFqcn(name) {
 }
 
 C8O.schemaTool = {
+  createEnvelope: function (node) {
+    try {
+      var XMLUtils = com.twinsoft.convertigo.engine.util.XMLUtils;
+      var dom = XMLUtils.getDefaultDocumentBuilder().newDocument();
+      var doc = dom.createElement("document");
+      dom.appendChild(doc);
+      var attrs = ["connector", "context", "contextId", "fromStub", "fromcache", "generated", "project", "screenclass", "sequence", "signature", "transaction", "userReference", "version"];
+      for (var i = 0; i < attrs.length; i++) {
+        doc.setAttribute(attrs[i], "");
+      }
+      if (node) {
+        var imported = dom.importNode ? dom.importNode(node, true) : node.cloneNode(true);
+        doc.appendChild(imported);
+      }
+      return dom;
+    } catch (_err) {
+      return node;
+    }
+  },
+
   describe: function (opts) {
     var t = (opts && opts.type) ? String(opts.type).toLowerCase() : "xml";
     var internal = !!(opts && opts.internal);
@@ -89,12 +109,13 @@ C8O.schemaTool = {
     };
     var domSample = XmlSchemaUtils.getDomInstance(element);
     var targetNode = C8O.schemaCommon.trimPayloadNode(domSample);
+    var enveloped = C8O.schemaTool.createEnvelope(targetNode);
     if (t === "xml") {
-      response.sample = targetNode ? com.twinsoft.convertigo.engine.util.XMLUtils.prettyPrintDOM(targetNode) : null;
+      response.sample = enveloped ? com.twinsoft.convertigo.engine.util.XMLUtils.prettyPrintDOM(enveloped) : null;
       return response;
     }
 
-    var jsonSample = C8O.schemaCommon.domToJsonSample(targetNode);
+    var jsonSample = C8O.schemaCommon.domToJsonSample(enveloped);
     if (t === "json") {
       response.sample = jsonSample;
       return response;
