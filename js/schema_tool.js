@@ -10,54 +10,6 @@ function fromFqcn(name) {
   return String(name).replace(/^com\.twinsoft\.convertigo\.beans\./, "");
 }
 
-function serializeXmlSchema(xmlSchema) {
-  try {
-    var baos = new java.io.ByteArrayOutputStream();
-    xmlSchema.write(baos);
-    return String(baos.toString("UTF-8"));
-  } catch (_err) {
-    return null;
-  }
-}
-
-function domToJsonSample(dom) {
-  try {
-    if (!dom) return null;
-    var node = dom.getDocumentElement ? dom.getDocumentElement() : dom;
-    var xmlUtils = com.twinsoft.convertigo.engine.util.XMLUtils;
-    var jsonString = xmlUtils.XmlToJson(node, true, true);
-    return JSON.parse(String(jsonString));
-  } catch (_err) {
-    return null;
-  }
-}
-function jsonSampleToSchema(sample) {
-  if (sample === null || typeof sample === "undefined") {
-    return null;
-  }
-  try {
-    function build(node) {
-      if (node === null) return { type: "null" };
-      var t = Object.prototype.toString.call(node);
-      if (t === "[object String]") return { type: "string" };
-      if (t === "[object Number]") return { type: "number" };
-      if (t === "[object Boolean]") return { type: "boolean" };
-      if (Array.isArray(node)) {
-        var first = node.length ? build(node[0]) : {};
-        return { type: "array", items: first };
-      }
-      var props = {};
-      Object.keys(node).forEach(function (k) {
-        props[k] = build(node[k]);
-      });
-      return { type: "object", properties: props };
-    }
-    return build(sample);
-  } catch (_err) {
-    return null;
-  }
-}
-
 C8O.schemaTool = {
   describe: function (opts) {
     var t = (opts && opts.type) ? String(opts.type).toLowerCase() : "xml";
@@ -136,23 +88,19 @@ C8O.schemaTool = {
       type: t
     };
     var domSample = XmlSchemaUtils.getDomInstance(element);
+    var targetNode = C8O.schemaCommon.trimPayloadNode(domSample);
     if (t === "xml") {
-      response.sample = domSample ? com.twinsoft.convertigo.engine.util.XMLUtils.prettyPrintDOM(domSample) : null;
+      response.sample = targetNode ? com.twinsoft.convertigo.engine.util.XMLUtils.prettyPrintDOM(targetNode) : null;
       return response;
     }
 
-    var jsonSample = domToJsonSample(domSample);
+    var jsonSample = C8O.schemaCommon.domToJsonSample(targetNode);
     if (t === "json") {
       response.sample = jsonSample;
       return response;
     }
 
-    response.schema = jsonSampleToSchema(jsonSample);
+    response.schema = C8O.schemaCommon.jsonSampleToSchema(jsonSample);
     return response;
   }
 };
-
-
-
-
-

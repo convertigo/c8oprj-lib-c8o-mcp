@@ -2,6 +2,7 @@ accessibility: Private
 ↓IncludeHelpers [steps.SimpleStep-1763724035350]: 
   expression: |
     include("js/databaseobject.js");
+    include("js/schema_common.js");
     include("js/schema_tool.js");
 ↓Compute [steps.SimpleStep-1763724084801]: 
   expression: |

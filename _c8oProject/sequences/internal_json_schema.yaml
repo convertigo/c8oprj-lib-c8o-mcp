@@ -48,7 +48,9 @@ comment: compute jsonschema of a sequence
 ↓Helpers [steps.SimpleStep-1761913099507]: 
   comment: Shared helpers for JSON normalization
   expression: |
-    'function sampleValueForType(type) {
+    'include("js/schema_common.js");
+    
+    function sampleValueForType(type) {
       type = String(type || "string").toLowerCase();
       if (type.indexOf("bool") >= 0) { return false; }
       if (type.indexOf("int") >= 0 || type.indexOf("long") >= 0) { return 0; }
@@ -85,26 +87,7 @@ comment: compute jsonschema of a sequence
     }
     
     function buildSchemaNode(value) {
-      if (value === null || value === undefined) { return { type: "null" }; }
-      if (Array.isArray(value)) {
-        return { type: "array", items: value.length > 0 ? buildSchemaNode(value[0]) : {} };
-      }
-      if (typeof value === "object") {
-        var props = {};
-        var required = [];
-        var keys = Object.keys(value);
-        for (var i = 0; i < keys.length; i++) {
-          var key = keys[i];
-          props[key] = buildSchemaNode(value[key]);
-          required.push(key);
-        }
-        return { type: "object", properties: props, required: required, additionalProperties: true };
-      }
-      if (typeof value === "boolean") { return { type: "boolean" }; }
-      if (typeof value === "number") {
-        return { type: (Math.floor(value) === value ? "integer" : "number") };
-      }
-      return { type: "string" };
+      return C8O.schemaCommon.jsonSampleToSchema(value);
     }
     
     function pruneInternalKeys(value) {
@@ -132,8 +115,7 @@ comment: compute jsonschema of a sequence
       if (!model) { return null; }
       var container = model.document || model;
       return container ? container[key] : null;
-    }
-    '
+    }'
 ↓BuildModels [steps.SimpleStep-1761913099509]: 
   comment: Compute input/output schema details
   expression: |
