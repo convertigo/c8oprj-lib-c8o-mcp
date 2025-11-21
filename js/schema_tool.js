@@ -122,14 +122,16 @@ C8O.schemaTool = {
     }
 
     var jsonSample = C8O.schemaCommon.domToJsonSample(enveloped);
+    var payload = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;
+    if (jsonSample && jsonSample.attr) { try { delete jsonSample.attr; } catch (_ignoreAttr1) {} }
+    if (payload && payload.document) { payload = payload.document; }
+    if (payload && payload.attr) { try { delete payload.attr; } catch (_ignoreAttr2) {} }
     if (t === "json") {
-      response.sample = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;
+      response.sample = payload;
       return response;
     }
 
-    var schemaInput = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;
-    response.schema = C8O.schemaCommon.jsonSampleToSchema(schemaInput);
+    response.schema = C8O.schemaCommon.jsonSampleToSchema(payload);
     return response;
   }
 };
-
