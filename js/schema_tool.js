@@ -116,8 +116,13 @@ C8O.schemaTool = {
     }
 
     var jsonSample = C8O.schemaCommon.domToJsonSample(enveloped);
-    if (t === "json") {\n      response.sample = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;\n      return response;\n    }\n\n    var schemaInput = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;\n    response.schema = C8O.schemaCommon.jsonSampleToSchema(schemaInput);
+    if (t === "json") {
+      response.sample = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;
+      return response;
+    }
+
+    var schemaInput = (jsonSample && jsonSample.document) ? jsonSample.document : jsonSample;
+    response.schema = C8O.schemaCommon.jsonSampleToSchema(schemaInput);
     return response;
   }
 };
-
