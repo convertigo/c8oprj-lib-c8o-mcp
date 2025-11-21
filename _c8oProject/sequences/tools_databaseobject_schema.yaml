@@ -13,19 +13,111 @@ accessibility: Private
       internalFlag = (s === "true" || s === "1" || s === "yes");
     }
     var schemaResult = C8O.schemaTool.describe({ qname: qname, type: effectiveType, internal: internalFlag });'
-↓Result [steps.JsonToXmlStep-1763724158350]: 
-  jsonObject: 
-    - xmlizable: 
-      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-      - SmartType: 
-        - ↑mode: JS
-        - →→: schemaResult
+↓Result [steps.JsonObjectStep-1763749402740]: 
   key: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
+  ↓Dbo [steps.JsonObjectStep-1763749415650]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: dbo
+    ↓QName [steps.JsonFieldStep-1763749559342]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: qname
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'schemaResult && schemaResult.dbo ? schemaResult.dbo.qname : undefined'
+    ↓ClassName [steps.JsonFieldStep-1763749875734]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: className
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'schemaResult && schemaResult.dbo ? schemaResult.dbo.className : undefined'
+    ↓Priority [steps.JsonFieldStep-1763749894026]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: priority
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: '(schemaResult && schemaResult.dbo && schemaResult.dbo.priority != null) ? String(schemaResult.dbo.priority) : undefined'
+  ↓Type [steps.JsonFieldStep-1763749932909]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: type
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: schemaResult && schemaResult.type
+  ↓Sample [steps.JsonFieldStep-1763753804963]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: sample
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: schemaResult && schemaResult.sample
+  ↓Schema [steps.JsonFieldStep-1763753815510]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: schema
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: schemaResult && schemaResult.schema
+  ↓Message [steps.JsonFieldStep-1763753825564]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: schemaResult && schemaResult.message
 ↓qname [variables.RequestableVariable-1763724006150]: 
 ↓type [variables.RequestableVariable-1763724016646]: 
   value: xml
