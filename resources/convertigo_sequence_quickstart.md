@@ -56,3 +56,5 @@ Following this loop ensures you catch errors (missing variables, typos, context 
 - Turn `httpInfo=true` while building and test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence.
 - HTTP connectors: base URL = scheme+host without trailing slash; subPath starts with `/` and is appended to the connector rootPath (avoid `//`). Enable `httpInfo=true` and test the transaction via `requestable-execute` before using it in a sequence.
 - To pick XPaths quickly, call `databaseobject-schema` on the target step/transaction to get XML/JSON samples instead of guessing sources.
+- HTTP fallback: there is no global  continue on error toggle on request steps; wrap HTTP calls in If/Then/Else (or JIf) and return a fallback JSON when the call fails. Enable httpInfo=true while debugging.
+- If databaseobject-create with mode=after fails with decoding error, create with mode=inside then reorder via databaseobject-move.

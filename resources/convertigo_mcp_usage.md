@@ -83,3 +83,5 @@ Use `tools/call databaseobject-schema` to fetch a lightweight schema/sample for 
 - Test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence; fix the connector if the response is not JSON.
 - When configuring HTTP transactions, run `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` right after setting `url/subPath` (enable `httpInfo=true`) to validate the final URL before wiring a sequence.
 - Use `databaseobject-schema` on your step/transaction to preview the XML/JSON shape and pick XPaths without trial-and-error.
+- There is no global  continue on error toggle for request steps: handle offline fallbacks in the sequence (If/Then/Else or JIf) and branch to a fallback JSON when the HTTP call fails. Keep httpInfo=true while debugging the call.
+- If databaseobject-create with mode=after returns a decoding error, insert with mode=inside then reorder using databaseobject-move.
