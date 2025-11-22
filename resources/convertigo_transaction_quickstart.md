@@ -27,3 +27,5 @@ This guide focuses on requestables of type *transaction* (HTTP connectors) and h
 ## Error handling patterns
 - No global “continue on error”: wrap the request step in If/Then/Else (or JIf) and branch to a fallback JSON when the HTTP call fails. Keep `httpInfo=true` while debugging.
 - If `databaseobject-create` with `mode=after` throws a decoding error, create with `mode=inside` then reorder via `databaseobject-move`.
+- If the body is missing or HTML, re-check `baseDir` + `subPath` to avoid `//`, and validate with `httpInfo=true` via `requestable-execute` on the transaction.
+- There is no try/catch step: wrap the HttpTransaction in If/Then/Else (or JIf) to produce a fallback JSON on error/offline.

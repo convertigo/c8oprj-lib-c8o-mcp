@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Shared helpers for ConvertigoMCP sequences.
  * These functions run in the Rhino context used by Convertigo sequences.
  */
@@ -99,6 +99,8 @@ var MULTI_SOURCES_HINT =
 var HTTP_URL_HINT =
   'Set the base URL with scheme + host, no trailing slash (e.g., https://httpbin.org). Do not set it to "/" else subPath will produce //path.';
 var HTTP_SUBPATH_HINT =
+var HTTP_BASEDIR_HINT =
+  'Root path (baseDir) is appended after host and before subPath. Leave empty or without trailing slash to avoid // when subPath starts with "/". Example: host=https://httpbin.org, baseDir="", subPath="/ip" -> https://httpbin.org/ip.';
   'SubPath must start with "/" (e.g., /ip). The final URL is base url + subPath (e.g., https://httpbin.org/ip). Avoid double slashes.';
 
 var singleSourceClasses = [
@@ -137,6 +139,11 @@ var multiSourceProperties = [
 for (var j = 0; j < multiSourceProperties.length; j++) {
   var entry = multiSourceProperties[j];
   C8O.dbo.LLM_HINTS[entry.className + "#" + entry.property] = MULTI_SOURCES_HINT;
+
+// HTTP hints keyed on short class names (className is shortened in outputs)
+C8O.dbo.LLM_HINTS["connectors.HttpConnector#url"] = HTTP_URL_HINT;
+C8O.dbo.LLM_HINTS["connectors.HttpConnector#baseDir"] = HTTP_BASEDIR_HINT;
+C8O.dbo.LLM_HINTS["transactions.HttpTransaction#subPath"] = HTTP_SUBPATH_HINT;
 }
 
 C8O.dbo.getSmartTypeValueHint = function () {
