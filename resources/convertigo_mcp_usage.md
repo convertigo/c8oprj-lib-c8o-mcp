@@ -75,3 +75,9 @@ Use `tools/call databaseobject-schema` to fetch a lightweight schema/sample for 
 - Outputs are already unwrapped: XML roots at the target element (no `<document>` wrapper), JSON roots at the payload object (no `document`/`attr` keys). This makes XPath creation easier (`./Name`, `./@originalKeyName`).
 - Fields are omitted when no schema is available (e.g., non-requestable objects).
 
+
+### HTTP connector checklist
+- `HttpConnector.url`: include scheme + host, no trailing slash (e.g., `https://httpbin.org`). Do **not** set it to `/` or leave it blank.
+- `HttpTransaction.subPath`: must start with `/` (e.g., `/ip`). Final URL is `url + subPath` (e.g., `https://httpbin.org/ip`). Avoid double slashes.
+- Enable `httpInfo=true` on the transaction while building to see the effective URL and headers.
+- Test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence; fix the connector if the response is not JSON.

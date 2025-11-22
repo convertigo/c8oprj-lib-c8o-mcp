@@ -50,3 +50,7 @@ Following this loop ensures you catch errors (missing variables, typos, context 
 
 
 
+### HTTP connectors (quick reminder)
+- Base URL: scheme + host, no trailing slash (e.g., `https://httpbin.org`).
+- Transaction subPath: starts with `/` (e.g., `/ip`). Final URL = base + subPath (avoid `//`).
+- Turn `httpInfo=true` while building and test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence.
