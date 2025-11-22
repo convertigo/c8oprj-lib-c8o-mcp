@@ -1,6 +1,6 @@
 // Shared helpers for schema extraction (MCP + internal_json_schema).
 if (typeof C8O === "undefined") {
-  throw new Error("C8O namespace is required");
+  C8O = {};
 }
 if (!C8O.schemaCommon) {
   C8O.schemaCommon = {};
@@ -66,3 +66,4 @@ C8O.schemaCommon.jsonSampleToSchema = function(sample) {
     return null;
   }
 };
+

@@ -1,4 +1,4 @@
-Call `resources/list`, then read `convertigo_sequence_quickstart`, `convertigo_context_api`, and `convertigo_mcp_usage`. Confirm you refreshed them, then continue with this plan.
+Call `resources/list`, then read `convertigo_sequence_quickstart`, `convertigo_context_api`, and `convertigo_mcp_usage`. Then continue with this plan.
 
 **Goal**: demonstrate mixing an HTTP connector and a sequence in project `codex_test`.
 
