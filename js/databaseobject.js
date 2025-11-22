@@ -95,6 +95,12 @@ var MULTI_SOURCES_HINT =
   'sourcesDefinition expects an array of entries, each entry providing a label, a SmartType source (same ["<stepPriority>", "<xpath>"] structure), and an optional fallback value. ' +
   'Build it as a JSON array of objects such as { description: "optional", source: ["1234567890", "./text()"], defaultValue: "" } so the picker-style data is preserved.';
 
+// HTTP connector hints
+var HTTP_URL_HINT =
+  'Set the base URL with scheme + host, no trailing slash (e.g., https://httpbin.org). Do not set it to "/" else subPath will produce //path.';
+var HTTP_SUBPATH_HINT =
+  'SubPath must start with "/" (e.g., /ip). The final URL is base url + subPath (e.g., https://httpbin.org/ip). Avoid double slashes.';
+
 var singleSourceClasses = [
   "com.twinsoft.convertigo.beans.variables.StepVariable",
   "com.twinsoft.convertigo.beans.steps.IfExistStep",
@@ -1082,6 +1088,7 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
+
 
 
 
