@@ -84,7 +84,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     var info = {
       qname: String(dbo.getFullQName()),
       name: String(dbo.getName()),
-      className: dbo.getClass().getName(),
+      className: (C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : dbo.getClass().getName()),
       parentQName: String(parent.getFullQName()),
       project: project,
       projectName: project != null ? String(project.getName()) : "",
@@ -171,7 +171,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
       parentQName: parentQName,
       oldName: oldName,
       newName: done ? String(dbo.getName()) : String(oldName),
-      className: dbo.getClass().getName(),
+      className: (C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : dbo.getClass().getName()),
       project: project,
       projectName: project != null ? String(project.getName()) : "",
       updateMode: updateMode,
@@ -295,7 +295,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     return {
       qname: String(dbo.getFullQName()),
       name: String(dbo.getName()),
-      className: dbo.getClass().getName(),
+      className: (C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : dbo.getClass().getName()),
       fromParent: previousParent != null ? String(previousParent.getFullQName()) : "",
       toParent: String(parentDestination.getFullQName()),
       position: position,
@@ -309,6 +309,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     };
   };
 })();
+
 
 
 
