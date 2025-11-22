@@ -38,5 +38,13 @@
     "description": "Cheat sheet for JsonObject/JsonArray/iterator steps, priority ordering, and SmartType sourcing.",
     "mimeType": "text/markdown",
     "file": "convertigo_json_quickref.md"
+  },
+  {
+    "uri": "convertigo://resources/convertigo-transaction-quickstart",
+    "name": "Convertigo Transaction Quickstart",
+    "title": "Convertigo Transaction Quickstart",
+    "description": "Quickstart for HTTP connectors/transactions: URL/subPath, httpInfo, early validation via requestable-execute.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_transaction_quickstart.md"
   }
 ]

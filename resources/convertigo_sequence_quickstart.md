@@ -58,3 +58,4 @@ Following this loop ensures you catch errors (missing variables, typos, context 
 - To pick XPaths quickly, call `databaseobject-schema` on the target step/transaction to get XML/JSON samples instead of guessing sources.
 - HTTP fallback: there is no global  continue on error toggle on request steps; wrap HTTP calls in If/Then/Else (or JIf) and return a fallback JSON when the call fails. Enable httpInfo=true while debugging.
 - If databaseobject-create with mode=after fails with decoding error, create with mode=inside then reorder via databaseobject-move.
+- After each create/properties-set, run `requestable-execute` (sequence or the underlying transaction) to validate immediately. For HTTP connectors, see `convertigo_transaction_quickstart` and test the transaction first.

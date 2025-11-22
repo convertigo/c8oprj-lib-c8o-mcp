@@ -85,3 +85,4 @@ Use `tools/call databaseobject-schema` to fetch a lightweight schema/sample for 
 - Use `databaseobject-schema` on your step/transaction to preview the XML/JSON shape and pick XPaths without trial-and-error.
 - There is no global  continue on error toggle for request steps: handle offline fallbacks in the sequence (If/Then/Else or JIf) and branch to a fallback JSON when the HTTP call fails. Keep httpInfo=true while debugging the call.
 - If databaseobject-create with mode=after returns a decoding error, insert with mode=inside then reorder using databaseobject-move.
+- For HTTP connectors/transactions, read `convertigo_transaction_quickstart` and run `requestable-execute` on the transaction after each URL/subPath change to validate the target before wiring sequences.
