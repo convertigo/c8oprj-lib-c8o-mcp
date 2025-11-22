@@ -1,0 +1,10 @@
+Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Confirm you refreshed them, then continue with this plan.
+
+In the `codex_test` project, create a sequence `analyze_sentence` with one input variable `sentence` (string). The sequence must return a JSON document containing a `words` array. Each entry must include:
+- `text`: the word lowercased with simple punctuation removed,
+- `length`: number of characters,
+- `vowels`: count of vowels (a,e,i,o,u,y),
+- `consonants`: count of consonants.
+
+Test early with `tools/call convertigo.requestable-execute {"requestable":"codex_test.analyze_sentence","variables":"{\"sentence\":\"Hello\"}"}`; keep the final proof with `sentence=Hello world!`. If `analyze_sentence` already exists, run the tests and confirm current behaviour.
+End the run with a short "MCP critique" describing what felt confusing, which tools were missing, and any UX improvements that would have helped.

@@ -1,10 +1,18 @@
-Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Confirm you refreshed them, then continue with this plan.
+Call `resources/list`, then read `convertigo_sequence_quickstart`, `convertigo_context_api`, and `convertigo_mcp_usage`. Confirm you refreshed them, then continue with this plan.
 
-In the `codex_test` project, create a sequence `analyze_sentence` with one input variable `sentence` (string). The sequence must return a JSON document containing a `words` array. Each entry must include:
-- `text`: the word lowercased with simple punctuation removed,
-- `length`: number of characters,
-- `vowels`: count of vowels (a,e,i,o,u,y),
-- `consonants`: count of consonants.
+**Goal**: demonstrate mixing an HTTP connector and a sequence in project `codex_test`.
 
-Test early with `tools/call convertigo.requestable-execute {"requestable":"codex_test.analyze_sentence","variables":"{\"sentence\":\"Hello\"}"}`; keep the final proof with `sentence=Hello world!`. If `analyze_sentence` already exists, run the tests and confirm current behaviour.
-End the run with a short "MCP critique" describing what felt confusing, which tools were missing, and any UX improvements that would have helped.
+1) Create an HTTP connector `http_demo` with one transaction `get_ip` (GET). URL: `https://httpbin.org/ip`. No auth. Output: we just need the JSON body.
+
+2) Create a sequence `fetch_ip_info` with one request variable `note` (string, optional). Steps:
+- Call the transaction `http_demo.get_ip`.
+- Parse the JSON response to extract the IP (`origin` field). If the HTTP call fails (e.g., offline), return `{"error":"unreachable"}` but keep the sequence working.
+- Build a JSON response object with:
+  - `ip`: the extracted IP (string, or `"unknown"` if missing),
+  - `note`: echo the input `note` (string, default empty),
+  - `source`: `"httpbin.org/ip"`,
+  - `timestamp`: current time in ISO string (JS ok).
+
+3) Tests (mandatory, via MCP only): run `tools/call convertigo.requestable-execute {"requestable":"codex_test.fetch_ip_info","variables":"{\"note\":\"demo\"}"}`. Keep the final proof in the run log. If the HTTP call is sandboxed/offline, still return the fallback JSON and mention it in the summary.
+
+4) End the run with a short "MCP critique": what was confusing, which tools felt missing, and any UX improvements.
