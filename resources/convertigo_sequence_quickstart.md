@@ -54,3 +54,5 @@ Following this loop ensures you catch errors (missing variables, typos, context 
 - Base URL: scheme + host, no trailing slash (e.g., `https://httpbin.org`).
 - Transaction subPath: starts with `/` (e.g., `/ip`). Final URL = base + subPath (avoid `//`).
 - Turn `httpInfo=true` while building and test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence.
+- HTTP connectors: base URL = scheme+host without trailing slash; subPath starts with `/` and is appended to the connector rootPath (avoid `//`). Enable `httpInfo=true` and test the transaction via `requestable-execute` before using it in a sequence.
+- To pick XPaths quickly, call `databaseobject-schema` on the target step/transaction to get XML/JSON samples instead of guessing sources.

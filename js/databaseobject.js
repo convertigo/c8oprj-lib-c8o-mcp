@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Shared helpers for ConvertigoMCP sequences.
  * These functions run in the Rhino context used by Convertigo sequences.
  */
@@ -1088,6 +1088,7 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
+
 
 
 

@@ -1138,7 +1138,7 @@ comment: Returns metadata and property values for a database object identified b
   comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
 ↓includeHints [variables.RequestableVariable-1763462337937]: 
   comment: Set to true to include verbose property descriptions and hints in the response.
-  value: false
+  value: true
 ↓JsonObject [core.TestCase-1763461968578]: 
   ↓qname [variables.TestCaseVariable-1763461969747]: 
     required: true

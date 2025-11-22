@@ -81,3 +81,5 @@ Use `tools/call databaseobject-schema` to fetch a lightweight schema/sample for 
 - `HttpTransaction.subPath`: must start with `/` (e.g., `/ip`). Final URL is `url + subPath` (e.g., `https://httpbin.org/ip`). Avoid double slashes.
 - Enable `httpInfo=true` on the transaction while building to see the effective URL and headers.
 - Test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence; fix the connector if the response is not JSON.
+- When configuring HTTP transactions, run `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` right after setting `url/subPath` (enable `httpInfo=true`) to validate the final URL before wiring a sequence.
+- Use `databaseobject-schema` on your step/transaction to preview the XML/JSON shape and pick XPaths without trial-and-error.
