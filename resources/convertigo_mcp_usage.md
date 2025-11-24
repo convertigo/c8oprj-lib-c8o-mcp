@@ -79,7 +79,9 @@ Use `tools/call databaseobject-schema` to fetch a lightweight schema/sample for 
 ### HTTP connector checklist
 - `HttpConnector.url`: include scheme + host, no trailing slash (e.g., `https://httpbin.org`). Do **not** set it to `/` or leave it blank.
 - `HttpTransaction.subPath`: must start with `/` (e.g., `/ip`). Final URL is `url + subPath` (e.g., `https://httpbin.org/ip`). Avoid double slashes.
+- Prefer `JsonHttpTransaction` when the remote API returns JSON; it auto-parses the payload and exposes `response` in JSON form. Use plain `HttpTransaction` only for XML/HTML/binary payloads.
 - Enable `httpInfo=true` on the transaction while building to see the effective URL and headers.
+- In JS/Rhino, **do not** call `URLConnection`, `HttpClient`, `fetch`, or other ad-hoc HTTP libraries: all network calls must go through Convertigo HTTP connectors/transactions so that environments, auth, and schema learning remain consistent.
 - Test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence; fix the connector if the response is not JSON.
 - When configuring HTTP transactions, run `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` right after setting `url/subPath` (enable `httpInfo=true`) to validate the final URL before wiring a sequence.
 - Use `databaseobject-schema` on your step/transaction to preview the XML/JSON shape and pick XPaths without trial-and-error.

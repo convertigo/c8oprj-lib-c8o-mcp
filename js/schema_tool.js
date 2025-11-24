@@ -12,31 +12,20 @@ function fromFqcn(name) {
 
 function pickRootElement(node, schemaObject) {
   if (!node) return null;
-  // Document -> documentElement
   try {
     if (node.getNodeType && node.getNodeType() === 9 && node.getDocumentElement) {
       node = node.getDocumentElement();
     }
   } catch (_ignoreDoc) {}
-
-  // If element name matches schemaObject name, use it
   try {
     var desiredName = null;
-    if (schemaObject && schemaObject.getName) {
-      desiredName = schemaObject.getName();
-    }
-    if (!desiredName && node.getLocalName) {
-      desiredName = String(node.getLocalName());
-    }
+    if (schemaObject && schemaObject.getName) { desiredName = schemaObject.getName(); }
+    if (!desiredName && node.getLocalName) { desiredName = String(node.getLocalName()); }
     if (desiredName && node.getOwnerDocument && node.getOwnerDocument().getElementsByTagName) {
       var hits = node.getOwnerDocument().getElementsByTagName(desiredName);
-      if (hits && hits.getLength && hits.getLength() > 0) {
-        node = hits.item(0);
-      }
+      if (hits && hits.getLength && hits.getLength() > 0) { node = hits.item(0); }
     }
   } catch (_ignoreMatch) {}
-
-  // If current node is <document>, pick first element child
   try {
     var name = "";
     if (node.getLocalName) { name = String(node.getLocalName()); }
@@ -45,14 +34,10 @@ function pickRootElement(node, schemaObject) {
       var nodes = node.getChildNodes();
       for (var i = 0; i < nodes.getLength(); i++) {
         var child = nodes.item(i);
-        if (child && child.getNodeType && child.getNodeType() === 1) { // ELEMENT_NODE
-          node = child;
-          break;
-        }
+        if (child && child.getNodeType && child.getNodeType() === 1) { node = child; break; }
       }
     }
   } catch (_ignoreDocChild) {}
-
   return node;
 }
 
@@ -63,10 +48,8 @@ C8O.schemaTool = {
       var dom = XMLUtils.getDefaultDocumentBuilder().newDocument();
       var doc = dom.createElement("document");
       dom.appendChild(doc);
-      var attrs = ["connector", "context", "contextId", "fromStub", "fromcache", "generated", "project", "screenclass", "sequence", "signature", "transaction", "userReference", "version"];
-      for (var i = 0; i < attrs.length; i++) {
-        doc.setAttribute(attrs[i], "");
-      }
+      var attrs = ["connector","context","contextId","fromStub","fromcache","generated","project","screenclass","sequence","signature","transaction","userReference","version"];
+      for (var i = 0; i < attrs.length; i++) { doc.setAttribute(attrs[i], ""); }
       if (node) {
         var imported = dom.importNode ? dom.importNode(node, true) : node.cloneNode(true);
         doc.appendChild(imported);
@@ -80,9 +63,7 @@ C8O.schemaTool = {
   describe: function (opts) {
     var t = (opts && opts.type) ? String(opts.type).toLowerCase() : "xml";
     var internal = !!(opts && opts.internal);
-    if (["xml", "json", "jsonschema"].indexOf(t) === -1) {
-      throw new Error("type must be one of: xml, json, jsonschema");
-    }
+    if (["xml","json","jsonschema"].indexOf(t) === -1) { throw new Error("type must be one of: xml, json, jsonschema"); }
     var qname = opts && opts.qname ? String(opts.qname) : "";
     if (!qname) throw new Error("qname is required");
 
@@ -91,30 +72,19 @@ C8O.schemaTool = {
 
     var Engine = com.twinsoft.convertigo.engine.Engine;
     var SchemaMeta = com.twinsoft.convertigo.engine.enums.SchemaMeta;
+    var SchemaManagerOption = com.twinsoft.convertigo.engine.SchemaManager.Option;
     var XmlSchemaUtils = com.twinsoft.convertigo.engine.util.XmlSchemaUtils;
     var RequestableObjectClass = java.lang.Class.forName("com.twinsoft.convertigo.beans.core.RequestableObject");
     var QName = javax.xml.namespace.QName;
     var XmlSchemaElement = Packages.org.apache.ws.commons.schema.XmlSchemaElement;
     var XmlSchemaParticle = Packages.org.apache.ws.commons.schema.XmlSchemaParticle;
 
-    var xmlSchema = Engine.theApp.schemaManager.getSchemaForProject(project.getName());
+    var xmlSchema = Engine.theApp.schemaManager.getSchemaForProject(project.getName(), SchemaManagerOption.fullSchema);
     if (xmlSchema == null) {
-      return {
-        dbo: { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) },
-        type: t,
-        message: "No schema available for project"
-      };
+      return { dbo: { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) }, type: t, message: "No schema available for project" };
     }
 
     var schemaObject = SchemaMeta.getXmlSchemaObject(xmlSchema, dbo);
-    if (schemaObject == null) {
-      return {
-        dbo: { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) },
-        type: t,
-        message: "No schema for this object (likely not requestable)"
-      };
-    }
-
     var collection = SchemaMeta.getCollection(xmlSchema);
 
     var element = null;
@@ -124,31 +94,11 @@ C8O.schemaTool = {
       var responseName = dbo.getXsdTypePrefix() + dbo.getName() + "Response";
       var targetName = internal ? requestName : responseName;
       element = collection != null ? collection.getElementByQName(new QName(ns, targetName)) : null;
-      if (element == null && !internal && collection != null) {
-        element = collection.getElementByQName(new QName(ns, requestName));
-      }
+      if (element == null && !internal && collection != null) { element = collection.getElementByQName(new QName(ns, requestName)); }
     }
-    if (element == null && schemaObject instanceof XmlSchemaElement) {
-      element = schemaObject;
-    }
-    if (element == null && schemaObject instanceof XmlSchemaParticle) {
-      try { element = SchemaMeta.getContainerXmlSchemaElement(schemaObject); } catch (_ignore) {}
-    }
-    if (element == null) {
-      try {
-        var qn = SchemaMeta.getQName(schemaObject);
-        if (qn && collection) {
-          element = collection.getElementByQName(qn);
-        }
-      } catch (_ignoreQ) {}
-    }
-    if (element == null) {
-      return {
-        dbo: { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) },
-        type: t,
-        message: "No schema element for this object"
-      };
-    }
+    if (element == null && schemaObject instanceof XmlSchemaElement) { element = schemaObject; }
+    if (element == null && schemaObject instanceof XmlSchemaParticle) { try { element = SchemaMeta.getContainerXmlSchemaElement(schemaObject); } catch (_ignore) {} }
+    if (element == null) { try { var qn = SchemaMeta.getQName(schemaObject); if (qn && collection) { element = collection.getElementByQName(qn); } } catch (_ignoreQ) {} }
 
     var prio = 0;
     try { prio = dbo.getPriority ? dbo.getPriority() : 0; } catch (_ignorePrio) {}
@@ -159,15 +109,13 @@ C8O.schemaTool = {
         var pd = pds[i];
         if (!pd || pd.getName() !== "priority") { continue; }
         var getter = pd.getReadMethod();
-        if (getter) {
-          try { prio = getter.invoke(dbo, null); } catch (_ignoreGetter) {}
-        }
+        if (getter) { try { prio = getter.invoke(dbo, null); } catch (_ignoreGetter) {} }
         break;
       }
     } catch (_ignoreIntrospect) {}
     try { if (typeof dbo.priority !== "undefined") { prio = dbo.priority; } } catch (_ignorePriorityField) {}
     try {
-      var dboFromManager = com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(dbo.getQName());
+      var dboFromManager = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(dbo.getQName());
       if (dboFromManager && dboFromManager.getPriority) {
         var managerPrio = dboFromManager.getPriority();
         if (managerPrio != null) { prio = managerPrio; }
@@ -175,32 +123,29 @@ C8O.schemaTool = {
     } catch (_ignoreDboManager) {}
     var dboInfo = { qname: dbo.getQName(), className: fromFqcn(dbo.getClass().getName()) };
     try {
-      var prioStr = String(prio);
-      if (prioStr !== "0") {
-        dboInfo.priority = prioStr;
+      if (typeof prio === "number" && isFinite(prio) && prio !== 0) {
+        dboInfo.priority = String(prio);
       }
     } catch (_ignorePrioStrFinal) {}
-    var response = {
-      dbo: dboInfo,
-      type: t
-    };
+    var response = { dbo: dboInfo, type: t };
+
+    if (element == null) { response.response = null; response.message = "No schema element for this object"; return response; }
+
     var domSample = XmlSchemaUtils.getDomInstance(element);
     var targetNode = pickRootElement(C8O.schemaCommon.trimPayloadNode(domSample), element);
+    try {
+      if (!internal && RequestableObjectClass.isInstance(dbo)) {
+        var objs = targetNode && targetNode.getElementsByTagName ? targetNode.getElementsByTagName("object") : null;
+        if (objs && objs.getLength && objs.getLength() > 0) { targetNode = objs.item(0); }
+      }
+    } catch (_ignoreObject) {}
 
     if (t === "xml") {
-      if (!targetNode) {
-        response.sample = null;
-        return response;
-      }
-      try {
-        var XMLUtils = com.twinsoft.convertigo.engine.util.XMLUtils;
-        var dom = XMLUtils.getDefaultDocumentBuilder().newDocument();
-        var root = dom.importNode ? dom.importNode(targetNode, true) : targetNode.cloneNode(true);
-        dom.appendChild(root);
-        response.sample = XMLUtils.prettyPrintDOM(dom);
-      } catch (_ignoreXml) {
-        response.sample = com.twinsoft.convertigo.engine.util.XMLUtils.prettyPrintDOM(targetNode);
-      }
+      var XMLUtils = com.twinsoft.convertigo.engine.util.XMLUtils;
+      var dom = XMLUtils.getDefaultDocumentBuilder().newDocument();
+      var root = dom.importNode ? dom.importNode(targetNode, true) : targetNode.cloneNode(true);
+      dom.appendChild(root);
+      response.response = XMLUtils.prettyPrintDOM(dom);
       return response;
     }
 
@@ -210,13 +155,13 @@ C8O.schemaTool = {
     if (jsonSample && jsonSample.attr) { try { delete jsonSample.attr; } catch (_ignoreAttr1) {} }
     if (payload && payload.document) { payload = payload.document; }
     if (payload && payload.attr) { try { delete payload.attr; } catch (_ignoreAttr2) {} }
-    if (t === "json") {
-      response.sample = payload;
-      return response;
-    }
+    if (!payload) { payload = {}; }
 
-    response.schema = C8O.schemaCommon.jsonSampleToSchema(payload);
+    if (t === "json") { response.response = payload; response.schema = null; response.message = null; return response; }
+
+    response.response = C8O.schemaCommon.jsonSampleToSchema(payload);
+    response.sample = payload;
+    response.message = null;
     return response;
   }
 };
-

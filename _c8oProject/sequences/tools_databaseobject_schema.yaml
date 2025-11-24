@@ -53,19 +53,21 @@ accessibility: Private
           - SmartType: 
             - ↑mode: JS
             - →→: 'schemaResult && schemaResult.dbo ? schemaResult.dbo.className : undefined'
-    ↓Priority [steps.JsonFieldStep-1763749894026]: 
-      key: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: PLAIN
-            - →→: priority
-      value: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-          - SmartType: 
-            - ↑mode: JS
-            - →→: '(schemaResult && schemaResult.dbo && schemaResult.dbo.priority != null) ? String(schemaResult.dbo.priority) : undefined'
+    ↓PriorityIf [steps.IfStep-1764006543930]: 
+      condition: schemaResult && schemaResult.dbo && schemaResult.dbo.priority != null && isFinite(Number(schemaResult.dbo.priority)) && Number(schemaResult.dbo.priority) !== 0
+      ↓Priority [steps.JsonFieldStep-1763749894026]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: priority
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: '(schemaResult && schemaResult.dbo && schemaResult.dbo.priority != null && isFinite(Number(schemaResult.dbo.priority)) && Number(schemaResult.dbo.priority) !== 0) ? String(schemaResult.dbo.priority) : undefined'
   ↓Type [steps.JsonFieldStep-1763749932909]: 
     key: 
       - xmlizable: 
@@ -79,50 +81,38 @@ accessibility: Private
         - SmartType: 
           - ↑mode: JS
           - →→: schemaResult && schemaResult.type
-  ↓Sample [steps.JsonFieldStep-1763753804963]: 
+  ↓Response [steps.JsonFieldStep-1763753804963]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: sample
+          - →→: response
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: schemaResult && schemaResult.sample
-  ↓Schema [steps.JsonFieldStep-1763753815510]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: schema
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: schemaResult && schemaResult.schema
-  ↓Message [steps.JsonFieldStep-1763753825564]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: message
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: schemaResult && schemaResult.message
+          - →→: schemaResult && schemaResult.response
 ↓qname [variables.RequestableVariable-1763724006150]: 
 ↓type [variables.RequestableVariable-1763724016646]: 
   value: xml
 ↓internal [variables.RequestableVariable-1763724025729]: 
   value: false
+↓httpip [core.TestCase-1763994296762]: 
+  ↓qname [variables.TestCaseVariable-1763994298722]: 
+    value: codex_test.http_demo.ip
+  ↓type [variables.TestCaseVariable-1763994298724]: 
+    value: json
+  ↓internal [variables.TestCaseVariable-1763994298726]: 
+    value: false
+↓httpipcall [core.TestCase-1763994296762]: 
+  ↓qname [variables.TestCaseVariable-1763994378657]: 
+    value: codex_test.fetch_ip_info.call_get_ip
+  ↓type [variables.TestCaseVariable-1763994378660]: 
+    value: xml
+  ↓internal [variables.TestCaseVariable-1763994378663]: 
+    value: false
 ↓projectListJson [core.TestCase-1763731509433]: 
   ↓qname [variables.TestCaseVariable-1763731510572]: 
     value: ConvertigoMCP.tools_project_list

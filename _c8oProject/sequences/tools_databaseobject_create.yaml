@@ -105,7 +105,75 @@ comment: Creates a new database object relative to an existing one.
     '
 ↓CreateObject [steps.SimpleStep-1762339712895]: 
   comment: Instantiate and attach new database object
-  expression: '''var Engine = Packages.com.twinsoft.convertigo.engine.Engine;          var parent = creationParent;     if (parent == null) {       throw new Error("Parent database object is not defined");     }          if (creationClassName) {       try {         creationClassName = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(creationClassName) : creationClassName;       } catch (_ignoreFqcn) {}     }          var targetClass = null;     try {       targetClass = java.lang.Class.forName(creationClassName);     } catch (eClass) {       throw new Error("Unable to load class " + creationClassName + ": " + eClass);     }          var ctor = targetClass.getDeclaredConstructor();     ctor.setAccessible(true);     var newDbo = ctor.newInstance();     newDbo.bNew = true;     newDbo.hasChanged = true;          if (creationRequestedName && creationRequestedName.length > 0) {       try {         newDbo.setName(creationRequestedName);       } catch (nameError) {         throw new Error("Unable to set name ''''''''" + creationRequestedName + "'''''''': " + nameError);       }     }          var afterValue = creationAfter;     var added = false;     if (afterValue != null) {       try {         parent.add(newDbo, afterValue);         added = true;       } catch (eAddDirect) {         try {           var method = parent.getClass().getMethod("add", Packages.com.twinsoft.convertigo.beans.core.DatabaseObject, java.lang.Long.class);           method.invoke(parent, newDbo, afterValue);           added = true;         } catch (eReflect) {           // fallback later         }       }     }     if (!added) {       parent.add(newDbo);     }          var projectRef = creationProject;     if (projectRef == null) {       try {         projectRef = newDbo.getProject();       } catch (ignoredProject) {}     }     if (projectRef != null) {       projectRef.hasChanged = true;     }          if (creationPropertiesProvided) {       var parsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);       if (parsedUpdates && Object.keys(parsedUpdates).length > 0) {         var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);         creationPropertiesApplied = applyResult.applied;         creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);         if (applyResult.errors.length) {           Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors);         }       }     }          newDbo.hasChanged = true;     createdObject = newDbo;     createdQName = String(newDbo.getFullQName());     createdName = String(newDbo.getName());     createdClassName = C8O.util.fromFqcn ? C8O.util.fromFqcn(newDbo.getClass().getName()) : newDbo.getClass().getName();     createdParentQName = String(parent.getQName());     createdProject = projectRef;'''
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var parent = creationParent;
+    if (parent == null) {
+      throw new Error("Parent database object is not defined");
+    }
+    if (creationClassName) {
+      try {
+        creationClassName = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(creationClassName) : creationClassName;
+      } catch (_ignoreFqcn) {}
+    }
+    var targetClass = null;
+    try {
+      targetClass = java.lang.Class.forName(creationClassName);
+    } catch (eClass) {
+      throw new Error("Unable to load class " + creationClassName + ": " + eClass);
+    }
+    var ctor = targetClass.getDeclaredConstructor();
+    ctor.setAccessible(true);
+    var newDbo = ctor.newInstance();
+    newDbo.bNew = true;
+    newDbo.hasChanged = true;
+    if (creationRequestedName && creationRequestedName.length > 0) {
+      try {
+        newDbo.setName(creationRequestedName);
+      } catch (nameError) {
+        throw new Error("Unable to set name ''" + creationRequestedName + "'': " + nameError);
+      }
+    }
+    var afterValue = creationAfter;
+    var added = false;
+    if (afterValue != null) {
+      try {
+        parent.add(newDbo, afterValue);
+        added = true;
+      } catch (eAddDirect) {
+        try {
+          var method = parent.getClass().getMethod("add", Packages.com.twinsoft.convertigo.beans.core.DatabaseObject, java.lang.Long.class);
+          method.invoke(parent, newDbo, afterValue);
+          added = true;
+        } catch (eReflect) {
+          // fallback later
+        }
+      }
+    }
+    if (!added) {
+      parent.add(newDbo);
+    }
+    var projectRef = creationProject;
+    if (projectRef == null) {
+      try { projectRef = newDbo.getProject(); } catch (ignoredProject) {}
+    }
+    if (projectRef != null) { projectRef.hasChanged = true; }
+    if (creationPropertiesProvided) {
+      var parsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);
+      if (parsedUpdates && Object.keys(parsedUpdates).length > 0) {
+        var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);
+        creationPropertiesApplied = applyResult.applied;
+        creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);
+        if (applyResult.errors.length) { Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors); }
+      }
+    }
+    newDbo.hasChanged = true;
+    createdObject = newDbo;
+    createdQName = String(newDbo.getFullQName());
+    createdName = String(newDbo.getName());
+    createdClassName = C8O.util.fromFqcn ? C8O.util.fromFqcn(newDbo.getClass().getName()) : newDbo.getClass().getName();
+    createdParentQName = String(parent.getQName());
+    createdProject = projectRef;'
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |

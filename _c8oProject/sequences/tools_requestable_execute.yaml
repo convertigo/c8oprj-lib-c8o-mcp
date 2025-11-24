@@ -83,6 +83,38 @@ accessibility: Private
             - ↑value: 1763056061207
           - java.lang.String: 
             - ↑value: ./*/document/*
+↓jIf [steps.IfStep-1763979594981]: 
+  condition: recordSchema == "true"
+  ↓response [steps.SourceStep-1763979641976]: 
+    sourceDefinition: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+        - com.twinsoft.convertigo.beans.common.XMLVector: 
+          - java.lang.String: 
+            - ↑value: 1763056061207
+          - java.lang.String: 
+            - ↑value: ./*/document
+    variableName: response
+  ↓RecordSchema [steps.SimpleStep-1763979568399]: 
+    expression: |
+      'if (!C8O.dbo) {
+        include("js/databaseobject.js");
+      }
+      var txQName = executionPlan.project + ".cn:" + executionPlan.connector + ".tr:" + executionPlan.name;
+      var txDbo = C8O.dbo.resolve(txQName, { messagePrefix: "txQName" });
+      var node = response;
+      if (node && typeof node.item === "function") {
+        node = node.item(0);
+      }
+      if (node && node.getNodeType && node.getNodeType() === 9 && node.getDocumentElement) {
+        node = node.getDocumentElement();
+      }
+      var newDoc = Packages.com.twinsoft.convertigo.engine.util.XMLUtils.createDom();
+      var imported = newDoc.importNode(node, true);
+      newDoc.appendChild(imported);
+      var xsdTypes = txDbo.generateXsdTypes(newDoc, true);
+      txDbo.writeSchemaToFile(xsdTypes);
+      Packages.com.twinsoft.convertigo.engine.Engine.theApp.schemaManager.clearCache(txDbo.getProject().getName());'
 ↓requestable [variables.RequestableVariable-1763053821400]: 
   comment: 'Format: <project>[.<connector>].<requestable>'
 ↓variables [variables.RequestableVariable-1763053833825]: 
@@ -90,3 +122,17 @@ accessibility: Private
   value: '{}'
 ↓recordSchema [variables.RequestableVariable-1763869930001]: 
   comment: Set to true to record schema for transactions (writeSchemaToFile)
+↓ip [core.TestCase-1763981218508]: 
+  ↓requestable [variables.TestCaseVariable-1763981219651]: 
+    value: codex_test.http_demo.get_ip
+  ↓variables [variables.TestCaseVariable-1763981219653]: 
+    value: '{}'
+  ↓recordSchema [variables.TestCaseVariable-1763981219655]: 
+    value: true
+↓ip2 [core.TestCase-1763981218508]: 
+  ↓requestable [variables.TestCaseVariable-1763984864161]: 
+    value: codex_test.http_demo.ip
+  ↓variables [variables.TestCaseVariable-1763984864164]: 
+    value: '{}'
+  ↓recordSchema [variables.TestCaseVariable-1763984864167]: 
+    value: true
