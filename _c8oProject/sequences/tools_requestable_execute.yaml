@@ -40,13 +40,18 @@ accessibility: Private
             throw new Error(''variables must be a JSON object: '' + parseError);
         }
     }
+    var recordSchemaFlag = false;
+    try {
+        recordSchemaFlag = C8O.util.toBoolean ? C8O.util.toBoolean(recordSchema, false) : (String(recordSchema || '''').toLowerCase() === ''true'');
+    } catch (_ignoreRs) {}
     executionPlan = {
         requestable: requestText,
         project: projectName,
         connector: targetConnector,
         name: targetName,
         isSequence: isSequence,
-        variables: variablesObject
+        variables: variablesObject,
+        recordSchema: recordSchemaFlag
     };'
 ↓ConfigureCalls [steps.SimpleStep-1763055844366]: 
   comment: Configure dynamic call targets and variables
@@ -83,3 +88,5 @@ accessibility: Private
 ↓variables [variables.RequestableVariable-1763053833825]: 
   comment: Optional JSON object with request variables
   value: '{}'
+↓recordSchema [variables.RequestableVariable-1763869930001]: 
+  comment: Set to true to record schema for transactions (writeSchemaToFile)

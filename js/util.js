@@ -344,8 +344,25 @@ C8O.requestable.configureExecutor = function (executionPlan) {
   txStep.setSourceTransaction(executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   C8O.requestable._clearVariables(txStep);
   C8O.requestable._addVariables(txStep, executionPlan.variables || {});
+  if (executionPlan.recordSchema === true) {
+    try {
+      var txQName = executionPlan.project + '.cn:' + executionPlan.connector + '.tr:' + executionPlan.name;
+      var txDbo = C8O.dbo.resolve(txQName);
+      if (txDbo && txDbo.writeSchemaToFile) {
+        txDbo.writeSchemaToFile(null);
+        try {
+          var txProject = txDbo.getProject ? txDbo.getProject() : null;
+          if (txProject) {
+            Packages.com.twinsoft.convertigo.engine.Engine.theApp.schemaManager.loadProjectSchema(String(txProject.getName()));
+          }
+        } catch (_ignoreSchemaReload) {}
+      }
+    } catch (_ignoreSchemaRecord) {}
+  }
   if (EngineLog) {
     var txCount = txStep.getVariables() != null ? txStep.getVariables().size() : 0;
     EngineLog.debug('[tools_requestable_execute] transaction vars=' + txCount + ' target=' + executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   }
 };
+
+
