@@ -64,8 +64,8 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - Convertigo Codex helper project (privileged EXEC): `data/workspace/projects/ConvertigoCodexAgent/`
 
 ## Roadmap
-- [ ] Tolerate SmartType values provided as JSON strings in properties-set/create (auto-parse when possible, better error otherwise).
-- [ ] Clarify QNames do not include .sq; users keep trying codex_test.sq so reinforce the existing "closest ancestor" hint.
+- [x] Tolerate SmartType values provided as JSON strings in properties-set/create (auto-parse when possible, better error otherwise).
+- [x] Clarify QNames do not include .sq; users keep trying codex_test.sq so reinforce the existing "closest ancestor" hint.
 - [x] Export MCP entry point (`McpEndpoint`) with routing to initialize, tools, resources, prompts, notifications, ping.
 - [x] Provide initial `tools/list` for admin/project/invoke categories.
 - [x] Expose baseline `tools/call` functions (`admin.get-engine-version`, `admin.get-engine-metrics`, `project.describe-tree`, `invoke.list-projects`).
@@ -80,7 +80,7 @@ All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhi
 - [x] Improve databaseobject-* error reporting: if a supplied QName is invalid (e.g. codex_test.sq), return a structured MCP error suggesting the nearest valid ancestor or pointing to databaseobject-children qname=" to list projects.
 - [x] Detect repeated failures on unknown QNames and hint the caller to trim segments (drop .sq, etc.) until a valid object is found instead of burning dozens of calls.
 - [ ] Update palette-list/palette-describe/databaseobject-children to warn when 	arget is empty or irrelevant, nudging clients to provide a scoped QName rather than streaming the entire catalog.
-- [ ] Bubble up Convertigo sequence errors (e.g. Database object not found: codex_test.sq) into MCP JSON-RPC rror.data so LLMs immediately see the root cause.
+- [ ] Bubble up Convertigo sequence errors (e.g. Database object not found: codex_test.sq) into MCP JSON-RPC error.data so LLMs immediately see the root cause.
 - [ ] (Future) add a create project helper; until then, when a create fails because the parent project is missing, respond with guidance to import/create the project before retrying.
 - [ ] Update the default Codex prompts so the agent ends with a short report on missing MCP capabilities / UX gaps, giving us qualitative feedback automatically.
 
@@ -113,6 +113,6 @@ npx @modelcontextprotocol/inspector --transport http --server-url http://localho
 - [ ] Update quickstart/docs with examples showing case-sensitive QNames (Codex stumbled matching codex_test.sq:...Word vs .word).
 
 - [x] Tolerate SmartType/property values given as JSON strings in databaseobject-properties-set/create (parses stringified JSON after the first parse).
-- [ ] Document clearly that properties payloads must be JSON objects (or JSON strings representing objects), not arrays of `{name,value}`; point to *-describe for expected formats.
-- [ ] Reinforce “no .sq in QNames” guidance in docs/prompts and in invalid-QName errors (suggest project list then databaseobject-children without the suffix).
+- [x] Document clearly that properties payloads must be JSON objects (or JSON strings representing objects), not arrays of `{name,value}`; point to *-describe for expected formats.
+- [x] Reinforce “no .sq in QNames” guidance in docs/prompts and in invalid-QName errors (suggest project list then databaseobject-children without the suffix).
 - [ ] Add prompt tail asking the agent to report MCP UX gaps encountered during the run.

@@ -711,6 +711,24 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
     } catch (_ignoreTypeName) {}
   }
 
+  // Allow SmartType / XMLVector values provided as JSON strings (or any stringified JSON).
+  if (typeof rawSpec === "string") {
+    var trimmedSpec = rawSpec.trim();
+    var shouldTryParse =
+      C8O.dbo._isSmartTypeClass(propertyType) ||
+      C8O.dbo._isXMLVectorClass(propertyType) ||
+      (trimmedSpec.length && (trimmedSpec.charAt(0) === "{" || trimmedSpec.charAt(0) === "["));
+    if (shouldTryParse) {
+      try {
+        rawSpec = JSON.parse(trimmedSpec);
+      } catch (parseValueErr) {
+        // For SmartType/XMLVector we surface a clear error; otherwise keep the raw string.
+        if (C8O.dbo._isSmartTypeClass(propertyType) || C8O.dbo._isXMLVectorClass(propertyType)) {
+          throw new Error('Unable to parse JSON value for property "' + pd.getName() + '": ' + parseValueErr);
+        }
+      }
+    }
+  }
   if (propertyTypeName === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType") {
     return C8O.dbo._buildMobileSmartSourceType(rawSpec);
   }
@@ -1095,6 +1113,8 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
+
+
 
 
 
