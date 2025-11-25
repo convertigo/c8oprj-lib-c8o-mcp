@@ -326,32 +326,36 @@ comment: Creates a new database object relative to an existing one.
         - SmartType: 
           - ↑mode: JS
           - →→: creationMode
-  ↓siblingQName [steps.JsonFieldStep-1762339712917]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: siblingQName
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: creationSiblingQName
-  ↓insertAfter [steps.JsonFieldStep-1762339712919]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: insertAfter
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: creationAfterNumber
+  ↓IfSiblingQName [steps.IfStep-1764079368879]: 
+    condition: creationSiblingQName && String(creationSiblingQName).length > 0
+    ↓siblingQName [steps.JsonFieldStep-1762339712917]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: siblingQName
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: creationSiblingQName
+  ↓IfInsertAfter [steps.IfStep-1764079406540]: 
+    condition: creationAfterNumber && String(creationAfterNumber).length > 0
+    ↓insertAfter [steps.JsonFieldStep-1762339712919]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: insertAfter
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: creationAfterNumber
   ↓saved [steps.JsonFieldStep-1762339712921]: 
     key: 
       - xmlizable: 
