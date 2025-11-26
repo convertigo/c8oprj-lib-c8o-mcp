@@ -129,7 +129,7 @@ C8O.schemaTool = {
     } catch (_ignorePrioStrFinal) {}
     var response = { dbo: dboInfo, type: t };
 
-    if (element == null) { response.response = null; response.message = "No schema element for this object"; return response; }
+    if (element == null) { response.response = null; response.message = "No schema element for this object (run requestable-execute with recordSchema=true to learn it)"; return response; }
 
     var domSample = XmlSchemaUtils.getDomInstance(element);
     var targetNode = pickRootElement(C8O.schemaCommon.trimPayloadNode(domSample), element);
@@ -157,11 +157,56 @@ C8O.schemaTool = {
     if (payload && payload.attr) { try { delete payload.attr; } catch (_ignoreAttr2) {} }
     if (!payload) { payload = {}; }
 
-    if (t === "json") { response.response = payload; response.schema = null; response.message = null; return response; }
+    // Detect missing learned schema (no generated XSD on disk) for transactions only.
+    var hasLearnedSchema = true;
+    try {
+      var clsName = dbo.getClass().getName();
+      var projDir = dbo.getProject ? dbo.getProject().getDirPath() : null;
+      if (projDir && clsName && clsName.indexOf("Transaction") >= 0) {
+        var connName = dbo.getConnector ? dbo.getConnector().getName() : null;
+        var baseDirFile = connName ? new java.io.File(projDir, "xsd/internal/" + connName) : new java.io.File(projDir, "xsd/internal");
+        var fileTx = new java.io.File(baseDirFile, dbo.getName() + ".xsd");
+        hasLearnedSchema = fileTx.exists();
+      }
+    } catch (_ignoreLearned) {}
+
+    if (RequestableObjectClass.isInstance(dbo) && !hasLearnedSchema) {
+      response.message = response.message || "Schema not learned yet: run requestable-execute with recordSchema=true to capture the actual response.";
+    }
+
+    // Normalize message to avoid Rhino Undefined leaking into JSON field.
+    if (typeof response.message === "undefined" || response.message === null) {
+      response.message = "";
+    }
+
+    if (t === "json") {
+      var hintMessage = response.message || null;
+      if (hintMessage) {
+        try {
+          if (typeof payload === "string") {
+            var parsedPayload = JSON.parse(payload);
+            if (parsedPayload && typeof parsedPayload === "object") {
+              parsedPayload.__hint = parsedPayload.__hint || hintMessage;
+              payload = JSON.stringify(parsedPayload);
+            }
+          } else if (payload && typeof payload === "object") {
+            payload.__hint = payload.__hint || hintMessage;
+          }
+        } catch (_ignoreHintAttach) {}
+      }
+      response.response = payload;
+      response.schema = null;
+      return response;
+    }
 
     response.response = C8O.schemaCommon.jsonSampleToSchema(payload);
     response.sample = payload;
-    response.message = null;
     return response;
   }
 };
+
+
+
+
+
+

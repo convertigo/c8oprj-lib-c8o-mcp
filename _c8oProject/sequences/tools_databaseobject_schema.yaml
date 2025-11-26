@@ -95,6 +95,21 @@ comment: Returns schema/sample for a database object (qname). Supports type=xml|
         - SmartType: 
           - ↑mode: JS
           - →→: schemaResult && schemaResult.response
+  ↓MessageGuard [steps.IfStep-1764143176087]: 
+    condition: notEmpty(schemaResult && schemaResult.message)
+    ↓Message [steps.JsonFieldStep-1764092106213]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: message
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: schemaResult && schemaResult.message
 ↓qname [variables.RequestableVariable-1763724006150]: 
   comment: Database object QName (project[.path...])
 ↓type [variables.RequestableVariable-1763724016646]: 

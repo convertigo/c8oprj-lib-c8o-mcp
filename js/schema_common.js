@@ -6,6 +6,11 @@ if (!C8O.schemaCommon) {
   C8O.schemaCommon = {};
 }
 
+function notEmpty(value) {
+  return value !== null && value !== undefined && String(value).length > 0;
+}
+C8O.schemaCommon.notEmpty = notEmpty;
+
 C8O.schemaCommon.trimPayloadNode = function(dom) {
   if (!dom) return null;
   var node = dom.getDocumentElement ? dom.getDocumentElement() : dom;
