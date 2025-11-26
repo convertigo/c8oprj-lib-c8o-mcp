@@ -185,7 +185,7 @@ comment: Creates a new database object relative to an existing one.
     
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
-  condition: createdObject != null && createdParentQName && createdParentQName.length > 0
+  condition: createdObject != null && notEmpty(createdParentQName)
   ↓PrepareRefreshCall [steps.SimpleStep-1762342856452]: 
     comment: Preserve existing qname scope and set refresh target
     expression: |
@@ -327,7 +327,7 @@ comment: Creates a new database object relative to an existing one.
           - ↑mode: JS
           - →→: creationMode
   ↓IfSiblingQName [steps.IfStep-1764079368879]: 
-    condition: creationSiblingQName && String(creationSiblingQName).length > 0
+    condition: notEmpty(creationSiblingQName)
     ↓siblingQName [steps.JsonFieldStep-1762339712917]: 
       key: 
         - xmlizable: 
@@ -342,7 +342,7 @@ comment: Creates a new database object relative to an existing one.
             - ↑mode: JS
             - →→: creationSiblingQName
   ↓IfInsertAfter [steps.IfStep-1764079406540]: 
-    condition: creationAfterNumber && String(creationAfterNumber).length > 0
+    condition: notEmpty(creationAfterNumber)
     ↓insertAfter [steps.JsonFieldStep-1762339712919]: 
       key: 
         - xmlizable: 

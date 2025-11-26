@@ -233,7 +233,7 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
           - ↑mode: JS
           - →→: 'summary != null ? summary.get("total") : 0'
   ↓NextCursorIf [steps.IfStep-1763569660028]: 
-    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    condition: notEmpty(nextCursorToken)
     ↓NextCursor [steps.JsonFieldStep-1763569666433]: 
       key: 
         - xmlizable: 

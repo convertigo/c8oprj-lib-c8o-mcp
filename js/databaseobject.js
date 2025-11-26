@@ -15,6 +15,13 @@ C8O.dbo = C8O.dbo || {};
 C8O.cache = C8O.cache || {};
 // Classname helpers: Convertigo beans live under com.twinsoft.convertigo.beans.*
 var _BEANS_PREFIX = "com.twinsoft.convertigo.beans.";
+
+// Simple helper to test non-empty values.
+function notEmpty(value) {
+  return value !== null && value !== undefined && String(value).length > 0;
+}
+C8O.util.notEmpty = notEmpty;
+
 C8O.util.toFqcn = C8O.util.toFqcn || function (name) {
   var text = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(name || "") : String(name || "");
   if (!text.length) {

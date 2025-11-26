@@ -621,7 +621,7 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
             - ↑mode: PLAIN
             - →→: Use describe.tool with arguments.className to fetch creation template and property hints.
   ↓NextCursorIf [steps.IfStep-1763569773859]: 
-    condition: resultInfo != null && resultInfo.nextCursor != null && String(resultInfo.nextCursor).length > 0
+    condition: notEmpty(resultInfo && resultInfo.nextCursor)
     ↓NextCursor [steps.JsonFieldStep-1763569779641]: 
       key: 
         - xmlizable: 

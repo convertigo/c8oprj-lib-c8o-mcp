@@ -57,7 +57,7 @@ comment: Search database objects (name/comment/QName).
           - ↑mode: JS
           - →→: 'searchSummary ? Boolean(searchSummary.hasMore) : false'
   ↓NextCursorFieldIf [steps.IfStep-1763569738244]: 
-    condition: searchSummary != null && searchSummary.nextCursor != null && String(searchSummary.nextCursor).length > 0
+    condition: notEmpty(searchSummary && searchSummary.nextCursor)
     ↓NextCursorField [steps.JsonFieldStep-1763569743645]: 
       key: 
         - xmlizable: 
@@ -169,7 +169,7 @@ comment: Search database objects (name/comment/QName).
                 - ↑mode: JS
                 - →→: item.databaseType
   ↓NextCursorIf [steps.IfStep-1763569756302]: 
-    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    condition: notEmpty(nextCursorToken)
     ↓NextCursor [steps.JsonFieldStep-1763569761744]: 
       key: 
         - xmlizable: 

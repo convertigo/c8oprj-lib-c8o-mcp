@@ -217,7 +217,7 @@ comment: Handles MCP tools/list calls
             - ↑mode: JS
             - →→: toolsHasMore
   ↓NextCursorIf [steps.IfStep-1763569682852]: 
-    condition: toolsNextCursor != null && String(toolsNextCursor).length > 0
+    condition: notEmpty(toolsNextCursor)
     ↓NextCursor [steps.JsonFieldStep-1763569689633]: 
       key: 
         - xmlizable: 

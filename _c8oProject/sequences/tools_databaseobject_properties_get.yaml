@@ -88,7 +88,7 @@ comment: Returns metadata and property values for a database object identified b
           - ↑mode: JS
           - →→: beanDisplayName
   ↓PriorityIf [steps.IfStep-1763463892656]: 
-    condition: Boolean(resultPriority) && String(resultPriority).length > 0
+    condition: notEmpty(resultPriority)
     ↓PriorityField [steps.JsonFieldStep-1763463955578]: 
       key: 
         - xmlizable: 
@@ -182,7 +182,7 @@ comment: Returns metadata and property values for a database object identified b
                 - ↑mode: JS
                 - →→: item.title
         ↓DescriptionIf [steps.IfStep-1763462551141]: 
-          condition: C8O.util.toBoolean(includeHints, false) === true && item.description && String(item.description).length > 0
+          condition: C8O.util.toBoolean(includeHints, false) === true && notEmpty(item && item.description)
           ↓DescriptionField [steps.JsonFieldStep-1763462654130]: 
             key: 
               - xmlizable: 
@@ -816,7 +816,7 @@ comment: Returns metadata and property values for a database object identified b
           - ↑mode: JS
           - →→: paginationInfo.cursorInput
   ↓NextCursorIf [steps.IfStep-1763569717960]: 
-    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    condition: notEmpty(nextCursorToken)
     ↓NextCursor [steps.JsonFieldStep-1763569725895]: 
       key: 
         - xmlizable: 

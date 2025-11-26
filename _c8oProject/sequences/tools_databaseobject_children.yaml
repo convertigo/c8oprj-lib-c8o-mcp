@@ -157,7 +157,7 @@ comment: List database object children (or projects when qname is empty). Suppor
           - ↑mode: JS
           - →→: totalChildren
   ↓NextCursorIf [steps.IfStep-1763569701665]: 
-    condition: nextCursorToken != null && String(nextCursorToken).length > 0
+    condition: notEmpty(nextCursorToken)
     ↓NextCursor [steps.JsonFieldStep-1763569707091]: 
       key: 
         - xmlizable: 
