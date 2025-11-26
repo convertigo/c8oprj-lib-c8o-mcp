@@ -321,36 +321,17 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
 ↓AugmentEntries [steps.SimpleStep-1763034311544]: 
   comment: Compute property hints and creation templates
   expression: |
-    'if (typeof C8O !== "undefined" && C8O.palette && paletteCategories) {
-      for (var i = 0; i < paletteCategories.length; i++) {
-        var category = paletteCategories[i];
-        if (!category || !category.items) {
-          continue;
-        }
-        for (var j = 0; j < category.items.length; j++) {
-          var item = category.items[j];
-          if (!item || !item.className) {
-            continue;
-          }
-          var classNameValue = String(item.className);
-          item.className = classNameValue;
-          try {
-            item.nameSuggestion = C8O.palette.suggestTechnicalName(item.name || classNameValue);
-          } catch (_ignoreSuggestion) {
-            if (!item.nameSuggestion) {
-              item.nameSuggestion = classNameValue;
-            }
-          }
-          item.describe = {
-            tool: "palette-describe",
-            arguments: {
-              className: classNameValue
-            }
-          };
-        }
-      }
-    }
-    '
+    'paletteCategories.sort(function(a,b){ var an=(a&&a.name?String(a.name):"").toLowerCase(); var bn=(b&&b.name?String(b.name):"").toLowerCase(); if(an<bn) return -1; if(an>bn) return 1; return 0; });
+    resultInfo.categories = paletteCategories.length;
+    resultInfo.returned = paletteItemCount;
+    resultInfo.limit = paletteLimit > 0 ? paletteLimit : null;
+    resultInfo.startIndex = paletteStartIndex || 0;
+    resultInfo.cursorInput = paletteCursorInput || "";
+    resultInfo.hasMore = paletteHasMore === true;
+    if (paletteItemCount <= 0) { resultInfo.hasMore = false; paletteHasMore = false; paletteNextCursor = ""; }
+    resultInfo.nextCursor = resultInfo.hasMore ? (paletteNextCursor || String((paletteStartIndex || 0) + paletteItemCount)) : "";
+    resultInfo.truncated = resultInfo.hasMore;
+    resultInfo.totalMatches = paletteTotalMatches || (paletteStartIndex || 0) + paletteItemCount;'
 ↓AttachSummaries [steps.SimpleStep-1763472890752]: 
   comment: Annotate entries with property/template counts
   expression: |

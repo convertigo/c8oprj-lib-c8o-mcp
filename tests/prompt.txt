@@ -1,18 +1,1 @@
-Call `resources/list`, then read `convertigo_sequence_quickstart`, `convertigo_context_api`, and `convertigo_mcp_usage`. Then continue with this plan.
-
-**Goal**: demonstrate mixing an HTTP connector and a sequence in project `codex_test`.
-
-1) Create an HTTP connector `http_demo` with one transaction `get_ip` (GET). URL: `https://httpbin.org/ip`. No auth. Output: we just need the JSON body.
-
-2) Create a sequence `fetch_ip_info` with one request variable `note` (string, optional). Steps:
-- Call the transaction `http_demo.get_ip`.
-- Parse the JSON response to extract the IP (`origin` field). If the HTTP call fails (e.g., offline), return `{"error":"unreachable"}` but keep the sequence working.
-- Build a JSON response object with:
-  - `ip`: the extracted IP (string, or `"unknown"` if missing),
-  - `note`: echo the input `note` (string, default empty),
-  - `source`: `"httpbin.org/ip"`,
-  - `timestamp`: current time in ISO string (JS ok).
-
-3) Tests (mandatory, via MCP only): run `tools/call convertigo.requestable-execute {"requestable":"codex_test.fetch_ip_info","variables":"{\"note\":\"demo\"}"}`. Keep the final proof in the run log. If the HTTP call is sandboxed/offline, still return the fallback JSON and mention it in the summary.
-
-4) End the run with a short "MCP critique": what was confusing, which tools felt missing, and any UX improvements.
+Lis seulement `convertigo_mcp_usage`, puis crée dans `codex_test` une séquence `ip_info` qui retourne la réponse de `https://api.ipify.org?format=json` (fallback si échec). Utilise uniquement les outils MCP (pas de commandes locales) et respecte l’input schema (`related` attendu). Teste via MCP et finis par une critique du MCP.
