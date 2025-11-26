@@ -1,5 +1,8 @@
 accessibility: Private
 comment: Handles MCP tools/list calls
+↓IncludeHelpers [steps.SimpleStep-1764146027920]: 
+  comment: Load helpers
+  expression: include("js/databaseobject.js");
 ↓ParseParams [steps.SimpleStep-1762961037030]: 
   comment: Extract limit from paramsJson
   expression: |

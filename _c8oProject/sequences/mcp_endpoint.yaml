@@ -253,40 +253,42 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: result
-          ↓content [steps.JsonArrayStep-1762256103122]: 
-            key: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                - SmartType: 
-                  - ↑mode: PLAIN
-                  - →→: content
-            ↓object [steps.JsonObjectStep-1762256115264]: 
-              ↓type [steps.JsonFieldStep-1762256119272]: 
-                key: 
-                  - xmlizable: 
-                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType: 
-                      - ↑mode: PLAIN
-                      - →→: type
-                value: 
-                  - xmlizable: 
-                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType: 
-                      - ↑mode: PLAIN
-                      - →→: text
-              ↓text [steps.JsonFieldStep-1762256131812]: 
-                key: 
-                  - xmlizable: 
-                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType: 
-                      - ↑mode: PLAIN
-                      - →→: text
-                value: 
-                  - xmlizable: 
-                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType: 
-                      - ↑mode: JS
-                      - →→: JSON.stringify(result)
+          ↓ContentIf [steps.IfStep-1764145963070]: 
+            condition: '!(notEmpty(jsonOnly) && String(jsonOnly).toLowerCase() === "true")'
+            ↓content [steps.JsonArrayStep-1762256103122]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: content
+              ↓object [steps.JsonObjectStep-1762256115264]: 
+                ↓type [steps.JsonFieldStep-1762256119272]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: type
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: text
+                ↓text [steps.JsonFieldStep-1762256131812]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: text
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: JSON.stringify(result)
           ↓structuredContent [steps.JsonObjectStep-1762256231591]: 
             key: 
               - xmlizable: 
@@ -355,3 +357,5 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
   comment: JSON-RPC request payload
   required: true
   value: 
+↓jsonOnly [variables.RequestableVariable-1764145954690]: 
+  comment: Set to true to hide content[]

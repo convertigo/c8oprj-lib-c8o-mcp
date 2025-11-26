@@ -3,6 +3,9 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
 ↓IncludeHelpers [steps.SimpleStep-1763034294509]: 
   comment: Load shared palette helpers
   expression: include("js/palette.js");
+↓IncludeHelpers1 [steps.SimpleStep-1764146036793]: 
+  comment: Load helpers
+  expression: include("js/databaseobject.js");
 ↓InitContext [steps.SimpleStep-1762338110018]: 
   comment: Prepare helpers and resolve parent
   expression: |

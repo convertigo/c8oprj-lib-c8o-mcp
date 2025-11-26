@@ -194,6 +194,14 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;jsonOnly
+</td>
+<td>
+Set to true to hide content[]
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;request
 </td>
 <td>
@@ -864,12 +872,12 @@ Reference update mode: update_none (default), update_local, update_all
 
 </p></blockquote></details>
 
-<details><summary><b>tools_databaseobject_schema</b></summary><blockquote><p>
+<details><summary><b>tools_databaseobject_schema</b> : Returns schema/sample for a database object (qname)</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_databaseobject_schema
 
-
+Returns schema/sample for a database object (qname). Supports type=xml|json|jsonschema and internal=true to get request schemas. Omits empty fields.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -887,7 +895,7 @@ comment
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;internal
 </td>
 <td>
-
+Set true to fetch request schema instead of response (for requestables).
 </td>
 </tr>
 <tr>
@@ -895,7 +903,7 @@ comment
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
 </td>
 <td>
-
+Database object QName (project[.path...])
 </td>
 </tr>
 <tr>
@@ -903,7 +911,7 @@ comment
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;type
 </td>
 <td>
-
+Schema output type: xml|json|jsonschema (default xml).
 </td>
 </tr>
 </table>
@@ -1351,6 +1359,14 @@ comment
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;jsonOnly
+</td>
+<td>
+
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/bodyparameter_color_16x16.png?raw=true "  alt="BodyParameter" >&nbsp;request
 </td>
 <td>
@@ -1398,6 +1414,14 @@ name
 <th>
 comment
 </th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;jsonOnly
+</td>
+<td>
+
+</td>
 </tr>
 <tr>
 <td>

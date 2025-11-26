@@ -5,6 +5,16 @@ try {
 } catch (_p) {
   paramsJson = "{}";
 }
+
+// Minimal helper to avoid duplicating truthy checks in sequences.
+if (typeof notEmpty === "undefined") {
+  function notEmpty(value) {
+    return value !== null && value !== undefined && String(value).length > 0;
+  }
+}
+if (typeof C8O !== "undefined" && C8O.util) {
+  C8O.util.notEmpty = C8O.util.notEmpty || notEmpty;
+}
 var metaObject = paramsObject && typeof paramsObject._meta === "object" ? paramsObject._meta : null;
 var metaNextCursor = metaObject && metaObject.nextCursor !== undefined ? metaObject.nextCursor : null;
 var metaProgressToken = metaObject && metaObject.progressToken !== undefined ? metaObject.progressToken : null;

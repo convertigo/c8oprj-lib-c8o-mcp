@@ -9,3 +9,6 @@ path: /mcp/
     inputContent: noConvert
     mappedVariableName: request
     required: true
+  ↓jsonOnly [rest.QueryParameter-1764154409088]: 
+    mappedVariableName: jsonOnly
+    value: false

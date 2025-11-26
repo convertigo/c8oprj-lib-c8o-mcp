@@ -1,5 +1,8 @@
 accessibility: Private
 comment: Lists installed Convertigo projects with metadata for MCP admin tooling.
+↓IncludeHelpers [steps.SimpleStep-1764146020068]: 
+  comment: Load helpers
+  expression: include("js/databaseobject.js");
 ↓Init [steps.SimpleStep-1761646433174]: 
   comment: Collect project metadata for JSON output
   expression: |
@@ -233,7 +236,7 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
           - ↑mode: JS
           - →→: 'summary != null ? summary.get("total") : 0'
   ↓NextCursorIf [steps.IfStep-1763569660028]: 
-    condition: notEmpty(nextCursorToken)
+    condition: nextCursorToken != null && String(nextCursorToken).length > 0
     ↓NextCursor [steps.JsonFieldStep-1763569666433]: 
       key: 
         - xmlizable: 

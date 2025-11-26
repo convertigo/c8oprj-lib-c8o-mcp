@@ -56,16 +56,11 @@ Following this loop ensures you catch errors (missing variables, typos, context 
 - For explicit failures, set a clear status/message via steps (`SetResponseStatusStep` + `ErrorStep` or a JSON reply) then `ReturnStep` to stop.
 - Let engine exceptions surface (they appear in the MCP response); don’t attempt to swallow them in scripts.
 
-### HTTP connectors (quick reminder)
+### HTTP connectors
 
-- Base URL: scheme + host, no trailing slash (e.g., `https://httpbin.org`).
-- Transaction subPath: starts with `/` (e.g., `/ip`). Final URL = base + subPath (avoid `//`).
-- Turn `httpInfo=true` while building and test the transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` before wiring it into a sequence.
-- HTTP connectors: base URL = scheme+host without trailing slash; subPath starts with `/` and is appended to the connector rootPath (avoid `//`). Enable `httpInfo=true` and test the transaction via `requestable-execute` before using it in a sequence.
-- To pick XPaths quickly, call `databaseobject-schema` on the target step/transaction to get XML/JSON samples instead of guessing sources.
-- HTTP fallback: there is no global  continue on error toggle on request steps; wrap HTTP calls in If/Then/Else (or JIf) and return a fallback JSON when the call fails. Enable httpInfo=true while debugging.
-- If databaseobject-create with mode=after fails with decoding error, create with mode=inside then reorder via databaseobject-move.
-- After each create/properties-set, run `requestable-execute` (sequence or the underlying transaction) to validate immediately. For HTTP connectors, see `convertigo_transaction_quickstart` and test the transaction first.
+Keep this guide focused on sequences: for HTTP setup (URL, https/port, httpInfo, schema recording), **read `convertigo_transaction_quickstart` first**, then come back to wire the CallTransaction step and any fallback branch.
+
+CallTransaction / CallSequence best practice: keep `output=false` and map only what you need into your JSON/XML using `JsonObject`/`JsonField` (or `XMLCopy`) after the call. This is far easier once the transaction schema has been learned via `requestable-execute ... recordSchema=true`.
 
 
 
