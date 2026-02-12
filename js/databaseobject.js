@@ -415,6 +415,23 @@ C8O.dbo._isClass = function (className, value) {
   }
 };
 
+C8O.dbo._isValueAssignableToType = function (propertyType, value) {
+  if (value === null || value === undefined || propertyType == null) {
+    return true;
+  }
+  try {
+    return propertyType.isInstance(value);
+  } catch (_ignoreAssignable) {
+    try {
+      var typeName = propertyType.getName ? String(propertyType.getName()) : "";
+      var valueName = value.getClass ? String(value.getClass().getName()) : "";
+      return typeName.length > 0 && typeName === valueName;
+    } catch (_ignoreAssignableName) {
+      return false;
+    }
+  }
+};
+
 C8O.dbo._isSmartTypeClass = function (propertyType) {
   if (propertyType == null) {
     return false;
@@ -443,6 +460,23 @@ C8O.dbo._isXMLVectorClass = function (propertyType) {
     try {
       var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
       return className === 'com.twinsoft.convertigo.beans.common.XMLVector';
+    } catch (_ignoreName) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._isFormatedContentClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var contentClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.FormatedContent');
+    return contentClass.isAssignableFrom(propertyType);
+  } catch (_ignoreContent) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === 'com.twinsoft.convertigo.beans.common.FormatedContent';
     } catch (_ignoreName) {
       return false;
     }
@@ -503,6 +537,14 @@ C8O.dbo.normalizeValue = function (pd, value) {
     return C8O.dbo._normalizeXMLVector(value);
   }
 
+  if (C8O.dbo._isFormatedContentClass(propertyType) || C8O.dbo._isClass('com.twinsoft.convertigo.beans.common.FormatedContent', value) || (value != null && value.getClass && String(value.getClass().getName()) === 'com.twinsoft.convertigo.beans.common.FormatedContent')) {
+    try {
+      return String(value.getString ? value.getString() : value);
+    } catch (_ignoreContentString) {
+      return String(value);
+    }
+  }
+
   if (value instanceof Packages.java.lang.Number) {
     return Number(value);
   }
@@ -559,6 +601,93 @@ C8O.dbo._buildXMLVector = function (items) {
     }
   }
   return vector;
+};
+
+C8O.dbo._extractFormatedContentString = function (spec) {
+  if (spec === null || spec === undefined) {
+    return "";
+  }
+
+  if (typeof spec === "string") {
+    var trimmed = spec.trim();
+    if (trimmed.length && (trimmed.charAt(0) === '"' || trimmed.charAt(0) === "{" || trimmed.charAt(0) === "[")) {
+      try {
+        var parsed = JSON.parse(trimmed);
+        if (parsed !== spec) {
+          return C8O.dbo._extractFormatedContentString(parsed);
+        }
+      } catch (_ignoreParseContent) {}
+    }
+    return spec;
+  }
+
+  if (typeof spec === "number" || typeof spec === "boolean") {
+    return String(spec);
+  }
+
+  if (C8O.dbo._isClass('com.twinsoft.convertigo.beans.common.FormatedContent', spec)) {
+    try {
+      return String(spec.getString());
+    } catch (_ignoreContentClass) {
+      return String(spec);
+    }
+  }
+
+  if (typeof spec === "object") {
+    if (spec.root && spec.data !== undefined) {
+      return C8O.dbo._extractFormatedContentString(spec.data);
+    }
+    if (spec["→"] !== undefined) {
+      return String(spec["→"]);
+    }
+    if (spec.content !== undefined) {
+      return String(spec.content);
+    }
+    if (spec.value !== undefined) {
+      return String(spec.value);
+    }
+    if (spec.text !== undefined) {
+      return String(spec.text);
+    }
+    if (spec.expression !== undefined) {
+      return String(spec.expression);
+    }
+    if (spec.data !== undefined) {
+      return C8O.dbo._extractFormatedContentString(spec.data);
+    }
+    var classKey = "com.twinsoft.convertigo.beans.common.FormatedContent";
+    if (spec[classKey] !== undefined) {
+      return C8O.dbo._extractFormatedContentString(spec[classKey]);
+    }
+    if (spec.xmlizable && Array.isArray(spec.xmlizable)) {
+      for (var i = 0; i < spec.xmlizable.length; i++) {
+        var entry = spec.xmlizable[i];
+        if (entry && typeof entry === "object") {
+          if (entry[classKey] !== undefined) {
+            return C8O.dbo._extractFormatedContentString(entry[classKey]);
+          }
+          if (entry["→"] !== undefined) {
+            return String(entry["→"]);
+          }
+        }
+      }
+    }
+    try {
+      return JSON.stringify(spec);
+    } catch (_ignoreStringifyContent) {
+      return String(spec);
+    }
+  }
+
+  return String(spec);
+};
+
+C8O.dbo._buildFormatedContent = function (spec) {
+  var FormatedContent = Packages.com.twinsoft.convertigo.beans.common.FormatedContent;
+  if (spec instanceof FormatedContent) {
+    return spec;
+  }
+  return new FormatedContent(C8O.dbo._extractFormatedContentString(spec));
 };
 
 C8O.dbo._buildSmartType = function (spec) {
@@ -633,10 +762,32 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
 
   var propertyNames = Object.keys(updates);
   for (var i = 0; i < propertyNames.length; i++) {
-    var name = propertyNames[i];
+    var requestedName = propertyNames[i];
+    var name = requestedName;
     var pd = descriptorMap[name];
     if (!pd) {
-      skipped.push({ name: name, reason: "Unknown property" });
+      var candidateNames = Object.keys(descriptorMap);
+      var lookup = C8O.util.toTrimmedString(requestedName).toLowerCase();
+      for (var c = 0; c < candidateNames.length && !pd; c++) {
+        var candidateName = candidateNames[c];
+        var candidate = descriptorMap[candidateName];
+        if (candidateName.toLowerCase() === lookup) {
+          name = candidateName;
+          pd = candidate;
+          break;
+        }
+        try {
+          var displayName = candidate.getDisplayName ? String(candidate.getDisplayName() || "") : "";
+          if (displayName.toLowerCase() === lookup) {
+            name = candidateName;
+            pd = candidate;
+            break;
+          }
+        } catch (_ignoreDisplayName) {}
+      }
+    }
+    if (!pd) {
+      skipped.push({ name: requestedName, reason: "Unknown property" });
       continue;
     }
 
@@ -657,7 +808,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       } catch (_ignorePrev) {}
     }
 
-    var rawSpec = updates[name];
+    var rawSpec = updates[requestedName];
     var applyNull = (rawSpec === null || rawSpec === undefined || (rawSpec && rawSpec.__isNull === true));
     var propertyType = pd.getPropertyType();
 
@@ -682,6 +833,9 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       var compiledValue = dbo.compileProperty(propertyType, name, preparedValue);
       if (compiledValue instanceof NativeJavaObject) {
         compiledValue = compiledValue.unwrap();
+      }
+      if (C8O.dbo._isXMLizableClass(propertyType) && preparedValue != null && !C8O.dbo._isValueAssignableToType(propertyType, compiledValue) && C8O.dbo._isValueAssignableToType(propertyType, preparedValue)) {
+        compiledValue = preparedValue;
       }
       setter.invoke(dbo, [compiledValue]);
 
@@ -738,6 +892,9 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   }
   if (propertyTypeName === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType") {
     return C8O.dbo._buildMobileSmartSourceType(rawSpec);
+  }
+  if (C8O.dbo._isFormatedContentClass(propertyType)) {
+    return C8O.dbo._buildFormatedContent(rawSpec);
   }
 
   if (C8O.dbo._isSmartTypeClass(propertyType)) {
@@ -1120,7 +1277,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
 
 
 

@@ -1,0 +1,34 @@
+Call `project-list`, then locate an NGX app root QName (class `ngx.components.ApplicationComponent`) by using `databaseobject-search` on each candidate project if needed.
+
+Run this regression with MCP tools only (no local shell edits):
+
+1. Pick the NGX app root:
+- Prefer `MyVibeProject.Application.NgxApp` if it exists.
+- Otherwise auto-discover the first available NGX app QName.
+- If no NGX app exists, stop and report `SKIPPED: no NGX app found`.
+
+2. Create a temporary `ngx.components.UIStyle` under that NGX app root:
+- name: `CodexStyleRegressionProbe`
+- mode: `inside`
+- autoSave: `true`
+
+3. Test property alias mapping:
+- Call `databaseobject-properties-set` with `{"content":".probe { color: red; }"}`.
+- Read back with `databaseobject-properties-get` and verify `styleContent` equals `.probe { color: red; }`.
+
+4. Test direct property write:
+- Call `databaseobject-properties-set` with `{"styleContent":".probe { color: blue; background: #fff; }"}`.
+- Read back and verify exact equality.
+
+5. Test XMLizable-shaped payload compatibility:
+- Call `databaseobject-properties-set` with:
+  `{"styleContent":{"root":"com.twinsoft.convertigo.beans.common.FormatedContent","data":{"→":".probe { padding: 4px; }"}}}`
+- Read back and verify exact equality.
+
+6. Cleanup:
+- Delete `CodexStyleRegressionProbe` with `databaseobject-delete` (`autoSave=true`).
+- Confirm it no longer exists using `databaseobject-search`.
+
+7. Final output format:
+- `RESULT: PASS` only if all 3 write/read checks passed and cleanup succeeded.
+- Otherwise `RESULT: FAIL` with the failing step and tool response snippets.
