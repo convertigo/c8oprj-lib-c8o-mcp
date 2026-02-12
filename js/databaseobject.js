@@ -875,10 +875,16 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   // Allow SmartType / XMLVector values provided as JSON strings (or any stringified JSON).
   if (typeof rawSpec === "string") {
     var trimmedSpec = rawSpec.trim();
+    var isStringProperty =
+      propertyTypeName === "java.lang.String" ||
+      propertyTypeName === "java.lang.CharSequence";
     var shouldTryParse =
-      C8O.dbo._isSmartTypeClass(propertyType) ||
-      C8O.dbo._isXMLVectorClass(propertyType) ||
-      (trimmedSpec.length && (trimmedSpec.charAt(0) === "{" || trimmedSpec.charAt(0) === "["));
+      !isStringProperty &&
+      (
+        C8O.dbo._isSmartTypeClass(propertyType) ||
+        C8O.dbo._isXMLVectorClass(propertyType) ||
+        (trimmedSpec.length && (trimmedSpec.charAt(0) === "{" || trimmedSpec.charAt(0) === "["))
+      );
     if (shouldTryParse) {
       try {
         rawSpec = JSON.parse(trimmedSpec);
@@ -1277,7 +1283,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
 
 
 
