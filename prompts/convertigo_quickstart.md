@@ -1,6 +1,6 @@
 # Convertigo MCP Quickstart
 
-Before sending MCP calls, read the exposed resources via `resources/list` (especially `convertigo_mcp_usage`, `convertigo_sequence_quickstart`, and `convertigo_context_api`). They explain the safe patterns the engine enforces.
+Before sending MCP calls, read the exposed resources via `resources/list` (especially `convertigo_mcp_usage`, `convertigo_sequence_quickstart`, `convertigo_ui_building_quickstart`, and `convertigo_context_api`). They explain the safe patterns the engine enforces.
 
 ## What is Convertigo?
 - Low-code / full-code platform built around *projects*. Each project contains **sequences** (workflow logic) and **database objects** (connectors, transactions, steps, UI components).
@@ -40,8 +40,11 @@ Before sending MCP calls, read the exposed resources via `resources/list` (espec
 
 ## Best practices
 - Start every session with `resources/list` + `resources/read` for the guides above; add a short recap in your reasoning.
+- For large UI tasks, follow the "Fast Execution Mode" from `convertigo_ui_building_quickstart`: plan first, batch logical writes with `autoSave=false`, then one final save + verification.
+- For page builds, compute the full mutation plan in one planning round, execute by DAG levels with maximum safe parallel batching, and retry failures from a residual queue only.
 - QNames are case-sensitive: run `project-list`, then `databaseobject-children` on `<project>` (no `.sq`) to copy the exact casing before create/mutate.
 - Create/modify via `palette-list` -> `palette-describe` -> `databaseobject-create`/`databaseobject-properties-set`; consult `propertyHints[].llmHint` or `databaseobject-properties-get includeHints=true` before posting SmartType/XMLVector values.
+- For UI composition, do not use `ngx.components.UICustom` (Fragment) unless no palette-native solution exists; Fragment is last resort only.
 - Prefer `requestable-execute` for tests; use curl only if explicitly requested and reachable.
 - Keep Rhino code small and reusable (`js/*.js` + `include()`); never add custom fields to `context`.
 - End each run with a short MCP critique (confusing responses, missing tools, UX gaps).
