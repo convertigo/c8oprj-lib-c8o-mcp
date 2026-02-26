@@ -101,6 +101,7 @@ comment: |
     var saveFlag = parseBoolean(save, false);
     var structuralFlag = parseBoolean(structural, false);
     var skipProjectCheckFlag = parseBoolean(skipProjectCheck, false);
+    var disableAutoBuildFlag = parseBoolean(disableAutoBuild, true);
     var waitForCompletionFlag = parseBoolean(waitForCompletion, false);
     var asyncFlag = !waitForCompletionFlag;
     var processPid = 0;
@@ -159,6 +160,9 @@ comment: |
       }
       if (skipProjectCheckFlag) {
         command.add("--skip-project-check");
+      }
+      if (disableAutoBuildFlag) {
+        command.add("--disable-auto-build");
       }
       if (endpointText.length) {
         command.add("--endpoint");
@@ -262,6 +266,7 @@ comment: |
     resultSave = saveFlag;
     resultStructural = structuralFlag;
     resultSkipProjectCheck = skipProjectCheckFlag;
+    resultDisableAutoBuild = disableAutoBuildFlag;
     resultWaitForCompletion = waitForCompletionFlag;
     resultAsync = asyncFlag;
     resultPid = processPid;
@@ -464,6 +469,20 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: resultSkipProjectCheck
+  ↓disableAutoBuild [steps.JsonFieldStep-1772114800001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: disableAutoBuild
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultDisableAutoBuild
   ↓waitForCompletion [steps.JsonFieldStep-1764246901181]: 
     key: 
       - xmlizable: 
@@ -630,7 +649,7 @@ comment: |
   value: false
 ↓refresh [variables.RequestableVariable-1764246901157]: 
   comment: Set to true to call internal studio refresh after each changed object.
-  value: false
+  value: true
 ↓save [variables.RequestableVariable-1764246901159]: 
   comment: Set to true to save project after apply.
   value: false
@@ -640,6 +659,9 @@ comment: |
 ↓skipProjectCheck [variables.RequestableVariable-1764246901163]: 
   comment: Set to true to skip project-list availability check.
   value: false
+↓disableAutoBuild [variables.RequestableVariable-1772114800002]: 
+  comment: Set to true to temporarily disable Studio auto-build during apply and restore it at end.
+  value: true
 ↓waitForCompletion [variables.RequestableVariable-1764246901175]: 
   comment: Set to true to run synchronously and wait for script completion.
   value: false

@@ -68,6 +68,9 @@ Streamable HTTP entry point for MCP requests
 <th>name</th><th>comment</th>
 </tr>
 <tr>
+<td>jsonOnly</td><td></td>
+</tr>
+<tr>
 <td>request</td><td>JSON-RPC request body</td>
 </tr>
 </table>
@@ -87,6 +90,9 @@ Streamable HTTP entry point for MCP requests
 <table>
 <tr>
 <th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>jsonOnly</td><td></td>
 </tr>
 <tr>
 <td>request</td><td>JSON-RPC request body</td>

@@ -27,6 +27,7 @@ Current scope:
   - databaseobject-properties-set
   - databaseobject-create/delete/move (optional structural sync)
   - requestable-execute (optional internal_studio_refresh)
+  - requestable-execute (optional internal_studio_autobuild)
   - project-save (optional)
 """
 
@@ -72,6 +73,46 @@ def to_abs(path: str | Path, cwd: Path | None = None) -> Path:
 def bean_name_from_key(key: str) -> str:
     m = BEAN_KEY_RE.match(key)
     return m.group(1) if m else key
+
+
+def strip_runtime_name_prefix(name: str) -> str:
+    text = str(name)
+    if ":" in text:
+        return text.split(":", 1)[1]
+    return text
+
+
+def build_runtime_name_to_entry(runtime_children: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    by_name: dict[str, dict[str, Any]] = {}
+    alias_conflicts: set[str] = set()
+
+    for child in runtime_children:
+        raw_name = str(child.get("name") or "")
+        if not raw_name:
+            continue
+        # Keep raw runtime names as canonical keys.
+        by_name.setdefault(raw_name, child)
+
+    for child in runtime_children:
+        raw_name = str(child.get("name") or "")
+        if not raw_name:
+            continue
+        alias = strip_runtime_name_prefix(raw_name)
+        if alias == raw_name:
+            continue
+        existing = by_name.get(alias)
+        if existing is None:
+            by_name[alias] = child
+            continue
+        if existing.get("qname") != child.get("qname"):
+            alias_conflicts.add(alias)
+
+    for alias in alias_conflicts:
+        # Keep only explicit runtime key in case of ambiguity.
+        if alias in by_name and strip_runtime_name_prefix(alias) == alias:
+            by_name.pop(alias, None)
+
+    return by_name
 
 
 def parse_scalar(value: str) -> Any:
@@ -135,7 +176,18 @@ def parse_json_value(value: Any) -> Any | None:
         if not isinstance(parsed, str):
             return None
         text = parsed.strip()
-        if not text or text[0] not in "[{":
+        if not text:
+            return None
+        if len(text) >= 2 and text[0] == "'" and text[-1] == "'":
+            parsed = text[1:-1].replace("''", "'")
+            continue
+        if text[0] == '"':
+            try:
+                parsed = json.loads(text)
+                continue
+            except Exception:
+                return None
+        if text[0] not in "[{":
             return None
         try:
             parsed = json.loads(text)
@@ -1135,12 +1187,23 @@ def class_names_match(runtime_class: str, desired_class: str | None) -> bool:
     return False
 
 
-def call_refresh(client: McpClient, qname: str) -> str:
+def runtime_node_exists(client: McpClient, qname: str) -> bool:
+    try:
+        client.tool_call("databaseobject-properties-get", {"qname": qname, "limit": "1"})
+        return True
+    except Exception:
+        return False
+
+
+def call_refresh(client: McpClient, qname: str, changed_properties: list[str] | None = None) -> str:
+    variables: dict[str, Any] = {"qname": qname}
+    if changed_properties:
+        variables["changedProperties"] = ",".join(str(p).strip() for p in changed_properties if str(p).strip())
     refresh = client.tool_call(
         "requestable-execute",
         {
             "requestable": "ConvertigoMCP.internal_studio_refresh",
-            "variables": json.dumps({"qname": qname}),
+            "variables": json.dumps(variables),
         },
     )
     if isinstance(refresh, dict):
@@ -1148,6 +1211,28 @@ def call_refresh(client: McpClient, qname: str) -> str:
         if isinstance(inner, dict):
             return str(inner.get("status", "")) or "requested"
     return "requested"
+
+
+def call_studio_autobuild(
+    client: McpClient,
+    project_name: str,
+    enabled: bool | None = None,
+) -> dict[str, Any]:
+    variables: dict[str, Any] = {"project": project_name}
+    if enabled is not None:
+        variables["enabled"] = "true" if enabled else "false"
+    result = client.tool_call(
+        "requestable-execute",
+        {
+            "requestable": "ConvertigoMCP.internal_studio_autobuild",
+            "variables": json.dumps(variables),
+        },
+    )
+    if isinstance(result, dict):
+        inner = result.get("result")
+        if isinstance(inner, dict):
+            return inner
+    return {}
 
 
 def apply_structural_for_parent(
@@ -1180,7 +1265,7 @@ def apply_structural_for_parent(
         )
         return 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
 
-    runtime_by_name = {c["name"]: c for c in runtime_children}
+    runtime_by_name = build_runtime_name_to_entry(runtime_children)
     desired_by_name = {c.name: c for c in desired_children}
     desired_order = [c.name for c in desired_children]
 
@@ -1209,7 +1294,9 @@ def apply_structural_for_parent(
 
     # Deletions of removed children.
     for runtime in runtime_children:
-        if runtime["name"] not in desired_by_name:
+        runtime_name = str(runtime["name"])
+        runtime_alias = strip_runtime_name_prefix(runtime_name)
+        if runtime_name not in desired_by_name and runtime_alias not in desired_by_name:
             to_delete_qnames.append(runtime["qname"])
 
     # De-duplicate while keeping order.
@@ -1257,7 +1344,9 @@ def apply_structural_for_parent(
     runtime_children_after, w2 = get_runtime_children(client, parent_qname)
     warnings.extend(w2)
     current_order = [c["name"] for c in runtime_children_after]
-    name_to_qname = {c["name"]: c["qname"] for c in runtime_children_after}
+    name_to_qname = {
+        name: entry["qname"] for name, entry in build_runtime_name_to_entry(runtime_children_after).items()
+    }
 
     if dry_run:
         for child in to_create:
@@ -1367,6 +1456,7 @@ def sync_yaml_node(
     warnings_out: list[str],
 ) -> None:
     node_changed = False
+    changed_props_for_refresh: list[str] = []
 
     child_qname_map: dict[str, str] = {}
     if structural:
@@ -1389,7 +1479,9 @@ def sync_yaml_node(
         try:
             runtime_children, warnings = get_runtime_children(client, node_qname)
             warnings_out.extend(warnings)
-            child_qname_map = {entry["name"]: entry["qname"] for entry in runtime_children}
+            child_qname_map = {
+                name: entry["qname"] for name, entry in build_runtime_name_to_entry(runtime_children).items()
+            }
         except Exception as exc:
             warnings_out.append(f"{node_qname}: unable to list runtime children: {exc}")
             child_qname_map = {}
@@ -1403,6 +1495,7 @@ def sync_yaml_node(
             updates = {}
         if updates:
             keys = ", ".join(sorted(updates.keys()))
+            changed_props_for_refresh = sorted(updates.keys())
             if dry_run:
                 print(f"DRY-RUN {node_qname}: would update [{keys}]")
                 stats.property_updates += len(updates)
@@ -1436,7 +1529,9 @@ def sync_yaml_node(
 
     if refresh and node_changed:
         try:
-            status = call_refresh(client, node_qname) if not dry_run else "requested"
+            status = (
+                call_refresh(client, node_qname, changed_props_for_refresh) if not dry_run else "requested"
+            )
             print(f"REFRESH {node_qname}: {status}")
         except Exception as exc:
             warnings_out.append(f"{node_qname}: refresh failed: {exc}")
@@ -1447,6 +1542,10 @@ def sync_yaml_node(
             continue
         child_qname = child_qname_map.get(child.name)
         if child_qname is None:
+            if structural and dry_run:
+                # In dry-run mode, missing children may be planned creates.
+                # Skip descending into non-existing subtrees to avoid false warnings.
+                continue
             if structural:
                 child_qname = f"{node_qname}.{child.name}"
             else:
@@ -1454,6 +1553,9 @@ def sync_yaml_node(
                     f"{node_qname}: child '{child.name}' missing runtime node and structural sync disabled; subtree skipped"
                 )
                 continue
+        if structural and dry_run and not runtime_node_exists(client, child_qname):
+            # Skip transient/stale qnames during dry-run reconciliation.
+            continue
         sync_yaml_node(
             client=client,
             node=child,
@@ -1517,6 +1619,11 @@ def main(argv: list[str]) -> int:
         "--skip-project-check",
         action="store_true",
         help="Skip project-list pre-check (by default script fails fast if target project is not available on MCP endpoint).",
+    )
+    parser.add_argument(
+        "--disable-auto-build",
+        action="store_true",
+        help="Temporarily set Studio mobile builder auto-build OFF during apply, then restore previous state.",
     )
     args = parser.parse_args(argv)
 
@@ -1604,56 +1711,101 @@ def main(argv: list[str]) -> int:
             )
             return 2
 
-    stats = SyncStats()
-    all_warnings: list[str] = list(parse_warnings)
-    for qname, names in sorted(unsupported_by_qname.items()):
-        if not names:
-            continue
-        preview = ", ".join(sorted(names)[:8])
-        if len(names) > 8:
-            preview += ", ..."
-        all_warnings.append(
-            f"{qname}: ignored {len(names)} complex property key(s) not yet auto-synced ({preview})"
-        )
+    restore_auto_build: bool | None = None
+    preflight_warnings: list[str] = []
 
-    for qname in sorted(parsed_roots.keys(), key=lambda q: q.count(".")):
+    if args.disable_auto_build and not args.dry_run:
         try:
-            sync_yaml_node(
-                client=client,
-                node=parsed_roots[qname],
-                node_qname=qname,
-                dry_run=args.dry_run,
-                structural=args.structural,
-                refresh=args.refresh,
-                stats=stats,
-                warnings_out=all_warnings,
-            )
+            auto_build_state = call_studio_autobuild(client, project_name, enabled=False)
+            status = str(auto_build_state.get("status") or "").strip().lower()
+            message = str(auto_build_state.get("message") or "").strip()
+            if status == "ok":
+                previous = auto_build_state.get("previousEnabled")
+                current = auto_build_state.get("currentEnabled")
+                if isinstance(previous, bool):
+                    restore_auto_build = previous
+                prev_text = "ON" if bool(previous) else "OFF"
+                curr_text = "ON" if bool(current) else "OFF"
+                print(f"AUTOBUILD {project_name}: set OFF (previous={prev_text}, current={curr_text})")
+            elif status == "skipped":
+                preflight_warnings.append(
+                    f"{project_name}: auto-build toggle skipped" + (f" ({message})" if message else "")
+                )
+            else:
+                preflight_warnings.append(
+                    f"{project_name}: auto-build toggle failed" + (f" ({message})" if message else "")
+                )
         except Exception as exc:
-            eprint(f"ERROR: sync failed for {qname}: {exc}")
-            return 2
+            preflight_warnings.append(f"{project_name}: auto-build toggle failed: {exc}")
 
-    for warning in all_warnings:
-        eprint(f"WARN: {warning}")
+    try:
+        stats = SyncStats()
+        all_warnings: list[str] = list(parse_warnings)
+        all_warnings.extend(preflight_warnings)
+        for qname, names in sorted(unsupported_by_qname.items()):
+            if not names:
+                continue
+            preview = ", ".join(sorted(names)[:8])
+            if len(names) > 8:
+                preview += ", ..."
+            all_warnings.append(
+                f"{qname}: ignored {len(names)} complex property key(s) not yet auto-synced ({preview})"
+            )
 
-    if args.dry_run:
+        for qname in sorted(parsed_roots.keys(), key=lambda q: q.count(".")):
+            try:
+                sync_yaml_node(
+                    client=client,
+                    node=parsed_roots[qname],
+                    node_qname=qname,
+                    dry_run=args.dry_run,
+                    structural=args.structural,
+                    refresh=args.refresh,
+                    stats=stats,
+                    warnings_out=all_warnings,
+                )
+            except Exception as exc:
+                eprint(f"ERROR: sync failed for {qname}: {exc}")
+                return 2
+
+        for warning in all_warnings:
+            eprint(f"WARN: {warning}")
+
+        if args.dry_run:
+            print(
+                f"Dry-run completed: {stats.structural_ops} structural operation(s), {stats.property_updates} property update(s) detected."
+            )
+            return 0
+
+        if args.save and stats.touched_qnames:
+            try:
+                save_res = client.tool_call("project-save", {"project": project_name})
+                save_status = str(save_res.get("status", ""))
+                print(f"SAVE {project_name}: {save_status or 'done'}")
+            except Exception as exc:
+                eprint(f"ERROR: project-save failed: {exc}")
+                return 2
+
         print(
-            f"Dry-run completed: {stats.structural_ops} structural operation(s), {stats.property_updates} property update(s) detected."
+            f"Completed: {len(stats.touched_qnames)} object(s) touched, {stats.structural_ops} structural operation(s), {stats.property_updates} property update(s) applied."
         )
         return 0
-
-    if args.save and stats.touched_qnames:
-        try:
-            save_res = client.tool_call("project-save", {"project": project_name})
-            save_status = str(save_res.get("status", ""))
-            print(f"SAVE {project_name}: {save_status or 'done'}")
-        except Exception as exc:
-            eprint(f"ERROR: project-save failed: {exc}")
-            return 2
-
-    print(
-        f"Completed: {len(stats.touched_qnames)} object(s) touched, {stats.structural_ops} structural operation(s), {stats.property_updates} property update(s) applied."
-    )
-    return 0
+    finally:
+        if restore_auto_build is not None and args.disable_auto_build and not args.dry_run:
+            try:
+                restored = call_studio_autobuild(client, project_name, enabled=restore_auto_build)
+                restored_status = str(restored.get("status") or "").strip().lower()
+                restored_message = str(restored.get("message") or "").strip()
+                if restored_status == "ok":
+                    restored_text = "ON" if restore_auto_build else "OFF"
+                    print(f"AUTOBUILD {project_name}: restored {restored_text}")
+                else:
+                    eprint(
+                        f"WARN: {project_name}: failed to restore auto-build"
+                        + (f" ({restored_message})" if restored_message else "")
+                    )
+            except Exception as exc:
+                eprint(f"WARN: {project_name}: failed to restore auto-build: {exc}")
 
 
 if __name__ == "__main__":

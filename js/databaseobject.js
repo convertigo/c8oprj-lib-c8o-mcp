@@ -432,6 +432,250 @@ C8O.dbo._isValueAssignableToType = function (propertyType, value) {
   }
 };
 
+C8O.dbo._parseJsonLike = function (value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  var text = String(value).trim();
+  if (!text.length) {
+    return null;
+  }
+  // Accept common wrapped forms:
+  // - YAML single-quoted payloads: '{...}'
+  // - JSON string payloads: "{\"ionBean\":\"ToastAction\"}"
+  // - nested JSON string wrappers (double encoding)
+  for (var i = 0; i < 4; i++) {
+    if (!text.length) {
+      return null;
+    }
+
+    if (text.length >= 2 && text.charAt(0) === "'" && text.charAt(text.length - 1) === "'") {
+      text = text.substring(1, text.length - 1).replace(/''/g, "'").trim();
+      continue;
+    }
+
+    var first = text.charAt(0);
+    if (first === "{" || first === "[") {
+      try {
+        var parsedJson = JSON.parse(text);
+        if (typeof parsedJson === "string") {
+          text = String(parsedJson).trim();
+          continue;
+        }
+        return parsedJson && typeof parsedJson === "object" ? parsedJson : null;
+      } catch (_ignoreParseJsonLike) {
+        return null;
+      }
+    }
+
+    if (first === "\"") {
+      try {
+        var unwrapped = JSON.parse(text);
+        if (typeof unwrapped === "string") {
+          text = String(unwrapped).trim();
+          continue;
+        }
+        return unwrapped && typeof unwrapped === "object" ? unwrapped : null;
+      } catch (_ignoreParseJsonString) {
+        return null;
+      }
+    }
+
+    return null;
+  }
+  return null;
+};
+
+C8O.dbo._normalizeIonPropertyToken = function (token) {
+  var mode = "plain";
+  var value = token;
+  if (token == null) {
+    return { mode: mode, value: null };
+  }
+  if (typeof token === "string") {
+    var m = token.match(/^([A-Za-z][A-Za-z0-9_-]*):(.*)$/);
+    if (m) {
+      var candidateMode = String(m[1] || "").toLowerCase();
+      if (candidateMode === "plain" || candidateMode === "script" || candidateMode === "source") {
+        mode = candidateMode;
+        value = m[2];
+      }
+    }
+    return { mode: mode, value: value };
+  }
+  if (typeof token === "object") {
+    if (token.mode !== undefined && token.value !== undefined) {
+      return {
+        mode: String(token.mode || "plain").toLowerCase() || "plain",
+        value: token.value
+      };
+    }
+    return { mode: mode, value: token };
+  }
+  return { mode: mode, value: token };
+};
+
+C8O.dbo._canonicalizeNgxBeanDataValue = function (rawSpec) {
+  var parsed = C8O.dbo._parseJsonLike(rawSpec);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return rawSpec;
+  }
+
+  var beanName = "";
+  if (parsed.ionBean != null) {
+    beanName = String(parsed.ionBean);
+  } else if (parsed.name != null) {
+    beanName = String(parsed.name);
+  }
+  if (!beanName.length) {
+    return rawSpec;
+  }
+
+  var normalized = {
+    name: beanName,
+    properties: {}
+  };
+
+  if (parsed.properties && typeof parsed.properties === "object" && !Array.isArray(parsed.properties)) {
+    var propertyNames = Object.keys(parsed.properties);
+    for (var i = 0; i < propertyNames.length; i++) {
+      var pName = propertyNames[i];
+      var token = C8O.dbo._normalizeIonPropertyToken(parsed.properties[pName]);
+      normalized.properties[pName] = {
+        name: pName,
+        mode: token.mode,
+        value: token.value
+      };
+    }
+  }
+
+  var keys = Object.keys(parsed);
+  for (var j = 0; j < keys.length; j++) {
+    var key = keys[j];
+    if (key === "ionBean" || key === "name" || key === "properties") {
+      continue;
+    }
+    var propertyToken = C8O.dbo._normalizeIonPropertyToken(parsed[key]);
+    normalized.properties[key] = {
+      name: key,
+      mode: propertyToken.mode,
+      value: propertyToken.value
+    };
+  }
+
+  try {
+    return JSON.stringify(normalized);
+  } catch (_ignoreStringifyBeanData) {
+    return rawSpec;
+  }
+};
+
+C8O.dbo._isDynamicBeanObject = function (dbo) {
+  return (
+    C8O.dbo._isClass("com.twinsoft.convertigo.beans.ngx.components.UIDynamicElement", dbo) ||
+    C8O.dbo._isClass("com.twinsoft.convertigo.beans.mobile.components.UIDynamicElement", dbo)
+  );
+};
+
+C8O.dbo._clearDynamicIonBeanCache = function (dbo) {
+  if (!dbo || !dbo.getClass) {
+    return false;
+  }
+  var clazz = dbo.getClass();
+  while (clazz != null) {
+    try {
+      var field = clazz.getDeclaredField("ionBean");
+      field.setAccessible(true);
+      field.set(dbo, null);
+      return true;
+    } catch (_ignoreField) {}
+    try {
+      clazz = clazz.getSuperclass();
+    } catch (_ignoreSuperclass) {
+      clazz = null;
+    }
+  }
+  return false;
+};
+
+C8O.dbo._reloadDynamicIonBean = function (dbo) {
+  if (!dbo) {
+    return false;
+  }
+  try {
+    var ngxCm = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager;
+    var cm = ngxCm.of(dbo);
+    if (cm != null && typeof dbo.loadBean === "function") {
+      dbo.loadBean(cm);
+      return true;
+    }
+  } catch (_ignoreNgxReload) {}
+  try {
+    var mobileCm = Packages.com.twinsoft.convertigo.beans.mobile.components.dynamic.ComponentManager;
+    var mobile = mobileCm.of(dbo);
+    if (mobile != null && typeof dbo.loadBean === "function") {
+      dbo.loadBean(mobile);
+      return true;
+    }
+  } catch (_ignoreMobileReload) {}
+  return false;
+};
+
+C8O.dbo._syncDynamicBeanCacheAfterBeanData = function (dbo) {
+  if (!C8O.dbo._isDynamicBeanObject(dbo)) {
+    return;
+  }
+  C8O.dbo._clearDynamicIonBeanCache(dbo);
+  C8O.dbo._reloadDynamicIonBean(dbo);
+};
+
+C8O.dbo._expandDynamicBeanDataDefaults = function (dbo, beanDataValue) {
+  if (!C8O.dbo._isDynamicBeanObject(dbo)) {
+    return beanDataValue;
+  }
+  if (typeof beanDataValue !== "string") {
+    return beanDataValue;
+  }
+  var parsed = C8O.dbo._parseJsonLike(beanDataValue);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return beanDataValue;
+  }
+  if (!parsed.name && !parsed.ionBean) {
+    return beanDataValue;
+  }
+
+  var source = beanDataValue;
+  try {
+    var ngxCm = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager;
+    var cm = ngxCm.of(dbo);
+    if (cm != null) {
+      var ionBean = cm.loadBean(source);
+      if (ionBean != null && typeof ionBean.toBeanData === "function") {
+        return String(ionBean.toBeanData());
+      }
+    }
+  } catch (_ignoreExpandNgx) {}
+
+  try {
+    var mobileCm = Packages.com.twinsoft.convertigo.beans.mobile.components.dynamic.ComponentManager;
+    var mobile = mobileCm.of(dbo);
+    if (mobile != null) {
+      var mBean = mobile.loadBean(source);
+      if (mBean != null && typeof mBean.toBeanData === "function") {
+        return String(mBean.toBeanData());
+      }
+    }
+  } catch (_ignoreExpandMobile) {}
+
+  return beanDataValue;
+};
+
 C8O.dbo._isSmartTypeClass = function (propertyType) {
   if (propertyType == null) {
     return false;
@@ -1277,12 +1521,19 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
     }
 
     var rawSpec = updates[requestedName];
+    if (name === "beanData" && C8O.dbo._isDynamicBeanObject(dbo)) {
+      rawSpec = C8O.dbo._canonicalizeNgxBeanDataValue(rawSpec);
+      rawSpec = C8O.dbo._expandDynamicBeanDataDefaults(dbo, rawSpec);
+    }
     var applyNull = (rawSpec === null || rawSpec === undefined || (rawSpec && rawSpec.__isNull === true));
     var propertyType = pd.getPropertyType();
 
     try {
       if (applyNull) {
         setter.invoke(dbo, [null]);
+        if (name === "beanData") {
+          C8O.dbo._clearDynamicIonBeanCache(dbo);
+        }
         if (java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE))) {
           try {
             var setNull = dbo.getClass().getMethod("setNullProperty", [java.lang.String.class, java.lang.Boolean.class]);
@@ -1306,6 +1557,9 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         compiledValue = preparedValue;
       }
       setter.invoke(dbo, [compiledValue]);
+      if (name === "beanData") {
+        C8O.dbo._syncDynamicBeanCacheAfterBeanData(dbo);
+      }
 
       if (java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE))) {
         try {
@@ -1760,10 +2014,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
-
-
-
 
 
 

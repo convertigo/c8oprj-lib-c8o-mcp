@@ -10,6 +10,7 @@
   ↓internal_call_stub [sequences.GenericSequence-1761756735550]: 🗏 sequences/internal_call_stub.yaml
   ↓internal_json_schema [sequences.GenericSequence-1761736078534]: 🗏 sequences/internal_json_schema.yaml
   ↓internal_list_tools_info [sequences.GenericSequence]: 🗏 sequences/internal_list_tools_info.yaml
+  ↓internal_studio_autobuild [sequences.GenericSequence]: 🗏 sequences/internal_studio_autobuild.yaml
   ↓internal_studio_refresh [sequences.GenericSequence]: 🗏 sequences/internal_studio_refresh.yaml
   ↓mcp_endpoint [sequences.GenericSequence]: 🗏 sequences/mcp_endpoint.yaml
   ↓mcp_error_response [sequences.GenericSequence]: 🗏 sequences/mcp_error_response.yaml
@@ -30,7 +31,6 @@
   ↓tools_databaseobject_rename [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_rename.yaml
   ↓tools_databaseobject_schema [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_schema.yaml
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
-  ↓tools_yaml_delta_apply [sequences.GenericSequence-1764246901000]: 🗏 sequences/tools_yaml_delta_apply.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
@@ -39,4 +39,5 @@
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml
+  ↓tools_yaml_delta_apply [sequences.GenericSequence-1764246901000]: 🗏 sequences/tools_yaml_delta_apply.yaml
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml

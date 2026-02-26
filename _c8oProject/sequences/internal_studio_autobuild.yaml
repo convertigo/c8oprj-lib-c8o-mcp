@@ -1,0 +1,234 @@
+accessibility: Private
+comment: Read/set Studio mobile builder auto-build mode for a target project.
+↓InitContext [steps.SimpleStep-1772114900001]: 
+  comment: Resolve project and optionally change auto-build state
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var providedProject = project == null ? "" : String(project).trim();
+    if (!providedProject.length && context && context.project) {
+      providedProject = String(context.project.getName());
+    }
+    var enabledText = enabled == null ? "" : String(enabled).trim();
+    
+    var parseBoolean = function(text) {
+      var lower = String(text).trim().toLowerCase();
+      if (lower === "true" || lower === "1" || lower === "yes" || lower === "on") {
+        return true;
+      }
+      if (lower === "false" || lower === "0" || lower === "no" || lower === "off") {
+        return false;
+      }
+      throw new Error("Invalid boolean value for enabled: " + text);
+    };
+    
+    resultTimestamp = java.lang.System.currentTimeMillis();
+    resultStudioMode = Engine.isStudioMode();
+    resultProject = providedProject;
+    resultHasRequestedEnabled = enabledText.length > 0;
+    resultRequestedEnabled = false;
+    resultPreviousEnabled = false;
+    resultCurrentEnabled = false;
+    resultChanged = false;
+    resultStatus = "error";
+    resultMessage = "";
+    resultError = "";
+    
+    try {
+      if (!resultStudioMode) {
+        resultStatus = "skipped";
+        resultMessage = "Auto-build control skipped: Convertigo Studio required";
+      } else {
+        if (!providedProject.length) {
+          throw new Error("Project name is required");
+        }
+        var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(providedProject);
+        if (projectRef == null) {
+          throw new Error("Project not found: " + providedProject);
+        }
+        var mobileBuilder = projectRef.getMobileBuilder();
+        if (mobileBuilder == null) {
+          throw new Error("Mobile builder unavailable for project: " + providedProject);
+        }
+    
+        var previousEnabled = mobileBuilder.isAutoBuild();
+        resultPreviousEnabled = previousEnabled;
+    
+        if (enabledText.length > 0) {
+          var requestedEnabled = parseBoolean(enabledText);
+          resultRequestedEnabled = requestedEnabled;
+          if (previousEnabled !== requestedEnabled) {
+            mobileBuilder.setAutoBuild(requestedEnabled);
+            resultChanged = true;
+          }
+        }
+    
+        resultCurrentEnabled = mobileBuilder.isAutoBuild();
+        resultStatus = "ok";
+        resultMessage = "Auto-build is " + (resultCurrentEnabled ? "ON" : "OFF");
+      }
+    } catch (autobuildError) {
+      resultStatus = "error";
+      resultMessage = String(autobuildError);
+      resultError = String(autobuildError);
+    }'
+↓result [steps.JsonObjectStep-1772114900002]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1772114900003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1772114900004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓project [steps.JsonFieldStep-1772114900005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultProject
+  ↓studioMode [steps.JsonFieldStep-1772114900006]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: studioMode
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStudioMode
+  ↓hasRequestedEnabled [steps.JsonFieldStep-1772114900007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: hasRequestedEnabled
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultHasRequestedEnabled
+  ↓requestedEnabled [steps.JsonFieldStep-1772114900008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: requestedEnabled
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultRequestedEnabled
+  ↓previousEnabled [steps.JsonFieldStep-1772114900009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: previousEnabled
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultPreviousEnabled
+  ↓currentEnabled [steps.JsonFieldStep-1772114900010]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: currentEnabled
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultCurrentEnabled
+  ↓changed [steps.JsonFieldStep-1772114900011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: changed
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultChanged
+  ↓timestamp [steps.JsonFieldStep-1772114900012]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimestamp
+  ↓error [steps.JsonFieldStep-1772114900013]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: error
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultError
+↓project [variables.RequestableVariable-1772114900014]: 
+  comment: Project technical name (optional). Defaults to current context project.
+↓enabled [variables.RequestableVariable-1772114900015]: 
+  comment: Optional boolean (true/false). When omitted, returns current state only.
