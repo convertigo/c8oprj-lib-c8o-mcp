@@ -1,58 +1,82 @@
 # Convertigo MCP Usage Guide
 
-Ce guide est volontairement concis pour éviter de noyer l’agent. Suis le chemin rapide ci‑dessous, puis les rappels clés.
+This guide is intentionally concise to avoid overwhelming the agent. Follow the fast path below, then the key reminders.
 
-## À suivre strictement (version courte)
-1) `databaseobject-children` sur le parent (copier le QName exact).  
-2) `palette-list` sur ce parent avec filtre ciblé (`Call`/`JSON`/`Request`, `limit` petit). Si `content` est vide, **ne pas paginer** : ajuste le filtre ou passe directement à `palette-describe`.  
-3) `palette-describe` sur `describeClassName` pour obtenir template + hints.  
-4) `databaseobject-create` avec `related` (obligatoire, pas `qname`), `className`, `mode`, `properties` (`{}` si rien).  
-5) Si transaction : `requestable-execute ... recordSchema=true` avant tout câblage SmartType.  
-6) Dans la séquence : CallTransaction/CallSequence en `output=false`, mapping via SmartType + JsonField/XMLCopy. Pas de JS DOM (JS seulement pour des calculs simples). Ne renvoyer que le JSON final.
+## Strictly Follow (Short Version)
+1) Run `databaseobject-children` on the parent (copy the exact QName).  
+2) Run `palette-list` on that parent with a targeted filter (`Call`/`JSON`/`Request`, small `limit`). If `content` is empty, **do not paginate**: adjust the filter or go directly to `palette-describe`.  
+3) Run `palette-describe` on `describeClassName` to get template + hints.  
+4) Prepare the **full mutation plan** (create/set/move/rename/delete) before the first write call.  
+5) Then execute mutations one by one, strictly from that plan (`databaseobject-create` with mandatory `related`, not `qname`).  
+6) If transaction-related: run `requestable-execute ... recordSchema=true` before any SmartType wiring.  
+7) In sequences: use CallTransaction/CallSequence with `output=false`, map through SmartType + JsonField/XMLCopy. No JS DOM (JS only for simple calculations). Return only final JSON.
 
 ## HTTP Endpoints
-- MCP JSON-RPC : `http://localhost:18080/convertigo/api/mcp`
-- Sequence invocation (manuel) : `http://localhost:18080/convertigo/projects/<project>/.json?__sequence=<name>&var=value`
-- Toujours envoyer `MCP-Protocol-Version: 2025-06-18` sur l’endpoint MCP.
+- MCP JSON-RPC: `http://localhost:18080/convertigo/api/mcp`
+- Sequence invocation (manual): `http://localhost:18080/convertigo/projects/<project>/.json?__sequence=<name>&var=value`
+- Always send `MCP-Protocol-Version: 2025-06-18` on the MCP endpoint.
 
 ## Tooling Conventions
-- Préfère les outils MCP (pas d’édition YAML) : create/delete/move/rename, properties-get/set, project-save/reload.
-- Palette :
-  - `palette-list` retourne les essentiels ; enchaîne aussitôt `palette-describe` avec `describeClassName`.
-  - Si `palette-list` est vide, ne pagine pas : change de filtre ou passe à `palette-describe` si la classe est connue.
-- Navigation `databaseobject-children` :
-  - `depth` 1-5, filtres après parcours, pagination via `limit`/`nextCursor`.
-  - Forward `_meta.nextCursor` seulement s’il est non vide.
-- `databaseobject-create` :
-  - `related` obligatoire (QName parent exact), `className` (short bean), `mode` (inside/before/after/lastChild), `properties` objet JSON (`{}` si rien). Ne pas utiliser `qname` ici.
-- `databaseobject-properties-set` :
-  - `properties` doit être un objet JSON (ou une string qui le représente). Jamais de tableau `{name,value}`.
-- `databaseobject-properties-get` :
-  - Vue légère par défaut ; ajoute `includeHints=true` pour les hints détaillés.
-- Séquences :
-  - CallTransaction/CallSequence en `output=false`, mapping via SmartType + JsonField/XMLCopy. Pas de JS DOM ; JS réservé aux calculs simples. Ne renvoyer que le JSON final.
-  - Transactions : exécuter `requestable-execute ... recordSchema=true` avant de câbler les SmartTypes, puis retester après mapping.
-- Sauvegarde : `project-save` (ou `autoSave=true`) après mutation.
-- QNames : sensibles à la casse, sans suffixe `.sq`.
+- Prefer MCP tools (no YAML editing): create/delete/move/rename, properties-get/set, project-save/reload.
+- Required execution mode:
+  - Discovery phase: read-only tools only.
+  - Mutation phase: apply the prepared plan, mutation by mutation.
+  - Verification phase: final checks, then `project-save`.
+- Performance (mandatory):
+  - prepare the entire page/component plan in a single LLM planning round before the first write call.
+  - prepare the complete plan with dependencies (DAG) before the first write call.
+  - execute all independent mutations in parallel batches, using the maximum safe batch width.
+  - keep only parent/child-dependent mutations sequential.
+  - limit intermediate reads; one final verification is enough.
+  - on transport/decode failures, replay only failed mutations from a residual retry queue (without re-running discovery).
+- Auto-correction when execution is too slow:
+  - detect a slow run relative to the mutation count.
+  - on the next run, enable aggressive mode: more parallelism, fewer intermediate checks, reuse known templates.
+  - reduce the plan to the minimum functional scope for the requested test (avoid optional objects).
+  - do not run `project-reload` by default after `project-save` (unless explicitly requested).
+  - define a call budget per run; if exceeded, switch automatically to a minimal profile.
+  - minimal benchmark profile: `Page` + `Header` + `Content` only, then optional enrichment in a separate run.
+- Palette:
+  - `palette-list` returns essentials; immediately follow with `palette-describe` using `describeClassName`.
+  - If `palette-list` is empty, do not paginate: change filter or use `palette-describe` if class is known.
+- `databaseobject-children` navigation:
+  - `depth` 1-5, filters applied after traversal, pagination via `limit`/`nextCursor`.
+  - Forward `_meta.nextCursor` only when non-empty.
+- `databaseobject-create`:
+  - mandatory `related` (exact parent QName), `className` (short bean), `mode` (inside/before/after/lastChild), `properties` as JSON object (`{}` when none). Do not use `qname` here.
+  - for Ionic/palette UI components (`UIDynamicElement`), never create with `tagName` only: valid `beanData` is mandatory.
+  - if `beanData` is empty, treat the object as invalid and fix immediately (set from palette template or recreate).
+  - do not use `ngx.components.UICustom` (Fragment) by default.
+  - use Fragment only as a last resort, only when no palette combination (`UIDynamicElement`, `UIElement`, directives, attributes, actions) can achieve the result.
+  - if Fragment is unavoidable, keep it minimal and document the technical reason.
+- `databaseobject-properties-set`:
+  - `properties` must be a JSON object (or a string representing one). Never use a `{name,value}` array.
+- `databaseobject-properties-get`:
+  - lightweight view by default; add `includeHints=true` for detailed hints.
+- Sequences:
+  - use CallTransaction/CallSequence with `output=false`, map via SmartType + JsonField/XMLCopy. No JS DOM; JS reserved for simple calculations. Return only final JSON.
+  - Transactions: run `requestable-execute ... recordSchema=true` before wiring SmartTypes, then retest after mapping.
+- Save: run `project-save` (or `autoSave=true`) after mutations.
+- QNames: case-sensitive, without `.sq` suffix.
 
 ## Testing & Verification
-- Commencer par `requestable-execute` (variables = JSON string clé/valeur, jamais de query string).
-- Tests HTTP `curl .../.json` optionnels, seulement si demandé et `localhost:18080` joignable.
-- Log moteur utile : `/Users/nicolas/dev/convertigo/runtime-ConvertigoStudio/.metadata/.plugins/com.twinsoft.convertigo.studio/logs/engine.log`.
+- Start with `requestable-execute` (variables = key/value JSON string, never a query string).
+- HTTP `curl .../.json` tests are optional, only if requested and `localhost:18080` is reachable.
+- Useful engine log: `/Users/nicolas/dev/convertigo/runtime-ConvertigoStudio/.metadata/.plugins/com.twinsoft.convertigo.studio/logs/engine.log`.
 
 ## Tool: databaseobject-schema
-`tools/call databaseobject-schema` pour un échantillon léger (XML/JSON/JSONSchema).
-- `qname` requis ; `type` = xml/json/jsonschema ; `internal=true` pour la vue sourceDefinition (input pickers).
-- Sorties déjà “dé‑wrapper” : XML racine sur l’élément cible (pas de `<document>`), JSON racine sur le payload (pas de `document/attr`).
+Use `tools/call databaseobject-schema` for a lightweight sample (XML/JSON/JSONSchema).
+- `qname` required; `type` = xml/json/jsonschema; `internal=true` for sourceDefinition view (input pickers).
+- Outputs are already de-wrapped: XML root is the target element (no `<document>`), JSON root is payload (no `document/attr`).
 
 ### HTTP connector checklist
-- `HttpConnector.url` : schéma + host, sans slash final. Ne pas mettre `/` ou laisser vide.
-- `HttpTransaction.subPath` : commence par `/`, final = url + subPath (éviter `//`).
-- `JsonHttpTransaction` pour les APIs JSON ; `httpInfo=true` pendant le build.
-- Ne jamais faire de HTTP custom en JS (URLConnection/HttpClient/fetch interdit) : passer par les connecteurs/transactions.
-- Tester la transaction seule avec `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` (avec `httpInfo=true` au besoin).
-- Après chaque changement URL/subPath : `requestable-execute ...` pour valider la cible avant de câbler une séquence.
-- `databaseobject-schema` pour prélever XPaths sans tâtonner.
-- Pas de “continue on error” global : gérer les fallbacks dans la séquence (If/Then/Else ou JIf) et retourner un JSON de secours. `httpInfo=true` utile en debug.
-- Si `databaseobject-create` mode=after échoue (decode), créer en inside puis reorder via `databaseobject-move`.
-- Transactions : `recordSchema=true` avant wiring ; CallTransaction en `output=false`, mapper ce qui est nécessaire seulement.
+- `HttpConnector.url`: scheme + host, no trailing slash. Do not set `/` or leave empty.
+- `HttpTransaction.subPath`: must start with `/`, final URL = url + subPath (avoid `//`).
+- Use `JsonHttpTransaction` for JSON APIs; keep `httpInfo=true` during build.
+- Never do custom HTTP in JS (URLConnection/HttpClient/fetch forbidden): use connectors/transactions.
+- Test transaction alone with `requestable-execute {"requestable":"<project>.<connector>.<transaction>"}` (`httpInfo=true` if needed).
+- After each URL/subPath change: run `requestable-execute ...` to validate target before wiring a sequence.
+- Use `databaseobject-schema` to capture XPaths without guesswork.
+- No global "continue on error": handle fallbacks in sequence (If/Then/Else or JIf) and return fallback JSON. `httpInfo=true` helps in debug.
+- If `databaseobject-create` with `mode=after` fails (decode), create with `inside` then reorder via `databaseobject-move`.
+- Transactions: `recordSchema=true` before wiring; use CallTransaction with `output=false`, map only what is needed.

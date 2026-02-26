@@ -46,5 +46,13 @@
     "description": "Quickstart for HTTP connectors/transactions: URL/subPath, httpInfo, early validation via requestable-execute.",
     "mimeType": "text/markdown",
     "file": "convertigo_transaction_quickstart.md"
+  },
+  {
+    "uri": "convertigo://resources/convertigo-ui-building-quickstart",
+    "name": "Convertigo UI Building Quickstart",
+    "title": "Convertigo UI Building Quickstart (CRUD + Rich Pages)",
+    "description": "UI implementation guardrails for CRUD pages, non-entity pages, global styling, pagination, and idempotent MCP-only updates.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_ui_building_quickstart.md"
   }
 ]

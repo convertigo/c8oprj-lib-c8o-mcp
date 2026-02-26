@@ -196,12 +196,6 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
             var bean = beanIt.next();
             var classFqcn = bean.getClassName();
             var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(classFqcn) : String(classFqcn || "");
-            if ((classFqcn.indexOf("com.twinsoft.convertigo.beans.ngx.components.") === 0 ||
-                classFqcn.indexOf("com.twinsoft.convertigo.beans.mobile.components.") === 0) &&
-                classFqcn.indexOf("PageComponent") === -1) {
-              continue;
-            }
-    
             var isAllowed = parentDbo == null;
             try {
               var force = false;
