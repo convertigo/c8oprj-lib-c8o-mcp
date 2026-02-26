@@ -483,6 +483,57 @@ C8O.dbo._isFormatedContentClass = function (propertyType) {
   }
 };
 
+C8O.dbo._isFontSourceClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var fontClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.FontSource');
+    return fontClass.isAssignableFrom(propertyType);
+  } catch (_ignoreFontSource) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === 'com.twinsoft.convertigo.beans.common.FontSource';
+    } catch (_ignoreName) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._isXmlQNameClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var qnameClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.XmlQName');
+    return qnameClass.isAssignableFrom(propertyType);
+  } catch (_ignoreXmlQName) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === 'com.twinsoft.convertigo.beans.common.XmlQName';
+    } catch (_ignoreName) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._isXMLRectangleClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var rectClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.XMLRectangle');
+    return rectClass.isAssignableFrom(propertyType);
+  } catch (_ignoreRect) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === 'com.twinsoft.convertigo.beans.common.XMLRectangle';
+    } catch (_ignoreName) {
+      return false;
+    }
+  }
+};
+
 C8O.dbo._normalizeSmartType = function (smartType) {
   var result = {
     mode: String(smartType.getMode())
@@ -688,6 +739,423 @@ C8O.dbo._buildFormatedContent = function (spec) {
     return spec;
   }
   return new FormatedContent(C8O.dbo._extractFormatedContentString(spec));
+};
+
+C8O.dbo._extractFontSourceString = function (spec) {
+  if (spec === null || spec === undefined) {
+    return "{}";
+  }
+
+  if (typeof spec === "string") {
+    return spec;
+  }
+
+  if (typeof spec === "number" || typeof spec === "boolean") {
+    return String(spec);
+  }
+
+  if (C8O.dbo._isClass('com.twinsoft.convertigo.beans.common.FontSource', spec)) {
+    try {
+      return String(spec.getString());
+    } catch (_ignoreFontSourceClass) {
+      return String(spec);
+    }
+  }
+
+  if (typeof spec === "object") {
+    if (spec.root && spec.data !== undefined) {
+      return C8O.dbo._extractFontSourceString(spec.data);
+    }
+    if (spec.__kind__ === "FontSource") {
+      if (spec.raw != null) {
+        return String(spec.raw);
+      }
+      if (spec.data != null) {
+        return C8O.dbo._extractFontSourceString(spec.data);
+      }
+    }
+    if (spec.content !== undefined) {
+      return String(spec.content);
+    }
+    if (spec.value !== undefined) {
+      return String(spec.value);
+    }
+    if (spec.text !== undefined) {
+      return String(spec.text);
+    }
+    if (spec.expression !== undefined) {
+      return String(spec.expression);
+    }
+    if (spec["→"] !== undefined) {
+      return String(spec["→"]);
+    }
+    if (
+      spec.fontId !== undefined ||
+      spec.fontFamily !== undefined ||
+      spec.fontWeight !== undefined ||
+      spec.fontStyle !== undefined ||
+      spec.fontSubset !== undefined
+    ) {
+      var jsonFont = {};
+      if (spec.fontId != null && String(spec.fontId).length) {
+        jsonFont.fontId = String(spec.fontId);
+      }
+      if (spec.fontFamily != null && String(spec.fontFamily).length) {
+        jsonFont.fontFamily = String(spec.fontFamily);
+      }
+      if (spec.fontWeight != null && String(spec.fontWeight).length) {
+        jsonFont.fontWeight = String(spec.fontWeight);
+      }
+      if (spec.fontStyle != null && String(spec.fontStyle).length) {
+        jsonFont.fontStyle = String(spec.fontStyle);
+      }
+      if (spec.fontSubset != null && String(spec.fontSubset).length) {
+        jsonFont.fontSubset = String(spec.fontSubset);
+      }
+      return JSON.stringify(jsonFont);
+    }
+    if (spec.data !== undefined) {
+      return C8O.dbo._extractFontSourceString(spec.data);
+    }
+    var classKey = "com.twinsoft.convertigo.beans.common.FontSource";
+    if (spec[classKey] !== undefined) {
+      return C8O.dbo._extractFontSourceString(spec[classKey]);
+    }
+    if (spec.xmlizable && Array.isArray(spec.xmlizable)) {
+      for (var i = 0; i < spec.xmlizable.length; i++) {
+        var entry = spec.xmlizable[i];
+        if (entry && typeof entry === "object") {
+          if (entry[classKey] !== undefined) {
+            return C8O.dbo._extractFontSourceString(entry[classKey]);
+          }
+          if (entry["→"] !== undefined) {
+            return String(entry["→"]);
+          }
+        }
+      }
+    }
+    try {
+      return JSON.stringify(spec);
+    } catch (_ignoreStringifyFontSource) {
+      return String(spec);
+    }
+  }
+
+  return String(spec);
+};
+
+C8O.dbo._buildFontSource = function (spec) {
+  var FontSource = Packages.com.twinsoft.convertigo.beans.common.FontSource;
+  if (spec instanceof FontSource) {
+    return spec;
+  }
+  var content = C8O.dbo._extractFontSourceString(spec);
+  if (content == null || String(content).trim().length === 0) {
+    content = "{}";
+  }
+  var font = new FontSource();
+  font.setString(String(content));
+  return font;
+};
+
+C8O.dbo._extractXmlQNameParts = function (spec) {
+  var result = { localPart: "", namespace: "" };
+  var assign = function (obj) {
+    if (!obj || typeof obj !== "object") {
+      return false;
+    }
+
+    if (obj.root && obj.data !== undefined) {
+      return assign(obj.data);
+    }
+    if (obj.data !== undefined) {
+      if (assign(obj.data)) {
+        return true;
+      }
+    }
+
+    if (obj.__kind__ === "XmlQName") {
+      if (obj.localPart != null) {
+        result.localPart = String(obj.localPart);
+      }
+      if (obj.namespace != null) {
+        result.namespace = String(obj.namespace);
+      }
+      return true;
+    }
+
+    if (obj.localPart != null || obj.namespace != null) {
+      if (obj.localPart != null) {
+        result.localPart = String(obj.localPart);
+      }
+      if (obj.namespace != null) {
+        result.namespace = String(obj.namespace);
+      }
+      return true;
+    }
+    if (obj.pLocalPart != null || obj.pNamespace != null) {
+      if (obj.pLocalPart != null) {
+        result.localPart = String(obj.pLocalPart);
+      }
+      if (obj.pNamespace != null) {
+        result.namespace = String(obj.pNamespace);
+      }
+      return true;
+    }
+    if (obj["↑pLocalPart"] != null || obj["↑pNamespace"] != null) {
+      if (obj["↑pLocalPart"] != null) {
+        result.localPart = String(obj["↑pLocalPart"]);
+      }
+      if (obj["↑pNamespace"] != null) {
+        result.namespace = String(obj["↑pNamespace"]);
+      }
+      return true;
+    }
+
+    if (obj.schemaDefinition !== undefined) {
+      if (assign(obj.schemaDefinition)) {
+        return true;
+      }
+    }
+    if (obj["com.twinsoft.convertigo.beans.common.XmlQName"] !== undefined) {
+      if (assign(obj["com.twinsoft.convertigo.beans.common.XmlQName"])) {
+        return true;
+      }
+    }
+    if (obj.xmlizable && Array.isArray(obj.xmlizable)) {
+      for (var i = 0; i < obj.xmlizable.length; i++) {
+        if (assign(obj.xmlizable[i])) {
+          return true;
+        }
+      }
+    }
+    if (Array.isArray(obj)) {
+      for (var j = 0; j < obj.length; j++) {
+        if (assign(obj[j])) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  if (spec == null) {
+    return result;
+  }
+  if (typeof spec === "string") {
+    var text = String(spec).trim();
+    if (text.length && (text.charAt(0) === "{" || text.charAt(0) === "[" || text.charAt(0) === '"')) {
+      try {
+        var parsed = JSON.parse(text);
+        if (assign(parsed)) {
+          return result;
+        }
+      } catch (_ignoreJsonQName) {}
+    }
+    var stdMatch = text.match(/^\{([^}]*)\}(.*)$/);
+    if (stdMatch) {
+      result.namespace = stdMatch[1];
+      result.localPart = stdMatch[2];
+      return result;
+    }
+    var compactMatch = text.match(/^(.*)\{([^}]*)\}$/);
+    if (compactMatch) {
+      result.localPart = compactMatch[1];
+      result.namespace = compactMatch[2];
+      return result;
+    }
+    result.localPart = text;
+    return result;
+  }
+  assign(spec);
+  return result;
+};
+
+C8O.dbo._buildXmlQName = function (spec) {
+  var XmlQName = Packages.com.twinsoft.convertigo.beans.common.XmlQName;
+  if (spec instanceof XmlQName) {
+    return spec;
+  }
+  if (spec && typeof spec === "object" && spec.root && spec.data !== undefined) {
+    try {
+      return C8O.xml.deserialize(spec);
+    } catch (_ignoreDeserializeQName) {}
+  }
+  var parts = C8O.dbo._extractXmlQNameParts(spec);
+  var namespace = parts.namespace != null ? String(parts.namespace) : "";
+  var localPart = parts.localPart != null ? String(parts.localPart) : "";
+  var QName = Packages.javax.xml.namespace.QName;
+  return new XmlQName(new QName(namespace, localPart));
+};
+
+C8O.dbo._extractRectangleInteger = function (token) {
+  if (token === null || token === undefined) {
+    return null;
+  }
+  if (typeof token === "number") {
+    return Math.trunc(token);
+  }
+  if (typeof token === "boolean") {
+    return null;
+  }
+  if (typeof token === "string") {
+    var text = token.trim();
+    if (!text.length) {
+      return null;
+    }
+    var direct = parseInt(text, 10);
+    if (!isNaN(direct)) {
+      return direct;
+    }
+    var m = text.match(/^\[x=(-?\d+),\s*y=(-?\d+),\s*width=(-?\d+),\s*height=(-?\d+)\]$/);
+    if (m) {
+      return parseInt(m[1], 10);
+    }
+    if (text.charAt(0) === "{" || text.charAt(0) === "[") {
+      try {
+        return C8O.dbo._extractRectangleInteger(JSON.parse(text));
+      } catch (_ignoreJsonRectToken) {}
+    }
+    return null;
+  }
+  if (Array.isArray(token)) {
+    for (var i = 0; i < token.length; i++) {
+      var fromArray = C8O.dbo._extractRectangleInteger(token[i]);
+      if (fromArray != null) {
+        return fromArray;
+      }
+    }
+    return null;
+  }
+  if (typeof token === "object") {
+    if (token.value !== undefined) {
+      var fromValue = C8O.dbo._extractRectangleInteger(token.value);
+      if (fromValue != null) {
+        return fromValue;
+      }
+    }
+    if (token["↑value"] !== undefined) {
+      var fromAttrValue = C8O.dbo._extractRectangleInteger(token["↑value"]);
+      if (fromAttrValue != null) {
+        return fromAttrValue;
+      }
+    }
+    if (token["java.lang.Integer"] !== undefined) {
+      var fromJavaInteger = C8O.dbo._extractRectangleInteger(token["java.lang.Integer"]);
+      if (fromJavaInteger != null) {
+        return fromJavaInteger;
+      }
+    }
+    for (var key in token) {
+      if (!Object.prototype.hasOwnProperty.call(token, key)) {
+        continue;
+      }
+      var nested = C8O.dbo._extractRectangleInteger(token[key]);
+      if (nested != null) {
+        return nested;
+      }
+    }
+  }
+  return null;
+};
+
+C8O.dbo._extractXMLRectangle = function (spec) {
+  var result = { x: null, y: null, width: null, height: null };
+  var assignFromObject = function (obj) {
+    if (!obj || typeof obj !== "object") {
+      return;
+    }
+    if (obj.root && obj.data !== undefined) {
+      assignFromObject(obj.data);
+      return;
+    }
+    if (obj.data !== undefined) {
+      assignFromObject(obj.data);
+    }
+    if (obj.__kind__ === "XMLRectangle") {
+      if (obj.x !== undefined) {
+        result.x = C8O.dbo._extractRectangleInteger(obj.x);
+      }
+      if (obj.y !== undefined) {
+        result.y = C8O.dbo._extractRectangleInteger(obj.y);
+      }
+      if (obj.width !== undefined) {
+        result.width = C8O.dbo._extractRectangleInteger(obj.width);
+      }
+      if (obj.height !== undefined) {
+        result.height = C8O.dbo._extractRectangleInteger(obj.height);
+      }
+      return;
+    }
+    if (obj.x !== undefined) {
+      result.x = C8O.dbo._extractRectangleInteger(obj.x);
+    }
+    if (obj.y !== undefined) {
+      result.y = C8O.dbo._extractRectangleInteger(obj.y);
+    }
+    if (obj.width !== undefined) {
+      result.width = C8O.dbo._extractRectangleInteger(obj.width);
+    }
+    if (obj.height !== undefined) {
+      result.height = C8O.dbo._extractRectangleInteger(obj.height);
+    }
+    if (obj["com.twinsoft.convertigo.beans.common.XMLRectangle"] !== undefined) {
+      assignFromObject(obj["com.twinsoft.convertigo.beans.common.XMLRectangle"]);
+    }
+    if (obj.xmlizable && Array.isArray(obj.xmlizable)) {
+      for (var i = 0; i < obj.xmlizable.length; i++) {
+        assignFromObject(obj.xmlizable[i]);
+      }
+    }
+    if (Array.isArray(obj)) {
+      for (var j = 0; j < obj.length; j++) {
+        assignFromObject(obj[j]);
+      }
+    }
+  };
+
+  if (spec == null) {
+    return result;
+  }
+  if (typeof spec === "string") {
+    var text = String(spec).trim();
+    var m = text.match(/^\[x=(-?\d+),\s*y=(-?\d+),\s*width=(-?\d+),\s*height=(-?\d+)\]$/);
+    if (m) {
+      result.x = parseInt(m[1], 10);
+      result.y = parseInt(m[2], 10);
+      result.width = parseInt(m[3], 10);
+      result.height = parseInt(m[4], 10);
+      return result;
+    }
+    if (text.length && (text.charAt(0) === "{" || text.charAt(0) === "[")) {
+      try {
+        assignFromObject(JSON.parse(text));
+      } catch (_ignoreJsonRect) {}
+      return result;
+    }
+    return result;
+  }
+
+  assignFromObject(spec);
+  return result;
+};
+
+C8O.dbo._buildXMLRectangle = function (spec) {
+  var XMLRectangle = Packages.com.twinsoft.convertigo.beans.common.XMLRectangle;
+  if (spec instanceof XMLRectangle) {
+    return spec;
+  }
+  if (spec && typeof spec === "object" && spec.root && spec.data !== undefined) {
+    try {
+      return C8O.xml.deserialize(spec);
+    } catch (_ignoreDeserializeRect) {}
+  }
+  var values = C8O.dbo._extractXMLRectangle(spec);
+  var x = values.x != null ? values.x : 0;
+  var y = values.y != null ? values.y : 0;
+  var width = values.width != null ? values.width : 0;
+  var height = values.height != null ? values.height : 0;
+  return new XMLRectangle(x, y, width, height);
 };
 
 C8O.dbo._buildSmartType = function (spec) {
@@ -898,6 +1366,15 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   }
   if (propertyTypeName === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType") {
     return C8O.dbo._buildMobileSmartSourceType(rawSpec);
+  }
+  if (C8O.dbo._isXmlQNameClass(propertyType)) {
+    return C8O.dbo._buildXmlQName(rawSpec);
+  }
+  if (C8O.dbo._isXMLRectangleClass(propertyType)) {
+    return C8O.dbo._buildXMLRectangle(rawSpec);
+  }
+  if (C8O.dbo._isFontSourceClass(propertyType)) {
+    return C8O.dbo._buildFontSource(rawSpec);
   }
   if (C8O.dbo._isFormatedContentClass(propertyType)) {
     return C8O.dbo._buildFormatedContent(rawSpec);
@@ -1283,8 +1760,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
-
 
 
 

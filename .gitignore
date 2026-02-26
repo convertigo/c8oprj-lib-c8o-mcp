@@ -10,3 +10,10 @@
 /oas3/
 
 /build/
+
+# YAML delta apply runtime artifacts
+/work/yaml_delta_apply_*.log
+
+# Python cache
+/scripts/__pycache__/
+*.pyc
