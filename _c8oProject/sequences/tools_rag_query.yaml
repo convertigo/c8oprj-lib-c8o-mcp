@@ -1,0 +1,242 @@
+accessibility: Private
+comment: |
+  'Query Convertigo knowledge base
+  Use when you are unsure how to use Convertigo (features, setup, APIs, best practices, or troubleshooting).
+  Queries the Convertigo RAG/guides and returns practical guidance. Typical response time: 30-60 seconds.'
+responseTimeout: 120
+↓Init [steps.SimpleStep-1764181200001]: 
+  comment: Validate inputs and prepare connector variables
+  expression: |
+    'questionText = question == null ? "" : String(question).trim();
+    if (!questionText.length) {
+      throw new Error("question is required");
+    }
+    Question = questionText;
+    streamText = stream == null ? "false" : String(stream).trim().toLowerCase();
+    if (streamText !== "true") {
+      streamText = "false";
+    }
+    stream = streamText;
+    historyText = history == null ? null : String(history).trim();
+    History = historyText && historyText.length ? historyText : null;
+    promptText = prompt == null ? null : String(prompt).trim();
+    Prompt = promptText && promptText.length ? promptText : null;
+    startedAt = java.lang.System.currentTimeMillis();'
+↓CallRag [steps.TransactionStep-1764181200003]: 
+  comment: Call LRagQuery through Convertigo HTTP connector
+  sourceTransaction: ConvertigoMCP.rag.query_lrag
+  ↓Question [variables.StepVariable-1764181200005]: 
+  ↓stream [variables.StepVariable-1764181200007]: 
+  ↓History [variables.StepVariable-1764181200009]: 
+  ↓Prompt [variables.StepVariable-1764181200011]: 
+↓ExtractAnswer [steps.SimpleSourceStep-1764181200013]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1764181200003
+        - java.lang.String: 
+          - ↑value: ./document/object/object/response/text()
+  variableName: answerText
+↓ExtractStatus [steps.SimpleSourceStep-1764181200017]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1764181200003
+        - java.lang.String: 
+          - ↑value: ./document/HttpInfo/status/@code
+  variableName: httpStatusText
+↓ExtractReferencesList [steps.SourceStep-1772125965565]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1764181200003
+        - java.lang.String: 
+          - ↑value: ./document/object/object/references/object/file_path/text()
+  variableName: referencesNodes
+↓Build [steps.SimpleStep-1764181200019]: 
+  comment: Compute normalized status and timing metadata
+  expression: |
+    'latencyMs = java.lang.System.currentTimeMillis() - startedAt;
+    var parsedStatus = 0;
+    var statusText = httpStatusText == null ? "" : String(httpStatusText).trim();
+    if (statusText.length) {
+      try {
+        parsedStatus = parseInt(statusText, 10);
+      } catch (_ignoredStatus) {}
+    }
+    if (isNaN(parsedStatus)) {
+      parsedStatus = 0;
+    }
+    httpStatusCode = parsedStatus;
+    resultStatus = parsedStatus >= 200 && parsedStatus < 300 ? "ok" : "error";
+    retryable = parsedStatus == 408 || parsedStatus == 429 || parsedStatus >= 500;
+    resultMessage = (resultStatus == "ok"
+      ? "Knowledge base answer received."
+      : "Knowledge base request failed.") + " Typical response time: 30-60 seconds.";
+    
+    var refs = [];
+    var refsSource = referencesNodes;
+    if (refsSource != null) {
+      try {
+        if (typeof refsSource.item === "function" && typeof refsSource.getLength === "function") {
+          for (var i = 0; i < refsSource.getLength(); i++) {
+            var refNode = refsSource.item(i);
+            var refText = "";
+            if (refNode != null) {
+              refText = typeof refNode.getTextContent === "function" ? String(refNode.getTextContent()) : String(refNode);
+            }
+            refText = refText == null ? "" : String(refText).trim();
+            if (refText.length) {
+              refs.push(refText);
+            }
+          }
+        } else if (typeof refsSource.length === "number") {
+          for (var j = 0; j < refsSource.length; j++) {
+            var refNodeAlt = refsSource[j];
+            var refTextAlt = "";
+            if (refNodeAlt != null) {
+              refTextAlt = typeof refNodeAlt.getTextContent === "function" ? String(refNodeAlt.getTextContent()) : String(refNodeAlt);
+            }
+            refTextAlt = refTextAlt == null ? "" : String(refTextAlt).trim();
+            if (refTextAlt.length) {
+              refs.push(refTextAlt);
+            }
+          }
+        } else {
+          var singleRef = String(refsSource).trim();
+          if (singleRef.length) {
+            refs.push(singleRef);
+          }
+        }
+      } catch (_ignoredRefs) {}
+    }
+    referencesList = refs;'
+↓result [steps.JsonObjectStep-1764181200021]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1764181200023]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1764181200025]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓answer [steps.JsonFieldStep-1764181200027]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: answer
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'answerText == null ? "" : String(answerText)'
+  ↓referencesArray [steps.JsonToXmlStep-1772126040044]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'referencesList == null ? [] : referencesList'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: references
+  ↓httpStatus [steps.JsonFieldStep-1764181200031]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: httpStatus
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: httpStatusCode
+  ↓latencyMs [steps.JsonFieldStep-1764181200033]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: latencyMs
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: latencyMs
+  ↓retryable [steps.JsonFieldStep-1764181200035]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: retryable
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: retryable
+  ↓warning [steps.JsonFieldStep-1764181200037]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warning
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: This query can take 30-60 seconds.
+↓question [variables.RequestableVariable-1764181200039]: 
+  comment: User question to send to the Convertigo knowledge base.
+↓history [variables.RequestableVariable-1764181200041]: 
+  comment: Optional JSON string representing prior conversation turns.
+↓prompt [variables.RequestableVariable-1764181200043]: 
+  comment: Optional custom guidance for the RAG answer style.
+↓stream [variables.RequestableVariable-1764181200045]: 
+  comment: Set to true to request streamed behavior from LRagQuery (default false).
+  value: false
