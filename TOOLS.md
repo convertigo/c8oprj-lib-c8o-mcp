@@ -18,6 +18,8 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `databaseobject-rename`       | `tools_databaseobject_rename.yaml`          | Rename a database object and optionally refactor references. |
 | `databaseobject-properties-get` | `tools_databaseobject_properties_get.yaml` | Retrieve metadata + values for a database object. Payload is compact by default; pass `includeHints=true` to re-enable long descriptions and boolean flags. |
 | `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties (including XMLizable / SmartType handling). |
+| `marketplace-list`              | `tools_marketplace_list.yaml`              | List marketplace libraries, mark workspace/reference state, and include exposed shared components/actions when loaded. |
+| `marketplace-import`            | `tools_marketplace_import.yaml`            | Import a marketplace library when missing and ensure a `ProjectSchemaReference` is present on the target project. |
 | `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). |
 | `palette-describe`            | `tools_palette_describe.yaml`               | Detailed description of a specific palette entry (creation template, property hints). |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
@@ -60,7 +62,7 @@ reducing context usage.
 | `internal_json_schema.yaml`                | Build JSON Schema + sample payloads for tool inputs/outputs. |
 | `internal_list_tools_info.yaml`, `mcp_tools_list.yaml` | Discover `tools_*` sequences and expose catalog to MCP clients. |
 | `internal_studio_refresh.yaml`             | Refresh the Eclipse Project Explorer after mutations when Studio is present. |
-| `js/databaseobject.js`, `js/databaseobject_ops.js`, `js/util.js`, `js/xmlizable.js` | Shared Rhino helpers for parsing JSON, handling SmartType/XMLizable values, and performing mutations. |
+| `js/databaseobject.js`, `js/databaseobject_ops.js`, `js/marketplace.js`, `js/util.js`, `js/xmlizable.js` | Shared Rhino helpers for parsing JSON, marketplace integration, and object mutations. |
 
 ## Backlog
 
@@ -117,4 +119,3 @@ noted in the description.
 
 Update this file each time a tool is added or renamed so that it stays in sync
 with the actual `tools/list` MCP catalog.
-

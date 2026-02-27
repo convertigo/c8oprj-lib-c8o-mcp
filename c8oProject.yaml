@@ -4,13 +4,14 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.2
+  version: 0.0.3
   ↓void [connectors.SqlConnector]: 🗏 connectors/void.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
   ↓internal_call_stub [sequences.GenericSequence-1761756735550]: 🗏 sequences/internal_call_stub.yaml
   ↓internal_json_schema [sequences.GenericSequence-1761736078534]: 🗏 sequences/internal_json_schema.yaml
   ↓internal_list_tools_info [sequences.GenericSequence]: 🗏 sequences/internal_list_tools_info.yaml
   ↓internal_studio_autobuild [sequences.GenericSequence]: 🗏 sequences/internal_studio_autobuild.yaml
+  ↓internal_studio_ngx_sources_sync [sequences.GenericSequence]: 🗏 sequences/internal_studio_ngx_sources_sync.yaml
   ↓internal_studio_refresh [sequences.GenericSequence]: 🗏 sequences/internal_studio_refresh.yaml
   ↓mcp_endpoint [sequences.GenericSequence]: 🗏 sequences/mcp_endpoint.yaml
   ↓mcp_error_response [sequences.GenericSequence]: 🗏 sequences/mcp_error_response.yaml
@@ -31,6 +32,8 @@
   ↓tools_databaseobject_rename [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_rename.yaml
   ↓tools_databaseobject_schema [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_schema.yaml
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
+  ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
+  ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml

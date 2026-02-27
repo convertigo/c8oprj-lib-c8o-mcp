@@ -28,6 +28,7 @@ Current scope:
   - databaseobject-create/delete/move (optional structural sync)
   - requestable-execute (optional internal_studio_refresh)
   - requestable-execute (optional internal_studio_autobuild)
+  - requestable-execute (optional internal_studio_ngx_sources_sync)
   - project-save (optional)
 """
 
@@ -533,6 +534,7 @@ class YamlNode:
 @dataclass
 class SyncStats:
     structural_ops: int = 0
+    structural_delete_ops: int = 0
     property_updates: int = 0
     touched_qnames: set[str] = field(default_factory=set)
 
@@ -1235,15 +1237,34 @@ def call_studio_autobuild(
     return {}
 
 
+def call_ngx_sources_sync(
+    client: McpClient,
+    project_name: str,
+) -> dict[str, Any]:
+    result = client.tool_call(
+        "requestable-execute",
+        {
+            "requestable": "ConvertigoMCP.internal_studio_ngx_sources_sync",
+            "variables": json.dumps({"project": project_name}),
+        },
+    )
+    if isinstance(result, dict):
+        inner = result.get("result")
+        if isinstance(inner, dict):
+            return inner
+    return {}
+
+
 def apply_structural_for_parent(
     client: McpClient,
     parent_qname: str,
     desired_children: list[YamlNode],
     dry_run: bool,
-) -> tuple[int, list[str], dict[str, str]]:
+) -> tuple[int, int, list[str], dict[str, str]]:
     """
     Returns:
       - number of structural operations applied (or that would be applied in dry-run)
+      - number of delete operations applied (or planned in dry-run)
       - warnings
       - resolved child qname map by child name (post-reconciliation snapshot)
     """
@@ -1256,14 +1277,14 @@ def apply_structural_for_parent(
         warnings.append(
             f"{parent_qname}: duplicate runtime child names detected; structural sync skipped for safety"
         )
-        return 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
+        return 0, 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
 
     desired_names = [c.name for c in desired_children]
     if len(desired_names) != len(set(desired_names)):
         warnings.append(
             f"{parent_qname}: duplicate YAML child names detected; structural sync skipped for safety"
         )
-        return 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
+        return 0, 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
 
     runtime_by_name = build_runtime_name_to_entry(runtime_children)
     desired_by_name = {c.name: c for c in desired_children}
@@ -1310,15 +1331,18 @@ def apply_structural_for_parent(
     to_delete_qnames = uniq_delete_qnames
 
     ops = 0
+    delete_ops = 0
 
     for qname in to_delete_qnames:
         if dry_run:
             print(f"DRY-RUN DELETE {qname}")
             ops += 1
+            delete_ops += 1
             continue
         client.tool_call("databaseobject-delete", {"qname": qname, "autoSave": "false"})
         print(f"DELETED {qname}")
         ops += 1
+        delete_ops += 1
 
     for child in to_create:
         if dry_run:
@@ -1391,7 +1415,7 @@ def apply_structural_for_parent(
         prev_pos = current_order.index(prev_name)
         current_order.insert(prev_pos + 1, cur_name)
 
-    return ops, warnings, name_to_qname
+    return ops, delete_ops, warnings, name_to_qname
 
 
 def compute_updates_for_qname(
@@ -1461,7 +1485,7 @@ def sync_yaml_node(
     child_qname_map: dict[str, str] = {}
     if structural:
         try:
-            ops, warnings, child_qname_map = apply_structural_for_parent(
+            ops, delete_ops, warnings, child_qname_map = apply_structural_for_parent(
                 client=client,
                 parent_qname=node_qname,
                 desired_children=node.children,
@@ -1470,6 +1494,7 @@ def sync_yaml_node(
             if ops > 0:
                 node_changed = True
                 stats.structural_ops += ops
+                stats.structural_delete_ops += delete_ops
                 stats.touched_qnames.add(node_qname)
             warnings_out.extend(warnings)
         except Exception as exc:
@@ -1768,14 +1793,36 @@ def main(argv: list[str]) -> int:
                 eprint(f"ERROR: sync failed for {qname}: {exc}")
                 return 2
 
-        for warning in all_warnings:
-            eprint(f"WARN: {warning}")
-
         if args.dry_run:
+            for warning in all_warnings:
+                eprint(f"WARN: {warning}")
             print(
                 f"Dry-run completed: {stats.structural_ops} structural operation(s), {stats.property_updates} property update(s) detected."
             )
             return 0
+
+        if stats.structural_delete_ops > 0:
+            try:
+                sync_res = call_ngx_sources_sync(client, project_name)
+                sync_status = str(sync_res.get("status") or "").strip().lower()
+                sync_message = str(sync_res.get("message") or "").strip()
+                if sync_status == "ok":
+                    print(f"NGX_SYNC {project_name}: {sync_message or 'application sources synchronized'}")
+                elif sync_status == "skipped":
+                    all_warnings.append(
+                        f"{project_name}: NGX source sync skipped"
+                        + (f" ({sync_message})" if sync_message else "")
+                    )
+                else:
+                    all_warnings.append(
+                        f"{project_name}: NGX source sync failed"
+                        + (f" ({sync_message})" if sync_message else "")
+                    )
+            except Exception as exc:
+                all_warnings.append(f"{project_name}: NGX source sync failed: {exc}")
+
+        for warning in all_warnings:
+            eprint(f"WARN: {warning}")
 
         if args.save and stats.touched_qnames:
             try:

@@ -1,0 +1,210 @@
+accessibility: Private
+comment: Force an NGX application source sync (reset + updateSourceFiles) for a target project/qname.
+↓InitContext [steps.SimpleStep-1772122600001]: 
+  comment: Resolve target NGX application and trigger BuilderUtils update.
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var BuilderUtils = Packages.com.twinsoft.convertigo.engine.admin.services.studio.ngxbuilder.BuilderUtils;
+    var ApplicationComponentClass = Packages.com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent;
+    
+    var providedQName = qname == null ? "" : String(qname).trim();
+    var providedProject = project == null ? "" : String(project).trim();
+    if (!providedProject.length && context && context.project) {
+      providedProject = String(context.project.getName());
+    }
+    
+    resultTimestamp = java.lang.System.currentTimeMillis();
+    resultStudioMode = Engine.isStudioMode();
+    resultRequestedQName = providedQName;
+    resultRequestedProject = providedProject;
+    resultProject = providedProject;
+    resultAppQName = "";
+    resultStatus = "error";
+    resultMessage = "";
+    resultError = "";
+    
+    try {
+      if (!resultStudioMode) {
+        resultStatus = "skipped";
+        resultMessage = "NGX source sync skipped: Convertigo Studio required";
+      } else {
+        var target = null;
+        if (providedQName.length) {
+          try {
+            target = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(providedQName);
+          } catch (_ignoreTargetLookup) {}
+          if (target == null) {
+            throw new Error("Database object not found: " + providedQName);
+          }
+        }
+    
+        var app = null;
+        if (target != null) {
+          if (target instanceof ApplicationComponentClass) {
+            app = target;
+          } else if (typeof target.getApplication === "function") {
+            app = target.getApplication();
+          }
+        }
+    
+        if (app == null && providedProject.length) {
+          var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(providedProject);
+          if (projectRef == null) {
+            throw new Error("Project not found: " + providedProject);
+          }
+          var mobileApplication = projectRef.getMobileApplication();
+          if (mobileApplication == null) {
+            throw new Error("Project has no mobile application: " + providedProject);
+          }
+          app = mobileApplication.getApplicationComponent();
+        }
+    
+        if (app == null) {
+          throw new Error("Unable to resolve NGX application from inputs");
+        }
+        if (!(app instanceof ApplicationComponentClass)) {
+          throw new Error("Target application is not NGX: " + String(app.getClass().getName()));
+        }
+    
+        resultProject = String(app.getProject().getName());
+        resultAppQName = String(app.getQName());
+        BuilderUtils.dboUpdated(app);
+    
+        resultStatus = "ok";
+        resultMessage = "NGX application sources synchronized";
+      }
+    } catch (syncError) {
+      resultStatus = "error";
+      resultMessage = String(syncError);
+      resultError = String(syncError);
+    }'
+↓result [steps.JsonObjectStep-1772122600002]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1772122600003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1772122600004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓project [steps.JsonFieldStep-1772122600005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultProject
+  ↓appQName [steps.JsonFieldStep-1772122600006]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: appQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultAppQName
+  ↓requestedQName [steps.JsonFieldStep-1772122600007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: requestedQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultRequestedQName
+  ↓requestedProject [steps.JsonFieldStep-1772122600008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: requestedProject
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultRequestedProject
+  ↓studioMode [steps.JsonFieldStep-1772122600009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: studioMode
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStudioMode
+  ↓timestamp [steps.JsonFieldStep-1772122600010]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimestamp
+  ↓error [steps.JsonFieldStep-1772122600011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: error
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultError
+↓qname [variables.RequestableVariable-1772122600012]: 
+  comment: Optional QName inside the target NGX app (used to resolve its application root).
+↓project [variables.RequestableVariable-1772122600013]: 
+  comment: Optional project technical name fallback when qname is omitted.
