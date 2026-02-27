@@ -888,7 +888,10 @@ def unwrap_formated_content(value: str) -> str:
     if lines[0].startswith("'") and lines[-1].endswith("'") and (len(lines[0]) > 1 or len(lines) > 1):
         lines[0] = lines[0][1:]
         lines[-1] = lines[-1][:-1]
-        return "\n".join(lines)
+        # FormatedContent blocks exported by Convertigo are wrapped in single quotes.
+        # Inside this wrapper, YAML escapes single quote as doubled quote.
+        # Decode it once so comparisons and re-apply stay stable.
+        return "\n".join(lines).replace("''", "'")
     return text
 
 
