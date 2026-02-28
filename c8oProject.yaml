@@ -42,5 +42,6 @@
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml
+  ↓tools_yaml_lint [sequences.GenericSequence]: 🗏 sequences/tools_yaml_lint.yaml
   ↓tools_yaml_delta_apply [sequences.GenericSequence-1764246901000]: 🗏 sequences/tools_yaml_delta_apply.yaml
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
