@@ -1,18 +1,33 @@
 accessibility: Private
-comment: Launch project mobile builder in Studio (Execute / build-serve).
+comment: Launch project mobile builder in Studio (Execute / build-serve), optionally wait for initial build completion.
 ↓Init [steps.SimpleStep-1772288801001]: 
-  comment: Resolve project and launch builder in Studio UI thread.
+  comment: Resolve project, launch builder in Studio UI thread, optionally wait initial build.
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var Display = Packages.org.eclipse.swt.widgets.Display;
     var Runnable = java.lang.Runnable;
+    var System = java.lang.System;
+    var Logger = Packages.org.apache.log4j.Logger;
+    var FileAppender = Packages.org.apache.log4j.FileAppender;
     var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
     var UnloadedProjectTreeObject = Packages.com.twinsoft.convertigo.eclipse.views.projectexplorer.model.UnloadedProjectTreeObject;
-    
-    var trim = function(v) {
-      return v == null ? "" : String(v).trim();
+    var trim = function(v) { return v == null ? "" : String(v).trim(); };
+    var parseBoolean = function(v, defaultValue) {
+      if (v == null) { return defaultValue; }
+      var text = String(v).trim().toLowerCase();
+      if (!text.length) { return defaultValue; }
+      return text === "true" || text === "1" || text === "yes" || text === "on";
     };
-    
+    var parseInteger = function(v, defaultValue) {
+      if (v == null) { return defaultValue; }
+      var text = String(v).trim();
+      if (!text.length) { return defaultValue; }
+      try {
+        var parsed = parseInt(text, 10);
+        if (!isNaN(parsed)) { return parsed; }
+      } catch (_ignoreParseInteger) {}
+      return defaultValue;
+    };
     var runInUiThread = function(action) {
       var display = Display.getDefault();
       if (display == null) {
@@ -21,11 +36,7 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
       var errorHolder = { value: null };
       display.syncExec(new Runnable({
         run: function() {
-          try {
-            action();
-          } catch (e) {
-            errorHolder.value = e;
-          }
+          try { action(); } catch (e) { errorHolder.value = e; }
         }
       }));
       if (errorHolder.value != null) {
@@ -36,31 +47,297 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
         throw err;
       }
     };
-    
     var asProject = function(candidate) {
-      if (candidate == null) {
-        return null;
-      }
-      try {
-        candidate.getMobileApplication();
-        return candidate;
-      } catch (_ignore1) {}
+      if (candidate == null) { return null; }
+      try { candidate.getMobileApplication(); return candidate; } catch (_ignoreAsProject1) {}
       try {
         var inner = candidate.getObject();
         if (inner != null) {
           inner.getMobileApplication();
           return inner;
         }
-      } catch (_ignore2) {}
+      } catch (_ignoreAsProject2) {}
       return null;
     };
-    
+    var resolveIsBuildingField = function(builder) {
+      if (builder == null) { return null; }
+      var currentClass = builder.getClass();
+      while (currentClass != null) {
+        try {
+          var field = currentClass.getDeclaredField("isBuilding");
+          field.setAccessible(true);
+          return field;
+        } catch (_ignoreFieldLookup) {}
+        currentClass = currentClass.getSuperclass();
+      }
+      return null;
+    };
+    var isBuilderRunning = function(builder, providedField) {
+      if (builder == null) { return false; }
+      var field = providedField != null ? providedField : resolveIsBuildingField(builder);
+      if (field == null) { return false; }
+      try {
+        var holder = field.get(builder);
+        if (holder == null) { return false; }
+        try { return java.lang.reflect.Array.getBoolean(holder, 0); } catch (_ignoreArrayRead) {}
+        try { return holder[0] === true; } catch (_ignoreIndexRead) {}
+      } catch (_ignoreReadField) {}
+      return false;
+    };
+    var isProjectNodeProcessRunning = function(projectName) {
+      var projectText = trim(projectName);
+      if (!projectText.length) { return false; }
+      var process = null;
+      try {
+        if (Engine.isWindows()) {
+          var ps = "Get-WmiObject Win32_Process | Where-Object { $_.Name -eq \"node.exe\" -and $_.CommandLine -like \"*" + projectText + "\\DisplayObjects\\*\" } | ForEach-Object { $_.ProcessId }";
+          process = new java.lang.ProcessBuilder("powershell", "-Command", ps).start();
+        } else {
+          var linuxFlag = Engine.isLinux() ? "f" : "";
+          var cmd = "ps -e" + linuxFlag + " | grep -v \"sed -n\" | sed -n -E \"s,[^0-9]*([0-9]+).*(node|npm|ng).*/" + projectText + "/DisplayObjects/.*,\\1,p\"";
+          process = new java.lang.ProcessBuilder("/bin/bash", "-c", cmd).start();
+        }
+        var reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
+        var line = null;
+        while ((line = reader.readLine()) != null) {
+          if (trim(line).length) {
+            return true;
+          }
+        }
+      } catch (_ignoreNodeProcessCheck) {
+      } finally {
+        if (process != null) {
+          try { process.destroy(); } catch (_ignoreDestroyProcessCheck) {}
+        }
+      }
+      return false;
+    };
+    var resolveStudioLogPath = function() {
+      try {
+        var logger = Engine.logStudio != null ? Engine.logStudio : Logger.getLogger("cems.Studio");
+        var visited = new java.util.HashSet();
+        while (logger != null && visited.add(logger)) {
+          var appenders = logger.getAllAppenders();
+          if (appenders != null) {
+            while (appenders.hasMoreElements()) {
+              var appender = appenders.nextElement();
+              if (appender == null) { continue; }
+              try {
+                if (appender instanceof FileAppender) {
+                  var path = appender.getFile();
+                  if (path != null && String(path).length) {
+                    return String(new java.io.File(String(path)).getCanonicalPath());
+                  }
+                }
+              } catch (_ignoreAppenderPath) {}
+            }
+          }
+          try { logger = logger.getParent(); } catch (_ignoreLoggerParent) { logger = null; }
+        }
+      } catch (_ignoreLoggerLookup) {}
+      try {
+        if (Engine.LOG_PATH != null && String(Engine.LOG_PATH).length) {
+          var fromEngineLogPath = new java.io.File(String(Engine.LOG_PATH), "engine.log");
+          if (fromEngineLogPath.exists()) { return String(fromEngineLogPath.getCanonicalPath()); }
+        }
+      } catch (_ignoreEngineLogPath) {}
+      try {
+        var fallback = new java.io.File(Engine.USER_WORKSPACE_PATH, ".metadata/.plugins/com.twinsoft.convertigo.studio/logs/engine.log");
+        if (fallback.exists()) { return String(fallback.getCanonicalPath()); }
+      } catch (_ignoreFallbackPath) {}
+      return "";
+    };
+    var readFileTail = function(path, maxBytes) {
+      var raf = null;
+      try {
+        var file = new java.io.File(path);
+        if (!file.exists()) { return ""; }
+        raf = new java.io.RandomAccessFile(file, "r");
+        var fileLength = raf.length();
+        var wanted = maxBytes;
+        if (wanted < 1024) { wanted = 1024; }
+        if (wanted > 5242880) { wanted = 5242880; }
+        var startPos = fileLength > wanted ? fileLength - wanted : 0;
+        raf.seek(startPos);
+        var size = fileLength - startPos;
+        if (size <= 0) { return ""; }
+        if (size > 5242880) { size = 5242880; }
+        var sizeInt = java.lang.Integer.parseInt(String(size));
+        var bytes = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, sizeInt);
+        raf.readFully(bytes);
+        return String(new java.lang.String(bytes, "UTF-8"));
+      } catch (_ignoreReadTail) {
+        return "";
+      } finally {
+        if (raf != null) {
+          try { raf.close(); } catch (_ignoreCloseTail) {}
+        }
+      }
+    };
+    var normalizeLogMessage = function(rawLine) {
+      if (rawLine == null) { return ""; }
+      var text = String(rawLine);
+      var barPos = text.lastIndexOf("|");
+      if (barPos !== -1) { text = text.substring(barPos + 1); }
+      return trim(text);
+    };
+    var isBuildLogMessage = function(message) {
+      var lower = String(message).toLowerCase();
+      return lower.indexOf("npm") !== -1 ||
+        lower.indexOf("ionic:serve") !== -1 ||
+        lower.indexOf("compiled ") !== -1 ||
+        lower.indexOf("bundle generation") !== -1 ||
+        lower.indexOf("build finished") !== -1 ||
+        lower.indexOf("failed to compile") !== -1 ||
+        lower.indexOf("[error]") !== -1 ||
+        lower.indexOf("application bundle generation complete") !== -1 ||
+        lower.indexOf("watch mode enabled") !== -1 ||
+        lower.indexOf("standalone cycle end detected") !== -1;
+    };
+    var detectBuildSignal = function(message) {
+      var lower = String(message).toLowerCase();
+      if (lower.indexOf("failed to compile") !== -1 ||
+          lower.indexOf("bundle generation failed") !== -1 ||
+          lower.indexOf("npm err!") !== -1 ||
+          lower.indexOf("npm error") !== -1 ||
+          lower.indexOf("[error]") !== -1 ||
+          lower.indexOf("unhandled exception") !== -1) {
+        return "failed";
+      }
+      if (lower.indexOf("compiled successfully") !== -1 ||
+          lower.indexOf("application bundle generation complete") !== -1 ||
+          lower.indexOf("standalone cycle end detected in live build: success") !== -1 ||
+          lower.indexOf("build finished") !== -1) {
+        return "success";
+      }
+      return "";
+    };
+    var collectBuildSummary = function(marker, projectName, maxTailBytes, maxLines, maxChars) {
+      var summary = {
+        status: "unavailable",
+        logPath: "",
+        captured: false,
+        lines: 0,
+        errorDetected: false,
+        excerpt: "",
+        errorExcerpt: ""
+      };
+      var logPath = resolveStudioLogPath();
+      summary.logPath = logPath;
+      if (!logPath.length) { return summary; }
+      var tailText = readFileTail(logPath, maxTailBytes);
+      if (!tailText.length) {
+        summary.status = "unknown";
+        return summary;
+      }
+      var allLines = tailText.split(/\r?\n/);
+      var startIndex = 0;
+      var endIndex = allLines.length;
+      if (marker != null && String(marker).length) {
+        var startMarker = marker + " START";
+        var endMarker = marker + " END";
+        var foundStart = false;
+        var i;
+        for (i = allLines.length - 1; i >= 0; i--) {
+          if (allLines[i].indexOf(startMarker) !== -1) {
+            startIndex = i + 1;
+            foundStart = true;
+            break;
+          }
+        }
+        if (foundStart) {
+          for (i = allLines.length - 1; i >= startIndex; i--) {
+            if (allLines[i].indexOf(endMarker) !== -1) {
+              endIndex = i;
+              break;
+            }
+          }
+        }
+      }
+      var messages = [];
+      var errorMessages = [];
+      var lastSignal = "";
+      var projectLower = trim(projectName).toLowerCase();
+      var projectHintMessages = [];
+      var i;
+      for (i = startIndex; i < endIndex; i++) {
+        var line = allLines[i];
+        if (line == null || !String(line).length) { continue; }
+        if (String(line).indexOf("!Studio") === -1) { continue; }
+        var message = normalizeLogMessage(line);
+        if (!message.length || !isBuildLogMessage(message)) { continue; }
+        var lineLower = String(line).toLowerCase();
+        var messageLower = message.toLowerCase();
+        var hasProjectHint = projectLower.length && (lineLower.indexOf(projectLower) !== -1 || messageLower.indexOf(projectLower) !== -1 || messageLower.indexOf("/" + projectLower + "/") !== -1);
+        if (hasProjectHint) { projectHintMessages.push(message); }
+        messages.push(message);
+        var signal = detectBuildSignal(message);
+        if (signal === "failed") {
+          errorMessages.push(message);
+          lastSignal = "failed";
+        } else if (signal === "success") {
+          lastSignal = "success";
+        }
+      }
+      if (!messages.length && marker != null && String(marker).length) {
+        for (i = 0; i < allLines.length; i++) {
+          var line2 = allLines[i];
+          if (line2 == null || !String(line2).length) { continue; }
+          if (String(line2).indexOf("!Studio") === -1) { continue; }
+          var message2 = normalizeLogMessage(line2);
+          if (!message2.length || !isBuildLogMessage(message2)) { continue; }
+          var line2Lower = String(line2).toLowerCase();
+          var message2Lower = message2.toLowerCase();
+          var hasProjectHint2 = projectLower.length && (line2Lower.indexOf(projectLower) !== -1 || message2Lower.indexOf(projectLower) !== -1 || message2Lower.indexOf("/" + projectLower + "/") !== -1);
+          if (hasProjectHint2) { projectHintMessages.push(message2); }
+          messages.push(message2);
+          var signal2 = detectBuildSignal(message2);
+          if (signal2 === "failed") {
+            errorMessages.push(message2);
+            lastSignal = "failed";
+          } else if (signal2 === "success") {
+            lastSignal = "success";
+          }
+        }
+      }
+      if (projectHintMessages.length) {
+        messages = projectHintMessages;
+      }
+      summary.lines = messages.length;
+      summary.captured = messages.length > 0;
+      summary.errorDetected = errorMessages.length > 0;
+      summary.status = lastSignal.length ? lastSignal : "unknown";
+      var keepLines = maxLines;
+      if (keepLines < 10) { keepLines = 10; }
+      if (keepLines > 400) { keepLines = 400; }
+      var startMessage = messages.length > keepLines ? messages.length - keepLines : 0;
+      var excerpt = messages.slice(startMessage).join("\n");
+      var keepChars = maxChars;
+      if (keepChars < 512) { keepChars = 512; }
+      if (keepChars > 50000) { keepChars = 50000; }
+      if (excerpt.length > keepChars) {
+        excerpt = excerpt.substring(excerpt.length - keepChars);
+      }
+      summary.excerpt = excerpt;
+      var errorStart = errorMessages.length > 40 ? errorMessages.length - 40 : 0;
+      var errorExcerpt = errorMessages.slice(errorStart).join("\n");
+      if (errorExcerpt.length > 20000) {
+        errorExcerpt = errorExcerpt.substring(errorExcerpt.length - 20000);
+      }
+      summary.errorExcerpt = errorExcerpt;
+      return summary;
+    };
     var requestedProject = trim(project);
     if (!requestedProject.length && context && context.project) {
       requestedProject = String(context.project.getName());
     }
-    
-    resultTimestamp = java.lang.System.currentTimeMillis();
+    var waitInitialBuildFlag = parseBoolean(waitInitialBuild, false);
+    var timeoutSecValue = parseInteger(timeoutSec, 180);
+    if (timeoutSecValue < 1) { timeoutSecValue = 1; }
+    if (timeoutSecValue > 3600) { timeoutSecValue = 3600; }
+    var launchFlag = parseBoolean(launch, true);
+    var collectLogsFlag = parseBoolean(collectLogs, true);
+    resultTimestamp = System.currentTimeMillis();
     resultStudioMode = Engine.isStudioMode();
     resultProject = requestedProject;
     resultStatus = "error";
@@ -68,7 +345,27 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
     resultError = "";
     resultAppQName = "";
     resultStarted = false;
-    
+    resultLaunch = launchFlag;
+    resultLaunchAction = "none";
+    resultBuilderWasRunning = false;
+    resultBuilderIsRunning = false;
+    resultBuilderProcessRunning = false;
+    resultCollectLogs = collectLogsFlag;
+    resultWaitInitialBuild = waitInitialBuildFlag;
+    resultTimeoutSec = timeoutSecValue;
+    resultInitialBuildFinished = false;
+    resultInitialBuildTimedOut = false;
+    resultWaitedMs = 0;
+    resultWaitNote = "";
+    resultBuildMarker = "MCP_EXECUTE_BUILD[" + requestedProject + "]#" + String(resultTimestamp);
+    resultBuildStatus = waitInitialBuildFlag || collectLogsFlag ? "unavailable" : "not_requested";
+    resultBuildLogPath = "";
+    resultBuildLogCaptured = false;
+    resultBuildLogLines = 0;
+    resultBuildErrorDetected = false;
+    resultBuildLogExcerpt = "";
+    resultBuildErrorExcerpt = "";
+    var launchedBuilder = null;
     try {
       if (!resultStudioMode) {
         resultStatus = "skipped";
@@ -85,7 +382,6 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
           if (pev == null) {
             throw new Error("Project Explorer view is not available. Open the Convertigo perspective first.");
           }
-    
           var projectTree = pev.getProjectRootObject(requestedProject);
           if (projectTree == null) {
             try {
@@ -96,12 +392,10 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
           if (projectTree == null) {
             throw new Error("Project not found in Project Explorer: " + requestedProject);
           }
-    
           if (projectTree instanceof UnloadedProjectTreeObject) {
             pev.loadProject(projectTree, false);
             projectTree = pev.getProjectRootObject(requestedProject);
           }
-    
           var resolvedProject = asProject(projectTree);
           if (resolvedProject == null && projectTree != null && typeof projectTree.getObject === "function") {
             resolvedProject = asProject(projectTree.getObject());
@@ -109,34 +403,127 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
           if (resolvedProject == null) {
             throw new Error("Unable to resolve project instance for: " + requestedProject);
           }
-    
           var mobileApplication = resolvedProject.getMobileApplication();
           if (mobileApplication == null) {
             throw new Error("Project has no mobile application: " + requestedProject);
           }
-    
           var appComponent = mobileApplication.getApplicationComponent();
           if (appComponent == null) {
             throw new Error("Project mobile application has no application component: " + requestedProject);
           }
           resultAppQName = String(appComponent.getQName());
-    
           var appTree = pev.findTreeObjectByUserObject(appComponent);
           if (appTree == null) {
             throw new Error("Unable to locate application component tree object: " + resultAppQName);
           }
-    
           var editor = appTree.activeEditor(false);
           if (editor == null) {
             throw new Error("Unable to retrieve the application component editor.");
           }
-    
-          editor.launchBuilder(false, false);
+          launchedBuilder = resolvedProject.getMobileBuilder();
+          resultBuilderWasRunning = isBuilderRunning(launchedBuilder, null);
+          resultBuilderProcessRunning = isProjectNodeProcessRunning(requestedProject);
+          if (launchFlag) {
+            if (resultBuilderWasRunning || resultBuilderProcessRunning) {
+              resultLaunchAction = "already_running";
+            } else {
+              editor.launchBuilder(false, false);
+              resultLaunchAction = "launched";
+              resultStarted = true;
+            }
+          } else {
+            resultLaunchAction = "logs_only";
+          }
+          resultBuilderIsRunning = isBuilderRunning(launchedBuilder, null);
         });
-    
+        if (collectLogsFlag && Engine.logStudio != null) {
+          try { Engine.logStudio.info(resultBuildMarker + " START"); } catch (_ignoreMarkerStart) {}
+        }
+        if (waitInitialBuildFlag) {
+          var waitStartedAt = System.currentTimeMillis();
+          var timeoutAt = waitStartedAt + (timeoutSecValue * 1000);
+          var isBuildingField = resolveIsBuildingField(launchedBuilder);
+          if (launchedBuilder == null) {
+            resultWaitNote = "Mobile builder unavailable";
+          } else if (isBuildingField == null) {
+            resultWaitNote = "isBuilding state unavailable on this Studio version";
+          } else {
+            var runningAtStart = isBuilderRunning(launchedBuilder, isBuildingField);
+            if (!runningAtStart && resultLaunchAction === "launched") {
+              var waitRunningUntil = System.currentTimeMillis() + 5000;
+              while (System.currentTimeMillis() < waitRunningUntil) {
+                runningAtStart = isBuilderRunning(launchedBuilder, isBuildingField);
+                if (runningAtStart) {
+                  break;
+                }
+                try { java.lang.Thread.sleep(100); } catch (_ignoreSleepBeforeRun) {}
+              }
+              if (!runningAtStart) {
+                resultWaitNote = "Builder launch did not expose running state";
+              }
+            }
+            if (!runningAtStart && resultLaunchAction === "logs_only") {
+              resultInitialBuildFinished = true;
+              resultWaitNote = "Builder not running";
+            } else if (!runningAtStart) {
+              resultInitialBuildFinished = true;
+              if (!resultWaitNote.length) {
+                resultWaitNote = "Builder not running";
+              }
+            } else {
+              while (true) {
+                var running = isBuilderRunning(launchedBuilder, isBuildingField);
+                resultBuilderIsRunning = running;
+                if (!running) {
+                  resultInitialBuildFinished = true;
+                  break;
+                }
+                if (System.currentTimeMillis() >= timeoutAt) {
+                  resultInitialBuildTimedOut = true;
+                  break;
+                }
+                launchedBuilder.waitBuildFinished();
+              }
+            }
+          }
+          resultWaitedMs = System.currentTimeMillis() - waitStartedAt;
+        }
+        if (collectLogsFlag) {
+          if (Engine.logStudio != null) {
+            try { Engine.logStudio.info(resultBuildMarker + " END"); } catch (_ignoreMarkerEnd) {}
+          }
+          var markerForLogs = (resultLaunchAction === "logs_only") ? "" : resultBuildMarker;
+          var summary = collectBuildSummary(markerForLogs, requestedProject, 3145728, 150, 24000);
+          resultBuildStatus = summary.status;
+          resultBuildLogPath = summary.logPath;
+          resultBuildLogCaptured = summary.captured;
+          resultBuildLogLines = summary.lines;
+          resultBuildErrorDetected = summary.errorDetected;
+          resultBuildLogExcerpt = summary.excerpt;
+          resultBuildErrorExcerpt = summary.errorExcerpt;
+        } else {
+          resultBuildStatus = "not_collected";
+        }
         resultStatus = "ok";
-        resultMessage = "Builder started";
-        resultStarted = true;
+        if (resultLaunchAction === "launched") {
+          if (waitInitialBuildFlag) {
+            if (resultInitialBuildTimedOut) {
+              resultMessage = "Builder launched; initial build wait timed out";
+            } else if (resultBuildStatus === "failed") {
+              resultMessage = "Builder launched; initial build completed with errors";
+            } else if (resultInitialBuildFinished) {
+              resultMessage = "Builder launched; initial build finished";
+            } else {
+              resultMessage = "Builder launched";
+            }
+          } else {
+            resultMessage = "Builder launched";
+          }
+        } else if (resultLaunchAction === "already_running") {
+          resultMessage = "Builder already running";
+        } else {
+          resultMessage = "Logs fetched without launching builder";
+        }
       }
     } catch (executeError) {
       resultStatus = "error";
@@ -230,6 +617,279 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
         - SmartType: 
           - ↑mode: JS
           - →→: resultStarted
+  ↓launch [steps.JsonFieldStep-1772301801001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: launch
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultLaunch
+  ↓launchAction [steps.JsonFieldStep-1772301801003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: launchAction
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultLaunchAction
+  ↓builderWasRunning [steps.JsonFieldStep-1772301801005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: builderWasRunning
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuilderWasRunning
+  ↓builderIsRunning [steps.JsonFieldStep-1772301801007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: builderIsRunning
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuilderIsRunning
+  ↓builderProcessRunning [steps.JsonFieldStep-1772301801008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: builderProcessRunning
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuilderProcessRunning
+  ↓collectLogs [steps.JsonFieldStep-1772301801009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: collectLogs
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultCollectLogs
+  ↓waitInitialBuild [steps.JsonFieldStep-1772290201001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: waitInitialBuild
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultWaitInitialBuild
+  ↓timeoutSec [steps.JsonFieldStep-1772290201003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timeoutSec
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimeoutSec
+  ↓initialBuildFinished [steps.JsonFieldStep-1772290201005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: initialBuildFinished
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInitialBuildFinished
+  ↓initialBuildTimedOut [steps.JsonFieldStep-1772290201007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: initialBuildTimedOut
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultInitialBuildTimedOut
+  ↓waitedMs [steps.JsonFieldStep-1772290201009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: waitedMs
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultWaitedMs
+  ↓waitNote [steps.JsonFieldStep-1772290201011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: waitNote
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultWaitNote
+  ↓buildMarker [steps.JsonFieldStep-1772301801011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildMarker
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildMarker
+  ↓buildStatus [steps.JsonFieldStep-1772301801013]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildStatus
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildStatus
+  ↓buildLogPath [steps.JsonFieldStep-1772301801015]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildLogPath
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildLogPath
+  ↓buildLogCaptured [steps.JsonFieldStep-1772301801017]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildLogCaptured
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildLogCaptured
+  ↓buildLogLines [steps.JsonFieldStep-1772301801019]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildLogLines
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildLogLines
+  ↓buildErrorDetected [steps.JsonFieldStep-1772301801021]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildErrorDetected
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildErrorDetected
+  ↓buildLogExcerpt [steps.JsonFieldStep-1772301801023]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildLogExcerpt
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildLogExcerpt
+  ↓buildErrorExcerpt [steps.JsonFieldStep-1772301801025]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: buildErrorExcerpt
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultBuildErrorExcerpt
   ↓timestamp [steps.JsonFieldStep-1772288801017]: 
     key: 
       - xmlizable: 
@@ -259,3 +919,15 @@ comment: Launch project mobile builder in Studio (Execute / build-serve).
           - →→: resultError
 ↓project [variables.RequestableVariable-1772288801021]: 
   comment: Target project name. Defaults to current context project when omitted.
+↓launch [variables.RequestableVariable-1772301801027]: 
+  comment: Set to false to skip launch and only fetch/analyze current build logs.
+  value: true
+↓collectLogs [variables.RequestableVariable-1772301801029]: 
+  comment: Capture npm/build output from Studio engine logs and return summary/excerpts.
+  value: true
+↓waitInitialBuild [variables.RequestableVariable-1772290201013]: 
+  comment: Set to true to wait for initial build completion (best effort) after launching builder.
+  value: false
+↓timeoutSec [variables.RequestableVariable-1772290201015]: 
+  comment: Maximum wait time in seconds when waitInitialBuild=true (1..3600).
+  value: 180
