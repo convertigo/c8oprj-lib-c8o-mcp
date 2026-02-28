@@ -1,0 +1,261 @@
+accessibility: Private
+comment: Launch project mobile builder in Studio (Execute / build-serve).
+↓Init [steps.SimpleStep-1772288801001]: 
+  comment: Resolve project and launch builder in Studio UI thread.
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var Display = Packages.org.eclipse.swt.widgets.Display;
+    var Runnable = java.lang.Runnable;
+    var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+    var UnloadedProjectTreeObject = Packages.com.twinsoft.convertigo.eclipse.views.projectexplorer.model.UnloadedProjectTreeObject;
+    
+    var trim = function(v) {
+      return v == null ? "" : String(v).trim();
+    };
+    
+    var runInUiThread = function(action) {
+      var display = Display.getDefault();
+      if (display == null) {
+        throw new Error("No active SWT Display; make sure Convertigo Studio is running.");
+      }
+      var errorHolder = { value: null };
+      display.syncExec(new Runnable({
+        run: function() {
+          try {
+            action();
+          } catch (e) {
+            errorHolder.value = e;
+          }
+        }
+      }));
+      if (errorHolder.value != null) {
+        var err = errorHolder.value;
+        if (err instanceof java.lang.Throwable) {
+          throw new Error(String(err.getClass().getSimpleName()) + ": " + String(err.getMessage()));
+        }
+        throw err;
+      }
+    };
+    
+    var asProject = function(candidate) {
+      if (candidate == null) {
+        return null;
+      }
+      try {
+        candidate.getMobileApplication();
+        return candidate;
+      } catch (_ignore1) {}
+      try {
+        var inner = candidate.getObject();
+        if (inner != null) {
+          inner.getMobileApplication();
+          return inner;
+        }
+      } catch (_ignore2) {}
+      return null;
+    };
+    
+    var requestedProject = trim(project);
+    if (!requestedProject.length && context && context.project) {
+      requestedProject = String(context.project.getName());
+    }
+    
+    resultTimestamp = java.lang.System.currentTimeMillis();
+    resultStudioMode = Engine.isStudioMode();
+    resultProject = requestedProject;
+    resultStatus = "error";
+    resultMessage = "";
+    resultError = "";
+    resultAppQName = "";
+    resultStarted = false;
+    
+    try {
+      if (!resultStudioMode) {
+        resultStatus = "skipped";
+        resultMessage = "Execute skipped: Convertigo Studio required";
+      } else if (!requestedProject.length) {
+        throw new Error("Project name is required");
+      } else {
+        runInUiThread(function() {
+          var plugin = ConvertigoPlugin.getDefault();
+          if (plugin == null) {
+            throw new Error("ConvertigoPlugin is unavailable.");
+          }
+          var pev = plugin.getProjectExplorerView();
+          if (pev == null) {
+            throw new Error("Project Explorer view is not available. Open the Convertigo perspective first.");
+          }
+    
+          var projectTree = pev.getProjectRootObject(requestedProject);
+          if (projectTree == null) {
+            try {
+              pev.importProjectTreeObject(requestedProject);
+              projectTree = pev.getProjectRootObject(requestedProject);
+            } catch (_ignoreImportProjectTree) {}
+          }
+          if (projectTree == null) {
+            throw new Error("Project not found in Project Explorer: " + requestedProject);
+          }
+    
+          if (projectTree instanceof UnloadedProjectTreeObject) {
+            pev.loadProject(projectTree, false);
+            projectTree = pev.getProjectRootObject(requestedProject);
+          }
+    
+          var resolvedProject = asProject(projectTree);
+          if (resolvedProject == null && projectTree != null && typeof projectTree.getObject === "function") {
+            resolvedProject = asProject(projectTree.getObject());
+          }
+          if (resolvedProject == null) {
+            throw new Error("Unable to resolve project instance for: " + requestedProject);
+          }
+    
+          var mobileApplication = resolvedProject.getMobileApplication();
+          if (mobileApplication == null) {
+            throw new Error("Project has no mobile application: " + requestedProject);
+          }
+    
+          var appComponent = mobileApplication.getApplicationComponent();
+          if (appComponent == null) {
+            throw new Error("Project mobile application has no application component: " + requestedProject);
+          }
+          resultAppQName = String(appComponent.getQName());
+    
+          var appTree = pev.findTreeObjectByUserObject(appComponent);
+          if (appTree == null) {
+            throw new Error("Unable to locate application component tree object: " + resultAppQName);
+          }
+    
+          var editor = appTree.activeEditor(false);
+          if (editor == null) {
+            throw new Error("Unable to retrieve the application component editor.");
+          }
+    
+          editor.launchBuilder(false, false);
+        });
+    
+        resultStatus = "ok";
+        resultMessage = "Builder started";
+        resultStarted = true;
+      }
+    } catch (executeError) {
+      resultStatus = "error";
+      resultMessage = String(executeError);
+      resultError = String(executeError);
+    }'
+↓Result [steps.JsonObjectStep-1772288801003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1772288801005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1772288801007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓project [steps.JsonFieldStep-1772288801009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultProject
+  ↓appQName [steps.JsonFieldStep-1772288801011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: appQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultAppQName
+  ↓studioMode [steps.JsonFieldStep-1772288801013]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: studioMode
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStudioMode
+  ↓started [steps.JsonFieldStep-1772288801015]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: started
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStarted
+  ↓timestamp [steps.JsonFieldStep-1772288801017]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimestamp
+  ↓error [steps.JsonFieldStep-1772288801019]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: error
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultError
+↓project [variables.RequestableVariable-1772288801021]: 
+  comment: Target project name. Defaults to current context project when omitted.
