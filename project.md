@@ -1072,12 +1072,12 @@ Fully-qualified class name returned by palette-list item.className
 
 </p></blockquote></details>
 
-<details><summary><b>tools_palette_list</b> : Lists palette categories (name, class, short summary) and adds a 'hints' block reminding you to call palette-describe for templates + property details</summary><blockquote><p>
+<details><summary><b>tools_palette_list</b> : Lists creatable palette entries for a target parent, including NGX dynamic components using Studio-compatible rules</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_palette_list
 
-Lists palette categories (name, class, short summary) and adds a 'hints' block reminding you to call palette-describe for templates + property details.
+Lists creatable palette entries for a target parent, including NGX dynamic components using Studio-compatible rules.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -1108,10 +1108,18 @@ Optional case-insensitive filter applied on palette category and item names.
 </tr>
 <tr>
 <td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeDynamic
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeBuiltIn
 </td>
 <td>
-Set to true to include dynamic (Angular/ION) components
+Include built-in palette entries (default true).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeShared
+</td>
+<td>
+Include shared (non built-in) palette entries (default true).
 </td>
 </tr>
 <tr>

@@ -18,7 +18,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `databaseobject-rename`       | `tools_databaseobject_rename.yaml`          | Rename a database object and optionally refactor references. |
 | `databaseobject-properties-get` | `tools_databaseobject_properties_get.yaml` | Retrieve metadata + values for a database object. Payload is compact by default; pass `includeHints=true` to re-enable long descriptions and boolean flags. |
 | `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties (including XMLizable / SmartType handling). |
-| `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). |
+| `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). NGX targets include Studio-compatible dynamic entries (Ionic palette items). Supports `includeBuiltIn` / `includeShared` toggles (both default `true`). |
 | `palette-describe`            | `tools_palette_describe.yaml`               | Detailed description of a specific palette entry (creation template, property hints). |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |

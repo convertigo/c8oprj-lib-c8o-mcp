@@ -1,5 +1,5 @@
 accessibility: Private
-comment: Lists palette categories (name, class, short summary) and adds a 'hints' block reminding you to call palette-describe for templates + property details.
+comment: Lists creatable palette entries for a target parent, including NGX dynamic components using Studio-compatible rules.
 ↓IncludeHelpers [steps.SimpleStep-1763034294509]: 
   comment: Load shared palette helpers
   expression: include("js/palette.js");
@@ -7,16 +7,31 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
   comment: Load helpers
   expression: include("js/databaseobject.js");
 ↓InitContext [steps.SimpleStep-1762338110018]: 
-  comment: Prepare helpers and resolve parent
+  comment: Prepare context, options, and target parent resolution.
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
+    
+    function parseOptionBoolean(value, defaultValue) {
+      if (value === null || typeof value === "undefined") {
+        return defaultValue;
+      }
+      var text = String(value).trim();
+      if (!text.length) {
+        return defaultValue;
+      }
+      text = text.toLowerCase();
+      if (text === "true" || text === "1" || text === "yes" || text === "on") {
+        return true;
+      }
+      if (text === "false" || text === "0" || text === "no" || text === "off") {
+        return false;
+      }
+      return defaultValue;
+    }
     
     var targetRaw = target == null ? "" : String(target).trim();
-    var includeDynamicFlag = true;
-    if (includeDynamic != null && String(includeDynamic).length > 0) {
-      includeDynamicFlag = /true/i.test(String(includeDynamic));
-    }
+    var includeBuiltInFlag = parseOptionBoolean(includeBuiltIn, true);
+    var includeSharedFlag = parseOptionBoolean(includeShared, true);
     
     var filterRaw = filter == null ? "" : String(filter);
     var filterText = filterRaw.trim();
@@ -45,6 +60,7 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
         cursorRaw = cursorText;
       }
     }
+    
     var startIndexValue = 0;
     if (cursorRaw.length > 0) {
       try {
@@ -54,7 +70,6 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
         }
       } catch (_ignoredCursor) {}
     }
-    
     if (limitValue <= 0) {
       cursorRaw = "";
       startIndexValue = 0;
@@ -91,7 +106,7 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
           if (parentDbo != null) {
             break;
           }
-        } catch (ignoredCandidates) {}
+        } catch (_ignoredCandidate) {}
       }
     }
     
@@ -99,10 +114,10 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
     var parentClassNameValue = parentDbo != null ? parentDbo.getClass().getName() : "";
     
     paletteCategories = [];
-    categoryIndex = {};
     paletteParent = parentDbo;
     paletteFolderType = null;
-    paletteIncludeDynamic = includeDynamicFlag ? true : false;
+    paletteIncludeBuiltIn = includeBuiltInFlag === true;
+    paletteIncludeShared = includeSharedFlag === true;
     paletteFilterInfo = {
       hasFilter: hasFilter,
       text: filterText,
@@ -121,7 +136,8 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
       parentQName: parentQNameValue,
       parentClass: parentClassNameValue,
       folderType: folderTypeValue,
-      includeDynamic: paletteIncludeDynamic,
+      includeBuiltIn: paletteIncludeBuiltIn,
+      includeShared: paletteIncludeShared,
       filter: hasFilter ? filterRaw : "",
       limit: paletteLimit > 0 ? paletteLimit : null,
       startIndex: startIndexValue,
@@ -132,186 +148,31 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
       hasMore: false,
       nextCursor: "",
       totalMatches: 0
-    };
-    
-    function ensureCategory(name, type) {
-      var catName = name && name.length ? name : "General";
-      var key = catName.toLowerCase();
-      var existing = categoryIndex[key];
-      if (!existing) {
-        existing = { name: catName, type: type || "Category", items: [] };
-        categoryIndex[key] = existing;
-        paletteCategories.push(existing);
-      }
-      return existing;
-    }
-    
-    function splitDescription(raw) {
-      if (!raw) {
-        return { short: "", long: "" };
-      }
-      var parts = String(raw).split("|");
-      var shortDesc = parts.length > 0 ? parts[0].trim() : "";
-      var longDesc = parts.length > 1 ? parts.slice(1).join("|").trim() : "";
-      return { short: shortDesc, long: longDesc };
-    }
-    
-    ensureCategoryRef = ensureCategory;
-    splitDescriptionRef = splitDescription;'
+    };'
 ↓LoadBeans [steps.SimpleStep-1762338110020]: 
-  comment: Collect palette beans from explorer
+  comment: Collect palette entries using Studio-compatible NGX component manager behavior.
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var DatabaseObjectsManager = Packages.com.twinsoft.convertigo.engine.DatabaseObjectsManager;
-    var DatabaseObject = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject;
-    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
-    var BeanInfo = Packages.java.beans.BeanInfo;
+    'var loadResult = C8O.palette.listEntries({
+      parentDbo: paletteParent,
+      folderType: paletteFolderType,
+      includeBuiltIn: paletteIncludeBuiltIn === true,
+      includeShared: paletteIncludeShared === true,
+      filterInfo: paletteFilterInfo || { hasFilter: false, text: "" },
+      limit: paletteLimit > 0 ? paletteLimit : 0,
+      startIndex: paletteStartIndex > 0 ? paletteStartIndex : 0
+    });
     
-    var parentDbo = paletteParent;
-    var folderType = paletteFolderType;
-    var filterInfo = paletteFilterInfo || { hasFilter: false, text: "" };
-    var limitValue = paletteLimit > 0 ? paletteLimit : 0;
-    var startIndex = paletteStartIndex > 0 ? paletteStartIndex : 0;
-    var totalMatches = 0;
-    var windowCount = 0;
-    var hasMore = false;
-    var stopCollect = false;
-    
-    var explorer = Engine.theApp.getDboExplorerManager();
-    var groups = explorer.getGroups();
-    var groupIt = groups.iterator();
-    while (groupIt.hasNext() && !stopCollect) {
-      var group = groupIt.next();
-      var groupName = group.getName();
-      var categoryIt = group.getCategories().iterator();
-      while (categoryIt.hasNext() && !stopCollect) {
-        var category = categoryIt.next();
-        var categoryName = category.getName().isEmpty() ? groupName : category.getName();
-        var beansIt = category.getBeans().iterator();
-        while (beansIt.hasNext() && !stopCollect) {
-          var beans = beansIt.next();
-          var catLabel = beans.getName().isEmpty() ? categoryName : beans.getName();
-          var beanIt = beans.getBeans().iterator();
-          while (beanIt.hasNext()) {
-            var bean = beanIt.next();
-            var classFqcn = bean.getClassName();
-            var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(classFqcn) : String(classFqcn || "");
-            var isAllowed = parentDbo == null;
-            try {
-              var force = false;
-              if (parentDbo != null) {
-                if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.core.Sequence) {
-                  force = classFqcn.indexOf("com.twinsoft.convertigo.beans.steps.") === 0 ||
-                            classFqcn.indexOf("com.twinsoft.convertigo.beans.variables.Step") === 0;
-                } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent) {
-                  force = classFqcn.indexOf("com.twinsoft.convertigo.beans.ngx.") === 0;
-                } else if (parentDbo instanceof Packages.com.twinsoft.convertigo.beans.mobile.components.ApplicationComponent) {
-                  force = classFqcn.indexOf("com.twinsoft.convertigo.beans.mobile.") === 0;
-                }
-              }
-              if (parentDbo != null) {
-                isAllowed = force || DatabaseObjectsManager.checkParent(parentDbo.getClass(), bean);
-              }
-              if (folderType != null && folderType.length && isAllowed) {
-                isAllowed = DatabaseObject.getFolderType(Packages.java.lang.Class.forName(classFqcn)) == folderType;
-              }
-            } catch (eCheck) {}
-    
-            if (!isAllowed) {
-              continue;
-            }
-    
-            try {
-              var beanInfoClass = Packages.java.lang.Class.forName(classFqcn + "BeanInfo");
-              var beanInfo = beanInfoClass.getConstructor().newInstance();
-              var descriptor = beanInfo.getBeanDescriptor();
-              var description = bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented |";
-              var descParts = splitDescriptionRef(description);
-              var iconPath = MySimpleBeanInfo.getIconName(beanInfo, BeanInfo.ICON_COLOR_32x32);
-              var entry = {
-                type: "dbo",
-                id: className,
-                name: descriptor.getDisplayName(),
-                className: className,
-                description: description,
-                shortDescription: descParts.short,
-                longDescription: descParts.long,
-                icon: iconPath,
-                builtin: true,
-                additional: false,
-                group: groupName,
-                category: catLabel
-              };
-    
-              if (filterInfo.hasFilter) {
-                var ft = filterInfo.text;
-                var matches = false;
-                function contains(value) {
-                  return value && String(value).toLowerCase().indexOf(ft) != -1;
-                }
-                if (contains(entry.name) || contains(entry.className) || contains(entry.shortDescription) ||
-                    contains(entry.longDescription) || contains(entry.description) || contains(entry.group) ||
-                    contains(entry.category)) {
-                  matches = true;
-                }
-                if (!matches) {
-                  continue;
-                }
-              }
-    
-              totalMatches++;
-              if (totalMatches <= startIndex) {
-                continue;
-              }
-    
-              if (limitValue > 0 && windowCount >= limitValue) {
-                hasMore = true;
-                paletteHasMore = true;
-                paletteNextCursor = String(startIndex + windowCount);
-                resultInfo.hasMore = true;
-                resultInfo.nextCursor = paletteNextCursor;
-                stopCollect = true;
-                break;
-              }
-    
-              windowCount++;
-              paletteItemCount++;
-    
-              try {
-                C8O.palette.attachListEntrySummary(entry, { displayName: entry.name, beanInfo: beanInfo });
-              } catch (_ignoreSummary) {}
-    
-              var infoCounts = null;
-              try {
-                infoCounts = C8O.palette.computeListEntryCounts(classFqcn);
-                if (infoCounts && infoCounts.propertyCount != null) {
-                  entry.propertyCount = infoCounts.propertyCount;
-                }
-              } catch (_ignoreCounts) {}
-    
-              var cat = ensureCategoryRef(catLabel, "Category");
-              cat.items.push(entry);
-              if (limitValue > 0 && paletteItemCount >= limitValue) {
-                hasMore = true;
-                paletteHasMore = true;
-                paletteNextCursor = String(startIndex + paletteItemCount);
-                resultInfo.hasMore = true;
-                resultInfo.nextCursor = paletteNextCursor;
-                stopCollect = true;
-                break;
-              }
-            } catch (_ignoreBean) {}
-          }
-        }
-      }
-    }
+    paletteCategories = loadResult && loadResult.categories ? loadResult.categories : [];
+    paletteItemCount = loadResult && loadResult.returned ? Number(loadResult.returned) : 0;
+    paletteTotalMatches = loadResult && loadResult.totalMatches ? Number(loadResult.totalMatches) : 0;
+    paletteHasMore = loadResult && loadResult.hasMore === true;
+    paletteNextCursor = paletteHasMore ? String(loadResult.nextCursor || ((paletteStartIndex || 0) + paletteItemCount)) : "";
     
     resultInfo.categories = paletteCategories.length;
     resultInfo.returned = paletteItemCount;
-    resultInfo.totalMatches = totalMatches;
+    resultInfo.totalMatches = paletteTotalMatches;
     resultInfo.nextCursor = paletteNextCursor;
-    resultInfo.hasMore = paletteHasMore;
-    paletteTotalMatches = totalMatches;'
+    resultInfo.hasMore = paletteHasMore;'
 ↓AugmentEntries [steps.SimpleStep-1763034311544]: 
   comment: Compute property hints and creation templates
   expression: |
@@ -369,12 +230,8 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
       }
     }'
 ↓LoadDynamic [steps.SimpleStep-1762338110022]: 
-  comment: Collect dynamic UI components
-  expression: |
-    'if (paletteIncludeDynamic) {
-      // Dynamic palette entries not yet implemented for MCP tooling.
-    }
-    '
+  comment: No-op. Dynamic entries are already collected in LoadBeans.
+  expression: var dynamicEntriesHandledInLoadBeans = true;
 ↓Finalize [steps.SimpleStep-1762338110024]: 
   comment: Sort categories and prune empties
   expression: |
@@ -615,8 +472,12 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
             - →→: resultInfo.nextCursor
 ↓target [variables.RequestableVariable-1762338110014]: 
   comment: Parent QName (optionally suffixed with :FolderType)
-↓includeDynamic [variables.RequestableVariable-1762338110016]: 
-  comment: Set to true to include dynamic (Angular/ION) components
+↓includeBuiltIn [variables.RequestableVariable-1772554401038]: 
+  comment: Include built-in palette entries (default true).
+  value: true
+↓includeShared [variables.RequestableVariable-1772554402158]: 
+  comment: Include shared (non built-in) palette entries (default true).
+  value: true
 ↓filter [variables.RequestableVariable-1762427734000]: 
   comment: Optional case-insensitive filter applied on palette category and item names.
 ↓limit [variables.RequestableVariable-1762440860118]: 
@@ -626,7 +487,10 @@ comment: Lists palette categories (name, class, short summary) and adds a 'hints
 ↓Sequence [core.TestCase-1763471055163]: 
   ↓target [variables.TestCaseVariable-1763471055980]: 
     value: ConvertigoMCP.sq:internal_list_tools_info
-  ↓includeDynamic [variables.TestCaseVariable-1763471055982]: 
+  ↓includeBuiltIn [variables.TestCaseVariable-1772554478599]: 
+    value: true
+  ↓includeShared [variables.TestCaseVariable-1772554479375]: 
+    value: true
   ↓filter [variables.TestCaseVariable-1763471055984]: 
   ↓limit [variables.TestCaseVariable-1763471055986]: 
   ↓_nextCursor [variables.TestCaseVariable-1763471055988]: 
