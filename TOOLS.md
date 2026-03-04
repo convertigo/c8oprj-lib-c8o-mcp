@@ -12,6 +12,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 |-------------------------------|---------------------------------------------|---------|
 | `project-list`         | `tools_project_list.yaml`            | List installed projects with metadata (templates, versions, exports…). |
 | `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List database object children (or projects when `qname` is empty) with optional recursion via `depth` and ancestor-preserving filters. |
+| `databaseobject-batch-apply`  | `tools_databaseobject_batch_apply.yaml`     | Apply multiple mutations in one call (`create`, `delete`, `move`, `setProperties`, `upsertTree`) with `onError=stop|continue`, per-operation diagnostics, and resume metadata (`resume.fromOpIndex`, `failedOpIds`). Supports nested `children` on `create` and `$ref` resolution across operations (for example `{ \"$ref\": \"opId.qname\" }`). |
 | `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). |
 | `databaseobject-delete`       | `tools_databaseobject_delete.yaml`          | Delete a database object, optionally exporting and refreshing Studio. |
 | `databaseobject-move`         | `tools_databaseobject_move.yaml`            | Move or reorder a database object with Studio refresh support. |
@@ -61,7 +62,7 @@ reducing context usage.
 | `internal_json_schema.yaml`                | Build JSON Schema + sample payloads for tool inputs/outputs. |
 | `internal_list_tools_info.yaml`, `mcp_tools_list.yaml` | Discover `tools_*` sequences and expose catalog to MCP clients. |
 | `internal_studio_refresh.yaml`             | Refresh the Eclipse Project Explorer after mutations when Studio is present. |
-| `js/databaseobject.js`, `js/databaseobject_ops.js`, `js/util.js`, `js/xmlizable.js` | Shared Rhino helpers for parsing JSON, handling SmartType/XMLizable values, and performing mutations. |
+| `js/databaseobject.js`, `js/databaseobject_batch.js`, `js/databaseobject_ops.js`, `js/util.js`, `js/xmlizable.js` | Shared Rhino helpers for parsing JSON, handling SmartType/XMLizable values, and performing mutations. |
 
 ## Backlog
 
