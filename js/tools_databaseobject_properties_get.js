@@ -149,30 +149,12 @@ function normalizeFriendlyValue(pd, value) {
   return { value: String(friendly), valueKind: "string" };
 }
 
-function toJsArray(javaArrayLike) {
-  var list = [];
-  if (!javaArrayLike) {
-    return list;
-  }
-  try {
-    for (var i = 0; i < javaArrayLike.length; i++) {
-      list.push(javaArrayLike[i]);
-    }
-    return list;
-  } catch (_ignoreLength) {}
-  try {
-    var iterator = javaArrayLike.iterator();
-    while (iterator.hasNext()) {
-      list.push(iterator.next());
-    }
-  } catch (_ignoreIterator) {}
-  return list;
-}
-
 function buildDynamicOptionInfo(ionProperty) {
   var values = [];
   try {
-    values = toJsArray(ionProperty.getValues());
+    if (C8O.dbo && typeof C8O.dbo._toJsArray === "function") {
+      values = C8O.dbo._toJsArray(ionProperty.getValues());
+    }
   } catch (_ignoreValues) {
     values = [];
   }

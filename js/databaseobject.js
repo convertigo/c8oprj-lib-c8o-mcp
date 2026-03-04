@@ -1442,6 +1442,68 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
   return result;
 };
 
+C8O.dbo.applyUpdatesAndPersist = function (options) {
+  options = options || {};
+
+  var dbo = options.dbo || null;
+  var projectRef = options.project || null;
+  var updates = (options.updates && typeof options.updates === "object") ? options.updates : {};
+  var errors = options.errors && options.errors.push ? options.errors : [];
+  var autoSaveFlag = options.autoSave === true;
+  var persistIfNoUpdate = options.persistIfNoUpdate === true;
+  var markChanged = options.markChanged !== false;
+  var triggerMobileBuilder = options.triggerMobileBuilder !== false;
+
+  var appliedEntries = [];
+  var skippedEntries = [];
+  if (dbo && updates && Object.keys(updates).length > 0) {
+    var applyResult = C8O.dbo.applyPropertyUpdates(dbo, updates);
+    appliedEntries = applyResult.applied || [];
+    skippedEntries = applyResult.skipped || [];
+    if (applyResult.errors && applyResult.errors.length) {
+      Array.prototype.push.apply(errors, applyResult.errors);
+    }
+  }
+
+  if (projectRef == null && dbo && dbo.getProject) {
+    try {
+      projectRef = dbo.getProject();
+    } catch (_ignoreProjectLookup) {}
+  }
+
+  var changed = appliedEntries.length > 0 || persistIfNoUpdate;
+  var mobileBuilderRefresh = { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
+  var saveResult = { saved: false, message: "", skipped: true };
+
+  if (changed) {
+    if (markChanged && dbo != null) {
+      try {
+        dbo.hasChanged = true;
+      } catch (_ignoreDboChanged) {}
+    }
+    if (markChanged && projectRef != null) {
+      try {
+        projectRef.hasChanged = true;
+      } catch (_ignoreProjectChanged) {}
+    }
+    if (triggerMobileBuilder && dbo != null) {
+      mobileBuilderRefresh = C8O.dbo.triggerMobileBuilderRefresh(dbo, errors);
+    }
+    saveResult = C8O.dbo.saveProjectIfNeeded(projectRef, autoSaveFlag, errors);
+  }
+
+  return {
+    applied: appliedEntries,
+    skipped: skippedEntries,
+    errors: errors,
+    project: projectRef,
+    changed: changed,
+    mobileBuilderRefresh: mobileBuilderRefresh,
+    saveResult: saveResult,
+    saved: saveResult && saveResult.saved === true
+  };
+};
+
 C8O.dbo.reloadProject = function (projectOrName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var name = "";
@@ -1537,6 +1599,27 @@ C8O.dbo._extractPropertyHint = function (updates, aliases) {
   return "";
 };
 
+C8O.dbo.hasAppliedProperty = function (appliedEntries, aliases) {
+  if (!appliedEntries || !appliedEntries.length || !aliases || !aliases.length) {
+    return false;
+  }
+  var expected = {};
+  for (var a = 0; a < aliases.length; a++) {
+    var normalizedAlias = C8O.dbo._normalizePropertyLookupKey(aliases[a]);
+    if (normalizedAlias.length) {
+      expected[normalizedAlias] = true;
+    }
+  }
+  for (var i = 0; i < appliedEntries.length; i++) {
+    var entry = appliedEntries[i];
+    var normalizedName = C8O.dbo._normalizePropertyLookupKey(entry && entry.name ? entry.name : "");
+    if (normalizedName.length && expected[normalizedName]) {
+      return true;
+    }
+  }
+  return false;
+};
+
 C8O.dbo._isNgxParent = function (parentDbo) {
   if (!parentDbo) {
     return false;
@@ -1613,17 +1696,21 @@ C8O.dbo._instantiateNgxFromHints = function (requestedClassName, parentDbo, upda
     try { componentName = String(component.getName() || ""); } catch (_ignoreName) { componentName = ""; }
     try { componentLabel = String(component.getLabel() || ""); } catch (_ignoreLabel) { componentLabel = ""; }
 
+    var matchesTag = true;
     if (normalizedTag.length) {
       var normalizedComponentTag = C8O.dbo._normalizePropertyLookupKey(componentTag);
-      if (normalizedComponentTag !== normalizedTag) {
-        continue;
-      }
-    } else if (normalizedComponent.length) {
+      matchesTag = normalizedComponentTag === normalizedTag;
+    }
+
+    var matchesComponent = true;
+    if (normalizedComponent.length) {
       var normalizedName = C8O.dbo._normalizePropertyLookupKey(componentName);
       var normalizedLabel = C8O.dbo._normalizePropertyLookupKey(componentLabel);
-      if (normalizedName !== normalizedComponent && normalizedLabel !== normalizedComponent) {
-        continue;
-      }
+      matchesComponent = normalizedName === normalizedComponent || normalizedLabel === normalizedComponent;
+    }
+
+    if (!matchesTag || !matchesComponent) {
+      continue;
     }
 
     var candidate = null;
@@ -1867,7 +1954,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
 
 
 

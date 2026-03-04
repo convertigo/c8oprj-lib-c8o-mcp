@@ -160,34 +160,33 @@ comment: Creates a new database object relative to an existing one.
     if (projectRef == null) {
       try { projectRef = newDbo.getProject(); } catch (ignoredProject) {}
     }
-    if (projectRef != null) { projectRef.hasChanged = true; }
-    if (creationPropertiesProvided && Object.keys(parsedUpdates).length > 0) {
-      var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);
-      creationPropertiesApplied = applyResult.applied;
-      creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);
-      if (applyResult.errors.length) { Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors); }
-    }
-    newDbo.hasChanged = true;
     createdObject = newDbo;
     createdQName = String(newDbo.getFullQName());
     createdName = String(newDbo.getName());
     createdClassName = C8O.util.fromFqcn ? C8O.util.fromFqcn(newDbo.getClass().getName()) : newDbo.getClass().getName();
     createdParentQName = String(parent.getQName());
-    createdProject = projectRef;'
+    createdProject = projectRef;
+    '
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |
-    'var mobileBuilderRefresh = { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
-    if (createdObject != null) {
-      mobileBuilderRefresh = C8O.dbo.triggerMobileBuilderRefresh(createdObject, creationPropertiesErrors);
-    }
-    creationMobileBuilderRefresh = mobileBuilderRefresh;
+    'var parsedUpdates = creationParsedUpdates && typeof creationParsedUpdates === "object" ? creationParsedUpdates : {};
+    var mutation = C8O.dbo.applyUpdatesAndPersist({
+      dbo: createdObject,
+      project: createdProject,
+      updates: parsedUpdates,
+      errors: creationPropertiesErrors,
+      autoSave: creationAutoSave,
+      persistIfNoUpdate: true
+    });
     
-    var saveResult = C8O.dbo.saveProjectIfNeeded(createdProject, creationAutoSave, creationPropertiesErrors);
-    var savedFlag = saveResult.saved === true;
-    creationSaved = savedFlag;
-    creationSaveMessage = saveResult.message || "";
+    creationPropertiesApplied = mutation.applied || [];
+    creationPropertiesSkipped = mutation.skipped || [];
+    creationMobileBuilderRefresh = mutation.mobileBuilderRefresh || { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
+    creationSaved = mutation.saved === true;
+    creationSaveMessage = mutation.saveResult ? (mutation.saveResult.message || "") : "";
     creationAutoSaveApplied = creationAutoSave;
+    createdProject = mutation.project || createdProject;
     '
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
@@ -376,6 +375,33 @@ comment: Creates a new database object relative to an existing one.
         - SmartType: 
           - ↑mode: JS
           - →→: creationSaved
+  ↓mobileBuilderTriggered [steps.JsonFieldStep-1772614418486]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderTriggered
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'creationMobileBuilderRefresh ? creationMobileBuilderRefresh.triggered === true : false'
+  ↓mobileBuilderMessage [steps.JsonFieldStep-1772614425338]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'creationMobileBuilderRefresh ? (creationMobileBuilderRefresh.message || "") : ""'
   ↓saveMessage [steps.JsonFieldStep-1762339712923]: 
     key: 
       - xmlizable: 
