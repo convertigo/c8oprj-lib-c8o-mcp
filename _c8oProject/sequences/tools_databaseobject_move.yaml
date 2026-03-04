@@ -64,10 +64,7 @@ comment: Moves or reorders a database object within the project tree.
   condition: moveShouldRefreshFrom
   ↓PrepareRefreshFrom [steps.SimpleStep-1762369956784]: 
     comment: Save current qname and target from parent
-    expression: |
-      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
-      previousRefreshQNameValue = previousRefreshQNameDefined ? qname : null;
-      qname = moveFromParent;'
+    expression: moveRefreshFromScope = C8O.dbo.beginSequenceVariableScope(this, "qname", moveFromParent);
   ↓RefreshFrom [steps.SequenceStep-1762369963045]: 
     comment: Invoke Studio refresh for source parent
     sourceSequence: ConvertigoMCP.internal_studio_refresh
@@ -75,23 +72,13 @@ comment: Moves or reorders a database object within the project tree.
       comment: Database object QName to refresh inside the Studio Project Explorer
   ↓RestoreFromScope [steps.SimpleStep-1762369969481]: 
     comment: Restore original qname after refresh
-    expression: |
-      'if (previousRefreshQNameDefined) {
-        qname = previousRefreshQNameValue;
-      } else {
-        qname = null;
-      }
-      previousRefreshQNameDefined = false;
-      previousRefreshQNameValue = null;'
+    expression: C8O.dbo.endSequenceVariableScope(this, "qname", moveRefreshFromScope); moveRefreshFromScope = null;
 ↓IfRefreshTo [steps.IfStep-1762369976879]: 
   comment: Refresh destination parent when move changed location
   condition: moveShouldRefreshTo
   ↓PrepareRefreshTo [steps.SimpleStep-1762369981255]: 
     comment: Save qname and set destination parent
-    expression: |
-      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
-      previousRefreshQNameValue = previousRefreshQNameDefined ? qname : null;
-      qname = moveToParent;'
+    expression: moveRefreshToScope = C8O.dbo.beginSequenceVariableScope(this, "qname", moveToParent);
   ↓RefreshTo [steps.SequenceStep-1762369987169]: 
     comment: Invoke Studio refresh for destination parent
     sourceSequence: ConvertigoMCP.internal_studio_refresh
@@ -99,14 +86,7 @@ comment: Moves or reorders a database object within the project tree.
       comment: Database object QName to refresh inside the Studio Project Explorer
   ↓RestoreToScope [steps.SimpleStep-1762369992496]: 
     comment: Restore qname after destination refresh
-    expression: |
-      'if (previousRefreshQNameDefined) {
-        qname = previousRefreshQNameValue;
-      } else {
-        qname = null;
-      }
-      previousRefreshQNameDefined = false;
-      previousRefreshQNameValue = null;'
+    expression: C8O.dbo.endSequenceVariableScope(this, "qname", moveRefreshToScope); moveRefreshToScope = null;
 ↓Result [steps.JsonObjectStep-1762370000723]: 
   comment: Build response payload
   key: 

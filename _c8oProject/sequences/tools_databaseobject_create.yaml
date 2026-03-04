@@ -193,14 +193,7 @@ comment: Creates a new database object relative to an existing one.
   condition: createdObject != null && notEmpty(createdParentQName)
   ↓PrepareRefreshCall [steps.SimpleStep-1762342856452]: 
     comment: Preserve existing qname scope and set refresh target
-    expression: |
-      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
-      if (previousRefreshQNameDefined) {
-        previousRefreshQNameValue = qname;
-      } else {
-        previousRefreshQNameValue = null;
-      }
-      qname = createdParentQName;'
+    expression: studioRefreshScope = C8O.dbo.beginSequenceVariableScope(this, "qname", createdParentQName);
   ↓CallInternalStudioRefresh [steps.SequenceStep-1762342856454]: 
     comment: Invoke internal_studio_refresh for Eclipse Project Explorer
     sourceSequence: ConvertigoMCP.internal_studio_refresh
@@ -208,18 +201,7 @@ comment: Creates a new database object relative to an existing one.
       comment: QName forwarded to internal_studio_refresh
   ↓CleanupRefreshCall [steps.SimpleStep-1762342856458]: 
     comment: Restore previous qname scope after refresh
-    expression: |
-      'if (previousRefreshQNameDefined) {
-        qname = previousRefreshQNameValue;
-      } else {
-        try {
-          delete qname;
-        } catch (cleanupError) {
-          qname = undefined;
-        }
-      }
-      previousRefreshQNameDefined = false;
-      previousRefreshQNameValue = null;'
+    expression: C8O.dbo.endSequenceVariableScope(this, "qname", studioRefreshScope); studioRefreshScope = null;
 ↓result [steps.JsonObjectStep-1762339712899]: 
   key: 
     - xmlizable: 

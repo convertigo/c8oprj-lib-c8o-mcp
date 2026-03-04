@@ -1620,6 +1620,47 @@ C8O.dbo.hasAppliedProperty = function (appliedEntries, aliases) {
   return false;
 };
 
+C8O.dbo.beginSequenceVariableScope = function (scopeObject, variableName, newValue) {
+  var scope = scopeObject && typeof scopeObject === "object" ? scopeObject : this;
+  var key = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(variableName || "") : String(variableName || "").trim();
+  var state = { defined: false, value: null };
+  if (!scope || !key.length) {
+    return state;
+  }
+  try {
+    state.defined = typeof scope[key] !== "undefined" && scope[key] !== null;
+    state.value = state.defined ? scope[key] : null;
+  } catch (_ignoreReadScope) {
+    state.defined = false;
+    state.value = null;
+  }
+  try {
+    scope[key] = newValue;
+  } catch (_ignoreWriteScope) {}
+  return state;
+};
+
+C8O.dbo.endSequenceVariableScope = function (scopeObject, variableName, state) {
+  var scope = scopeObject && typeof scopeObject === "object" ? scopeObject : this;
+  var key = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(variableName || "") : String(variableName || "").trim();
+  if (!scope || !key.length) {
+    return;
+  }
+  if (state && state.defined === true) {
+    try {
+      scope[key] = state.value;
+      return;
+    } catch (_ignoreRestoreScope) {}
+  }
+  try {
+    delete scope[key];
+  } catch (_ignoreDeleteScope) {
+    try {
+      scope[key] = undefined;
+    } catch (_ignoreUndefinedScope) {}
+  }
+};
+
 C8O.dbo._isNgxParent = function (parentDbo) {
   if (!parentDbo) {
     return false;
@@ -1954,7 +1995,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
 
 
 
