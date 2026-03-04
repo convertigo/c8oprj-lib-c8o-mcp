@@ -81,6 +81,14 @@ comment: Creates a new database object relative to an existing one.
     creationRequestedName = nameText;
     creationProperties = propertiesText;
     creationPropertiesProvided = propertiesText.length > 0;
+    creationParsedUpdates = {};
+    creationPropertiesErrors = [];
+    if (creationPropertiesProvided) {
+      creationParsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);
+      if (!creationParsedUpdates || typeof creationParsedUpdates !== "object") {
+        creationParsedUpdates = {};
+      }
+    }
     creationAutoSave = autoSaveFlag;
     creationParent = parentDbo;
     creationSibling = siblingDbo;
@@ -101,7 +109,6 @@ comment: Creates a new database object relative to an existing one.
     creationAutoSaveApplied = autoSaveFlag;
     creationPropertiesApplied = [];
     creationPropertiesSkipped = [];
-    creationPropertiesErrors = [];
     '
 ↓CreateObject [steps.SimpleStep-1762339712895]: 
   comment: Instantiate and attach new database object
@@ -116,15 +123,11 @@ comment: Creates a new database object relative to an existing one.
         creationClassName = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(creationClassName) : creationClassName;
       } catch (_ignoreFqcn) {}
     }
-    var targetClass = null;
-    try {
-      targetClass = java.lang.Class.forName(creationClassName);
-    } catch (eClass) {
-      throw new Error("Unable to load class " + creationClassName + ": " + eClass);
+    var parsedUpdates = creationParsedUpdates && typeof creationParsedUpdates === "object" ? creationParsedUpdates : {};
+    var newDbo = C8O.dbo.instantiateForCreate(creationClassName, parent, parsedUpdates);
+    if (newDbo == null) {
+      throw new Error("Unable to instantiate class " + creationClassName);
     }
-    var ctor = targetClass.getDeclaredConstructor();
-    ctor.setAccessible(true);
-    var newDbo = ctor.newInstance();
     newDbo.bNew = true;
     newDbo.hasChanged = true;
     if (creationRequestedName && creationRequestedName.length > 0) {
@@ -158,14 +161,11 @@ comment: Creates a new database object relative to an existing one.
       try { projectRef = newDbo.getProject(); } catch (ignoredProject) {}
     }
     if (projectRef != null) { projectRef.hasChanged = true; }
-    if (creationPropertiesProvided) {
-      var parsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);
-      if (parsedUpdates && Object.keys(parsedUpdates).length > 0) {
-        var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);
-        creationPropertiesApplied = applyResult.applied;
-        creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);
-        if (applyResult.errors.length) { Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors); }
-      }
+    if (creationPropertiesProvided && Object.keys(parsedUpdates).length > 0) {
+      var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);
+      creationPropertiesApplied = applyResult.applied;
+      creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);
+      if (applyResult.errors.length) { Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors); }
     }
     newDbo.hasChanged = true;
     createdObject = newDbo;
@@ -177,12 +177,18 @@ comment: Creates a new database object relative to an existing one.
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |
+    'var mobileBuilderRefresh = { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
+    if (createdObject != null) {
+      mobileBuilderRefresh = C8O.dbo.triggerMobileBuilderRefresh(createdObject, creationPropertiesErrors);
+    }
+    creationMobileBuilderRefresh = mobileBuilderRefresh;
+    
     var saveResult = C8O.dbo.saveProjectIfNeeded(createdProject, creationAutoSave, creationPropertiesErrors);
     var savedFlag = saveResult.saved === true;
     creationSaved = savedFlag;
     creationSaveMessage = saveResult.message || "";
     creationAutoSaveApplied = creationAutoSave;
-    
+    '
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
   condition: createdObject != null && notEmpty(createdParentQName)

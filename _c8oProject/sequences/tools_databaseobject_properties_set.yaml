@@ -25,10 +25,12 @@ comment: Updates properties of a database object using QName and key/value pairs
       }
     }
     
+    var mobileBuilderRefresh = { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
     var saveResult = { saved: false, message: "" };
     if (appliedEntries.length > 0) {
       dbo.hasChanged = true;
       if (projectRef != null) { projectRef.hasChanged = true; }
+      mobileBuilderRefresh = C8O.dbo.triggerMobileBuilderRefresh(dbo, errorEntries);
       saveResult = C8O.dbo.saveProjectIfNeeded(projectRef, autoSaveFlag, errorEntries);
     }
     
@@ -40,7 +42,9 @@ comment: Updates properties of a database object using QName and key/value pairs
       keys: Object.keys(updates || {}).join(","),
       autoSave: autoSaveFlag,
       saved: savedFlag,
-      saveMessage: saveResult.message || ""
+      saveMessage: saveResult.message || "",
+      mobileBuilderTriggered: mobileBuilderRefresh.triggered === true,
+      mobileBuilderMessage: mobileBuilderRefresh.message || ""
     };
     
     updatedEntries = appliedEntries;
@@ -49,6 +53,7 @@ comment: Updates properties of a database object using QName and key/value pairs
     targetClassName = C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : dbo.getClass().getName();
     autoSaveApplied = autoSaveFlag;
     saved = savedFlag;
+    mobileBuilderRefreshInfo = mobileBuilderRefresh;
     summary = summaryInfo;'
 ↓Result [steps.JsonObjectStep-1762268328549]: 
   key: 
@@ -97,6 +102,33 @@ comment: Updates properties of a database object using QName and key/value pairs
         - SmartType: 
           - ↑mode: JS
           - →→: saved
+  ↓MobileBuilderTriggered [steps.JsonFieldStep-1764186401001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderTriggered
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'mobileBuilderRefreshInfo ? mobileBuilderRefreshInfo.triggered === true : false'
+  ↓MobileBuilderMessage [steps.JsonFieldStep-1764186401002]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'mobileBuilderRefreshInfo ? (mobileBuilderRefreshInfo.message || "") : ""'
   ↓IfUpdated [steps.IfStep-1763646202902]: 
     condition: updatedEntries && updatedEntries.length > 0
     ↓Updated [steps.JsonArrayStep-1762268328567]: 

@@ -4,7 +4,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.4
+  version: 0.0.5
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
   ↓internal_call_stub [sequences.GenericSequence-1761756735550]: 🗏 sequences/internal_call_stub.yaml

@@ -403,6 +403,146 @@ C8O.dbo._getDescriptorMap = function (dbo) {
   return map;
 };
 
+C8O.dbo._toJsArray = function (javaArrayLike) {
+  var list = [];
+  if (!javaArrayLike) {
+    return list;
+  }
+  try {
+    for (var i = 0; i < javaArrayLike.length; i++) {
+      list.push(javaArrayLike[i]);
+    }
+    return list;
+  } catch (_ignoreArrayLength) {}
+  try {
+    var iterator = javaArrayLike.iterator();
+    while (iterator.hasNext()) {
+      list.push(iterator.next());
+    }
+  } catch (_ignoreIterator) {}
+  return list;
+};
+
+C8O.dbo._hasNotSetSentinel = function (ionProperty) {
+  var values = [];
+  try {
+    values = C8O.dbo._toJsArray(ionProperty.getValues());
+  } catch (_ignoreValues) {
+    values = [];
+  }
+  for (var i = 0; i < values.length; i++) {
+    var value = values[i];
+    try {
+      if (value === false || java.lang.Boolean.FALSE.equals(value)) {
+        return true;
+      }
+    } catch (_ignoreBooleanFalse) {
+      if (value === false) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+C8O.dbo._getDynamicPropertyContext = function (dbo) {
+  var ionBean = null;
+  try {
+    if (dbo && typeof dbo.getIonBean === "function") {
+      ionBean = dbo.getIonBean();
+    }
+  } catch (_ignoreGetIonBean) {
+    ionBean = null;
+  }
+  if (!ionBean) {
+    return null;
+  }
+
+  var byLookup = {};
+  var byName = {};
+  var properties = null;
+  try {
+    properties = ionBean.getProperties();
+  } catch (_ignoreGetProperties) {
+    properties = null;
+  }
+  if (!properties) {
+    return { ionBean: ionBean, byLookup: byLookup, byName: byName };
+  }
+
+  try {
+    var iterator = properties.values().iterator();
+    while (iterator.hasNext()) {
+      var ionProperty = iterator.next();
+      if (!ionProperty) {
+        continue;
+      }
+      try {
+        if (ionProperty.isHidden() === true) {
+          continue;
+        }
+      } catch (_ignoreIsHidden) {}
+
+      var dynamicName = "";
+      try {
+        dynamicName = String(ionProperty.getName() || "");
+      } catch (_ignorePropertyName) {
+        dynamicName = "";
+      }
+      dynamicName = C8O.util.toTrimmedString(dynamicName);
+      if (!dynamicName.length) {
+        continue;
+      }
+
+      var dynamicLabel = dynamicName;
+      try {
+        dynamicLabel = String(ionProperty.getLabel() || dynamicName);
+      } catch (_ignorePropertyLabel) {
+        dynamicLabel = dynamicName;
+      }
+      dynamicLabel = C8O.util.toTrimmedString(dynamicLabel);
+
+      var meta = {
+        name: dynamicName,
+        label: dynamicLabel,
+        hasNotSetSentinel: C8O.dbo._hasNotSetSentinel(ionProperty)
+      };
+      byName[dynamicName] = meta;
+      byLookup[dynamicName.toLowerCase()] = dynamicName;
+      if (dynamicLabel.length) {
+        byLookup[dynamicLabel.toLowerCase()] = dynamicName;
+      }
+    }
+  } catch (_ignoreDynamicIterator) {}
+
+  return { ionBean: ionBean, byLookup: byLookup, byName: byName };
+};
+
+C8O.dbo._prepareDynamicPropertyValue = function (rawSpec, dynamicMeta) {
+  var MobileSmartSourceType = Packages.com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType;
+  var effectiveSpec = rawSpec;
+  if (typeof effectiveSpec === "string") {
+    var trimmed = C8O.util.toTrimmedString(effectiveSpec);
+    if (dynamicMeta && dynamicMeta.hasNotSetSentinel && trimmed.toLowerCase() === "not set") {
+      effectiveSpec = false;
+    }
+  }
+  var applyNull = (effectiveSpec === null || effectiveSpec === undefined || (effectiveSpec && effectiveSpec.__isNull === true));
+  if (applyNull) {
+    if (dynamicMeta && dynamicMeta.hasNotSetSentinel) {
+      return C8O.dbo._buildMobileSmartSourceType(false);
+    }
+    return null;
+  }
+  if (effectiveSpec instanceof MobileSmartSourceType) {
+    return effectiveSpec;
+  }
+  if (typeof effectiveSpec === "string") {
+    return new MobileSmartSourceType(effectiveSpec);
+  }
+  return C8O.dbo._buildMobileSmartSourceType(effectiveSpec);
+};
+
 C8O.dbo._isClass = function (className, value) {
   if (value === null || value === undefined) {
     return false;
@@ -752,6 +892,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
   var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
 
   var descriptorMap = C8O.dbo._getDescriptorMap(dbo);
+  var dynamicContext = C8O.dbo._getDynamicPropertyContext(dbo);
   var applied = [];
   var skipped = [];
   var errors = [];
@@ -763,22 +904,23 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
   var propertyNames = Object.keys(updates);
   for (var i = 0; i < propertyNames.length; i++) {
     var requestedName = propertyNames[i];
+    var requestedLookup = C8O.util.toTrimmedString(requestedName).toLowerCase();
+    var rawSpec = updates[requestedName];
     var name = requestedName;
     var pd = descriptorMap[name];
     if (!pd) {
       var candidateNames = Object.keys(descriptorMap);
-      var lookup = C8O.util.toTrimmedString(requestedName).toLowerCase();
       for (var c = 0; c < candidateNames.length && !pd; c++) {
         var candidateName = candidateNames[c];
         var candidate = descriptorMap[candidateName];
-        if (candidateName.toLowerCase() === lookup) {
+        if (candidateName.toLowerCase() === requestedLookup) {
           name = candidateName;
           pd = candidate;
           break;
         }
         try {
           var displayName = candidate.getDisplayName ? String(candidate.getDisplayName() || "") : "";
-          if (displayName.toLowerCase() === lookup) {
+          if (displayName.toLowerCase() === requestedLookup) {
             name = candidateName;
             pd = candidate;
             break;
@@ -786,8 +928,45 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         } catch (_ignoreDisplayName) {}
       }
     }
+
+    var dynamicMeta = null;
+    if (dynamicContext && dynamicContext.byLookup && requestedLookup.length > 0) {
+      var dynamicResolvedName = dynamicContext.byLookup[requestedLookup];
+      if (dynamicResolvedName) {
+        dynamicMeta = dynamicContext.byName[dynamicResolvedName] || { name: dynamicResolvedName, label: dynamicResolvedName, hasNotSetSentinel: false };
+      }
+    }
+
+    if (!pd && dynamicMeta != null) {
+      var previousDynamicValue = null;
+      try {
+        previousDynamicValue = dynamicContext.ionBean.getPropertyValue(dynamicMeta.name);
+        if (previousDynamicValue instanceof NativeJavaObject) {
+          previousDynamicValue = previousDynamicValue.unwrap();
+        }
+      } catch (_ignorePrevDynamic) {}
+
+      try {
+        var preparedDynamicValue = C8O.dbo._prepareDynamicPropertyValue(rawSpec, dynamicMeta);
+        dynamicContext.ionBean.setPropertyValue(dynamicMeta.name, preparedDynamicValue);
+        applied.push({
+          name: dynamicMeta.name,
+          previousValue: C8O.util.previewValue(previousDynamicValue),
+          newValue: C8O.util.previewValue(rawSpec)
+        });
+      } catch (applyDynamicError) {
+        errors.push({ name: dynamicMeta.name, message: String(applyDynamicError) });
+      }
+      continue;
+    }
+
     if (!pd) {
       skipped.push({ name: requestedName, reason: "Unknown property" });
+      continue;
+    }
+
+    if (dynamicContext && C8O.util.toTrimmedString(name).toLowerCase() === "beandata") {
+      skipped.push({ name: name, reason: "Internal property" });
       continue;
     }
 
@@ -808,7 +987,6 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       } catch (_ignorePrev) {}
     }
 
-    var rawSpec = updates[requestedName];
     var applyNull = (rawSpec === null || rawSpec === undefined || (rawSpec && rawSpec.__isNull === true));
     var propertyType = pd.getPropertyType();
 
@@ -1048,6 +1226,222 @@ C8O.dbo.saveProjectIfNeeded = function (project, autoSaveFlag, errors) {
   return C8O.dbo.saveProject(project, errors);
 };
 
+C8O.dbo._isMobileObject = function (dbo) {
+  if (!dbo) {
+    return false;
+  }
+  try {
+    var MobileObjectClass = Packages.com.twinsoft.convertigo.beans.core.MobileObject;
+    return MobileObjectClass.isInstance(dbo);
+  } catch (_ignoreMobileObjectClass) {}
+  try {
+    var className = String(dbo.getClass().getName());
+    return className.indexOf(".beans.ngx.") !== -1 || className.indexOf(".beans.mobile.") !== -1;
+  } catch (_ignoreMobileObjectName) {
+    return false;
+  }
+};
+
+C8O.dbo._isInstanceOf = function (value, fqcn) {
+  if (!value || !fqcn) {
+    return false;
+  }
+  try {
+    var cls = Packages.java.lang.Class.forName(String(fqcn));
+    return cls.isInstance(value);
+  } catch (_ignoreIsInstance) {
+    return false;
+  }
+};
+
+C8O.dbo._safeQName = function (dbo) {
+  if (!dbo) {
+    return "";
+  }
+  try {
+    if (dbo.getQName) {
+      return String(dbo.getQName());
+    }
+  } catch (_ignoreQName) {}
+  try {
+    if (dbo.getFullQName) {
+      return String(dbo.getFullQName());
+    }
+  } catch (_ignoreFullQName) {}
+  return "";
+};
+
+C8O.dbo._resetIfNeeded = function (target, resetQNames) {
+  if (!target) {
+    return;
+  }
+  var qname = C8O.dbo._safeQName(target);
+  try {
+    if (typeof target.isReset === "function" && typeof target.reset === "function") {
+      if (!target.isReset()) {
+        target.reset();
+        if (resetQNames && resetQNames.push && qname.length) {
+          resetQNames.push(qname);
+        }
+      }
+      return;
+    }
+    if (typeof target.reset === "function") {
+      target.reset();
+      if (resetQNames && resetQNames.push && qname.length) {
+        resetQNames.push(qname);
+      }
+    }
+  } catch (_ignoreReset) {}
+};
+
+C8O.dbo._resolveNgxRefreshContext = function (dbo) {
+  var context = {
+    mainScriptComponent: null,
+    application: null,
+    resetQNames: []
+  };
+  if (!dbo) {
+    return context;
+  }
+
+  var main = null;
+  try {
+    if (C8O.dbo._isInstanceOf(dbo, "com.twinsoft.convertigo.beans.ngx.components.UIComponent") && typeof dbo.getMainScriptComponent === "function") {
+      main = dbo.getMainScriptComponent();
+    }
+  } catch (_ignoreMainScriptComponent) {
+    main = null;
+  }
+
+  if (!main) {
+    try {
+      if (C8O.dbo._isInstanceOf(dbo, "com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent")
+        || C8O.dbo._isInstanceOf(dbo, "com.twinsoft.convertigo.beans.ngx.components.PageComponent")
+        || C8O.dbo._isInstanceOf(dbo, "com.twinsoft.convertigo.beans.ngx.components.UISharedComponent")) {
+        main = dbo;
+      }
+    } catch (_ignoreMainFallback) {
+      main = null;
+    }
+  }
+  context.mainScriptComponent = main;
+
+  var app = null;
+  try {
+    if (main && typeof main.getApplication === "function") {
+      app = main.getApplication();
+    }
+  } catch (_ignoreMainApplication) {
+    app = null;
+  }
+  if (!app) {
+    try {
+      if (typeof dbo.getApplication === "function") {
+        app = dbo.getApplication();
+      }
+    } catch (_ignoreDboApplication) {
+      app = null;
+    }
+  }
+  context.application = app;
+
+  C8O.dbo._resetIfNeeded(main, context.resetQNames);
+  C8O.dbo._resetIfNeeded(app, context.resetQNames);
+
+  return context;
+};
+
+C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
+  var result = {
+    requested: false,
+    studioMode: false,
+    mobileObject: false,
+    triggered: false,
+    message: "",
+    strategy: "",
+    resetQNames: []
+  };
+
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var MobileBuilder = Packages.com.twinsoft.convertigo.engine.mobile.MobileBuilder;
+  var BatchOperationHelper = Packages.com.twinsoft.convertigo.engine.helpers.BatchOperationHelper;
+
+  try {
+    result.studioMode = Engine.isStudioMode() === true;
+  } catch (_ignoreStudioMode) {
+    result.studioMode = false;
+  }
+  result.mobileObject = C8O.dbo._isMobileObject(dbo);
+  result.requested = result.studioMode && result.mobileObject;
+
+  if (!result.requested) {
+    result.message = !result.studioMode ? "Skipped: Studio mode required" : "Skipped: target is not a mobile object";
+    return result;
+  }
+
+  var mb = null;
+  try {
+    mb = MobileBuilder.getBuilderOf(dbo);
+  } catch (builderLookupError) {
+    var lookupMessage = "Unable to resolve mobile builder: " + String(builderLookupError);
+    result.message = lookupMessage;
+    if (errors && errors.push) {
+      errors.push({ name: "__mobileBuilder__", message: lookupMessage });
+    }
+    return result;
+  }
+  if (mb == null) {
+    result.message = "Skipped: no mobile builder for target";
+    return result;
+  }
+
+  var context = C8O.dbo._resolveNgxRefreshContext(dbo);
+  if (context && context.resetQNames && context.resetQNames.length) {
+    result.resetQNames = context.resetQNames;
+  }
+
+  var batchStarted = false;
+  var batchStopped = false;
+  try {
+    mb.prepareBatchBuild();
+    BatchOperationHelper.start();
+    batchStarted = true;
+    if (context && context.application != null && typeof context.application.updateSourceFiles === "function") {
+      context.application.updateSourceFiles();
+      result.strategy = "application.updateSourceFiles";
+    } else if (context && context.mainScriptComponent != null && typeof context.mainScriptComponent.updateSourceFiles === "function") {
+      context.mainScriptComponent.updateSourceFiles();
+      result.strategy = "mainScriptComponent.updateSourceFiles";
+    } else {
+      mb.appChanged();
+      result.strategy = "builder.appChanged";
+    }
+    BatchOperationHelper.stop();
+    batchStopped = true;
+
+    result.triggered = true;
+    result.message = "Mobile builder refresh triggered via " + result.strategy;
+  } catch (builderError) {
+    var message = "Unable to trigger mobile builder refresh: " + String(builderError);
+    result.message = message;
+    if (errors && errors.push) {
+      errors.push({ name: "__mobileBuilder__", message: message });
+    }
+  } finally {
+    if (batchStarted && !batchStopped) {
+      try {
+        BatchOperationHelper.stop();
+      } catch (_ignoreStopBatch) {}
+    }
+    try {
+      BatchOperationHelper.cancel();
+    } catch (_ignoreCancelBatch) {}
+  }
+
+  return result;
+};
+
 C8O.dbo.reloadProject = function (projectOrName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var name = "";
@@ -1082,6 +1476,196 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
 C8O.dbo.exportProjectIfNeeded = function (project, commitFlag, errors) {
   var result = C8O.dbo.saveProjectIfNeeded(project, commitFlag, errors);
   return { exported: result.saved === true, message: result.message || "" };
+};
+
+// Normalize property aliases ("Tag name", "tag_name") to a stable lookup key.
+C8O.dbo._normalizePropertyLookupKey = function (name) {
+  var text = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(name || "") : String(name || "").trim();
+  if (!text.length) {
+    return "";
+  }
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+};
+
+C8O.dbo._coercePropertyHintString = function (rawSpec) {
+  if (rawSpec === null || rawSpec === undefined) {
+    return "";
+  }
+  if (typeof rawSpec === "string" || typeof rawSpec === "number" || typeof rawSpec === "boolean") {
+    return C8O.util.toTrimmedString ? C8O.util.toTrimmedString(String(rawSpec)) : String(rawSpec).trim();
+  }
+  if (typeof rawSpec === "object") {
+    if (rawSpec.value !== undefined) {
+      return C8O.dbo._coercePropertyHintString(rawSpec.value);
+    }
+    if (rawSpec.expression !== undefined) {
+      return C8O.dbo._coercePropertyHintString(rawSpec.expression);
+    }
+    if (rawSpec.text !== undefined) {
+      return C8O.dbo._coercePropertyHintString(rawSpec.text);
+    }
+    if (rawSpec.data !== undefined) {
+      return C8O.dbo._coercePropertyHintString(rawSpec.data);
+    }
+  }
+  return "";
+};
+
+C8O.dbo._extractPropertyHint = function (updates, aliases) {
+  if (!updates || typeof updates !== "object" || !aliases || !aliases.length) {
+    return "";
+  }
+  var expected = {};
+  for (var a = 0; a < aliases.length; a++) {
+    var normalizedAlias = C8O.dbo._normalizePropertyLookupKey(aliases[a]);
+    if (normalizedAlias.length) {
+      expected[normalizedAlias] = true;
+    }
+  }
+  var keys = Object.keys(updates);
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var normalizedKey = C8O.dbo._normalizePropertyLookupKey(key);
+    if (!expected[normalizedKey]) {
+      continue;
+    }
+    var value = C8O.dbo._coercePropertyHintString(updates[key]);
+    if (value.length) {
+      return value;
+    }
+  }
+  return "";
+};
+
+C8O.dbo._isNgxParent = function (parentDbo) {
+  if (!parentDbo) {
+    return false;
+  }
+  try {
+    return parentDbo instanceof Packages.com.twinsoft.convertigo.beans.ngx.components.MobileComponent;
+  } catch (_ignoreInstance) {}
+  try {
+    var parentClass = String(parentDbo.getClass().getName());
+    return parentClass.indexOf("com.twinsoft.convertigo.beans.ngx.") === 0;
+  } catch (_ignoreClassName) {
+    return false;
+  }
+};
+
+C8O.dbo._instantiateNgxFromHints = function (requestedClassName, parentDbo, updates) {
+  if (!parentDbo || !C8O.dbo._isNgxParent(parentDbo)) {
+    return null;
+  }
+
+  var requestedFqcn = C8O.util.toFqcn ? C8O.util.toFqcn(requestedClassName || "") : String(requestedClassName || "");
+  var tagHint = C8O.dbo._extractPropertyHint(updates, ["tagName", "Tag name"]);
+  var componentHint = C8O.dbo._extractPropertyHint(updates, ["componentName", "component", "type"]);
+  if (!tagHint.length && !componentHint.length) {
+    return null;
+  }
+
+  var ComponentManager = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager;
+  var manager = null;
+  try {
+    manager = ComponentManager.of(parentDbo.getProject ? parentDbo.getProject() : parentDbo);
+    if (manager && typeof manager.reloadComponents === "function") {
+      manager.reloadComponents();
+    }
+  } catch (_ignoreManager) {
+    manager = null;
+  }
+  if (!manager) {
+    return null;
+  }
+
+  var components = null;
+  try {
+    components = manager.getComponentsByGroup();
+  } catch (_ignoreComponents) {
+    components = null;
+  }
+  if (!components) {
+    return null;
+  }
+
+  var normalizedTag = C8O.dbo._normalizePropertyLookupKey(tagHint);
+  var normalizedComponent = C8O.dbo._normalizePropertyLookupKey(componentHint);
+  for (var i = 0; i < components.size(); i++) {
+    var component = components.get(i);
+    if (!component) {
+      continue;
+    }
+
+    var allowed = false;
+    try {
+      allowed = component.isAllowedIn(parentDbo) === true;
+    } catch (_ignoreAllowed) {
+      allowed = false;
+    }
+    if (!allowed) {
+      continue;
+    }
+
+    var componentTag = "";
+    var componentName = "";
+    var componentLabel = "";
+    try { componentTag = String(component.getTag() || ""); } catch (_ignoreTag) { componentTag = ""; }
+    try { componentName = String(component.getName() || ""); } catch (_ignoreName) { componentName = ""; }
+    try { componentLabel = String(component.getLabel() || ""); } catch (_ignoreLabel) { componentLabel = ""; }
+
+    if (normalizedTag.length) {
+      var normalizedComponentTag = C8O.dbo._normalizePropertyLookupKey(componentTag);
+      if (normalizedComponentTag !== normalizedTag) {
+        continue;
+      }
+    } else if (normalizedComponent.length) {
+      var normalizedName = C8O.dbo._normalizePropertyLookupKey(componentName);
+      var normalizedLabel = C8O.dbo._normalizePropertyLookupKey(componentLabel);
+      if (normalizedName !== normalizedComponent && normalizedLabel !== normalizedComponent) {
+        continue;
+      }
+    }
+
+    var candidate = null;
+    try {
+      candidate = manager.createBeanFromHint(component);
+    } catch (_ignoreFromHint) {
+      candidate = null;
+    }
+    if (!candidate) {
+      try {
+        candidate = manager.createBean(component);
+      } catch (_ignoreCreateBean) {
+        candidate = null;
+      }
+    }
+    if (!candidate) {
+      continue;
+    }
+
+    if (requestedFqcn.length) {
+      var candidateClassName = "";
+      try {
+        candidateClassName = String(candidate.getClass().getName());
+      } catch (_ignoreCandidateClassName) {
+        candidateClassName = "";
+      }
+      if (candidateClassName.length && candidateClassName !== requestedFqcn) {
+        continue;
+      }
+    }
+    return candidate;
+  }
+
+  return null;
+};
+
+C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
+  var candidate = C8O.dbo._instantiateNgxFromHints(className, parentDbo, updates);
+  if (candidate) {
+    return candidate;
+  }
+  return C8O.dbo.instantiateClass(className);
 };
 
 
@@ -1283,10 +1867,6 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
-
-
-
 
 
 
