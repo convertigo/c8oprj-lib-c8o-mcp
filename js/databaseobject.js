@@ -1906,20 +1906,20 @@ C8O.dbo._collectNgxComponentManagers = function (referenceDbo) {
   return managers;
 };
 
-C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
+C8O.dbo._listNgxComponentsByBaseClass = function (baseClassFqcn, referenceDbo, options) {
   options = options || {};
-  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
-  if (!parsed.baseClassFqcn.length || !parsed.hasLogicalId || !C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
-    return null;
+  var baseClass = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(baseClassFqcn || "") : String(baseClassFqcn || "").trim();
+  if (!baseClass.length || !C8O.dbo._isNgxClassFqcn(baseClass)) {
+    return [];
   }
 
   var managers = C8O.dbo._collectNgxComponentManagers(referenceDbo);
   if (!managers || !managers.length) {
-    return null;
+    return [];
   }
 
-  var targetLogicalId = parsed.logicalId;
-  var targetLogicalKey = C8O.dbo._normalizePropertyLookupKey(targetLogicalId);
+  var matches = [];
+  var dedupe = {};
   for (var m = 0; m < managers.length; m++) {
     var manager = managers[m];
     if (!manager) {
@@ -1975,7 +1975,7 @@ C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, refer
       } catch (_ignoreCandidateClassName) {
         candidateClassName = "";
       }
-      if (!candidateClassName.length || candidateClassName !== parsed.baseClassFqcn) {
+      if (!candidateClassName.length || candidateClassName !== baseClass) {
         continue;
       }
 
@@ -1983,24 +1983,68 @@ C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, refer
       if (!logicalId.length) {
         continue;
       }
-      if (logicalId !== targetLogicalId) {
-        var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
-        if (!targetLogicalKey.length || logicalKey !== targetLogicalKey) {
-          continue;
-        }
+      var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
+      if (!logicalKey.length) {
+        continue;
       }
+      var dedupeKey = candidateClassName + "#" + logicalKey;
+      if (dedupe[dedupeKey]) {
+        continue;
+      }
+      dedupe[dedupeKey] = true;
 
-      return {
+      matches.push({
         manager: manager,
         component: component,
         sampleDbo: sampleDbo,
         baseClassFqcn: candidateClassName,
         logicalId: logicalId,
         logicalClassName: C8O.dbo.buildLogicalClassName(candidateClassName, logicalId)
-      };
+      });
     }
   }
 
+  return matches;
+};
+
+C8O.dbo._formatNgxCandidates = function (candidates, maxItems) {
+  if (!candidates || !candidates.length) {
+    return "";
+  }
+  var limit = maxItems > 0 ? maxItems : 8;
+  var labels = [];
+  for (var i = 0; i < candidates.length && i < limit; i++) {
+    var candidate = candidates[i];
+    if (!candidate || !candidate.logicalClassName) {
+      continue;
+    }
+    labels.push(String(candidate.logicalClassName));
+  }
+  if (candidates.length > limit) {
+    labels.push("+" + String(candidates.length - limit) + " more");
+  }
+  return labels.join(", ");
+};
+
+C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
+  options = options || {};
+  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
+  if (!parsed.baseClassFqcn.length || !parsed.hasLogicalId || !C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+    return null;
+  }
+
+  var candidates = C8O.dbo._listNgxComponentsByBaseClass(parsed.baseClassFqcn, referenceDbo, options);
+  if (!candidates.length) {
+    return null;
+  }
+
+  var targetLogicalKey = C8O.dbo._normalizePropertyLookupKey(parsed.logicalId);
+  for (var i = 0; i < candidates.length; i++) {
+    var logicalKey = C8O.dbo._normalizePropertyLookupKey(candidates[i].logicalId);
+    if (logicalKey === targetLogicalKey) {
+      return candidates[i];
+    }
+  }
   return null;
 };
 
@@ -2009,17 +2053,30 @@ C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
   var baseClassFqcn = parsed.baseClassFqcn;
 
   if (C8O.dbo._isNgxParent(parentDbo) && C8O.dbo._isNgxClassFqcn(baseClassFqcn)) {
-    if (!parsed.hasLogicalId) {
-      throw new Error(
-        "For NGX create, className must include a logical identifier using '#'. " +
-        "Example: ngx.components.UIDynamicElement#Card"
-      );
+    var candidates = C8O.dbo._listNgxComponentsByBaseClass(baseClassFqcn, parentDbo, { requireAllowedInParent: true });
+
+    if (parsed.hasLogicalId) {
+      var resolved = C8O.dbo.findNgxComponentByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
+      if (!resolved || !resolved.sampleDbo) {
+        var hints = C8O.dbo._formatNgxCandidates(candidates, 8);
+        if (hints.length) {
+          throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent. Candidates: " + hints);
+        }
+        throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
+      }
+      return resolved.sampleDbo;
     }
-    var resolved = C8O.dbo.findNgxComponentByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
-    if (!resolved || !resolved.sampleDbo) {
+
+    if (!candidates.length) {
       throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
     }
-    return resolved.sampleDbo;
+    if (candidates.length > 1) {
+      throw new Error(
+        "Ambiguous NGX palette entry '" + className + "' for the current parent. " +
+        "Use className with '#<logicalId>'. Candidates: " + C8O.dbo._formatNgxCandidates(candidates, 8)
+      );
+    }
+    return candidates[0].sampleDbo;
   }
 
   return C8O.dbo.instantiateClass(baseClassFqcn || className);

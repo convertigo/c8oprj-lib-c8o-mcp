@@ -31,6 +31,8 @@
   ↓tools_databaseobject_rename [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_rename.yaml
   ↓tools_databaseobject_schema [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_schema.yaml
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
+  ↓tools_databaseobject_tree_apply [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_apply.yaml
+  ↓tools_databaseobject_tree_get [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_get.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml

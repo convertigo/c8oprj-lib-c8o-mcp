@@ -247,6 +247,60 @@ include("js/databaseobject_ops.js");
     return C8O.dbo.parsePropertyUpdates(text, errors) || {};
   }
 
+  function parseObjectInput(rawValue, label, errors) {
+    var input = unwrapValue(rawValue);
+    if (input === null || input === undefined) {
+      return null;
+    }
+    if (isPlainObject(input)) {
+      return input;
+    }
+    if (typeof input === "string" && !asTrimmed(input).length) {
+      return null;
+    }
+    var beforeCount = errors && typeof errors.length === "number" ? errors.length : -1;
+    var parsed = parseJsonMaybe(input, label, errors, "object");
+    if (isPlainObject(parsed)) {
+      return parsed;
+    }
+    if (errors && errors.push) {
+      if (beforeCount >= 0 && errors.length > beforeCount) {
+        return null;
+      }
+      errors.push({ name: label, message: "Expected a JSON object." });
+    }
+    return null;
+  }
+
+  function firstProvidedInput(candidates) {
+    if (!Array.isArray(candidates)) {
+      return { name: "", value: null };
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      var candidate = candidates[i];
+      if (!candidate || !candidate.name) {
+        continue;
+      }
+      var value = unwrapValue(candidate.value);
+      if (value === null || value === undefined) {
+        continue;
+      }
+      if (typeof value === "string" && !asTrimmed(value).length) {
+        continue;
+      }
+      return { name: String(candidate.name), value: value };
+    }
+    return { name: "", value: null };
+  }
+
+  C8O.dbo.batchAsTrimmed = asTrimmed;
+  C8O.dbo.batchAsBoolean = asBoolean;
+  C8O.dbo.batchSafeJsonStringify = safeJsonStringify;
+  C8O.dbo.batchIsPlainObject = isPlainObject;
+  C8O.dbo.batchUnwrapValue = unwrapValue;
+  C8O.dbo.batchParseObjectInput = parseObjectInput;
+  C8O.dbo.batchFirstProvidedInput = firstProvidedInput;
+
   function normalizeOnError(rawOnError, strict) {
     if (strict === true) {
       return "stop";
@@ -1245,5 +1299,87 @@ include("js/databaseobject_ops.js");
       durationMs: finishedAt - startedAt,
       timestamp: finishedAt
     };
+  };
+
+  C8O.dbo.computeBatchRefreshQName = function (batchResult) {
+    function normalizeQName(value) {
+      if (value === null || value === undefined) {
+        return "";
+      }
+      var text = String(value).trim();
+      return text.length ? text : "";
+    }
+
+    function projectFromQName(value) {
+      var q = normalizeQName(value);
+      if (!q.length) {
+        return "";
+      }
+      var dotPos = q.indexOf(".");
+      if (dotPos < 0) {
+        return q;
+      }
+      return q.substring(0, dotPos);
+    }
+
+    function commonAncestorQName(left, right) {
+      var l = normalizeQName(left);
+      var r = normalizeQName(right);
+      if (!l.length || !r.length) {
+        return "";
+      }
+      var lParts = l.split(".");
+      var rParts = r.split(".");
+      var min = Math.min(lParts.length, rParts.length);
+      var out = [];
+      for (var i = 0; i < min; i++) {
+        if (lParts[i] !== rParts[i]) {
+          break;
+        }
+        out.push(lParts[i]);
+      }
+      return out.length ? out.join(".") : "";
+    }
+
+    if (!batchResult) {
+      return "";
+    }
+    if (batchResult.dryRun === true) {
+      return "";
+    }
+    if (batchResult.status === "failed") {
+      return "";
+    }
+
+    var qnames = [];
+    var targetQName = normalizeQName(batchResult.targetQName);
+    if (targetQName.length) {
+      qnames.push(targetQName);
+    }
+    if (batchResult.touchedQNames && batchResult.touchedQNames.length > 0) {
+      for (var qi = 0; qi < batchResult.touchedQNames.length; qi++) {
+        var touchedQName = normalizeQName(batchResult.touchedQNames[qi]);
+        if (touchedQName.length) {
+          qnames.push(touchedQName);
+        }
+      }
+    }
+    if (!qnames.length) {
+      return "";
+    }
+
+    var ancestor = qnames[0];
+    for (var ai = 1; ai < qnames.length; ai++) {
+      var nextAncestor = commonAncestorQName(ancestor, qnames[ai]);
+      if (!nextAncestor.length) {
+        ancestor = "";
+        break;
+      }
+      ancestor = nextAncestor;
+    }
+    if (!ancestor.length) {
+      ancestor = projectFromQName(qnames[0]);
+    }
+    return normalizeQName(ancestor);
   };
 })();

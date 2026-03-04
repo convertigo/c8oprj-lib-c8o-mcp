@@ -13,7 +13,9 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-list`         | `tools_project_list.yaml`            | List installed projects with metadata (templates, versions, exports…). |
 | `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List database object children (or projects when `qname` is empty) with optional recursion via `depth` and ancestor-preserving filters. |
 | `databaseobject-batch-apply`  | `tools_databaseobject_batch_apply.yaml`     | Apply multiple mutations in one call (`create`, `delete`, `move`, `setProperties`, `upsertTree`) with `onError=stop|continue`, per-operation diagnostics, and resume metadata (`resume.fromOpIndex`, `failedOpIds`). Supports nested `children` on `create` and `$ref` resolution across operations (for example `{ \"$ref\": \"opId.qname\" }`). |
-| `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). |
+| `databaseobject-tree-get`     | `tools_databaseobject_tree_get.yaml`        | Return a canonical object tree (`qname`, `name`, `className`, optional `properties`, `children`) compatible with patch/upsert payloads. Supports `maxDepth`, `maxNodes`, and cursor pagination via `_nextCursor`. |
+| `databaseobject-tree-apply`   | `tools_databaseobject_tree_apply.yaml`      | Apply one canonical tree patch to a target QName (single-op wrapper over `upsertTree`) with the same diagnostics/resume payload as batch apply. Accepts `payload` (preferred), `patch`, or `tree`. |
+| `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). For NGX classes, `#logicalId` is optional when resolution is unique in the current parent; required only when ambiguous. |
 | `databaseobject-delete`       | `tools_databaseobject_delete.yaml`          | Delete a database object, optionally exporting and refreshing Studio. |
 | `databaseobject-move`         | `tools_databaseobject_move.yaml`            | Move or reorder a database object with Studio refresh support. |
 | `databaseobject-rename`       | `tools_databaseobject_rename.yaml`          | Rename a database object and optionally refactor references. |
@@ -42,6 +44,7 @@ between requests to stream the remaining entries.
 |-----------|-------|
 | `project-list` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
 | `databaseobject-children` | Reports `total` + `nextCursor` and, when `depth > 1`, embeds nested `children` arrays for the filtered subset. |
+| `databaseobject-tree-get` | Returns a canonical tree/forest view with chunking (`maxNodes`) and offset cursor continuation (`nextCursor`). |
 | `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
 | `databaseobject-search` | Returns `scanned`, `returned`, `hasMore`, and `nextCursor` at the root; `matches[]` contains only the essentials (`qname`, `name`, `className`, `type`, `priority`). |
 | `palette-list` | Compact response (category, className, shortDescription, `describe.tool/arguments`). Pair with `palette-describe` for the heavy data. `limit`, `filter`, and pagination metadata follow the standard pattern. |

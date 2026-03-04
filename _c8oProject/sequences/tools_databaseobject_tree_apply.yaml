@@ -1,56 +1,22 @@
 accessibility: Private
-comment: Apply multiple database object operations in one call with detailed error and resume reporting.
-↓IncludeHelpers [steps.SimpleStep-1772625431444]: 
-  comment: Load shared helpers for batch operations.
+comment: Apply a canonical object tree patch to a target QName using the batch upsert engine.
+↓IncludeHelpers [steps.SimpleStep-1772628069902]: 
+  comment: Load shared helpers.
   expression: |
     include("js/databaseobject.js");
-    include("js/databaseobject_ops.js");
     include("js/databaseobject_batch.js");
-↓Init [steps.SimpleStep-1772625452002]: 
-  comment: Parse input, execute batch, compute refresh target, and expose resume metadata.
-  expression: |
-    'var strictInput = (typeof strict !== "undefined") ? strict : false;
-    var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
-    var onErrorInput = (typeof onError !== "undefined") ? onError : "stop";
-    var resumeFromInput = (typeof resumeFrom !== "undefined") ? resumeFrom : null;
-    var executionIdInput = (typeof executionId !== "undefined") ? executionId : null;
-    
-    batchResult = C8O.dbo.batchApply({
-      target: target,
-      operations: operations,
-      onError: onErrorInput,
-      strict: strictInput,
-      autoSave: autoSaveInput,
-      strategy: strategy,
-      resumeFrom: resumeFromInput,
-      executionId: executionIdInput,
-      dryRun: dryRun
-    });
-    
-    refreshRequested = C8O.util.toBoolean(refresh, false) === true;
-    refreshQName = "";
-    batchStudioRefresh = null;
-    
-    if (refreshRequested) {
-      refreshQName = C8O.dbo.computeBatchRefreshQName(batchResult);
-    }
-    
-    if (refreshRequested && refreshQName.length > 0 && batchResult && batchResult.dryRun !== true) {
-      batchStudioRefresh = C8O.dbo.refreshStudioTreeByQName(refreshQName, batchResult.errors);
-    }
-    
-    batchStop = batchResult && batchResult.stop ? batchResult.stop : {};
-    batchResume = batchResult && batchResult.resume ? batchResult.resume : {};
-    reportJson = batchResult ? JSON.stringify(batchResult) : "{}";
-    failedOpIdsJson = batchResume && batchResume.failedOpIds ? JSON.stringify(batchResume.failedOpIds) : "[]";'
-↓result [steps.JsonObjectStep-1772625462159]: 
+↓Sequence_JS [steps.SimpleStep-1772628070036]: 
+  comment: Run tree apply adapter.
+  expression: include("js/tools_databaseobject_tree_apply.js");
+↓result [steps.JsonObjectStep-1772628077112]: 
+  comment: Build result payload.
   key: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-  ↓status [steps.JsonFieldStep-1772625483887]: 
+  ↓status [steps.JsonFieldStep-1772628098061]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -62,8 +28,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.status ? batchResult.status : "error"'
-  ↓message [steps.JsonFieldStep-1772625486643]: 
+          - →→: 'treeApplyResult && treeApplyResult.status ? treeApplyResult.status : "error"'
+  ↓message [steps.JsonFieldStep-1772628098197]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -75,8 +41,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.message ? batchResult.message : ""'
-  ↓targetQName [steps.JsonFieldStep-1772625489072]: 
+          - →→: 'treeApplyResult && treeApplyResult.message ? treeApplyResult.message : ""'
+  ↓targetQName [steps.JsonFieldStep-1772628098296]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -88,8 +54,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.targetQName ? batchResult.targetQName : ""'
-  ↓onError [steps.JsonFieldStep-1772625491558]: 
+          - →→: 'treeApplyResult && treeApplyResult.targetQName ? treeApplyResult.targetQName : ""'
+  ↓onError [steps.JsonFieldStep-1772628098401]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -101,8 +67,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.onError ? batchResult.onError : "stop"'
-  ↓saved [steps.JsonFieldStep-1772625494287]: 
+          - →→: 'treeApplyResult && treeApplyResult.onError ? treeApplyResult.onError : "stop"'
+  ↓saved [steps.JsonFieldStep-1772628098493]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -115,8 +81,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: batchResult && batchResult.saved === true
-  ↓durationMs [steps.JsonFieldStep-1772625496702]: 
+          - →→: treeApplyResult && treeApplyResult.saved === true
+  ↓durationMs [steps.JsonFieldStep-1772628098595]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -129,8 +95,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.durationMs != null ? batchResult.durationMs : 0'
-  ↓timestamp [steps.JsonFieldStep-1772625499034]: 
+          - →→: 'treeApplyResult && treeApplyResult.durationMs != null ? treeApplyResult.durationMs : 0'
+  ↓timestamp [steps.JsonFieldStep-1772628098699]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -143,8 +109,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.timestamp != null ? batchResult.timestamp : java.lang.System.currentTimeMillis()'
-  ↓refreshQName [steps.JsonFieldStep-1772625501248]: 
+          - →→: 'treeApplyResult && treeApplyResult.timestamp != null ? treeApplyResult.timestamp : java.lang.System.currentTimeMillis()'
+  ↓refreshQName [steps.JsonFieldStep-1772628098870]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -156,8 +122,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: refreshQName || ""
-  ↓studioRefreshed [steps.JsonFieldStep-1772625503541]: 
+          - →→: treeApplyRefreshQName || ""
+  ↓studioRefreshed [steps.JsonFieldStep-1772628098976]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -170,8 +136,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchStudioRefresh ? batchStudioRefresh.refreshed === true : false'
-  ↓studioRefreshMessage [steps.JsonFieldStep-1772625505858]: 
+          - →→: 'treeApplyStudioRefresh ? treeApplyStudioRefresh.refreshed === true : false'
+  ↓studioRefreshMessage [steps.JsonFieldStep-1772628099068]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -183,8 +149,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchStudioRefresh ? (batchStudioRefresh.message || "") : ""'
-  ↓stopOpIndex [steps.JsonFieldStep-1772625524714]: 
+          - →→: 'treeApplyStudioRefresh ? (treeApplyStudioRefresh.message || "") : ""'
+  ↓stopOpIndex [steps.JsonFieldStep-1772628116568]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -197,8 +163,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchStop && batchStop.opIndex != null ? batchStop.opIndex : -1'
-  ↓stopOpId [steps.JsonFieldStep-1772625527309]: 
+          - →→: 'treeApplyStop && treeApplyStop.opIndex != null ? treeApplyStop.opIndex : -1'
+  ↓stopOpId [steps.JsonFieldStep-1772628116789]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -210,8 +176,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchStop && batchStop.opId ? batchStop.opId : ""'
-  ↓stopCode [steps.JsonFieldStep-1772625529679]: 
+          - →→: 'treeApplyStop && treeApplyStop.opId ? treeApplyStop.opId : ""'
+  ↓stopCode [steps.JsonFieldStep-1772628117132]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -223,21 +189,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchStop && batchStop.code ? batchStop.code : ""'
-  ↓stopMessage [steps.JsonFieldStep-1772625532087]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopMessage
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchStop && batchStop.message ? batchStop.message : ""'
-  ↓resumeFromOpIndex [steps.JsonFieldStep-1772625534301]: 
+          - →→: 'treeApplyStop && treeApplyStop.code ? treeApplyStop.code : ""'
+  ↓resumeFromOpIndex [steps.JsonFieldStep-1772628117245]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -250,8 +203,21 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResume && batchResume.fromOpIndex != null ? batchResume.fromOpIndex : 0'
-  ↓resumeCanResume [steps.JsonFieldStep-1772625536707]: 
+          - →→: 'treeApplyResume && treeApplyResume.fromOpIndex != null ? treeApplyResume.fromOpIndex : 0'
+  ↓stopMessage [steps.JsonFieldStep-1772628117346]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: stopMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'treeApplyStop && treeApplyStop.message ? treeApplyStop.message : ""'
+  ↓resumeCanResume [steps.JsonFieldStep-1772628117446]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -264,8 +230,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResume ? batchResume.canResume === true : false'
-  ↓failedOpIds [steps.JsonFieldStep-1772625538736]: 
+          - →→: 'treeApplyResume ? treeApplyResume.canResume === true : false'
+  ↓failedOpIds [steps.JsonFieldStep-1772628117549]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -277,8 +243,21 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: failedOpIdsJson
-  ↓summaryJson [steps.JsonFieldStep-1772625540999]: 
+          - →→: treeApplyFailedOpIdsJson
+  ↓warningsJson [steps.JsonFieldStep-1772628117654]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warningsJson
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeApplyWarningsJson
+  ↓summaryJson [steps.JsonFieldStep-1772628117762]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -290,8 +269,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.summary ? JSON.stringify(batchResult.summary) : "{}"'
-  ↓reportJson [steps.JsonFieldStep-1772625543602]: 
+          - →→: 'treeApplyResult && treeApplyResult.summary ? JSON.stringify(treeApplyResult.summary) : "{}"'
+  ↓reportJson [steps.JsonFieldStep-1772628117860]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -303,8 +282,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: reportJson
-  ↓refsJson [steps.JsonFieldStep-1772625546119]: 
+          - →→: treeApplyReportJson
+  ↓refsJson [steps.JsonFieldStep-1772628134985]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -316,8 +295,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.refs ? JSON.stringify(batchResult.refs) : "{}"'
-  ↓operationsJson [steps.JsonFieldStep-1772625557754]: 
+          - →→: 'treeApplyResult && treeApplyResult.refs ? JSON.stringify(treeApplyResult.refs) : "{}"'
+  ↓operationsJson [steps.JsonFieldStep-1772628135517]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -329,8 +308,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.operations ? JSON.stringify(batchResult.operations) : "[]"'
-  ↓errorsJson [steps.JsonFieldStep-1772625560312]: 
+          - →→: 'treeApplyResult && treeApplyResult.operations ? JSON.stringify(treeApplyResult.operations) : "[]"'
+  ↓errorsJson [steps.JsonFieldStep-1772628135632]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -342,8 +321,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.errors ? JSON.stringify(batchResult.errors) : "[]"'
-  ↓saveResultsJson [steps.JsonFieldStep-1772625562407]: 
+          - →→: 'treeApplyResult && treeApplyResult.errors ? JSON.stringify(treeApplyResult.errors) : "[]"'
+  ↓saveResultsJson [steps.JsonFieldStep-1772628135741]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -355,8 +334,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.saveResults ? JSON.stringify(batchResult.saveResults) : "[]"'
-  ↓mobileBuilderJson [steps.JsonFieldStep-1772625564959]: 
+          - →→: 'treeApplyResult && treeApplyResult.saveResults ? JSON.stringify(treeApplyResult.saveResults) : "[]"'
+  ↓mobileBuilderJson [steps.JsonFieldStep-1772628135828]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -368,8 +347,8 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.mobileBuilder ? JSON.stringify(batchResult.mobileBuilder) : "[]"'
-  ↓touchedQNamesJson [steps.JsonFieldStep-1772625567065]: 
+          - →→: 'treeApplyResult && treeApplyResult.mobileBuilder ? JSON.stringify(treeApplyResult.mobileBuilder) : "[]"'
+  ↓touchedQNamesJson [steps.JsonFieldStep-1772628135938]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -381,29 +360,33 @@ comment: Apply multiple database object operations in one call with detailed err
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.touchedQNames ? JSON.stringify(batchResult.touchedQNames) : "[]"'
-↓target [variables.RequestableVariable-1772625370175]: 
-  comment: Optional default QName scope used when operations omit qname/related.
-↓operations [variables.RequestableVariable-1772625373495]: 
-  comment: JSON array of operation objects (create/delete/move/setProperties/upsertTree).
-↓onError [variables.RequestableVariable-1772625375909]: 
+          - →→: 'treeApplyResult && treeApplyResult.touchedQNames ? JSON.stringify(treeApplyResult.touchedQNames) : "[]"'
+↓target [variables.RequestableVariable-1772628058546]: 
+  comment: Target QName where the tree patch is applied.
+↓tree [variables.RequestableVariable-1772628058674]: 
+  comment: Canonical tree object (same shape as databaseobject-tree-get output node).
+↓patch [variables.RequestableVariable-1772628058781]: 
+  comment: Alias of tree for compatibility.
+↓onError [variables.RequestableVariable-1772628058934]: 
   comment: 'Error mode: stop (default) or continue.'
   value: stop
-↓strict [variables.RequestableVariable-1772625378380]: 
+↓strict [variables.RequestableVariable-1772628059044]: 
   comment: When true, forces stop-on-error behavior.
   value: false
-↓autoSave [variables.RequestableVariable-1772625380709]: 
+↓autoSave [variables.RequestableVariable-1772628059143]: 
   comment: When true (default), touched projects are saved.
   value: true
-↓refresh [variables.RequestableVariable-1772625383109]: 
-  comment: When true, refresh Studio tree once using the common ancestor of touched QNames.
+↓refresh [variables.RequestableVariable-1772628059244]: 
+  comment: When true, refresh Studio tree using computed common ancestor.
   value: true
-↓resumeFrom [variables.RequestableVariable-1772625385912]: 
+↓resumeFrom [variables.RequestableVariable-1772628059349]: 
   comment: Optional zero-based operation index to resume execution from.
-↓executionId [variables.RequestableVariable-1772625388529]: 
+↓executionId [variables.RequestableVariable-1772628059463]: 
   comment: Optional execution identifier returned in resume metadata.
-↓strategy [variables.RequestableVariable-1772625390754]: 
-  comment: 'Optional strategy object for upsertTree: replaceOnClassMismatch, pruneMissing, reorder.'
-↓dryRun [variables.RequestableVariable-1772625393144]: 
-  comment: Optional preview mode. When true, operations are reported as skipped without mutation.
+↓strategy [variables.RequestableVariable-1772628059582]: 
+  comment: 'Optional upsert strategy: replaceOnClassMismatch, pruneMissing, reorder.'
+↓dryRun [variables.RequestableVariable-1772628059686]: 
+  comment: Optional preview mode. When true, no mutation is applied.
   value: false
+↓payload [variables.RequestableVariable-1772628455239]: 
+  comment: Preferred tree patch payload (JSON object). Alias of patch/tree.
