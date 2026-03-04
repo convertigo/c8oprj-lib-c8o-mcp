@@ -27,6 +27,13 @@ C8O.util.toFqcn = C8O.util.toFqcn || function (name) {
   if (!text.length) {
     return text;
   }
+  var hashIndex = text.indexOf("#");
+  if (hashIndex !== -1) {
+    var baseText = text.substring(0, hashIndex);
+    var logicalId = text.substring(hashIndex + 1);
+    var fqcnBase = baseText.indexOf("com.") === 0 ? baseText : _BEANS_PREFIX + baseText;
+    return fqcnBase + "#" + logicalId;
+  }
   return text.indexOf("com.") === 0 ? text : _BEANS_PREFIX + text;
 };
 C8O.util.fromFqcn = C8O.util.fromFqcn || function (name) {
@@ -34,7 +41,36 @@ C8O.util.fromFqcn = C8O.util.fromFqcn || function (name) {
   if (!text.length) {
     return text;
   }
+  var hashIndex = text.indexOf("#");
+  if (hashIndex !== -1) {
+    var baseText = text.substring(0, hashIndex);
+    var logicalId = text.substring(hashIndex + 1);
+    var shortBase = baseText.indexOf(_BEANS_PREFIX) === 0 ? baseText.substring(_BEANS_PREFIX.length) : baseText;
+    return shortBase + "#" + logicalId;
+  }
   return text.indexOf(_BEANS_PREFIX) === 0 ? text.substring(_BEANS_PREFIX.length) : text;
+};
+
+C8O.dbo.parseLogicalClassToken = function (value) {
+  var raw = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(value || "") : String(value || "").trim();
+  var hashIndex = raw.indexOf("#");
+  var baseText = hashIndex === -1 ? raw : raw.substring(0, hashIndex);
+  var logicalId = hashIndex === -1 ? "" : raw.substring(hashIndex + 1);
+  var baseFqcn = C8O.util.toFqcn ? C8O.util.toFqcn(baseText) : baseText;
+  return {
+    raw: raw,
+    baseClassName: C8O.util.fromFqcn ? C8O.util.fromFqcn(baseFqcn) : baseFqcn,
+    baseClassFqcn: baseFqcn,
+    logicalId: logicalId,
+    hasLogicalId: logicalId.length > 0
+  };
+};
+
+C8O.dbo.buildLogicalClassName = function (classNameOrFqcn, logicalId) {
+  var baseText = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(classNameOrFqcn || "") : String(classNameOrFqcn || "").trim();
+  var shortBase = C8O.util.fromFqcn ? C8O.util.fromFqcn(baseText) : baseText;
+  var idText = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(logicalId || "") : String(logicalId || "").trim();
+  return idText.length ? shortBase + "#" + idText : shortBase;
 };
 
 (function () {
@@ -1745,124 +1781,248 @@ C8O.dbo._isNgxParent = function (parentDbo) {
   }
 };
 
-C8O.dbo._instantiateNgxFromHints = function (requestedClassName, parentDbo, updates) {
-  if (!parentDbo || !C8O.dbo._isNgxParent(parentDbo)) {
-    return null;
+C8O.dbo._isNgxClassFqcn = function (className) {
+  var text = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || "").trim();
+  if (!text.length) {
+    return false;
   }
+  return text.indexOf("com.twinsoft.convertigo.beans.ngx.") === 0;
+};
 
-  var requestedFqcn = C8O.util.toFqcn ? C8O.util.toFqcn(requestedClassName || "") : String(requestedClassName || "");
-  var tagHint = C8O.dbo._extractPropertyHint(updates, ["tagName", "Tag name"]);
-  var componentHint = C8O.dbo._extractPropertyHint(updates, ["componentName", "component", "type"]);
-  if (!tagHint.length && !componentHint.length) {
-    return null;
-  }
-
-  var ComponentManager = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager;
-  var manager = null;
+C8O.dbo.getNgxComponentLogicalId = function (component, sampleDbo) {
+  var candidate = sampleDbo || null;
+  var className = "";
   try {
-    manager = ComponentManager.of(parentDbo.getProject ? parentDbo.getProject() : parentDbo);
-    if (manager && typeof manager.reloadComponents === "function") {
-      manager.reloadComponents();
-    }
-  } catch (_ignoreManager) {
-    manager = null;
-  }
-  if (!manager) {
-    return null;
+    className = candidate && candidate.getClass ? String(candidate.getClass().getName() || "") : "";
+  } catch (_ignoreClass) {
+    className = "";
   }
 
-  var components = null;
+  if (className === "com.twinsoft.convertigo.beans.ngx.components.UIDynamicInvoke") {
+    try {
+      var sharedActionQName = String(candidate.getSharedActionQName() || "");
+      if (sharedActionQName.length) {
+        return sharedActionQName;
+      }
+    } catch (_ignoreSharedAction) {}
+  }
+
+  if (className === "com.twinsoft.convertigo.beans.ngx.components.UIUseShared") {
+    try {
+      var sharedComponentQName = String(candidate.getSharedComponentQName() || "");
+      if (sharedComponentQName.length) {
+        return sharedComponentQName;
+      }
+    } catch (_ignoreSharedComponent) {}
+  }
+
   try {
-    components = manager.getComponentsByGroup();
-  } catch (_ignoreComponents) {
-    components = null;
-  }
-  if (!components) {
-    return null;
-  }
-
-  var normalizedTag = C8O.dbo._normalizePropertyLookupKey(tagHint);
-  var normalizedComponent = C8O.dbo._normalizePropertyLookupKey(componentHint);
-  for (var i = 0; i < components.size(); i++) {
-    var component = components.get(i);
-    if (!component) {
-      continue;
-    }
-
-    var allowed = false;
-    try {
-      allowed = component.isAllowedIn(parentDbo) === true;
-    } catch (_ignoreAllowed) {
-      allowed = false;
-    }
-    if (!allowed) {
-      continue;
-    }
-
-    var componentTag = "";
-    var componentName = "";
-    var componentLabel = "";
-    try { componentTag = String(component.getTag() || ""); } catch (_ignoreTag) { componentTag = ""; }
-    try { componentName = String(component.getName() || ""); } catch (_ignoreName) { componentName = ""; }
-    try { componentLabel = String(component.getLabel() || ""); } catch (_ignoreLabel) { componentLabel = ""; }
-
-    var matchesTag = true;
-    if (normalizedTag.length) {
-      var normalizedComponentTag = C8O.dbo._normalizePropertyLookupKey(componentTag);
-      matchesTag = normalizedComponentTag === normalizedTag;
-    }
-
-    var matchesComponent = true;
-    if (normalizedComponent.length) {
-      var normalizedName = C8O.dbo._normalizePropertyLookupKey(componentName);
-      var normalizedLabel = C8O.dbo._normalizePropertyLookupKey(componentLabel);
-      matchesComponent = normalizedName === normalizedComponent || normalizedLabel === normalizedComponent;
-    }
-
-    if (!matchesTag || !matchesComponent) {
-      continue;
-    }
-
-    var candidate = null;
-    try {
-      candidate = manager.createBeanFromHint(component);
-    } catch (_ignoreFromHint) {
-      candidate = null;
-    }
-    if (!candidate) {
-      try {
-        candidate = manager.createBean(component);
-      } catch (_ignoreCreateBean) {
-        candidate = null;
+    if (candidate && typeof candidate.getIonBean === "function") {
+      var ionBean = candidate.getIonBean();
+      if (ionBean && typeof ionBean.getName === "function") {
+        var ionName = String(ionBean.getName() || "");
+        if (ionName.length) {
+          return ionName;
+        }
       }
     }
-    if (!candidate) {
+  } catch (_ignoreIonBean) {}
+
+  try {
+    if (component && typeof component.getName === "function") {
+      var componentName = String(component.getName() || "");
+      if (componentName.length) {
+        return componentName;
+      }
+    }
+  } catch (_ignoreComponentName) {}
+
+  return "";
+};
+
+C8O.dbo._collectNgxComponentManagers = function (referenceDbo) {
+  var ComponentManager = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager;
+  var managers = [];
+  var seen = {};
+
+  function addManager(manager) {
+    if (!manager) {
+      return;
+    }
+    var key = "";
+    try {
+      key = manager.getTemplateProjectName ? String(manager.getTemplateProjectName() || "") : "";
+    } catch (_ignoreTemplateName) {
+      key = "";
+    }
+    if (!key.length) {
+      try {
+        key = String(manager.toString());
+      } catch (_ignoreManagerText) {
+        key = "manager-" + String(managers.length);
+      }
+    }
+    if (seen[key]) {
+      return;
+    }
+    seen[key] = true;
+    managers.push(manager);
+  }
+
+  try {
+    addManager(ComponentManager.of(referenceDbo && referenceDbo.getProject ? referenceDbo.getProject() : referenceDbo));
+  } catch (_ignoreReferenceManager) {}
+
+  try {
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var ngxAppClass = Packages.com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent;
+    var projectNames = Engine.theApp.databaseObjectsManager.getAllProjectNamesList(true);
+    for (var i = 0; i < projectNames.size(); i++) {
+      var projectName = String(projectNames.get(i) || "");
+      if (!projectName.length) {
+        continue;
+      }
+      try {
+        if (!Engine.theApp.databaseObjectsManager.existsProject(projectName)) {
+          continue;
+        }
+        var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName, false);
+        if (!project || !project.getMobileApplication()) {
+          continue;
+        }
+        var app = project.getMobileApplication().getApplicationComponent();
+        if (!app || !(app instanceof ngxAppClass)) {
+          continue;
+        }
+        addManager(ComponentManager.of(project));
+      } catch (_ignoreProjectManager) {}
+    }
+  } catch (_ignoreProjectsList) {}
+
+  try {
+    addManager(ComponentManager.of(null));
+  } catch (_ignoreDefaultManager) {}
+
+  return managers;
+};
+
+C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
+  options = options || {};
+  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
+  if (!parsed.baseClassFqcn.length || !parsed.hasLogicalId || !C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+    return null;
+  }
+
+  var managers = C8O.dbo._collectNgxComponentManagers(referenceDbo);
+  if (!managers || !managers.length) {
+    return null;
+  }
+
+  var targetLogicalId = parsed.logicalId;
+  var targetLogicalKey = C8O.dbo._normalizePropertyLookupKey(targetLogicalId);
+  for (var m = 0; m < managers.length; m++) {
+    var manager = managers[m];
+    if (!manager) {
+      continue;
+    }
+    try {
+      if (typeof manager.reloadComponents === "function") {
+        manager.reloadComponents();
+      }
+    } catch (_ignoreReload) {}
+
+    var components = null;
+    try {
+      components = manager.getComponentsByGroup();
+    } catch (_ignoreComponents) {
+      components = null;
+    }
+    if (!components) {
       continue;
     }
 
-    if (requestedFqcn.length) {
+    for (var i = 0; i < components.size(); i++) {
+      var component = components.get(i);
+      if (!component) {
+        continue;
+      }
+
+      if (options.requireAllowedInParent === true && referenceDbo) {
+        var allowed = false;
+        try {
+          allowed = component.isAllowedIn(referenceDbo) === true;
+        } catch (_ignoreAllowed) {
+          allowed = false;
+        }
+        if (!allowed) {
+          continue;
+        }
+      }
+
+      var sampleDbo = null;
+      try {
+        sampleDbo = manager.createBean(component);
+      } catch (_ignoreCreateBean) {
+        sampleDbo = null;
+      }
+      if (!sampleDbo) {
+        continue;
+      }
+
       var candidateClassName = "";
       try {
-        candidateClassName = String(candidate.getClass().getName());
+        candidateClassName = String(sampleDbo.getClass().getName() || "");
       } catch (_ignoreCandidateClassName) {
         candidateClassName = "";
       }
-      if (candidateClassName.length && candidateClassName !== requestedFqcn) {
+      if (!candidateClassName.length || candidateClassName !== parsed.baseClassFqcn) {
         continue;
       }
+
+      var logicalId = C8O.dbo.getNgxComponentLogicalId(component, sampleDbo);
+      if (!logicalId.length) {
+        continue;
+      }
+      if (logicalId !== targetLogicalId) {
+        var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
+        if (!targetLogicalKey.length || logicalKey !== targetLogicalKey) {
+          continue;
+        }
+      }
+
+      return {
+        manager: manager,
+        component: component,
+        sampleDbo: sampleDbo,
+        baseClassFqcn: candidateClassName,
+        logicalId: logicalId,
+        logicalClassName: C8O.dbo.buildLogicalClassName(candidateClassName, logicalId)
+      };
     }
-    return candidate;
   }
 
   return null;
 };
 
 C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
-  var candidate = C8O.dbo._instantiateNgxFromHints(className, parentDbo, updates);
-  if (candidate) {
-    return candidate;
+  var parsed = C8O.dbo.parseLogicalClassToken(className || "");
+  var baseClassFqcn = parsed.baseClassFqcn;
+
+  if (C8O.dbo._isNgxParent(parentDbo) && C8O.dbo._isNgxClassFqcn(baseClassFqcn)) {
+    if (!parsed.hasLogicalId) {
+      throw new Error(
+        "For NGX create, className must include a logical identifier using '#'. " +
+        "Example: ngx.components.UIDynamicElement#Card"
+      );
+    }
+    var resolved = C8O.dbo.findNgxComponentByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
+    if (!resolved || !resolved.sampleDbo) {
+      throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
+    }
+    return resolved.sampleDbo;
   }
-  return C8O.dbo.instantiateClass(className);
+
+  return C8O.dbo.instantiateClass(baseClassFqcn || className);
 };
 
 
@@ -2065,3 +2225,118 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   return list;
 };
 
+C8O.dbo._buildDynamicPropertyHint = function (dynamicMeta, ionBean) {
+  if (!dynamicMeta || !dynamicMeta.name) {
+    return null;
+  }
+  var rawValue = null;
+  try {
+    if (ionBean && typeof ionBean.getPropertyValue === "function") {
+      rawValue = ionBean.getPropertyValue(dynamicMeta.name);
+    }
+  } catch (_ignoreRawValue) {
+    rawValue = null;
+  }
+  var normalizedValue = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawValue) : rawValue;
+  if (dynamicMeta.hasNotSetSentinel === true && (normalizedValue === false || normalizedValue === "false")) {
+    normalizedValue = null;
+  }
+  return {
+    name: dynamicMeta.name,
+    displayName: dynamicMeta.label || dynamicMeta.name,
+    description: "",
+    type: "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType",
+    kind: "smartType",
+    hidden: false,
+    expert: false,
+    scriptable: true,
+    nillable: false,
+    readOnly: false,
+    defaultValue: normalizedValue,
+    exampleValue: C8O.dbo._exampleValueForKind ? C8O.dbo._exampleValueForKind("smartType", normalizedValue) : normalizedValue
+  };
+};
+
+C8O.dbo.describeDatabaseObjectProperties = function (dbo) {
+  var list = [];
+  if (!dbo) {
+    return list;
+  }
+
+  var descriptors = [];
+  try {
+    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
+    var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
+    descriptors = beanInfo && beanInfo.getPropertyDescriptors ? beanInfo.getPropertyDescriptors() : [];
+  } catch (_ignoreCachedIntrospector) {
+    try {
+      var Introspector = Packages.java.beans.Introspector;
+      var fallbackInfo = Introspector.getBeanInfo(dbo.getClass());
+      descriptors = fallbackInfo && fallbackInfo.getPropertyDescriptors ? fallbackInfo.getPropertyDescriptors() : [];
+    } catch (_ignoreIntrospector) {
+      descriptors = [];
+    }
+  }
+
+  var dynamicContext = C8O.dbo._getDynamicPropertyContext(dbo);
+  var consumed = {};
+  for (var i = 0; i < descriptors.length; i++) {
+    var hint = C8O.dbo.describePropertyDescriptor(descriptors[i], dbo);
+    if (!hint) {
+      continue;
+    }
+    var normalizedName = C8O.dbo._normalizePropertyLookupKey(hint.name);
+    if (normalizedName === "beandata" && dynamicContext) {
+      continue;
+    }
+    if (dynamicContext && dynamicContext.byLookup && normalizedName.length) {
+      var resolvedName = dynamicContext.byLookup[normalizedName];
+      if (resolvedName && dynamicContext.byName && dynamicContext.byName[resolvedName]) {
+        var dynamicHint = C8O.dbo._buildDynamicPropertyHint(dynamicContext.byName[resolvedName], dynamicContext.ionBean);
+        if (dynamicHint) {
+          list.push(dynamicHint);
+          consumed[C8O.dbo._normalizePropertyLookupKey(dynamicHint.name)] = true;
+          continue;
+        }
+      }
+    }
+    list.push(hint);
+    if (normalizedName.length) {
+      consumed[normalizedName] = true;
+    }
+  }
+
+  if (dynamicContext && dynamicContext.byName) {
+    var dynamicNames = Object.keys(dynamicContext.byName);
+    for (var j = 0; j < dynamicNames.length; j++) {
+      var dynamicName = dynamicNames[j];
+      var dynamicMeta = dynamicContext.byName[dynamicName];
+      var key = C8O.dbo._normalizePropertyLookupKey(dynamicMeta && dynamicMeta.name ? dynamicMeta.name : dynamicName);
+      if (!key.length || consumed[key]) {
+        continue;
+      }
+      var extraHint = C8O.dbo._buildDynamicPropertyHint(dynamicMeta, dynamicContext.ionBean);
+      if (!extraHint) {
+        continue;
+      }
+      list.push(extraHint);
+      consumed[key] = true;
+    }
+  }
+
+  return list;
+};
+
+C8O.dbo.countVisibleProperties = function (dbo) {
+  if (!dbo) {
+    return 0;
+  }
+  var hints = C8O.dbo.describeDatabaseObjectProperties(dbo);
+  var count = 0;
+  for (var i = 0; i < hints.length; i++) {
+    if (hints[i] && hints[i].hidden !== true) {
+      count++;
+    }
+  }
+  return count;
+};

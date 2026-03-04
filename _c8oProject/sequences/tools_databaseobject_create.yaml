@@ -517,7 +517,7 @@ comment: Creates a new database object relative to an existing one.
 ↓mode [variables.RequestableVariable-1762339712883]: 
   comment: 'Insert mode: inside, before, after'
 ↓className [variables.RequestableVariable-1762339712885]: 
-  comment: Fully qualified database object class
+  comment: Database object class. For NGX palette entries, use <class>#<logicalId> from palette-list item.className (for example ngx.components.UIDynamicElement#Card).
 ↓name [variables.RequestableVariable-1762339712887]: 
   comment: Optional name for the new object
 ↓properties [variables.RequestableVariable-1762339712889]: 

@@ -48,37 +48,11 @@ C8O.palette.suggestTechnicalName = function (label) {
   return base;
 };
 
-C8O.palette.describePaletteEntry = function (entry) {
-  if (!entry || !entry.className) {
-    return null;
-  }
-  var fqcn = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(entry.className) : String(entry.className);
-  var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : fqcn;
-  var displayName = entry.name || "";
-  var beanInfo = entry.beanInfo || null;
-  if (!beanInfo) {
-    try {
-      var beanInfoClass = Packages.java.lang.Class.forName(fqcn + "BeanInfo");
-      beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
-    } catch (_ignoreBeanInfo) {}
-  }
-  return C8O.palette.describeBeanTemplate({
-    className: className,
-    beanInfo: beanInfo,
-    displayName: displayName
-  });
-};
-
-C8O.palette.describeBeanTemplate = function (options) {
+C8O.palette._buildTemplateFromPropertyHints = function (options, propHints) {
   options = options || {};
   var className = C8O.util.toTrimmedString(options.className || "");
-  var fqcn = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(className) : className;
-  if (!className.length) {
-    return null;
-  }
-  var beanInfo = options.beanInfo || null;
-  var propHints = C8O.dbo.describeBeanProperties(beanInfo);
-  if (!propHints.length) {
+  var displayName = options.displayName || "";
+  if (!className.length || !propHints || !propHints.length) {
     return null;
   }
   var visibleHints = [];
@@ -91,6 +65,9 @@ C8O.palette.describeBeanTemplate = function (options) {
     if (visibleHints.length >= C8O.palette._MAX_PROPERTY_HINTS) {
       break;
     }
+  }
+  if (!visibleHints.length) {
+    return null;
   }
   var templateProps = [];
   var templateCount = 0;
@@ -119,7 +96,7 @@ C8O.palette.describeBeanTemplate = function (options) {
       payloadObject[prop.name] = prop.value;
     }
   }
-  var nameSuggestion = C8O.palette.suggestTechnicalName(options.displayName || className);
+  var nameSuggestion = C8O.palette.suggestTechnicalName(displayName || className);
   var creationTemplate = {
     related: "<parent QName>",
     mode: "inside",
@@ -148,17 +125,100 @@ C8O.palette.describeBeanTemplate = function (options) {
   };
 };
 
-C8O.palette._getDescribeSummary = function (className, options) {
-  className = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(className || "") : (C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || ""));
+C8O.palette.describeDatabaseObjectTemplate = function (options) {
+  options = options || {};
+  var dbo = options.dbo || null;
+  if (!dbo) {
+    return null;
+  }
+  var className = C8O.util.toTrimmedString(options.className || "");
+  if (!className.length) {
+    try {
+      className = C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : String(dbo.getClass().getName());
+    } catch (_ignoreDboClass) {
+      className = "";
+    }
+  }
+  var propHints = [];
+  try {
+    propHints = C8O.dbo.describeDatabaseObjectProperties(dbo);
+  } catch (_ignoreDescribeDbo) {
+    propHints = [];
+  }
+  return C8O.palette._buildTemplateFromPropertyHints({
+    className: className,
+    displayName: options.displayName || className
+  }, propHints);
+};
+
+C8O.palette.describePaletteEntry = function (entry) {
+  if (!entry || !entry.className) {
+    return null;
+  }
+  var classToken = C8O.util.toTrimmedString(entry.className || "");
+  var parsed = C8O.dbo.parseLogicalClassToken(classToken);
+  var fqcn = parsed.baseClassFqcn;
+  var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : fqcn;
+  var displayName = entry.name || "";
+
+  if (parsed.hasLogicalId && C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+    var sampleDbo = entry.sampleDbo || null;
+    if (!sampleDbo) {
+      var resolved = C8O.dbo.findNgxComponentByLogicalClass(classToken, entry.parentDbo || null, { requireAllowedInParent: false });
+      sampleDbo = resolved && resolved.sampleDbo ? resolved.sampleDbo : null;
+    }
+    if (sampleDbo) {
+      return C8O.palette.describeDatabaseObjectTemplate({
+        className: C8O.util.fromFqcn ? C8O.util.fromFqcn(parsed.baseClassFqcn) + "#" + parsed.logicalId : classToken,
+        displayName: displayName,
+        dbo: sampleDbo
+      });
+    }
+  }
+
+  var beanInfo = entry.beanInfo || null;
+  if (!beanInfo) {
+    try {
+      var beanInfoClass = Packages.java.lang.Class.forName(fqcn + "BeanInfo");
+      beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
+    } catch (_ignoreBeanInfo) {}
+  }
+  return C8O.palette.describeBeanTemplate({
+    className: className,
+    beanInfo: beanInfo,
+    displayName: displayName
+  });
+};
+
+C8O.palette.describeBeanTemplate = function (options) {
+  options = options || {};
+  var className = C8O.util.toTrimmedString(options.className || "");
   if (!className.length) {
     return null;
   }
+  var propHints = options.propertyHints || null;
+  if (!propHints) {
+    var beanInfo = options.beanInfo || null;
+    propHints = C8O.dbo.describeBeanProperties(beanInfo);
+  }
+  return C8O.palette._buildTemplateFromPropertyHints({
+    className: className,
+    displayName: options.displayName || className
+  }, propHints || []);
+};
+
+C8O.palette._getDescribeSummary = function (className, options) {
+  var classToken = C8O.util && C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || "").trim();
+  if (!classToken.length) {
+    return null;
+  }
+  var cacheKey = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(classToken) : classToken;
   var cache = C8O.palette._getProjectCacheBucket(
     C8O.palette._DESCRIBE_CACHE_KEY,
     C8O.palette._describeSummaryCache
   );
-  var cached = cache && Object.prototype.hasOwnProperty.call(cache, className)
-    ? cache[className]
+  var cached = cache && Object.prototype.hasOwnProperty.call(cache, cacheKey)
+    ? cache[cacheKey]
     : undefined;
   if (typeof cached !== "undefined") {
     return cached === C8O.palette._NULL_SENTINEL ? null : cached;
@@ -166,9 +226,11 @@ C8O.palette._getDescribeSummary = function (className, options) {
   var describeData = null;
   try {
     describeData = C8O.palette.describePaletteEntry({
-      className: className,
+      className: classToken,
       name: options && options.displayName ? options.displayName : "",
-      beanInfo: options && options.beanInfo ? options.beanInfo : null
+      beanInfo: options && options.beanInfo ? options.beanInfo : null,
+      sampleDbo: options && options.sampleDbo ? options.sampleDbo : null,
+      parentDbo: options && options.parentDbo ? options.parentDbo : null
     });
   } catch (_ignoreSummaryError) {}
   var summary = null;
@@ -184,61 +246,81 @@ C8O.palette._getDescribeSummary = function (className, options) {
   if (!cache) {
     cache = {};
   }
-  cache[className] = summary ? summary : C8O.palette._NULL_SENTINEL;
+  cache[cacheKey] = summary ? summary : C8O.palette._NULL_SENTINEL;
   return summary;
 };
 C8O.palette.attachListEntrySummary = function (item, options) {
   if (!item) {
     return;
   }
-  var fqcn = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(item.className || "") : (item.className || "");
-  var summary = C8O.palette._getDescribeSummary(fqcn, options || {});
-  item.className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : fqcn;
+  var classToken = C8O.util.toTrimmedString(item.className || "");
+  var summary = C8O.palette._getDescribeSummary(classToken, options || {});
+  item.className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(classToken) : classToken;
   if (!summary) {
     return;
   }
   item.propertyCount = summary.propertyCount || summary.propertyHintCount || 0;
 };
 
-C8O.palette.computeListEntryCounts = function (className) {
-  className = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(className || "") : (C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || ""));
-  if (!className.length) {
+C8O.palette.computeListEntryCounts = function (className, options) {
+  options = options || {};
+  var classToken = C8O.util && C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || "").trim();
+  if (!classToken.length) {
     return null;
   }
+  var cacheKey = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(classToken) : classToken;
   var cache = C8O.palette._getProjectCacheBucket(
     C8O.palette._COUNT_CACHE_KEY,
     C8O.palette._listCountCache
   );
-  var cached = cache && Object.prototype.hasOwnProperty.call(cache, className)
-    ? cache[className]
+  var cached = cache && Object.prototype.hasOwnProperty.call(cache, cacheKey)
+    ? cache[cacheKey]
     : undefined;
   if (typeof cached !== "undefined") {
     return cached === C8O.palette._NULL_SENTINEL ? null : cached;
   }
   var counts = null;
   try {
-    var fqcn = className;
-    var beanInfoClass = Packages.java.lang.Class.forName(fqcn + "BeanInfo");
-    var beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
-    var propHints = C8O.dbo.describeBeanProperties(beanInfo);
-    if (propHints && propHints.length) {
-      var hintCount = 0;
-      for (var i = 0; i < propHints.length; i++) {
-        var hint = propHints[i];
-        if (!hint || hint.hidden) {
-          continue;
-        }
-        hintCount++;
+    var sampleDbo = options.sampleDbo || null;
+    if (!sampleDbo) {
+      var parsed = C8O.dbo.parseLogicalClassToken(classToken);
+      if (parsed.hasLogicalId && C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+        var resolved = C8O.dbo.findNgxComponentByLogicalClass(classToken, options.parentDbo || null, { requireAllowedInParent: false });
+        sampleDbo = resolved && resolved.sampleDbo ? resolved.sampleDbo : null;
       }
+    }
+
+    if (sampleDbo) {
       counts = {
-        propertyCount: hintCount
+        propertyCount: C8O.dbo.countVisibleProperties(sampleDbo)
       };
+    } else {
+      var parsedClass = C8O.dbo.parseLogicalClassToken(classToken);
+      var fqcn = parsedClass.baseClassFqcn;
+      if (fqcn.length) {
+        var beanInfoClass = Packages.java.lang.Class.forName(fqcn + "BeanInfo");
+        var beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
+        var propHints = C8O.dbo.describeBeanProperties(beanInfo);
+        if (propHints && propHints.length) {
+          var hintCount = 0;
+          for (var i = 0; i < propHints.length; i++) {
+            var hint = propHints[i];
+            if (!hint || hint.hidden) {
+              continue;
+            }
+            hintCount++;
+          }
+          counts = {
+            propertyCount: hintCount
+          };
+        }
+      }
     }
   } catch (_ignoreCounts) {}
   if (!cache) {
     cache = {};
   }
-  cache[className] = counts ? counts : C8O.palette._NULL_SENTINEL;
+  cache[cacheKey] = counts ? counts : C8O.palette._NULL_SENTINEL;
   return counts;
 };
 
@@ -299,7 +381,9 @@ C8O.palette.matchesFilter = function (entry, filterText) {
 C8O.palette._buildEntry = function (options) {
   options = options || {};
   var fqcn = options.classFqcn || "";
-  var className = C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : String(fqcn || "");
+  var className = options.className != null
+    ? String(options.className)
+    : (C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(fqcn) : String(fqcn || ""));
   var rawDescription = options.description == null ? "" : String(options.description);
   var desc = C8O.palette.splitDescription(rawDescription);
   var name = options.name == null ? "" : String(options.name);
@@ -459,13 +543,8 @@ C8O.palette._collectNgxEntries = function (context) {
 
     var dbo = null;
     try {
-      dbo = manager.createBeanFromHint(comp);
-    } catch (_ignoreHintBean) {}
-    if (!dbo) {
-      try {
-        dbo = manager.createBean(comp);
-      } catch (_ignoreBeanCreate) {}
-    }
+      dbo = manager.createBean(comp);
+    } catch (_ignoreBeanCreate) {}
     if (!dbo) {
       continue;
     }
@@ -497,11 +576,17 @@ C8O.palette._collectNgxEntries = function (context) {
     try { isBuiltIn = comp.isBuiltIn() === true; } catch (_ignoreBuiltIn) { isBuiltIn = true; }
     try { isAdditional = comp.isAdditional() === true; } catch (_ignoreAdditional) { isAdditional = false; }
 
-    var entryId = "ngx [" + (categoryName || "") + "] " + (componentName || label || classFqcn);
+    var logicalId = C8O.dbo.getNgxComponentLogicalId(comp, dbo);
+    if (!logicalId.length) {
+      continue;
+    }
+    var logicalClassName = C8O.dbo.buildLogicalClassName(classFqcn, logicalId);
+    var entryId = "ngx [" + (categoryName || "") + "] " + logicalClassName;
     var entry = C8O.palette._buildEntry({
       id: entryId,
       name: label || componentName || (C8O.util && C8O.util.fromFqcn ? C8O.util.fromFqcn(classFqcn) : classFqcn),
       classFqcn: classFqcn,
+      className: logicalClassName,
       description: rawDescription,
       icon: iconPath,
       builtin: isBuiltIn,
@@ -511,7 +596,7 @@ C8O.palette._collectNgxEntries = function (context) {
       componentName: componentName,
       tag: tagName
     });
-    if (!pushEntry(entry, { classFqcn: classFqcn, displayName: entry.name })) {
+    if (!pushEntry(entry, { classFqcn: classFqcn, displayName: entry.name, sampleDbo: dbo, parentDbo: parentDbo })) {
       break;
     }
   }
@@ -571,14 +656,24 @@ C8O.palette.listEntries = function (options) {
       return false;
     }
 
-    var classFqcn = meta && meta.classFqcn ? String(meta.classFqcn) : (C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(entry.className || "") : String(entry.className || ""));
+    var classToken = entry.className || "";
     var displayName = meta && meta.displayName ? String(meta.displayName) : (entry.name || "");
     var beanInfo = meta && meta.beanInfo ? meta.beanInfo : null;
+    var sampleDbo = meta && meta.sampleDbo ? meta.sampleDbo : null;
+    var sampleParent = meta && meta.parentDbo ? meta.parentDbo : parentDbo;
     try {
-      C8O.palette.attachListEntrySummary(entry, { displayName: displayName, beanInfo: beanInfo });
+      C8O.palette.attachListEntrySummary(entry, {
+        displayName: displayName,
+        beanInfo: beanInfo,
+        sampleDbo: sampleDbo,
+        parentDbo: sampleParent
+      });
     } catch (_ignoreSummary) {}
     try {
-      var counts = C8O.palette.computeListEntryCounts(classFqcn);
+      var counts = C8O.palette.computeListEntryCounts(classToken, {
+        sampleDbo: sampleDbo,
+        parentDbo: sampleParent
+      });
       if (counts && counts.propertyCount != null) {
         entry.propertyCount = counts.propertyCount;
       }

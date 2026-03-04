@@ -6,6 +6,24 @@ function toJsString(value) {
   return value == null ? "" : String(value);
 }
 
+function parseOptionBoolean(value, defaultValue) {
+  if (value === null || typeof value === "undefined") {
+    return defaultValue;
+  }
+  var text = String(value).trim();
+  if (!text.length) {
+    return defaultValue;
+  }
+  text = text.toLowerCase();
+  if (text === "true" || text === "1" || text === "yes" || text === "on") {
+    return true;
+  }
+  if (text === "false" || text === "0" || text === "no" || text === "off") {
+    return false;
+  }
+  return defaultValue;
+}
+
 function splitDescription(raw) {
   var text = toJsString(raw);
   if (!text.length) {
@@ -86,7 +104,7 @@ function mapHints(hints, className) {
   return results;
 }
 
-function locateEntry(classNameText) {
+function locateExplorerEntry(classNameText) {
   var explorer = Engine.theApp.getDboExplorerManager();
   var groups = explorer.getGroups();
   var groupIt = groups.iterator();
@@ -127,44 +145,116 @@ function locateEntry(classNameText) {
   return null;
 }
 
-var requestedClass = C8O.util.toFqcn(className || "");
-if (!requestedClass.length) {
+function locateNgxEntry(classNameToken) {
+  var resolved = null;
+  try {
+    resolved = C8O.dbo.findNgxComponentByLogicalClass(classNameToken, null, { requireAllowedInParent: false });
+  } catch (_ignoreResolve) {
+    resolved = null;
+  }
+  if (!resolved || !resolved.component || !resolved.sampleDbo) {
+    return null;
+  }
+  var component = resolved.component;
+  var logicalClassName = resolved.logicalClassName || classNameToken;
+  var name = "";
+  var description = "";
+  var icon = "";
+  var category = "";
+  try { name = String(component.getLabel() || ""); } catch (_ignoreLabel) { name = ""; }
+  if (!name.length) {
+    try { name = String(component.getName() || ""); } catch (_ignoreName) { name = ""; }
+  }
+  try { description = String(component.getDescription() || ""); } catch (_ignoreDescription) { description = ""; }
+  try { icon = String(component.getImagePath() || ""); } catch (_ignoreIcon) { icon = ""; }
+  try { category = String(component.getGroup() || ""); } catch (_ignoreGroup) { category = ""; }
+  return {
+    className: logicalClassName,
+    name: name,
+    description: description,
+    icon: icon,
+    group: "NGX",
+    category: category || "Components",
+    sampleDbo: resolved.sampleDbo
+  };
+}
+
+var requestedClassToken = C8O.util.toTrimmedString(className || "");
+if (!requestedClassToken.length) {
   throw new Error("className is required");
 }
+var verboseMode = parseOptionBoolean(typeof verbose !== "undefined" ? verbose : null, false);
+var parsedRequested = C8O.dbo.parseLogicalClassToken(requestedClassToken);
 
-var match = locateEntry(requestedClass);
-if (!match) {
-  throw new Error("Palette entry not found for className '" + requestedClass + "'");
+var entryPayload = null;
+var describeData = null;
+var hintClassLabel = parsedRequested.baseClassName || parsedRequested.baseClassFqcn || requestedClassToken;
+
+if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
+  if (!parsedRequested.hasLogicalId) {
+    throw new Error("For NGX palette describe, className must include '#<logicalId>'");
+  }
+  var ngxEntry = locateNgxEntry(requestedClassToken);
+  if (!ngxEntry) {
+    throw new Error("Palette entry not found for className '" + requestedClassToken + "'");
+  }
+  var ngxDesc = splitDescription(ngxEntry.description);
+  entryPayload = {
+    className: ngxEntry.className,
+    name: ngxEntry.name,
+    shortDescription: ngxDesc.short,
+    longDescription: ngxDesc.long,
+    description: ngxEntry.description,
+    icon: ngxEntry.icon,
+    group: ngxEntry.group,
+    category: ngxEntry.category
+  };
+  try {
+    describeData = C8O.palette.describePaletteEntry({
+      className: ngxEntry.className,
+      name: ngxEntry.name,
+      sampleDbo: ngxEntry.sampleDbo
+    });
+  } catch (_ignoreNgxDescribe) {}
+} else {
+  var requestedClass = parsedRequested.baseClassFqcn;
+  var match = locateExplorerEntry(requestedClass);
+  if (!match) {
+    throw new Error("Palette entry not found for className '" + requestedClassToken + "'");
+  }
+
+  var descriptor = match.beanInfo.getBeanDescriptor();
+  var descriptionText = match.bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented |";
+  var descParts = splitDescription(descriptionText);
+  var iconPath = MySimpleBeanInfo.getIconName(match.beanInfo, BeanInfo.ICON_COLOR_32x32);
+  var displayName = toJsString(descriptor.getDisplayName());
+
+  entryPayload = {
+    className: C8O.util.fromFqcn ? C8O.util.fromFqcn(requestedClass) : requestedClass,
+    name: displayName,
+    shortDescription: descParts.short,
+    longDescription: descParts.long,
+    description: toJsString(descriptionText),
+    icon: toJsString(iconPath),
+    group: toJsString(match.group),
+    category: toJsString(match.category)
+  };
+
+  try {
+    describeData = C8O.palette.describePaletteEntry({
+      className: requestedClass,
+      name: displayName,
+      beanInfo: match.beanInfo
+    });
+  } catch (_ignoreDescribe) {}
 }
 
-var descriptor = match.beanInfo.getBeanDescriptor();
-var descriptionText = match.bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented |";
-var descParts = splitDescription(descriptionText);
-var iconPath = MySimpleBeanInfo.getIconName(match.beanInfo, BeanInfo.ICON_COLOR_32x32);
-var displayName = toJsString(descriptor.getDisplayName());
-
-var entryPayload = {
-  className: C8O.util.fromFqcn ? C8O.util.fromFqcn(requestedClass) : requestedClass,
-  name: displayName,
-  shortDescription: descParts.short,
-  longDescription: descParts.long,
-  description: toJsString(descriptionText),
-  icon: toJsString(iconPath),
-  group: toJsString(match.group),
-  category: toJsString(match.category)
-};
-
-var describeData = null;
-try {
-  describeData = C8O.palette.describePaletteEntry({
-    className: requestedClass,
-    name: displayName,
-    beanInfo: match.beanInfo
-  });
-} catch (_ignoreDescribe) {}
-
 var templateMeta = describeData && describeData.creationTemplate ? mapTemplate(describeData.creationTemplate) : null;
-var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints, requestedClass) : [];
+var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints, hintClassLabel) : [];
+if (!verboseMode) {
+  templateMeta = null;
+  hintsPayload = [];
+}
 
 paletteDescribeEntry = entryPayload;
 paletteDescribeTemplate = templateMeta;
@@ -179,8 +269,6 @@ paletteDescribeTemplateMeta = templateMeta ? {
 paletteDescribeHints = hintsPayload;
 paletteDescribeNameSuggestion = describeData && describeData.nameSuggestion ?
   describeData.nameSuggestion :
-  C8O.palette.suggestTechnicalName(displayName || requestedClass);
-
-
+  C8O.palette.suggestTechnicalName((entryPayload && entryPayload.name) || requestedClassToken);
 
 
