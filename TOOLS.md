@@ -20,13 +20,14 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties (including XMLizable / SmartType handling). |
 | `marketplace-list`              | `tools_marketplace_list.yaml`              | List marketplace libraries, mark workspace/reference state, and include exposed shared components/actions when loaded. |
 | `marketplace-import`            | `tools_marketplace_import.yaml`            | Import a marketplace library when missing and ensure a `ProjectSchemaReference` is present on the target project. |
-| `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). |
+| `palette-list`                | `tools_palette_list.yaml`                   |  Lightweight catalog of creatable objects (name, class, summaries, describe hints). NGX targets include Studio-compatible dynamic entries (Ionic palette items). Supports `includeBuiltIn` / `includeShared` toggles (both default `true`). |
 | `palette-describe`            | `tools_palette_describe.yaml`               | Detailed description of a specific palette entry (creation template, property hints). |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
 | `project-execute`            | `tools_project_execute.yaml`                | Launch (or skip launch) a project mobile builder in Studio, wait initial build, and return npm/build log summary/errors from Studio logs. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
+| `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |
 | `yaml-lint`                  | `tools_yaml_lint.yaml`                      | Run Convertigo YAML dialect lint (`c8o_yaml_lint.py`) on a project root or selected YAML paths. |
 | databaseobject-schema       | 	ools_databaseobject_schema.yaml          | Return a minimal schema/sample for a requestable or request node (	ype=xml|json|jsonschema; internal=true for sourceDefinition view). |

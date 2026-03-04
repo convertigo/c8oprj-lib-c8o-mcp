@@ -16,23 +16,34 @@ comment: Updates properties of a database object using QName and key/value pairs
     var updates = C8O.dbo.parsePropertyUpdates(properties, errorEntries);
     var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSave, true);
     
-    if (updates && Object.keys(updates).length > 0) {
-      var applyResult = C8O.dbo.applyPropertyUpdates(dbo, updates);
-      appliedEntries = applyResult.applied;
-      skippedEntries = applyResult.skipped;
-      if (applyResult.errors.length) {
-        Array.prototype.push.apply(errorEntries, applyResult.errors);
+    var mutation = C8O.dbo.applyUpdatesAndPersist({
+      dbo: dbo,
+      project: projectRef,
+      updates: updates,
+      errors: errorEntries,
+      autoSave: autoSaveFlag,
+      persistIfNoUpdate: false
+    });
+    
+    appliedEntries = mutation.applied || [];
+    skippedEntries = mutation.skipped || [];
+    errorEntries = mutation.errors || errorEntries;
+    
+    var savedFlag = mutation.saved === true;
+    var mobileBuilderRefresh = mutation.mobileBuilderRefresh || { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
+    
+    var parentQNameText = "";
+    try {
+      var parentRef = dbo.getParent ? dbo.getParent() : null;
+      if (parentRef != null) {
+        parentQNameText = String(parentRef.getQName ? parentRef.getQName() : parentRef.getFullQName());
       }
+    } catch (_ignoreParentQName) {
+      parentQNameText = "";
     }
     
-    var saveResult = { saved: false, message: "" };
-    if (appliedEntries.length > 0) {
-      dbo.hasChanged = true;
-      if (projectRef != null) { projectRef.hasChanged = true; }
-      saveResult = C8O.dbo.saveProjectIfNeeded(projectRef, autoSaveFlag, errorEntries);
-    }
+    var shouldRefreshTree = (mutation.changed === true) && parentQNameText.length > 0 && C8O.dbo.hasAppliedProperty(appliedEntries, ["name"]);
     
-    var savedFlag = saveResult.saved === true;
     var summaryInfo = {
       updated: appliedEntries.length,
       skipped: skippedEntries.length,
@@ -40,7 +51,9 @@ comment: Updates properties of a database object using QName and key/value pairs
       keys: Object.keys(updates || {}).join(","),
       autoSave: autoSaveFlag,
       saved: savedFlag,
-      saveMessage: saveResult.message || ""
+      saveMessage: mutation.saveResult ? (mutation.saveResult.message || "") : "",
+      mobileBuilderTriggered: mobileBuilderRefresh.triggered === true,
+      mobileBuilderMessage: mobileBuilderRefresh.message || ""
     };
     
     updatedEntries = appliedEntries;
@@ -49,7 +62,16 @@ comment: Updates properties of a database object using QName and key/value pairs
     targetClassName = C8O.util.fromFqcn ? C8O.util.fromFqcn(dbo.getClass().getName()) : dbo.getClass().getName();
     autoSaveApplied = autoSaveFlag;
     saved = savedFlag;
-    summary = summaryInfo;'
+    mobileBuilderRefreshInfo = mobileBuilderRefresh;
+    summary = summaryInfo;
+    propertiesSetRefreshParentQName = parentQNameText;
+    propertiesSetShouldRefreshTree = shouldRefreshTree;
+    '
+↓IfStudioRefresh [steps.IfStep-1772614451540]: 
+  condition: propertiesSetShouldRefreshTree
+  ↓RefreshStudioTree [steps.SimpleStep-1772616456847]: 
+    comment: Refresh Studio tree for target parent node
+    expression: propertiesSetStudioRefreshResult = C8O.dbo.refreshStudioTreeByQName(propertiesSetRefreshParentQName, errorEntriesOut);
 ↓Result [steps.JsonObjectStep-1762268328549]: 
   key: 
     - xmlizable: 
@@ -97,6 +119,33 @@ comment: Updates properties of a database object using QName and key/value pairs
         - SmartType: 
           - ↑mode: JS
           - →→: saved
+  ↓MobileBuilderTriggered [steps.JsonFieldStep-1764186401001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderTriggered
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'mobileBuilderRefreshInfo ? mobileBuilderRefreshInfo.triggered === true : false'
+  ↓MobileBuilderMessage [steps.JsonFieldStep-1764186401002]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'mobileBuilderRefreshInfo ? (mobileBuilderRefreshInfo.message || "") : ""'
   ↓IfUpdated [steps.IfStep-1763646202902]: 
     condition: updatedEntries && updatedEntries.length > 0
     ↓Updated [steps.JsonArrayStep-1762268328567]: 

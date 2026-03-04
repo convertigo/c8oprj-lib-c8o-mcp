@@ -81,6 +81,14 @@ comment: Creates a new database object relative to an existing one.
     creationRequestedName = nameText;
     creationProperties = propertiesText;
     creationPropertiesProvided = propertiesText.length > 0;
+    creationParsedUpdates = {};
+    creationPropertiesErrors = [];
+    if (creationPropertiesProvided) {
+      creationParsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);
+      if (!creationParsedUpdates || typeof creationParsedUpdates !== "object") {
+        creationParsedUpdates = {};
+      }
+    }
     creationAutoSave = autoSaveFlag;
     creationParent = parentDbo;
     creationSibling = siblingDbo;
@@ -101,7 +109,6 @@ comment: Creates a new database object relative to an existing one.
     creationAutoSaveApplied = autoSaveFlag;
     creationPropertiesApplied = [];
     creationPropertiesSkipped = [];
-    creationPropertiesErrors = [];
     '
 ↓CreateObject [steps.SimpleStep-1762339712895]: 
   comment: Instantiate and attach new database object
@@ -116,15 +123,11 @@ comment: Creates a new database object relative to an existing one.
         creationClassName = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(creationClassName) : creationClassName;
       } catch (_ignoreFqcn) {}
     }
-    var targetClass = null;
-    try {
-      targetClass = java.lang.Class.forName(creationClassName);
-    } catch (eClass) {
-      throw new Error("Unable to load class " + creationClassName + ": " + eClass);
+    var parsedUpdates = creationParsedUpdates && typeof creationParsedUpdates === "object" ? creationParsedUpdates : {};
+    var newDbo = C8O.dbo.instantiateForCreate(creationClassName, parent, parsedUpdates);
+    if (newDbo == null) {
+      throw new Error("Unable to instantiate class " + creationClassName);
     }
-    var ctor = targetClass.getDeclaredConstructor();
-    ctor.setAccessible(true);
-    var newDbo = ctor.newInstance();
     newDbo.bNew = true;
     newDbo.hasChanged = true;
     if (creationRequestedName && creationRequestedName.length > 0) {
@@ -157,64 +160,40 @@ comment: Creates a new database object relative to an existing one.
     if (projectRef == null) {
       try { projectRef = newDbo.getProject(); } catch (ignoredProject) {}
     }
-    if (projectRef != null) { projectRef.hasChanged = true; }
-    if (creationPropertiesProvided) {
-      var parsedUpdates = C8O.dbo.parsePropertyUpdates(creationProperties, creationPropertiesErrors);
-      if (parsedUpdates && Object.keys(parsedUpdates).length > 0) {
-        var applyResult = C8O.dbo.applyPropertyUpdates(newDbo, parsedUpdates);
-        creationPropertiesApplied = applyResult.applied;
-        creationPropertiesSkipped = creationPropertiesSkipped.concat(applyResult.skipped);
-        if (applyResult.errors.length) { Array.prototype.push.apply(creationPropertiesErrors, applyResult.errors); }
-      }
-    }
-    newDbo.hasChanged = true;
     createdObject = newDbo;
     createdQName = String(newDbo.getFullQName());
     createdName = String(newDbo.getName());
     createdClassName = C8O.util.fromFqcn ? C8O.util.fromFqcn(newDbo.getClass().getName()) : newDbo.getClass().getName();
     createdParentQName = String(parent.getQName());
-    createdProject = projectRef;'
+    createdProject = projectRef;
+    '
 ↓Finalize [steps.SimpleStep-1762339712897]: 
   comment: Commit changes and prepare summary
   expression: |
-    var saveResult = C8O.dbo.saveProjectIfNeeded(createdProject, creationAutoSave, creationPropertiesErrors);
-    var savedFlag = saveResult.saved === true;
-    creationSaved = savedFlag;
-    creationSaveMessage = saveResult.message || "";
-    creationAutoSaveApplied = creationAutoSave;
+    'var parsedUpdates = creationParsedUpdates && typeof creationParsedUpdates === "object" ? creationParsedUpdates : {};
+    var mutation = C8O.dbo.applyUpdatesAndPersist({
+      dbo: createdObject,
+      project: createdProject,
+      updates: parsedUpdates,
+      errors: creationPropertiesErrors,
+      autoSave: creationAutoSave,
+      persistIfNoUpdate: true
+    });
     
+    creationPropertiesApplied = mutation.applied || [];
+    creationPropertiesSkipped = mutation.skipped || [];
+    creationMobileBuilderRefresh = mutation.mobileBuilderRefresh || { requested: false, studioMode: false, mobileObject: false, triggered: false, message: "" };
+    creationSaved = mutation.saved === true;
+    creationSaveMessage = mutation.saveResult ? (mutation.saveResult.message || "") : "";
+    creationAutoSaveApplied = creationAutoSave;
+    createdProject = mutation.project || createdProject;
+    '
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
   condition: createdObject != null && notEmpty(createdParentQName)
-  ↓PrepareRefreshCall [steps.SimpleStep-1762342856452]: 
-    comment: Preserve existing qname scope and set refresh target
-    expression: |
-      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
-      if (previousRefreshQNameDefined) {
-        previousRefreshQNameValue = qname;
-      } else {
-        previousRefreshQNameValue = null;
-      }
-      qname = createdParentQName;'
-  ↓CallInternalStudioRefresh [steps.SequenceStep-1762342856454]: 
-    comment: Invoke internal_studio_refresh for Eclipse Project Explorer
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1762342856456]: 
-      comment: QName forwarded to internal_studio_refresh
-  ↓CleanupRefreshCall [steps.SimpleStep-1762342856458]: 
-    comment: Restore previous qname scope after refresh
-    expression: |
-      'if (previousRefreshQNameDefined) {
-        qname = previousRefreshQNameValue;
-      } else {
-        try {
-          delete qname;
-        } catch (cleanupError) {
-          qname = undefined;
-        }
-      }
-      previousRefreshQNameDefined = false;
-      previousRefreshQNameValue = null;'
+  ↓RefreshStudioTree [steps.SimpleStep-1772616389467]: 
+    comment: Refresh Studio tree for target parent node
+    expression: studioRefreshResult = C8O.dbo.refreshStudioTreeByQName(createdParentQName, creationPropertiesErrors);
 ↓result [steps.JsonObjectStep-1762339712899]: 
   key: 
     - xmlizable: 
@@ -370,6 +349,33 @@ comment: Creates a new database object relative to an existing one.
         - SmartType: 
           - ↑mode: JS
           - →→: creationSaved
+  ↓mobileBuilderTriggered [steps.JsonFieldStep-1772614418486]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderTriggered
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'creationMobileBuilderRefresh ? creationMobileBuilderRefresh.triggered === true : false'
+  ↓mobileBuilderMessage [steps.JsonFieldStep-1772614425338]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mobileBuilderMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'creationMobileBuilderRefresh ? (creationMobileBuilderRefresh.message || "") : ""'
   ↓saveMessage [steps.JsonFieldStep-1762339712923]: 
     key: 
       - xmlizable: 
@@ -511,7 +517,7 @@ comment: Creates a new database object relative to an existing one.
 ↓mode [variables.RequestableVariable-1762339712883]: 
   comment: 'Insert mode: inside, before, after'
 ↓className [variables.RequestableVariable-1762339712885]: 
-  comment: Fully qualified database object class
+  comment: Database object class. For NGX palette entries, use <class>#<logicalId> from palette-list item.className (for example ngx.components.UIDynamicElement#Card).
 ↓name [variables.RequestableVariable-1762339712887]: 
   comment: Optional name for the new object
 ↓properties [variables.RequestableVariable-1762339712889]: 

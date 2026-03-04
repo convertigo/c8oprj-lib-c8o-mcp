@@ -357,8 +357,11 @@ comment: Describes palette entries (properties, creation hints).
                   - ↑mode: JS
                   - →→: item.llmHint
 ↓className [variables.RequestableVariable-1763068454112]: 
-  comment: Fully-qualified class name returned by palette-list item.className
+  comment: Palette class identifier from palette-list item.className. NGX entries require the #logicalId suffix (for example ngx.components.UIDynamicElement#Card).
   required: true
+↓verbose [variables.RequestableVariable-1772618427136]: 
+  comment: Set to true to include creation template and property hints in the response.
+  value: false
 ↓jElement [core.TestCase-1763471189986]: 
   ↓className [variables.TestCaseVariable-1763471190830]: 
     required: true

@@ -1,0 +1,46 @@
+↑default: true
+https: true
+port: 443
+server: assistant.convertigo.com
+↓query_lrag [transactions.JsonHttpTransaction]: 
+  ↑default: true
+  comment: Call the public LRagQuery sequence
+  httpInfo: true
+  httpParameters: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: Accept
+            - java.lang.String: 
+              - ↑value: application/json
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: Content-Type
+            - java.lang.String: 
+              - ↑value: application/x-www-form-urlencoded
+  httpVerb: POST
+  subDir: .json?__sequence=LRagQuery
+  ↓Question [variables.RequestableHttpVariable-1764181000001]: 
+    description: Question
+    httpMethod: POST
+    httpName: Question
+    required: true
+  ↓stream [variables.RequestableHttpVariable-1764181000002]: 
+    description: stream
+    httpMethod: POST
+    httpName: stream
+    value: false
+  ↓History [variables.RequestableHttpVariable-1764181000003]: 
+    description: History
+    httpMethod: POST
+    httpName: History
+  ↓Prompt [variables.RequestableHttpVariable-1764181000004]: 
+    description: Prompt
+    httpMethod: POST
+    httpName: Prompt

@@ -61,27 +61,9 @@ comment: Renames a database object and optionally refactors references.
 ↓IfRefreshParent [steps.IfStep-1762370280715]: 
   comment: Refresh parent folder when renamed
   condition: renameShouldRefresh
-  ↓PrepareRefresh [steps.SimpleStep-1762370286279]: 
-    comment: Save current qname and point to parent
-    expression: |
-      'previousRefreshQNameDefined = typeof qname !== "undefined" && qname !== null;
-      previousRefreshQNameValue = previousRefreshQNameDefined ? qname : null;
-      qname = renameParentQName;'
-  ↓RefreshParent [steps.SequenceStep-1762370291970]: 
-    comment: Invoke Studio refresh for parent
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1763398717736]: 
-      comment: Database object QName to refresh inside the Studio Project Explorer
-  ↓RestoreRefreshScope [steps.SimpleStep-1762370298194]: 
-    comment: Restore original qname after refresh
-    expression: |
-      'if (previousRefreshQNameDefined) {
-        qname = previousRefreshQNameValue;
-      } else {
-        qname = null;
-      }
-      previousRefreshQNameDefined = false;
-      previousRefreshQNameValue = null;'
+  ↓RefreshStudioTree [steps.SimpleStep-1772616489104]: 
+    comment: Refresh Studio tree for target parent node
+    expression: renameStudioRefreshResult = C8O.dbo.refreshStudioTreeByQName(renameParentQName, renameErrors);
 ↓Result [steps.JsonObjectStep-1762370308150]: 
   comment: Build response payload
   key: 
