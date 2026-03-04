@@ -1033,6 +1033,45 @@ def parse_yaml_tree(file_path: Path) -> tuple[YamlNode, list[str]]:
     return root, warnings
 
 
+def select_sync_root_node(
+    file_path: Path,
+    project_root: Path,
+    project_qname: str,
+    parsed_root: YamlNode,
+) -> tuple[YamlNode | None, str | None]:
+    """
+    For c8oProject.yaml, the parsed synthetic root contains the project wrapper node
+    (e.g. ↓MyProject [core.Project]) as a child. Sync must target that wrapper child.
+    For regular subfiles, sync uses the parsed synthetic root as-is.
+    """
+    root_yaml = (project_root / "c8oProject.yaml").resolve()
+    if file_path.resolve() != root_yaml:
+        return parsed_root, None
+
+    candidates = [child for child in parsed_root.children if child.name == project_qname]
+    if len(candidates) == 1:
+        return candidates[0], None
+    if len(candidates) > 1:
+        return None, (
+            f"{file_path}: multiple project wrapper nodes named '{project_qname}' found; "
+            "cannot process c8oProject.yaml safely"
+        )
+
+    # Fallback for legacy/atypical formatting: single root child with Project class.
+    if len(parsed_root.children) == 1:
+        only = parsed_root.children[0]
+        if only.class_name and only.class_name.endswith(".Project"):
+            return only, (
+                f"{file_path}: project wrapper name '{only.name}' differs from inferred project name "
+                f"'{project_qname}', using wrapper node as sync root"
+            )
+
+    return None, (
+        f"{file_path}: unable to locate project wrapper node '{project_qname}' "
+        "inside c8oProject.yaml"
+    )
+
+
 def collect_unsupported_props(node: YamlNode) -> set[str]:
     names = set(node.unsupported_props)
     for child in node.children:
@@ -1666,6 +1705,8 @@ def main(argv: list[str]) -> int:
         eprint(f"ERROR: unable to build file/qname index: {exc}")
         return 2
 
+    root_yaml = (project_root / "c8oProject.yaml").resolve()
+
     if args.files:
         files = [to_abs(f, cwd=project_root) for f in args.files]
     else:
@@ -1681,13 +1722,10 @@ def main(argv: list[str]) -> int:
         if not f.exists():
             eprint(f"WARN: file not found, skipped: {f}")
             continue
-        if f.resolve() == (project_root / "c8oProject.yaml").resolve():
-            eprint(f"WARN: skipping root c8oProject.yaml (not handled by this script): {f}")
-            continue
         yaml_files.append(f.resolve())
 
     if not yaml_files:
-        print("No eligible YAML subfiles to process.")
+        print("No eligible YAML files to process.")
         return 0
 
     parsed_roots: dict[str, YamlNode] = {}
@@ -1702,12 +1740,23 @@ def main(argv: list[str]) -> int:
         parse_warnings.extend(warnings)
         if warnings:
             continue
-        parsed_roots[qname] = root
-        unsupported_props = collect_unsupported_props(root)
+        sync_root, root_warning = select_sync_root_node(
+            file_path=yaml_file,
+            project_root=project_root,
+            project_qname=project_name,
+            parsed_root=root,
+        )
+        if root_warning:
+            parse_warnings.append(root_warning)
+        if sync_root is None:
+            continue
+
+        parsed_roots[qname] = sync_root
+        unsupported_props = collect_unsupported_props(sync_root)
         unsupported_by_qname[qname] = unsupported_props
         print(
             f"Prepared tree from {yaml_file} -> {qname} "
-            f"(children={len(root.children)}, props={len(root.scalar_props)}, unsupported={len(unsupported_props)})"
+            f"(children={len(sync_root.children)}, props={len(sync_root.scalar_props)}, unsupported={len(unsupported_props)})"
         )
 
     if not parsed_roots:
