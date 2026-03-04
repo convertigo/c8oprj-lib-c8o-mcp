@@ -69,13 +69,9 @@ comment: Updates properties of a database object using QName and key/value pairs
     '
 ↓IfStudioRefresh [steps.IfStep-1772614451540]: 
   condition: propertiesSetShouldRefreshTree
-  ↓PrepareRefreshCall [steps.SimpleStep-1772614457830]: 
-    expression: studioRefreshScope = C8O.dbo.beginSequenceVariableScope(this, "qname", propertiesSetRefreshParentQName);
-  ↓CallInternalStudioRefresh [steps.SequenceStep-1772614463028]: 
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1772614470174]: 
-  ↓CleanupRefreshCall [steps.SimpleStep-1772614476535]: 
-    expression: C8O.dbo.endSequenceVariableScope(this, "qname", studioRefreshScope); studioRefreshScope = null;
+  ↓RefreshStudioTree [steps.SimpleStep-1772616456847]: 
+    comment: Refresh Studio tree for target parent node
+    expression: propertiesSetStudioRefreshResult = C8O.dbo.refreshStudioTreeByQName(propertiesSetRefreshParentQName, errorEntriesOut);
 ↓Result [steps.JsonObjectStep-1762268328549]: 
   key: 
     - xmlizable: 

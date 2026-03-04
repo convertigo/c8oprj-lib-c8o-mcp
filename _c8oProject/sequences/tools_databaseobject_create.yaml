@@ -191,17 +191,9 @@ comment: Creates a new database object relative to an existing one.
 ↓IfStudioRefresh [steps.IfStep-1762342856449]: 
   comment: Refresh Studio tree when parent QName exists
   condition: createdObject != null && notEmpty(createdParentQName)
-  ↓PrepareRefreshCall [steps.SimpleStep-1762342856452]: 
-    comment: Preserve existing qname scope and set refresh target
-    expression: studioRefreshScope = C8O.dbo.beginSequenceVariableScope(this, "qname", createdParentQName);
-  ↓CallInternalStudioRefresh [steps.SequenceStep-1762342856454]: 
-    comment: Invoke internal_studio_refresh for Eclipse Project Explorer
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1762342856456]: 
-      comment: QName forwarded to internal_studio_refresh
-  ↓CleanupRefreshCall [steps.SimpleStep-1762342856458]: 
-    comment: Restore previous qname scope after refresh
-    expression: C8O.dbo.endSequenceVariableScope(this, "qname", studioRefreshScope); studioRefreshScope = null;
+  ↓RefreshStudioTree [steps.SimpleStep-1772616389467]: 
+    comment: Refresh Studio tree for target parent node
+    expression: studioRefreshResult = C8O.dbo.refreshStudioTreeByQName(createdParentQName, creationPropertiesErrors);
 ↓result [steps.JsonObjectStep-1762339712899]: 
   key: 
     - xmlizable: 

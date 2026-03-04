@@ -1,84 +1,22 @@
 accessibility: Private
 comment: Refreshes the Eclipse Project Explorer for a target database object
+↓IncludeHelpers [steps.SimpleStep-1772616526664]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
 ↓InitContext [steps.SimpleStep-1762342576346]: 
-  comment: Prepare refresh context
+  comment: Refresh Project Explorer using shared helper
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var System = java.lang.System;
-    requestedQName = qname == null ? "" : String(qname).trim();
-    studioMode = Engine.isStudioMode();
-    resultTimestamp = System.currentTimeMillis();
-    resultStatus = studioMode ? "pending" : "skipped";
-    resultMessage = studioMode ? "Waiting for refresh" : "Refresh skipped: Convertigo Studio required";
-    resultError = "";
-    resultRefreshed = false;
-    resultRefreshedQName = "";
-    resultTargetQName = "";
-    resultQName = requestedQName;
-    resultStudioMode = studioMode;
-    refreshExecuted = false;
-    canRefresh = studioMode && requestedQName.length > 0;
-    if (!studioMode) {
-      resultStatus = "skipped";
-      resultMessage = "Refresh skipped: Convertigo Studio required";
-    }
-    if (!requestedQName.length) {
-      resultStatus = studioMode ? "error" : "skipped";
-      resultMessage = "QName is required";
-      canRefresh = false;
-    }
-    refreshTarget = null;
-    pluginInstance = null;'
-↓IfCanRefresh [steps.IfStep-1762342576348]: 
-  comment: Attempt refresh only when running in Studio with a QName
-  condition: canRefresh
-  ↓PerformRefresh [steps.SimpleStep-1762342576350]: 
-    comment: Run Project Explorer refresh inside the UI thread
-    expression: |
-      'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
-      var Runnable = Packages.java.lang.Runnable;
-      try {
-        refreshTarget = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(requestedQName);
-      } catch (lookupError) {
-        resultStatus = "error";
-        resultMessage = "Unable to resolve QName: " + requestedQName;
-        resultError = String(lookupError);
-      }
-      if (refreshTarget == null) {
-        if (resultStatus == "pending") {
-          resultStatus = "error";
-          resultMessage = "Database object not found: " + requestedQName;
-        }
-      } else {
-        resultTargetQName = String(refreshTarget.getQName());
-        pluginInstance = ConvertigoPlugin.getDefault();
-        if (pluginInstance == null) {
-          resultStatus = "skipped";
-          resultMessage = "Project Explorer view not available";
-        } else {
-          ConvertigoPlugin.syncExec(new Runnable({ run: function() {
-            try {
-              var view = pluginInstance.getProjectExplorerView();
-              if (view == null) {
-                resultStatus = "skipped";
-                resultMessage = "Project Explorer view not available";
-                return;
-              }
-              view.reloadDatabaseObject(refreshTarget);
-              resultStatus = "refreshed";
-              resultMessage = "Project Explorer refreshed";
-              resultRefreshed = true;
-              resultRefreshedQName = String(refreshTarget.getQName());
-              refreshExecuted = true;
-            } catch (uiError) {
-              resultStatus = "error";
-              resultMessage = String(uiError);
-              resultError = String(uiError);
-            }
-          }}));
-        }
-      }'
+    'var refreshResult = C8O.dbo.refreshStudioTreeByQName(qname);
+    resultTimestamp = refreshResult && refreshResult.timestamp ? refreshResult.timestamp : java.lang.System.currentTimeMillis();
+    resultStatus = refreshResult && refreshResult.status ? String(refreshResult.status) : "error";
+    resultMessage = refreshResult && refreshResult.message ? String(refreshResult.message) : "";
+    resultError = refreshResult && refreshResult.error ? String(refreshResult.error) : "";
+    resultRefreshed = refreshResult ? refreshResult.refreshed === true : false;
+    resultRefreshedQName = refreshResult && refreshResult.refreshedQName ? String(refreshResult.refreshedQName) : "";
+    resultTargetQName = refreshResult && refreshResult.targetQName ? String(refreshResult.targetQName) : "";
+    resultQName = refreshResult && refreshResult.qname ? String(refreshResult.qname) : (qname == null ? "" : String(qname));
+    resultStudioMode = refreshResult ? refreshResult.studioMode === true : false;
+    refreshExecuted = refreshResult ? refreshResult.executed === true : false;'
 ↓result [steps.JsonObjectStep-1762342576352]: 
   key: 
     - xmlizable: 

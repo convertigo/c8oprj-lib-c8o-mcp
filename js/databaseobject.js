@@ -1504,6 +1504,116 @@ C8O.dbo.applyUpdatesAndPersist = function (options) {
   };
 };
 
+C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var System = java.lang.System;
+
+  var requestedQName = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(targetQName || "") : String(targetQName || "").trim();
+  var studioMode = false;
+  try {
+    studioMode = Engine.isStudioMode() === true;
+  } catch (_ignoreStudioMode) {
+    studioMode = false;
+  }
+
+  var result = {
+    status: "pending",
+    message: "Waiting for refresh",
+    qname: requestedQName,
+    targetQName: "",
+    refreshed: false,
+    refreshedQName: "",
+    studioMode: studioMode,
+    timestamp: System.currentTimeMillis(),
+    error: "",
+    executed: false
+  };
+
+  if (!studioMode) {
+    result.status = "skipped";
+    result.message = "Refresh skipped: Convertigo Studio required";
+    return result;
+  }
+
+  if (!requestedQName.length) {
+    result.status = "error";
+    result.message = "QName is required";
+    if (errors && errors.push) {
+      errors.push({ name: "__studioRefresh__", message: result.message });
+    }
+    return result;
+  }
+
+  var refreshTarget = null;
+  try {
+    refreshTarget = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(requestedQName);
+  } catch (lookupError) {
+    result.status = "error";
+    result.message = "Unable to resolve QName: " + requestedQName;
+    result.error = String(lookupError);
+    if (errors && errors.push) {
+      errors.push({ name: "__studioRefresh__", message: result.message, detail: result.error });
+    }
+    return result;
+  }
+
+  if (refreshTarget == null) {
+    result.status = "error";
+    result.message = "Database object not found: " + requestedQName;
+    if (errors && errors.push) {
+      errors.push({ name: "__studioRefresh__", message: result.message });
+    }
+    return result;
+  }
+
+  try {
+    result.targetQName = String(refreshTarget.getQName());
+  } catch (_ignoreTargetQName) {
+    result.targetQName = requestedQName;
+  }
+
+  try {
+    var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+    var Runnable = Packages.java.lang.Runnable;
+    var pluginInstance = ConvertigoPlugin.getDefault();
+    if (pluginInstance == null) {
+      result.status = "skipped";
+      result.message = "Project Explorer view not available";
+      return result;
+    }
+
+    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      try {
+        var view = pluginInstance.getProjectExplorerView();
+        if (view == null) {
+          result.status = "skipped";
+          result.message = "Project Explorer view not available";
+          return;
+        }
+        view.reloadDatabaseObject(refreshTarget);
+        result.status = "refreshed";
+        result.message = "Project Explorer refreshed";
+        result.refreshed = true;
+        result.refreshedQName = String(refreshTarget.getQName());
+        result.executed = true;
+      } catch (uiError) {
+        result.status = "error";
+        result.message = String(uiError);
+        result.error = String(uiError);
+      }
+    }}));
+  } catch (refreshError) {
+    result.status = "error";
+    result.message = String(refreshError);
+    result.error = String(refreshError);
+  }
+
+  if (result.status === "error" && errors && errors.push) {
+    errors.push({ name: "__studioRefresh__", message: result.message, detail: result.error });
+  }
+  return result;
+};
+
 C8O.dbo.reloadProject = function (projectOrName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var name = "";
@@ -1618,47 +1728,6 @@ C8O.dbo.hasAppliedProperty = function (appliedEntries, aliases) {
     }
   }
   return false;
-};
-
-C8O.dbo.beginSequenceVariableScope = function (scopeObject, variableName, newValue) {
-  var scope = scopeObject && typeof scopeObject === "object" ? scopeObject : this;
-  var key = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(variableName || "") : String(variableName || "").trim();
-  var state = { defined: false, value: null };
-  if (!scope || !key.length) {
-    return state;
-  }
-  try {
-    state.defined = typeof scope[key] !== "undefined" && scope[key] !== null;
-    state.value = state.defined ? scope[key] : null;
-  } catch (_ignoreReadScope) {
-    state.defined = false;
-    state.value = null;
-  }
-  try {
-    scope[key] = newValue;
-  } catch (_ignoreWriteScope) {}
-  return state;
-};
-
-C8O.dbo.endSequenceVariableScope = function (scopeObject, variableName, state) {
-  var scope = scopeObject && typeof scopeObject === "object" ? scopeObject : this;
-  var key = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(variableName || "") : String(variableName || "").trim();
-  if (!scope || !key.length) {
-    return;
-  }
-  if (state && state.defined === true) {
-    try {
-      scope[key] = state.value;
-      return;
-    } catch (_ignoreRestoreScope) {}
-  }
-  try {
-    delete scope[key];
-  } catch (_ignoreDeleteScope) {
-    try {
-      scope[key] = undefined;
-    } catch (_ignoreUndefinedScope) {}
-  }
 };
 
 C8O.dbo._isNgxParent = function (parentDbo) {
@@ -1995,7 +2064,4 @@ C8O.dbo.describeBeanProperties = function (beanInfo) {
   }
   return list;
 };
-
-
-
 

@@ -48,17 +48,9 @@ comment: Removes a database object from the project tree.
 ↓IfStudioRefresh [steps.IfStep-1762369254814]: 
   comment: Refresh Studio tree if parent needs update
   condition: deleteShouldRefresh
-  ↓PrepareRefreshCall [steps.SimpleStep-1762369264083]: 
-    comment: Preserve qname scope and target parent
-    expression: studioRefreshScope = C8O.dbo.beginSequenceVariableScope(this, "qname", deleteParentQName);
-  ↓CallInternalStudioRefresh [steps.SequenceStep-1762369274549]: 
-    comment: Trigger Studio refresh on deleted parent node
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1763398765710]: 
-      comment: Database object QName to refresh inside the Studio Project Explorer
-  ↓RestoreRefreshScope [steps.SimpleStep-1762369291229]: 
-    comment: Restore original qname value
-    expression: C8O.dbo.endSequenceVariableScope(this, "qname", studioRefreshScope); studioRefreshScope = null;
+  ↓RefreshStudioTree [steps.SimpleStep-1772616473051]: 
+    comment: Refresh Studio tree for target parent node
+    expression: deleteStudioRefreshResult = C8O.dbo.refreshStudioTreeByQName(deleteParentQName, deleteErrors);
 ↓Result [steps.JsonObjectStep-1762369337024]: 
   key: 
     - xmlizable: 

@@ -62,31 +62,15 @@ comment: Moves or reorders a database object within the project tree.
 ↓IfRefreshFrom [steps.IfStep-1762369949336]: 
   comment: Refresh original parent when move succeeded
   condition: moveShouldRefreshFrom
-  ↓PrepareRefreshFrom [steps.SimpleStep-1762369956784]: 
-    comment: Save current qname and target from parent
-    expression: moveRefreshFromScope = C8O.dbo.beginSequenceVariableScope(this, "qname", moveFromParent);
-  ↓RefreshFrom [steps.SequenceStep-1762369963045]: 
-    comment: Invoke Studio refresh for source parent
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1763398724059]: 
-      comment: Database object QName to refresh inside the Studio Project Explorer
-  ↓RestoreFromScope [steps.SimpleStep-1762369969481]: 
-    comment: Restore original qname after refresh
-    expression: C8O.dbo.endSequenceVariableScope(this, "qname", moveRefreshFromScope); moveRefreshFromScope = null;
+  ↓RefreshStudioTree [steps.SimpleStep-1772616501259]: 
+    comment: Refresh Studio tree for source parent node
+    expression: moveRefreshFromResult = C8O.dbo.refreshStudioTreeByQName(moveFromParent, moveErrors);
 ↓IfRefreshTo [steps.IfStep-1762369976879]: 
   comment: Refresh destination parent when move changed location
   condition: moveShouldRefreshTo
-  ↓PrepareRefreshTo [steps.SimpleStep-1762369981255]: 
-    comment: Save qname and set destination parent
-    expression: moveRefreshToScope = C8O.dbo.beginSequenceVariableScope(this, "qname", moveToParent);
-  ↓RefreshTo [steps.SequenceStep-1762369987169]: 
-    comment: Invoke Studio refresh for destination parent
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1763398726139]: 
-      comment: Database object QName to refresh inside the Studio Project Explorer
-  ↓RestoreToScope [steps.SimpleStep-1762369992496]: 
-    comment: Restore qname after destination refresh
-    expression: C8O.dbo.endSequenceVariableScope(this, "qname", moveRefreshToScope); moveRefreshToScope = null;
+  ↓RefreshStudioTree [steps.SimpleStep-1772616501801]: 
+    comment: Refresh Studio tree for destination parent node
+    expression: moveRefreshToResult = C8O.dbo.refreshStudioTreeByQName(moveToParent, moveErrors);
 ↓Result [steps.JsonObjectStep-1762370000723]: 
   comment: Build response payload
   key: 
