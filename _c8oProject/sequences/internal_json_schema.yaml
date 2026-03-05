@@ -50,6 +50,7 @@ responseExpiryDate: absolute,600
   comment: Shared helpers for JSON normalization
   expression: |
     'include("js/schema_common.js");
+        include("js/schema_overrides.js");
     
     function sampleValueForType(type) {
       type = String(type || "string").toLowerCase();
@@ -120,12 +121,63 @@ responseExpiryDate: absolute,600
 ↓BuildModels [steps.SimpleStep-1761913099509]: 
   comment: Compute input/output schema details
   expression: |
-    var requestSource = extractPayloadNode(requestModel, requestPayloadName);
+    'var requestSource = extractPayloadNode(requestModel, requestPayloadName);
     if (requestSource == null) { requestSource = {}; }
     var normalizedRequest = normalizeNode(requestSource);
     normalizedRequest = pruneInternalKeys(normalizedRequest);
     inputSchemaJson = buildSchemaNode(normalizedRequest);
     if (inputSchemaJson && typeof inputSchemaJson === "object") { inputSchemaJson.additionalProperties = false; }
+    
+    var sequenceKey = String(sequence || "").trim().toLowerCase();
+    if (sequenceKey === "tools_batch_call") {
+      inputSchemaJson = {
+        type: "object",
+        properties: {
+          calls: {
+            type: "array",
+            description: "Ordered list of tool calls to execute.",
+            items: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  description: "Optional identifier for cross-call $ref substitutions."
+                },
+                tool: {
+                  type: "string",
+                  description: "MCP tool name (for example: project-list, databaseobject-tree-get)."
+                },
+                arguments: {
+                  type: "object",
+                  description: "Arguments passed to the target tool.",
+                  additionalProperties: true
+                }
+              },
+              required: ["tool"],
+              additionalProperties: false
+            }
+          },
+          onError: {
+            type: "string",
+            enum: ["stop", "continue"],
+            default: "stop"
+          },
+          resumeFrom: {
+            type: "string",
+            description: "Zero-based index to resume from."
+          },
+          executionId: {
+            type: "string",
+            description: "Optional execution identifier returned in resume metadata."
+          }
+        },
+        required: ["calls"],
+        additionalProperties: false
+      };
+    } else if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyInput === "function") {
+      inputSchemaJson = C8O.schemaOverrides.applyInput(sequence, inputSchemaJson, targetRequestable);
+    }
+    
     var responseSource = extractPayloadNode(responseModel, responsePayloadName);
     if (responseSource == null) { responseSource = responseModel; }
     if (responseSource && responseSource.response) { responseSource = responseSource.response; }
@@ -133,8 +185,7 @@ responseExpiryDate: absolute,600
     var normalizedResponse = normalizeNode(responseSource);
     schemaJson = buildSchemaNode(normalizedResponse);
     delete schemaJson.required;
-    exampleJson = normalizedResponse;
-    
+    exampleJson = normalizedResponse;'
 ↓result [steps.JsonObjectStep-1761747759787]: 
   key: 
     - xmlizable: 
