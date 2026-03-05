@@ -37,6 +37,7 @@
   ↓tools_log_view [sequences.GenericSequence]: 🗏 sequences/tools_log_view.yaml
   ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
+  ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml

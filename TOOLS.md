@@ -22,8 +22,9 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `databaseobject-properties-get` | `tools_databaseobject_properties_get.yaml` | Retrieve metadata + values for a database object. Payload is compact by default; pass `includeHints=true` to re-enable long descriptions and boolean flags. |
 | `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties through the shared batch mutation pipeline. Accepts both property maps and property entry arrays (same structural format returned by `databaseobject-properties-get`). |
 | `log-view`                    | `tools_log_view.yaml`                       | Read logs through LogManager API with structured filters (`project`, `requestable`, `connector`, `transaction`, etc.) and cursor pagination. |
-| `marketplace-list`            | `tools_marketplace_list.yaml`               | Discover marketplace libraries (connector-backed HTTP call), annotate workspace/reference status, and return project-aware suggestions. |
-| `marketplace-import`          | `tools_marketplace_import.yaml`             | Import a marketplace library and wire project references in one MCP flow (with optional save/refresh). |
+| `mobile-builder-open`         | `tools_mobile_builder_open.yaml`            | Open/activate the NGX application editor in Studio, start the mobile builder watcher, then return the detected Node URL (`http://localhost:<port>`) with `editorOpened` and builder log excerpts. |
+| `marketplace-list`            | `tools_marketplace_list.yaml`               | List marketplace entries with `search`, `topics`, and cursor pagination. |
+| `marketplace-import`          | `tools_marketplace_import.yaml`             | Import one marketplace project into workspace using `project` (+ optional `importedProjectName`). |
 | `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). NGX targets include Studio-compatible dynamic entries (Ionic palette items). Supports `includeBuiltIn` / `includeShared` toggles (both default `true`). |
 | `palette-describe`            | `tools_palette_describe.yaml`               | Detailed description of a specific palette entry (creation template, property hints). |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
@@ -43,11 +44,13 @@ Use these short forms first; keep advanced parameters for diagnostics only.
 | Tool | Minimal call | Core params | Advanced params |
 |------|--------------|-------------|-----------------|
 | `log-view` | `log-view {}` | `q` (alias of `text`), `project`, `requestable`, `limit` | `filter`, `category`, `level`, `connector`, `transaction`, `thread`, `startDate/endDate` (`since/until` aliases), `timeoutMs`, `fetchSize` |
-| `marketplace-list` | `marketplace-list {}` | `q`, `project`, `limit` | `topic/topics`, `sort`, `suggestionLimit`, `includeRaw`, `maxPages`, `endpoint` |
-| `marketplace-import` | `marketplace-import {\"project\":\"<name>\",\"library\":\"<name>\"}` | `project`, `library` | `technicalName`, `cloneUrl`, `branch`, `addReference`, `importIfMissing`, `forceImport`, `save`, `refresh` |
+| `mobile-builder-open` | `mobile-builder-open {"project":"<project>"}` | `project` | `timeoutSec`, `logsLimit`, `forceRestart` |
+| `marketplace-list` | `marketplace-list {}` | `search`, `topics`, `_nextCursor` | `limit`, `maxPages` |
+| `marketplace-import` | `marketplace-import {\"project\":\"<name>\"}` | `project` | `importedProjectName` |
 
 Notes:
-- `marketplace-list project=<name>` now returns a warning when the project is unknown instead of failing the request.
+- `marketplace-list` and `marketplace-import` are strict now: legacy aliases are rejected.
+- `marketplace-import` enforces starter rename: when the selected entry is a starter, `importedProjectName` is required.
 - `log-view` accepts `q/since/until` aliases to reduce verbosity in common calls.
 - `batch-call` and tree mutation refs accept only object syntax (`{"$ref":"id.path"}`); `${{...}}` placeholders are rejected with an explicit error.
 

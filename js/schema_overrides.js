@@ -270,6 +270,62 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function topicInputSchema(description) {
+    return {
+      description: description,
+      oneOf: [
+        { type: "string" },
+        {
+          type: "array",
+          items: { type: "string" }
+        }
+      ]
+    };
+  }
+
+  function marketplaceListInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        search: { type: "string", description: "Marketplace search text." },
+        topics: topicInputSchema("Optional topic filters."),
+        limit: { type: "integer", minimum: 1, maximum: 200, default: 20 },
+        maxPages: { type: "integer", minimum: 1, maximum: 100, default: 20 }
+      },
+      additionalProperties: false
+    };
+  }
+
+  function marketplaceImportInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Marketplace project name to import." },
+        importedProjectName: { type: "string", description: "Optional new name for imported workspace project. Required for starters." }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
+  function mobileBuilderOpenInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Target NGX project name." },
+        timeoutSec: { type: "integer", minimum: 5, maximum: 600, default: 90 },
+        logsLimit: { type: "integer", minimum: 5, maximum: 200, default: 40 },
+        forceRestart: {
+          type: "boolean",
+          default: false,
+          description: "When true, always restart the builder even if a live instance is already running."
+        }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
   C8O.schemaOverrides.applyInput = function (sequenceName, inputSchema, requestable) {
     var seq = sequenceName || "";
     if (!seq && requestable && requestable.getName) {
@@ -301,6 +357,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_log_view") {
       return logViewInputSchema();
+    }
+    if (seq === "tools_marketplace_list") {
+      return marketplaceListInputSchema();
+    }
+    if (seq === "tools_marketplace_import") {
+      return marketplaceImportInputSchema();
+    }
+    if (seq === "tools_mobile_builder_open") {
+      return mobileBuilderOpenInputSchema();
     }
 
     if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) {

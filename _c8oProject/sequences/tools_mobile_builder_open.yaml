@@ -1,0 +1,28 @@
+comment: Launch NGX mobile builder in Studio and return the detected Node listening URL.
+↓IncludeHelpers [steps.SimpleStep-1772733052615]: 
+  comment: Start builder and collect readiness/log data.
+  expression: include("js/tools_mobile_builder_open.js");
+↓result [steps.JsonToXmlStep-1772733052767]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: openMobileBuilderResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1772733052953]: 
+  comment: Target NGX project name.
+↓timeoutSec [variables.RequestableVariable-1772733053163]: 
+  comment: Maximum wait time for ready URL detection in seconds (default 90).
+  value: 90
+↓logsLimit [variables.RequestableVariable-1772733053321]: 
+  comment: Maximum number of relevant builder log lines returned.
+  value: 40
+↓forceRestart [variables.RequestableVariable-1772733053490]: 
+  comment: When true, force a builder restart even if already running.
+  value: false
