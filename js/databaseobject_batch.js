@@ -503,10 +503,22 @@ include("js/databaseobject_ops.js");
     return entry[field];
   }
 
+  function ensureSupportedRefStringSyntax(value) {
+    if (typeof value !== "string") {
+      return;
+    }
+    var text = String(value);
+    var trimmed = text.trim();
+    if (/^\$\{\{[^}]+\}\}$/.test(trimmed)) {
+      throw new Error("Unsupported reference syntax '${{...}}'. Use object form {\"$ref\":\"<opId>.<path>\"}.");
+    }
+  }
+
   function resolveRefsInValue(ctx, value) {
     if (value === null || value === undefined) {
       return value;
     }
+    ensureSupportedRefStringSyntax(value);
     if (Array.isArray(value)) {
       var arrayOut = [];
       for (var i = 0; i < value.length; i++) {
@@ -620,7 +632,7 @@ include("js/databaseobject_ops.js");
     };
   }
 
-  function createObject(ctx, parent, className, name, afterValue, updatesForInstantiation) {
+  function createObject(ctx, parent, className, name, createContext, updatesForInstantiation) {
     if (!parent) {
       throw new Error("Parent is required");
     }
@@ -640,10 +652,31 @@ include("js/databaseobject_ops.js");
     if (name && name.length) {
       dbo.setName(name);
     }
+    var afterValue = createContext && createContext.afterValue !== undefined ? createContext.afterValue : null;
+    var insertedByPriority = false;
     if (afterValue != null) {
-      parent.add(dbo, afterValue);
-    } else {
+      try {
+        parent.add(dbo, afterValue);
+        insertedByPriority = true;
+      } catch (_ignoreAddWithPriority) {
+        insertedByPriority = false;
+      }
+    }
+    if (!insertedByPriority) {
       parent.add(dbo);
+      if (createContext && createContext.mode && createContext.mode !== "inside" && createContext.sibling) {
+        var moveResult = C8O.dbo.moveObject({
+          qname: safeQName(dbo),
+          target: safeQName(createContext.sibling),
+          position: String(createContext.mode)
+        });
+        if (!moveResult || moveResult.done !== true) {
+          var reason = moveResult && moveResult.errors && moveResult.errors.length
+            ? moveResult.errors[0].message
+            : "create fallback move failed";
+          throw new Error(reason);
+        }
+      }
     }
     markDirty(ctx, parent);
     markDirty(ctx, dbo);
@@ -691,7 +724,7 @@ include("js/databaseobject_ops.js");
           safeQName(dbo)
         )
       );
-      propertiesInput = rawProperties;
+      return { changed: false, names: [], updated: 0 };
     }
     var updates = parsePropertiesMap(propertiesInput, localErrors, scopeName + ".properties");
     for (var e = 0; e < localErrors.length; e++) {
@@ -897,7 +930,7 @@ include("js/databaseobject_ops.js");
     }
 
     var updates = parsePropertiesMap(op.properties, [], "create.properties");
-    var created = createObject(ctx, createCtx.parent, className, name, createCtx.afterValue, updates);
+    var created = createObject(ctx, createCtx.parent, className, name, createCtx, updates);
     var createdQName = safeQName(created);
 
     report.applied.push({

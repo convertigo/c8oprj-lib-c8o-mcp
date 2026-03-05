@@ -12,7 +12,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 |-------------------------------|---------------------------------------------|---------|
 | `project-list`         | `tools_project_list.yaml`            | List installed projects with metadata (templates, versions, exports…). |
 | `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List database object children (or projects when `qname` is empty) with optional recursion via `depth` and ancestor-preserving filters. |
-| `batch-call`                  | `tools_batch_call.yaml`                     | Execute multiple MCP tool calls in one internal batch (`calls[]`) with `onError=stop|continue`, detailed per-call diagnostics, `$ref` substitution between calls, resume metadata, and deferred mutation finalization (`optimizeMutations=true`). |
+| `batch-call`                  | `tools_batch_call.yaml`                     | Execute multiple MCP tool calls in one internal batch (`calls[]`) with `onError=stop|continue`, detailed per-call diagnostics, `$ref` substitution between calls (`{"$ref":"id.path"}`), resume metadata, and deferred mutation finalization (`optimizeMutations=true`). |
 | `databaseobject-tree-get`     | `tools_databaseobject_tree_get.yaml`        | Return a canonical object tree compatible with patch/upsert payloads. Supports `view=children|summary|full`, `maxDepth`, `maxNodes`, and cursor pagination via `_nextCursor`. |
 | `databaseobject-tree-apply`   | `tools_databaseobject_tree_apply.yaml`      | Apply one canonical tree patch to a target QName (single-op wrapper over `upsertTree`) with the same diagnostics/resume payload as batch apply and progressive intra-tree `$ref` resolution. Accepts `payload` (preferred), `patch`, or `tree`. |
 | `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object through the shared batch mutation pipeline (inside / before / after) with optional `children` one-shot creation. NGX `#logicalId` is optional when resolution is unique in the current parent; required only when ambiguous. |
@@ -31,7 +31,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 | `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
-| `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |
+| `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection (`includeLogs=true` appends execution logs). |
 | `databaseobject-schema`       | `tools_databaseobject_schema.yaml`          | Return a minimal schema/sample for a requestable or request node (`type=xml|json|jsonschema`; `internal=true` for `sourceDefinition` view). |
 
 | `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content; output now reports `scanned`, `returned`, `hasMore`, `nextCursor`, and a lean `matches[]`. |
@@ -49,6 +49,7 @@ Use these short forms first; keep advanced parameters for diagnostics only.
 Notes:
 - `marketplace-list project=<name>` now returns a warning when the project is unknown instead of failing the request.
 - `log-view` accepts `q/since/until` aliases to reduce verbosity in common calls.
+- `batch-call` and tree mutation refs accept only object syntax (`{"$ref":"id.path"}`); `${{...}}` placeholders are rejected with an explicit error.
 
 ### Pagination helpers
 

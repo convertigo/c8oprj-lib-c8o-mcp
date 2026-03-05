@@ -447,10 +447,22 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return value;
   }
 
+  function ensureSupportedRefStringSyntax(value) {
+    if (typeof value !== "string") {
+      return;
+    }
+    var text = String(value);
+    var trimmed = text.trim();
+    if (/^\$\{\{[^}]+\}\}$/.test(trimmed)) {
+      throw new Error("Unsupported reference syntax '${{...}}'. Use object form {\"$ref\":\"<callId>.<path>\"}.");
+    }
+  }
+
   function resolveRefsInValue(refs, value) {
     if (value === null || value === undefined) {
       return value;
     }
+    ensureSupportedRefStringSyntax(value);
     if (Array.isArray(value)) {
       var arr = [];
       for (var i = 0; i < value.length; i++) {
@@ -471,6 +483,49 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       return out;
     }
     return value;
+  }
+
+  function classifyPayloadStatus(payload) {
+    if (!payload || typeof payload !== "object") {
+      return "applied";
+    }
+
+    if (payload.error !== undefined && payload.error !== null) {
+      return "failed";
+    }
+
+    var statusText = asTrimmed(payload.status).toLowerCase();
+    if (statusText === "failed" || statusText === "error") {
+      return "failed";
+    }
+    if (statusText === "partial" || statusText === "warning" || statusText === "warn") {
+      return "partial";
+    }
+
+    if (payload.success === false || payload.ok === false) {
+      return "failed";
+    }
+
+    return "applied";
+  }
+
+  function extractPayloadFailureMessage(payload) {
+    if (payload == null) {
+      return "Call failed (empty payload).";
+    }
+    if (payload.error) {
+      if (typeof payload.error === "string") {
+        return payload.error;
+      }
+      if (payload.error.message) {
+        return String(payload.error.message);
+      }
+      return safeString(payload.error);
+    }
+    if (payload.message) {
+      return String(payload.message);
+    }
+    return "Call failed.";
   }
 
   function normalizeCallItem(rawItem) {
@@ -537,6 +592,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       planned: calls.length,
       applied: 0,
       successfulCalls: 0,
+      partialCalls: 0,
       failedCalls: 0,
       skippedCalls: 0,
       notRunCalls: 0
@@ -565,7 +621,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       }
 
       try {
-        var normalized = normalizeCallItem(resolveRefsInValue(refs, calls[i]));
+        var normalized = normalizeCallItem(calls[i]);
         report.tool = normalized.tool;
         if (normalized.id.length) {
           report.callId = normalized.id;
@@ -592,14 +648,41 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
         var payload = internalCallSequence(sequenceName, callArguments);
         report.payload = payload;
-        report.status = "applied";
+        report.status = classifyPayloadStatus(payload);
+        if (report.status === "failed") {
+          var payloadErrorMessage = extractPayloadFailureMessage(payload);
+          report.phase = "call_payload";
+          report.errors.push({ code: "call_failed", message: payloadErrorMessage });
+          summary.failedCalls += 1;
+          failedCallIds.push(report.callId);
+
+          if (!stop && onError === "stop") {
+            stop = {
+              opIndex: i,
+              opId: report.callId,
+              type: report.tool,
+              phase: "call_payload",
+              code: "call_failed",
+              message: payloadErrorMessage
+            };
+            reports.push(report);
+            break;
+          }
+          reports.push(report);
+          continue;
+        }
 
         registerRef(refs, report.callId, payload);
         if (isMutationSequence(sequenceName) && !(payload && payload.dryRun === true)) {
           collectTouchedQNamesFromPayload(payload, mutationTouchedQNames, mutationTouchedQNameSet);
         }
         summary.applied += 1;
-        summary.successfulCalls += 1;
+        if (report.status === "partial") {
+          summary.partialCalls += 1;
+          summary.successfulCalls += 1;
+        } else {
+          summary.successfulCalls += 1;
+        }
       } catch (callError) {
         var message = safeString(callError);
         report.status = "failed";
@@ -644,7 +727,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var status = "ok";
     if (stop) {
       status = "failed";
-    } else if (summary.failedCalls > 0 || errors.length > 0) {
+    } else if (summary.failedCalls > 0 || summary.partialCalls > 0 || errors.length > 0) {
       status = "partial";
     }
 

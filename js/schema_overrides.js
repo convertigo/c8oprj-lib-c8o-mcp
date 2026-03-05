@@ -212,6 +212,38 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function requestableExecuteInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        requestable: {
+          type: "string",
+          description: "Target requestable formatted as <project>[.<connector>].<requestable>."
+        },
+        variables: {
+          description: "Request variables JSON object. Can be passed as a JSON string or object.",
+          oneOf: [
+            { type: "string" },
+            { type: "object", additionalProperties: true }
+          ],
+          default: "{}"
+        },
+        recordSchema: {
+          type: "boolean",
+          default: false,
+          description: "When true on transactions, records response schema to disk (writeSchemaToFile)."
+        },
+        includeLogs: {
+          type: "boolean",
+          default: false,
+          description: "When true, appends execution logs captured during the requestable call."
+        }
+      },
+      required: ["requestable"],
+      additionalProperties: false
+    };
+  }
+
   function logViewInputSchema() {
     return {
       type: "object",
@@ -263,6 +295,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_databaseobject_tree_apply") {
       return databaseobjectTreeApplyInputSchema();
+    }
+    if (seq === "tools_requestable_execute") {
+      return requestableExecuteInputSchema();
     }
     if (seq === "tools_log_view") {
       return logViewInputSchema();
