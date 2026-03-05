@@ -1,48 +1,35 @@
 accessibility: Private
-comment: Apply multiple database object operations in one call with detailed error and resume reporting.
+comment: Execute multiple MCP tool calls in one internal batch with stop/continue behavior and resume metadata.
 ↓IncludeHelpers [steps.SimpleStep-1772625431444]: 
-  comment: Load shared helpers for batch operations.
+  comment: Load shared helpers for generic batch tool calls.
   expression: |
-    include("js/databaseobject.js");
-    include("js/databaseobject_ops.js");
+    include("js/util.js");
     include("js/databaseobject_batch.js");
+    include("js/tools_batch_call.js");
 ↓Init [steps.SimpleStep-1772625452002]: 
-  comment: Parse input, execute batch, compute refresh target, and expose resume metadata.
+  comment: Parse input and execute generic internal tool calls with detailed reporting.
   expression: |
-    'var strictInput = (typeof strict !== "undefined") ? strict : false;
-    var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
-    var onErrorInput = (typeof onError !== "undefined") ? onError : "stop";
+    'var onErrorInput = (typeof onError !== "undefined") ? onError : "stop";
     var resumeFromInput = (typeof resumeFrom !== "undefined") ? resumeFrom : null;
     var executionIdInput = (typeof executionId !== "undefined") ? executionId : null;
     
-    batchResult = C8O.dbo.batchApply({
-      target: target,
-      operations: operations,
+    var callsInput = (typeof calls !== "undefined") ? calls : null;
+    
+    batchResult = C8O.mcp.batchCall({
+      calls: callsInput,
       onError: onErrorInput,
-      strict: strictInput,
-      autoSave: autoSaveInput,
-      strategy: strategy,
       resumeFrom: resumeFromInput,
-      executionId: executionIdInput,
-      dryRun: dryRun
+      executionId: executionIdInput
     });
     
-    refreshRequested = C8O.util.toBoolean(refresh, false) === true;
+    refreshRequested = false;
     refreshQName = "";
     batchStudioRefresh = null;
     
-    if (refreshRequested) {
-      refreshQName = C8O.dbo.computeBatchRefreshQName(batchResult);
-    }
-    
-    if (refreshRequested && refreshQName.length > 0 && batchResult && batchResult.dryRun !== true) {
-      batchStudioRefresh = C8O.dbo.refreshStudioTreeByQName(refreshQName, batchResult.errors);
-    }
-    
     batchStop = batchResult && batchResult.stop ? batchResult.stop : {};
     batchResume = batchResult && batchResult.resume ? batchResult.resume : {};
-    reportJson = batchResult ? JSON.stringify(batchResult) : "{}";
-    failedOpIdsJson = batchResume && batchResume.failedOpIds ? JSON.stringify(batchResume.failedOpIds) : "[]";'
+    failedOpIdsJson = batchResume && batchResume.failedOpIds ? JSON.stringify(batchResume.failedOpIds) : "[]";
+    reportJson = batchResult ? JSON.stringify(batchResult) : "{}";'
 ↓result [steps.JsonObjectStep-1772625462159]: 
   key: 
     - xmlizable: 
@@ -382,28 +369,12 @@ comment: Apply multiple database object operations in one call with detailed err
         - SmartType: 
           - ↑mode: JS
           - →→: 'batchResult && batchResult.touchedQNames ? JSON.stringify(batchResult.touchedQNames) : "[]"'
-↓target [variables.RequestableVariable-1772625370175]: 
-  comment: Optional default QName scope used when operations omit qname/related.
-↓operations [variables.RequestableVariable-1772625373495]: 
-  comment: JSON array of operation objects (create/delete/move/setProperties/upsertTree).
+↓calls [variables.RequestableVariable-1772625373495]: 
+  comment: 'JSON array of tool call objects: {id?, tool, arguments}.'
 ↓onError [variables.RequestableVariable-1772625375909]: 
   comment: 'Error mode: stop (default) or continue.'
   value: stop
-↓strict [variables.RequestableVariable-1772625378380]: 
-  comment: When true, forces stop-on-error behavior.
-  value: false
-↓autoSave [variables.RequestableVariable-1772625380709]: 
-  comment: When true (default), touched projects are saved.
-  value: true
-↓refresh [variables.RequestableVariable-1772625383109]: 
-  comment: When true, refresh Studio tree once using the common ancestor of touched QNames.
-  value: true
 ↓resumeFrom [variables.RequestableVariable-1772625385912]: 
   comment: Optional zero-based operation index to resume execution from.
 ↓executionId [variables.RequestableVariable-1772625388529]: 
   comment: Optional execution identifier returned in resume metadata.
-↓strategy [variables.RequestableVariable-1772625390754]: 
-  comment: 'Optional strategy object for upsertTree: replaceOnClassMismatch, pruneMissing, reorder.'
-↓dryRun [variables.RequestableVariable-1772625393144]: 
-  comment: Optional preview mode. When true, operations are reported as skipped without mutation.
-  value: false

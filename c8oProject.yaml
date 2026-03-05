@@ -21,7 +21,7 @@
   ↓mcp_resources_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_list.yaml
   ↓mcp_resources_read [sequences.GenericSequence]: 🗏 sequences/mcp_resources_read.yaml
   ↓mcp_tools_list [sequences.GenericSequence]: 🗏 sequences/mcp_tools_list.yaml
-  ↓tools_databaseobject_batch_apply [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_batch_apply.yaml
+  ↓tools_batch_call [sequences.GenericSequence]: 🗏 sequences/tools_batch_call.yaml
   ↓tools_databaseobject_children [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_children.yaml
   ↓tools_databaseobject_create [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_create.yaml
   ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml
