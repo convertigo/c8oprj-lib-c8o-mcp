@@ -22,6 +22,7 @@ function injectMeta(target) {
   if (!target || typeof target !== "object") {
     return;
   }
+  target.__nolog = "true";
   if (metaNextCursor !== null && metaNextCursor !== undefined) {
     var cursorText = String(metaNextCursor);
     if (cursorText.length > 0) {

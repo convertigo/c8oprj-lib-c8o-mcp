@@ -14,6 +14,8 @@ comment: Removes a database object from the project tree.
       autoSaveInput = commit;
     }
     var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
+    var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
+    var refreshFlag = C8O.util.toBoolean(refreshInput, true) === true;
     
     var removal = C8O.dbo.removeObject({ qname: qname });
     
@@ -34,7 +36,7 @@ comment: Removes a database object from the project tree.
     deleteProjectName = projectNameText;
     deleteSummaryRemoved = deleteSuccess ? 1 : 0;
     deleteSummaryErrors = deleteErrors.length;
-    deleteShouldRefresh = deleteSuccess && parentQNameText.length > 0;
+    deleteShouldRefresh = refreshFlag && deleteSuccess && parentQNameText.length > 0;
     '
 ↓Export [steps.SimpleStep-1762369246170]: 
   comment: Export project when requested
@@ -275,3 +277,6 @@ comment: Removes a database object from the project tree.
   required: true
 ↓autoSave [variables.RequestableVariable-1762419976851]: 
   comment: 'Optional: set to false to defer project export'
+↓refresh [variables.RequestableVariable-1772721701003]: 
+  comment: 'Optional: set to false to defer Studio tree refresh'
+  value: true

@@ -14,6 +14,8 @@ comment: Renames a database object and optionally refactors references.
       autoSaveInput = commit;
     }
     var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
+    var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
+    var refreshFlag = C8O.util.toBoolean(refreshInput, true) === true;
     
     var renameResult = C8O.dbo.renameObject({ qname: qname, name: name, update: update });
     
@@ -45,7 +47,7 @@ comment: Renames a database object and optionally refactors references.
     renameUpdateMode = updateModeText;
     renameUpdatedIds = updatedIdsList;
     renameProjectName = projectNameText;
-    renameShouldRefresh = renameRenamed && parentQNameText.length > 0;
+    renameShouldRefresh = refreshFlag && renameRenamed && parentQNameText.length > 0;
     renameSummaryRenamed = renameRenamed ? 1 : 0;
     renameSummaryErrors = renameErrors.length;
     '
@@ -391,3 +393,6 @@ comment: Renames a database object and optionally refactors references.
   value: update_none
 ↓autoSave [variables.RequestableVariable-1762420007663]: 
   comment: 'Optional: set to false to defer project export'
+↓refresh [variables.RequestableVariable-1772721701005]: 
+  comment: 'Optional: set to false to defer Studio tree refresh'
+  value: true

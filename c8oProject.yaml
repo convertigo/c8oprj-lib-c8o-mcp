@@ -4,7 +4,8 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.5
+  version: 0.0.6
+  ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
   ↓internal_call_stub [sequences.GenericSequence-1761756735550]: 🗏 sequences/internal_call_stub.yaml
@@ -33,6 +34,9 @@
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
   ↓tools_databaseobject_tree_apply [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_apply.yaml
   ↓tools_databaseobject_tree_get [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_get.yaml
+  ↓tools_log_view [sequences.GenericSequence]: 🗏 sequences/tools_log_view.yaml
+  ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
+  ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml

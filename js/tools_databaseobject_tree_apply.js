@@ -27,6 +27,7 @@ var resumeFromInput = (typeof resumeFrom !== "undefined") ? resumeFrom : null;
 var executionIdInput = (typeof executionId !== "undefined") ? executionId : null;
 var dryRunInput = (typeof dryRun !== "undefined") ? dryRun : false;
 var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
+var triggerMobileBuilderInput = (typeof triggerMobileBuilder !== "undefined") ? triggerMobileBuilder : true;
 
 var targetInput = asTrimmed(target);
 var treeCandidate = firstProvidedInput([
@@ -72,6 +73,7 @@ treeApplyResult = C8O.dbo.batchApply({
   onError: onErrorInput,
   strict: strictInput,
   autoSave: autoSaveInput,
+  triggerMobileBuilder: triggerMobileBuilderInput,
   strategy: strategy,
   resumeFrom: resumeFromInput,
   executionId: executionIdInput,

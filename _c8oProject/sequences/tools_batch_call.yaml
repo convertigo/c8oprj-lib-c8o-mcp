@@ -19,7 +19,8 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
       calls: callsInput,
       onError: onErrorInput,
       resumeFrom: resumeFromInput,
-      executionId: executionIdInput
+      executionId: executionIdInput,
+      optimizeMutations: (typeof optimizeMutations !== "undefined") ? optimizeMutations : true
     });
     
     refreshRequested = false;
@@ -28,6 +29,7 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
     
     batchStop = batchResult && batchResult.stop ? batchResult.stop : {};
     batchResume = batchResult && batchResult.resume ? batchResult.resume : {};
+    batchMutationFinalize = batchResult && batchResult.mutationFinalize ? batchResult.mutationFinalize : {};
     failedOpIdsJson = batchResume && batchResume.failedOpIds ? JSON.stringify(batchResume.failedOpIds) : "[]";
     reportJson = batchResult ? JSON.stringify(batchResult) : "{}";'
 ↓result [steps.JsonObjectStep-1772625462159]: 
@@ -369,6 +371,19 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
         - SmartType: 
           - ↑mode: JS
           - →→: 'batchResult && batchResult.touchedQNames ? JSON.stringify(batchResult.touchedQNames) : "[]"'
+  ↓mutationFinalizeJson [steps.JsonFieldStep-1772719281000]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mutationFinalizeJson
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'batchMutationFinalize ? JSON.stringify(batchMutationFinalize) : "{}"'
 ↓calls [variables.RequestableVariable-1772625373495]: 
   comment: 'JSON array of tool call objects: {id?, tool, arguments}.'
 ↓onError [variables.RequestableVariable-1772625375909]: 
@@ -378,3 +393,6 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
   comment: Optional zero-based operation index to resume execution from.
 ↓executionId [variables.RequestableVariable-1772625388529]: 
   comment: Optional execution identifier returned in resume metadata.
+↓optimizeMutations [variables.RequestableVariable-1772719281001]: 
+  comment: When true (default), defer mutation refresh/save/build to one final pass.
+  value: true

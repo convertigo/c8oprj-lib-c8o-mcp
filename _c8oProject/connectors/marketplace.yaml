@@ -1,0 +1,88 @@
+↑default: true
+https: true
+port: 443
+server: marketplace.convertigo.com
+↓list_apply_kd_tree_js [transactions.JsonHttpTransaction]: 
+  ↑default: true
+  comment: Call Convertigo marketplace catalog endpoint.
+  httpInfo: true
+  httpParameters: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: Accept
+            - java.lang.String: 
+              - ↑value: application/json, text/plain, */*
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: Content-Type
+            - java.lang.String: 
+              - ↑value: application/x-www-form-urlencoded
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: Origin
+            - java.lang.String: 
+              - ↑value: https://marketplace.convertigo.com
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: Referer
+            - java.lang.String: 
+              - ↑value: https://marketplace.convertigo.com/marketplace
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: x-convertigo-mb
+            - java.lang.String: 
+              - ↑value: 8.4.0
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+          - com.twinsoft.convertigo.beans.common.XMLVector: 
+            - java.lang.String: 
+              - ↑value: x-convertigo-sdk
+            - java.lang.String: 
+              - ↑value: 4.0.27-beta7
+  httpVerb: POST
+  subDir: .json?__project=marketplace&__sequence=list_apply_kd_tree_js&__removeNamespaces=true&__removeContext=true
+  ↓__localCache_ttl [variables.RequestableHttpVariable-1772720101000]: 
+    description: __localCache_ttl
+    httpMethod: POST
+    httpName: __localCache_ttl
+    value: 3000
+  ↓__disableAutologin [variables.RequestableHttpVariable-1772720101001]: 
+    description: __disableAutologin
+    httpMethod: POST
+    httpName: __disableAutologin
+    value: false
+  ↓filters_selected [variables.RequestableHttpVariable-1772720101002]: 
+    description: filters_selected
+    httpMethod: POST
+    httpName: filters_selected
+    value: '{}'
+  ↓q_string [variables.RequestableHttpVariable-1772720101003]: 
+    description: q_string
+    httpMethod: POST
+    httpName: q_string
+  ↓page_selected [variables.RequestableHttpVariable-1772720101004]: 
+    description: page_selected
+    httpMethod: POST
+    httpName: page_selected
+    value: 1
+  ↓__uuid [variables.RequestableHttpVariable-1772720101005]: 
+    description: __uuid
+    httpMethod: POST
+    httpName: __uuid
+  ↓__context [variables.RequestableHttpVariable-1772720101006]: 
+    description: __context
+    httpMethod: POST
+    httpName: __context

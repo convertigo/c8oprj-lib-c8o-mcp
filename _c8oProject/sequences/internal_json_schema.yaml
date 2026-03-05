@@ -169,6 +169,11 @@ responseExpiryDate: absolute,600
           executionId: {
             type: "string",
             description: "Optional execution identifier returned in resume metadata."
+          },
+          optimizeMutations: {
+            type: "boolean",
+            description: "When true (default), mutation tool calls are executed with deferred refresh/save/build finalization.",
+            default: true
           }
         },
         required: ["calls"],

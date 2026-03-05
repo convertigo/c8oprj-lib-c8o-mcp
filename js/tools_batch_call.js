@@ -286,6 +286,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var request = new HashMap();
     request.put("__project", "ConvertigoMCP");
     request.put("__sequence", sequenceName);
+    request.put("__nolog", "true");
 
     var keys = Object.keys(argsMap || {});
     for (var i = 0; i < keys.length; i++) {
@@ -308,6 +309,93 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     }
     var response = requester.processRequest();
     return extractPayloadFromDocument(response);
+  }
+
+  function deepClone(value) {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_ignoreClone) {
+      return value;
+    }
+  }
+
+  function isMutationSequence(sequenceName) {
+    if (!sequenceName || !sequenceName.length) {
+      return false;
+    }
+    return (
+      sequenceName === "tools_databaseobject_create" ||
+      sequenceName === "tools_databaseobject_delete" ||
+      sequenceName === "tools_databaseobject_move" ||
+      sequenceName === "tools_databaseobject_rename" ||
+      sequenceName === "tools_databaseobject_properties_set" ||
+      sequenceName === "tools_databaseobject_tree_apply"
+    );
+  }
+
+  function optimizeMutationArgs(sequenceName, argsMap) {
+    var optimized = deepClone(argsMap || {});
+    if (!isPlainObject(optimized)) {
+      optimized = {};
+    }
+
+    // Defer persistence/refresh to a single post-batch finalization.
+    optimized.autoSave = false;
+    optimized.triggerMobileBuilder = false;
+    if (sequenceName === "tools_databaseobject_create" ||
+        sequenceName === "tools_databaseobject_delete" ||
+        sequenceName === "tools_databaseobject_move" ||
+        sequenceName === "tools_databaseobject_rename" ||
+        sequenceName === "tools_databaseobject_properties_set" ||
+        sequenceName === "tools_databaseobject_tree_apply") {
+      optimized.refresh = false;
+    }
+    return optimized;
+  }
+
+  function addUnique(list, set, value) {
+    var text = asTrimmed(value);
+    if (!text.length || set[text]) {
+      return;
+    }
+    set[text] = true;
+    list.push(text);
+  }
+
+  function collectTouchedQNamesFromPayload(payload, touchedList, touchedSet) {
+    if (payload == null) {
+      return;
+    }
+    if (Array.isArray(payload.touchedQNames)) {
+      for (var t = 0; t < payload.touchedQNames.length; t++) {
+        addUnique(touchedList, touchedSet, payload.touchedQNames[t]);
+      }
+    }
+    addUnique(touchedList, touchedSet, payload.targetQName);
+    addUnique(touchedList, touchedSet, payload.qname);
+    addUnique(touchedList, touchedSet, payload.parentQName);
+    addUnique(touchedList, touchedSet, payload.newQName);
+    addUnique(touchedList, touchedSet, payload.fromParent);
+    addUnique(touchedList, touchedSet, payload.toParent);
+
+    var operations = payload.operations;
+    if (!Array.isArray(operations)) {
+      return;
+    }
+    for (var i = 0; i < operations.length; i++) {
+      var op = operations[i];
+      if (!op || !Array.isArray(op.applied)) {
+        continue;
+      }
+      for (var a = 0; a < op.applied.length; a++) {
+        var applied = op.applied[a];
+        if (!applied) {
+          continue;
+        }
+        addUnique(touchedList, touchedSet, applied.qname);
+        addUnique(touchedList, touchedSet, applied.parentQName);
+      }
+    }
   }
 
   function registerRef(refs, callId, payload) {
@@ -428,6 +516,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var calls = parseCallsInput(params.calls, errors);
     var onError = normalizeOnError(params.onError);
     var resumeFrom = parseResumeFrom(params.resumeFrom);
+    var optimizeMutations = true;
+    if (params.optimizeMutations !== undefined) {
+      optimizeMutations = C8O.util.toBoolean(params.optimizeMutations, true) === true;
+    }
 
     var executionId = asTrimmed(params.executionId);
     if (!executionId.length) {
@@ -437,6 +529,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var reports = [];
     var refs = {};
     var failedCallIds = [];
+    var mutationTouchedQNames = [];
+    var mutationTouchedQNameSet = {};
+    var optimizedMutationCalls = 0;
 
     var summary = {
       planned: calls.length,
@@ -488,11 +583,21 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
           throw new Error("Unknown tool: " + normalized.tool + " (sequence " + sequenceName + " not found)");
         }
 
-        var payload = internalCallSequence(sequenceName, resolveRefsInValue(refs, normalized.arguments));
+        var callArguments = resolveRefsInValue(refs, normalized.arguments);
+        if (optimizeMutations && isMutationSequence(sequenceName)) {
+          callArguments = optimizeMutationArgs(sequenceName, callArguments);
+          optimizedMutationCalls += 1;
+          report.optimizedMutation = true;
+        }
+
+        var payload = internalCallSequence(sequenceName, callArguments);
         report.payload = payload;
         report.status = "applied";
 
         registerRef(refs, report.callId, payload);
+        if (isMutationSequence(sequenceName) && !(payload && payload.dryRun === true)) {
+          collectTouchedQNamesFromPayload(payload, mutationTouchedQNames, mutationTouchedQNameSet);
+        }
         summary.applied += 1;
         summary.successfulCalls += 1;
       } catch (callError) {
@@ -558,6 +663,58 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
     var finishedAt = nowMillis();
 
+    var mutationFinalize = {
+      optimized: optimizeMutations,
+      optimizedCalls: optimizedMutationCalls,
+      touchedQNames: mutationTouchedQNames,
+      refreshQName: "",
+      studioRefresh: null,
+      mobileBuilder: [],
+      saveResults: [],
+      errors: []
+    };
+
+    if (optimizeMutations && mutationTouchedQNames.length > 0) {
+      try {
+        mutationFinalize.refreshQName = C8O.dbo.computeBatchRefreshQName({
+          targetQName: "",
+          touchedQNames: mutationTouchedQNames,
+          status: "ok",
+          dryRun: false
+        });
+      } catch (_ignoreRefreshQNameCompute) {
+        mutationFinalize.refreshQName = "";
+      }
+
+      if (mutationFinalize.refreshQName.length > 0) {
+        try {
+          mutationFinalize.studioRefresh = C8O.dbo.refreshStudioTreeByQName(mutationFinalize.refreshQName, mutationFinalize.errors);
+        } catch (refreshError) {
+          mutationFinalize.errors.push({ code: "refresh_error", message: String(refreshError) });
+        }
+      }
+
+      try {
+        var finalizeResult = C8O.dbo.finalizeMutationsByQNames({
+          qnames: mutationTouchedQNames,
+          autoSave: true,
+          triggerMobileBuilder: true,
+          errors: mutationFinalize.errors
+        });
+        mutationFinalize.mobileBuilder = finalizeResult && finalizeResult.mobileBuilder ? finalizeResult.mobileBuilder : [];
+        mutationFinalize.saveResults = finalizeResult && finalizeResult.saveResults ? finalizeResult.saveResults : [];
+      } catch (finalizeError) {
+        mutationFinalize.errors.push({ code: "finalize_error", message: String(finalizeError) });
+      }
+    }
+
+    if (mutationFinalize.errors.length > 0) {
+      status = status === "ok" ? "partial" : status;
+      for (var me = 0; me < mutationFinalize.errors.length; me++) {
+        errors.push(mutationFinalize.errors[me]);
+      }
+    }
+
     return {
       status: status,
       message: message,
@@ -568,7 +725,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       autoSave: false,
       saved: false,
       summary: summary,
-      touchedQNames: [],
+      touchedQNames: mutationTouchedQNames,
       refs: refs,
       operations: reports,
       calls: reports,
@@ -583,8 +740,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         failedOpIds: failedCallIds,
         failedCallIds: failedCallIds
       },
-      saveResults: [],
-      mobileBuilder: [],
+      saveResults: mutationFinalize.saveResults,
+      mobileBuilder: mutationFinalize.mobileBuilder,
+      mutationFinalize: mutationFinalize,
       durationMs: finishedAt - startedAt,
       timestamp: finishedAt
     };

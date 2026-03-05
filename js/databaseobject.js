@@ -398,34 +398,109 @@ C8O.dbo.resolve = function (qname, options) {
 };
 
 /**
- * Parses a JSON payload expected to be an object. Returns an empty object when invalid.
+ * Normalize property updates from any MCP-friendly representation to
+ * a key/value object accepted by applyPropertyUpdates():
+ * - map: { "Color": "success" }
+ * - array: [{ "name": "Color", "value": "success" }]
+ * - object wrapper: { "properties": [ ... ] } or { "entries": [ ... ] }
  */
-C8O.dbo.parsePropertyUpdates = function (text, errors) {
-  var trimmed = C8O.util.toTrimmedString(text);
-  if (!trimmed.length) {
-    return {};
-  }
-  var parsed = C8O.util.tryParseJson(trimmed, errors, "properties");
-  // If caller provided a JSON string (e.g., "\"{...}\""), try to parse it again.
-  if (parsed && typeof parsed === "string") {
-    var nested = C8O.util.tryParseJson(parsed, errors, "properties");
-    if (nested) {
-      parsed = nested;
-    }
-  }
-  if (!parsed) {
+C8O.dbo._normalizePropertyUpdates = function (input, errors, label) {
+  var scope = C8O.util.toTrimmedString(label || "properties");
+
+  function pushError(message) {
     if (errors && errors.push) {
-      errors.push({ name: "properties", message: "Properties payload must be a JSON object (use {} when empty, or call palette-describe for a template)." });
+      errors.push({ name: scope, message: String(message) });
     }
+  }
+
+  function toMapFromList(list) {
+    var out = {};
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i];
+      if (!entry || !C8O.util.isPlainObject(entry)) {
+        pushError("Ignoring non-object property entry at index " + i + ".");
+        continue;
+      }
+      var entryName = C8O.util.toTrimmedString(
+        entry.name != null ? entry.name :
+        (entry.key != null ? entry.key : entry.property)
+      );
+      if (!entryName.length) {
+        pushError("Ignoring property entry without name at index " + i + ".");
+        continue;
+      }
+      var hasValue = Object.prototype.hasOwnProperty.call(entry, "value");
+      var hasNewValue = Object.prototype.hasOwnProperty.call(entry, "newValue");
+      if (!hasValue && !hasNewValue) {
+        pushError("Ignoring property entry '" + entryName + "' without value.");
+        continue;
+      }
+      out[entryName] = hasValue ? entry.value : entry.newValue;
+    }
+    return out;
+  }
+
+  if (input == null) {
     return {};
   }
-  if (!C8O.util.isPlainObject(parsed)) {
-    if (errors && errors.push) {
-      errors.push({ name: "properties", message: "Properties payload must be a JSON object (use {} when empty, or call palette-describe for a template)." });
-    }
-    return {};
+
+  if (Array.isArray(input)) {
+    return toMapFromList(input);
   }
-  return parsed;
+
+  if (C8O.util.isPlainObject(input)) {
+    var wrapperList = null;
+    if (Array.isArray(input.properties)) {
+      wrapperList = input.properties;
+    } else if (Array.isArray(input.entries)) {
+      wrapperList = input.entries;
+    } else if (Array.isArray(input.updates)) {
+      wrapperList = input.updates;
+    }
+    if (wrapperList != null) {
+      return toMapFromList(wrapperList);
+    }
+    return input;
+  }
+
+  pushError("Properties payload must be a JSON object or an array of {name,value} entries.");
+  return {};
+};
+
+/**
+ * Parse and normalize property payloads.
+ */
+C8O.dbo.parsePropertyUpdates = function (input, errors) {
+  var payload = input;
+
+  if (payload && typeof payload.unwrap === "function") {
+    try {
+      payload = payload.unwrap();
+    } catch (_ignoreUnwrapPayload) {}
+  }
+
+  if (typeof payload === "string") {
+    var trimmed = C8O.util.toTrimmedString(payload);
+    if (!trimmed.length) {
+      return {};
+    }
+    var parsed = C8O.util.tryParseJson(trimmed, errors, "properties");
+    if (parsed && typeof parsed === "string") {
+      var nested = C8O.util.tryParseJson(parsed, errors, "properties");
+      if (nested) {
+        parsed = nested;
+      }
+    }
+    if (!parsed) {
+      if (errors && errors.push) {
+        errors.push({ name: "properties", message: "Properties payload must be a JSON object or an array of {name,value} entries." });
+      }
+      return {};
+    }
+    payload = parsed;
+  }
+
+  return C8O.dbo._normalizePropertyUpdates(payload, errors, "properties");
 };
 
 C8O.dbo._getDescriptorMap = function (dbo) {
@@ -1537,6 +1612,122 @@ C8O.dbo.applyUpdatesAndPersist = function (options) {
     mobileBuilderRefresh: mobileBuilderRefresh,
     saveResult: saveResult,
     saved: saveResult && saveResult.saved === true
+  };
+};
+
+C8O.dbo.finalizeMutationsByQNames = function (options) {
+  options = options || {};
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var autoSave = options.autoSave !== false;
+  var triggerMobileBuilder = options.triggerMobileBuilder !== false;
+  var errors = options.errors && options.errors.push ? options.errors : [];
+  var sourceQNames = Array.isArray(options.qnames) ? options.qnames : [];
+
+  var touchedQNames = [];
+  var touchedQNameSet = {};
+  var projectMap = {};
+  var projectAnchorMap = {};
+
+  function addTouchedQName(value) {
+    var text = C8O.util.toTrimmedString(value);
+    if (!text.length || touchedQNameSet[text]) {
+      return;
+    }
+    touchedQNameSet[text] = true;
+    touchedQNames.push(text);
+  }
+
+  function resolveProjectByName(projectName) {
+    var text = C8O.util.toTrimmedString(projectName);
+    if (!text.length) {
+      return null;
+    }
+    try {
+      return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(text, false);
+    } catch (_ignoreProjectByNameWithFlag) {
+      try {
+        return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(text);
+      } catch (_ignoreProjectByName) {
+        return null;
+      }
+    }
+  }
+
+  for (var i = 0; i < sourceQNames.length; i++) {
+    var qname = C8O.util.toTrimmedString(sourceQNames[i]);
+    if (!qname.length) {
+      continue;
+    }
+    addTouchedQName(qname);
+
+    var dbo = C8O.dbo.resolve(qname, { optional: true });
+    if (dbo) {
+      try {
+        var projectRef = dbo.getProject ? dbo.getProject() : null;
+        if (projectRef && projectRef.getName) {
+          var projectName = String(projectRef.getName());
+          if (projectName.length) {
+            projectMap[projectName] = projectRef;
+            if (!projectAnchorMap[projectName]) {
+              projectAnchorMap[projectName] = dbo;
+            }
+          }
+        }
+      } catch (_ignoreResolvedProject) {}
+      continue;
+    }
+
+    var fallbackProjectName = C8O.dbo._extractProjectName ? C8O.dbo._extractProjectName(qname) : "";
+    if (fallbackProjectName.length && !projectMap[fallbackProjectName]) {
+      var fallbackProject = resolveProjectByName(fallbackProjectName);
+      if (fallbackProject) {
+        projectMap[fallbackProjectName] = fallbackProject;
+      }
+    }
+  }
+
+  var mobileBuilderResults = [];
+  if (triggerMobileBuilder) {
+    var anchorNames = Object.keys(projectAnchorMap);
+    for (var m = 0; m < anchorNames.length; m++) {
+      var anchorProjectName = anchorNames[m];
+      var anchor = projectAnchorMap[anchorProjectName];
+      if (!anchor) {
+        continue;
+      }
+      var refreshInfo = C8O.dbo.triggerMobileBuilderRefresh(anchor, errors);
+      mobileBuilderResults.push({
+        project: anchorProjectName,
+        requested: refreshInfo && refreshInfo.requested === true,
+        triggered: refreshInfo && refreshInfo.triggered === true,
+        message: refreshInfo && refreshInfo.message ? String(refreshInfo.message) : ""
+      });
+    }
+  }
+
+  var saveResults = [];
+  if (autoSave) {
+    var projectNames = Object.keys(projectMap);
+    for (var s = 0; s < projectNames.length; s++) {
+      var projectNameForSave = projectNames[s];
+      var projectToSave = projectMap[projectNameForSave];
+      if (!projectToSave) {
+        continue;
+      }
+      var saveResult = C8O.dbo.saveProject(projectToSave, errors);
+      saveResults.push({
+        project: projectNameForSave,
+        saved: saveResult && saveResult.saved === true,
+        message: saveResult && saveResult.message ? String(saveResult.message) : ""
+      });
+    }
+  }
+
+  return {
+    touchedQNames: touchedQNames,
+    projects: Object.keys(projectMap),
+    mobileBuilder: mobileBuilderResults,
+    saveResults: saveResults
   };
 };
 

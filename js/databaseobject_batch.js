@@ -678,7 +678,22 @@ include("js/databaseobject_ops.js");
 
   function applyProperties(ctx, dbo, rawProperties, scopeName, report) {
     var localErrors = [];
-    var updates = parsePropertiesMap(rawProperties, localErrors, scopeName + ".properties");
+    var propertiesInput = rawProperties;
+    try {
+      propertiesInput = resolveRefsInValue(ctx, rawProperties);
+    } catch (resolveError) {
+      report.errors.push(
+        makeOpError(
+          "reference_error",
+          String(resolveError),
+          "resolve_properties",
+          "",
+          safeQName(dbo)
+        )
+      );
+      propertiesInput = rawProperties;
+    }
+    var updates = parsePropertiesMap(propertiesInput, localErrors, scopeName + ".properties");
     for (var e = 0; e < localErrors.length; e++) {
       report.errors.push(makeOpError("set_properties_error", localErrors[e].message || localErrors[e], "parse_properties", "", safeQName(dbo)));
     }
@@ -740,9 +755,25 @@ include("js/databaseobject_ops.js");
     var desiredNameSet = {};
 
     for (var i = 0; i < childrenPatch.length; i++) {
-      var childPatch = childrenPatch[i];
-      if (!isPlainObject(childPatch)) {
+      var childPatchRaw = childrenPatch[i];
+      if (!isPlainObject(childPatchRaw)) {
         report.errors.push(makeOpError("upsert_error", parentQName + ": child patch must be an object.", "upsert_validate", "", parentQName));
+        continue;
+      }
+
+      var childPatch = childPatchRaw;
+      try {
+        childPatch = resolveRefsInValue(ctx, childPatchRaw);
+      } catch (resolveError) {
+        report.errors.push(
+          makeOpError(
+            "reference_error",
+            parentQName + ": unable to resolve child references - " + String(resolveError),
+            "upsert_ref",
+            "",
+            parentQName
+          )
+        );
         continue;
       }
 
@@ -847,14 +878,14 @@ include("js/databaseobject_ops.js");
   }
 
   function runCreateOperation(ctx, op, report) {
-    var relatedQName = asTrimmed(op.related || ctx.targetQName);
+    var relatedQName = asTrimmed(resolveRefsInValue(ctx, op.related || ctx.targetQName));
     if (!relatedQName.length) {
       throw makeOpError("validation_error", "create operation requires related (or global target)", "validate", "");
     }
     var relatedDbo = C8O.dbo.resolve(relatedQName, { messagePrefix: "related" });
     var mode = asTrimmed(op.mode || "inside").toLowerCase();
-    var className = asTrimmed(op.className);
-    var name = asTrimmed(op.name);
+    var className = asTrimmed(resolveRefsInValue(ctx, op.className));
+    var name = asTrimmed(resolveRefsInValue(ctx, op.name));
     var children = parseChildrenInput(op.children, "create.children", []);
     var createCtx = resolveCreateContext(relatedDbo, mode);
 
@@ -948,7 +979,6 @@ include("js/databaseobject_ops.js");
     if (!patch) {
       patch = op.node || op.tree;
     }
-    patch = resolveRefsInValue(ctx, patch);
     if (typeof patch === "string") {
       patch = parseJsonMaybe(patch, "upsertTree.patch", [], "object");
     }
@@ -958,6 +988,10 @@ include("js/databaseobject_ops.js");
 
     var strategy = normalizeStrategy(op.strategy, ctx.strategy);
     var root = C8O.dbo.resolve(qname, { messagePrefix: "qname" });
+
+    if (patch.id !== undefined) {
+      registerRef(ctx, patch.id, root);
+    }
 
     if (patch.properties !== undefined) {
       applyProperties(ctx, root, patch.properties, qname, report);
@@ -1014,6 +1048,7 @@ include("js/databaseobject_ops.js");
     var strict = asBoolean(params.strict, false) === true;
     var onError = normalizeOnError(params.onError, strict);
     var autoSave = C8O.util.parseAutoSaveFlag ? C8O.util.parseAutoSaveFlag(params.autoSave, true) : asBoolean(params.autoSave, true);
+    var triggerMobileBuilder = asBoolean(params.triggerMobileBuilder, true) === true;
     var dryRun = asBoolean(params.dryRun, false) === true;
     var resumeFrom = 0;
     if (params.resumeFrom !== undefined && params.resumeFrom !== null) {
@@ -1054,6 +1089,7 @@ include("js/databaseobject_ops.js");
         updatedProperties: 0,
         replaced: 0,
         failedOps: 0,
+        partialOps: 0,
         successfulOps: 0,
         skippedOps: 0,
         notRunOps: 0
@@ -1137,7 +1173,7 @@ include("js/databaseobject_ops.js");
 
         if (opType === "create") {
           report.phase = "create";
-          runCreateOperation(ctx, resolveRefsInValue(ctx, op), report);
+          runCreateOperation(ctx, op, report);
         } else if (opType === "delete") {
           report.phase = "delete";
           runDeleteOperation(ctx, resolveRefsInValue(ctx, op), report);
@@ -1149,7 +1185,7 @@ include("js/databaseobject_ops.js");
           runSetPropertiesOperation(ctx, resolveRefsInValue(ctx, op), report);
         } else if (opType === "upserttree") {
           report.phase = "upsert_tree";
-          runUpsertTreeOperation(ctx, resolveRefsInValue(ctx, op), report);
+          runUpsertTreeOperation(ctx, op, report);
         } else {
           throw makeOpError("validation_error", "Unsupported operation type: " + op.type, "validate", "", "");
         }
@@ -1192,6 +1228,10 @@ include("js/databaseobject_ops.js");
           opReports.push(report);
           break;
         }
+      } else if (report.status === "partial") {
+        ctx.summary.partialOps += 1;
+        ctx.summary.successfulOps += 1;
+        ctx.summary.applied += 1;
       } else {
         ctx.summary.successfulOps += 1;
         ctx.summary.applied += 1;
@@ -1228,7 +1268,7 @@ include("js/databaseobject_ops.js");
     }
 
     var mobileBuilderResults = [];
-    if (!dryRun) {
+    if (!dryRun && triggerMobileBuilder) {
       mobileBuilderResults = triggerMobileBuilderByProject(ctx, globalErrors);
     }
     var saveResults = [];
@@ -1239,7 +1279,7 @@ include("js/databaseobject_ops.js");
     var status = "ok";
     if (stop) {
       status = "failed";
-    } else if (ctx.summary.failedOps > 0 || globalErrors.length > 0) {
+    } else if (ctx.summary.failedOps > 0 || ctx.summary.partialOps > 0 || globalErrors.length > 0) {
       status = "partial";
     }
 
@@ -1279,6 +1319,7 @@ include("js/databaseobject_ops.js");
       strict: strict,
       dryRun: dryRun,
       autoSave: autoSave,
+      triggerMobileBuilder: triggerMobileBuilder,
       saved: savedFlag,
       summary: ctx.summary,
       touchedQNames: ctx.touchedQNames,

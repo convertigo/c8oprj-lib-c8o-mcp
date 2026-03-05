@@ -1,0 +1,92 @@
+accessibility: Private
+comment: Reads engine/studio logs through LogManager with filters and pagination.
+↓IncludeHelpers [steps.SimpleStep-1772719401000]: 
+  comment: Load log-view helper.
+  expression: include("js/tools_log_view.js");
+↓result [steps.JsonObjectStep-1772719401001]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓lines [steps.JsonToXmlStep-1772719401002]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: logViewLines
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: lines
+  ↓query [steps.JsonToXmlStep-1772719401003]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: logViewQuery
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: query
+  ↓IfNextCursor [steps.IfStep-1772719401004]: 
+    condition: logViewNextCursor != null && String(logViewNextCursor).length > 0
+    ↓nextCursor [steps.JsonFieldStep-1772719401005]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: logViewNextCursor
+↓filter [variables.RequestableVariable-1772719401006]: 
+  comment: Optional raw LogManager JavaScript filter expression.
+↓text [variables.RequestableVariable-1772719401007]: 
+  comment: Full-text filter applied to message/extra fields.
+↓q [variables.RequestableVariable-1772722301005]: 
+  comment: Alias of text for short full-text filtering.
+↓level [variables.RequestableVariable-1772719401008]: 
+  comment: Log level filter (for example info, warn, error).
+↓category [variables.RequestableVariable-1772719401009]: 
+  comment: Log category filter.
+↓project [variables.RequestableVariable-1772719401010]: 
+  comment: Project filter (uses MDC project and message fallback).
+↓requestable [variables.RequestableVariable-1772719401011]: 
+  comment: Requestable/sequence filter.
+↓connector [variables.RequestableVariable-1772719401012]: 
+  comment: Connector filter.
+↓transaction [variables.RequestableVariable-1772719401013]: 
+  comment: Transaction filter.
+↓thread [variables.RequestableVariable-1772719401014]: 
+  comment: Thread filter.
+↓startDate [variables.RequestableVariable-1772719401015]: 
+  comment: Optional start date (epoch millis or ISO date).
+↓endDate [variables.RequestableVariable-1772719401016]: 
+  comment: Optional end date (epoch millis or ISO date).
+↓since [variables.RequestableVariable-1772722301006]: 
+  comment: Alias of startDate.
+↓until [variables.RequestableVariable-1772722301007]: 
+  comment: Alias of endDate.
+↓limit [variables.RequestableVariable-1772719401017]: 
+  comment: Number of lines to return (1-500).
+  value: 100
+↓timeoutMs [variables.RequestableVariable-1772719401018]: 
+  comment: LogManager read timeout in milliseconds.
+  value: 200
+↓fetchSize [variables.RequestableVariable-1772719401019]: 
+  comment: Internal chunk size per LogManager read call.
+  value: 200
+↓_nextCursor [variables.RequestableVariable-1772719401020]: 
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

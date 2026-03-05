@@ -12,15 +12,18 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 |-------------------------------|---------------------------------------------|---------|
 | `project-list`         | `tools_project_list.yaml`            | List installed projects with metadata (templates, versions, exports…). |
 | `databaseobject-children`     | `tools_databaseobject_children.yaml`        | List database object children (or projects when `qname` is empty) with optional recursion via `depth` and ancestor-preserving filters. |
-| `batch-call`                  | `tools_batch_call.yaml`                     | Execute multiple MCP tool calls in one internal batch (`calls[]`) with `onError=stop|continue`, detailed per-call diagnostics, `$ref` substitution between calls, and resume metadata (`resume.fromOpIndex`, `failedCallIds`). |
-| `databaseobject-tree-get`     | `tools_databaseobject_tree_get.yaml`        | Return a canonical object tree (`qname`, `name`, `className`, optional `properties`, `children`) compatible with patch/upsert payloads. Supports `maxDepth`, `maxNodes`, and cursor pagination via `_nextCursor`. |
-| `databaseobject-tree-apply`   | `tools_databaseobject_tree_apply.yaml`      | Apply one canonical tree patch to a target QName (single-op wrapper over `upsertTree`) with the same diagnostics/resume payload as batch apply. Accepts `payload` (preferred), `patch`, or `tree`. |
-| `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object relative to another (inside / before / after). For NGX classes, `#logicalId` is optional when resolution is unique in the current parent; required only when ambiguous. |
+| `batch-call`                  | `tools_batch_call.yaml`                     | Execute multiple MCP tool calls in one internal batch (`calls[]`) with `onError=stop|continue`, detailed per-call diagnostics, `$ref` substitution between calls, resume metadata, and deferred mutation finalization (`optimizeMutations=true`). |
+| `databaseobject-tree-get`     | `tools_databaseobject_tree_get.yaml`        | Return a canonical object tree compatible with patch/upsert payloads. Supports `view=children|summary|full`, `maxDepth`, `maxNodes`, and cursor pagination via `_nextCursor`. |
+| `databaseobject-tree-apply`   | `tools_databaseobject_tree_apply.yaml`      | Apply one canonical tree patch to a target QName (single-op wrapper over `upsertTree`) with the same diagnostics/resume payload as batch apply and progressive intra-tree `$ref` resolution. Accepts `payload` (preferred), `patch`, or `tree`. |
+| `databaseobject-create`       | `tools_databaseobject_create.yaml`          | Create a database object through the shared batch mutation pipeline (inside / before / after) with optional `children` one-shot creation. NGX `#logicalId` is optional when resolution is unique in the current parent; required only when ambiguous. |
 | `databaseobject-delete`       | `tools_databaseobject_delete.yaml`          | Delete a database object, optionally exporting and refreshing Studio. |
 | `databaseobject-move`         | `tools_databaseobject_move.yaml`            | Move or reorder a database object with Studio refresh support. |
 | `databaseobject-rename`       | `tools_databaseobject_rename.yaml`          | Rename a database object and optionally refactor references. |
 | `databaseobject-properties-get` | `tools_databaseobject_properties_get.yaml` | Retrieve metadata + values for a database object. Payload is compact by default; pass `includeHints=true` to re-enable long descriptions and boolean flags. |
-| `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties (including XMLizable / SmartType handling). |
+| `databaseobject-properties-set` | `tools_databaseobject_properties_set.yaml` | Update properties through the shared batch mutation pipeline. Accepts both property maps and property entry arrays (same structural format returned by `databaseobject-properties-get`). |
+| `log-view`                    | `tools_log_view.yaml`                       | Read logs through LogManager API with structured filters (`project`, `requestable`, `connector`, `transaction`, etc.) and cursor pagination. |
+| `marketplace-list`            | `tools_marketplace_list.yaml`               | Discover marketplace libraries (connector-backed HTTP call), annotate workspace/reference status, and return project-aware suggestions. |
+| `marketplace-import`          | `tools_marketplace_import.yaml`             | Import a marketplace library and wire project references in one MCP flow (with optional save/refresh). |
 | `palette-list`                | `tools_palette_list.yaml`                   | Lightweight catalog of creatable objects (name, class, summaries, describe hints). NGX targets include Studio-compatible dynamic entries (Ionic palette items). Supports `includeBuiltIn` / `includeShared` toggles (both default `true`). |
 | `palette-describe`            | `tools_palette_describe.yaml`               | Detailed description of a specific palette entry (creation template, property hints). |
 | `project-js-get`              | `tools_project_js_get.yaml`                 | Read a helper script in the project `js/` directory. |
@@ -29,9 +32,23 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 | `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |
-| databaseobject-schema       | 	ools_databaseobject_schema.yaml          | Return a minimal schema/sample for a requestable or request node (	ype=xml|json|jsonschema; internal=true for sourceDefinition view). |
+| `databaseobject-schema`       | `tools_databaseobject_schema.yaml`          | Return a minimal schema/sample for a requestable or request node (`type=xml|json|jsonschema`; `internal=true` for `sourceDefinition` view). |
 
 | `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content; output now reports `scanned`, `returned`, `hasMore`, `nextCursor`, and a lean `matches[]`. |
+
+### Practical defaults
+
+Use these short forms first; keep advanced parameters for diagnostics only.
+
+| Tool | Minimal call | Core params | Advanced params |
+|------|--------------|-------------|-----------------|
+| `log-view` | `log-view {}` | `q` (alias of `text`), `project`, `requestable`, `limit` | `filter`, `category`, `level`, `connector`, `transaction`, `thread`, `startDate/endDate` (`since/until` aliases), `timeoutMs`, `fetchSize` |
+| `marketplace-list` | `marketplace-list {}` | `q`, `project`, `limit` | `topic/topics`, `sort`, `suggestionLimit`, `includeRaw`, `maxPages`, `endpoint` |
+| `marketplace-import` | `marketplace-import {\"project\":\"<name>\",\"library\":\"<name>\"}` | `project`, `library` | `technicalName`, `cloneUrl`, `branch`, `addReference`, `importIfMissing`, `forceImport`, `save`, `refresh` |
+
+Notes:
+- `marketplace-list project=<name>` now returns a warning when the project is unknown instead of failing the request.
+- `log-view` accepts `q/since/until` aliases to reduce verbosity in common calls.
 
 ### Pagination helpers
 
@@ -44,7 +61,7 @@ between requests to stream the remaining entries.
 |-----------|-------|
 | `project-list` | Supports `limit`; response includes `summary.total`, `summary.timestamp`, and `nextCursor`. |
 | `databaseobject-children` | Reports `total` + `nextCursor` and, when `depth > 1`, embeds nested `children` arrays for the filtered subset. |
-| `databaseobject-tree-get` | Returns a canonical tree/forest view with chunking (`maxNodes`) and offset cursor continuation (`nextCursor`). |
+| `databaseobject-tree-get` | Returns a canonical tree/forest view with `view=children|summary|full`, chunking (`maxNodes`) and offset cursor continuation (`nextCursor`). |
 | `databaseobject-properties-get` | Use `properties` or `filter` together with `limit`; `nextCursor` continues the property list. |
 | `databaseobject-search` | Returns `scanned`, `returned`, `hasMore`, and `nextCursor` at the root; `matches[]` contains only the essentials (`qname`, `name`, `className`, `type`, `priority`). |
 | `palette-list` | Compact response (category, className, shortDescription, `describe.tool/arguments`). Pair with `palette-describe` for the heavy data. `limit`, `filter`, and pagination metadata follow the standard pattern. |

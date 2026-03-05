@@ -27,6 +27,19 @@ comment: Return a canonical database object tree compatible with upsertTree form
         - SmartType: 
           - ↑mode: JS
           - →→: treeRootQName || ""
+  ↓view [steps.JsonFieldStep-1772719245000]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: view
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeView || "children"
   ↓startOffset [steps.JsonFieldStep-1772627692644]: 
     key: 
       - xmlizable: 
@@ -206,6 +219,9 @@ comment: Return a canonical database object tree compatible with upsertTree form
 ↓includeProperties [variables.RequestableVariable-1772627661953]: 
   comment: When true, include settable properties on each returned node.
   value: false
+↓view [variables.RequestableVariable-1772719245001]: 
+  comment: Tree shape view (children, summary, full). Defaults to children.
+  value: children
 ↓includeReadOnly [variables.RequestableVariable-1772627662050]: 
   comment: When includeProperties=true, include read-only properties as well.
   value: false

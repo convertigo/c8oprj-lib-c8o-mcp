@@ -14,6 +14,8 @@ comment: Moves or reorders a database object within the project tree.
       autoSaveInput = commit;
     }
     var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
+    var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
+    var refreshFlag = C8O.util.toBoolean(refreshInput, true) === true;
     
     var moveResult = C8O.dbo.moveObject({ qname: qname, target: target, position: position });
     
@@ -44,8 +46,8 @@ comment: Moves or reorders a database object within the project tree.
     movePosition = positionText;
     moveAfter = afterValue;
     moveProjectName = projectNameText;
-    moveShouldRefreshFrom = moveDone && fromParentText.length > 0;
-    moveShouldRefreshTo = moveDone && toParentText.length > 0 && toParentText !== fromParentText;
+    moveShouldRefreshFrom = refreshFlag && moveDone && fromParentText.length > 0;
+    moveShouldRefreshTo = refreshFlag && moveDone && toParentText.length > 0 && toParentText !== fromParentText;
     moveSummaryMoved = moveMoved ? 1 : 0;
     moveSummaryReordered = moveReordered ? 1 : 0;
     moveSummaryErrors = moveErrors.length;
@@ -404,3 +406,6 @@ comment: Moves or reorders a database object within the project tree.
   value: inside
 ↓autoSave [variables.RequestableVariable-1762419981982]: 
   comment: 'Optional: set to false to defer project export'
+↓refresh [variables.RequestableVariable-1772721701004]: 
+  comment: 'Optional: set to false to defer Studio tree refresh'
+  value: true

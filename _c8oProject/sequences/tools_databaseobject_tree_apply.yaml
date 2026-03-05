@@ -379,6 +379,9 @@ comment: Apply a canonical object tree patch to a target QName using the batch u
 ↓refresh [variables.RequestableVariable-1772628059244]: 
   comment: When true, refresh Studio tree using computed common ancestor.
   value: true
+↓triggerMobileBuilder [variables.RequestableVariable-1772721701002]: 
+  comment: Trigger mobile builder refresh after mutation (default true).
+  value: true
 ↓resumeFrom [variables.RequestableVariable-1772628059349]: 
   comment: Optional zero-based operation index to resume execution from.
 ↓executionId [variables.RequestableVariable-1772628059463]: 
