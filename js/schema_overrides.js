@@ -325,6 +325,146 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function booleanFlagSchema(defaultValue, description) {
+    return {
+      type: "boolean",
+      default: defaultValue,
+      description: description
+    };
+  }
+
+  function integerSchema(minimum, maximum, defaultValue, description) {
+    var schema = {
+      type: "integer",
+      minimum: minimum,
+      default: defaultValue,
+      description: description
+    };
+    if (maximum !== null && maximum !== undefined) {
+      schema.maximum = maximum;
+    }
+    return schema;
+  }
+
+  function databaseobjectDeleteInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        qname: { type: "string", description: "Existing QName. Case-sensitive." },
+        autoSave: booleanFlagSchema(true, "Set false to keep the deletion in memory and skip project export."),
+        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function databaseobjectMoveInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        qname: { type: "string", description: "Existing QName. Case-sensitive." },
+        target: {
+          type: "string",
+          description: "Existing target QName. Container when position=inside; sibling anchor when position=before or after."
+        },
+        position: {
+          type: "string",
+          enum: ["inside", "before", "after"],
+          description: "Allowed values: inside, before, after. inside moves under the target; before or after reorders next to it."
+        },
+        autoSave: booleanFlagSchema(true, "Set false to keep the move in memory and skip project export."),
+        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function databaseobjectRenameInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        qname: { type: "string", description: "Existing QName. Case-sensitive." },
+        name: { type: "string", description: "New object name. Use a valid Convertigo identifier for the target class." },
+        update: {
+          type: "string",
+          enum: ["update_none", "update_local", "update_all"],
+          description: "Allowed values: update_none, update_local, update_all. Controls how references are rewritten after the rename."
+        },
+        autoSave: booleanFlagSchema(true, "Set false to keep the rename in memory and skip project export."),
+        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function databaseobjectSchemaInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        qname: { type: "string", description: "Existing QName. Case-sensitive." },
+        type: {
+          type: "string",
+          enum: ["xml", "json", "jsonschema"],
+          default: "xml",
+          description: "Allowed values: xml, json, jsonschema. Default: xml."
+        },
+        internal: booleanFlagSchema(false, "Set true to read the request schema of a requestable instead of its response schema.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function databaseobjectSearchInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        qname: { type: "string", description: "Optional root QName. Omit to search across all loaded projects." },
+        filter: { type: "string", description: "Search text. Space-separated terms are combined; pair with useRegExp=true for a regex." },
+        limit: integerSchema(1, 1000, 200, "Maximum matches returned per call. 1 to 1000; default 200."),
+        matchCase: booleanFlagSchema(false, "Set true for case-sensitive matching."),
+        useRegExp: booleanFlagSchema(false, "Set true to treat filter as a Java regular expression."),
+        objectType: { type: "string", description: "Optional object type filter. Use * or omit for any type." }
+      },
+      additionalProperties: false
+    };
+  }
+
+  function paletteDescribeInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        className: { type: "string", description: "Palette entry class token, usually copied from palette-list." },
+        verbose: booleanFlagSchema(false, "Set true to include longer property and creation details.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function paletteListInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        target: { type: "string", description: "Parent QName. Append :FolderType only when you need a specific logical folder view." },
+        includeBuiltIn: booleanFlagSchema(true, "Default true. Set false to hide built-in entries."),
+        includeShared: booleanFlagSchema(true, "Default true. Set false to hide shared library entries."),
+        filter: { type: "string", description: "Case-insensitive filter on category and item names." },
+        limit: integerSchema(0, null, 0, "Maximum items returned. Leave empty or 0 for no limit.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function projectListInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        filter: { type: "string", description: "Case-insensitive filter on project name and comment." },
+        limit: integerSchema(1, 100, 10, "Maximum projects returned per call. 1 to 100; default 10.")
+      },
+      additionalProperties: false
+    };
+  }
+
   function openObjectSchema(properties) {
     return {
       type: "object",
@@ -868,6 +1008,30 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_rag_query") {
       return ragQueryInputSchema();
+    }
+    if (seq === "tools_databaseobject_delete") {
+      return databaseobjectDeleteInputSchema();
+    }
+    if (seq === "tools_databaseobject_move") {
+      return databaseobjectMoveInputSchema();
+    }
+    if (seq === "tools_databaseobject_rename") {
+      return databaseobjectRenameInputSchema();
+    }
+    if (seq === "tools_databaseobject_schema") {
+      return databaseobjectSchemaInputSchema();
+    }
+    if (seq === "tools_databaseobject_search") {
+      return databaseobjectSearchInputSchema();
+    }
+    if (seq === "tools_palette_describe") {
+      return paletteDescribeInputSchema();
+    }
+    if (seq === "tools_palette_list") {
+      return paletteListInputSchema();
+    }
+    if (seq === "tools_project_list") {
+      return projectListInputSchema();
     }
 
     if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) {

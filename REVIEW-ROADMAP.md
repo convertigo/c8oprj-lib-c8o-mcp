@@ -14,10 +14,10 @@ Build the improvement factory around Convertigo MCP:
 ## Current Observations
 
 - The repository already has MCP resources, prompts, tools, and prompt-based tests.
-- The documentation surface is not yet fully aligned with the currently exported tool surface.
-- Some guides and prompts describe tools that are being removed or replaced by newer tree-based tools.
-- Before optimizing agents, the project needs a stricter contract between real tools, guides, prompts, and benchmarks.
-- The live MCP server currently exposes a narrower and more modern contract than part of the existing written guides.
+- The reviewed documentation, prompt, and tests are now aligned with the currently exported tree-first tool surface.
+- The remaining work has moved from contract correction to guide consolidation, benchmark design, and role specialization.
+- Before optimizing agents further, the project still needs a stricter layering between real tools, onboarding assets, and benchmarks.
+- The live MCP server now exposes a reviewed contract whose tool metadata and public schemas are consistent enough to serve as the Phase 0 truth set.
 - Colleague projects already contain useful patterns for role decomposition, validation gates, and delivery discipline.
 
 ## Evidence Sources
@@ -141,6 +141,9 @@ Status:
 - deprecation and replacement decisions recorded
 - future guide metadata and warning specs recorded without changing the live API
 - MCP auto-documentation rewritten for the live `21`-tool catalog and refreshed against server `0.0.7`
+- review refreshed against live server `0.0.9`
+- no open Phase 0 mismatch remains between the live contract and the current docs, prompt, and tracked tests
+- the last `8` B-grade tools have been raised to A-grade with typed public input schemas
 
 Deliverables:
 
@@ -162,6 +165,7 @@ Exit criteria:
 - the most common tools are understandable from their own MCP metadata without opening extra documentation
 - the split between self-documenting MCP UX and external guide content is explicit and justified
 - the auto-documentation style rules are explicit: no boilerplate, only non-obvious constraints, accepted formats, value domains, defaults, and side effects
+- current status: satisfied on the reviewed live surface
 
 ## [DONE] Phase 0.5 - Core Output Contract Cleanup
 
