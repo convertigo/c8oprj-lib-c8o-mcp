@@ -124,68 +124,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
-  function databaseobjectCreateInputSchema() {
-    return {
-      type: "object",
-      properties: {
-        related: { type: "string", description: "QName used as related object for create mode resolution." },
-        mode: { type: "string", enum: ["inside", "before", "after"], default: "inside" },
-        className: {
-          type: "string",
-          description: "Class token to create (supports NGX logical className#logicalId tokens)."
-        },
-        name: { type: "string", description: "Name of the object to create." },
-        properties: propertiesInputSchema(),
-        children: {
-          type: "array",
-          description: "Optional one-shot child creation tree.",
-          items: treeNodeSchema()
-        },
-        onError: { type: "string", enum: ["stop", "continue"], default: "stop" },
-        strict: { type: "boolean", default: false },
-        autoSave: { type: "boolean", default: true },
-        refresh: { type: "boolean", default: true },
-        triggerMobileBuilder: { type: "boolean", default: true },
-        dryRun: { type: "boolean", default: false },
-        resumeFrom: { type: "string", description: "Optional zero-based operation index for resume." },
-        executionId: { type: "string", description: "Optional execution identifier returned in resume metadata." }
-      },
-      required: ["related", "className", "name"],
-      additionalProperties: false
-    };
-  }
-
-  function databaseobjectPropertiesSetInputSchema() {
-    return {
-      type: "object",
-      properties: {
-        qname: { type: "string", description: "Database object QName to update." },
-        properties: propertiesInputSchema(),
-        onError: { type: "string", enum: ["stop", "continue"], default: "stop" },
-        strict: { type: "boolean", default: false },
-        autoSave: { type: "boolean", default: true },
-        refresh: { type: "boolean", default: true },
-        triggerMobileBuilder: { type: "boolean", default: true },
-        dryRun: { type: "boolean", default: false },
-        resumeFrom: { type: "string", description: "Optional zero-based operation index for resume." },
-        executionId: { type: "string", description: "Optional execution identifier returned in resume metadata." }
-      },
-      required: ["qname", "properties"],
-      additionalProperties: false
-    };
-  }
-
   function databaseobjectTreeGetInputSchema() {
     return {
       type: "object",
       properties: {
-        qname: { type: "string", description: "Root QName. Empty returns project roots." },
-        view: { type: "string", enum: ["children", "summary", "full"], default: "children" },
-        includeProperties: { type: "boolean", default: false },
-        includeReadOnly: { type: "boolean", default: false },
-        maxNodes: { type: "integer", minimum: 1, maximum: 5000, default: 200 },
-        maxDepth: { type: "integer", minimum: 1, maximum: 20, default: 4 }
+        target: { type: "string", description: "Target QName (existing node)." },
+        childrenDepth: { type: "integer", minimum: 0, maximum: 20, default: 1 },
+        properties: { type: "string", enum: ["none", "changed", "all"], default: "changed" },
+        limit: { type: "integer", minimum: 1, maximum: 5000, default: 200 }
       },
+      required: ["target"],
       additionalProperties: false
     };
   }
@@ -195,19 +143,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         target: { type: "string", description: "Target QName to patch." },
-        payload: { type: "object", additionalProperties: true },
-        patch: { type: "object", additionalProperties: true },
-        tree: { type: "object", additionalProperties: true },
-        strategy: { type: "string", enum: ["merge", "replace"], default: "merge" },
-        onError: { type: "string", enum: ["stop", "continue"], default: "stop" },
-        strict: { type: "boolean", default: false },
-        autoSave: { type: "boolean", default: true },
-        refresh: { type: "boolean", default: true },
-        triggerMobileBuilder: { type: "boolean", default: true },
-        dryRun: { type: "boolean", default: false },
-        resumeFrom: { type: "string", description: "Optional zero-based operation index for resume." },
-        executionId: { type: "string", description: "Optional execution identifier returned in resume metadata." }
+        at: { type: "string", enum: ["self", "inside", "before", "after"], default: "self" },
+        mode: { type: "string", enum: ["merge", "replace"], default: "merge" },
+        tree: { type: "object", additionalProperties: true }
       },
+      required: ["target", "tree"],
       additionalProperties: false
     };
   }
@@ -339,12 +279,6 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
     if (seq === "tools_batch_call") {
       return batchCallInputSchema();
-    }
-    if (seq === "tools_databaseobject_create") {
-      return databaseobjectCreateInputSchema();
-    }
-    if (seq === "tools_databaseobject_properties_set") {
-      return databaseobjectPropertiesSetInputSchema();
     }
     if (seq === "tools_databaseobject_tree_get") {
       return databaseobjectTreeGetInputSchema();

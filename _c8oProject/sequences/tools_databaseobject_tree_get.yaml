@@ -214,22 +214,16 @@ comment: Return a canonical database object tree compatible with upsertTree form
           - SmartType: 
             - ↑mode: PLAIN
             - →→: forest
-↓qname [variables.RequestableVariable-1772627661816]: 
-  comment: Database object QName. Leave empty to browse project roots.
-↓includeProperties [variables.RequestableVariable-1772627661953]: 
-  comment: When true, include settable properties on each returned node.
-  value: false
-↓view [variables.RequestableVariable-1772719245001]: 
-  comment: Tree shape view (children, summary, full). Defaults to children.
-  value: children
-↓includeReadOnly [variables.RequestableVariable-1772627662050]: 
-  comment: When includeProperties=true, include read-only properties as well.
-  value: false
-↓maxNodes [variables.RequestableVariable-1772627662171]: 
-  comment: Maximum number of nodes returned per call (1-5000).
+↓target [variables.RequestableVariable-1772627661816]: 
+  comment: Target QName (existing node).
+↓properties [variables.RequestableVariable-1772627661953]: 
+  comment: 'Property payload mode: none, changed, all.'
+  value: changed
+↓limit [variables.RequestableVariable-1772627662171]: 
+  comment: Maximum number of descendant nodes returned per call (1-5000).
   value: 200
-↓maxDepth [variables.RequestableVariable-1772627662271]: 
-  comment: Maximum depth to traverse (1-20).
-  value: 4
+↓childrenDepth [variables.RequestableVariable-1772627662271]: 
+  comment: Descendant depth to include (0=root only).
+  value: 1
 ↓_nextCursor [variables.RequestableVariable-1772627662380]: 
-  comment: Opaque offset cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

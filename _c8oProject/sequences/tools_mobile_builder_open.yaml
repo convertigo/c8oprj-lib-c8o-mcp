@@ -1,4 +1,6 @@
+accessibility: Private
 comment: Launch NGX mobile builder in Studio and return the detected Node listening URL.
+responseTimeout: 120
 ↓IncludeHelpers [steps.SimpleStep-1772733052615]: 
   comment: Start builder and collect readiness/log data.
   expression: include("js/tools_mobile_builder_open.js");

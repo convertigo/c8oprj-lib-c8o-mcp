@@ -12,8 +12,8 @@ var C8O_RESOURCES_BUILTIN = [
     text: [
       "# Convertigo MCP capabilities",
       "",
-      "- Project discovery: `project-list`, `databaseobject-children`, `databaseobject-tree-get`.",
-      "- Authoring: `palette-list`, `palette-describe`, `databaseobject-create`, `databaseobject-properties-set`, `databaseobject-tree-apply`.",
+      "- Project discovery: `project-list`, `databaseobject-tree-get`.",
+      "- Authoring: `palette-list`, `palette-describe`, `databaseobject-tree-apply`, `databaseobject-rename`, `databaseobject-move`, `databaseobject-delete`.",
       "- Bulk orchestration: `batch-call`.",
       "- Diagnostics: `log-view`, `requestable-execute`.",
       "- Marketplace: `marketplace-list`, `marketplace-import`."
@@ -29,9 +29,9 @@ var C8O_RESOURCES_BUILTIN = [
       "# Quickstart recipes",
       "",
       "1. Discover parent capabilities with `palette-list` then `palette-describe`.",
-      "2. Create one-shot trees with `databaseobject-create` + `children`.",
-      "3. Apply property batches with `databaseobject-properties-set`.",
-      "4. Navigate large trees with `databaseobject-tree-get` (`view=summary` then `view=children`).",
+      "2. Create or patch one-shot trees with `databaseobject-tree-apply` (`at=inside|before|after|self`).",
+      "3. Use `mode=merge|replace` in `databaseobject-tree-apply` for incremental vs strict patching.",
+      "4. Navigate large trees with `databaseobject-tree-get` (`childrenDepth`, `properties`, `_nextCursor`).",
       "5. Orchestrate macro changes with `batch-call` and `$ref`."
     ].join("\\n")
   }

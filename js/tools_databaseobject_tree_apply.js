@@ -17,8 +17,22 @@ var asTrimmed = _treeApplyRequireHelper("batchAsTrimmed");
 var asBoolean = _treeApplyRequireHelper("batchAsBoolean");
 var safeJsonStringify = _treeApplyRequireHelper("batchSafeJsonStringify");
 var parseObjectInput = _treeApplyRequireHelper("batchParseObjectInput");
-var firstProvidedInput = _treeApplyRequireHelper("batchFirstProvidedInput");
-var unwrapValue = _treeApplyRequireHelper("batchUnwrapValue");
+
+function normalizeAt(rawValue) {
+  var text = asTrimmed(rawValue || "self").toLowerCase();
+  if (text === "self" || text === "inside" || text === "before" || text === "after") {
+    return text;
+  }
+  return "self";
+}
+
+function normalizeMode(rawValue) {
+  var text = asTrimmed(rawValue || "merge").toLowerCase();
+  if (text === "merge" || text === "replace") {
+    return text;
+  }
+  return "merge";
+}
 
 var strictInput = (typeof strict !== "undefined") ? strict : false;
 var autoSaveInput = (typeof autoSave !== "undefined") ? autoSave : null;
@@ -30,40 +44,77 @@ var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
 var triggerMobileBuilderInput = (typeof triggerMobileBuilder !== "undefined") ? triggerMobileBuilder : true;
 
 var targetInput = asTrimmed(target);
-var treeCandidate = firstProvidedInput([
-  { name: "payload", value: (typeof payload !== "undefined") ? payload : null },
-  { name: "patch", value: (typeof patch !== "undefined") ? patch : null },
-  { name: "tree", value: (typeof tree !== "undefined") ? tree : null }
-]);
-var treeInputRaw = treeCandidate.value;
-var treeInputLabel = treeCandidate.name || "tree";
-var treeObject = parseObjectInput(treeInputRaw, treeInputLabel, treeApplyInputErrors);
-
-if (!targetInput.length && treeObject && treeObject.qname) {
-  targetInput = asTrimmed(treeObject.qname);
-}
 if (!targetInput.length) {
-  throw new Error("target is required (or tree.qname must be provided).");
+  throw new Error("target is required.");
 }
+
+var atInput = normalizeAt((typeof at !== "undefined") ? at : "self");
+var modeInput = normalizeMode((typeof mode !== "undefined") ? mode : "merge");
+var treeObject = parseObjectInput((typeof tree !== "undefined") ? tree : null, "tree", treeApplyInputErrors);
 if (!treeObject) {
   throw new Error("tree is required and must be a JSON object.");
 }
 
 var treeQName = asTrimmed(treeObject.qname);
-if (treeQName.length && treeQName !== targetInput) {
-  treeApplyWarnings.push("tree.qname differs from target; target is used as the apply root.");
+if (treeQName.length) {
+  var normalizedTargetQName = "";
+  var normalizedTreeQName = "";
+  try {
+    normalizedTargetQName = C8O.dbo.safeQName(C8O.dbo.resolve(targetInput, { optional: true })) || "";
+  } catch (_ignoreResolveTarget) {
+    normalizedTargetQName = "";
+  }
+  try {
+    normalizedTreeQName = C8O.dbo.safeQName(C8O.dbo.resolve(treeQName, { optional: true })) || "";
+  } catch (_ignoreResolveTree) {
+    normalizedTreeQName = "";
+  }
+  if (normalizedTargetQName.length && normalizedTreeQName.length) {
+    if (normalizedTargetQName !== normalizedTreeQName) {
+      treeApplyWarnings.push("tree.qname differs from target; target is used as the apply root.");
+    }
+  } else if (treeQName !== targetInput) {
+    treeApplyWarnings.push("tree.qname differs from target; target is used as the apply root.");
+  }
 }
 
-var op = {
-  type: "upsertTree",
-  opId: "tree_apply_root",
-  qname: targetInput,
-  patch: treeObject
-};
-var strategyInput = (typeof strategy !== "undefined") ? unwrapValue(strategy) : null;
-if (strategyInput !== null && strategyInput !== undefined) {
-  if (typeof strategyInput !== "string" || asTrimmed(strategyInput).length > 0) {
-    op.strategy = strategyInput;
+var op = null;
+if (atInput === "self") {
+  op = {
+    type: "upsertTree",
+    opId: "tree_apply_root",
+    qname: targetInput,
+    patch: treeObject,
+    strategy: modeInput
+  };
+} else {
+  var classNameInput = asTrimmed(treeObject.className);
+  var nameInput = asTrimmed(treeObject.name);
+  if (!classNameInput.length) {
+    throw new Error("tree.className is required when at is inside/before/after.");
+  }
+  if (!nameInput.length) {
+    throw new Error("tree.name is required when at is inside/before/after.");
+  }
+
+  var createOpId = asTrimmed(treeObject.id);
+  if (!createOpId.length) {
+    createOpId = "tree_apply_root_create";
+  }
+  op = {
+    type: "create",
+    opId: createOpId,
+    related: targetInput,
+    mode: atInput,
+    className: classNameInput,
+    name: nameInput
+  };
+
+  if (treeObject.properties !== undefined) {
+    op.properties = treeObject.properties;
+  }
+  if (Array.isArray(treeObject.children) && treeObject.children.length > 0) {
+    op.children = treeObject.children;
   }
 }
 
@@ -74,7 +125,6 @@ treeApplyResult = C8O.dbo.batchApply({
   strict: strictInput,
   autoSave: autoSaveInput,
   triggerMobileBuilder: triggerMobileBuilderInput,
-  strategy: strategy,
   resumeFrom: resumeFromInput,
   executionId: executionIdInput,
   dryRun: dryRunInput

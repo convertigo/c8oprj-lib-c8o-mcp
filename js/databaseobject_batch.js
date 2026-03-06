@@ -323,9 +323,20 @@ include("js/databaseobject_ops.js");
       return strategy;
     }
     if (typeof rawStrategy === "string") {
+      var strategyMode = asTrimmed(rawStrategy).toLowerCase();
+      if (strategyMode === "replace") {
+        strategy.pruneMissing = true;
+        return strategy;
+      }
+      if (strategyMode === "merge") {
+        strategy.pruneMissing = false;
+        return strategy;
+      }
       var parsed = parseJsonMaybe(rawStrategy, "strategy", null, "object");
       if (parsed) {
         rawStrategy = parsed;
+      } else {
+        return strategy;
       }
     }
     if (!isPlainObject(rawStrategy)) {
@@ -732,6 +743,33 @@ include("js/databaseobject_ops.js");
     }
 
     var propertyNames = Object.keys(updates || {});
+    if (!propertyNames.length) {
+      return { changed: false, names: [], updated: 0 };
+    }
+
+    var reservedKeys = {
+      name: true,
+      qname: true,
+      priority: true,
+      classname: true
+    };
+    var filteredUpdates = {};
+    for (var p = 0; p < propertyNames.length; p++) {
+      var rawName = propertyNames[p];
+      var normalized = C8O.dbo._normalizePropertyLookupKey ? C8O.dbo._normalizePropertyLookupKey(rawName) : String(rawName).toLowerCase();
+      if (reservedKeys[normalized]) {
+        if (normalized === "name") {
+          report.warnings.push(scopeName + ": property '" + rawName + "' ignored. Use databaseobject-rename.");
+        } else {
+          report.warnings.push(scopeName + ": reserved property '" + rawName + "' ignored.");
+        }
+        continue;
+      }
+      filteredUpdates[rawName] = updates[rawName];
+    }
+
+    updates = filteredUpdates;
+    propertyNames = Object.keys(updates || {});
     if (!propertyNames.length) {
       return { changed: false, names: [], updated: 0 };
     }
@@ -1309,10 +1347,22 @@ include("js/databaseobject_ops.js");
       saveResults = saveTouchedProjects(ctx, globalErrors);
     }
 
+    var globalWarnings = [];
+    for (var w = 0; w < opReports.length; w++) {
+      var warningReport = opReports[w];
+      if (!warningReport || !Array.isArray(warningReport.warnings) || warningReport.warnings.length === 0) {
+        continue;
+      }
+      var warningPrefix = warningReport.opId ? String(warningReport.opId) + ": " : "";
+      for (var wi = 0; wi < warningReport.warnings.length; wi++) {
+        globalWarnings.push(warningPrefix + String(warningReport.warnings[wi]));
+      }
+    }
+
     var status = "ok";
     if (stop) {
       status = "failed";
-    } else if (ctx.summary.failedOps > 0 || ctx.summary.partialOps > 0 || globalErrors.length > 0) {
+    } else if (ctx.summary.failedOps > 0 || ctx.summary.partialOps > 0 || globalErrors.length > 0 || globalWarnings.length > 0) {
       status = "partial";
     }
 
@@ -1358,6 +1408,7 @@ include("js/databaseobject_ops.js");
       touchedQNames: ctx.touchedQNames,
       refs: ctx.refs,
       operations: opReports,
+      warnings: globalWarnings,
       errors: globalErrors,
       stop: stop,
       resume: {

@@ -768,8 +768,7 @@ C8O.marketplace.buildSuggestions = function (entries, options) {
       projectUrl: C8O.marketplace._trim(entry.projectUrl),
       actionTool: "marketplace-import",
       actionArguments: {
-        project: projectName,
-        library: C8O.marketplace._trim(entry.name)
+        project: C8O.marketplace._trim(entry.name)
       }
     });
   }

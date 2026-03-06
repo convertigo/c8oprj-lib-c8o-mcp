@@ -354,9 +354,9 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
     hints.push(
       "Closest existing ancestor: " +
         ancestorLabel +
-        ". Call tools_databaseobject_children with qname \"" +
+        ". Call databaseobject-tree-get with target=\"" +
         ancestorQName +
-        "\" to enumerate its children."
+        "\", childrenDepth=1, properties=\"none\"."
     );
   }
   if (!hints.length) {
@@ -654,6 +654,40 @@ C8O.dbo._prepareDynamicPropertyValue = function (rawSpec, dynamicMeta) {
   return C8O.dbo._buildMobileSmartSourceType(effectiveSpec);
 };
 
+C8O.dbo._isNotSetSentinelValue = function (value) {
+  if (value === false || value === "false") {
+    return true;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  var modeToken = "";
+  if (value.mode !== undefined && value.mode !== null) {
+    modeToken = String(value.mode);
+  } else if (value.type !== undefined && value.type !== null) {
+    modeToken = String(value.type);
+  }
+  modeToken = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(modeToken).toLowerCase() : String(modeToken || "").toLowerCase();
+
+  var rawValue = null;
+  if (Object.prototype.hasOwnProperty.call(value, "value")) {
+    rawValue = value.value;
+  } else if (Object.prototype.hasOwnProperty.call(value, "smartValue")) {
+    rawValue = value.smartValue;
+  } else if (Object.prototype.hasOwnProperty.call(value, "expression")) {
+    rawValue = value.expression;
+  }
+
+  if (rawValue === false) {
+    return true;
+  }
+  if (typeof rawValue === "string" && rawValue.toLowerCase() === "false") {
+    return modeToken.length === 0 || modeToken === "plain";
+  }
+  return false;
+};
+
 C8O.dbo._isClass = function (className, value) {
   if (value === null || value === undefined) {
     return false;
@@ -734,6 +768,60 @@ C8O.dbo._isFormatedContentClass = function (propertyType) {
   }
 };
 
+C8O.dbo._isMobileSmartSourceTypeClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var mobileSmartSourceTypeClass = Packages.java.lang.Class.forName("com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType");
+    return mobileSmartSourceTypeClass.isAssignableFrom(propertyType);
+  } catch (_ignoreMobileSmartSourceType) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType";
+    } catch (_ignoreMobileSmartSourceTypeName) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._normalizeMobileSmartSourceType = function (mobileSmartValue) {
+  var normalized = {
+    mode: "PLAIN",
+    value: ""
+  };
+  if (mobileSmartValue === null || mobileSmartValue === undefined) {
+    return normalized;
+  }
+
+  try {
+    if (mobileSmartValue.getMode) {
+      var mode = mobileSmartValue.getMode();
+      if (mode !== null && mode !== undefined) {
+        if (mode.name) {
+          normalized.mode = String(mode.name());
+        } else {
+          normalized.mode = String(mode);
+        }
+      }
+    }
+  } catch (_ignoreMobileSmartMode) {}
+
+  try {
+    if (mobileSmartValue.getSmartValue) {
+      normalized.value = String(mobileSmartValue.getSmartValue());
+      return normalized;
+    }
+  } catch (_ignoreMobileSmartValue) {}
+
+  try {
+    normalized.value = String(mobileSmartValue);
+  } catch (_ignoreMobileSmartToString) {
+    normalized.value = "";
+  }
+  return normalized;
+};
+
 C8O.dbo._normalizeSmartType = function (smartType) {
   var result = {
     mode: String(smartType.getMode())
@@ -779,6 +867,12 @@ C8O.dbo.normalizeValue = function (pd, value) {
 
   var propertyType = pd != null ? pd.getPropertyType() : null;
   var typeName = propertyType != null ? propertyType.getName() : (value.getClass ? value.getClass().getName() : typeof value);
+
+  if (C8O.dbo._isMobileSmartSourceTypeClass(propertyType) ||
+      C8O.dbo._isClass("com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType", value) ||
+      (value != null && value.getClass && String(value.getClass().getName()) === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType")) {
+    return C8O.dbo._normalizeMobileSmartSourceType(value);
+  }
 
   if (C8O.dbo._isSmartTypeClass(propertyType) || C8O.dbo._isClass('com.twinsoft.convertigo.beans.steps.SmartType', value) || (value != null && value.getClass && String(value.getClass().getName()) === 'com.twinsoft.convertigo.beans.steps.SmartType')) {
     return C8O.dbo._normalizeSmartType(value);
@@ -2326,6 +2420,9 @@ C8O.dbo._getBooleanDescriptorFlag = function (descriptor, key) {
 };
 
 C8O.dbo._propertyKindFromType = function (propertyType) {
+  if (C8O.dbo._isMobileSmartSourceTypeClass(propertyType)) {
+    return "smartType";
+  }
   if (C8O.dbo._isSmartTypeClass(propertyType)) {
     return "smartType";
   }
@@ -2486,7 +2583,7 @@ C8O.dbo._buildDynamicPropertyHint = function (dynamicMeta, ionBean) {
     rawValue = null;
   }
   var normalizedValue = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawValue) : rawValue;
-  if (dynamicMeta.hasNotSetSentinel === true && (normalizedValue === false || normalizedValue === "false")) {
+  if (dynamicMeta.hasNotSetSentinel === true && C8O.dbo._isNotSetSentinelValue(normalizedValue)) {
     normalizedValue = null;
   }
   return {
@@ -2587,4 +2684,318 @@ C8O.dbo.countVisibleProperties = function (dbo) {
     }
   }
   return count;
+};
+
+C8O.dbo.safeQName = function (dbo) {
+  return C8O.dbo._safeQName ? C8O.dbo._safeQName(dbo) : "";
+};
+
+C8O.dbo.safeName = function (dbo) {
+  if (!dbo) {
+    return "";
+  }
+  try {
+    if (dbo.getName) {
+      return String(dbo.getName());
+    }
+  } catch (_ignoreName) {}
+  return "";
+};
+
+C8O.dbo.safePriority = function (dbo) {
+  if (!dbo) {
+    return "";
+  }
+  try {
+    if (dbo.priority !== undefined && dbo.priority !== null) {
+      return String(dbo.priority);
+    }
+  } catch (_ignorePriority) {}
+  return "";
+};
+
+C8O.dbo.getDirectChildren = function (parentDbo) {
+  var result = [];
+  if (!parentDbo || !parentDbo.getDatabaseObjectChildren) {
+    return result;
+  }
+  var list = null;
+  try {
+    list = parentDbo.getDatabaseObjectChildren();
+  } catch (_ignoreChildrenList) {
+    list = null;
+  }
+  if (!list) {
+    return result;
+  }
+  for (var i = 0; i < list.size(); i++) {
+    var child = list.get(i);
+    if (!child) {
+      continue;
+    }
+    try {
+      if (child.getParent() !== parentDbo) {
+        continue;
+      }
+    } catch (_ignoreParentCheck) {}
+    result.push(child);
+  }
+  return result;
+};
+
+C8O.dbo.logicalClassNameForDbo = function (dbo) {
+  if (!dbo || !dbo.getClass) {
+    return "";
+  }
+  var runtimeClass = "";
+  try {
+    runtimeClass = String(dbo.getClass().getName());
+  } catch (_ignoreClass) {
+    runtimeClass = "";
+  }
+  if (!runtimeClass.length) {
+    return "";
+  }
+
+  var shortName = C8O.util.fromFqcn ? C8O.util.fromFqcn(runtimeClass) : runtimeClass;
+  if (!C8O.dbo._isNgxClassFqcn || C8O.dbo._isNgxClassFqcn(runtimeClass) !== true) {
+    return shortName;
+  }
+
+  var logicalId = "";
+  try {
+    if (C8O.dbo.getNgxComponentLogicalId) {
+      logicalId = String(C8O.dbo.getNgxComponentLogicalId(null, dbo) || "");
+    }
+  } catch (_ignoreLogicalId) {
+    logicalId = "";
+  }
+  if (!logicalId.length) {
+    var simpleName = runtimeClass;
+    var lastDot = runtimeClass.lastIndexOf(".");
+    if (lastDot >= 0 && lastDot + 1 < runtimeClass.length) {
+      simpleName = runtimeClass.substring(lastDot + 1);
+    }
+    logicalId = simpleName;
+  }
+
+  if (C8O.dbo.buildLogicalClassName) {
+    return C8O.dbo.buildLogicalClassName(shortName, logicalId);
+  }
+  return shortName + "#" + logicalId;
+};
+
+C8O.dbo._stablePropertyValue = function (value) {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+  var kind = typeof value;
+  if (kind === "string") {
+    return "s:" + value;
+  }
+  if (kind === "number") {
+    return "n:" + String(value);
+  }
+  if (kind === "boolean") {
+    return "b:" + String(value);
+  }
+  try {
+    return "j:" + JSON.stringify(value);
+  } catch (_ignoreStringify) {
+    return "x:" + String(value);
+  }
+};
+
+C8O.dbo.valuesEqual = function (left, right) {
+  if (left === right) {
+    return true;
+  }
+  return C8O.dbo._stablePropertyValue(left) === C8O.dbo._stablePropertyValue(right);
+};
+
+C8O.dbo.getDefaultPropertiesMap = function (dbo, options) {
+  var includeReadOnly = options && options.includeReadOnly === true;
+  var reservedKeys = { name: true, qname: true, priority: true, classname: true };
+  var map = {};
+  if (!dbo) {
+    return map;
+  }
+  var hints = [];
+  try {
+    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
+    var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
+    hints = C8O.dbo.describeBeanProperties ? C8O.dbo.describeBeanProperties(beanInfo) : [];
+  } catch (_ignoreCachedIntrospector) {
+    try {
+      var Introspector = Packages.java.beans.Introspector;
+      var fallbackInfo = Introspector.getBeanInfo(dbo.getClass());
+      hints = C8O.dbo.describeBeanProperties ? C8O.dbo.describeBeanProperties(fallbackInfo) : [];
+    } catch (_ignoreIntrospector) {
+      hints = [];
+    }
+  }
+
+  var dynamicContext = C8O.dbo._getDynamicPropertyContext ? C8O.dbo._getDynamicPropertyContext(dbo) : null;
+  for (var i = 0; i < hints.length; i++) {
+    var hint = hints[i];
+    if (!hint || !hint.name) {
+      continue;
+    }
+    if (hint.hidden === true) {
+      continue;
+    }
+    var normalizedName = C8O.dbo._normalizePropertyLookupKey ? C8O.dbo._normalizePropertyLookupKey(hint.name) : String(hint.name).toLowerCase();
+    if (reservedKeys[normalizedName]) {
+      continue;
+    }
+    if (dynamicContext && normalizedName === "beandata") {
+      continue;
+    }
+    if (!includeReadOnly && hint.readOnly === true) {
+      continue;
+    }
+    map[String(hint.name)] = hint.defaultValue;
+  }
+  return map;
+};
+
+C8O.dbo.getCurrentPropertiesMap = function (dbo, options) {
+  var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
+  var includeReadOnly = options && options.includeReadOnly === true;
+  var reservedKeys = { name: true, qname: true, priority: true, classname: true };
+  var map = {};
+  if (!dbo) {
+    return map;
+  }
+
+  var descriptorMap = C8O.dbo._getDescriptorMap ? C8O.dbo._getDescriptorMap(dbo) : {};
+  var dynamicContext = C8O.dbo._getDynamicPropertyContext ? C8O.dbo._getDynamicPropertyContext(dbo) : null;
+  var consumedDynamic = {};
+
+  var descriptorNames = Object.keys(descriptorMap || {});
+  descriptorNames.sort();
+  for (var i = 0; i < descriptorNames.length; i++) {
+    var descriptorName = descriptorNames[i];
+    if (!descriptorName || descriptorName === "class") {
+      continue;
+    }
+
+    var pd = descriptorMap[descriptorName];
+    if (!pd) {
+      continue;
+    }
+    var getter = pd.getReadMethod ? pd.getReadMethod() : null;
+    if (!getter) {
+      continue;
+    }
+    var setter = pd.getWriteMethod ? pd.getWriteMethod() : null;
+    var readOnly = setter == null;
+    if (readOnly && !includeReadOnly) {
+      continue;
+    }
+
+    var normalizedName = C8O.dbo._normalizePropertyLookupKey ? C8O.dbo._normalizePropertyLookupKey(descriptorName) : String(descriptorName).toLowerCase();
+    if (reservedKeys[normalizedName]) {
+      continue;
+    }
+    if (dynamicContext && normalizedName === "beandata") {
+      continue;
+    }
+
+    if (dynamicContext && dynamicContext.byLookup && normalizedName.length) {
+      var resolvedName = dynamicContext.byLookup[normalizedName];
+      if (resolvedName && dynamicContext.byName && dynamicContext.byName[resolvedName]) {
+        var dynamicMeta = dynamicContext.byName[resolvedName];
+        var rawDynamic = null;
+        try {
+          rawDynamic = dynamicContext.ionBean.getPropertyValue(dynamicMeta.name);
+          if (rawDynamic instanceof NativeJavaObject) {
+            rawDynamic = rawDynamic.unwrap();
+          }
+        } catch (_ignoreDynamicRead) {
+          rawDynamic = null;
+        }
+        var normalizedDynamic = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawDynamic) : rawDynamic;
+        if (dynamicMeta.hasNotSetSentinel === true && C8O.dbo._isNotSetSentinelValue(normalizedDynamic)) {
+          normalizedDynamic = null;
+        }
+        map[String(dynamicMeta.name)] = normalizedDynamic;
+        consumedDynamic[String(dynamicMeta.name)] = true;
+        continue;
+      }
+    }
+
+    var rawValue = null;
+    try {
+      rawValue = getter.invoke(dbo, null);
+      if (rawValue instanceof NativeJavaObject) {
+        rawValue = rawValue.unwrap();
+      }
+    } catch (_ignoreReadValue) {
+      rawValue = null;
+    }
+    map[String(descriptorName)] = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(pd, rawValue) : rawValue;
+  }
+
+  if (dynamicContext && dynamicContext.byName) {
+    var dynamicNames = Object.keys(dynamicContext.byName);
+    dynamicNames.sort();
+    for (var j = 0; j < dynamicNames.length; j++) {
+      var dynamicName = dynamicNames[j];
+      if (!dynamicName || consumedDynamic[dynamicName]) {
+        continue;
+      }
+      var dynamicMetaExtra = dynamicContext.byName[dynamicName];
+      if (!dynamicMetaExtra) {
+        continue;
+      }
+      var rawDynamicExtra = null;
+      try {
+        rawDynamicExtra = dynamicContext.ionBean.getPropertyValue(dynamicMetaExtra.name);
+        if (rawDynamicExtra instanceof NativeJavaObject) {
+          rawDynamicExtra = rawDynamicExtra.unwrap();
+        }
+      } catch (_ignoreDynamicExtraRead) {
+        rawDynamicExtra = null;
+      }
+      var normalizedExtra = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawDynamicExtra) : rawDynamicExtra;
+      if (dynamicMetaExtra.hasNotSetSentinel === true && C8O.dbo._isNotSetSentinelValue(normalizedExtra)) {
+        normalizedExtra = null;
+      }
+      map[String(dynamicMetaExtra.name)] = normalizedExtra;
+    }
+  }
+
+  return map;
+};
+
+C8O.dbo.getCanonicalPropertiesMap = function (dbo, propertyMode, options) {
+  var mode = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(propertyMode || "changed").toLowerCase() : String(propertyMode || "changed").toLowerCase();
+  if (mode !== "none" && mode !== "all" && mode !== "changed") {
+    mode = "changed";
+  }
+  if (mode === "none") {
+    return {};
+  }
+
+  var current = C8O.dbo.getCurrentPropertiesMap(dbo, options);
+  if (mode === "all") {
+    return current;
+  }
+
+  var defaults = C8O.dbo.getDefaultPropertiesMap(dbo, options);
+  var changed = {};
+  var names = Object.keys(current || {});
+  names.sort();
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i];
+    if (!Object.prototype.hasOwnProperty.call(defaults, name)) {
+      changed[name] = current[name];
+      continue;
+    }
+    if (!C8O.dbo.valuesEqual(current[name], defaults[name])) {
+      changed[name] = current[name];
+    }
+  }
+  return changed;
 };

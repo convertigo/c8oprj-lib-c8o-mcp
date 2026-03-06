@@ -362,11 +362,12 @@ comment: Apply a canonical object tree patch to a target QName using the batch u
           - ↑mode: JS
           - →→: 'treeApplyResult && treeApplyResult.touchedQNames ? JSON.stringify(treeApplyResult.touchedQNames) : "[]"'
 ↓target [variables.RequestableVariable-1772628058546]: 
-  comment: Target QName where the tree patch is applied.
+  comment: Target QName (existing node).
 ↓tree [variables.RequestableVariable-1772628058674]: 
-  comment: Canonical tree object (same shape as databaseobject-tree-get output node).
-↓patch [variables.RequestableVariable-1772628058781]: 
-  comment: Alias of tree for compatibility.
+  comment: Canonical tree payload (name/className/properties/children).
+↓at [variables.RequestableVariable-1772628058781]: 
+  comment: 'Apply position: self, inside, before, after.'
+  value: self
 ↓onError [variables.RequestableVariable-1772628058934]: 
   comment: 'Error mode: stop (default) or continue.'
   value: stop
@@ -386,10 +387,9 @@ comment: Apply a canonical object tree patch to a target QName using the batch u
   comment: Optional zero-based operation index to resume execution from.
 ↓executionId [variables.RequestableVariable-1772628059463]: 
   comment: Optional execution identifier returned in resume metadata.
-↓strategy [variables.RequestableVariable-1772628059582]: 
-  comment: 'Optional upsert strategy: replaceOnClassMismatch, pruneMissing, reorder.'
+↓mode [variables.RequestableVariable-1772628059582]: 
+  comment: 'Apply mode: merge or replace.'
+  value: merge
 ↓dryRun [variables.RequestableVariable-1772628059686]: 
   comment: Optional preview mode. When true, no mutation is applied.
   value: false
-↓payload [variables.RequestableVariable-1772628455239]: 
-  comment: Preferred tree patch payload (JSON object). Alias of patch/tree.

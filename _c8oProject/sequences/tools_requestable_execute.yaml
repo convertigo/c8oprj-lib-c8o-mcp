@@ -29,22 +29,10 @@ accessibility: Private
     if (!targetName || !targetName.length) {
         throw new Error(''requestable name is missing'');
     }
-    var variablesObject = {};
-    if (C8O.util.isPlainObject && C8O.util.isPlainObject(variables)) {
-        variablesObject = variables;
-    } else {
-        var variablesText = C8O.util.toTrimmedString(variables);
-        if (variablesText.length) {
-            try {
-                variablesObject = JSON.parse(variablesText);
-                if (variablesObject == null || typeof variablesObject !== ''object'' || Array.isArray(variablesObject)) {
-                    throw new Error();
-                }
-            } catch (parseError) {
-                throw new Error(''variables must be a JSON object: '' + parseError);
-            }
-        }
-    }
+    var variablesObject = C8O.util.parseObjectInput(variables, {
+        label: ''variables'',
+        allowEmpty: true
+    });
     var recordSchemaFlag = false;
     try {
         recordSchemaFlag = C8O.util.toBoolean ? C8O.util.toBoolean(recordSchema, false) : (String(recordSchema || '''').toLowerCase() === ''true'');

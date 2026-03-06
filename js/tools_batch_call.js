@@ -324,11 +324,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       return false;
     }
     return (
-      sequenceName === "tools_databaseobject_create" ||
       sequenceName === "tools_databaseobject_delete" ||
       sequenceName === "tools_databaseobject_move" ||
       sequenceName === "tools_databaseobject_rename" ||
-      sequenceName === "tools_databaseobject_properties_set" ||
       sequenceName === "tools_databaseobject_tree_apply"
     );
   }
@@ -342,11 +340,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     // Defer persistence/refresh to a single post-batch finalization.
     optimized.autoSave = false;
     optimized.triggerMobileBuilder = false;
-    if (sequenceName === "tools_databaseobject_create" ||
-        sequenceName === "tools_databaseobject_delete" ||
+    if (sequenceName === "tools_databaseobject_delete" ||
         sequenceName === "tools_databaseobject_move" ||
         sequenceName === "tools_databaseobject_rename" ||
-        sequenceName === "tools_databaseobject_properties_set" ||
         sequenceName === "tools_databaseobject_tree_apply") {
       optimized.refresh = false;
     }

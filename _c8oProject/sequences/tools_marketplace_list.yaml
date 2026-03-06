@@ -1,53 +1,28 @@
 accessibility: Private
-comment: Lists marketplace libraries and highlights workspace/reference status for a target project.
+comment: Lists marketplace projects with search/topics and cursor pagination.
 ↓IncludeHelpers [steps.SimpleStep-1764301001000]: 
   comment: Load shared marketplace helpers
   expression: |
     include("js/databaseobject.js");
     include("js/marketplace.js");
 ↓Init [steps.SimpleStep-1764301001001]: 
-  comment: Query marketplace and compute project-aware suggestions
+  comment: Query marketplace with simplified filters
   expression: |
-    'var requestedProjectName = C8O.marketplace._trim(project);
-    var targetProjectName = requestedProjectName;
-    var targetProject = null;
-    marketplaceListWarnings = [];
-    marketplaceListProjectFound = false;
-    if (requestedProjectName.length) {
-      targetProject = C8O.marketplace.resolveProject(requestedProjectName);
-      if (targetProject == null) {
-        marketplaceListWarnings.push("Target project not found: " + requestedProjectName + ". Returning global marketplace list without project-aware suggestions.");
-        targetProjectName = "";
-      } else {
-        targetProjectName = String(targetProject.getName());
-        marketplaceListProjectFound = true;
-      }
-    }
-    
+    'marketplaceListWarnings = [];
     var listResult = C8O.marketplace.list({
-      endpoint: endpoint,
-      query: q,
-      topic: topic,
+      search: search,
       topics: topics,
-      sort: sort,
       limit: limit,
       cursor: _nextCursor,
-      includeRaw: includeRaw,
-      maxPages: maxPages,
-      defaultLibraryTopic: defaultLibraryTopic
+      maxPages: maxPages
     });
-    
-    var entries = C8O.marketplace.annotateEntries(listResult.entries, { targetProject: targetProject });
-    var suggestionCount = C8O.marketplace._toInt(suggestionLimit, 6, 1, 30);
-    var suggestions = targetProject != null ?
-      C8O.marketplace.buildSuggestions(entries, { limit: suggestionCount, projectName: targetProjectName }) :
-      [];
-    
-    marketplaceListProjectRequested = requestedProjectName;
-    marketplaceListProject = targetProjectName;
-    marketplaceListQuery = listResult.query;
+    var entries = C8O.marketplace.annotateEntries(listResult.entries, {});
+    marketplaceListProjectRequested = "";
+    marketplaceListProject = "";
+    marketplaceListProjectFound = false;
+    marketplaceListQuery = listResult.search || "";
     marketplaceListTopics = listResult.topics || [];
-    marketplaceListSort = listResult.sort;
+    marketplaceListSort = "";
     marketplaceListTotal = listResult.totalCount;
     marketplaceListReturned = entries.length;
     marketplaceListLimit = listResult.limit;
@@ -57,7 +32,7 @@ comment: Lists marketplace libraries and highlights workspace/reference status f
     marketplaceListEndpoint = listResult.endpoint;
     marketplaceListPages = listResult.pagesFetched || [];
     marketplaceListEntries = entries;
-    marketplaceListSuggestions = suggestions;
+    marketplaceListSuggestions = [];
     marketplaceListTimestamp = java.lang.System.currentTimeMillis();'
 ↓result [steps.JsonObjectStep-1764301001002]: 
   key: 
@@ -966,32 +941,15 @@ comment: Lists marketplace libraries and highlights workspace/reference status f
           - SmartType: 
             - ↑mode: JS
             - →→: marketplaceListNextCursor
-↓project [variables.RequestableVariable-1764301001055]: 
-  comment: Optional target project technical name to compute recommendation status.
-↓q [variables.RequestableVariable-1764301001056]: 
-  comment: Optional marketplace search text.
-↓topic [variables.RequestableVariable-1764301001057]: 
-  comment: 'Optional single marketplace topic (example: library, front-end).'
 ↓topics [variables.RequestableVariable-1764301001058]: 
-  comment: Optional topics list as JSON array string or comma-separated values.
-↓sort [variables.RequestableVariable-1764301001059]: 
-  comment: Optional marketplace sort value forwarded to marketplace filters.
+  comment: Optional topic filters as a string, comma-separated string, or JSON array string.
 ↓limit [variables.RequestableVariable-1764301001060]: 
-  comment: Maximum number of items returned per call (1-200, default 20).
+  comment: Maximum number of entries returned per call (1-200, default 20).
   value: 20
-↓suggestionLimit [variables.RequestableVariable-1764301001061]: 
-  comment: Maximum number of suggestions returned when project is provided (1-30, default 6).
-  value: 6
-↓endpoint [variables.RequestableVariable-1764301001062]: 
-  comment: Optional marketplace endpoint override (defaults to https://marketplace.convertigo.com/.json).
-↓includeRaw [variables.RequestableVariable-1764301001063]: 
-  comment: Optional boolean to include raw marketplace entries (default false).
-  value: false
-↓defaultLibraryTopic [variables.RequestableVariable-1764301001064]: 
-  comment: Optional boolean. True keeps the default "library" topic filter when no topic is provided.
-  value: true
 ↓maxPages [variables.RequestableVariable-1764301001065]: 
-  comment: Maximum marketplace pages fetched server-side for one call (default 20).
+  comment: Maximum pages fetched server-side for one call (default 20).
   value: 20
 ↓_nextCursor [variables.RequestableVariable-1764301001066]: 
   comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+↓search [variables.RequestableVariable-1772794060147]: 
+  comment: Marketplace search text.
