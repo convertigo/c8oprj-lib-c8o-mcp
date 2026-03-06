@@ -3,6 +3,6 @@
     "name": "convertigo-quickstart",
     "file": "convertigo_quickstart.md",
     "title": "Convertigo MCP Quickstart",
-    "description": "Prompt stored in convertigo_quickstart.md"
+    "description": "Tree-first MCP workflow for Convertigo: inspect, plan, apply, validate, save."
   }
 ]

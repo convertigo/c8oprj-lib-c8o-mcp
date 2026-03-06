@@ -1,52 +1,40 @@
 # Convertigo MCP Quickstart
 
-Before sending MCP calls, read the exposed resources via `resources/list` (especially `convertigo_mcp_usage`, `convertigo_sequence_quickstart`, `convertigo_ui_building_quickstart`, and `convertigo_context_api`). They explain the safe patterns the engine enforces.
+Start every session with `resources/list`, then read:
+- `convertigo://resources/convertigo-mcp-usage`
+- `convertigo://resources/convertigo-sequence-quickstart`
+- `convertigo://resources/convertigo-ui-building-quickstart`
+- `convertigo://resources/convertigo-context-api`
 
-## What is Convertigo?
-- Low-code / full-code platform built around *projects*. Each project contains **sequences** (workflow logic) and **database objects** (connectors, transactions, steps, UI components).
-- Everything is stored in YAML files (`tools_<category>_<action>.yaml`) plus shared JS helpers under `js/`.
+## Core model
+- Convertigo work is tree-based.
+- Inspect with `databaseobject-tree-get`.
+- Mutate with `databaseobject-tree-apply`.
+- Orchestrate multiple operations with `batch-call`.
+- Validate runtime behavior with `requestable-execute`.
 
-## Core concepts
-- **Sequence**: executable unit composed of steps (SimpleStep, JsonFieldStep, IfStep, etc.). Each object has a `QName` like `Project.sq:sequence.st:Step`.
-- **Steps** share a Rhino scope, so large scripts should be split into multiple SimpleStep blocks or externalized via `include("js/...")`.
-- **DatabaseObject helpers**: use the existing MCP tools (`databaseobject-*`, `palette-list`, `palette-describe`, `project-save`) instead of editing YAML manually.
-- **Test early**: as soon as the skeleton exists, run `tools/call convertigo.requestable-execute {"requestable":"Project.sequence","variables":"{...}"}` to validate before touching curl.
+## Mandatory workflow
+1. Read tree and palette first.
+2. Build a complete mutation plan.
+3. Execute writes via MCP only (no direct YAML edits).
+4. Validate quickly (`requestable-execute`, optional `includeLogs`).
+5. Save (`project-save`).
 
-## MCP tooling workflow
-1. `tools/list` -> discover available tools (pagination via `limit` + `_meta.nextCursor`).
-2. `tools/call` with the `name` returned above and a JSON `arguments` object. Most tools accept `limit`, `filter`, `_meta.nextCursor`, and `autoSave`.
-3. Responses include `structuredContent` (ready-to-use JSON) and often `result.query` + `result.nextCursor` for pagination.
-4. Always honor `autoSave` flags (default `true`). Use `project-save` / `project-reload` tools to persist or discard changes intentionally.
-
-## Coding guidelines
-- Prefer calling MCP tools to create/mutate objects (`databaseobject-create`, `databaseobject-properties-set`, etc.). Do **not** edit YAML directly in production.
-- When you need scripts, put shared logic into `js/*.js` and `include()` them; avoid multi-hundred-line Rhino blocks.
-- When adding new tools, follow the naming convention `tools_<category>_<action>` -> MCP name `category-action`.
-- For paginated outputs, echo `result.query.*` and `result.nextCursor` so clients can keep iterating.
-
-## Useful tools
+## Primary tools
 | Tool | Purpose |
 |------|---------|
-| `project-list` | List projects + metadata. `limit` and `_meta.nextCursor` supported. |
-| `databaseobject-children` | Browse the tree starting from a `qname`. |
-| `databaseobject-properties-get` | Inspect properties (smart types, values, schema info). |
-| `databaseobject-properties-set` | Update properties (handles SmartType, XMLizable). |
-| `palette-list` | Discover creatable steps/components for a parent (each entry embeds a `describe` block pointing to `palette-describe`). |
-| `palette-describe` | Fetch the detailed template/property hints for a palette entry selected from `palette-list`. |
-| `project-js-get` / `project-js-set` | Manage helper JS files used via `include()`. |
-| `project-save` / `project-reload` | Persist or reload a project. |
-| `requestable-execute` | Run a sequence/transaction internally and inspect its response without HTTP. |
-| `databaseobject-search` | Full-text/regex search across YAML definitions. |
+| `project-list` | Discover workspace projects. |
+| `databaseobject-tree-get` | Read canonical subtrees (`childrenDepth`, `properties`). |
+| `databaseobject-tree-apply` | Create/update canonical trees (`at`, `mode`, `tree`). |
+| `batch-call` | Execute multiple MCP calls with resume/error control. |
+| `palette-list` / `palette-describe` | Discover and describe valid creatable objects. |
+| `requestable-execute` | Execute sequence/transaction and inspect payload/logs. |
+| `project-save` / `project-reload` | Persist or discard runtime changes. |
+| `log-view` | Query LogManager with structured filters. |
 
-## Best practices
-- Start every session with `resources/list` + `resources/read` for the guides above; add a short recap in your reasoning.
-- For large UI tasks, follow the "Fast Execution Mode" from `convertigo_ui_building_quickstart`: plan first, batch logical writes with `autoSave=false`, then one final save + verification.
-- For page builds, compute the full mutation plan in one planning round, execute by DAG levels with maximum safe parallel batching, and retry failures from a residual queue only.
-- QNames are case-sensitive: run `project-list`, then `databaseobject-children` on `<project>` (no `.sq`) to copy the exact casing before create/mutate.
-- Create/modify via `palette-list` -> `palette-describe` -> `databaseobject-create`/`databaseobject-properties-set`; consult `propertyHints[].llmHint` or `databaseobject-properties-get includeHints=true` before posting SmartType/XMLVector values.
-- For UI composition, do not use `ngx.components.UICustom` (Fragment) unless no palette-native solution exists; Fragment is last resort only.
-- Prefer `requestable-execute` for tests; use curl only if explicitly requested and reachable.
-- Keep Rhino code small and reusable (`js/*.js` + `include()`); never add custom fields to `context`.
-- End each run with a short MCP critique (confusing responses, missing tools, UX gaps).
-
-You can now explore `tools/list`, `palette-list`, and `databaseobject-*` to inspect or modify the current Convertigo project.
+## Practical rules
+- QNames are case-sensitive.
+- Reuse `tree-get` output structure as input to `tree-apply` whenever possible.
+- Prefer `mode=merge`; use `mode=replace` only when subtree pruning is intended.
+- For large changes, use `batch-call` with default `optimizeMutations=true`.
+- Keep final output concise and include one MCP critique item if tooling friction appears.

@@ -3,7 +3,7 @@
     "uri": "convertigo://resources/convertigo-overview",
     "name": "Convertigo MCP Overview",
     "title": "Convertigo MCP Project Overview",
-    "description": "High-level structure and conventions for the Convertigo MCP project.",
+    "description": "High-level structure and canonical MCP tool surface for ConvertigoMCP.",
     "mimeType": "text/markdown",
     "file": "convertigo_overview.md"
   },
@@ -11,7 +11,7 @@
     "uri": "convertigo://resources/convertigo-mcp-usage",
     "name": "Convertigo MCP Usage Guide",
     "title": "Convertigo MCP Usage Guide",
-    "description": "How to call our MCP endpoint, preferred tools, and test the REST sequences.",
+    "description": "Tree-first MCP workflow: inspect, plan, apply, validate, save.",
     "mimeType": "text/markdown",
     "file": "convertigo_mcp_usage.md"
   },
@@ -19,7 +19,7 @@
     "uri": "convertigo://resources/convertigo-context-api",
     "name": "Convertigo Context API (minimal)",
     "title": "Convertigo Context (JS API guardrails)",
-    "description": "Summarizes safe ways to read the engine context and reminds that arbitrary fields such as context.wordsData are forbidden.",
+    "description": "Safe context usage in Rhino scripts and forbidden patterns.",
     "mimeType": "text/markdown",
     "file": "convertigo_context_api.md"
   },
@@ -27,7 +27,7 @@
     "uri": "convertigo://resources/convertigo-sequence-quickstart",
     "name": "Convertigo Sequence Quickstart",
     "title": "Convertigo Sequence Quickstart",
-    "description": "Step-by-step workflow: palette-list → palette-describe → create → properties-set → save → curl test.",
+    "description": "Build sequences with tree-get/tree-apply, palette templates, and requestable validation.",
     "mimeType": "text/markdown",
     "file": "convertigo_sequence_quickstart.md"
   },
@@ -35,7 +35,7 @@
     "uri": "convertigo://resources/convertigo-json-quickref",
     "name": "Convertigo JSON Steps Quickref",
     "title": "Convertigo JSON Steps Quickref",
-    "description": "Cheat sheet for JsonObject/JsonArray/iterator steps, priority ordering, and SmartType sourcing.",
+    "description": "Compact reference for JsonObject/JsonArray/iterator steps and SmartType sourcing.",
     "mimeType": "text/markdown",
     "file": "convertigo_json_quickref.md"
   },
@@ -43,7 +43,7 @@
     "uri": "convertigo://resources/convertigo-transaction-quickstart",
     "name": "Convertigo Transaction Quickstart",
     "title": "Convertigo Transaction Quickstart",
-    "description": "Quickstart for HTTP connectors/transactions: URL/subPath, httpInfo, early validation via requestable-execute.",
+    "description": "Configure and validate HTTP transactions with tree-first MCP workflow.",
     "mimeType": "text/markdown",
     "file": "convertigo_transaction_quickstart.md"
   },
@@ -51,7 +51,7 @@
     "uri": "convertigo://resources/convertigo-ui-building-quickstart",
     "name": "Convertigo UI Building Quickstart",
     "title": "Convertigo UI Building Quickstart (CRUD + Rich Pages)",
-    "description": "UI implementation guardrails for CRUD pages, non-entity pages, global styling, pagination, and idempotent MCP-only updates.",
+    "description": "NGX UI delivery playbook with palette discovery, tree mutations, batching, and validation.",
     "mimeType": "text/markdown",
     "file": "convertigo_ui_building_quickstart.md"
   }
