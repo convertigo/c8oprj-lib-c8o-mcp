@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Read a database object tree from an existing target node.
+comment: |
+  Read a canonical database object tree
+  Returns a canonical subtree rooted at an existing QName. Tune depth, property mode, and limit to keep responses small; use the cursor to continue long traversals.
 ↓IncludeHelpers [steps.SimpleStep-1772627667774]: 
   comment: Load shared helpers.
   expression: include("js/databaseobject.js");
@@ -215,15 +217,20 @@ comment: Read a database object tree from an existing target node.
             - ↑mode: PLAIN
             - →→: forest
 ↓target [variables.RequestableVariable-1772627661816]: 
-  comment: Target QName (must exist).
+  comment: Existing QName. Case-sensitive.
+  description: Existing QName. Case-sensitive.
 ↓properties [variables.RequestableVariable-1772627661953]: 
-  comment: 'Property mode: none, changed (vs defaults), or all.'
+  comment: 'Allowed values: none, changed, all. changed keeps only properties that differ from defaults.'
+  description: 'Allowed values: none, changed, all. changed keeps only properties that differ from defaults.'
   value: changed
 ↓limit [variables.RequestableVariable-1772627662171]: 
-  comment: Maximum number of nodes returned per call.
+  comment: Maximum nodes returned per call. 1 to 5000; default 200.
+  description: Maximum nodes returned per call. 1 to 5000; default 200.
   value: 200
 ↓childrenDepth [variables.RequestableVariable-1772627662271]: 
-  comment: How many descendant levels to include (0 = target only).
+  comment: Descendant levels to include. 0 returns only the target; default 1; max 20.
+  description: Descendant levels to include. 0 returns only the target; default 1; max 20.
   value: 1
 ↓_nextCursor [variables.RequestableVariable-1772627662380]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.

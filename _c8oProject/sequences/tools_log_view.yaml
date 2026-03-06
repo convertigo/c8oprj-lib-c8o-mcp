@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Reads engine/studio logs through LogManager with filters and pagination.
+comment: |
+  Read engine or Studio logs
+  Queries LogManager with text, level, category, requestable, and date filters. Keep limits modest; use raw filter only when the simpler fields are not enough.
 ↓IncludeHelpers [steps.SimpleStep-1772719401000]: 
   comment: Load log-view helper.
   expression: include("js/tools_log_view.js");
@@ -52,41 +54,59 @@ comment: Reads engine/studio logs through LogManager with filters and pagination
             - ↑mode: JS
             - →→: logViewNextCursor
 ↓filter [variables.RequestableVariable-1772719401006]: 
-  comment: Optional raw LogManager JavaScript filter expression.
+  comment: Raw LogManager filter expression. Use only when the simpler filters are not enough.
+  description: Raw LogManager filter expression. Use only when the simpler filters are not enough.
 ↓text [variables.RequestableVariable-1772719401007]: 
-  comment: Full-text filter applied to message/extra fields.
+  comment: Full-text filter applied to message and extra fields.
+  description: Full-text filter applied to message and extra fields.
 ↓q [variables.RequestableVariable-1772722301005]: 
-  comment: Alias of text for short full-text filtering.
+  comment: Alias of text.
+  description: Alias of text.
 ↓level [variables.RequestableVariable-1772719401008]: 
-  comment: Log level filter (for example info, warn, error).
+  comment: Log level such as trace, debug, info, warn, error, or fatal.
+  description: Log level such as trace, debug, info, warn, error, or fatal.
 ↓category [variables.RequestableVariable-1772719401009]: 
-  comment: Log category filter.
+  comment: Log category name.
+  description: Log category name.
 ↓project [variables.RequestableVariable-1772719401010]: 
-  comment: Project filter (uses MDC project and message fallback).
+  comment: Project technical name.
+  description: Project technical name.
 ↓requestable [variables.RequestableVariable-1772719401011]: 
-  comment: Requestable/sequence filter.
+  comment: Sequence or transaction name.
+  description: Sequence or transaction name.
 ↓connector [variables.RequestableVariable-1772719401012]: 
-  comment: Connector filter.
+  comment: Connector name.
+  description: Connector name.
 ↓transaction [variables.RequestableVariable-1772719401013]: 
-  comment: Transaction filter.
+  comment: Transaction name.
+  description: Transaction name.
 ↓thread [variables.RequestableVariable-1772719401014]: 
-  comment: Thread filter.
+  comment: Java thread name.
+  description: Java thread name.
 ↓startDate [variables.RequestableVariable-1772719401015]: 
-  comment: Optional start date (epoch millis or ISO date).
+  comment: Epoch millis or ISO date. Inclusive lower bound.
+  description: Epoch millis or ISO date. Inclusive lower bound.
 ↓endDate [variables.RequestableVariable-1772719401016]: 
-  comment: Optional end date (epoch millis or ISO date).
+  comment: Epoch millis or ISO date. Inclusive upper bound.
+  description: Epoch millis or ISO date. Inclusive upper bound.
 ↓since [variables.RequestableVariable-1772722301006]: 
   comment: Alias of startDate.
+  description: Alias of startDate.
 ↓until [variables.RequestableVariable-1772722301007]: 
   comment: Alias of endDate.
+  description: Alias of endDate.
 ↓limit [variables.RequestableVariable-1772719401017]: 
-  comment: Number of lines to return (1-500).
+  comment: Maximum log lines returned. 1 to 500; default 100.
+  description: Maximum log lines returned. 1 to 500; default 100.
   value: 100
 ↓timeoutMs [variables.RequestableVariable-1772719401018]: 
-  comment: LogManager read timeout in milliseconds.
+  comment: Max wait time per fetch cycle in milliseconds. 0 disables waiting.
+  description: Max wait time per fetch cycle in milliseconds. 0 disables waiting.
   value: 200
 ↓fetchSize [variables.RequestableVariable-1772719401019]: 
-  comment: Internal chunk size per LogManager read call.
+  comment: Internal LogManager page size per fetch cycle. Increase only for large scans.
+  description: Internal LogManager page size per fetch cycle. Increase only for large scans.
   value: 200
 ↓_nextCursor [variables.RequestableVariable-1772719401020]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.

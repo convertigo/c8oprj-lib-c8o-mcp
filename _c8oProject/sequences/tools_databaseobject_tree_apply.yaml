@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Create or update a database object tree relative to an existing target node.
+comment: |
+  Patch a canonical database object tree
+  Creates or updates canonical tree nodes relative to an existing target. Prefer merge for incremental edits; use replace only when missing children should be pruned in the patched scope.
 ↓IncludeHelpers [steps.SimpleStep-1772628069902]: 
   comment: Load shared helpers.
   expression: |
@@ -68,6 +70,62 @@ comment: Create or update a database object tree relative to an existing target 
         - SmartType: 
           - ↑mode: JS
           - →→: 'treeApplyResult && treeApplyResult.onError ? treeApplyResult.onError : "stop"'
+  ↓strict [steps.JsonFieldStep-1772811601001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: strict
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeApplyResult && treeApplyResult.strict === true
+  ↓dryRun [steps.JsonFieldStep-1772811601002]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: dryRun
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeApplyResult && treeApplyResult.dryRun === true
+  ↓autoSave [steps.JsonFieldStep-1772811601003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: autoSave
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeApplyResult && treeApplyResult.autoSave === true
+  ↓triggerMobileBuilder [steps.JsonFieldStep-1772811601004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: triggerMobileBuilder
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeApplyResult && treeApplyResult.triggerMobileBuilder === true
   ↓saved [steps.JsonFieldStep-1772628098493]: 
     key: 
       - xmlizable: 
@@ -110,286 +168,195 @@ comment: Create or update a database object tree relative to an existing target 
         - SmartType: 
           - ↑mode: JS
           - →→: 'treeApplyResult && treeApplyResult.timestamp != null ? treeApplyResult.timestamp : java.lang.System.currentTimeMillis()'
-  ↓refreshQName [steps.JsonFieldStep-1772628098870]: 
+  ↓summary [steps.JsonToXmlStep-1772811601005]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'treeApplyResult && treeApplyResult.summary ? treeApplyResult.summary : {}'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: refreshQName
-    value: 
+          - →→: summary
+  ↓warnings [steps.JsonToXmlStep-1772811601006]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: treeApplyRefreshQName || ""
-  ↓studioRefreshed [steps.JsonFieldStep-1772628098976]: 
+          - →→: 'treeApplyResult && treeApplyResult.warnings ? treeApplyResult.warnings : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: studioRefreshed
-    type: bool
-    value: 
+          - →→: warnings
+  ↓IfStop [steps.IfStep-1772811601007]: 
+    condition: treeApplyStop != null
+    ↓stop [steps.JsonToXmlStep-1772811601008]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: treeApplyStop
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: stop
+  ↓IfNoStop [steps.IfStep-1772811601009]: 
+    condition: treeApplyStop == null
+    ↓stop [steps.JsonFieldStep-1772811601010]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: stop
+      type: nul
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: null
+  ↓resume [steps.JsonToXmlStep-1772811601011]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'treeApplyStudioRefresh ? treeApplyStudioRefresh.refreshed === true : false'
-  ↓studioRefreshMessage [steps.JsonFieldStep-1772628099068]: 
+          - →→: treeApplyResume
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: studioRefreshMessage
-    value: 
+          - →→: resume
+  ↓failedOpIds [steps.JsonToXmlStep-1772811601012]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'treeApplyStudioRefresh ? (treeApplyStudioRefresh.message || "") : ""'
-  ↓stopOpIndex [steps.JsonFieldStep-1772628116568]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopOpIndex
-    type: number
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyStop && treeApplyStop.opIndex != null ? treeApplyStop.opIndex : -1'
-  ↓stopOpId [steps.JsonFieldStep-1772628116789]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopOpId
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyStop && treeApplyStop.opId ? treeApplyStop.opId : ""'
-  ↓stopCode [steps.JsonFieldStep-1772628117132]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopCode
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyStop && treeApplyStop.code ? treeApplyStop.code : ""'
-  ↓resumeFromOpIndex [steps.JsonFieldStep-1772628117245]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: resumeFromOpIndex
-    type: number
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResume && treeApplyResume.fromOpIndex != null ? treeApplyResume.fromOpIndex : 0'
-  ↓stopMessage [steps.JsonFieldStep-1772628117346]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopMessage
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyStop && treeApplyStop.message ? treeApplyStop.message : ""'
-  ↓resumeCanResume [steps.JsonFieldStep-1772628117446]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: resumeCanResume
-    type: bool
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResume ? treeApplyResume.canResume === true : false'
-  ↓failedOpIds [steps.JsonFieldStep-1772628117549]: 
+          - →→: 'treeApplyResume && treeApplyResume.failedOpIds ? treeApplyResume.failedOpIds : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
           - →→: failedOpIds
-    value: 
+  ↓operations [steps.JsonToXmlStep-1772811601013]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: treeApplyFailedOpIdsJson
-  ↓warningsJson [steps.JsonFieldStep-1772628117654]: 
+          - →→: 'treeApplyResult && treeApplyResult.operations ? treeApplyResult.operations : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: warningsJson
-    value: 
+          - →→: operations
+  ↓errors [steps.JsonToXmlStep-1772811601014]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: treeApplyWarningsJson
-  ↓summaryJson [steps.JsonFieldStep-1772628117762]: 
+          - →→: 'treeApplyResult && treeApplyResult.errors ? treeApplyResult.errors : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: summaryJson
-    value: 
+          - →→: errors
+  ↓saveResults [steps.JsonToXmlStep-1772811601015]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.summary ? JSON.stringify(treeApplyResult.summary) : "{}"'
-  ↓reportJson [steps.JsonFieldStep-1772628117860]: 
+          - →→: 'treeApplyResult && treeApplyResult.saveResults ? treeApplyResult.saveResults : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: reportJson
-    value: 
+          - →→: saveResults
+  ↓mobileBuilder [steps.JsonToXmlStep-1772811601016]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: treeApplyReportJson
-  ↓refsJson [steps.JsonFieldStep-1772628134985]: 
+          - →→: 'treeApplyResult && treeApplyResult.mobileBuilder ? treeApplyResult.mobileBuilder : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: refsJson
-    value: 
+          - →→: mobileBuilder
+  ↓touchedQNames [steps.JsonToXmlStep-1772811601017]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.refs ? JSON.stringify(treeApplyResult.refs) : "{}"'
-  ↓operationsJson [steps.JsonFieldStep-1772628135517]: 
+          - →→: 'treeApplyResult && treeApplyResult.touchedQNames ? treeApplyResult.touchedQNames : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: operationsJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.operations ? JSON.stringify(treeApplyResult.operations) : "[]"'
-  ↓errorsJson [steps.JsonFieldStep-1772628135632]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: errorsJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.errors ? JSON.stringify(treeApplyResult.errors) : "[]"'
-  ↓saveResultsJson [steps.JsonFieldStep-1772628135741]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: saveResultsJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.saveResults ? JSON.stringify(treeApplyResult.saveResults) : "[]"'
-  ↓mobileBuilderJson [steps.JsonFieldStep-1772628135828]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: mobileBuilderJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.mobileBuilder ? JSON.stringify(treeApplyResult.mobileBuilder) : "[]"'
-  ↓touchedQNamesJson [steps.JsonFieldStep-1772628135938]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: touchedQNamesJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'treeApplyResult && treeApplyResult.touchedQNames ? JSON.stringify(treeApplyResult.touchedQNames) : "[]"'
+          - →→: touchedQNames
 ↓target [variables.RequestableVariable-1772628058546]: 
-  comment: 'Reference QName (must exist): patched when at=self, anchor for inside/before/after.'
+  comment: Existing QName. Case-sensitive. Patched when at=self; used as the anchor when at=inside, before, or after.
+  description: Existing QName. Case-sensitive. Patched when at=self; used as the anchor when at=inside, before, or after.
 ↓tree [variables.RequestableVariable-1772628058674]: 
-  comment: Canonical node payload (same structure returned by tree-get).
+  comment: 'Canonical node payload from the tree-get shape: name, className, properties, and optional children.'
+  description: 'Canonical node payload from the tree-get shape: name, className, properties, and optional children.'
 ↓at [variables.RequestableVariable-1772628058781]: 
-  comment: 'Apply position relative to target: self, inside, before, after.'
+  comment: 'Allowed values: self, inside, before, after. self patches the target; the others place the input tree relative to it.'
+  description: 'Allowed values: self, inside, before, after. self patches the target; the others place the input tree relative to it.'
   value: self
 ↓onError [variables.RequestableVariable-1772628058934]: 
-  comment: 'Error mode: stop (default) or continue.'
+  comment: 'Allowed values: stop or continue. continue keeps later operations running and reports failures.'
+  description: 'Allowed values: stop or continue. continue keeps later operations running and reports failures.'
   value: stop
 ↓strict [variables.RequestableVariable-1772628059044]: 
-  comment: When true, forces stop-on-error behavior.
+  comment: Set true to force stop-on-error behavior even if onError=continue.
+  description: Set true to force stop-on-error behavior even if onError=continue.
   value: false
 ↓autoSave [variables.RequestableVariable-1772628059143]: 
-  comment: When true (default), touched projects are saved.
+  comment: Default true. Saves touched projects after the mutation batch.
+  description: Default true. Saves touched projects after the mutation batch.
   value: true
 ↓refresh [variables.RequestableVariable-1772628059244]: 
-  comment: When true, refresh Studio tree using computed common ancestor.
+  comment: Default true. Refreshes the Studio tree from the computed common ancestor.
+  description: Default true. Refreshes the Studio tree from the computed common ancestor.
   value: true
 ↓triggerMobileBuilder [variables.RequestableVariable-1772721701002]: 
-  comment: Trigger mobile builder refresh after mutation (default true).
+  comment: Default true. Triggers mobile-builder refresh after mobile-impacting mutations.
+  description: Default true. Triggers mobile-builder refresh after mobile-impacting mutations.
   value: true
 ↓resumeFrom [variables.RequestableVariable-1772628059349]: 
-  comment: Optional zero-based operation index to resume execution from.
+  comment: Zero-based operation index to resume from after a partial run.
+  description: Zero-based operation index to resume from after a partial run.
 ↓executionId [variables.RequestableVariable-1772628059463]: 
-  comment: Optional execution identifier returned in resume metadata.
+  comment: Opaque execution id returned by a previous apply report.
+  description: Opaque execution id returned by a previous apply report.
 ↓mode [variables.RequestableVariable-1772628059582]: 
-  comment: 'Apply mode: merge (upsert) or replace (upsert + prune missing children).'
+  comment: 'Allowed values: merge or replace. replace also removes children missing from the patched scope.'
+  description: 'Allowed values: merge or replace. replace also removes children missing from the patched scope.'
   value: merge
 ↓dryRun [variables.RequestableVariable-1772628059686]: 
-  comment: Optional preview mode. When true, no mutation is applied.
+  comment: Set true to compute the report without mutating the project.
+  description: Set true to compute the report without mutating the project.
   value: false

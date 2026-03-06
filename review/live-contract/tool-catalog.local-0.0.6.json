@@ -1,0 +1,2191 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-03-06T10:54:26Z",
+  "serverVersion": "0.0.6",
+  "source": "tools/list",
+  "query": {
+    "startIndex": 0,
+    "limit": 0,
+    "returned": 21,
+    "total": 21,
+    "cursorInput": "",
+    "hasMore": false
+  },
+  "tools": [
+    {
+      "name": "batch-call",
+      "category": "batch",
+      "title": "Execute multiple MCP tool calls in one internal batch with stop/continue behavior and resume metadata.",
+      "description": "Execute multiple MCP tool calls in one internal batch with stop/continue behavior and resume metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "calls": {
+            "type": "array",
+            "description": "Ordered list of tool calls to execute.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Optional identifier for cross-call $ref substitutions."
+                },
+                "tool": {
+                  "type": "string",
+                  "description": "MCP tool name (for example: project-list, databaseobject-tree-get)."
+                },
+                "arguments": {
+                  "type": "object",
+                  "description": "Arguments passed to the target tool.",
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "tool"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "onError": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "continue"
+            ],
+            "default": "stop"
+          },
+          "resumeFrom": {
+            "type": "string",
+            "description": "Zero-based index to resume from."
+          },
+          "executionId": {
+            "type": "string",
+            "description": "Optional execution identifier returned in resume metadata."
+          },
+          "optimizeMutations": {
+            "type": "boolean",
+            "description": "When true (default), mutation tool calls are executed with deferred refresh/save/build finalization.",
+            "default": true
+          }
+        },
+        "required": [
+          "calls"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "targetQName": {
+            "type": "string"
+          },
+          "onError": {
+            "type": "string"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "refreshQName": {
+            "type": "string"
+          },
+          "studioRefreshed": {
+            "type": "boolean"
+          },
+          "studioRefreshMessage": {
+            "type": "string"
+          },
+          "stopOpIndex": {
+            "type": "number"
+          },
+          "stopOpId": {
+            "type": "string"
+          },
+          "stopCode": {
+            "type": "string"
+          },
+          "stopMessage": {
+            "type": "string"
+          },
+          "resumeFromOpIndex": {
+            "type": "number"
+          },
+          "resumeCanResume": {
+            "type": "boolean"
+          },
+          "failedOpIds": {
+            "type": "string"
+          },
+          "summaryJson": {
+            "type": "string"
+          },
+          "reportJson": {
+            "type": "string"
+          },
+          "refsJson": {
+            "type": "string"
+          },
+          "operationsJson": {
+            "type": "string"
+          },
+          "errorsJson": {
+            "type": "string"
+          },
+          "saveResultsJson": {
+            "type": "string"
+          },
+          "mobileBuilderJson": {
+            "type": "string"
+          },
+          "touchedQNamesJson": {
+            "type": "string"
+          },
+          "mutationFinalizeJson": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "onError"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "summaryJson",
+          "reportJson",
+          "refsJson",
+          "operationsJson",
+          "errorsJson",
+          "saveResultsJson",
+          "mobileBuilderJson",
+          "touchedQNamesJson",
+          "mutationFinalizeJson"
+        ]
+      }
+    },
+    {
+      "name": "databaseobject-delete",
+      "category": "databaseobject",
+      "title": "Removes a database object from the project tree.",
+      "description": "Removes a database object from the project tree.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "autoSave": {
+            "type": "string"
+          },
+          "refresh": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "parentQName": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "removed": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "saveMessage": {
+            "type": "string"
+          },
+          "autoSave": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "removed": {
+                "type": "number"
+              },
+              "saved": {
+                "type": "boolean"
+              },
+              "autoSave": {
+                "type": "boolean"
+              },
+              "errors": {
+                "type": "number"
+              }
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "qname",
+          "autoSave",
+          "refresh"
+        ],
+        "stringFlagsWithoutEnums": [
+          "autoSave",
+          "refresh"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "databaseobject-move",
+      "category": "databaseobject",
+      "title": "Moves or reorders a database object within the project tree.",
+      "description": "Moves or reorders a database object within the project tree.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "autoSave": {
+            "type": "string"
+          },
+          "refresh": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "fromParent": {
+            "type": "string"
+          },
+          "toParent": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "moved": {
+            "type": "boolean"
+          },
+          "reordered": {
+            "type": "boolean"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "saveMessage": {
+            "type": "string"
+          },
+          "autoSave": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "moved": {
+                "type": "number"
+              },
+              "saved": {
+                "type": "boolean"
+              },
+              "autoSave": {
+                "type": "boolean"
+              },
+              "reordered": {
+                "type": "number"
+              },
+              "errors": {
+                "type": "number"
+              }
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "qname",
+          "target",
+          "position",
+          "autoSave",
+          "refresh"
+        ],
+        "stringFlagsWithoutEnums": [
+          "autoSave",
+          "refresh"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "databaseobject-rename",
+      "category": "databaseobject",
+      "title": "Renames a database object and optionally refactors references.",
+      "description": "Renames a database object and optionally refactors references.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "update": {
+            "type": "string"
+          },
+          "autoSave": {
+            "type": "string"
+          },
+          "refresh": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "newQName": {
+            "type": "string"
+          },
+          "oldName": {
+            "type": "string"
+          },
+          "newName": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "parentQName": {
+            "type": "string"
+          },
+          "updateMode": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "renamed": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "saveMessage": {
+            "type": "string"
+          },
+          "autoSave": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "renamed": {
+                "type": "number"
+              },
+              "saved": {
+                "type": "boolean"
+              },
+              "autoSave": {
+                "type": "boolean"
+              },
+              "errors": {
+                "type": "number"
+              }
+            }
+          },
+          "updatedIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "qname",
+          "name",
+          "update",
+          "autoSave",
+          "refresh"
+        ],
+        "stringFlagsWithoutEnums": [
+          "update",
+          "autoSave",
+          "refresh"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "databaseobject-schema",
+      "category": "databaseobject",
+      "title": "Returns schema/sample for a database object (qname). Supports type=xml|json|jsonschema and internal=true to get request schemas. Omits empty fields.",
+      "description": "Returns schema/sample for a database object (qname). Supports type=xml|json|jsonschema and internal=true to get request schemas. Omits empty fields.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "internal": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "dbo": {
+            "type": "object",
+            "properties": {
+              "qname": {
+                "type": "string"
+              },
+              "className": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string"
+              }
+            }
+          },
+          "type": {
+            "type": "string"
+          },
+          "response": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "qname",
+          "type",
+          "internal"
+        ],
+        "stringFlagsWithoutEnums": [
+          "internal"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "databaseobject-search",
+      "category": "databaseobject",
+      "title": "Search database objects (name/comment/QName).",
+      "description": "Search database objects (name/comment/QName).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string"
+          },
+          "matchCase": {
+            "type": "string"
+          },
+          "useRegExp": {
+            "type": "string"
+          },
+          "objectType": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "scanned": {
+            "type": "number"
+          },
+          "returned": {
+            "type": "number"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "qname": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "className": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string"
+                },
+                "context": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "qname",
+          "filter",
+          "limit",
+          "matchCase",
+          "useRegExp",
+          "objectType"
+        ],
+        "stringFlagsWithoutEnums": [
+          "limit",
+          "matchCase",
+          "useRegExp"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "databaseobject-tree-apply",
+      "category": "databaseobject",
+      "title": "Apply a canonical object tree patch to a target QName using the batch upsert engine.",
+      "description": "Apply a canonical object tree patch to a target QName using the batch upsert engine.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Target QName to patch."
+          },
+          "at": {
+            "type": "string",
+            "enum": [
+              "self",
+              "inside",
+              "before",
+              "after"
+            ],
+            "default": "self"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "merge",
+              "replace"
+            ],
+            "default": "merge"
+          },
+          "tree": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "target",
+          "tree"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "targetQName": {
+            "type": "string"
+          },
+          "onError": {
+            "type": "string"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "refreshQName": {
+            "type": "string"
+          },
+          "studioRefreshed": {
+            "type": "boolean"
+          },
+          "studioRefreshMessage": {
+            "type": "string"
+          },
+          "stopOpIndex": {
+            "type": "number"
+          },
+          "stopOpId": {
+            "type": "string"
+          },
+          "stopCode": {
+            "type": "string"
+          },
+          "resumeFromOpIndex": {
+            "type": "number"
+          },
+          "stopMessage": {
+            "type": "string"
+          },
+          "resumeCanResume": {
+            "type": "boolean"
+          },
+          "failedOpIds": {
+            "type": "string"
+          },
+          "warningsJson": {
+            "type": "string"
+          },
+          "summaryJson": {
+            "type": "string"
+          },
+          "reportJson": {
+            "type": "string"
+          },
+          "refsJson": {
+            "type": "string"
+          },
+          "operationsJson": {
+            "type": "string"
+          },
+          "errorsJson": {
+            "type": "string"
+          },
+          "saveResultsJson": {
+            "type": "string"
+          },
+          "mobileBuilderJson": {
+            "type": "string"
+          },
+          "touchedQNamesJson": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "at",
+          "mode",
+          "tree"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "warningsJson",
+          "summaryJson",
+          "reportJson",
+          "refsJson",
+          "operationsJson",
+          "errorsJson",
+          "saveResultsJson",
+          "mobileBuilderJson",
+          "touchedQNamesJson"
+        ]
+      }
+    },
+    {
+      "name": "databaseobject-tree-get",
+      "category": "databaseobject",
+      "title": "Return a canonical database object tree compatible with upsertTree format.",
+      "description": "Return a canonical database object tree compatible with upsertTree format.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Target QName (existing node)."
+          },
+          "childrenDepth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "default": 1
+          },
+          "properties": {
+            "type": "string",
+            "enum": [
+              "none",
+              "changed",
+              "all"
+            ],
+            "default": "changed"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "default": 200
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "rootQName": {
+            "type": "string"
+          },
+          "view": {
+            "type": "string"
+          },
+          "startOffset": {
+            "type": "number"
+          },
+          "returnedNodes": {
+            "type": "number"
+          },
+          "scannedNodes": {
+            "type": "number"
+          },
+          "maxDepth": {
+            "type": "number"
+          },
+          "maxNodes": {
+            "type": "number"
+          },
+          "rootCount": {
+            "type": "number"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "totalNodes": {
+            "type": "number"
+          },
+          "nextCursor": {
+            "type": "string"
+          },
+          "Tree": {
+            "type": "string"
+          },
+          "Forest": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "childrenDepth",
+          "properties",
+          "limit"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "Tree",
+          "Forest"
+        ]
+      }
+    },
+    {
+      "name": "log-view",
+      "category": "log",
+      "title": "Reads engine/studio logs through LogManager with filters and pagination.",
+      "description": "Reads engine/studio logs through LogManager with filters and pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "description": "Optional raw LogManager filter expression."
+          },
+          "text": {
+            "type": "string",
+            "description": "Full-text filter."
+          },
+          "q": {
+            "type": "string",
+            "description": "Alias of text."
+          },
+          "level": {
+            "type": "string",
+            "description": "Log level filter."
+          },
+          "category": {
+            "type": "string",
+            "description": "Category filter."
+          },
+          "project": {
+            "type": "string",
+            "description": "Project filter."
+          },
+          "requestable": {
+            "type": "string",
+            "description": "Requestable/sequence filter."
+          },
+          "connector": {
+            "type": "string",
+            "description": "Connector filter."
+          },
+          "transaction": {
+            "type": "string",
+            "description": "Transaction filter."
+          },
+          "thread": {
+            "type": "string",
+            "description": "Thread filter."
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Epoch millis or ISO date."
+          },
+          "endDate": {
+            "type": "string",
+            "description": "Epoch millis or ISO date."
+          },
+          "since": {
+            "type": "string",
+            "description": "Alias of startDate."
+          },
+          "until": {
+            "type": "string",
+            "description": "Alias of endDate."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 200
+          },
+          "fetchSize": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 1000,
+            "default": 200
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "limit",
+          "timeoutMs",
+          "fetchSize"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "lines",
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "marketplace-import",
+      "category": "marketplace",
+      "title": "Imports a marketplace project into workspace and optionally renames starters.",
+      "description": "Imports a marketplace project into workspace and optionally renames starters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "Marketplace project name to import."
+          },
+          "importedProjectName": {
+            "type": "string",
+            "description": "Optional new name for imported workspace project. Required for starters."
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "library": {
+            "type": "string"
+          },
+          "technicalName": {
+            "type": "string"
+          },
+          "cloneUrl": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "projectUrl": {
+            "type": "string"
+          },
+          "loadedBefore": {
+            "type": "boolean"
+          },
+          "loadedAfter": {
+            "type": "boolean"
+          },
+          "imported": {
+            "type": "boolean"
+          },
+          "importStatus": {
+            "type": "string"
+          },
+          "importMessage": {
+            "type": "string"
+          },
+          "addReference": {
+            "type": "boolean"
+          },
+          "referenceAlready": {
+            "type": "boolean"
+          },
+          "referenceAdded": {
+            "type": "boolean"
+          },
+          "referenceUpdated": {
+            "type": "boolean"
+          },
+          "referenceName": {
+            "type": "string"
+          },
+          "referenceProjectUrl": {
+            "type": "string"
+          },
+          "saveRequested": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "saveMessage": {
+            "type": "string"
+          },
+          "refresh": {
+            "type": "boolean"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "marketplace-list",
+      "category": "marketplace",
+      "title": "Lists marketplace projects with search/topics and cursor pagination.",
+      "description": "Lists marketplace projects with search/topics and cursor pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string",
+            "description": "Marketplace search text."
+          },
+          "topics": {
+            "description": "Optional topic filters.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          },
+          "maxPages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "projectRequested": {
+            "type": "string"
+          },
+          "projectFound": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sort": {
+            "type": "string"
+          },
+          "startIndex": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "returned": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "number"
+                },
+                "returned": {
+                  "type": "number"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "end": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "technicalName": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "stars": {
+                  "type": "number"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "pushedAt": {
+                  "type": "string"
+                },
+                "cloneUrl": {
+                  "type": "string"
+                },
+                "htmlUrl": {
+                  "type": "string"
+                },
+                "defaultBranch": {
+                  "type": "string"
+                },
+                "projectUrl": {
+                  "type": "string"
+                },
+                "workspaceLoaded": {
+                  "type": "boolean"
+                },
+                "referencedByProject": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "sharedComponentCount": {
+                  "type": "number"
+                },
+                "sharedActionCount": {
+                  "type": "number"
+                },
+                "sharedComponents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "qname": {
+                        "type": "string"
+                      },
+                      "fullQName": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "priority": {
+                        "type": "number"
+                      },
+                      "selector": {
+                        "type": "string"
+                      },
+                      "sharedModule": {
+                        "type": "string"
+                      },
+                      "variableCount": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                "sharedActions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "qname": {
+                        "type": "string"
+                      },
+                      "fullQName": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "priority": {
+                        "type": "number"
+                      },
+                      "variableCount": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                "topics": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "technicalName": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "cloneUrl": {
+                  "type": "string"
+                },
+                "defaultBranch": {
+                  "type": "string"
+                },
+                "projectUrl": {
+                  "type": "string"
+                },
+                "actionTool": {
+                  "type": "string"
+                },
+                "actionProject": {
+                  "type": "string"
+                },
+                "actionLibrary": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "limit",
+          "maxPages"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "mobile-builder-open",
+      "category": "mobile",
+      "title": "Launch NGX mobile builder in Studio and return the detected Node listening URL.",
+      "description": "Launch NGX mobile builder in Studio and return the detected Node listening URL.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "Target NGX project name."
+          },
+          "timeoutSec": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 600,
+            "default": 90
+          },
+          "logsLimit": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200,
+            "default": 40
+          },
+          "forceRestart": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, always restart the builder even if a live instance is already running."
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "string"
+              },
+              "context": {
+                "type": "object",
+                "properties": {
+                  "variable": {
+                    "type": "object",
+                    "properties": {}
+                  }
+                }
+              },
+              "exception": {
+                "type": "string"
+              },
+              "stacktrace": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "timeoutSec",
+          "logsLimit"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "result",
+          "error"
+        ]
+      }
+    },
+    {
+      "name": "palette-describe",
+      "category": "palette",
+      "title": "Describes palette entries (properties, creation hints).",
+      "description": "Describes palette entries (properties, creation hints).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "className": {
+            "type": "string"
+          },
+          "verbose": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "type": "object",
+            "properties": {
+              "className": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "shortDescription": {
+                "type": "string"
+              },
+              "longDescription": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "nameSuggestion": {
+                "type": "string"
+              }
+            }
+          },
+          "template": {
+            "type": "object",
+            "properties": {
+              "related": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string"
+              },
+              "className": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "properties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "propertyHints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "defaultValue": {
+                  "type": "string"
+                },
+                "scriptable": {
+                  "type": "boolean"
+                },
+                "multiline": {
+                  "type": "boolean"
+                },
+                "nillable": {
+                  "type": "boolean"
+                },
+                "llmHint": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "className",
+          "verbose"
+        ],
+        "stringFlagsWithoutEnums": [
+          "verbose"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "palette-list",
+      "category": "palette",
+      "title": "Lists creatable palette entries for a target parent, including NGX dynamic components using Studio-compatible rules.",
+      "description": "Lists creatable palette entries for a target parent, including NGX dynamic components using Studio-compatible rules.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "includeBuiltIn": {
+            "type": "string"
+          },
+          "includeShared": {
+            "type": "string"
+          },
+          "filter": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "className": {
+                        "type": "string"
+                      },
+                      "shortDescription": {
+                        "type": "string"
+                      },
+                      "nameSuggestion": {
+                        "type": "string"
+                      },
+                      "propertyCount": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "number"
+          },
+          "returned": {
+            "type": "number"
+          },
+          "parentQName": {
+            "type": "string"
+          },
+          "hints": {
+            "type": "object",
+            "properties": {
+              "describe": {
+                "type": "string"
+              }
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "target",
+          "includeBuiltIn",
+          "includeShared",
+          "filter",
+          "limit"
+        ],
+        "stringFlagsWithoutEnums": [
+          "includeBuiltIn",
+          "includeShared",
+          "limit"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "project-js-get",
+      "category": "project",
+      "title": "Project JS Get",
+      "description": "Read a helper script from the project's js directory",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "directoryExists": {
+            "type": "boolean"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": false,
+        "vagueTitle": true,
+        "undocumentedInputProperties": [
+          "filename"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "project-js-set",
+      "category": "project",
+      "title": "Project JS Set",
+      "description": "Write or replace a helper script in the project's js directory",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "created": {
+            "type": "boolean"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": false,
+        "vagueTitle": true,
+        "undocumentedInputProperties": [
+          "filename",
+          "content"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "project-list",
+      "category": "project",
+      "title": "Lists installed Convertigo projects with metadata for MCP admin tooling.",
+      "description": "Lists installed Convertigo projects with metadata for MCP admin tooling.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "exported": {
+                  "type": "string"
+                },
+                "deployDate": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "filter",
+          "limit"
+        ],
+        "stringFlagsWithoutEnums": [
+          "limit"
+        ],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "project-reload",
+      "category": "project",
+      "title": "Reload a Convertigo project from disk (discard unsaved runtime state).",
+      "description": "Reload a Convertigo project from disk (discard unsaved runtime state).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "reloaded": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "project"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "project-save",
+      "category": "project",
+      "title": "Save a Convertigo project to disk (engine export).",
+      "description": "Save a Convertigo project to disk (engine export).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "provided": {
+            "type": "string"
+          },
+          "saved": {
+            "type": "boolean"
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "project"
+        ],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": []
+      }
+    },
+    {
+      "name": "rag-query",
+      "category": "rag",
+      "title": "Query Convertigo knowledge base",
+      "description": "Use when you are unsure how to use Convertigo (features, setup, APIs, best practices, or troubleshooting).\nQueries the Convertigo RAG/guides and returns practical guidance. Typical response time: 30-60 seconds.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "history": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "stream": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          },
+          "referencesArray": {
+            "type": "string"
+          },
+          "httpStatus": {
+            "type": "number"
+          },
+          "latencyMs": {
+            "type": "number"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "warning": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": false,
+        "vagueTitle": false,
+        "undocumentedInputProperties": [
+          "question",
+          "history",
+          "prompt",
+          "stream"
+        ],
+        "stringFlagsWithoutEnums": [
+          "stream"
+        ],
+        "opaqueOutputProperties": [
+          "referencesArray"
+        ]
+      }
+    },
+    {
+      "name": "requestable-execute",
+      "category": "requestable",
+      "title": "Execute",
+      "description": "Execute",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "requestable": {
+            "type": "string",
+            "description": "Target requestable formatted as <project>[.<connector>].<requestable>."
+          },
+          "variables": {
+            "description": "Request variables JSON object. Can be passed as a JSON string or object.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ],
+            "default": "{}"
+          },
+          "recordSchema": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true on transactions, records response schema to disk (writeSchemaToFile)."
+          },
+          "includeLogs": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, appends execution logs captured during the requestable call."
+          }
+        },
+        "required": [
+          "requestable"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {}
+          },
+          "error": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "logs": {
+            "type": "string"
+          }
+        }
+      },
+      "claritySignals": {
+        "titleEqualsDescription": true,
+        "vagueTitle": true,
+        "undocumentedInputProperties": [],
+        "stringFlagsWithoutEnums": [],
+        "opaqueOutputProperties": [
+          "result",
+          "error"
+        ]
+      }
+    }
+  ]
+}

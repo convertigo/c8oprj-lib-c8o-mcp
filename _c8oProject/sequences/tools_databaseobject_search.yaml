@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Search database objects (name/comment/QName).
+comment: |
+  Search database objects
+  Searches names, comments, and QNames under one root or across all projects. Supports cursor pagination and optional regex matching.
 ↓IncludeHelpers [steps.SimpleStep-1762941123244]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -184,21 +186,28 @@ comment: Search database objects (name/comment/QName).
             - ↑mode: JS
             - →→: nextCursorToken
 ↓qname [variables.RequestableVariable-1762941528442]: 
-  comment: 'Optional root database object QName (default: all projects).'
+  comment: Optional root QName. Omit to search across all loaded projects.
+  description: Optional root QName. Omit to search across all loaded projects.
 ↓filter [variables.RequestableVariable-1762941538776]: 
-  comment: Optional case-insensitive filter (space-separated tokens).
+  comment: Search text. Space-separated terms are combined; pair with useRegExp=true for a regex.
+  description: Search text. Space-separated terms are combined; pair with useRegExp=true for a regex.
 ↓limit [variables.RequestableVariable-1762941551633]: 
-  comment: Maximum number of matches to return (1-1000, default 200).
+  comment: Maximum matches returned per call. 1 to 1000; default 200.
+  description: Maximum matches returned per call. 1 to 1000; default 200.
   value: 200
 ↓matchCase [variables.RequestableVariable-1762942190944]: 
-  comment: Set to true for case-sensitive search.
+  comment: Set true for case-sensitive matching.
+  description: Set true for case-sensitive matching.
 ↓useRegExp [variables.RequestableVariable-1762942198688]: 
-  comment: Set to true to interpret the search string as a regular expression.
+  comment: Set true to treat filter as a Java regular expression.
+  description: Set true to treat filter as a Java regular expression.
 ↓objectType [variables.RequestableVariable-1762942208132]: 
-  comment: Optional database object type filter (use * for any type).
+  comment: Optional object type filter. Use * or omit for any type.
+  description: Optional object type filter. Use * or omit for any type.
   value: '*'
 ↓_nextCursor [variables.RequestableVariable-1762957543690]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.
 ↓ByPriority [core.TestCase-1763465053816]: 
   ↓qname [variables.TestCaseVariable-1763465054743]: 
     value: ConvertigoMCP

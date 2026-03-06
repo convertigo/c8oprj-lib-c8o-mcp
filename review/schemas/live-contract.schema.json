@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/review/live-contract.schema.json",
+  "title": "Live Contract Snapshot",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "capturedAt",
+    "serverUrl",
+    "protocolVersion",
+    "serverInfo",
+    "counts",
+    "resources",
+    "prompts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "serverUrl": {
+      "type": "string"
+    },
+    "protocolVersion": {
+      "type": "string"
+    },
+    "sourceOfTruthOrder": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "serverInfo": {
+      "type": "object",
+      "required": ["name", "title", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "initialize": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "counts": {
+      "type": "object",
+      "required": ["tools", "resources", "prompts"],
+      "properties": {
+        "tools": { "type": "integer" },
+        "resources": { "type": "integer" },
+        "prompts": { "type": "integer" }
+      }
+    },
+    "consistencyCheck": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "resources": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "prompts": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      }
+    },
+    "toolNames": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uri", "name", "title", "description", "mimeType"],
+        "properties": {
+          "uri": { "type": "string" },
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "mimeType": { "type": "string" }
+        }
+      }
+    },
+    "prompts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "title", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "file": { "type": "string" }
+        }
+      }
+    },
+    "builtInResources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uri", "mimeType", "text"],
+        "properties": {
+          "uri": { "type": "string" },
+          "mimeType": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

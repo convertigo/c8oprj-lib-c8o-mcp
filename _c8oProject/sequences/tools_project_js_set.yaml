@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
-  Project JS Set
-  Write or replace a helper script in the project's js directory
+  Write a project helper script
+  Creates or replaces one file under the project's js/ directory. Send the complete file content; partial patches are not supported.
 ↓InitContext [steps.SimpleStep-1762350567267]: 
   comment: Validate input and persist file content
   expression: |
@@ -169,6 +169,8 @@ comment: |
           - ↑mode: JS
           - →→: fileContent
 ↓filename [variables.RequestableVariable-1762350567289]: 
-  comment: File path relative to the project's js/ directory
+  comment: Path relative to js/. Do not prefix with js/.
+  description: Path relative to js/. Do not prefix with js/.
 ↓content [variables.RequestableVariable-1762350567291]: 
-  comment: JavaScript source to store in the file
+  comment: Full file content to write. Replaces the existing file when it already exists.
+  description: Full file content to write. Replaces the existing file when it already exists.

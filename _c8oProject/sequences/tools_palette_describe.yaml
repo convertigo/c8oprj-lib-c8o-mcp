@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Describes palette entries (properties, creation hints).
+comment: |
+  Describe a palette entry
+  Returns creation hints, property metadata, and optional template details for one palette class. Use className from palette-list output.
 ↓IncludeHelpers [steps.SimpleStep-1763067529813]: 
   comment: Load shared palette helpers
   expression: include("js/palette.js");
@@ -357,10 +359,12 @@ comment: Describes palette entries (properties, creation hints).
                   - ↑mode: JS
                   - →→: item.llmHint
 ↓className [variables.RequestableVariable-1763068454112]: 
-  comment: Palette class identifier from palette-list item.className. NGX entries require the #logicalId suffix (for example ngx.components.UIDynamicElement#Card).
+  comment: Palette className from palette-list. NGX dynamic entries keep the #logicalId suffix.
+  description: Palette className from palette-list. NGX dynamic entries keep the #logicalId suffix.
   required: true
 ↓verbose [variables.RequestableVariable-1772618427136]: 
-  comment: Set to true to include creation template and property hints in the response.
+  comment: Set true to include the creation template and detailed property hints.
+  description: Set true to include the creation template and detailed property hints.
   value: false
 ↓jElement [core.TestCase-1763471189986]: 
   ↓className [variables.TestCaseVariable-1763471190830]: 

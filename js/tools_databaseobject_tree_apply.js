@@ -15,7 +15,6 @@ treeApplyWarnings = [];
 
 var asTrimmed = _treeApplyRequireHelper("batchAsTrimmed");
 var asBoolean = _treeApplyRequireHelper("batchAsBoolean");
-var safeJsonStringify = _treeApplyRequireHelper("batchSafeJsonStringify");
 var parseObjectInput = _treeApplyRequireHelper("batchParseObjectInput");
 
 function normalizeAt(rawValue) {
@@ -157,8 +156,12 @@ if (treeApplyRefreshRequested && treeApplyRefreshQName.length > 0 && treeApplyRe
   treeApplyStudioRefresh = C8O.dbo.refreshStudioTreeByQName(treeApplyRefreshQName, treeApplyResult.errors);
 }
 
-treeApplyStop = treeApplyResult && treeApplyResult.stop ? treeApplyResult.stop : {};
-treeApplyResume = treeApplyResult && treeApplyResult.resume ? treeApplyResult.resume : {};
-treeApplyReportJson = treeApplyResult ? safeJsonStringify(treeApplyResult) : "{}";
-treeApplyFailedOpIdsJson = treeApplyResume && treeApplyResume.failedOpIds ? safeJsonStringify(treeApplyResume.failedOpIds) : "[]";
-treeApplyWarningsJson = treeApplyResult && treeApplyResult.warnings ? safeJsonStringify(treeApplyResult.warnings) : "[]";
+treeApplyStop = treeApplyResult && treeApplyResult.stop ? treeApplyResult.stop : null;
+treeApplyResume = treeApplyResult && treeApplyResult.resume ? treeApplyResult.resume : {
+  executionId: "",
+  fromOpIndex: 0,
+  totalOperations: 0,
+  remaining: 0,
+  canResume: false,
+  failedOpIds: []
+};

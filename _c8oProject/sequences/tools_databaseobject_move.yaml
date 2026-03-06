@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Moves or reorders a database object within the project tree.
+comment: |
+  Move or reorder a database object
+  Moves an existing object under a new parent or repositions it before or after a sibling. Source and target QNames must already exist.
 ↓IncludeHelpers [steps.SimpleStep-1762369896957]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -396,16 +398,21 @@ comment: Moves or reorders a database object within the project tree.
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
 ↓qname [variables.RequestableVariable-1762372534736]: 
-  comment: Source database object QName to move (project[.path] format)
+  comment: Existing QName. Case-sensitive.
+  description: Existing QName. Case-sensitive.
   required: true
 ↓target [variables.RequestableVariable-1762419976853]: 
-  comment: 'Destination QName: container (inside) or sibling (before/after)'
+  comment: Existing target QName. Container when position=inside; sibling anchor when position=before or after.
+  description: Existing target QName. Container when position=inside; sibling anchor when position=before or after.
   required: true
 ↓position [variables.RequestableVariable-1762419976855]: 
-  comment: 'Insert position: inside (default), before, after'
+  comment: 'Allowed values: inside, before, after. inside moves under the target; before or after reorders next to it.'
+  description: 'Allowed values: inside, before, after. inside moves under the target; before or after reorders next to it.'
   value: inside
 ↓autoSave [variables.RequestableVariable-1762419981982]: 
-  comment: 'Optional: set to false to defer project export'
+  comment: Set false to keep the move in memory and skip project export.
+  description: Set false to keep the move in memory and skip project export.
 ↓refresh [variables.RequestableVariable-1772721701004]: 
-  comment: 'Optional: set to false to defer Studio tree refresh'
+  comment: Set false to skip Studio tree refresh.
+  description: Set false to skip Studio tree refresh.
   value: true

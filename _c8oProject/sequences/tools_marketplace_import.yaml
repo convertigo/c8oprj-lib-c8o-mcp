@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Imports a marketplace project into workspace and optionally renames starters.
+comment: |
+  Import a marketplace project
+  Imports a marketplace project into the workspace and wires the reference for the target project. Starter templates may require a new local project name.
 ↓IncludeHelpers [steps.SimpleStep-1764302001000]: 
   comment: Load shared marketplace helpers
   expression: |
@@ -420,6 +422,8 @@ comment: Imports a marketplace project into workspace and optionally renames sta
               - ↑mode: JS
               - →→: item
 ↓project [variables.RequestableVariable-1764302001039]: 
-  comment: Marketplace project name to import.
+  comment: Marketplace project name.
+  description: Marketplace project name.
 ↓importedProjectName [variables.RequestableVariable-1772793514924]: 
-  comment: Optional new workspace project name. Required for starters.
+  comment: New local project name. Required when the marketplace entry is a starter template.
+  description: New local project name. Required when the marketplace entry is a starter template.

@@ -1,4 +1,7 @@
 accessibility: Private
+comment: |
+  Run a sequence or transaction
+  Executes a requestable and returns its payload. Pass variables as an object or JSON string; enable includeLogs only for debugging, and use recordSchema only on transactions.
 ↓IncludeUtil [steps.SimpleStep-1763053874391]: 
   comment: Load helper utilities
   expression: include("js/util.js");
@@ -168,14 +171,18 @@ accessibility: Private
       txDbo.writeSchemaToFile(xsdTypes);
       Packages.com.twinsoft.convertigo.engine.Engine.theApp.schemaManager.clearCache(txDbo.getProject().getName());'
 ↓requestable [variables.RequestableVariable-1763053821400]: 
-  comment: 'Format: <project>[.<connector>].<requestable>'
+  comment: Target requestable as <project>[.<connector>].<requestable>.
+  description: Target requestable as <project>[.<connector>].<requestable>.
 ↓variables [variables.RequestableVariable-1763053833825]: 
-  comment: Optional JSON object with request variables
+  comment: Request variables as an object or a JSON string. Non-string values are serialized before execution.
+  description: Request variables as an object or a JSON string. Non-string values are serialized before execution.
   value: '{}'
 ↓recordSchema [variables.RequestableVariable-1763869930001]: 
-  comment: Set to true to record schema for transactions (writeSchemaToFile)
+  comment: Set true on transactions to update the response schema on disk. Ignored for sequences.
+  description: Set true on transactions to update the response schema on disk. Ignored for sequences.
 ↓includeLogs [variables.RequestableVariable-1772727101003]: 
-  comment: Set to true to append execution logs captured during this call.
+  comment: Set true to append execution logs from this call.
+  description: Set true to append execution logs from this call.
 ↓ip [core.TestCase-1763981218508]: 
   ↓requestable [variables.TestCaseVariable-1763981219651]: 
     value: codex_test.http_demo.get_ip

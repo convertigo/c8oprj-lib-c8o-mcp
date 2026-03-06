@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-03-06T15:32:50Z",
+  "serverUrl": "http://localhost:18080/convertigo/api/mcp",
+  "protocolVersion": "2025-06-18",
+  "sourceOfTruthOrder": [
+    "live MCP signature and behavior",
+    "repository implementation and exported schemas",
+    "repository documentation, prompts, and tests",
+    "colleague repositories as pattern sources only"
+  ],
+  "serverInfo": {
+    "name": "convertigo-mcp",
+    "title": "Convertigo MCP Server",
+    "version": "0.0.8"
+  },
+  "initialize": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+      "tools": {
+        "listChanged": false
+      },
+      "logging": {},
+      "prompts": {
+        "listChanged": false
+      },
+      "resources": {
+        "listChanged": false
+      }
+    },
+    "serverInfo": {
+      "name": "convertigo-mcp",
+      "title": "Convertigo MCP Server",
+      "version": "0.0.8"
+    },
+    "instructions": "Use Convertigo MCP tools to inspect and manage the engine."
+  },
+  "counts": {
+    "tools": 21,
+    "resources": 9,
+    "prompts": 1
+  },
+  "consistencyCheck": {
+    "tools": [
+      21,
+      21
+    ],
+    "resources": [
+      9,
+      9
+    ],
+    "prompts": [
+      1,
+      1
+    ]
+  },
+  "toolNames": [
+    "batch-call",
+    "databaseobject-delete",
+    "databaseobject-move",
+    "databaseobject-rename",
+    "databaseobject-schema",
+    "databaseobject-search",
+    "databaseobject-tree-apply",
+    "databaseobject-tree-get",
+    "log-view",
+    "marketplace-import",
+    "marketplace-list",
+    "mobile-builder-open",
+    "palette-describe",
+    "palette-list",
+    "project-js-get",
+    "project-js-set",
+    "project-list",
+    "project-reload",
+    "project-save",
+    "rag-query",
+    "requestable-execute"
+  ],
+  "resources": [
+    {
+      "uri": "convertigo://resources/convertigo-overview",
+      "name": "Convertigo MCP Overview",
+      "title": "Convertigo MCP Project Overview",
+      "description": "High-level structure and canonical MCP tool surface for ConvertigoMCP.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://resources/convertigo-mcp-usage",
+      "name": "Convertigo MCP Usage Guide",
+      "title": "Convertigo MCP Usage Guide",
+      "description": "Tree-first MCP workflow: inspect, plan, apply, validate, save.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://resources/convertigo-context-api",
+      "name": "Convertigo Context API (minimal)",
+      "title": "Convertigo Context (JS API guardrails)",
+      "description": "Safe context usage in Rhino scripts and forbidden patterns.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://resources/convertigo-sequence-quickstart",
+      "name": "Convertigo Sequence Quickstart",
+      "title": "Convertigo Sequence Quickstart",
+      "description": "Build sequences with tree-get/tree-apply, palette templates, and requestable validation.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://resources/convertigo-json-quickref",
+      "name": "Convertigo JSON Steps Quickref",
+      "title": "Convertigo JSON Steps Quickref",
+      "description": "Compact reference for JsonObject/JsonArray/iterator steps and SmartType sourcing.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://resources/convertigo-transaction-quickstart",
+      "name": "Convertigo Transaction Quickstart",
+      "title": "Convertigo Transaction Quickstart",
+      "description": "Configure and validate HTTP transactions with tree-first MCP workflow.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://resources/convertigo-ui-building-quickstart",
+      "name": "Convertigo UI Building Quickstart",
+      "title": "Convertigo UI Building Quickstart (CRUD + Rich Pages)",
+      "description": "NGX UI delivery playbook with palette discovery, tree mutations, batching, and validation.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://capabilities",
+      "name": "Convertigo MCP capabilities",
+      "title": "Convertigo MCP capabilities",
+      "description": "Core MCP capabilities and recommended authoring flow.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://recipes/quickstart",
+      "name": "Convertigo MCP quickstart recipes",
+      "title": "Convertigo MCP quickstart recipes",
+      "description": "Minimal MCP-first recipes for fast project delivery.",
+      "mimeType": "text/markdown"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "convertigo-quickstart",
+      "title": "Convertigo MCP Quickstart",
+      "description": "Tree-first MCP workflow for Convertigo: inspect, plan, apply, validate, save.",
+      "file": "convertigo_quickstart.md"
+    }
+  ],
+  "builtInResources": [
+    {
+      "uri": "convertigo://capabilities",
+      "mimeType": "text/markdown",
+      "text": "# Convertigo MCP capabilities\\n\\n- Project discovery: `project-list`, `databaseobject-tree-get`.\\n- Authoring: `palette-list`, `palette-describe`, `databaseobject-tree-apply`, `databaseobject-rename`, `databaseobject-move`, `databaseobject-delete`.\\n- Bulk orchestration: `batch-call`.\\n- Diagnostics: `log-view`, `requestable-execute`.\\n- Marketplace: `marketplace-list`, `marketplace-import`."
+    },
+    {
+      "uri": "convertigo://recipes/quickstart",
+      "mimeType": "text/markdown",
+      "text": "# Quickstart recipes\\n\\n1. Discover parent capabilities with `palette-list` then `palette-describe`.\\n2. Create or patch one-shot trees with `databaseobject-tree-apply` (`at=inside|before|after|self`).\\n3. Use `mode=merge|replace` in `databaseobject-tree-apply` for incremental vs strict patching.\\n4. Navigate large trees with `databaseobject-tree-get` (`childrenDepth`, `properties`, `_nextCursor`).\\n5. Orchestrate macro changes with `batch-call` and `$ref`."
+    }
+  ]
+}

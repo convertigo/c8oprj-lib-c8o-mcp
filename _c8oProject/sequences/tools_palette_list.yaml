@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Lists creatable palette entries for a target parent, including NGX dynamic components using Studio-compatible rules.
+comment: |
+  List creatable palette entries
+  Returns palette items that can be created under a target parent, using Studio-compatible rules for built-in, shared, and NGX dynamic entries.
 ↓IncludeHelpers [steps.SimpleStep-1763034294509]: 
   comment: Load shared palette helpers
   expression: include("js/palette.js");
@@ -471,19 +473,25 @@ comment: Lists creatable palette entries for a target parent, including NGX dyna
             - ↑mode: JS
             - →→: resultInfo.nextCursor
 ↓target [variables.RequestableVariable-1762338110014]: 
-  comment: Parent QName (optionally suffixed with :FolderType)
+  comment: Parent QName. Append :FolderType only when you need a specific logical folder view.
+  description: Parent QName. Append :FolderType only when you need a specific logical folder view.
 ↓includeBuiltIn [variables.RequestableVariable-1772554401038]: 
-  comment: Include built-in palette entries (default true).
+  comment: Default true. Set false to hide built-in entries.
+  description: Default true. Set false to hide built-in entries.
   value: true
 ↓includeShared [variables.RequestableVariable-1772554402158]: 
-  comment: Include shared (non built-in) palette entries (default true).
+  comment: Default true. Set false to hide shared library entries.
+  description: Default true. Set false to hide shared library entries.
   value: true
 ↓filter [variables.RequestableVariable-1762427734000]: 
-  comment: Optional case-insensitive filter applied on palette category and item names.
+  comment: Case-insensitive filter on category and item names.
+  description: Case-insensitive filter on category and item names.
 ↓limit [variables.RequestableVariable-1762440860118]: 
-  comment: Optional maximum number of items to return (default 0 = unlimited).
+  comment: Maximum items returned. Leave empty or 0 for no limit.
+  description: Maximum items returned. Leave empty or 0 for no limit.
 ↓_nextCursor [variables.RequestableVariable-1762959329821]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.
 ↓Sequence [core.TestCase-1763471055163]: 
   ↓target [variables.TestCaseVariable-1763471055980]: 
     value: ConvertigoMCP.sq:internal_list_tools_info

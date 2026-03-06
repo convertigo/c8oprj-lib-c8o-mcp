@@ -129,58 +129,11 @@ responseExpiryDate: absolute,600
     if (inputSchemaJson && typeof inputSchemaJson === "object") { inputSchemaJson.additionalProperties = false; }
     
     var sequenceKey = String(sequence || "").trim().toLowerCase();
-    if (sequenceKey === "tools_batch_call") {
-      inputSchemaJson = {
-        type: "object",
-        properties: {
-          calls: {
-            type: "array",
-            description: "Ordered list of tool calls to execute.",
-            items: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  description: "Optional identifier for cross-call $ref substitutions."
-                },
-                tool: {
-                  type: "string",
-                  description: "MCP tool name (for example: project-list, databaseobject-tree-get)."
-                },
-                arguments: {
-                  type: "object",
-                  description: "Arguments passed to the target tool.",
-                  additionalProperties: true
-                }
-              },
-              required: ["tool"],
-              additionalProperties: false
-            }
-          },
-          onError: {
-            type: "string",
-            enum: ["stop", "continue"],
-            default: "stop"
-          },
-          resumeFrom: {
-            type: "string",
-            description: "Zero-based index to resume from."
-          },
-          executionId: {
-            type: "string",
-            description: "Optional execution identifier returned in resume metadata."
-          },
-          optimizeMutations: {
-            type: "boolean",
-            description: "When true (default), mutation tool calls are executed with deferred refresh/save/build finalization.",
-            default: true
-          }
-        },
-        required: ["calls"],
-        additionalProperties: false
-      };
-    } else if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyInput === "function") {
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyInput === "function") {
       inputSchemaJson = C8O.schemaOverrides.applyInput(sequence, inputSchemaJson, targetRequestable);
+    }
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.decorateInput === "function") {
+      inputSchemaJson = C8O.schemaOverrides.decorateInput(sequenceKey, inputSchemaJson, targetRequestable);
     }
     
     var responseSource = extractPayloadNode(responseModel, responsePayloadName);
@@ -189,7 +142,15 @@ responseExpiryDate: absolute,600
     if (responseSource && responseSource.result) { responseSource = responseSource.result; }
     var normalizedResponse = normalizeNode(responseSource);
     schemaJson = buildSchemaNode(normalizedResponse);
-    delete schemaJson.required;
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyOutput === "function") {
+      schemaJson = C8O.schemaOverrides.applyOutput(sequence, schemaJson, targetRequestable, normalizedResponse);
+    }
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.decorateOutput === "function") {
+      schemaJson = C8O.schemaOverrides.decorateOutput(sequenceKey, schemaJson, targetRequestable, normalizedResponse);
+    }
+    if (schemaJson && typeof schemaJson === "object") {
+      delete schemaJson.required;
+    }
     exampleJson = normalizedResponse;'
 ↓result [steps.JsonObjectStep-1761747759787]: 
   key: 

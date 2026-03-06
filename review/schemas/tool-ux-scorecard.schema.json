@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/review/tool-ux-scorecard.schema.json",
+  "title": "Tool UX Scorecard",
+  "type": "object",
+  "required": ["schemaVersion", "baselineServerVersion", "tools"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "baselineServerVersion": {
+      "type": "string"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "grade", "status", "issues"],
+        "properties": {
+          "name": { "type": "string" },
+          "grade": {
+            "type": "string",
+            "enum": ["A", "B", "C", "D"]
+          },
+          "status": { "type": "string" },
+          "strengths": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "issues": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "recommendedFixes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

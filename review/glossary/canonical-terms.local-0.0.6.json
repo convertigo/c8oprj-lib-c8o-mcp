@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "1.0.0",
+  "entries": [
+    {
+      "term": "live contract",
+      "status": "canonical",
+      "definition": "The behavior exposed by the running MCP server and verified through live calls.",
+      "notes": "Highest review authority."
+    },
+    {
+      "term": "canonical start guide",
+      "status": "canonical",
+      "definition": "The future single onboarding guide that every agent reads before any specialized guide.",
+      "notes": "Planned in Phase 1."
+    },
+    {
+      "term": "specialized guide",
+      "status": "canonical",
+      "definition": "A focused guide layered on top of the canonical start guide for backend, frontend, integration, debugging, or benchmarking work."
+    },
+    {
+      "term": "pattern-source",
+      "status": "canonical",
+      "definition": "A reusable idea imported from a colleague repository without granting it authority over the live MCP contract."
+    },
+    {
+      "term": "RAG fallback",
+      "status": "canonical",
+      "definition": "Slow knowledge retrieval used only when tool metadata and tracked guides are insufficient.",
+      "notes": "Repeated useful answers should be consolidated into guides."
+    },
+    {
+      "term": "databaseobject-tree-get",
+      "status": "canonical",
+      "definition": "The live tree-based inspection primitive for Convertigo database objects."
+    },
+    {
+      "term": "databaseobject-tree-apply",
+      "status": "canonical",
+      "definition": "The live tree-based mutation primitive for Convertigo database objects."
+    },
+    {
+      "term": "batch-call",
+      "status": "canonical",
+      "definition": "The live bulk orchestration tool for grouped MCP calls."
+    },
+    {
+      "term": "requestable-execute",
+      "status": "canonical",
+      "definition": "The live requestable execution and smoke-test tool."
+    },
+    {
+      "term": "convertigo://capabilities",
+      "status": "canonical",
+      "definition": "Built-in live resource summarizing the current MCP capability surface.",
+      "notes": "Phase 1 start-guide seed."
+    },
+    {
+      "term": "convertigo://recipes/quickstart",
+      "status": "canonical",
+      "definition": "Built-in live resource summarizing the current fast-path tree-first workflow.",
+      "notes": "Phase 1 start-guide seed."
+    },
+    {
+      "term": "guideContext",
+      "status": "canonical",
+      "definition": "Planned metadata describing which guides a caller declares as already seen.",
+      "notes": "Spec only in Phase 0."
+    },
+    {
+      "term": "recommendedGuides",
+      "status": "canonical",
+      "definition": "Planned tool metadata listing which guides are most relevant before using a tool.",
+      "notes": "Spec only in Phase 0."
+    },
+    {
+      "term": "requiredGuides",
+      "status": "canonical",
+      "definition": "Planned tool metadata listing guides that should trigger warnings when absent from guideContext.",
+      "notes": "Non-blocking hint only."
+    },
+    {
+      "term": "databaseobject-children",
+      "status": "deprecated-alias",
+      "definition": "Older tree navigation helper referenced by current docs and tests but not exposed by the live catalog.",
+      "replacement": "databaseobject-tree-get"
+    },
+    {
+      "term": "databaseobject-create",
+      "status": "deprecated-alias",
+      "definition": "Older creation helper referenced by current docs and tests but not exposed by the live catalog.",
+      "replacement": "databaseobject-tree-apply"
+    },
+    {
+      "term": "databaseobject-properties-get",
+      "status": "deprecated-alias",
+      "definition": "Older property inspection helper referenced by current docs and tests but not exposed by the live catalog.",
+      "replacement": "databaseobject-tree-get, palette-describe, or databaseobject-schema depending on the need"
+    },
+    {
+      "term": "databaseobject-properties-set",
+      "status": "deprecated-alias",
+      "definition": "Older property mutation helper referenced by current docs and tests but not exposed by the live catalog.",
+      "replacement": "databaseobject-tree-apply"
+    },
+    {
+      "term": "planner plus specialists",
+      "status": "pattern-source",
+      "definition": "Role decomposition model seen in colleague work where a planner coordinates domain specialists.",
+      "notes": "Useful for future prompt roles and benchmark orchestration."
+    },
+    {
+      "term": "save reload smoke check",
+      "status": "pattern-source",
+      "definition": "Validation discipline where structural changes are persisted, reloaded, and smoke-tested before completion.",
+      "notes": "Useful benchmark and acceptance gate."
+    }
+  ]
+}

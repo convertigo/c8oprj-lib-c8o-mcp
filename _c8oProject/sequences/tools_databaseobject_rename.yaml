@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Renames a database object and optionally refactors references.
+comment: |
+  Rename a database object
+  Renames an existing object and can refactor references. Use update_all only when cross-project refactoring is intended.
 ↓IncludeHelpers [steps.SimpleStep-1762370249176]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -383,16 +385,21 @@ comment: Renames a database object and optionally refactors references.
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
 ↓qname [variables.RequestableVariable-1762372541309]: 
-  comment: Database object QName to rename (project[.path] format)
+  comment: Existing QName. Case-sensitive.
+  description: Existing QName. Case-sensitive.
   required: true
 ↓name [variables.RequestableVariable-1762419992935]: 
-  comment: New name to assign
+  comment: New object name. Use a valid Convertigo identifier for the target class.
+  description: New object name. Use a valid Convertigo identifier for the target class.
   required: true
 ↓update [variables.RequestableVariable-1762420001177]: 
-  comment: 'Reference update mode: update_none (default), update_local, update_all'
+  comment: 'Allowed values: update_none, update_local, update_all. Controls how references are rewritten after the rename.'
+  description: 'Allowed values: update_none, update_local, update_all. Controls how references are rewritten after the rename.'
   value: update_none
 ↓autoSave [variables.RequestableVariable-1762420007663]: 
-  comment: 'Optional: set to false to defer project export'
+  comment: Set false to keep the rename in memory and skip project export.
+  description: Set false to keep the rename in memory and skip project export.
 ↓refresh [variables.RequestableVariable-1772721701005]: 
-  comment: 'Optional: set to false to defer Studio tree refresh'
+  comment: Set false to skip Studio tree refresh.
+  description: Set false to skip Studio tree refresh.
   value: true

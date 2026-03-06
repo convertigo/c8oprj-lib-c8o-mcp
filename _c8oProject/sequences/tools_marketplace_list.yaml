@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Lists marketplace projects with search/topics and cursor pagination.
+comment: |
+  Search marketplace libraries
+  Lists marketplace entries and highlights workspace or reference status. Filter with search or topics before scanning many pages.
 ↓IncludeHelpers [steps.SimpleStep-1764301001000]: 
   comment: Load shared marketplace helpers
   expression: |
@@ -942,14 +944,19 @@ comment: Lists marketplace projects with search/topics and cursor pagination.
             - ↑mode: JS
             - →→: marketplaceListNextCursor
 ↓topics [variables.RequestableVariable-1764301001058]: 
-  comment: Optional topic filters as a string, comma-separated string, or JSON array string.
+  comment: Optional topic filter. Accepts a single topic, a comma-separated list, or a JSON array string.
+  description: Optional topic filter. Accepts a single topic, a comma-separated list, or a JSON array string.
 ↓limit [variables.RequestableVariable-1764301001060]: 
-  comment: Maximum number of entries returned per call (1-200, default 20).
+  comment: Maximum entries returned in the final result page. 1 to 200; default 20.
+  description: Maximum entries returned in the final result page. 1 to 200; default 20.
   value: 20
 ↓maxPages [variables.RequestableVariable-1764301001065]: 
-  comment: Maximum pages fetched server-side for one call (default 20).
+  comment: Maximum upstream pages scanned before returning. 1 to 100; default 20.
+  description: Maximum upstream pages scanned before returning. 1 to 100; default 20.
   value: 20
 ↓_nextCursor [variables.RequestableVariable-1764301001066]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.
 ↓search [variables.RequestableVariable-1772794060147]: 
-  comment: Marketplace search text.
+  comment: Search text sent to the marketplace catalog.
+  description: Search text sent to the marketplace catalog.

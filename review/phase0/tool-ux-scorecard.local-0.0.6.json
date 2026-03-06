@@ -1,0 +1,335 @@
+{
+  "schemaVersion": "1.0.0",
+  "baselineServerVersion": "0.0.6",
+  "tools": [
+    {
+      "name": "batch-call",
+      "grade": "C",
+      "status": "Powerful but heavy.",
+      "strengths": [
+        "Strong input schema and explicit stop or continue semantics.",
+        "Good fit for multi-step orchestration."
+      ],
+      "issues": [
+        "Title and description are identical.",
+        "Most outputs are stringified JSON subreports instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Return typed nested report objects.",
+        "Add short descriptions for onError and core output fields."
+      ]
+    },
+    {
+      "name": "databaseobject-delete",
+      "grade": "B",
+      "status": "Clear intent with minor schema friction.",
+      "strengths": [
+        "Purpose is obvious.",
+        "Output summary is readable."
+      ],
+      "issues": [
+        "autoSave and refresh are strings with no descriptions or defaults."
+      ],
+      "recommendedFixes": [
+        "Promote common flags to booleans with descriptions."
+      ]
+    },
+    {
+      "name": "databaseobject-move",
+      "grade": "B",
+      "status": "Readable action with minor flag ambiguity.",
+      "strengths": [
+        "Move and reorder intent is obvious.",
+        "Output fields distinguish source and target parents."
+      ],
+      "issues": [
+        "autoSave and refresh are strings with no descriptions."
+      ],
+      "recommendedFixes": [
+        "Document or strongly type the common flags."
+      ]
+    },
+    {
+      "name": "databaseobject-rename",
+      "grade": "B",
+      "status": "Readable action with minor flag ambiguity.",
+      "strengths": [
+        "Rename intent is explicit.",
+        "newQName and updateMode are useful outputs."
+      ],
+      "issues": [
+        "update, autoSave, and refresh lack descriptions."
+      ],
+      "recommendedFixes": [
+        "Describe update behavior and common flags."
+      ]
+    },
+    {
+      "name": "databaseobject-schema",
+      "grade": "B",
+      "status": "Useful helper with a slightly overloaded surface.",
+      "strengths": [
+        "Purpose and supported formats are clear.",
+        "Helpful bridge between requestables and SmartType wiring."
+      ],
+      "issues": [
+        "internal is a string flag with no enum or detailed description.",
+        "response is overloaded across xml, json, and jsonschema cases."
+      ],
+      "recommendedFixes": [
+        "Type internal as a boolean.",
+        "Use more explicit output field names for sample versus schema."
+      ]
+    },
+    {
+      "name": "databaseobject-search",
+      "grade": "A",
+      "status": "One of the clearest tools in the catalog.",
+      "strengths": [
+        "Intent is obvious from the name and description.",
+        "Output shape is compact and understandable."
+      ],
+      "issues": [
+        "matchCase and useRegExp are string flags without descriptions."
+      ],
+      "recommendedFixes": [
+        "Type the search toggles more explicitly."
+      ]
+    },
+    {
+      "name": "databaseobject-tree-apply",
+      "grade": "C",
+      "status": "Canonical but still expert-oriented.",
+      "strengths": [
+        "Canonical mutation primitive.",
+        "at and mode enums are strong guide rails."
+      ],
+      "issues": [
+        "tree is intentionally open-ended and needs guide support.",
+        "Output relies heavily on stringified JSON report fields."
+      ],
+      "recommendedFixes": [
+        "Return typed nested reports.",
+        "Add a short structural description for the tree payload."
+      ]
+    },
+    {
+      "name": "databaseobject-tree-get",
+      "grade": "C",
+      "status": "Canonical but not yet self-explanatory enough.",
+      "strengths": [
+        "Canonical inspection primitive.",
+        "childrenDepth and properties are explicit."
+      ],
+      "issues": [
+        "Output uses ambiguous capitalized fields Tree and Forest.",
+        "No schema-level description explains the returned tree structure."
+      ],
+      "recommendedFixes": [
+        "Rename Tree and Forest to explicit nested payload names.",
+        "Describe the returned canonical tree shape."
+      ]
+    },
+    {
+      "name": "log-view",
+      "grade": "C",
+      "status": "Rich input filtering with weak output ergonomics.",
+      "strengths": [
+        "Input filters are broad and mostly documented."
+      ],
+      "issues": [
+        "Output is mostly flat strings like lines and query.",
+        "No structured log entry array is exposed."
+      ],
+      "recommendedFixes": [
+        "Expose a typed log entries array alongside the raw text view."
+      ]
+    },
+    {
+      "name": "marketplace-import",
+      "grade": "B",
+      "status": "Useful and mostly understandable.",
+      "strengths": [
+        "Purpose is clear.",
+        "Output distinguishes import and reference outcomes."
+      ],
+      "issues": [
+        "A few response fields remain technical rather than user-oriented."
+      ],
+      "recommendedFixes": [
+        "Add a short response summary field."
+      ]
+    },
+    {
+      "name": "marketplace-list",
+      "grade": "A",
+      "status": "Strong discovery tool.",
+      "strengths": [
+        "Clear intent and good description.",
+        "Output already exposes useful status and suggestion fields."
+      ],
+      "issues": [
+        "None blocking in Phase 0."
+      ],
+      "recommendedFixes": [
+        "Keep response compact while adding guide hints later."
+      ]
+    },
+    {
+      "name": "mobile-builder-open",
+      "grade": "C",
+      "status": "Input side is clear, output side is opaque.",
+      "strengths": [
+        "Input parameters are well constrained."
+      ],
+      "issues": [
+        "Success output is hidden behind a generic result string.",
+        "Schema suggests an error wrapper instead of a typed success object."
+      ],
+      "recommendedFixes": [
+        "Expose explicit success fields such as builderUrl, launchAction, and logs."
+      ]
+    },
+    {
+      "name": "palette-describe",
+      "grade": "A",
+      "status": "Best-in-class guide companion.",
+      "strengths": [
+        "Description is meaningful.",
+        "Output gives entry metadata, templates, and propertyHints."
+      ],
+      "issues": [
+        "verbose is a string flag without a description."
+      ],
+      "recommendedFixes": [
+        "Document verbose or replace it with a typed flag."
+      ]
+    },
+    {
+      "name": "palette-list",
+      "grade": "B",
+      "status": "Clear discovery tool with minor typing friction.",
+      "strengths": [
+        "Intent is obvious.",
+        "Output already points callers to palette-describe."
+      ],
+      "issues": [
+        "includeBuiltIn, includeShared, and limit are strings rather than clearer types.",
+        "Input field descriptions are sparse."
+      ],
+      "recommendedFixes": [
+        "Document or strongly type the discovery toggles."
+      ]
+    },
+    {
+      "name": "project-js-get",
+      "grade": "C",
+      "status": "Works, but reads like an internal helper.",
+      "strengths": [
+        "Description is better than the title."
+      ],
+      "issues": [
+        "Mechanical title.",
+        "filename has no description.",
+        "The output content field may be large without warning."
+      ],
+      "recommendedFixes": [
+        "Rename the title to a user-facing sentence.",
+        "Describe filename and content behavior."
+      ]
+    },
+    {
+      "name": "project-js-set",
+      "grade": "C",
+      "status": "Works, but reads like an internal helper.",
+      "strengths": [
+        "Description is better than the title."
+      ],
+      "issues": [
+        "Mechanical title.",
+        "filename and content have no descriptions."
+      ],
+      "recommendedFixes": [
+        "Rename the title to a user-facing sentence.",
+        "Describe filename and content expectations."
+      ]
+    },
+    {
+      "name": "project-list",
+      "grade": "A",
+      "status": "Good discovery starting point.",
+      "strengths": [
+        "Strong title and description.",
+        "Output is easy to read."
+      ],
+      "issues": [
+        "filter and limit could still use descriptions."
+      ],
+      "recommendedFixes": [
+        "Add short descriptions for the input filters."
+      ]
+    },
+    {
+      "name": "project-reload",
+      "grade": "B",
+      "status": "Simple and understandable.",
+      "strengths": [
+        "Purpose is explicit.",
+        "Output status is readable."
+      ],
+      "issues": [
+        "Could expose a short caution about discarding unsaved memory state in the input schema."
+      ],
+      "recommendedFixes": [
+        "Add an input-level caution note in the description."
+      ]
+    },
+    {
+      "name": "project-save",
+      "grade": "B",
+      "status": "Simple and understandable.",
+      "strengths": [
+        "Purpose is explicit.",
+        "Output status is readable."
+      ],
+      "issues": [
+        "Could better explain the project resolution behavior when project is omitted."
+      ],
+      "recommendedFixes": [
+        "Document the default project resolution behavior."
+      ]
+    },
+    {
+      "name": "rag-query",
+      "grade": "B",
+      "status": "Useful fallback with one awkward output field.",
+      "strengths": [
+        "Description clearly explains when to use it.",
+        "Latency warning is explicit."
+      ],
+      "issues": [
+        "referencesArray is a string rather than a typed array."
+      ],
+      "recommendedFixes": [
+        "Return references as a real array."
+      ]
+    },
+    {
+      "name": "requestable-execute",
+      "grade": "D",
+      "status": "Critical tool with the weakest self-documentation.",
+      "strengths": [
+        "Extremely important validation primitive."
+      ],
+      "issues": [
+        "Title and description are too vague.",
+        "Output result and error are effectively untyped.",
+        "The error field shape is surprising and not descriptive."
+      ],
+      "recommendedFixes": [
+        "Replace the title and description with user-facing wording.",
+        "Expose a typed execution envelope with success, payload, and logs."
+      ]
+    }
+  ]
+}

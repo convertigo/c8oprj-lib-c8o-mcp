@@ -816,8 +816,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         totalOperations: calls.length,
         remaining: remaining,
         canResume: remaining > 0,
-        failedOpIds: failedCallIds,
-        failedCallIds: failedCallIds
+        failedOpIds: failedCallIds
       },
       saveResults: mutationFinalize.saveResults,
       mobileBuilder: mutationFinalize.mobileBuilder,

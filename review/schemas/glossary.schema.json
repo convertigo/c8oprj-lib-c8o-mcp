@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/review/glossary.schema.json",
+  "title": "Review Glossary",
+  "type": "object",
+  "required": ["schemaVersion", "entries"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["term", "status", "definition"],
+        "properties": {
+          "term": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["canonical", "deprecated-alias", "pattern-source"]
+          },
+          "definition": { "type": "string" },
+          "replacement": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

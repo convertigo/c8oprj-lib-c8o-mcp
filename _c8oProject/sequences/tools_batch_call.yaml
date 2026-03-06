@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Execute multiple MCP tool calls in one internal batch with stop/continue behavior and resume metadata.
+comment: |
+  Run a batch of MCP tool calls
+  Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches.
 ↓IncludeHelpers [steps.SimpleStep-1772625431444]: 
   comment: Load shared helpers for generic batch tool calls.
   expression: |
@@ -23,15 +25,25 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
       optimizeMutations: (typeof optimizeMutations !== "undefined") ? optimizeMutations : true
     });
     
-    refreshRequested = false;
-    refreshQName = "";
-    batchStudioRefresh = null;
-    
-    batchStop = batchResult && batchResult.stop ? batchResult.stop : {};
-    batchResume = batchResult && batchResult.resume ? batchResult.resume : {};
-    batchMutationFinalize = batchResult && batchResult.mutationFinalize ? batchResult.mutationFinalize : {};
-    failedOpIdsJson = batchResume && batchResume.failedOpIds ? JSON.stringify(batchResume.failedOpIds) : "[]";
-    reportJson = batchResult ? JSON.stringify(batchResult) : "{}";'
+    batchStop = batchResult && batchResult.stop ? batchResult.stop : null;
+    batchResume = batchResult && batchResult.resume ? batchResult.resume : {
+      executionId: "",
+      fromOpIndex: 0,
+      totalOperations: 0,
+      remaining: 0,
+      canResume: false,
+      failedOpIds: []
+    };
+    batchMutationFinalize = batchResult && batchResult.mutationFinalize ? batchResult.mutationFinalize : {
+      optimized: false,
+      optimizedCalls: 0,
+      touchedQNames: [],
+      refreshQName: "",
+      studioRefresh: null,
+      mobileBuilder: [],
+      saveResults: [],
+      errors: []
+    };'
 ↓result [steps.JsonObjectStep-1772625462159]: 
   key: 
     - xmlizable: 
@@ -65,19 +77,6 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
         - SmartType: 
           - ↑mode: JS
           - →→: 'batchResult && batchResult.message ? batchResult.message : ""'
-  ↓targetQName [steps.JsonFieldStep-1772625489072]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: targetQName
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchResult && batchResult.targetQName ? batchResult.targetQName : ""'
   ↓onError [steps.JsonFieldStep-1772625491558]: 
     key: 
       - xmlizable: 
@@ -133,266 +132,168 @@ comment: Execute multiple MCP tool calls in one internal batch with stop/continu
         - SmartType: 
           - ↑mode: JS
           - →→: 'batchResult && batchResult.timestamp != null ? batchResult.timestamp : java.lang.System.currentTimeMillis()'
-  ↓refreshQName [steps.JsonFieldStep-1772625501248]: 
+  ↓summary [steps.JsonToXmlStep-1772811501001]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'batchResult && batchResult.summary ? batchResult.summary : {}'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: refreshQName
-    value: 
+          - →→: summary
+  ↓IfStop [steps.IfStep-1772811501002]: 
+    condition: batchStop != null
+    ↓stop [steps.JsonToXmlStep-1772811501003]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: batchStop
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: stop
+  ↓IfNoStop [steps.IfStep-1772811501004]: 
+    condition: batchStop == null
+    ↓stop [steps.JsonFieldStep-1772811501005]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: stop
+      type: nul
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: null
+  ↓resume [steps.JsonToXmlStep-1772811501006]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: refreshQName || ""
-  ↓studioRefreshed [steps.JsonFieldStep-1772625503541]: 
+          - →→: batchResume
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: studioRefreshed
-    type: bool
-    value: 
+          - →→: resume
+  ↓failedOpIds [steps.JsonToXmlStep-1772811501007]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchStudioRefresh ? batchStudioRefresh.refreshed === true : false'
-  ↓studioRefreshMessage [steps.JsonFieldStep-1772625505858]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: studioRefreshMessage
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchStudioRefresh ? (batchStudioRefresh.message || "") : ""'
-  ↓stopOpIndex [steps.JsonFieldStep-1772625524714]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopOpIndex
-    type: number
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchStop && batchStop.opIndex != null ? batchStop.opIndex : -1'
-  ↓stopOpId [steps.JsonFieldStep-1772625527309]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopOpId
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchStop && batchStop.opId ? batchStop.opId : ""'
-  ↓stopCode [steps.JsonFieldStep-1772625529679]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopCode
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchStop && batchStop.code ? batchStop.code : ""'
-  ↓stopMessage [steps.JsonFieldStep-1772625532087]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: stopMessage
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchStop && batchStop.message ? batchStop.message : ""'
-  ↓resumeFromOpIndex [steps.JsonFieldStep-1772625534301]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: resumeFromOpIndex
-    type: number
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchResume && batchResume.fromOpIndex != null ? batchResume.fromOpIndex : 0'
-  ↓resumeCanResume [steps.JsonFieldStep-1772625536707]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: resumeCanResume
-    type: bool
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchResume ? batchResume.canResume === true : false'
-  ↓failedOpIds [steps.JsonFieldStep-1772625538736]: 
+          - →→: 'batchResume && batchResume.failedOpIds ? batchResume.failedOpIds : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
           - →→: failedOpIds
-    value: 
+  ↓references [steps.JsonToXmlStep-1772811501008]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: failedOpIdsJson
-  ↓summaryJson [steps.JsonFieldStep-1772625540999]: 
+          - →→: 'batchResult && batchResult.refs ? batchResult.refs : {}'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: summaryJson
-    value: 
+          - →→: references
+  ↓calls [steps.JsonToXmlStep-1772811501009]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.summary ? JSON.stringify(batchResult.summary) : "{}"'
-  ↓reportJson [steps.JsonFieldStep-1772625543602]: 
+          - →→: 'batchResult && batchResult.calls ? batchResult.calls : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: reportJson
-    value: 
+          - →→: calls
+  ↓errors [steps.JsonToXmlStep-1772811501010]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: reportJson
-  ↓refsJson [steps.JsonFieldStep-1772625546119]: 
+          - →→: 'batchResult && batchResult.errors ? batchResult.errors : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: refsJson
-    value: 
+          - →→: errors
+  ↓saveResults [steps.JsonToXmlStep-1772811501011]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.refs ? JSON.stringify(batchResult.refs) : "{}"'
-  ↓operationsJson [steps.JsonFieldStep-1772625557754]: 
+          - →→: 'batchResult && batchResult.saveResults ? batchResult.saveResults : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: operationsJson
-    value: 
+          - →→: saveResults
+  ↓mobileBuilder [steps.JsonToXmlStep-1772811501012]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.operations ? JSON.stringify(batchResult.operations) : "[]"'
-  ↓errorsJson [steps.JsonFieldStep-1772625560312]: 
+          - →→: 'batchResult && batchResult.mobileBuilder ? batchResult.mobileBuilder : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: errorsJson
-    value: 
+          - →→: mobileBuilder
+  ↓mutationFinalize [steps.JsonToXmlStep-1772811501013]: 
+    jsonObject: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: 'batchResult && batchResult.errors ? JSON.stringify(batchResult.errors) : "[]"'
-  ↓saveResultsJson [steps.JsonFieldStep-1772625562407]: 
+          - →→: batchMutationFinalize
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: saveResultsJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchResult && batchResult.saveResults ? JSON.stringify(batchResult.saveResults) : "[]"'
-  ↓mobileBuilderJson [steps.JsonFieldStep-1772625564959]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: mobileBuilderJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchResult && batchResult.mobileBuilder ? JSON.stringify(batchResult.mobileBuilder) : "[]"'
-  ↓touchedQNamesJson [steps.JsonFieldStep-1772625567065]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: touchedQNamesJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchResult && batchResult.touchedQNames ? JSON.stringify(batchResult.touchedQNames) : "[]"'
-  ↓mutationFinalizeJson [steps.JsonFieldStep-1772719281000]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: mutationFinalizeJson
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'batchMutationFinalize ? JSON.stringify(batchMutationFinalize) : "{}"'
+          - →→: mutationFinalize
 ↓calls [variables.RequestableVariable-1772625373495]: 
-  comment: 'JSON array of tool call objects: {id?, tool, arguments}.'
+  comment: Ordered tool calls. Each item uses {tool, arguments?, id?}; ids can be referenced later in the batch.
+  description: Ordered tool calls. Each item uses {tool, arguments?, id?}; ids can be referenced later in the batch.
 ↓onError [variables.RequestableVariable-1772625375909]: 
-  comment: 'Error mode: stop (default) or continue.'
+  comment: 'Allowed values: stop or continue. stop aborts on the first failure; continue records failures and keeps running.'
+  description: 'Allowed values: stop or continue. stop aborts on the first failure; continue records failures and keeps running.'
   value: stop
 ↓resumeFrom [variables.RequestableVariable-1772625385912]: 
-  comment: Optional zero-based operation index to resume execution from.
+  comment: Zero-based call index to resume from after a previous partial run.
+  description: Zero-based call index to resume from after a previous partial run.
 ↓executionId [variables.RequestableVariable-1772625388529]: 
-  comment: Optional execution identifier returned in resume metadata.
+  comment: Opaque execution id returned by a previous batch run.
+  description: Opaque execution id returned by a previous batch run.
 ↓optimizeMutations [variables.RequestableVariable-1772719281001]: 
-  comment: When true (default), defer mutation refresh/save/build to one final pass.
+  comment: Default true. Defers refresh, save, and mobile-builder finalization until the batch ends.
+  description: Default true. Defers refresh, save, and mobile-builder finalization until the batch ends.
   value: true

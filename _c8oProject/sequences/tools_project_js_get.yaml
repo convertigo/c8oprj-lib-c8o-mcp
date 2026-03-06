@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
-  Project JS Get
-  Read a helper script from the project's js directory
+  Read a project helper script
+  Loads one file from the project's js/ directory. Use it to inspect helper code or schema override files before patching them.
 ↓InitContext [steps.SimpleStep-1762350567241]: 
   comment: Validate input and load file content
   expression: |
@@ -178,4 +178,5 @@ comment: |
           - ↑mode: JS
           - →→: fileContent
 ↓filename [variables.RequestableVariable-1762350567265]: 
-  comment: File path relative to the project's js/ directory
+  comment: Path relative to js/. Do not prefix with js/.
+  description: Path relative to js/. Do not prefix with js/.
