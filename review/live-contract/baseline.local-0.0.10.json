@@ -1,0 +1,393 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-03-06T17:54:07Z",
+  "serverUrl": "http://localhost:18080/convertigo/api/mcp",
+  "protocolVersion": "2025-06-18",
+  "sourceOfTruthOrder": [
+    "live MCP signature and behavior",
+    "repository implementation and exported schemas",
+    "repository documentation, prompts, and tests",
+    "colleague repositories as pattern sources only"
+  ],
+  "serverInfo": {
+    "name": "convertigo-mcp",
+    "title": "Convertigo MCP Server",
+    "version": "0.0.10"
+  },
+  "initialize": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+      "tools": {
+        "listChanged": false
+      },
+      "logging": {},
+      "prompts": {
+        "listChanged": false
+      },
+      "resources": {
+        "listChanged": false
+      }
+    },
+    "serverInfo": {
+      "name": "convertigo-mcp",
+      "title": "Convertigo MCP Server",
+      "version": "0.0.10"
+    },
+    "instructions": "Use Convertigo MCP tools to inspect and manage the engine."
+  },
+  "counts": {
+    "tools": 21,
+    "resources": 12,
+    "prompts": 1
+  },
+  "consistencyCheck": {
+    "tools": [
+      21,
+      21
+    ],
+    "resources": [
+      12,
+      12
+    ],
+    "prompts": [
+      1,
+      1
+    ]
+  },
+  "toolNames": [
+    "batch-call",
+    "databaseobject-delete",
+    "databaseobject-move",
+    "databaseobject-rename",
+    "databaseobject-schema",
+    "databaseobject-search",
+    "databaseobject-tree-apply",
+    "databaseobject-tree-get",
+    "log-view",
+    "marketplace-import",
+    "marketplace-list",
+    "mobile-builder-open",
+    "palette-describe",
+    "palette-list",
+    "project-js-get",
+    "project-js-set",
+    "project-list",
+    "project-reload",
+    "project-save",
+    "rag-query",
+    "requestable-execute"
+  ],
+  "resources": [
+    {
+      "uri": "convertigo://resources/convertigo-start",
+      "name": "Convertigo Start Guide",
+      "title": "Convertigo Start Guide",
+      "description": "Canonical entry guide for tree-first Convertigo MCP work.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/start",
+      "revision": 1,
+      "guidanceLevel": "start",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "start",
+        "onboarding",
+        "tree-authoring"
+      ],
+      "prerequisites": [],
+      "recommendedTools": [
+        "project-list",
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "requestable-execute",
+        "project-save"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-engineering-workflow",
+      "name": "Convertigo Engineering Workflow",
+      "title": "Convertigo Engineering Workflow",
+      "description": "Team practices for reviewable changes, validation discipline, evidence, and controlled RAG usage.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/engineering-workflow",
+      "revision": 1,
+      "guidanceLevel": "workflow",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "workflow",
+        "validation",
+        "review",
+        "rag-policy"
+      ],
+      "prerequisites": [
+        "convertigo/start@1"
+      ],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "batch-call",
+        "requestable-execute",
+        "log-view",
+        "project-save",
+        "project-reload",
+        "rag-query"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-contract-first-delivery",
+      "name": "Convertigo Contract-First Delivery",
+      "title": "Convertigo Contract-First Delivery",
+      "description": "Planner workflow for facade contracts, stubs, parallel specialist work, and safe stub replacement.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/contract-first-delivery",
+      "revision": 1,
+      "guidanceLevel": "workflow",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "workflow",
+        "planner",
+        "contract-first",
+        "parallel-delivery"
+      ],
+      "prerequisites": [
+        "convertigo/start@1",
+        "convertigo/engineering-workflow@1"
+      ],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "batch-call",
+        "databaseobject-schema",
+        "requestable-execute",
+        "log-view"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-backend-sequences",
+      "name": "Convertigo Backend Sequences",
+      "title": "Convertigo Backend Sequences",
+      "description": "Sequence and facade design, JSON shaping, SmartTypes, and safe runtime validation.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/backend-sequences",
+      "revision": 1,
+      "guidanceLevel": "domain",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "domain",
+        "backend",
+        "sequences",
+        "smarttypes",
+        "json"
+      ],
+      "prerequisites": [
+        "convertigo/start@1"
+      ],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "palette-list",
+        "palette-describe",
+        "databaseobject-schema",
+        "requestable-execute",
+        "log-view"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-integration-sql",
+      "name": "Convertigo SQL Integration",
+      "title": "Convertigo SQL Integration",
+      "description": "SQL connector and transaction practices behind a stable facade contract.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/integration-sql",
+      "revision": 1,
+      "guidanceLevel": "domain",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "domain",
+        "integration",
+        "sql",
+        "transactions"
+      ],
+      "prerequisites": [
+        "convertigo/start@1",
+        "convertigo/backend-sequences@1"
+      ],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "databaseobject-schema",
+        "requestable-execute",
+        "log-view",
+        "project-save"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-integration-http",
+      "name": "Convertigo HTTP Integration",
+      "title": "Convertigo HTTP Integration",
+      "description": "HTTP connector and transaction setup, schema recording, transport diagnostics, and facade handoff.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/integration-http",
+      "revision": 1,
+      "guidanceLevel": "domain",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "domain",
+        "integration",
+        "http",
+        "transactions"
+      ],
+      "prerequisites": [
+        "convertigo/start@1",
+        "convertigo/backend-sequences@1"
+      ],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "databaseobject-schema",
+        "requestable-execute",
+        "log-view",
+        "project-save"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-frontend-ngx",
+      "name": "Convertigo Frontend NGX",
+      "title": "Convertigo Frontend NGX",
+      "description": "Palette-first NGX delivery with contract-based bindings, batching, and resilient UI states.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/frontend-ngx",
+      "revision": 1,
+      "guidanceLevel": "domain",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "domain",
+        "frontend",
+        "ngx",
+        "ui"
+      ],
+      "prerequisites": [
+        "convertigo/start@1",
+        "convertigo/contract-first-delivery@1"
+      ],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "batch-call",
+        "palette-list",
+        "palette-describe",
+        "requestable-execute",
+        "mobile-builder-open",
+        "project-save"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-validation-and-evidence",
+      "name": "Convertigo Validation and Evidence",
+      "title": "Convertigo Validation and Evidence",
+      "description": "Closure checklist for runtime proofs, save/reload discipline, and concise evidence.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/validation-and-evidence",
+      "revision": 1,
+      "guidanceLevel": "validation",
+      "fallbackToRag": false,
+      "scopeTags": [
+        "validation",
+        "evidence",
+        "closure",
+        "critic"
+      ],
+      "prerequisites": [
+        "convertigo/start@1",
+        "convertigo/engineering-workflow@1"
+      ],
+      "recommendedTools": [
+        "requestable-execute",
+        "log-view",
+        "databaseobject-tree-get",
+        "batch-call",
+        "project-save",
+        "project-reload"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-context-api",
+      "name": "Convertigo Context API (minimal)",
+      "title": "Convertigo Context (JS API guardrails)",
+      "description": "Reference guide for safe Rhino context usage and forbidden patterns.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/context-api",
+      "revision": 1,
+      "guidanceLevel": "reference",
+      "fallbackToRag": true,
+      "scopeTags": [
+        "reference",
+        "backend",
+        "rhino",
+        "context"
+      ],
+      "prerequisites": [],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "requestable-execute"
+      ]
+    },
+    {
+      "uri": "convertigo://resources/convertigo-json-quickref",
+      "name": "Convertigo JSON Steps Quickref",
+      "title": "Convertigo JSON Steps Quickref",
+      "description": "Reference guide for JSON steps, iterators, ordering, and SmartType sourcing.",
+      "mimeType": "text/markdown",
+      "guideId": "convertigo/json-quickref",
+      "revision": 1,
+      "guidanceLevel": "reference",
+      "fallbackToRag": true,
+      "scopeTags": [
+        "reference",
+        "backend",
+        "json",
+        "steps"
+      ],
+      "prerequisites": [],
+      "recommendedTools": [
+        "databaseobject-tree-get",
+        "databaseobject-tree-apply",
+        "databaseobject-move",
+        "requestable-execute"
+      ]
+    },
+    {
+      "uri": "convertigo://capabilities",
+      "name": "Convertigo MCP capabilities",
+      "title": "Convertigo MCP capabilities",
+      "description": "Core MCP capabilities and recommended authoring flow.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "uri": "convertigo://recipes/quickstart",
+      "name": "Convertigo MCP quickstart recipes",
+      "title": "Convertigo MCP quickstart recipes",
+      "description": "Minimal MCP-first recipes for fast project delivery.",
+      "mimeType": "text/markdown"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "convertigo-quickstart",
+      "title": "Convertigo MCP Quickstart",
+      "description": "Built-ins first, then start/workflow guides, then task-specific versioned guides.",
+      "file": "convertigo_quickstart.md"
+    }
+  ],
+  "builtInResources": [
+    {
+      "uri": "convertigo://capabilities",
+      "mimeType": "text/markdown",
+      "text": "# Convertigo MCP capabilities\\n\\n- Project discovery: `project-list`, `databaseobject-tree-get`.\\n- Authoring: `palette-list`, `palette-describe`, `databaseobject-tree-apply`, `databaseobject-rename`, `databaseobject-move`, `databaseobject-delete`.\\n- Bulk orchestration: `batch-call`.\\n- Diagnostics: `log-view`, `requestable-execute`.\\n- Marketplace: `marketplace-list`, `marketplace-import`."
+    },
+    {
+      "uri": "convertigo://recipes/quickstart",
+      "mimeType": "text/markdown",
+      "text": "# Quickstart recipes\\n\\n1. Discover parent capabilities with `palette-list` then `palette-describe`.\\n2. Create or patch one-shot trees with `databaseobject-tree-apply` (`at=inside|before|after|self`).\\n3. Use `mode=merge|replace` in `databaseobject-tree-apply` for incremental vs strict patching.\\n4. Navigate large trees with `databaseobject-tree-get` (`childrenDepth`, `properties`, `_nextCursor`).\\n5. Orchestrate macro changes with `batch-call` and `$ref`."
+    }
+  ]
+}

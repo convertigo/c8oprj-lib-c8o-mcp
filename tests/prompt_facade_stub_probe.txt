@@ -1,0 +1,33 @@
+Call `resources/list`, then read:
+- `convertigo://capabilities`
+- `convertigo://recipes/quickstart`
+- `convertigo://resources/convertigo-start`
+- `convertigo://resources/convertigo-engineering-workflow`
+- `convertigo://resources/convertigo-contract-first-delivery`
+- `convertigo://resources/convertigo-backend-sequences`
+- `convertigo://resources/convertigo-validation-and-evidence`
+
+Confirm you refreshed those guides, then continue with this probe.
+
+In the `codex_test` project, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
+
+Required public contract:
+- input variable: `query` (string, optional)
+- top-level fields:
+  - `status`: `ok` or `error`
+  - `source`: always `stub`
+  - `items`: array of objects with `id` and `label`
+  - `total`: integer
+  - `error`: string
+
+Rules:
+1. Lock the contract before the first write call.
+2. Make the sequence executable immediately.
+3. Keep the response shape stable for both nominal and error cases.
+4. Validate it with `requestable-execute`.
+5. Save the project.
+
+Final output format:
+- `RESULT: PASS` only if the sequence exists, executes, and returns exactly the required top-level fields with `source="stub"`.
+- Otherwise `RESULT: FAIL` with the failing step and tool response snippets.
+- End with one short `MCP critique` item.

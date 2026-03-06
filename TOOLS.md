@@ -39,6 +39,11 @@ Use these first before long guide reads:
 - `convertigo://capabilities` — condensed tool capabilities and authoring flow.
 - `convertigo://recipes/quickstart` — minimal step-by-step recipes for fast delivery.
 
+Phase 1 guides are exposed through `resources/list` with versioned metadata
+(`guideId`, `revision`, `scopeTags`, `prerequisites`, `recommendedTools`,
+`guidanceLevel`, `fallbackToRag`). Use the built-ins first, then choose the
+right guide from the catalog instead of relying on hard-coded legacy URIs.
+
 ### Practical defaults
 
 Use these short forms first; keep advanced parameters for diagnostics only.

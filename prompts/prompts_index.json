@@ -3,6 +3,6 @@
     "name": "convertigo-quickstart",
     "file": "convertigo_quickstart.md",
     "title": "Convertigo MCP Quickstart",
-    "description": "Tree-first MCP workflow for Convertigo: inspect, plan, apply, validate, save."
+    "description": "Built-ins first, then start/workflow guides, then task-specific versioned guides."
   }
 ]

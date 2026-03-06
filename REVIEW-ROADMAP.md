@@ -209,9 +209,16 @@ Remaining output-contract backlog after Phase 0.5:
 
 - none on the current reviewed catalog surface
 
-## Phase 1 - Guide System
+## [DONE] Phase 1 - Guide System
 
 Goal: replace overlapping onboarding documents with a layered guide model.
+
+Status:
+
+- completed on live server `0.0.10`
+- the public resource catalog now exposes versioned guide metadata through `resources/list`
+- the old quickstart-era guide URIs have been removed from the public MCP catalog
+- one neutral prompt now points to the new guide set without introducing specialist role prompts yet
 
 Target model:
 
@@ -246,6 +253,7 @@ Exit criteria:
 - specialized guides are short, scoped, and non-redundant
 - tools can point to the right guide when the caller enters a specialized area
 - guide warnings work as hints and remain stateless-compatible
+- current status: satisfied for the guide catalog and public resource metadata; role prompts remain Phase 2 work
 
 ## Phase 2 - Prompt Roles
 

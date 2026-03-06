@@ -13,10 +13,10 @@ the tools.
 - Public MCP endpoint: `http://localhost:18080/convertigo/api/mcp`
 - Current protocol: `2025-06-18`
 - Current server name: `convertigo-mcp`
-- Current live version at last review: `0.0.8`
+- Current live version at last review: `0.0.10`
 - Current public catalog:
   - `21` tools
-  - `9` resources
+  - `12` resources
   - `1` prompt
 
 Do not trust this file over the live server. Verify with:
@@ -78,6 +78,11 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
 - Built-in resources such as `convertigo://capabilities` and
   `convertigo://recipes/quickstart` are part of the onboarding surface and must
   stay aligned with the live contract.
+- Phase 1 guide resources are versioned and exposed through `resources/list`
+  with metadata such as `guideId`, `revision`, `scopeTags`, `prerequisites`,
+  `recommendedTools`, `guidanceLevel`, and `fallbackToRag`.
+- The retired Phase 0 guide URIs must not be reintroduced into the public MCP
+  resource catalog.
 
 ## Files That Matter Most
 
@@ -135,7 +140,8 @@ After changing the MCP:
 - Preparation Phase: done
 - Phase 0: done
 - Phase 0.5: done
-- Next major phase: guide system and role prompts
+- Phase 1: done
+- Next major phase: role prompts
 
 See `REVIEW-ROADMAP.md` for the working plan.
 

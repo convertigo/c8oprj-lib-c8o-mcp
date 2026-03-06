@@ -1,4 +1,15 @@
-Call `resources/list`, then read `convertigo_sequence_quickstart` and `convertigo_context_api` via `resources/read`. Confirm you refreshed them, then continue with this plan.
+Call `resources/list`, then read:
+- `convertigo://capabilities`
+- `convertigo://recipes/quickstart`
+- `convertigo://resources/convertigo-start`
+- `convertigo://resources/convertigo-engineering-workflow`
+- `convertigo://resources/convertigo-backend-sequences`
+- `convertigo://resources/convertigo-context-api`
+- `convertigo://resources/convertigo-validation-and-evidence`
+
+Confirm you refreshed those guides, then continue with this plan.
+
+Before the first write call, state whether `convertigo://resources/convertigo-contract-first-delivery` is needed for this task and why.
 
 In the `codex_test` project, create a sequence `analyze_sentence` with one input variable `sentence` (string). The sequence must return a JSON document containing a `words` array. Each entry must include:
 - `text`: the word lowercased with simple punctuation removed,
@@ -6,5 +17,5 @@ In the `codex_test` project, create a sequence `analyze_sentence` with one input
 - `vowels`: count of vowels (a,e,i,o,u,y),
 - `consonants`: count of consonants.
 
-Test early with `tools/call convertigo.requestable-execute {"requestable":"codex_test.analyze_sentence","variables":"{\"sentence\":\"Hello\"}"}`; keep the final proof with `sentence=Hello world!`. If `analyze_sentence` already exists, run the tests and confirm current behaviour.
+Test early with `requestable-execute {"requestable":"codex_test.analyze_sentence","variables":{"sentence":"Hello"}}`; keep the final proof with `sentence=Hello world!`. If `analyze_sentence` already exists, run the tests and confirm current behaviour.
 End the run with a short "MCP critique" describing what felt confusing, which tools were missing, and any UX improvements that would have helped.

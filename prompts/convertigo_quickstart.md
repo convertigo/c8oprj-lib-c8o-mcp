@@ -1,10 +1,19 @@
 # Convertigo MCP Quickstart
 
 Start every session with `resources/list`, then read:
-- `convertigo://resources/convertigo-mcp-usage`
-- `convertigo://resources/convertigo-sequence-quickstart`
-- `convertigo://resources/convertigo-ui-building-quickstart`
-- `convertigo://resources/convertigo-context-api`
+- `convertigo://capabilities`
+- `convertigo://recipes/quickstart`
+- `convertigo://resources/convertigo-start`
+- `convertigo://resources/convertigo-engineering-workflow`
+
+Then read only the domain guides that match the task:
+- multi-track planning or parallel delivery: `convertigo://resources/convertigo-contract-first-delivery`
+- sequence or facade work: `convertigo://resources/convertigo-backend-sequences`
+- SQL integration: `convertigo://resources/convertigo-integration-sql`
+- HTTP integration: `convertigo://resources/convertigo-integration-http`
+- NGX UI delivery: `convertigo://resources/convertigo-frontend-ngx`
+- final validation or review: `convertigo://resources/convertigo-validation-and-evidence`
+- narrow references only when needed: `convertigo://resources/convertigo-context-api`, `convertigo://resources/convertigo-json-quickref`
 
 ## Core model
 - Convertigo work is tree-based.
@@ -15,10 +24,11 @@ Start every session with `resources/list`, then read:
 
 ## Mandatory workflow
 1. Read tree and palette first.
-2. Build a complete mutation plan.
-3. Execute writes via MCP only (no direct YAML edits).
-4. Validate quickly (`requestable-execute`, optional `includeLogs`).
-5. Save (`project-save`).
+2. If the task spans backend, integration, and UI, lock the facade contract and stub path before specialists branch.
+3. Build a complete mutation plan.
+4. Execute writes via MCP only (no direct YAML edits).
+5. Validate quickly (`requestable-execute`, optional `includeLogs`).
+6. Save (`project-save`).
 
 ## Primary tools
 | Tool | Purpose |
@@ -37,4 +47,6 @@ Start every session with `resources/list`, then read:
 - Reuse `tree-get` output structure as input to `tree-apply` whenever possible.
 - Prefer `mode=merge`; use `mode=replace` only when subtree pruning is intended.
 - For large changes, use `batch-call` with default `optimizeMutations=true`.
+- If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery` before the first write call.
+- Use `rag-query` only when the live catalog and tracked guides do not answer the question.
 - Keep final output concise and include one MCP critique item if tooling friction appears.

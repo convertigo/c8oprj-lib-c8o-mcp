@@ -1,4 +1,11 @@
-Call `project-list`, then locate an NGX app root QName (class `ngx.components.ApplicationComponent`) by using `databaseobject-search` on each candidate project if needed.
+Call `resources/list`, then read:
+- `convertigo://capabilities`
+- `convertigo://recipes/quickstart`
+- `convertigo://resources/convertigo-start`
+- `convertigo://resources/convertigo-frontend-ngx`
+- `convertigo://resources/convertigo-validation-and-evidence`
+
+Then call `project-list`, then locate an NGX app root QName (class `ngx.components.ApplicationComponent`) by using `databaseobject-search` on each candidate project if needed.
 
 Run this regression with MCP tools only (no local shell edits):
 
@@ -34,3 +41,4 @@ Run this regression with MCP tools only (no local shell edits):
 7. Final output format:
 - `RESULT: PASS` only if all 3 write/read checks passed and cleanup succeeded.
 - Otherwise `RESULT: FAIL` with the failing step and tool response snippets.
+- End with one short `MCP critique` item.

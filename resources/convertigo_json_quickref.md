@@ -1,5 +1,7 @@
 # Convertigo JSON Steps Quickref
 
+Open this only when you need a quick reminder on JSON-step structure, iterator ordering, or SmartType source wiring.
+
 - **Common classes** (short names):
   - `steps.JsonObjectStep`
   - `steps.JsonArrayStep`

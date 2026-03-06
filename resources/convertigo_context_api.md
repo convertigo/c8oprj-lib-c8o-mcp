@@ -1,5 +1,7 @@
 # Convertigo Context (minimal API)
 
+Open this only when a script touches `context` directly or when you need to confirm what is safe to store there.
+
 The global `context` value exposed in Rhino is an instance of `com.twinsoft.convertigo.engine.Context` (see `convertigo-doc/reference-manual/convertigo-mbaas-server/javascript-objects-apis/index.md`). It is a Java object backed by the engine — **you must not attach custom fields such as `context.wordsData`** because Rhino forwards those assignments to the Java bean and they fail at runtime.
 
 Use it only for the documented fields/methods summarized below. Everything else (temporary arrays, intermediate strings, etc.) should live in local JavaScript variables or in the dedicated storages (`project`, `server`, HTTP session, …).
