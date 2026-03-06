@@ -3,11 +3,11 @@
 ## Baseline facts
 
 - Endpoint reviewed: `http://localhost:18080/convertigo/api/mcp`
-- Reviewed live server version: `0.0.9`
+- Reviewed live server version: `0.0.11`
 - Stable repeated counts:
   - tools: `21`
-  - resources: `9`
-  - prompts: `1`
+  - resources: `12`
+  - prompts: `7`
 - Current canonical authoring model:
   - inspect with `databaseobject-tree-get`
   - mutate with `databaseobject-tree-apply`
@@ -16,11 +16,13 @@
 
 ## Main findings
 
-1. The live contract, the served resources, the exposed prompt, and the tracked prompt tests are now aligned on the tree-based authoring model.
-2. The built-in resources remain a strong onboarding seed, but Phase 1 should still collapse the current overlap into one canonical start guide plus specialized guides.
-3. The live `21`-tool catalog now exposes distinct titles, high-signal descriptions, and typed input help for the full reviewed surface.
-4. Phase 0.5 has cleaned the core output contract, and the remaining input-schema ambiguity has now been closed on the last `8` tools.
-5. Phase 0 can now close on contract truth; the next work belongs to guide-system consolidation, benchmark design, and role prompts.
+1. The live contract, the served resources, the role-prompt catalog, and the tracked prompt probes are aligned on the tree-based authoring model.
+2. The live `21`-tool catalog still exposes distinct titles, high-signal descriptions, and typed input help for the full reviewed surface.
+3. The public guide system is now live through `resources/list` with explicit guide metadata and prompt cross-links.
+4. The public prompt catalog is now role-based through `prompts/list` and `prompts/get`, with `7` prompts and machine-readable workflow metadata.
+5. Mandatory live Codex CLI probes now pass for planner, HTTP, and frontend NGX; the critic prompt also completed a live review run against a real probe log.
+6. The backend sanity run remained non-blocking and surfaced a real weakness: the role prompt stayed too exploratory on a sequence-building task and never reached a write.
+7. Phase 0 remains closed on contract truth; the next work now belongs to report formalization, benchmark scoring, and prompt refinement based on live probe findings.
 
 ## Comment-quality rule
 
@@ -146,7 +148,7 @@ The next rewrite should start from a small, trustworthy surface:
 1. `convertigo://capabilities`
 2. `convertigo://recipes/quickstart`
 3. a canonical start guide that replaces the current overlap
-4. a prompt that points to those three assets
+4. a prompt catalog that points to those assets without duplicating them
 
 Everything else should become specialized or be temporarily de-emphasized until rewritten.
 
@@ -174,7 +176,8 @@ Phase 0 is now closed on the reviewed live surface.
 
 Closure reasons:
 
-- the live contract is captured at `0.0.9`
-- docs, prompt, and tests no longer teach removed CRUD flows
+- the live contract is captured at `0.0.11`
+- docs, guides, prompts, and tests no longer teach removed CRUD flows
 - all `21` tools now meet the review scorecard target
 - no open Phase 0 contract mismatch remains between the live MCP surface and the current onboarding material
+- role prompts are now live and discoverable without re-opening the Phase 0 contract work

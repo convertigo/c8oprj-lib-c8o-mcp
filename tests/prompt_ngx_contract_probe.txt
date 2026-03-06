@@ -1,32 +1,29 @@
-Call `resources/list`, then read:
-- `convertigo://capabilities`
-- `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-frontend-ngx`
-- `convertigo://resources/convertigo-validation-and-evidence`
-
-Confirm you refreshed those guides, then continue with this probe.
+This is an NGX specialist probe.
+- Preferred runner: inject MCP role prompt `convertigo-frontend-ngx` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-frontend-ngx` yourself before continuing.
+- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
 
 Probe goals:
 1. Find an NGX app root QName (class `ngx.components.ApplicationComponent`).
 2. Find a stable facade requestable contract in this preference order:
-   - `codex_test.probe_http_contract`
-   - `codex_test.probe_contract_stub`
-   - `codex_test.ip_info`
+   - `<chosen project>.probe_http_contract`
+   - `<chosen project>.probe_contract_stub`
+   - `<chosen project>.ip_info`
 3. If no NGX app exists, stop with `RESULT: SKIPPED - no NGX app found`.
 4. If no stable facade requestable exists, stop with `RESULT: SKIPPED - no stable facade contract found`.
 
 If both exist:
 1. Inspect the target NGX subtree and discover safe palette entries before any write.
-2. Create or update a temporary subtree named `CodexContractProbe`.
-3. Bind it to the stable contract fields, not to raw connector payload names.
-4. The subtree must make all of these states identifiable in the tree:
+2. If `CodexContractProbe` already exists and tree inspection proves it already covers the required states and stable facade fields, do not rebuild it. Validate it, save the project, and report `PASS`.
+3. Otherwise create or update a temporary subtree named `CodexContractProbe`.
+4. Bind it to the stable contract fields, not to raw connector payload names.
+5. The subtree must make all of these states identifiable in the tree:
    - loading
    - empty
    - error
    - retry
-5. Save the project.
+6. A page-level load or retry action may already exist. Reuse it if it already targets the stable facade contract cleanly.
+7. Save the project.
 
 Final output format:
 - `RESULT: PASS` only if tree inspection proves `CodexContractProbe` exists and the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields.

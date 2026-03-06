@@ -1,16 +1,18 @@
-Call `resources/list`, then read:
-- `convertigo://capabilities`
-- `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-integration-http`
-- `convertigo://resources/convertigo-validation-and-evidence`
+This is an HTTP specialist probe.
+- Preferred runner: inject MCP role prompt `convertigo-http` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-http` yourself before continuing.
+- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
 
-Confirm you refreshed those guides, then continue with this probe.
+In the chosen project, create or update a facade sequence named `probe_http_contract` backed by `https://api.ipify.org?format=json`.
+Use a concrete HTTP connector and transaction path:
+- connector class: `connectors.HttpConnector`
+- transaction class: `transactions.JsonHttpTransaction`
+- connector host: `api.ipify.org`
+- connector settings: `https=true`, `port=443`, `baseDir=""`
+- transaction sub path: `/?format=json`
+- keep `httpInfo=true` during setup
 
-In the `codex_test` project, create or update a facade sequence named `probe_http_contract` backed by `https://api.ipify.org?format=json`.
+If you need a live structural reference for an HTTP connector and JSON transaction, inspect `BaserowIntegration.Baserow` before writing.
 
 Required public contract:
 - top-level fields:
@@ -23,8 +25,9 @@ Rules:
 1. Make the facade executable in stub mode first and prove it runs.
 2. Create or update the HTTP integration behind that facade.
 3. Replace the stub internals without changing the public top-level fields.
-4. If the upstream call fails, keep the same top-level fields and types through the fallback path.
-5. Save the project.
+4. Map the upstream `ip` field into the facade `ip` field. Do not leak raw connector field names at the public facade level.
+5. If the upstream call fails, keep the same top-level fields and types through the fallback path.
+6. Save the project.
 
 Final output format:
 - `RESULT: PASS` only if the facade runs in stub mode, then runs again with the HTTP path wired, and both proofs keep the same top-level fields.

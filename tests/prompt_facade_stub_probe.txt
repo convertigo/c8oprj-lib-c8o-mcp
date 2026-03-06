@@ -1,15 +1,9 @@
-Call `resources/list`, then read:
-- `convertigo://capabilities`
-- `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-validation-and-evidence`
+This is a planner probe.
+- Preferred runner: inject MCP role prompt `convertigo-planner` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-planner` yourself before continuing.
+- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
 
-Confirm you refreshed those guides, then continue with this probe.
-
-In the `codex_test` project, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
+In the chosen project, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
 
 Required public contract:
 - input variable: `query` (string, optional)
@@ -26,6 +20,7 @@ Rules:
 3. Keep the response shape stable for both nominal and error cases.
 4. Validate it with `requestable-execute`.
 5. Save the project.
+6. Produce explicit handoff guidance for backend, SQL or HTTP, frontend NGX, and critic follow-up.
 
 Final output format:
 - `RESULT: PASS` only if the sequence exists, executes, and returns exactly the required top-level fields with `source="stub"`.

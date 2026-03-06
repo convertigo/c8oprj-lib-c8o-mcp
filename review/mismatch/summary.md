@@ -2,14 +2,14 @@
 
 ## Baseline
 
-- Live server version: `0.0.9`
-- Repeated checks stayed stable: `21` tools, `9` resources, `1` prompt
+- Live server version: `0.0.11`
+- Repeated checks stayed stable: `21` tools, `12` resources, `7` prompts
 - The live contract is tree-first:
   - inspection: `databaseobject-tree-get`
   - mutation: `databaseobject-tree-apply`
   - orchestration: `batch-call`
   - validation: `requestable-execute`
-- Two built-in resources already form a strong onboarding seed for the next guide rewrite:
+- Two built-in resources still form the first onboarding seed:
   - `convertigo://capabilities`
   - `convertigo://recipes/quickstart`
 
@@ -29,14 +29,14 @@
 
 ## Current mismatch status
 
-No open Phase 0 mismatch remains between:
+No open catalog mismatch remains between:
 
 - the live MCP contract
 - the served resources
-- the exposed prompt
-- the tracked prompt-based tests
+- the exposed role prompts
+- the tracked prompt-based tests and probes
 
-The earlier CRUD-era guidance has been removed from the current onboarding surface.
+The earlier CRUD-era guidance is gone from the current onboarding surface, and the public prompt layer is now role-based.
 
 ## Stable or reusable material
 
@@ -44,21 +44,27 @@ The earlier CRUD-era guidance has been removed from the current onboarding surfa
   - Still valid. It documents runtime guardrails rather than obsolete MCP flow.
 - `TOOLS.md`
   - Keep as a short human companion to `tools/list`, not as a second contract source.
-- `resources/convertigo_transaction_quickstart.md`
-  - HTTP advice remains useful and now sits on the tree-based authoring model.
 - `resources/convertigo_json_quickref.md`
   - Step semantics remain useful as specialized reference material.
+- `tests/prompt_facade_stub_probe.txt`, `tests/prompt_http_facade_probe.txt`, `tests/prompt_ngx_contract_probe.txt`
+  - These now act as the first live prompt probes and should become benchmark seeds in Phase 3.
 
-## Phase 1 consolidation order
+## Phase 2 validation status
 
-1. Create one canonical start guide from the live contract and the built-in resources.
-2. Reduce overlap across the sequence, transaction, UI, and JSON reference guides.
-3. Keep the exposed prompt short and make it point to the canonical start guide plus selected specialized guides.
-4. Grow the benchmark and critic material from the now-stable live contract.
-5. Refresh `resources_index.json` descriptions only when Phase 1 guide boundaries are finalized.
+- Mandatory probes passed:
+  - planner
+  - HTTP
+  - frontend NGX
+- The critic prompt completed a live review run and produced actionable findings.
+- The backend sanity run is intentionally recorded as incomplete, not hidden:
+  - the prompt explored correctly
+  - it never reached mutation, validation, or save
+  - the critic captured the failure and the MCP UX issue behind it
+- The SQL prompt is published and metadata-complete, but no live database-backed probe was run because no safe local SQL target is available.
 
-## Phase 0 decision
+## Next review focus
 
-- Treat Phase 0 as closed on the current reviewed catalog and onboarding surface.
-- Treat tree-based authoring as canonical.
-- Treat colleague repositories as pattern sources for roles, validation gates, and benchmark discipline only.
+1. Turn probe logs and critique output into structured run reports.
+2. Add benchmark scoring on top of the existing planner, HTTP, and frontend probes.
+3. Refine the backend prompt and scenario so a short sequence-authoring sanity run reaches write, runtime proof, and save reliably.
+4. Keep colleague repositories as pattern sources for roles, validation gates, and benchmark discipline only.

@@ -17,6 +17,15 @@
       "requestable-execute",
       "project-save"
     ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-sql",
+      "convertigo-http",
+      "convertigo-frontend-ngx",
+      "convertigo-critic"
+    ],
     "guidanceLevel": "start",
     "fallbackToRag": false
   },
@@ -40,6 +49,15 @@
       "project-save",
       "project-reload",
       "rag-query"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-sql",
+      "convertigo-http",
+      "convertigo-frontend-ngx",
+      "convertigo-critic"
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
@@ -66,6 +84,11 @@
       "requestable-execute",
       "log-view"
     ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-frontend-ngx"
+    ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
   },
@@ -88,6 +111,12 @@
       "databaseobject-schema",
       "requestable-execute",
       "log-view"
+    ],
+    "promptNames": [
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-sql",
+      "convertigo-http"
     ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
@@ -114,6 +143,9 @@
       "log-view",
       "project-save"
     ],
+    "promptNames": [
+      "convertigo-sql"
+    ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
   },
@@ -138,6 +170,9 @@
       "requestable-execute",
       "log-view",
       "project-save"
+    ],
+    "promptNames": [
+      "convertigo-http"
     ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
@@ -166,6 +201,9 @@
       "mobile-builder-open",
       "project-save"
     ],
+    "promptNames": [
+      "convertigo-frontend-ngx"
+    ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
   },
@@ -191,6 +229,14 @@
       "project-save",
       "project-reload"
     ],
+    "promptNames": [
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-sql",
+      "convertigo-http",
+      "convertigo-frontend-ngx",
+      "convertigo-critic"
+    ],
     "guidanceLevel": "validation",
     "fallbackToRag": false
   },
@@ -208,6 +254,9 @@
     "recommendedTools": [
       "databaseobject-tree-get",
       "requestable-execute"
+    ],
+    "promptNames": [
+      "convertigo-backend"
     ],
     "guidanceLevel": "reference",
     "fallbackToRag": true
@@ -228,6 +277,9 @@
       "databaseobject-tree-apply",
       "databaseobject-move",
       "requestable-execute"
+    ],
+    "promptNames": [
+      "convertigo-backend"
     ],
     "guidanceLevel": "reference",
     "fallbackToRag": true

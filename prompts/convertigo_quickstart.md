@@ -1,12 +1,17 @@
 # Convertigo MCP Quickstart
 
-Start every session with `resources/list`, then read:
+## When to use this prompt
+Use this prompt to bootstrap a session, choose the right guides, and hand off to the specialist prompt that matches the task.
+
+## Read these guides first
+- If this is a fresh session, call `prompts/list` and `resources/list`.
+- Then read:
 - `convertigo://capabilities`
 - `convertigo://recipes/quickstart`
 - `convertigo://resources/convertigo-start`
 - `convertigo://resources/convertigo-engineering-workflow`
 
-Then read only the domain guides that match the task:
+Read only the domain guides that match the task:
 - multi-track planning or parallel delivery: `convertigo://resources/convertigo-contract-first-delivery`
 - sequence or facade work: `convertigo://resources/convertigo-backend-sequences`
 - SQL integration: `convertigo://resources/convertigo-integration-sql`
@@ -15,20 +20,27 @@ Then read only the domain guides that match the task:
 - final validation or review: `convertigo://resources/convertigo-validation-and-evidence`
 - narrow references only when needed: `convertigo://resources/convertigo-context-api`, `convertigo://resources/convertigo-json-quickref`
 
-## Core model
-- Convertigo work is tree-based.
-- Inspect with `databaseobject-tree-get`.
-- Mutate with `databaseobject-tree-apply`.
-- Orchestrate multiple operations with `batch-call`.
-- Validate runtime behavior with `requestable-execute`.
+## Mission
+- Bootstrap the session.
+- Choose the right specialist prompt when the task is planner, backend, SQL, HTTP, frontend NGX, or critic work.
+- Keep the guidance thin: the guides hold the detailed domain rules.
 
 ## Mandatory workflow
-1. Read tree and palette first.
-2. If the task spans backend, integration, and UI, lock the facade contract and stub path before specialists branch.
-3. Build a complete mutation plan.
-4. Execute writes via MCP only (no direct YAML edits).
-5. Validate quickly (`requestable-execute`, optional `includeLogs`).
-6. Save (`project-save`).
+1. Read the built-ins and the start/workflow guides.
+2. Pick the domain guides that match the task.
+3. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery` before the first write call.
+4. Choose the matching specialist prompt from `prompts/list`.
+5. Execute writes via MCP only.
+
+## Specialist prompt routing
+| Task shape | Specialist prompt |
+|------------|-------------------|
+| Contract-first planning or parallel split | `convertigo-planner` |
+| Sequence or facade implementation | `convertigo-backend` |
+| SQL connector implementation | `convertigo-sql` |
+| HTTP connector implementation | `convertigo-http` |
+| NGX UI work | `convertigo-frontend-ngx` |
+| Review or critique | `convertigo-critic` |
 
 ## Primary tools
 | Tool | Purpose |
@@ -49,4 +61,9 @@ Then read only the domain guides that match the task:
 - For large changes, use `batch-call` with default `optimizeMutations=true`.
 - If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery` before the first write call.
 - Use `rag-query` only when the live catalog and tracked guides do not answer the question.
-- Keep final output concise and include one MCP critique item if tooling friction appears.
+
+## Output format
+Return these sections in order:
+- `Selected Guides`
+- `Next Actions`
+- `MCP Critique`

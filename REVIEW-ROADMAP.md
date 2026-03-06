@@ -253,20 +253,35 @@ Exit criteria:
 - specialized guides are short, scoped, and non-redundant
 - tools can point to the right guide when the caller enters a specialized area
 - guide warnings work as hints and remain stateless-compatible
-- current status: satisfied for the guide catalog and public resource metadata; role prompts remain Phase 2 work
+- current status: satisfied for the guide catalog and public resource metadata; role prompts are now completed in Phase 2
 
-## Phase 2 - Prompt Roles
+## [DONE] Phase 2 - Prompt Roles
 
 Goal: define reusable MCP prompts for agent roles without turning prompts into large manuals.
 
-Initial roles:
+Status:
 
-- generalist planner
-- Convertigo backend specialist
-- Convertigo frontend NGX specialist
-- integration specialist
-- critic
-- benchmark judge
+- completed on live server `0.0.11`
+- `prompts/list` now exposes `7` file-backed prompts with machine-readable metadata
+- `prompts/get` returns the same metadata plus the prompt body, so clients do not need a second lookup
+- `resources/list` still exposes `12` resources and file-backed guides now expose `promptNames`
+- mandatory live Codex CLI probes passed with `codex-cli 0.111.0`:
+  - `convertigo-planner`
+  - `convertigo-http`
+  - `convertigo-frontend-ngx`
+- the `convertigo-critic` prompt completed a live review run and produced concrete findings on the latest backend sanity probe
+- the backend sanity run was intentionally kept non-blocking; it exposed a real prompt/workflow weakness instead of producing a false green
+- the SQL prompt is published and catalog-valid, but no live database-backed probe was run because no safe local SQL target was available
+
+Delivered roles:
+
+- `convertigo-quickstart`
+- `convertigo-planner`
+- `convertigo-backend`
+- `convertigo-sql`
+- `convertigo-http`
+- `convertigo-frontend-ngx`
+- `convertigo-critic`
 
 Prompt rules:
 
@@ -274,12 +289,18 @@ Prompt rules:
 - prompts define workflow and stopping rules
 - prompts define expected output format
 - prompts must stay thinner than the underlying guides
+- prompts execute writes through MCP only
+- mutating prompts end with `project-save` unless the task is explicitly dry-run or review-only
+- every prompt requires one short `mcpCritique` line
 
 Exit criteria:
 
 - each role has a single clear responsibility
 - prompts compose cleanly with the guide system
 - prompts do not embed large duplicated knowledge blocks
+- the three mandatory live probes pass
+- the critic can review a real probe log and produce concrete findings
+- current status: satisfied for role prompts and mandatory live validation; the backend sanity finding is tracked as non-blocking input for Phase 3
 
 ## Phase 3 - Reporting
 

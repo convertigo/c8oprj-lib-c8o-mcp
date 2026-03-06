@@ -1,16 +1,9 @@
-Call `resources/list`, then read:
-- `convertigo://capabilities`
-- `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-integration-http`
-- `convertigo://resources/convertigo-validation-and-evidence`
+This is the main HTTP contract scenario.
+- Preferred runner: inject MCP role prompt `convertigo-http` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-http` yourself before continuing.
+- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
 
-Confirm you refreshed those guides, then continue with this plan.
-
-In the `codex_test` project, create or update a facade sequence `ip_info` backed by `https://api.ipify.org?format=json`. Lock the public response contract before the first write call.
+In the chosen project, create or update a facade sequence `ip_info` backed by `https://api.ipify.org?format=json`. Lock the public response contract before the first write call.
 
 Required public top-level fields:
 - `status`: `ok`, `fallback`, or `error`

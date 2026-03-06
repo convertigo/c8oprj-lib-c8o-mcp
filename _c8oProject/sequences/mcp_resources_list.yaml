@@ -224,6 +224,19 @@ comment: Handles MCP resources/list requests
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: recommendedTools
+          ↓PromptNames [steps.JsonToXmlStep-1773900300001]: 
+            jsonObject: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item && item.promptNames ? item.promptNames : []
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: promptNames
 ↓Meta [steps.JsonObjectStep-1763045447449]: 
   key: 
     - xmlizable: 
