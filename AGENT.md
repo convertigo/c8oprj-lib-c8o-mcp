@@ -1,118 +1,150 @@
-# Convertigo MCP — Agent Briefing
+# Convertigo MCP Maintainer Brief
 
-## Mission Overview
-ConvertigoMCP exposes the Convertigo platform through the Model Context Protocol (MCP) so that AI copilots can inspect, monitor, and (eventually) modify Convertigo projects in a safe, schema-driven way.  
-Your role is to extend / maintain the low-level Convertigo sequences and REST mappings that power the MCP wrapper sequence (`McpEndpoint`). Another Codex agent orchestrates the high-level MCP contract, so keep the primitives here well-factored and reusable.
+## Purpose
 
-The current deployment targets Convertigo 8.3.9 running inside the repository’s Docker Compose stack.
+Maintain the `ConvertigoMCP` project as the tool and onboarding layer for
+AI-driven Convertigo development.
 
-## Project Layout
-```
-data/workspace/projects/ConvertigoMCP/
-├─ _c8oProject/           # Convertigo project definition (do NOT edit manually)
-│   ├─ sequences/         # YAML exports of each sequence
-│   ├─ urlMapper/         # REST mappings (ApiMcp.yaml) used by MCP
-│   └─ connectors/...     # Placeholder (void connector)
-├─ c8oProject.yaml        # Project manifest
-├─ ConvertigoMCP.xsd      # Generated schema
-└─ AGENT.md               # This file
-```
+This file is for maintainers working on the MCP itself, not for end users of
+the tools.
 
-Important sequences:
-- `McpEndpoint` – JSON-RPC entry point that validates requests, routes to sub-sequences, and emits HTTP responses.
-- `McpInitialize`, `McpToolsList`, `McpToolsCall`, `McpPing`, `McpResourcesList`, `McpPromptsList`, etc. – handlers for individual MCP methods.
-- `McpErrorResponse` / `McpMethodNotFound` – shared error emitters.
+## Current State
 
-All sequences live under `_c8oProject/sequences/*.yaml`. Modify them through Rhino scripts executed with the `ConvertigoCodexAgent` project (`POST /convertigo/api/exec`) or by using the Convertigo Studio UI, then export the project to persist changes.
+- Public MCP endpoint: `http://localhost:18080/convertigo/api/mcp`
+- Current protocol: `2025-06-18`
+- Current server name: `convertigo-mcp`
+- Current live version at last review: `0.0.8`
+- Current public catalog:
+  - `21` tools
+  - `9` resources
+  - `1` prompt
 
-## Execution & Tooling
-- **Docker stack**: run from the repo root  
-  ```bash
-  docker compose up -d
-  docker compose logs -f convertigo_0
-  ```
-- **Server URL**: `http://localhost:28080/convertigo`
-- **Privileged scripting**: `POST http://localhost:28080/convertigo/api/exec` with raw JavaScript body; sequence `ConvertigoCodexAgent.EXEC` evaluates it server-side.
-- **MCP endpoint**: `POST http://localhost:28080/convertigo/api/mcp`
-- **Logs**: `data/workspace/logs/0/engine.log`
-- **Manual testing**: use `curl` to hit `initialize`, `tools/list`, `tools/call`, etc., always setting `MCP-Protocol-Version: 2025-06-18` after the handshake.
+Do not trust this file over the live server. Verify with:
 
-## Development Workflow
-1. **Plan** the new primitive (sequence, step, or mapping) required by the MCP contract.
-2. **Implement** with Rhino scripts or the Studio, keeping steps small and composable.
-3. **Normalize responses** so `McpEndpoint` always emits objects that match JSON-RPC 2.0 and MCP requirements (no nested `result.result`, every `error` containing `code` & `message`).
-4. **Export** the project:  
-   ```javascript
-   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-   var proj = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
-   Engine.theApp.databaseObjectsManager.exportProject(proj);
-   ```
-5. **Commit** inside `data/workspace/projects/ConvertigoMCP` (this directory is a Git submodule/repo) and push to the shared branch.
+1. `initialize`
+2. `tools/list`
+3. `resources/list`
+4. `prompts/list`
 
-### Coding Guidelines
-- Prefer dedicated helper sequences for reusable logic; call them from `McpEndpoint` via `SequenceStep`.
-- Keep HTTP headers, status codes, and JSON-RPC envelope logic centralized in `McpEndpoint`.
-- Avoid direct edits to `_c8oProject/**/*.yaml` with a text editor; always regenerate via Convertigo tooling.
-- Use comments sparingly—Convertigo exports are verbose already.
-- Validate JSON handling in Rhino (defensive `try/catch` when parsing).
+## Source Of Truth Order
 
-## Documentation & References
-- MCP Specification (2025-06-18): https://modelcontextprotocol.io/specification/2025-06-18  
-- MCP Inspector tool: https://modelcontextprotocol.io/docs/tools/inspector  
-- Convertigo Platform docs: https://doc.convertigo.com/  
-- Convertigo 8.3.9 sources (local clone recommended): `~/git/convertigo`  
-- Convertigo Codex helper project (privileged EXEC): `data/workspace/projects/ConvertigoCodexAgent/`
+When documentation, prompts, and runtime disagree, use this order:
 
-## Roadmap
-- [x] Tolerate SmartType values provided as JSON strings in properties-set/create (auto-parse when possible, better error otherwise).
-- [x] Clarify QNames do not include .sq; users keep trying codex_test.sq so reinforce the existing "closest ancestor" hint.
-- [x] Export MCP entry point (`McpEndpoint`) with routing to initialize, tools, resources, prompts, notifications, ping.
-- [x] Provide initial `tools/list` for admin/project/invoke categories.
-- [x] Expose baseline `tools/call` functions (`admin.get-engine-version`, `admin.get-engine-metrics`, `project.describe-tree`, `invoke.list-projects`).
-- [ ] Normalize all helper sequences to emit plain payload objects (no nested envelopes); ensure JSON-RPC compliance end-to-end.
-- [x] Implement error/status propagation without relying on stale Convertigo `SetResponseStatusStep` artefacts.
-- [ ] Flesh out monitoring tools (thread dump, cache management, log access).
-- [ ] Add project mutation helpers (property editing, controlled sequence updates) once server-side guards are ready.
-- [ ] Introduce cross-project invocation utilities with robust input validation and result streaming.
-- [ ] Document regression tests / automated curls to validate MCP contract after each change.
-- [ ] Clean up `resources/list` pagination (only emit `nextCursor` when a page really follows) and add onboarding resources/prompts so MCP clients learn Convertigo conventions before mutating projects.
-- [ ] Add a general-purpose MCP file-edit tool (non-YAML) so docs/prompts/resources can be updated without touching the Convertigo YAML exports.
-- [x] Improve databaseobject-* error reporting: if a supplied QName is invalid (e.g. codex_test.sq), return a structured MCP error suggesting the nearest valid ancestor or pointing to databaseobject-children qname=" to list projects.
-- [x] Detect repeated failures on unknown QNames and hint the caller to trim segments (drop .sq, etc.) until a valid object is found instead of burning dozens of calls.
-- [ ] Update palette-list/palette-describe/databaseobject-children to warn when 	arget is empty or irrelevant, nudging clients to provide a scoped QName rather than streaming the entire catalog.
-- [ ] Bubble up Convertigo sequence errors (e.g. Database object not found: codex_test.sq) into MCP JSON-RPC error.data so LLMs immediately see the root cause.
-- [ ] (Future) add a create project helper; until then, when a create fails because the parent project is missing, respond with guidance to import/create the project before retrying.
-- [ ] Update the default Codex prompts so the agent ends with a short report on missing MCP capabilities / UX gaps, giving us qualitative feedback automatically.
+1. live MCP signature and behavior
+2. repository implementation and exported schemas
+3. repository docs, prompts, and tests
+4. companion experiments in other repositories
 
-## Testing Checklist
-- `initialize` responds 200 with protocol info, no nested `result.result`.
-- `tools/list` paginates across `admin → project → invoke`; invalid cursors return JSON-RPC error -32602.
-- `tools/call` handles success and error cases:
-  - Missing `name` ⇒ HTTP 400 JSON-RPC error -32602.
-  - Unknown tool ⇒ 404 JSON-RPC error -32601.
-  - Successful calls emit `result.content[...]` payloads matching the MCP spec.
-- Engine log shows no uncaught Rhino exceptions (`engine.log` should stay clean).
-- Project export diff is deterministic (only expected YAML changes).
+The review artifacts under `review/` follow this rule.
 
-## Coordination Notes
-- Another Codex agent handles the higher-level MCP wrapper. Align interfaces before changing sequence signatures.
-- When adding new tools, document the expected request/response shape so the wrapper can surface it through the MCP schema (input/output JSON Schema definitions).
-- If you need environment changes (new Docker services, database access), coordinate with the repository maintainers before editing `docker-compose.yml`.
+## Canonical MCP Model
 
-Stay disciplined with exports and testing—Convertigo’s XML/YAML structure is unforgiving if steps drift out of sync with the server.
+Convertigo MCP is now tree-first.
 
-## Test with inspector
-npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:18080/convertigo/api/mcp
+- Inspect with `databaseobject-tree-get`
+- Mutate with `databaseobject-tree-apply`
+- Group operations with `batch-call`
+- Validate behavior with `requestable-execute`
+- Persist with `project-save`
 
+Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
 
+## Maintainer Rules
 
-- [x] Accept dictionaries for databaseobject-properties-set (or clearly document properties must be a JSON string) to avoid 'Properties payload must be a JSON object' confusion (see run 20251119_183859).
+- Prefer MCP-native edits when changing MCP-managed objects.
+- Do not hand-edit `_c8oProject/**/*.yaml` unless there is no safe MCP or Studio
+  path yet, and call that gap out explicitly.
+- Keep tool names, titles, descriptions, and schemas aligned with the live
+  behavior.
+- Keep autodoc high-signal:
+  - no boilerplate
+  - no obvious restatement of parameter names
+  - include only accepted formats, defaults, enums, side effects, and
+    constraints that help the caller act correctly
+- Keep public output fields in `lowerCamelCase`.
+- Prefer typed envelopes with open payloads for dynamic inner objects.
+- Treat RAG as slow fallback knowledge, not as the default onboarding path.
 
-- [ ] Improve databaseobject-create/dbo-children error responses when qname casing is wrong (e.g. codex_test.sq vs codex_test): return a clear 'QName not found' with suggestions instead of silent failures.
+## Important Contract Decisions
 
-- [ ] Update quickstart/docs with examples showing case-sensitive QNames (Codex stumbled matching codex_test.sq:...Word vs .word).
+- `databaseobject-tree-get` and `databaseobject-tree-apply` are the canonical
+  authoring pair.
+- The tree returned by `databaseobject-tree-get` must stay reusable by
+  `databaseobject-tree-apply` without ad hoc translation.
+- `requestable-execute` success payloads should expose `result` and optional
+  `logs`. Failures must surface through the MCP error envelope.
+- `rag-query` must not expose `stream`; backend calls must always force
+  `stream=false`.
+- Built-in resources such as `convertigo://capabilities` and
+  `convertigo://recipes/quickstart` are part of the onboarding surface and must
+  stay aligned with the live contract.
 
-- [x] Tolerate SmartType/property values given as JSON strings in databaseobject-properties-set/create (parses stringified JSON after the first parse).
-- [x] Document clearly that properties payloads must be JSON objects (or JSON strings representing objects), not arrays of `{name,value}`; point to *-describe for expected formats.
-- [x] Reinforce “no .sq in QNames” guidance in docs/prompts and in invalid-QName errors (suggest project list then databaseobject-children without the suffix).
-- [ ] Add prompt tail asking the agent to report MCP UX gaps encountered during the run.
+## Files That Matter Most
+
+- `_c8oProject/sequences/mcp_endpoint.yaml`
+  - JSON-RPC entry point and response shaping
+- `_c8oProject/sequences/internal_list_tools_info.yaml`
+  - tool discovery for `tools/list`
+- `_c8oProject/sequences/internal_json_schema.yaml`
+  - schema generation
+- `_c8oProject/sequences/tools_*.yaml`
+  - public tool implementations
+- `js/schema_overrides.js`
+  - input/output schema overrides
+- `js/tools_batch_call.js`
+- `js/tools_databaseobject_tree_apply.js`
+- `review/`
+  - contract snapshots, mismatch matrix, scorecards, roadmap
+
+## Documentation Policy
+
+- English only.
+- The live MCP catalog is the primary contract surface.
+- `TOOLS.md` is a short human companion, not the source of truth.
+- `project.md` is generated output and may lag or include internal details; do
+  not use it as the authoritative contract for prompts or guides.
+- Guide strategy is tracked in `REVIEW-ROADMAP.md`.
+
+## Validation Checklist
+
+After changing the MCP:
+
+1. Check `initialize`
+   - protocol version, server info, capabilities
+2. Check `tools/list`
+   - titles and descriptions are non-empty
+   - input/output schemas match runtime behavior
+3. Check core tools with live calls
+   - `batch-call`
+   - `databaseobject-tree-get`
+   - `databaseobject-tree-apply`
+   - `log-view`
+   - `requestable-execute`
+   - `mobile-builder-open` when safe
+4. Check error routing
+   - invalid tool input should become MCP `error`
+   - tool-specific partial/validation states should stay in structured payloads
+     when that is the chosen contract
+5. Refresh review artifacts when the contract changes
+   - `review/live-contract/`
+   - `review/phase0/`
+   - `review/mismatch/summary.md`
+
+## Current Phase Status
+
+- Preparation Phase: done
+- Phase 0: done
+- Phase 0.5: done
+- Next major phase: guide system and role prompts
+
+See `REVIEW-ROADMAP.md` for the working plan.
+
+## Practical Reminder
+
+If a change is awkward through MCP, do not silently fall back to manual YAML and
+declare success. Treat that friction as product feedback:
+
+- either improve the MCP workflow
+- or record the missing primitive / missing UX in the roadmap or review notes
+
+That feedback loop is part of the product, not just an implementation detail.
