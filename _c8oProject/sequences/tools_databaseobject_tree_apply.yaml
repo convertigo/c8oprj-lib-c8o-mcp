@@ -1,5 +1,5 @@
 accessibility: Private
-comment: Apply a canonical object tree patch to a target QName using the batch upsert engine.
+comment: Create or update a database object tree relative to an existing target node.
 ↓IncludeHelpers [steps.SimpleStep-1772628069902]: 
   comment: Load shared helpers.
   expression: |
@@ -362,11 +362,11 @@ comment: Apply a canonical object tree patch to a target QName using the batch u
           - ↑mode: JS
           - →→: 'treeApplyResult && treeApplyResult.touchedQNames ? JSON.stringify(treeApplyResult.touchedQNames) : "[]"'
 ↓target [variables.RequestableVariable-1772628058546]: 
-  comment: Target QName (existing node).
+  comment: 'Reference QName (must exist): patched when at=self, anchor for inside/before/after.'
 ↓tree [variables.RequestableVariable-1772628058674]: 
-  comment: Canonical tree payload (name/className/properties/children).
+  comment: Canonical node payload (same structure returned by tree-get).
 ↓at [variables.RequestableVariable-1772628058781]: 
-  comment: 'Apply position: self, inside, before, after.'
+  comment: 'Apply position relative to target: self, inside, before, after.'
   value: self
 ↓onError [variables.RequestableVariable-1772628058934]: 
   comment: 'Error mode: stop (default) or continue.'
@@ -388,7 +388,7 @@ comment: Apply a canonical object tree patch to a target QName using the batch u
 ↓executionId [variables.RequestableVariable-1772628059463]: 
   comment: Optional execution identifier returned in resume metadata.
 ↓mode [variables.RequestableVariable-1772628059582]: 
-  comment: 'Apply mode: merge or replace.'
+  comment: 'Apply mode: merge (upsert) or replace (upsert + prune missing children).'
   value: merge
 ↓dryRun [variables.RequestableVariable-1772628059686]: 
   comment: Optional preview mode. When true, no mutation is applied.

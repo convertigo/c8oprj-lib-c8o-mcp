@@ -1,5 +1,5 @@
 accessibility: Private
-comment: Return a canonical database object tree compatible with upsertTree format.
+comment: Read a database object tree from an existing target node.
 ↓IncludeHelpers [steps.SimpleStep-1772627667774]: 
   comment: Load shared helpers.
   expression: include("js/databaseobject.js");
@@ -215,15 +215,15 @@ comment: Return a canonical database object tree compatible with upsertTree form
             - ↑mode: PLAIN
             - →→: forest
 ↓target [variables.RequestableVariable-1772627661816]: 
-  comment: Target QName (existing node).
+  comment: Target QName (must exist).
 ↓properties [variables.RequestableVariable-1772627661953]: 
-  comment: 'Property payload mode: none, changed, all.'
+  comment: 'Property mode: none, changed (vs defaults), or all.'
   value: changed
 ↓limit [variables.RequestableVariable-1772627662171]: 
-  comment: Maximum number of descendant nodes returned per call (1-5000).
+  comment: Maximum number of nodes returned per call.
   value: 200
 ↓childrenDepth [variables.RequestableVariable-1772627662271]: 
-  comment: Descendant depth to include (0=root only).
+  comment: How many descendant levels to include (0 = target only).
   value: 1
 ↓_nextCursor [variables.RequestableVariable-1772627662380]: 
   comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

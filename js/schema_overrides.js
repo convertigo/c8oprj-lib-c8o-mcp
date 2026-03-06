@@ -89,7 +89,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
   function propertiesInputSchema() {
     return {
-      description: "Property updates as a key/value map or entry list (same structural format as properties-get).",
+      description: "Property updates as a key/value map or as entry objects (same structure returned by tree-get node properties).",
       oneOf: [
         {
           type: "object",
@@ -128,10 +128,27 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        target: { type: "string", description: "Target QName (existing node)." },
-        childrenDepth: { type: "integer", minimum: 0, maximum: 20, default: 1 },
-        properties: { type: "string", enum: ["none", "changed", "all"], default: "changed" },
-        limit: { type: "integer", minimum: 1, maximum: 5000, default: 200 }
+        target: { type: "string", description: "Target QName (must exist)." },
+        childrenDepth: {
+          type: "integer",
+          minimum: 0,
+          maximum: 20,
+          default: 1,
+          description: "How many descendant levels to include (0 = target only)."
+        },
+        properties: {
+          type: "string",
+          enum: ["none", "changed", "all"],
+          default: "changed",
+          description: "Property mode: none, changed (vs defaults), or all."
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 5000,
+          default: 200,
+          description: "Maximum number of nodes returned per call."
+        }
       },
       required: ["target"],
       additionalProperties: false
@@ -142,10 +159,25 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        target: { type: "string", description: "Target QName to patch." },
-        at: { type: "string", enum: ["self", "inside", "before", "after"], default: "self" },
-        mode: { type: "string", enum: ["merge", "replace"], default: "merge" },
-        tree: { type: "object", additionalProperties: true }
+        target: {
+          type: "string",
+          description: "Reference QName (must exist): patched when at=self, anchor when at=inside|before|after."
+        },
+        at: {
+          type: "string",
+          enum: ["self", "inside", "before", "after"],
+          default: "self",
+          description: "Apply position relative to target."
+        },
+        mode: {
+          type: "string",
+          enum: ["merge", "replace"],
+          default: "merge",
+          description: "merge = upsert only, replace = upsert + prune missing children in patched scope."
+        },
+        tree: Object.assign(treeNodeSchema(), {
+          description: "Canonical node payload (same structure as tree-get nodes: name/className/properties/children)."
+        })
       },
       required: ["target", "tree"],
       additionalProperties: false
