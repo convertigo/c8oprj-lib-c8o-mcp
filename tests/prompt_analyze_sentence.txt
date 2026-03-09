@@ -12,5 +12,16 @@ In the chosen project, create a sequence `analyze_sentence` with one input varia
 - `vowels`: count of vowels (a,e,i,o,u,y),
 - `consonants`: count of consonants.
 
-Test early with `requestable-execute` on `<chosen project>.analyze_sentence` using `sentence=Hello`; keep the final proof with `sentence=Hello world!`. If `analyze_sentence` already exists, run the tests and confirm current behaviour.
-End the run with a short "MCP critique" describing what felt confusing, which tools were missing, and any UX improvements that would have helped.
+Required workflow:
+1. Search for the exact target first. If `analyze_sentence` already exists and already matches the contract, reuse it.
+2. If you reuse an existing sequence, prove it with:
+   - `requestable-execute(sentence=Hello)`
+   - `requestable-execute(sentence=Hello world!)`
+   - one structural readback of the exact sequence subtree
+3. If you mutate, validate early with `sentence=Hello`, keep the final proof with `sentence=Hello world!`, and save the project.
+4. If you do not mutate, state explicitly that no save was needed because the existing implementation was reused unchanged.
+
+Final output:
+- `RESULT: PASS` only if the sequence exists at the end, both runtime proofs succeed, and the `words` entries contain the required keys.
+- `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
+- End with one short `MCP critique` item describing what felt confusing, which tools were missing, and any UX improvements that would have helped.

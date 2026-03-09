@@ -19,10 +19,12 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 
 ## Mandatory workflow
 1. Inspect the existing subtree before the first write.
-2. Reuse `databaseobject-tree-get` output shape when patching with `databaseobject-tree-apply`.
-3. Use `batch-call` only when several coordinated mutations are clearly safer than single writes.
-4. Validate runtime behavior with `requestable-execute`; add `includeLogs=true` only when the payload alone is not enough.
-5. Save with `project-save` when the runtime proof is complete.
+2. If the exact target requestable already exists and already satisfies the requested contract, stop after runtime proof and structural readback. Do not mutate unrelated objects.
+3. If no mutation is needed, do not call `project-save`; say explicitly that the existing implementation was reused unchanged.
+4. Reuse `databaseobject-tree-get` output shape when patching with `databaseobject-tree-apply`.
+5. Use `batch-call` only when several coordinated mutations are clearly safer than single writes.
+6. Validate runtime behavior with `requestable-execute`; add `includeLogs=true` only when the payload alone is not enough.
+7. Save with `project-save` only when a mutation occurred and the runtime proof is complete.
 
 ## Stop and handoff rules
 - Do not redefine the public contract without an explicit planner decision.

@@ -14,7 +14,11 @@ Use a concrete HTTP connector and transaction path:
 - transaction sub path: `/?format=json`
 - keep `httpInfo=true` during setup
 
-If you need a live structural reference for an HTTP connector and JSON transaction, inspect `BaserowIntegration.Baserow` before writing.
+Required workflow:
+1. Search the chosen project for the exact target `probe_http_contract` before any broad discovery.
+2. If `probe_http_contract` already exists, run it in stub mode first and inspect only that exact subtree.
+3. If you already know the required `className` values, do not spend time on generic `palette-list` exploration. Create or patch the minimal HTTP connector and transaction objects directly.
+4. Inspect `BaserowIntegration.Baserow` only if you still need a live structural reference after the exact target search.
 
 Required public contract:
 - top-level fields:
@@ -29,7 +33,7 @@ Rules:
 3. Replace the stub internals without changing the public top-level fields.
 4. Map the upstream `ip` field into the facade `ip` field. Do not leak raw connector field names at the public facade level.
 5. If the upstream call fails, keep the same top-level fields and types through the fallback path.
-6. Save the project.
+6. Save the project if a mutation occurred.
 
 Final output format:
 - `RESULT: PASS` only if the facade runs in stub mode, then runs again with the HTTP path wired, and both proofs keep the same top-level fields.
