@@ -32,6 +32,7 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 - Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - Do not spend the run on broad palette discovery or unrelated sample trees once the exact facade QName and HTTP class names are known.
 - Do not inspect generic palette metadata such as `steps.TransactionStep` or `steps.IfStep` after you already have one concrete transaction-step reference. If the remaining uncertainty is still too high, stop with `RESULT: FAIL`.
+- Do not validate unrelated sample HTTP transactions. Only validate the dedicated transaction you are creating or reusing for the current facade.
 - If the connector cannot preserve the agreed contract, stop and hand back to `convertigo-backend` or `convertigo-planner`.
 - Hand review to `convertigo-critic` when runtime evidence is ready.
 
