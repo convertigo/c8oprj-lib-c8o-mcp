@@ -142,7 +142,7 @@ CODEX_ARGS=(
   exec
   -s
   danger-full-access
-  --config 'mcp.servers={}'
+  --config 'mcp_servers={}'
   --config "model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\""
   --config "request_timeout=${CODEX_REQUEST_TIMEOUT}"
   --cd "${WORKSPACE_DIR}"
@@ -150,8 +150,8 @@ CODEX_ARGS=(
 
 if [[ "${CODEX_DISABLE_MCP}" != "1" ]]; then
   CODEX_ARGS+=(
-    --config 'mcp.servers.convertigo={type="http"}'
-    --config "mcp.servers.convertigo.url=\"${MCP_URL}\""
+    --config 'mcp_servers.convertigo={type="http"}'
+    --config "mcp_servers.convertigo.url=\"${MCP_URL}\""
   )
 fi
 
