@@ -2,6 +2,6 @@
 set -euo pipefail
 
 # Single source of truth for the Codex CLI version used by test runs.
-CODEX_NPM_VERSION="${CODEX_NPM_VERSION:-0.111.0}"
+CODEX_NPM_VERSION="${CODEX_NPM_VERSION:-0.112.0}"
 
 exec npx -y "@openai/codex@${CODEX_NPM_VERSION}" "$@"
