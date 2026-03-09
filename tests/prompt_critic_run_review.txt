@@ -2,9 +2,12 @@ This is a benchmark run critic.
 - Preferred runner: inject MCP role prompt `convertigo-critic` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-critic` yourself before continuing.
 - The role prompt is already injected in benchmark runs. Do not repeat fresh-session bootstrap when the explicit artifacts below are readable.
-- Review the explicit benchmark run report at `__RUN_REPORT_PATH__`.
-- Review the explicit benchmark run summary at `__RUN_SUMMARY_PATH__`.
-- Use the raw log at `__RAW_LOG_PATH__` only if the summary and report disagree or miss decisive proof.
+- Primary input: the compact critic packet below.
+__RUN_CRITIC_PACKET_CONTENT__
+- Review the explicit critic packet at `__RUN_CRITIC_PACKET_PATH__` only if the embedded packet looks truncated or malformed.
+- Review the explicit benchmark run summary at `__RUN_SUMMARY_PATH__` only if the packet is unclear.
+- Review the explicit benchmark run report at `__RUN_REPORT_PATH__` only if one packet claim needs confirmation.
+- Use the raw log at `__RAW_LOG_PATH__` only if the packet, summary, and report still disagree or miss decisive proof.
 - Candidate: `__CANDIDATE_ID__`
 - Scenario: `__SCENARIO_ID__`
 - Run: `__RUN_ID__`
@@ -12,11 +15,12 @@ This is a benchmark run critic.
 Review goals:
 - identify concrete findings first
 - call out missing runtime evidence if the implementation claims more than it proved
-- report guide misuse, contract drift, or misleading MCP behavior you can support from the run report, raw log, and live MCP state
+- report guide misuse, contract drift, or misleading MCP behavior you can support from the packet and any targeted artifact check
 - inspect artifacts with targeted extraction only:
-  - summary: read directly
-  - report: prefer `jq` or `rg -n` for exact fields
-  - raw log: prefer `rg -n` for the exact disputed tool call or result line
+  - packet: read directly
+  - summary: read directly only when the packet is insufficient
+  - report: prefer `jq` or `rg -n` for exact fields only when needed
+  - raw log: prefer `rg -n` for the exact disputed tool call or result line only when needed
 - do not dump broad `sed` or `tail` slices of `report.json` or `raw.log`
 - do not call `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless one of the explicit artifact paths is unreadable
 - avoid generic summaries and avoid mutating the project

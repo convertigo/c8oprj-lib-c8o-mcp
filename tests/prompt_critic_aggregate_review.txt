@@ -2,10 +2,13 @@ This is a benchmark campaign critic.
 - Preferred runner: inject MCP role prompt `convertigo-critic` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-critic` yourself before continuing.
 - The role prompt is already injected in benchmark runs. Do not repeat fresh-session bootstrap when the explicit artifacts below are readable.
-- Review the explicit campaign manifest at `__CAMPAIGN_MANIFEST_PATH__`.
-- Review these run reports:
+- Primary input: the compact aggregate critic packet below.
+__AGGREGATE_CRITIC_PACKET_CONTENT__
+- Review the explicit aggregate critic packet at `__AGGREGATE_CRITIC_PACKET_PATH__` only if the embedded packet looks truncated or malformed.
+- Review the explicit campaign manifest at `__CAMPAIGN_MANIFEST_PATH__` only if the packet is unclear.
+- Review these run reports only if one packet line needs confirmation:
 __RUN_REPORT_LIST__
-- Review these run critic reports:
+- Review these run critic reports only if one packet line needs confirmation:
 __CRITIC_REPORT_LIST__
 
 Review goals:
@@ -13,8 +16,9 @@ Review goals:
 - separate tool, guide, prompt, scenario, and fixture problems when the evidence supports that split
 - focus on trends that a maintainer can act on next
 - inspect artifacts with targeted extraction only:
-  - manifest: read directly
-  - reports: prefer `jq` or `rg -n` for exact fields
+  - packet: read directly
+  - manifest: read directly only when the packet is insufficient
+  - reports: prefer `jq` or `rg -n` for exact fields only when needed
   - do not dump whole report files unless a field cannot be extracted any other way
 - do not call `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless one of the explicit artifact paths is unreadable
 - keep the result concise and evidence-backed

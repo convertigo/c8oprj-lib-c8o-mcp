@@ -299,6 +299,170 @@ def build_run_record(scenario, run_data, workspace_id, fixture_metadata_path=Non
     }
 
 
+def read_text(path):
+    return Path(path).read_text(encoding="utf-8")
+
+
+def compact_text_block(text, max_lines=12):
+    if not text:
+        return None
+    lines = [line.rstrip() for line in text.strip().splitlines()]
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    head = lines[:max_lines]
+    head.append(f"... ({len(lines) - max_lines} more lines omitted)")
+    return "\n".join(head)
+
+
+def render_run_critic_packet(run_record, report):
+    final_sections = report.get("finalOutput", {}).get("sections", {})
+    tool_calls = report.get("toolCalls", [])
+    warnings = report.get("warnings", [])[:5]
+    errors = report.get("errors", [])[:5]
+    preferred_sections = (
+        "Contract",
+        "Stub Status",
+        "Contract Check",
+        "Runtime Evidence",
+        "Runtime Evidence Or Skip",
+        "Validation Plan",
+        "Open Handoff",
+        "MCP Critique",
+    )
+
+    lines = [
+        "# Run Critic Packet",
+        "",
+        "Read this packet first. Open the full report or raw log only if one packet claim needs confirmation.",
+        "",
+        "## Identity",
+        "",
+        f"- Candidate: `{report['scenario'].get('candidateId') or 'unknown'}`",
+        f"- Scenario: `{run_record['scenarioId']}`",
+        f"- Run: `{report['runId']}`",
+        f"- Role Prompt: `{report['rolePrompt'].get('name') or 'none'}`",
+        f"- Result: `{report['result']['status']}`",
+        f"- Duration: `{report.get('durationMs')}` ms",
+        "",
+        "## Guide Context",
+        "",
+        f"- `{', '.join(report.get('guideContext', [])) or 'none'}`",
+        "",
+        "## Tool Summary",
+        "",
+        f"- Total tool calls observed: `{report.get('toolStats', {}).get('totalToolCalls', 0)}`",
+    ]
+
+    by_tool = report.get("toolStats", {}).get("byTool", {})
+    if by_tool:
+        lines.append("- Tool counts:")
+        for name, count in sorted(by_tool.items()):
+            lines.append(f"  - `{name}`: {count}")
+    else:
+        lines.append("- Tool counts: none")
+
+    lines.extend(["", "## Tool Calls", ""])
+    if tool_calls:
+        for call in tool_calls:
+            lines.append(
+                f"- `{call['server']}.{call['name']}` `{call['status']}` `{call.get('durationMs')}`ms"
+            )
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "## Key Evidence", ""])
+    section_added = False
+    for section_name in preferred_sections:
+        block = compact_text_block(final_sections.get(section_name), max_lines=10)
+        if block:
+            section_added = True
+            lines.append(f"### {section_name}")
+            lines.append("")
+            lines.append(block)
+            lines.append("")
+    if not section_added:
+        lines.append("- No structured final-output sections were extracted.")
+        lines.append("")
+
+    lines.extend(["## Warnings", ""])
+    if warnings:
+        for item in warnings:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "## Errors", ""])
+    if errors:
+        for item in errors:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- none")
+
+    lines.extend(
+        [
+            "",
+            "## Artifact Paths",
+            "",
+            f"- Summary: `{run_record['summaryPath']}`",
+            f"- Report: `{run_record['reportPath']}`",
+            f"- Raw Log: `{run_record['logPath']}`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_aggregate_critic_packet(candidate_id, manifest_path, manifest, run_records):
+    lines = [
+        "# Aggregate Critic Packet",
+        "",
+        "Read this packet first. Open the manifest, reports, or run-critic reports only when one packet line needs confirmation.",
+        "",
+        "## Campaign",
+        "",
+        f"- Candidate: `{candidate_id}`",
+        f"- Suite: `{manifest['suiteId']}`",
+        f"- Provider: `{manifest.get('provider') or 'unknown'}`",
+        f"- Model: `{manifest.get('model') or 'unknown'}`",
+        f"- MCP Server Version: `{manifest.get('mcpServerVersion') or 'unknown'}`",
+        "",
+        "## Run Index",
+        "",
+    ]
+
+    if not run_records:
+        lines.append("- none")
+    else:
+        for item in run_records:
+            critic_status = item.get("criticStatus") or "not-run"
+            lines.extend(
+                [
+                    f"### {item['scenarioId']}",
+                    "",
+                    f"- Run status: `{item['status']}`",
+                    f"- Critic status: `{critic_status}`",
+                    f"- Run report: `{item['reportPath']}`",
+                    f"- Run summary: `{item['summaryPath']}`",
+                    f"- Run critic packet: `{item.get('criticPacketPath') or 'none'}`",
+                    f"- Run critic report: `{item.get('criticReportPath') or 'none'}`",
+                    "",
+                ]
+            )
+
+    lines.extend(
+        [
+            "## Manifest Path",
+            "",
+            f"- `{manifest_path}`",
+            "",
+            "## Campaign Manifest",
+            "",
+            f"- `{manifest['candidateId']}` -> `{manifest['gitSha']}`",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def main():
     args = parse_args()
     root = repo_root()
@@ -398,6 +562,10 @@ def main():
             workspace_id,
             str((Path(fixture_metadata["runtimeDir"]) / "metadata.json").resolve()) if fixture_metadata else None,
         )
+        critic_packet_path = campaign_dir / "critic_packets" / scenario_id / f"{run_data['runId']}.md"
+        critic_packet_path.parent.mkdir(parents=True, exist_ok=True)
+        critic_packet_path.write_text(render_run_critic_packet(run_record, run_data["report"]), encoding="utf-8")
+        run_record["criticPacketPath"] = str(critic_packet_path.resolve())
         run_records.append(run_record)
         manifest["runs"] = run_records
         if manifest["provider"] is None:
@@ -410,6 +578,8 @@ def main():
             root / scenario["criticPromptFile"],
             generated_prompts_dir / f"{scenario_id}_critic.txt",
             {
+                "__RUN_CRITIC_PACKET_CONTENT__": critic_packet_path.read_text(encoding="utf-8").rstrip(),
+                "__RUN_CRITIC_PACKET_PATH__": str(critic_packet_path.resolve()),
                 "__RUN_REPORT_PATH__": str(Path(run_data["reportPath"]).resolve()),
                 "__RUN_SUMMARY_PATH__": str(Path(run_data["summaryPath"]).resolve()),
                 "__RAW_LOG_PATH__": str(Path(run_data["logPath"]).resolve()),
@@ -446,10 +616,18 @@ def main():
 
     run_report_list = "\n".join(f"- `{item['reportPath']}`" for item in run_records)
     critic_report_list = "\n".join(f"- `{item['criticReportPath']}`" for item in run_records)
+    aggregate_packet_path = campaign_dir / "aggregate" / "critic_packet.md"
+    aggregate_packet_path.parent.mkdir(parents=True, exist_ok=True)
+    aggregate_packet_path.write_text(
+        render_aggregate_critic_packet(candidate_id, str(manifest_path.resolve()), manifest, run_records),
+        encoding="utf-8",
+    )
     aggregate_prompt_path = render_prompt(
         root / suite["aggregateCriticPromptFile"],
         generated_prompts_dir / "aggregate_critic.txt",
         {
+            "__AGGREGATE_CRITIC_PACKET_CONTENT__": aggregate_packet_path.read_text(encoding="utf-8").rstrip(),
+            "__AGGREGATE_CRITIC_PACKET_PATH__": str(aggregate_packet_path.resolve()),
             "__CAMPAIGN_MANIFEST_PATH__": str(manifest_path.resolve()),
             "__RUN_REPORT_LIST__": run_report_list or "- none",
             "__CRITIC_REPORT_LIST__": critic_report_list or "- none",
