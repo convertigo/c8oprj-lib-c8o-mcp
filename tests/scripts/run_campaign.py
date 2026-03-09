@@ -299,7 +299,9 @@ def update_manifest(path, manifest):
 def build_run_record(scenario, run_data, workspace_id, fixture_metadata_path=None):
     return {
         "scenarioId": scenario["scenarioId"],
+        "scenarioTitle": scenario.get("title"),
         "benchmarkId": scenario["benchmarkId"],
+        "promptFile": str((repo_root() / scenario["promptFile"]).resolve()),
         "rolePromptName": scenario["rolePromptName"],
         "runId": run_data["runId"],
         "logPath": run_data["logPath"],
@@ -357,6 +359,11 @@ def render_run_critic_packet(run_record, report):
         f"- Result: `{report['result']['status']}`",
         f"- Duration: `{report.get('durationMs')}` ms",
         "",
+        "## Scenario Contract",
+        "",
+        f"- Title: `{run_record.get('scenarioTitle') or run_record['scenarioId']}`",
+        f"- Prompt: `{run_record.get('promptFile') or 'none'}`",
+        "",
         "## Guide Context",
         "",
         f"- `{', '.join(report.get('guideContext', [])) or 'none'}`",
@@ -373,6 +380,18 @@ def render_run_critic_packet(run_record, report):
             lines.append(f"  - `{name}`: {count}")
     else:
         lines.append("- Tool counts: none")
+
+    prompt_file = run_record.get("promptFile")
+    if prompt_file and Path(prompt_file).is_file():
+        prompt_lines = read_text(prompt_file).splitlines()
+        excerpt = prompt_lines[:18]
+        if len(prompt_lines) > 24:
+            excerpt.extend(["..."])
+            excerpt.extend(prompt_lines[-6:])
+        elif len(prompt_lines) > 18:
+            excerpt.extend(["..."])
+            excerpt.extend(prompt_lines[18:])
+        lines.extend(["", "### Scenario Prompt Excerpt", "", "\n".join(excerpt)])
 
     lines.extend(["", "## Tool Calls", ""])
     if tool_calls:

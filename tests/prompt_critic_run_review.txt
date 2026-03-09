@@ -15,6 +15,7 @@ __RUN_CRITIC_PACKET_CONTENT__
 Review goals:
 - identify concrete findings first
 - call out missing runtime evidence if the implementation claims more than it proved
+- treat the embedded scenario prompt excerpt as binding benchmark rules, especially for target selection, required ordering, and pass/fail conditions
 - report guide misuse, contract drift, or misleading MCP behavior you can support from the packet and any targeted artifact check
 - inspect artifacts with targeted extraction only:
   - packet: read directly

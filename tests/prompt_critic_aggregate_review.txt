@@ -14,6 +14,7 @@ __CRITIC_REPORT_LIST__
 Review goals:
 - group repeated findings across the candidate
 - separate tool, guide, prompt, scenario, and fixture problems when the evidence supports that split
+- treat scenario prompt excerpts and scenario-specific packet constraints as binding benchmark rules, not optional context
 - focus on trends that a maintainer can act on next
 - inspect artifacts with targeted extraction only:
   - packet: read directly

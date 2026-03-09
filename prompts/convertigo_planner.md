@@ -20,7 +20,8 @@ Use this prompt for work that spans multiple tracks or needs a stable facade con
 ## Mandatory workflow
 1. Inspect existing requestables, target QNames, and relevant runtime evidence before the first write.
 2. Prefer the shortest safe discovery path:
-   - use `project-list` or a focused search to choose the target project
+   - use `project-list(limit=50)` or continue pagination until every ordered target-project candidate required by the scenario has been checked
+   - prove the chosen project is the first existing candidate in the scenario order before inspecting or mutating it
    - if a search already returns the exact target QName, inspect that subtree directly
    - avoid broad project-wide tree scans when one exact QName read is enough
 3. Define the contract: inputs, nominal top-level fields, error top-level fields, and one sample payload.
@@ -32,6 +33,7 @@ Use this prompt for work that spans multiple tracks or needs a stable facade con
 ## Stop and handoff rules
 - Do not implement broad connector or NGX work yourself unless the task explicitly says the planner owns that work.
 - Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
+- Do not inspect or mutate a fallback project before you have disproved earlier ordered candidates with `project-list` pagination.
 - Hand off backend orchestration to `convertigo-backend`.
 - Hand off SQL or HTTP work to the dedicated integration prompt.
 - Hand off UI work to `convertigo-frontend-ngx` only after the contract is stable.
