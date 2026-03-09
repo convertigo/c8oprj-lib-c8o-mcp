@@ -247,7 +247,7 @@ def strip_trailing_housekeeping(lines):
     return lines[:end]
 
 
-def extract_final_output(lines, result_index):
+def locate_final_output_window(lines):
     trimmed = strip_trailing_housekeeping(lines)
     last_codex = None
     for index, line in enumerate(trimmed):
@@ -265,9 +265,18 @@ def extract_final_output(lines, result_index):
                     content_start = index + 1
                     break
 
-    if result_index is None:
-        return "\n".join(trimmed[content_start:]).strip()
-    return "\n".join(trimmed[content_start : result_index + 1]).strip()
+    content_end = len(trimmed)
+    for index in range(content_start, len(trimmed)):
+        if trimmed[index].strip() == "tokens used":
+            content_end = index
+            break
+
+    return trimmed, content_start, content_end
+
+
+def extract_final_output(lines):
+    trimmed, content_start, content_end = locate_final_output_window(lines)
+    return "\n".join(trimmed[content_start:content_end]).strip()
 
 
 def parse_sections(raw_text):
@@ -276,6 +285,7 @@ def parse_sections(raw_text):
     current_name = None
     current_lines = []
     paragraph_gap = 0
+    result_line = None
 
     def flush():
         nonlocal current_name, current_lines, paragraph_gap
@@ -301,6 +311,10 @@ def parse_sections(raw_text):
 
     for line in raw_text.splitlines():
         stripped = line.strip()
+        result_match = RESULT_RE.match(stripped)
+        if result_match:
+            result_line = stripped.strip("`")
+            continue
         section_match = SECTION_RE.match(line.strip())
         if section_match:
             flush()
@@ -336,6 +350,7 @@ def parse_sections(raw_text):
 
     return {
         "rawText": raw_text,
+        "resultLine": result_line,
         "sectionNames": section_names,
         "sections": sections,
         "mcpCritique": mcp_critique,
@@ -431,6 +446,7 @@ def format_summary(report):
             "# Outcome",
             "",
             f"- `status`: `{outcome}`",
+            f"- `resultLine`: `{report['finalOutput'].get('resultLine') or 'none'}`",
             f"- `reason`: {reason or 'none'}",
             "",
             "# Role Prompt",
@@ -513,7 +529,16 @@ def main():
     tool_info = parse_tool_calls(lines)
     result, result_index = parse_result(lines)
     result["reason"] = infer_unknown_reason(result, tool_info["toolCalls"], lines)
-    final_output = parse_sections(extract_final_output(lines, result_index))
+    final_output = parse_sections(extract_final_output(lines))
+    if final_output.get("resultLine"):
+        result_match = RESULT_RE.match(final_output["resultLine"])
+        if result_match:
+            result = {
+                "status": result_match.group(1),
+                "success": {"PASS": True, "FAIL": False, "SKIPPED": None, "UNKNOWN": None}[result_match.group(1)],
+                "reason": (result_match.group(2) or "").strip() or result["reason"],
+            }
+    result["reason"] = infer_unknown_reason(result, tool_info["toolCalls"], lines)
 
     warnings = collect_warnings(lines)
     warnings.extend(tool_info["warnings"])
