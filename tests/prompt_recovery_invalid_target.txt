@@ -1,7 +1,8 @@
 This is a backend recovery probe.
 - Preferred runner: inject MCP role prompt `convertigo-backend` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-backend` yourself before continuing.
-- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
+- Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
+- If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
 
 Assume the initial target parent QName is `<chosen project>.MissingParent` until MCP proves otherwise.
 Rules:

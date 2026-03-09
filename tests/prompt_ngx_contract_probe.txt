@@ -1,7 +1,8 @@
 This is an NGX specialist probe.
 - Preferred runner: inject MCP role prompt `convertigo-frontend-ngx` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-frontend-ngx` yourself before continuing.
-- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
+- Choose the target project in this order: `ConvertigoWorkflow`, `TestBuild`, `convertigo_signup`, `C8oCloudBaserow`. Use the first one that exists and report the chosen project name.
+- If none of these exists, choose the first loaded project whose comment contains `NGX builder Project`, whose name does not start with `mobilebuilder_tpl_`, and whose name does not start with `lib_`. Report the chosen fallback explicitly.
 
 Probe goals:
 1. Find an NGX app root QName (class `ngx.components.ApplicationComponent`).

@@ -1,7 +1,8 @@
 This is an HTTP specialist probe.
 - Preferred runner: inject MCP role prompt `convertigo-http` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-http` yourself before continuing.
-- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
+- Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
+- If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
 
 In the chosen project, create or update a facade sequence named `probe_http_contract` backed by `https://api.ipify.org?format=json`.
 Use a concrete HTTP connector and transaction path:

@@ -376,6 +376,13 @@ def main():
             workspace_id,
             str((Path(fixture_metadata["runtimeDir"]) / "metadata.json").resolve()) if fixture_metadata else None,
         )
+        run_records.append(run_record)
+        manifest["runs"] = run_records
+        if manifest["provider"] is None:
+            manifest["provider"] = run_data["report"]["provider"]
+        if manifest["model"] is None:
+            manifest["model"] = run_data["report"]["model"]
+        update_manifest(manifest_path, manifest)
 
         critic_prompt_path = render_prompt(
             root / scenario["criticPromptFile"],
@@ -412,12 +419,6 @@ def main():
         run_record["criticReportPath"] = critic_data["reportPath"]
         run_record["criticSummaryPath"] = critic_data["summaryPath"]
         run_record["criticStatus"] = critic_data["report"]["result"]["status"]
-        run_records.append(run_record)
-        manifest["runs"] = run_records
-        if manifest["provider"] is None:
-            manifest["provider"] = run_data["report"]["provider"]
-        if manifest["model"] is None:
-            manifest["model"] = run_data["report"]["model"]
         update_manifest(manifest_path, manifest)
 
     run_report_list = "\n".join(f"- `{item['reportPath']}`" for item in run_records)
