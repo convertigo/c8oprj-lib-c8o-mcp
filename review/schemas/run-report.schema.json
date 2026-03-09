@@ -1,0 +1,414 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/run-report.schema.json",
+  "title": "Convertigo Codex Run Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "runner",
+    "provider",
+    "model",
+    "reasoningEffort",
+    "requestTimeoutSec",
+    "scenario",
+    "rolePrompt",
+    "guideContext",
+    "mcpServer",
+    "result",
+    "toolCalls",
+    "toolStats",
+    "warnings",
+    "errors",
+    "finalOutput",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "durationMs": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "codex-cli"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoningEffort": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requestTimeoutSec": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "promptFile",
+        "runLabel",
+        "benchmarkId",
+        "task"
+      ],
+      "properties": {
+        "promptFile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "benchmarkId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "rolePrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "promptId",
+        "revision",
+        "roleId",
+        "guideIds",
+        "recommendedTools",
+        "handoffTo",
+        "outputContract",
+        "mutatesProject"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "promptId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "roleId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "guideIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommendedTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "handoffTo": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputContract": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mutatesProject": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "guideContext": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mcpServer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "title",
+        "version",
+        "url"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "success",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "SKIPPED",
+            "UNKNOWN"
+          ]
+        },
+        "success": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "toolCalls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "server",
+          "name",
+          "status",
+          "durationMs"
+        ],
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "success",
+              "failed"
+            ]
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "toolStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalToolCalls",
+        "byServer",
+        "byTool",
+        "ragCalls"
+      ],
+      "properties": {
+        "totalToolCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byServer": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "byTool": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "ragCalls": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "finalOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rawText",
+        "sectionNames",
+        "sections",
+        "mcpCritique"
+      ],
+      "properties": {
+        "rawText": {
+          "type": "string"
+        },
+        "sectionNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sections": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "mcpCritique": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logPath",
+        "reportPath",
+        "summaryPath"
+      ],
+      "properties": {
+        "logPath": {
+          "type": "string"
+        },
+        "reportPath": {
+          "type": "string"
+        },
+        "summaryPath": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

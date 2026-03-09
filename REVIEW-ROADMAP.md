@@ -302,39 +302,72 @@ Exit criteria:
 - the critic can review a real probe log and produce concrete findings
 - current status: satisfied for role prompts and mandatory live validation; the backend sanity finding is tracked as non-blocking input for Phase 3
 
-## Phase 3 - Reporting
+## [DONE] Phase 3 - Reporting
 
 Goal: make agent feedback comparable and reusable.
+
+Status:
+
+- completed as a file-first reporting layer on top of `tests/run_prompt.sh`
+- no scoring yet; benchmark policy remains out of scope
+- raw logs remain the forensic source of truth
+- each run now produces a structured JSON report and a short Markdown summary under `tests/reports/<runId>/`
+- existing Phase 2 logs have been backfilled to prove `PASS` and `UNKNOWN` handling on real artifacts
+- fresh artifact generation has been validated through the runner and parser pipeline; parser correctness is validated on real Phase 2 logs, while the local fresh smoke used a deterministic runner stub because interactive Codex CLI runs were unstable on this machine during the review pass
 
 Required outputs per run:
 
 - structured JSON report
 - short Markdown summary for humans
 
-Suggested JSON fields:
+Delivered reporting contract:
 
+- `schemaVersion`
 - `runId`
-- `timestamp`
+- `startedAt`
+- `finishedAt`
 - `provider`
 - `model`
-- `promptId`
-- `benchmarkId`
-- `task`
+- `reasoningEffort`
+- `requestTimeoutSec`
+- `scenario`
+- `rolePrompt`
 - `guideContext`
+- `mcpServer`
 - `toolCalls`
+- `toolStats`
 - `warnings`
 - `errors`
-- `success`
-- `score`
+- `result`
 - `durationMs`
-- `critique`
-- `proposedFixes`
-- `ragCalls`
+- `finalOutput`
+- `artifacts`
+
+Delivered artifacts:
+
+- schema: `review/schemas/run-report.schema.json`
+- parser: `tests/scripts/report_codex_run.py`
+- runner integration: `tests/run_prompt.sh`
+- runtime output layout:
+  - `tests/logs/<runId>.log`
+  - `tests/reports/<runId>/report.json`
+  - `tests/reports/<runId>/summary.md`
+
+Validated outcomes:
+
+- planner pass log backfilled as `PASS`
+- HTTP pass log backfilled as `PASS`
+- frontend validation log backfilled as `PASS`
+- critic review log backfilled as `PASS`
+- incomplete backend log backfilled as `UNKNOWN`
+- a fresh `run_prompt.sh` execution now produces raw log, JSON report, and Markdown summary automatically
+- the current `critic` scenario wording based on `latest log` is known to be unsafe for repeated runs and should be replaced by explicit run targeting in Phase 4
 
 Exit criteria:
 
 - every run produces a comparable report
 - failures can be grouped by tool, guide, benchmark, or provider
+- current status: satisfied for structured reporting; scoring, benchmark ids, and provider comparison remain Phase 4 work
 
 ## Phase 4 - Benchmarking
 
@@ -458,11 +491,7 @@ Placement in the roadmap:
 
 ## Immediate Next Steps
 
-- capture and store the live MCP contract snapshot used as the baseline
-- define the evidence inventory format and mismatch matrix
-- create the canonical starting guide
-- define the review checklist for MCP self-documentation quality
-- define the guide identity and metadata schema
-- extend the tool catalog with guide recommendation metadata
-- define the report JSON schema
-- select the first five benchmark scenarios
+- define the Phase 4 benchmark manifest and scoring contract
+- turn the current probe set into stable benchmark scenarios with acceptance assertions
+- decide how `critic` outputs feed future benchmark scoring without mixing reporting and scoring too early
+- add provider/model adapters that reuse the same run-report schema
