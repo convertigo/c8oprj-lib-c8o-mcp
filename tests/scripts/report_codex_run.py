@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import socket
 import sys
 from collections import Counter
 from datetime import datetime
@@ -54,14 +55,31 @@ def call_mcp(url, payload):
 def fetch_server_info(mcp_url):
     try:
         response = call_mcp(mcp_url, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
-    except (URLError, TimeoutError, json.JSONDecodeError):
-        return {"name": None, "title": None, "version": None, "url": mcp_url}
+    except (URLError, TimeoutError, socket.timeout, OSError, json.JSONDecodeError) as exc:
+        return {"name": None, "title": None, "version": None, "url": mcp_url}, (
+            f"MCP server info fallback failed: {type(exc).__name__}: {exc}"
+        )
     result = response.get("result", {})
     server_info = result.get("serverInfo", {})
     return {
         "name": server_info.get("name"),
         "title": server_info.get("title"),
         "version": server_info.get("version"),
+        "url": mcp_url,
+    }, None
+
+
+def parse_server_info_from_prelude(raw_value, mcp_url):
+    if not raw_value:
+        return None
+    try:
+        parsed_server = json.loads(raw_value)
+    except json.JSONDecodeError:
+        return None
+    return {
+        "name": parsed_server.get("name"),
+        "title": parsed_server.get("title"),
+        "version": parsed_server.get("version"),
         "url": mcp_url,
     }
 
@@ -513,6 +531,7 @@ def main():
     key_values = parse_key_values(lines)
     header = parse_header(lines)
 
+    parser_warnings = []
     role_prompt = default_role_prompt()
     role_prompt_metadata_raw = key_values.get("role_prompt_metadata_json")
     if role_prompt_metadata_raw:
@@ -530,21 +549,13 @@ def main():
             except ValueError:
                 role_prompt["revision"] = None
 
-    mcp_server = fetch_server_info(args.mcp_url)
     mcp_server_info_raw = key_values.get("mcp_server_info_json")
-    if mcp_server_info_raw:
-        try:
-            parsed_server = json.loads(mcp_server_info_raw)
-            mcp_server = {
-                "name": parsed_server.get("name"),
-                "title": parsed_server.get("title"),
-                "version": parsed_server.get("version"),
-                "url": key_values.get("mcp_url", args.mcp_url),
-            }
-        except json.JSONDecodeError:
-            pass
-    else:
-        mcp_server["url"] = key_values.get("mcp_url", args.mcp_url)
+    mcp_url = key_values.get("mcp_url", args.mcp_url)
+    mcp_server = parse_server_info_from_prelude(mcp_server_info_raw, mcp_url)
+    if mcp_server is None:
+        mcp_server, server_warning = fetch_server_info(mcp_url)
+        if server_warning:
+            parser_warnings.append(server_warning)
 
     started_at = parse_iso_datetime(key_values.get("started_at"))
     finished_at = parse_iso_datetime(key_values.get("finished_at"))
@@ -568,6 +579,7 @@ def main():
 
     warnings = collect_warnings(lines)
     warnings.extend(tool_info["warnings"])
+    warnings.extend(parser_warnings)
     errors = collect_errors(lines, result["status"], result["reason"])
 
     request_timeout = key_values.get("codex_request_timeout")
