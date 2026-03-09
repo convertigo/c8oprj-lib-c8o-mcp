@@ -4,7 +4,7 @@ This is a benchmark run critic.
 - The role prompt is already injected in benchmark runs. Do not repeat fresh-session bootstrap when the explicit artifacts below are readable.
 - Review the explicit benchmark run report at `__RUN_REPORT_PATH__`.
 - Review the explicit benchmark run summary at `__RUN_SUMMARY_PATH__`.
-- If it exists, use the raw log at `__RAW_LOG_PATH__` only to confirm or challenge the report.
+- Use the raw log at `__RAW_LOG_PATH__` only if the summary and report disagree or miss decisive proof.
 - Candidate: `__CANDIDATE_ID__`
 - Scenario: `__SCENARIO_ID__`
 - Run: `__RUN_ID__`
@@ -13,8 +13,14 @@ Review goals:
 - identify concrete findings first
 - call out missing runtime evidence if the implementation claims more than it proved
 - report guide misuse, contract drift, or misleading MCP behavior you can support from the run report, raw log, and live MCP state
+- inspect artifacts with targeted extraction only:
+  - summary: read directly
+  - report: prefer `jq` or `rg -n` for exact fields
+  - raw log: prefer `rg -n` for the exact disputed tool call or result line
+- do not dump broad `sed` or `tail` slices of `report.json` or `raw.log`
 - do not call `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless one of the explicit artifact paths is unreadable
 - avoid generic summaries and avoid mutating the project
+- stop as soon as one supported finding or a justified `no findings` conclusion is available
 
 Final output format:
 - `RESULT: PASS` only if you reviewed the explicit run and produced findings or a justified `no findings` conclusion

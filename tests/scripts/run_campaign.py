@@ -59,6 +59,24 @@ def parse_args():
         default=os.environ.get("CODEX_BIN", ""),
         help="Optional Codex binary override.",
     )
+    parser.add_argument(
+        "--scenario-timeout",
+        type=int,
+        default=int(os.environ.get("CAMPAIGN_SCENARIO_TIMEOUT_SEC", "1800")),
+        help="Wall-clock timeout in seconds for one scenario run.",
+    )
+    parser.add_argument(
+        "--critic-timeout",
+        type=int,
+        default=int(os.environ.get("CAMPAIGN_CRITIC_TIMEOUT_SEC", "300")),
+        help="Wall-clock timeout in seconds for one run critic.",
+    )
+    parser.add_argument(
+        "--aggregate-timeout",
+        type=int,
+        default=int(os.environ.get("CAMPAIGN_AGGREGATE_TIMEOUT_SEC", "600")),
+        help="Wall-clock timeout in seconds for the aggregate critic.",
+    )
     return parser.parse_args()
 
 
@@ -71,8 +89,8 @@ def write_json(path, payload):
     Path(path).write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
 
-def run_command(args, cwd=None, env=None):
-    return subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True)
+def run_command(args, cwd=None, env=None, timeout=None):
+    return subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, timeout=timeout)
 
 
 def git_output(*args):
@@ -205,7 +223,7 @@ def teardown_postgres_fixture(runtime_dir):
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
 
 
-def run_prompt(prompt_file, run_label, role_prompt_name, workspace_dir, artifact_dir_root, env_overrides):
+def run_prompt(prompt_file, run_label, role_prompt_name, workspace_dir, artifact_dir_root, env_overrides, timeout_sec=None):
     env = os.environ.copy()
     env.update(env_overrides)
     env["WORKSPACE_DIR"] = str(workspace_dir)
@@ -213,7 +231,10 @@ def run_prompt(prompt_file, run_label, role_prompt_name, workspace_dir, artifact
     command = ["bash", "tests/run_prompt.sh", str(prompt_file), run_label]
     if role_prompt_name:
         command.append(role_prompt_name)
-    result = run_command(command, cwd=repo_root(), env=env)
+    try:
+        result = run_command(command, cwd=repo_root(), env=env, timeout=timeout_sec)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"run_prompt.sh timed out after {timeout_sec}s for {run_label}") from exc
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
     parsed = parse_run_prompt_output(result.stdout)
@@ -365,6 +386,7 @@ def main():
                     scenario["fixtureId"] or "",
                     run_stamp=run_stamp,
                 ),
+                timeout_sec=args.scenario_timeout,
             )
         finally:
             if fixture_metadata is not None:
@@ -413,6 +435,7 @@ def main():
                 critic_target_run_id=run_data["runId"],
                 run_stamp=critic_run_stamp,
             ),
+            timeout_sec=args.critic_timeout,
         )
 
         run_record["criticRunId"] = critic_data["runId"]
@@ -448,6 +471,7 @@ def main():
             "aggregate-critic",
             run_stamp=aggregate_run_stamp,
         ),
+        timeout_sec=args.aggregate_timeout,
     )
     manifest["aggregateCritic"] = {
         "runId": aggregate_critic_data["runId"],

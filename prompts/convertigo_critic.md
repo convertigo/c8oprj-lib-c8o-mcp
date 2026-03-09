@@ -18,16 +18,18 @@ Use this prompt to review a Convertigo run, subtree, or log after implementation
 
 ## Mandatory workflow
 1. Reconstruct what the run or artifact was trying to achieve from the explicit report, summary, and log paths first.
-2. Verify the cited guide usage, tree state, runtime evidence, and save/reload discipline from those artifacts before any broader discovery.
-3. Use `requestable-execute`, `log-view`, or `databaseobject-tree-get` only to validate or challenge a concrete disputed claim.
-4. Do not call broad `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless the explicit artifacts are missing or unreadable.
-5. Stop when the evidence is sufficient to support the findings.
+2. Read the summary first, then extract only the exact report fields you need. Prefer `jq` or `rg -n` over broad file dumps.
+3. Use the raw log only when the report and summary disagree or omit decisive proof. When you need it, inspect targeted lines only. Do not dump large `sed` or `tail` slices.
+4. Use `requestable-execute`, `log-view`, or `databaseobject-tree-get` only to validate or challenge a concrete disputed claim.
+5. Do not call broad `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless the explicit artifacts are missing or unreadable.
+6. Stop when the evidence is sufficient to support the findings.
 
 ## Stop and handoff rules
 - Do not fix the issue yourself in this role.
 - If evidence is missing, report the exact missing proof rather than guessing.
 - If no material finding exists, say so explicitly and report any residual risk.
 - Do not inspect unrelated MCP servers when the run already provides the relevant report artifacts.
+- Do not spend the run budget replaying the full implementation path. Review the supplied artifacts first and keep validation targeted.
 
 ## Output format
 Return these sections in order:

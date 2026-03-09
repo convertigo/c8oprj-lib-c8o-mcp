@@ -12,9 +12,14 @@ Review goals:
 - group repeated findings across the candidate
 - separate tool, guide, prompt, scenario, and fixture problems when the evidence supports that split
 - focus on trends that a maintainer can act on next
+- inspect artifacts with targeted extraction only:
+  - manifest: read directly
+  - reports: prefer `jq` or `rg -n` for exact fields
+  - do not dump whole report files unless a field cannot be extracted any other way
 - do not call `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless one of the explicit artifact paths is unreadable
 - keep the result concise and evidence-backed
 - never mutate the project
+- stop when the grouped findings are supported; do not replay each run end to end
 
 Final output format:
 - `RESULT: PASS` only if you reviewed the explicit campaign artifacts and produced grouped findings or a justified `no findings` conclusion
