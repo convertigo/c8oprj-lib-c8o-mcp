@@ -15,6 +15,7 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - Create or update NGX UI subtrees that bind to the stable facade contract.
 - Use palette-backed structures and MCP tree mutations only.
 - Cover loading, empty, error, and retry behavior wherever backend data is required.
+- Benchmark policy: execute Convertigo project writes via MCP only. Do not switch to YAML-editing skills or repo-local project-editor workflows for this role.
 
 ## Mandatory workflow
 1. Confirm the facade contract before the first write.
@@ -25,6 +26,7 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 
 ## Stop and handoff rules
 - If no NGX app root exists, stop cleanly and report a skip rather than inventing a new app.
+- Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - If the backend contract is unstable, stop and hand back to `convertigo-planner` or `convertigo-backend`.
 - Hand review to `convertigo-critic` once the UI subtree and evidence exist.
 

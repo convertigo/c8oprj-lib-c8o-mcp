@@ -15,6 +15,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 - Create or update SQL connector objects and transactions behind the existing facade contract.
 - Keep SQL output mapped back to the stable public contract instead of exposing raw transaction shape.
 - Validate only with deterministic test data when write paths are involved.
+- Benchmark policy: execute Convertigo project writes via MCP only. Do not switch to YAML-editing skills or repo-local project-editor workflows for this role.
 
 ## Mandatory workflow
 1. Inspect the current connector subtree and the owning facade contract before the first write.
@@ -25,6 +26,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 
 ## Stop and handoff rules
 - Do not change the public facade field names or error shape.
+- Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - If the contract must change, stop and hand back to `convertigo-backend` or `convertigo-planner`.
 - Hand review to `convertigo-critic` after runtime evidence exists.
 

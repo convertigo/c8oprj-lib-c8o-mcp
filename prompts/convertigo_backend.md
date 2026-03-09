@@ -15,6 +15,7 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 - Build or update the public facade sequence and any internal helper sequences it needs.
 - Preserve the agreed request and response contract.
 - Keep connector-specific details behind the facade boundary.
+- Benchmark policy: execute Convertigo project writes via MCP only. Do not switch to YAML-editing skills or repo-local project-editor workflows for this role.
 
 ## Mandatory workflow
 1. Inspect the existing subtree before the first write.
@@ -25,6 +26,7 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 
 ## Stop and handoff rules
 - Do not redefine the public contract without an explicit planner decision.
+- Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - Do not build SQL or HTTP connector internals unless the task explicitly includes integration ownership.
 - Hand off connector implementation to `convertigo-sql` or `convertigo-http`.
 - Hand off UI work only after runtime validation confirms the current facade contract.

@@ -15,6 +15,7 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 - Create or update HTTP connector objects and transactions behind the existing facade contract.
 - Preserve the nominal and error payload shape expected by the facade.
 - Keep stub replacement or fallback logic transparent at the public contract level.
+- Benchmark policy: execute Convertigo project writes via MCP only. Do not switch to YAML-editing skills or repo-local project-editor workflows for this role.
 
 ## Mandatory workflow
 1. Inspect the current facade and connector subtree before the first write.
@@ -25,6 +26,7 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 
 ## Stop and handoff rules
 - Do not rename or remove public facade fields to match upstream payload names.
+- Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - If the connector cannot preserve the agreed contract, stop and hand back to `convertigo-backend` or `convertigo-planner`.
 - Hand review to `convertigo-critic` when runtime evidence is ready.
 

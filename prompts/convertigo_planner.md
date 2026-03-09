@@ -15,6 +15,7 @@ Use this prompt for work that spans multiple tracks or needs a stable facade con
 - Inspect the current project state and lock the public facade contract first.
 - Create or update a minimal executable stub only when it is required to unblock backend, integration, or UI work.
 - Split work explicitly for backend, SQL, HTTP, frontend NGX, and critic follow-up.
+- Benchmark policy: execute Convertigo project writes via MCP only. Do not switch to YAML-editing skills or repo-local project-editor workflows for this role.
 
 ## Mandatory workflow
 1. Inspect existing requestables, target QNames, and relevant runtime evidence before the first write.
@@ -30,6 +31,7 @@ Use this prompt for work that spans multiple tracks or needs a stable facade con
 
 ## Stop and handoff rules
 - Do not implement broad connector or NGX work yourself unless the task explicitly says the planner owns that work.
+- Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - Hand off backend orchestration to `convertigo-backend`.
 - Hand off SQL or HTTP work to the dedicated integration prompt.
 - Hand off UI work to `convertigo-frontend-ngx` only after the contract is stable.

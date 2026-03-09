@@ -1,6 +1,7 @@
 This is a backend specialist probe.
 - Preferred runner: inject MCP role prompt `convertigo-backend` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-backend` yourself before continuing.
+- Benchmark policy: do not use local YAML-editing skills or the `convertigo-project-editor` workflow for this scenario. Use MCP tools only for Convertigo project mutations.
 - Before the first write call, state whether `convertigo://resources/convertigo-contract-first-delivery` is needed for this task and why.
 - Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
 - If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
