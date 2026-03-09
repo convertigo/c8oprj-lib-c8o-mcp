@@ -34,6 +34,10 @@ SCENARIO_ID="${SCENARIO_ID:-}"
 BENCHMARK_ID="${BENCHMARK_ID:-}"
 WORKSPACE_ID="${WORKSPACE_ID:-}"
 FIXTURE_ID="${FIXTURE_ID:-}"
+FIXTURE_ALIAS="${FIXTURE_ALIAS:-}"
+TARGET_PROJECT="${TARGET_PROJECT:-}"
+FIXTURE_SOURCE_PROJECT="${FIXTURE_SOURCE_PROJECT:-}"
+FIXTURE_CREATED_BY_RUNNER="${FIXTURE_CREATED_BY_RUNNER:-}"
 CRITIC_TARGET_RUN_ID="${CRITIC_TARGET_RUN_ID:-}"
 CODEX_DISABLE_MCP="${CODEX_DISABLE_MCP:-0}"
 DEFAULT_CODEX_BIN="${SCRIPT_DIR}/bin/codex"
@@ -128,6 +132,18 @@ fi
   fi
   if [[ -n "${FIXTURE_ID}" ]]; then
     echo "fixture_id=${FIXTURE_ID}"
+  fi
+  if [[ -n "${FIXTURE_ALIAS}" ]]; then
+    echo "fixture_alias=${FIXTURE_ALIAS}"
+  fi
+  if [[ -n "${TARGET_PROJECT}" ]]; then
+    echo "target_project=${TARGET_PROJECT}"
+  fi
+  if [[ -n "${FIXTURE_SOURCE_PROJECT}" ]]; then
+    echo "fixture_source_project=${FIXTURE_SOURCE_PROJECT}"
+  fi
+  if [[ -n "${FIXTURE_CREATED_BY_RUNNER}" ]]; then
+    echo "fixture_created_by_runner=${FIXTURE_CREATED_BY_RUNNER}"
   fi
   if [[ -n "${CRITIC_TARGET_RUN_ID}" ]]; then
     echo "critic_target_run_id=${CRITIC_TARGET_RUN_ID}"

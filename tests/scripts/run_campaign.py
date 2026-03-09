@@ -16,6 +16,7 @@ from urllib.request import Request, urlopen
 PROTOCOL_VERSION = "2025-06-18"
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 POSTGRES_FIXTURE_ID = "postgres-v1"
+MARKETPLACE_FIXTURE_MODE = "marketplace"
 POSTGRES_DEFAULTS = {
     "host": "127.0.0.1",
     "database": "convertigo_bench",
@@ -124,6 +125,27 @@ def call_mcp(url, payload, timeout=10):
         return json.load(response)
 
 
+def call_mcp_tool(url, tool_name, arguments=None, timeout=30):
+    response = call_mcp(
+        url,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": arguments or {},
+            },
+        },
+        timeout=timeout,
+    )
+    if "error" in response:
+        error = response["error"]
+        detail = error.get("details") or error.get("message") or json.dumps(error)
+        raise RuntimeError(f"{tool_name} failed: {detail}")
+    return response.get("result", {})
+
+
 def get_mcp_server_version(url):
     last_error = None
     payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
@@ -136,6 +158,74 @@ def get_mcp_server_version(url):
             if attempt < 3:
                 time.sleep(2)
     raise last_error
+
+
+def sanitize_project_component(value):
+    cleaned = re.sub(r"[^A-Za-z0-9_]+", "_", value).strip("_")
+    cleaned = re.sub(r"_+", "_", cleaned)
+    return cleaned or "fixture"
+
+
+def build_target_project_name(pattern, scenario_id, candidate_id, run_stamp):
+    candidate_short = candidate_id.split("+", 1)[1] if "+" in candidate_id else candidate_id
+    return pattern.format(
+        scenarioId=sanitize_project_component(scenario_id),
+        candidateShort=sanitize_project_component(candidate_short),
+        runStamp=sanitize_project_component(run_stamp),
+    )
+
+
+def project_exists(url, project_name):
+    result = call_mcp_tool(url, "project-list", {"filter": project_name, "limit": 100})
+    structured = result.get("structuredContent", {})
+    for item in structured.get("projects", []):
+        if item.get("name") == project_name:
+            return True
+    return False
+
+
+def import_project_fixture(url, scenario, candidate_id, run_stamp):
+    fixture = scenario["projectFixture"]
+    target_project = build_target_project_name(
+        fixture["importedNamePattern"],
+        scenario["scenarioId"],
+        candidate_id,
+        run_stamp,
+    )
+    call_mcp_tool(
+        url,
+        "marketplace-import",
+        {
+            "project": fixture["sourceProject"],
+            "importedProjectName": target_project,
+        },
+        timeout=120,
+    )
+    if not project_exists(url, target_project):
+        raise RuntimeError(f"Imported benchmark project {target_project} was not found after marketplace-import.")
+    return {
+        "targetProject": target_project,
+        "fixtureAlias": fixture["fixtureAlias"],
+        "fixtureSourceProject": fixture["sourceProject"],
+        "fixtureTechnicalName": fixture["technicalName"],
+        "fixtureCreatedByRunner": True,
+    }
+
+
+def delete_owned_project(url, project_name):
+    if not project_exists(url, project_name):
+        return
+    call_mcp_tool(
+        url,
+        "project-delete",
+        {
+            "project": project_name,
+            "deleteCar": True,
+        },
+        timeout=120,
+    )
+    if project_exists(url, project_name):
+        raise RuntimeError(f"Benchmark cleanup did not remove owned project {project_name}.")
 
 
 def get_codex_version(codex_bin):
@@ -263,6 +353,10 @@ def scenario_run_env(
     benchmark_id,
     workspace_id,
     fixture_id="",
+    fixture_alias="",
+    target_project="",
+    fixture_source_project="",
+    fixture_created_by_runner="",
     critic_target_run_id="",
     run_stamp="",
     disable_mcp=False,
@@ -285,6 +379,14 @@ def scenario_run_env(
         env["RUN_STAMP"] = run_stamp
     if fixture_id:
         env["FIXTURE_ID"] = fixture_id
+    if fixture_alias:
+        env["FIXTURE_ALIAS"] = fixture_alias
+    if target_project:
+        env["TARGET_PROJECT"] = target_project
+    if fixture_source_project:
+        env["FIXTURE_SOURCE_PROJECT"] = fixture_source_project
+    if fixture_created_by_runner:
+        env["FIXTURE_CREATED_BY_RUNNER"] = fixture_created_by_runner
     if critic_target_run_id:
         env["CRITIC_TARGET_RUN_ID"] = critic_target_run_id
     if disable_mcp:
@@ -296,7 +398,7 @@ def update_manifest(path, manifest):
     write_json(path, manifest)
 
 
-def build_run_record(scenario, run_data, workspace_id, fixture_metadata_path=None):
+def build_run_record(scenario, run_data, workspace_id, target_project=None, fixture_source_project=None, fixture_created_by_runner=None, fixture_metadata_path=None):
     return {
         "scenarioId": scenario["scenarioId"],
         "scenarioTitle": scenario.get("title"),
@@ -309,6 +411,10 @@ def build_run_record(scenario, run_data, workspace_id, fixture_metadata_path=Non
         "summaryPath": run_data["summaryPath"],
         "workspaceId": workspace_id,
         "fixtureId": scenario["fixtureId"],
+        "fixtureAlias": scenario["projectFixture"]["fixtureAlias"],
+        "targetProject": target_project,
+        "fixtureSourceProject": fixture_source_project,
+        "fixtureCreatedByRunner": fixture_created_by_runner,
         "fixtureMetadataPath": fixture_metadata_path,
         "status": run_data["report"]["result"]["status"],
     }
@@ -363,6 +469,13 @@ def render_run_critic_packet(run_record, report):
         "",
         f"- Title: `{run_record.get('scenarioTitle') or run_record['scenarioId']}`",
         f"- Prompt: `{run_record.get('promptFile') or 'none'}`",
+        "",
+        "## Fixture Context",
+        "",
+        f"- Target project: `{run_record.get('targetProject') or report['scenario'].get('targetProject') or 'none'}`",
+        f"- Fixture alias: `{run_record.get('fixtureAlias') or report['scenario'].get('fixtureAlias') or 'none'}`",
+        f"- Fixture source project: `{run_record.get('fixtureSourceProject') or report['scenario'].get('fixtureSourceProject') or 'none'}`",
+        f"- Fixture created by runner: `{run_record.get('fixtureCreatedByRunner') if run_record.get('fixtureCreatedByRunner') is not None else report['scenario'].get('fixtureCreatedByRunner')}`",
         "",
         "## Guide Context",
         "",
@@ -472,6 +585,8 @@ def render_aggregate_critic_packet(candidate_id, manifest_path, manifest, run_re
                     "",
                     f"- Run status: `{item['status']}`",
                     f"- Critic status: `{critic_status}`",
+                    f"- Target project: `{item.get('targetProject') or 'none'}`",
+                    f"- Fixture source project: `{item.get('fixtureSourceProject') or 'none'}`",
                     f"- Run report: `{item['reportPath']}`",
                     f"- Run summary: `{item['summaryPath']}`",
                     f"- Run critic packet: `{item.get('criticPacketPath') or 'none'}`",
@@ -533,6 +648,7 @@ def main():
         "suitePath": str(suite_path),
         "runs": [],
         "aggregateCritic": None,
+        "warnings": [],
     }
     update_manifest(manifest_path, manifest)
 
@@ -549,23 +665,30 @@ def main():
         workspace_dir.mkdir(parents=True, exist_ok=True)
 
         fixture_metadata = None
-        prompt_path = root / scenario["promptFile"]
-        if scenario["requiresFixture"] and scenario["fixtureId"] == POSTGRES_FIXTURE_ID:
-            fixture_metadata = setup_postgres_fixture(campaign_dir, run_id)
+        project_fixture = import_project_fixture(args.mcp_url, scenario, candidate_id, run_stamp)
+        try:
+            prompt_replacements = {
+                "__TARGET_PROJECT__": project_fixture["targetProject"],
+                "__FIXTURE_SOURCE_PROJECT__": project_fixture["fixtureSourceProject"],
+            }
+            if scenario["requiresFixture"] and scenario["fixtureId"] == POSTGRES_FIXTURE_ID:
+                fixture_metadata = setup_postgres_fixture(campaign_dir, run_id)
+            if fixture_metadata is not None:
+                prompt_replacements.update(
+                    {
+                        "__PG_HOST__": fixture_metadata["host"],
+                        "__PG_PORT__": str(fixture_metadata["port"]),
+                        "__PG_DATABASE__": fixture_metadata["database"],
+                        "__PG_USER__": fixture_metadata["user"],
+                        "__PG_PASSWORD__": fixture_metadata["password"],
+                        "__FIXTURE_METADATA_PATH__": str((Path(fixture_metadata["runtimeDir"]) / "metadata.json").resolve()),
+                    }
+                )
             prompt_path = render_prompt(
                 root / scenario["promptFile"],
                 generated_prompts_dir / f"{scenario_id}.txt",
-                {
-                    "__PG_HOST__": fixture_metadata["host"],
-                    "__PG_PORT__": str(fixture_metadata["port"]),
-                    "__PG_DATABASE__": fixture_metadata["database"],
-                    "__PG_USER__": fixture_metadata["user"],
-                    "__PG_PASSWORD__": fixture_metadata["password"],
-                    "__FIXTURE_METADATA_PATH__": str((Path(fixture_metadata["runtimeDir"]) / "metadata.json").resolve()),
-                },
+                prompt_replacements,
             )
-
-        try:
             run_data = run_prompt(
                 prompt_path,
                 run_label,
@@ -580,6 +703,10 @@ def main():
                     scenario["benchmarkId"],
                     workspace_id,
                     scenario["fixtureId"] or "",
+                    project_fixture["fixtureAlias"],
+                    project_fixture["targetProject"],
+                    project_fixture["fixtureSourceProject"],
+                    "true",
                     run_stamp=run_stamp,
                 ),
                 timeout_sec=args.scenario_timeout,
@@ -587,11 +714,20 @@ def main():
         finally:
             if fixture_metadata is not None:
                 teardown_postgres_fixture(Path(fixture_metadata["runtimeDir"]))
+            try:
+                delete_owned_project(args.mcp_url, project_fixture["targetProject"])
+            except Exception as exc:
+                warning = f"Cleanup warning for {project_fixture['targetProject']}: {exc}"
+                manifest["warnings"].append(warning)
+                update_manifest(manifest_path, manifest)
 
         run_record = build_run_record(
             scenario,
             run_data,
             workspace_id,
+            project_fixture["targetProject"],
+            project_fixture["fixtureSourceProject"],
+            project_fixture["fixtureCreatedByRunner"],
             str((Path(fixture_metadata["runtimeDir"]) / "metadata.json").resolve()) if fixture_metadata else None,
         )
         critic_packet_path = campaign_dir / "critic_packets" / scenario_id / f"{run_data['runId']}.md"

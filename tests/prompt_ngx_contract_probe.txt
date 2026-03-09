@@ -1,16 +1,17 @@
 This is an NGX specialist probe.
-- Preferred runner: inject MCP role prompt `convertigo-frontend-ngx` before this scenario starts.
-- If no role prompt was injected, fetch `convertigo-frontend-ngx` yourself before continuing.
-- Choose the target project in this order: `ConvertigoWorkflow`, `TestBuild`, `convertigo_signup`, `C8oCloudBaserow`. Use the first one that exists and report the chosen project name.
-- If none of these exists, choose the first loaded project whose comment contains `NGX builder Project`, whose name does not start with `mobilebuilder_tpl_`, and whose name does not start with `lib_`. Report the chosen fallback explicitly.
+- Benchmark policy: the campaign runner already injected `convertigo-frontend-ngx`.
+- Target project: `__TARGET_PROJECT__`
+- This project was imported by the campaign runner from `__FIXTURE_SOURCE_PROJECT__`.
+- Mutate only `__TARGET_PROJECT__`.
+- If `__TARGET_PROJECT__` is missing, fail immediately.
 
 Probe goals:
 1. Find an NGX app root QName (class `ngx.components.ApplicationComponent`).
 2. Find a stable facade requestable contract in this preference order:
-   - `<chosen project>.probe_http_contract`
-   - `<chosen project>.probe_contract_stub`
-   - `<chosen project>.ip_info`
-3. If no NGX app exists, stop with `RESULT: SKIPPED - no NGX app found`.
+   - `__TARGET_PROJECT__.probe_http_contract`
+   - `__TARGET_PROJECT__.probe_contract_stub`
+   - `__TARGET_PROJECT__.probe_sql_contract`
+3. If no NGX app exists in `__TARGET_PROJECT__`, stop with `RESULT: FAIL - imported starter project is malformed`.
 4. If no stable facade requestable exists, stop with `RESULT: SKIPPED - no stable facade contract found`.
 
 If both exist:
@@ -27,7 +28,7 @@ If both exist:
 7. Save the project.
 
 Final output format:
-- `RESULT: PASS` only if tree inspection proves `CodexContractProbe` exists and the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields.
-- `RESULT: SKIPPED` for the allowed skip reasons above.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, tree inspection proves `CodexContractProbe` exists, and the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields.
+- `RESULT: SKIPPED` only for `no stable facade contract found`.
 - `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
 - End with one short `MCP critique` item.

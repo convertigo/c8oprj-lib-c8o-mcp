@@ -1,14 +1,15 @@
 This is a backend recovery probe.
-- Preferred runner: inject MCP role prompt `convertigo-backend` before this scenario starts.
-- If no role prompt was injected, fetch `convertigo-backend` yourself before continuing.
-- Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
-- If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
+- Benchmark policy: the campaign runner already injected `convertigo-backend`.
+- Target project: `__TARGET_PROJECT__`
+- This project was imported by the campaign runner from `__FIXTURE_SOURCE_PROJECT__`.
+- Mutate only `__TARGET_PROJECT__`.
+- If `__TARGET_PROJECT__` is missing, fail immediately.
 
-Assume the initial target parent QName is `<chosen project>.MissingParent` until MCP proves otherwise.
+Assume the initial target parent QName is `__TARGET_PROJECT__.MissingParent` until MCP proves otherwise.
 Rules:
 1. Do not mutate `MissingParent`.
 2. Detect and report the invalid target explicitly.
-3. Re-discover the correct parent under the chosen project root.
+3. Re-discover the correct parent under the `__TARGET_PROJECT__` project root.
 4. Create or update a sequence named `probe_recovery_target` under the correct project root.
 5. Add one optional string input variable named `name`.
 6. The sequence must return these top-level fields:
@@ -24,6 +25,6 @@ Required final output sections:
 - `Open Handoff`
 
 Final output format:
-- `RESULT: PASS` only if you explicitly report the invalid target, identify the corrected target, create or update `probe_recovery_target`, validate it successfully, and save the project.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, you report the invalid target, identify the corrected target, create or update `probe_recovery_target`, validate it successfully, and save the project.
 - `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
 - End with one short `MCP critique` item.

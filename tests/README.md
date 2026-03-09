@@ -2,18 +2,18 @@
 
 This folder stores reproducible prompts/scripts for running Codex CLI scenarios locally. Raw logs stay in `tests/logs`, derived reports in `tests/reports`, and work files in `tests/workspace` (all ignored by Git).
 
-- `prompt.txt`: Main end-to-end HTTP contract scenario. The agent must fetch `convertigo-http`.
-- `prompt_analyze_sentence.txt`: Backend sequence scenario. The agent must fetch `convertigo-backend`.
-- `prompt_facade_stub_probe.txt`: Planner probe. The agent must fetch `convertigo-planner`.
-- `prompt_http_facade_probe.txt`: HTTP-behind-facade probe. The agent must fetch `convertigo-http`.
-- `prompt_ngx_contract_probe.txt`: NGX probe. The agent must fetch `convertigo-frontend-ngx`.
-- `prompt_recovery_invalid_target.txt`: Recovery probe for invalid target assumptions. The agent must fetch `convertigo-backend`.
-- `prompt_sql_facade_probe.txt`: PostgreSQL-backed SQL facade probe. The agent must fetch `convertigo-sql`.
+- `prompt.txt`: Main end-to-end HTTP contract scenario. The runner should inject `convertigo-http`.
+- `prompt_analyze_sentence.txt`: Backend sequence scenario. The runner should inject `convertigo-backend`.
+- `prompt_facade_stub_probe.txt`: Planner probe. The runner should inject `convertigo-planner`.
+- `prompt_http_facade_probe.txt`: HTTP-behind-facade probe. The runner should inject `convertigo-http`.
+- `prompt_ngx_contract_probe.txt`: NGX probe. The runner should inject `convertigo-frontend-ngx`.
+- `prompt_recovery_invalid_target.txt`: Recovery probe for invalid target assumptions. The runner should inject `convertigo-backend`.
+- `prompt_sql_facade_probe.txt`: PostgreSQL-backed SQL facade probe. The runner should inject `convertigo-sql`.
 - `prompt_uistyle_stylecontent.txt`: UI regression scenario. The agent must fetch `convertigo-frontend-ngx`.
 - `prompt_critic_review.txt`: Legacy critic review of the latest prior probe log. Kept for history only.
-- `prompt_critic_run_review.txt`: Critic review of one explicit benchmark run. The agent must fetch `convertigo-critic`.
-- `prompt_critic_aggregate_review.txt`: Critic review of one explicit benchmark campaign. The agent must fetch `convertigo-critic`.
-- `prompt_maintainer_cycle.txt`: Maintainer-cycle template that injects one maintainer packet and requires one committed candidate. The agent must fetch `convertigo-maintainer`.
+- `prompt_critic_run_review.txt`: Critic review of one explicit benchmark run. The runner should inject `convertigo-critic`.
+- `prompt_critic_aggregate_review.txt`: Critic review of one explicit benchmark campaign. The runner should inject `convertigo-critic`.
+- `prompt_maintainer_cycle.txt`: Maintainer-cycle template that injects one maintainer packet and requires one committed candidate. The runner should inject `convertigo-maintainer`.
 - `bin/codex`: Wrapper used by default by `run_prompt.sh`. It pins the npm package version in one place through `CODEX_NPM_VERSION` (default `0.111.0`) and avoids depending on the machine-wide `codex`.
 - `run_prompt.sh`: Helper to run Codex CLI from the repository root (`bash tests/run_prompt.sh [prompt_file] [run_label] [role_prompt_name]`). When the third argument is set, the script fetches the role prompt from MCP first and injects it into the Codex run.
 - `scripts/report_codex_run.py`: Converts one raw Codex CLI log into `report.json` plus `summary.md`.
@@ -24,7 +24,7 @@ This folder stores reproducible prompts/scripts for running Codex CLI scenarios 
 - `benchmarks/suites/phase4_v1.json`: Tracked benchmark suite manifest for Phase 4.
 - `fixtures/sql/postgres-v1/`: PostgreSQL fixture used by the SQL benchmark scenario.
 
-All prompts are written in English and stay scenario-specific. The preferred validation path is to inject the matching MCP role prompt through `run_prompt.sh`, not to duplicate role instructions inside the scenario file. Scenario files define their own target-selection rules and expected evidence. Probe prompts must end with concrete pass/fail or skip evidence plus one short MCP critique item.
+All prompts are written in English and stay scenario-specific. The benchmark runner is responsible for injecting the matching MCP role prompt and, for mutating campaign scenarios, for importing the target benchmark project first. Scenario files must not duplicate role-bootstrap logic or dynamic workspace project-selection logic. Probe prompts must end with concrete pass/fail or skip evidence plus one short MCP critique item.
 
 Runtime artifact layout:
 
@@ -51,6 +51,13 @@ Campaign artifact layout:
 - SQL fixture runtime metadata: `tests/campaigns/<candidateId>/fixtures/sql/<runId>/`
 
 Phase 4 benchmark campaigns are file-first and sequential by default, but their layout is parallel-safe. Critic prompts must target explicit report paths, never the latest log.
+
+For Phase 4.1 and later, mutating benchmark scenarios are fixture-driven:
+
+- the runner imports `template_ngxBuilderIonic` under a unique `BenchAI_*` project name per run
+- the scenario prompt receives that exact target project name
+- the scenario may mutate only that owned project
+- the runner deletes only that owned project after the run
 
 Improvement-cycle artifact layout:
 

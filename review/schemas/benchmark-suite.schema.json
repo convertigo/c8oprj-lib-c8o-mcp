@@ -35,17 +35,18 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "scenarioId",
-          "title",
-          "promptFile",
-          "rolePromptName",
-          "benchmarkId",
-          "mutatesProject",
-          "requiresFixture",
-          "fixtureId",
-          "allowedSkipReasons",
-          "requiredResultStatus",
+          "required": [
+            "scenarioId",
+            "title",
+            "promptFile",
+            "rolePromptName",
+            "benchmarkId",
+            "mutatesProject",
+            "requiresFixture",
+            "fixtureId",
+            "projectFixture",
+            "allowedSkipReasons",
+            "requiredResultStatus",
           "scenarioWeight",
           "toolCallSoftLimit",
           "toolCallHardLimit",
@@ -83,6 +84,48 @@
               "string",
               "null"
             ]
+          },
+          "projectFixture": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "fixtureAlias",
+              "sourceProject",
+              "technicalName",
+              "starter",
+              "importedNamePattern",
+              "cleanupPolicy",
+              "required"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "const": "marketplace"
+              },
+              "fixtureAlias": {
+                "type": "string"
+              },
+              "sourceProject": {
+                "type": "string"
+              },
+              "technicalName": {
+                "type": "string"
+              },
+              "starter": {
+                "type": "boolean"
+              },
+              "importedNamePattern": {
+                "type": "string"
+              },
+              "cleanupPolicy": {
+                "type": "string",
+                "const": "ownedProject"
+              },
+              "required": {
+                "type": "boolean"
+              }
+            }
           },
           "allowedSkipReasons": {
             "type": "array",

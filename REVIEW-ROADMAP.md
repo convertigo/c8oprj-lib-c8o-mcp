@@ -376,6 +376,10 @@ Goal: measure progress with controlled tasks and objective scoring.
 Status:
 
 - completed with candidate-based campaign plumbing in `tests/benchmarks/`, `tests/scripts/`, and `review/schemas/`
+- phase 4.1 fixture-driven refactor is now implemented on top of the campaign runner:
+  - the runner injects role prompts directly
+  - mutating scenarios now target a runner-imported `BenchAI_*` project from `template_ngxBuilderIonic`
+  - cleanup now deletes only the owned benchmark project through MCP `project-delete`
 - benchmark suite `phase4_v1` now defines `6` scored scenarios
 - run critic and aggregate critic now target explicit artifact paths, never `latest log`
 - PostgreSQL fixture `postgres-v1` is real and deterministic, with fresh container lifecycle per SQL run
@@ -384,6 +388,7 @@ Status:
 - fixture validation was executed against a live Docker-backed PostgreSQL container
 - a first real live thin-slice campaign on candidate `0.0.12+57e32e2` completed with `3/3` scenario passes for planner, backend, and HTTP
 - the live thin slice now yields a fully green scored aggregate (`passCount=3`, `failCount=0`, `gateFailureCount=0`) and is strong enough to serve as a real baseline for Phase 5
+- a fresh-starter rerun on candidate `0.0.13+c598ae5` now proves exact owned-project teardown; it also surfaced that the planner benchmark must satisfy the contract on a blank starter without relying on previously shaped workspace projects
 
 Delivered benchmark families:
 
@@ -429,6 +434,7 @@ Validated outcomes:
 - grouped findings now surface actionable tool issues such as `palette-list` invalid-target UX and `databaseobject-tree-get` recovery breadcrumbs
 - SQL runs are backed by a fresh PostgreSQL container initialized from tracked scripts
 - campaign layout is parallel-safe by identifier and directory structure even though execution is still sequential by default
+- mutating scenarios no longer depend on opportunistic workspace project discovery; the runner now prepares and tears down one explicit benchmark project per run
 
 Exit criteria:
 
@@ -445,7 +451,7 @@ Status:
 - scaffolding implemented in `tests/scripts/run_improvement_cycle.py`, `tests/scripts/compare_campaigns.py`, `tests/prompt_maintainer_cycle.txt`, and `review/schemas/`
 - the maintainer role prompt is now part of the prompt catalog as `convertigo-maintainer`
 - the repository prompt catalog now carries `8` file-backed prompts, with `convertigo-maintainer` linked from the relevant guides
-- the repository project version is now `0.0.12` for the Phase 5 candidate baseline
+- the repository project version is now `0.0.13` for the current Phase 5 candidate baseline
 - runtime artifacts are isolated under `tests/improvement/<baselineCandidateId>/<cycleId>/`
 - schemas and synthetic comparison outputs validate successfully against the new Phase 5 contracts
 - the improvement orchestrator already enforces one clean baseline repository before it opens a cycle

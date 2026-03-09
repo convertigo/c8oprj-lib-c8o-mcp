@@ -1,7 +1,5 @@
 This is a benchmark run critic.
-- Preferred runner: inject MCP role prompt `convertigo-critic` before this scenario starts.
-- If no role prompt was injected, fetch `convertigo-critic` yourself before continuing.
-- The role prompt is already injected in benchmark runs. Do not repeat fresh-session bootstrap when the explicit artifacts below are readable.
+- Benchmark policy: the campaign runner already injected `convertigo-critic`.
 - Primary input: the compact critic packet below.
 __RUN_CRITIC_PACKET_CONTENT__
 - Review the explicit critic packet at `__RUN_CRITIC_PACKET_PATH__` only if the embedded packet looks truncated or malformed.

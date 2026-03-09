@@ -1,0 +1,239 @@
+accessibility: Private
+comment: |
+  Delete a project from the workspace
+  Removes one project by technical name and deletes its files. Benchmark cleanup should use this instead of databaseobject-delete on the project root.
+↓IncludeHelpers [steps.SimpleStep-1773102101001]: 
+  comment: Load shared database helpers
+  expression: include("js/databaseobject.js");
+↓Init [steps.SimpleStep-1773102101002]: 
+  comment: Resolve project and perform deletion
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var File = Packages.java.io.File;
+    
+    var providedName = C8O.util.toTrimmedString(project);
+    if (!providedName.length && context && context.project) {
+      providedName = String(context.project.getName());
+    }
+    
+    var deleteCarInput = (typeof deleteCar !== "undefined") ? deleteCar : true;
+    var deleteCarFlag = C8O.util.toBoolean(deleteCarInput, true) === true;
+    var errorEntries = [];
+    var foundBeforeDelete = false;
+    var deletedFlag = false;
+    var statusText = "missing";
+    var messageText = "";
+    
+    if (!providedName.length) {
+      messageText = "Project name is required";
+      errorEntries.push({ name: "__delete__", message: messageText });
+    } else {
+      try {
+        foundBeforeDelete = Engine.theApp.databaseObjectsManager.existsProject(providedName);
+      } catch (_ignoredExistsBefore) {}
+      if (!foundBeforeDelete) {
+        messageText = "Project not found: " + providedName;
+      } else {
+        try {
+          if (deleteCarFlag) {
+            Engine.theApp.databaseObjectsManager.deleteProjectAndCar(providedName);
+          } else {
+            Engine.theApp.databaseObjectsManager.deleteProject(providedName, false, false);
+          }
+          try {
+            var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+            var plugin = ConvertigoPlugin != null && ConvertigoPlugin.getDefault ? ConvertigoPlugin.getDefault() : null;
+            if (plugin != null) {
+              plugin.deleteProjectPluginResource(true, providedName);
+            }
+          } catch (_ignoredStudioCleanup) {}
+          var stillExists = false;
+          try {
+            stillExists = Engine.theApp.databaseObjectsManager.existsProject(providedName);
+          } catch (_ignoredExistsAfter) {}
+          deletedFlag = !stillExists;
+          statusText = deletedFlag ? "deleted" : "failed";
+          if (!deletedFlag) {
+            messageText = "Project still exists after deletion attempt";
+            errorEntries.push({ name: "delete", message: messageText });
+          }
+        } catch (deleteError) {
+          statusText = "failed";
+          messageText = String(deleteError);
+          errorEntries.push({ name: "delete", message: messageText });
+        }
+      }
+    }
+    
+    projectDeleteProvided = providedName;
+    projectDeleteFound = foundBeforeDelete;
+    projectDeleteDeleted = deletedFlag;
+    projectDeleteDeleteCar = deleteCarFlag;
+    projectDeleteStatus = statusText;
+    projectDeleteMessage = messageText;
+    projectDeleteTimestamp = java.lang.System.currentTimeMillis();
+    projectDeleteErrors = errorEntries;
+    '
+↓Result [steps.JsonObjectStep-1773102101003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓project [steps.JsonFieldStep-1773102101004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteProvided
+  ↓provided [steps.JsonFieldStep-1773102101005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: provided
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteProvided
+  ↓found [steps.JsonFieldStep-1773102101006]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: found
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteFound
+  ↓deleted [steps.JsonFieldStep-1773102101007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: deleted
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteDeleted
+  ↓deleteCar [steps.JsonFieldStep-1773102101008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: deleteCar
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteDeleteCar
+  ↓status [steps.JsonFieldStep-1773102101009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteStatus
+  ↓message [steps.JsonFieldStep-1773102101010]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteMessage
+  ↓timestamp [steps.JsonFieldStep-1773102101011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectDeleteTimestamp
+  ↓errors [steps.JsonArrayStep-1773102101012]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errors
+    ↓ErrorsIterator [steps.SimpleIteratorStep-1773102101013]: 
+      expression: projectDeleteErrors
+      ↓ErrorEntry [steps.JsonObjectStep-1773102101014]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        ↓name [steps.JsonFieldStep-1773102101015]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.name ? String(item.name) : ""'
+        ↓message [steps.JsonFieldStep-1773102101016]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: message
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.message ? String(item.message) : ""'
+↓project [variables.RequestableVariable-1773102101017]: 
+  comment: Project technical name. Omit only when the current context project is unambiguous.
+  description: Project technical name. Omit only when the current context project is unambiguous.
+↓deleteCar [variables.RequestableVariable-1773102101018]: 
+  comment: Delete the exported .car archive when present. Default true.
+  description: Delete the exported .car archive when present. Default true.

@@ -1,8 +1,9 @@
 This is a SQL specialist probe.
-- Preferred runner: inject MCP role prompt `convertigo-sql` before this scenario starts.
-- If no role prompt was injected, fetch `convertigo-sql` yourself before continuing.
-- Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
-- If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
+- Benchmark policy: the campaign runner already injected `convertigo-sql`.
+- Target project: `__TARGET_PROJECT__`
+- This project was imported by the campaign runner from `__FIXTURE_SOURCE_PROJECT__`.
+- Mutate only `__TARGET_PROJECT__`.
+- If `__TARGET_PROJECT__` is missing, fail immediately.
 
 Use the PostgreSQL benchmark fixture described below. Do not invent connection settings.
 - host: `__PG_HOST__`
@@ -19,7 +20,7 @@ Fixture data contract:
 - deterministic write row:
   - `phase4-row` / `Phase 4 Row`
 
-In the chosen project, create or update a facade sequence named `probe_sql_contract` backed by a PostgreSQL SQL connector and transaction path.
+In `__TARGET_PROJECT__`, create or update a facade sequence named `probe_sql_contract` backed by a PostgreSQL SQL connector and transaction path.
 Required public contract:
 - top-level fields:
   - `status`: `ok` or `error`
@@ -43,6 +44,6 @@ Required final output sections:
 - `Open Handoff`
 
 Final output format:
-- `RESULT: PASS` only if the facade proves the seeded read path, the deterministic write path, the post-write read path, and keeps the same public contract throughout.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, the facade proves the seeded read path, the deterministic write path, the post-write read path, and keeps the same public contract throughout.
 - `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
 - End with one short `MCP critique` item.

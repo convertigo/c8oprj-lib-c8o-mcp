@@ -372,6 +372,17 @@ def parse_sections(raw_text):
     }
 
 
+def parse_bool(value):
+    if value is None or value == "":
+        return None
+    lowered = value.strip().lower()
+    if lowered in {"true", "1", "yes"}:
+        return True
+    if lowered in {"false", "0", "no"}:
+        return False
+    return None
+
+
 def collect_warnings(lines):
     warnings = []
     key_values = parse_key_values(lines)
@@ -592,6 +603,10 @@ def main():
             "scenarioId": key_values.get("scenario_id"),
             "workspaceId": key_values.get("workspace_id"),
             "fixtureId": key_values.get("fixture_id"),
+            "fixtureAlias": key_values.get("fixture_alias"),
+            "targetProject": key_values.get("target_project"),
+            "fixtureSourceProject": key_values.get("fixture_source_project"),
+            "fixtureCreatedByRunner": parse_bool(key_values.get("fixture_created_by_runner")),
             "criticTargetRunId": key_values.get("critic_target_run_id"),
         },
         "rolePrompt": role_prompt,

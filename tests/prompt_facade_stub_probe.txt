@@ -1,17 +1,17 @@
 This is a planner probe.
-- Preferred runner: inject MCP role prompt `convertigo-planner` before this scenario starts.
-- If no role prompt was injected, fetch `convertigo-planner` yourself before continuing.
+- Benchmark policy: the campaign runner already injected `convertigo-planner`.
 - Benchmark policy: do not use local YAML-editing skills or the `convertigo-project-editor` workflow for this scenario. Use MCP tools only for Convertigo project mutations.
-- Use `project-list(limit=50)` first, or continue pagination until every preferred project candidate has been checked. Do not inspect or mutate a fallback project while an earlier preferred candidate is still unchecked.
-- Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
-- If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
+- Target project: `__TARGET_PROJECT__`
+- This project was imported by the campaign runner from `__FIXTURE_SOURCE_PROJECT__`.
+- Mutate only `__TARGET_PROJECT__`.
+- If `__TARGET_PROJECT__` is missing, fail immediately.
 
-In the chosen project, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
+In `__TARGET_PROJECT__`, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
 
 Fast-path rules:
-- First, search for `probe_contract_stub` in the chosen project.
+- First, search for `probe_contract_stub` in `__TARGET_PROJECT__`.
 - If the sequence already exists, prefer one exact subtree read on that sequence and the minimum targeted update needed to satisfy the contract.
-- Do not perform a broad project-wide `databaseobject-tree-get` when an exact search result already gives the target QName.
+- Do not perform a broad project-wide `databaseobject-tree-get` when an exact search result already gives the target QName inside `__TARGET_PROJECT__`.
 - Reuse the existing facade when it already matches the required contract instead of rebuilding it.
 
 Required public contract:
@@ -32,6 +32,6 @@ Rules:
 6. Produce explicit handoff guidance for backend, SQL or HTTP, frontend NGX, and critic follow-up.
 
 Final output format:
-- `RESULT: PASS` only if the chosen project is the first existing preferred candidate (or the explicit fallback after proving all preferred candidates absent), and the sequence exists, executes, and returns exactly the required top-level fields with `source="stub"`.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, the sequence exists, executes, and returns exactly the required top-level fields with `source="stub"`.
 - Otherwise `RESULT: FAIL` with the failing step and tool response snippets.
 - End with one short `MCP critique` item.

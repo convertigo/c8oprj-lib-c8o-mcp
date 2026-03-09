@@ -465,6 +465,17 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function projectDeleteInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Project technical name. Omit only when the current context project is unambiguous." },
+        deleteCar: booleanFlagSchema(true, "Delete the exported .car archive when present. Default true.")
+      },
+      additionalProperties: false
+    };
+  }
+
   function openObjectSchema(properties) {
     return {
       type: "object",
@@ -904,6 +915,26 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function projectDeleteOutputSchema() {
+    return closedObjectSchema({
+      project: { type: "string" },
+      provided: { type: "string" },
+      found: { type: "boolean" },
+      deleted: { type: "boolean" },
+      deleteCar: { type: "boolean" },
+      status: { type: "string" },
+      message: { type: "string" },
+      timestamp: { type: "number" },
+      errors: {
+        type: "array",
+        items: closedObjectSchema({
+          name: { type: "string" },
+          message: { type: "string" }
+        })
+      }
+    });
+  }
+
   function cleanDocText(value) {
     var text = value == null ? "" : String(value);
     text = text.replace(/\r\n?/g, "\n").trim();
@@ -1033,6 +1064,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_project_list") {
       return projectListInputSchema();
     }
+    if (seq === "tools_project_delete") {
+      return projectDeleteInputSchema();
+    }
 
     if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) {
       return defaultObjectSchema();
@@ -1075,6 +1109,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_rag_query") {
       return ragQueryOutputSchema();
+    }
+    if (seq === "tools_project_delete") {
+      return projectDeleteOutputSchema();
     }
 
     if (!outputSchema || typeof outputSchema !== "object" || Array.isArray(outputSchema)) {

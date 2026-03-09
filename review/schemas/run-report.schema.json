@@ -112,6 +112,10 @@
         "scenarioId",
         "workspaceId",
         "fixtureId",
+        "fixtureAlias",
+        "targetProject",
+        "fixtureSourceProject",
+        "fixtureCreatedByRunner",
         "criticTargetRunId"
       ],
       "properties": {
@@ -166,6 +170,30 @@
         "fixtureId": {
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "fixtureAlias": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targetProject": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fixtureSourceProject": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fixtureCreatedByRunner": {
+          "type": [
+            "boolean",
             "null"
           ]
         },
