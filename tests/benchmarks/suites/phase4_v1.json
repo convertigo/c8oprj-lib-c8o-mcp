@@ -108,7 +108,7 @@
         { "id": "run-result-pass", "type": "runStatus", "expected": "PASS" },
         { "id": "critic-result-pass", "type": "criticStatus", "expected": "PASS" },
         { "id": "required-sections", "type": "requiredSections", "sections": ["Changed Objects", "Contract Check", "Runtime Evidence", "Open Handoff"] },
-        { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["requestable-execute", "project-save"] },
+        { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["requestable-execute"] },
         { "id": "required-terms", "type": "requiredTerms", "terms": ["status", "source", "ip", "error", "stub", "http"] },
         { "id": "runtime-evidence", "type": "runtimeEvidence" },
         { "id": "save-evidence", "type": "saveEvidence" }

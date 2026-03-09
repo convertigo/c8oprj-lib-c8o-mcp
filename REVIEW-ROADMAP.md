@@ -382,6 +382,8 @@ Status:
 - campaign outputs are isolated under `tests/campaigns/<candidateId>/` and ignored by Git
 - a full synthetic campaign executed successfully against candidate `0.0.11+9acfece` and produced scored outputs plus grouped findings
 - fixture validation was executed against a live Docker-backed PostgreSQL container
+- a first real live thin-slice campaign on candidate `0.0.12+57e32e2` completed with `3/3` scenario passes for planner, backend, and HTTP
+- the live thin slice now yields a fully green scored aggregate (`passCount=3`, `failCount=0`, `gateFailureCount=0`) and is strong enough to serve as a real baseline for Phase 5
 
 Delivered benchmark families:
 
@@ -432,7 +434,7 @@ Exit criteria:
 
 - at least a small benchmark suite is stable and repeatable
 - benchmark scoring is automated enough to compare providers and prompts
-- current status: satisfied for benchmark plumbing, scoring, and deterministic SQL fixtures; broader live model/provider comparison remains the next phase
+- current status: satisfied for benchmark plumbing, scoring, deterministic SQL fixtures, and one real live thin-slice baseline; broader live model/provider comparison remains the next phase
 
 ## Phase 5 - Automated Improvement Loop
 
@@ -447,7 +449,7 @@ Status:
 - runtime artifacts are isolated under `tests/improvement/<baselineCandidateId>/<cycleId>/`
 - schemas and synthetic comparison outputs validate successfully against the new Phase 5 contracts
 - the improvement orchestrator already enforces one clean baseline repository before it opens a cycle
-- live cycle validation remains blocked until `codex exec` is healthy again
+- `codex exec` is healthy again for live runs; one real Phase 4 thin-slice baseline is now available, but a full live Phase 5 improvement cycle has not been executed yet
 
 Phase 5 v1 loop:
 

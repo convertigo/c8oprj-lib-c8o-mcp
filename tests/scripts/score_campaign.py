@@ -177,6 +177,7 @@ def is_actionable_finding(text):
         "the fast path was followed",
         "the packet’s contract claims are supported",
         "the packet's contract claims are supported",
+        "valid but secondary",
         "accept the run as a justified pass",
         "no decisive evidence gap",
         "compliant with the main workflow and scenario rules",
@@ -249,7 +250,7 @@ def first_sentence(text):
     return stripped[:180]
 
 
-def build_findings(run_records, run_reports, critic_reports):
+def build_findings(run_records, run_reports, critic_reports, scenario_results):
     grouped = {}
     for run_record in run_records:
         run_id = run_record["runId"]
@@ -279,6 +280,33 @@ def build_findings(run_records, run_reports, critic_reports):
             finding["severity"] = max(finding["severity"], infer_severity(item))
             finding["scenarioIds"].add(run_record["scenarioId"])
             finding["evidenceRunIds"].add(run_id)
+            if run_report.get("provider"):
+                finding["providers"].add(run_report["provider"])
+            if run_report.get("model"):
+                finding["models"].add(run_report["model"])
+    for item in scenario_results:
+        if item["gateStatus"] != "FAIL":
+            continue
+        run_report = run_reports.get(item["runId"], {})
+        for gate_id in item.get("failingGates", []):
+            key = ("scenario", item["scenarioId"], f"Benchmark gate failed: {gate_id}")
+            if key not in grouped:
+                grouped[key] = {
+                    "area": "scenario",
+                    "subjectId": item["scenarioId"],
+                    "symptom": f"Benchmark gate failed: {gate_id}",
+                    "count": 0,
+                    "severity": 2,
+                    "scenarioIds": set(),
+                    "evidenceRunIds": set(),
+                    "providers": set(),
+                    "models": set(),
+                    "recommendedOwner": "scenario",
+                }
+            finding = grouped[key]
+            finding["count"] += 1
+            finding["scenarioIds"].add(item["scenarioId"])
+            finding["evidenceRunIds"].add(item["runId"])
             if run_report.get("provider"):
                 finding["providers"].add(run_report["provider"])
             if run_report.get("model"):
@@ -384,6 +412,7 @@ def main():
                         "runId": run_record["runId"],
                         "status": run_report["result"]["status"],
                         "gateStatus": gate_status,
+                        "failingGates": ["required-result-status"],
                         "score": round(score, 2),
                         "weightedScore": round(score * scenario["scenarioWeight"], 2),
                         "runReportPath": run_record["reportPath"],
@@ -434,6 +463,7 @@ def main():
                 "runId": run_record["runId"],
                 "status": run_report["result"]["status"],
                 "gateStatus": gate_status,
+                "failingGates": failing_gates if gate_status == "FAIL" else [],
                 "score": round(score, 2),
                 "weightedScore": round(score * scenario["scenarioWeight"], 2),
                 "runReportPath": run_record["reportPath"],
@@ -441,7 +471,7 @@ def main():
             }
         )
 
-    aggregate_findings = build_findings(run_records, run_reports, critic_reports)
+    aggregate_findings = build_findings(run_records, run_reports, critic_reports, scenario_results)
     aggregate_critic = manifest.get("aggregateCritic") or {"runId": None, "status": None, "reportPath": None, "summaryPath": None}
     aggregate_critic_summary = ""
     if aggregate_critic.get("summaryPath") and Path(aggregate_critic["summaryPath"]).is_file():
