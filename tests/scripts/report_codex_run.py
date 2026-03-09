@@ -157,50 +157,65 @@ def parse_header(lines):
 
 
 def parse_tool_calls(lines):
-    total_tool_lines = 0
     tool_calls = []
     warnings = []
     by_server = Counter()
     by_tool = Counter()
     rag_calls = 0
+    call_entries = []
+    status_entries = []
 
     for index, line in enumerate(lines):
-        tool_match = TOOL_CALL_RE.match(line.strip())
-        if not tool_match:
+        stripped = line.strip()
+        tool_match = TOOL_CALL_RE.match(stripped)
+        if tool_match:
+            server, name = tool_match.group(1), tool_match.group(2)
+            call_entries.append({"index": index, "server": server, "name": name})
+            if server == "rag_mcp":
+                rag_calls += 1
             continue
-        total_tool_lines += 1
-        server, name = tool_match.group(1), tool_match.group(2)
-        if server == "rag_mcp":
-            rag_calls += 1
-        status_match = None
-        for follow_index in range(index + 1, min(index + 8, len(lines))):
-            candidate = lines[follow_index].strip()
-            candidate_match = TOOL_STATUS_RE.match(candidate)
-            if candidate_match and candidate_match.group(1) == server and candidate_match.group(2) == name:
-                status_match = candidate_match
+        status_match = TOOL_STATUS_RE.match(stripped)
+        if status_match:
+            status_entries.append(
+                {
+                    "index": index,
+                    "server": status_match.group(1),
+                    "name": status_match.group(2),
+                    "status": status_match.group(3),
+                    "durationMs": to_millis(status_match.group(4), status_match.group(5)),
+                }
+            )
+
+    used_status_indexes = set()
+    for call in call_entries:
+        matched_status = None
+        for status_index, status_entry in enumerate(status_entries):
+            if status_index in used_status_indexes:
+                continue
+            if status_entry["index"] < call["index"]:
+                continue
+            if status_entry["server"] == call["server"] and status_entry["name"] == call["name"]:
+                matched_status = status_entry
+                used_status_indexes.add(status_index)
                 break
-            if candidate.startswith("tool ") or candidate == "codex":
-                break
-        if not status_match:
-            warnings.append(f"Parser warning: could not resolve status for tool call {server}.{name}.")
+        if not matched_status:
+            warnings.append(f"Parser warning: could not resolve status for tool call {call['server']}.{call['name']}.")
             continue
-        duration_ms = to_millis(status_match.group(4), status_match.group(5))
-        status = status_match.group(3)
         tool_calls.append(
             {
-                "server": server,
-                "name": name,
-                "status": status,
-                "durationMs": duration_ms,
+                "server": call["server"],
+                "name": call["name"],
+                "status": matched_status["status"],
+                "durationMs": matched_status["durationMs"],
             }
         )
-        by_server[server] += 1
-        by_tool[f"{server}.{name}"] += 1
+        by_server[call["server"]] += 1
+        by_tool[f"{call['server']}.{call['name']}"] += 1
 
     return {
         "toolCalls": tool_calls,
         "toolStats": {
-            "totalToolCalls": total_tool_lines,
+            "totalToolCalls": len(call_entries),
             "byServer": dict(by_server),
             "byTool": dict(by_tool),
             "ragCalls": rag_calls,

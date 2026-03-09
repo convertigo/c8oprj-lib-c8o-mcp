@@ -487,7 +487,13 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     }
 
     if (payload.error !== undefined && payload.error !== null) {
-      return "failed";
+      if (typeof payload.error === "string") {
+        if (asTrimmed(payload.error).length > 0) {
+          return "failed";
+        }
+      } else {
+        return "failed";
+      }
     }
 
     var statusText = asTrimmed(payload.status).toLowerCase();

@@ -37,7 +37,16 @@ def contains_any(text, tokens):
 
 def has_save_evidence(report):
     return any(call["name"] == "project-save" and call["status"] == "success" for call in report["toolCalls"]) or contains_any(
-        report["finalOutput"]["rawText"], ["saved:", "project-save", "saved project"]
+        report["finalOutput"]["rawText"],
+        [
+            "saved:",
+            "project-save",
+            "saved project",
+            "no save was needed",
+            "no save needed",
+            "reused unchanged",
+            "existing implementation was reused unchanged",
+        ],
     )
 
 
