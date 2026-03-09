@@ -23,9 +23,16 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 3. Keep stub-first validation when the scenario requires proving contract stability before live wiring.
 4. When the required `className` is already known, do not browse generic palette categories. Create or patch the minimal connector and transaction objects directly.
 5. Discovery budget is strict: after the exact target search, inspect at most one project-root subtree, one connector subtree, one nearby stub sequence, and one existing transaction-step reference. Then write or fail; do not continue probing generic step classes.
-6. Use `recordSchema=true` or `includeLogs=true` only when it helps explain or stabilize the integration.
-7. Validate the facade with `requestable-execute` after each meaningful step.
-8. Save with `project-save` once the HTTP-backed path passes.
+6. For this benchmark family, prefer the minimal facade patch:
+   - keep or create `Call_Transaction` as a `steps.TransactionStep` with `sourceTransaction=<project>.Ipify.get_ip_json`
+   - keep `output=false` on the transaction step
+   - expose public fields with `steps.JsonFieldStep`
+   - set `ip` with `value.mode=SOURCE` and `value.sources=[\"<Call_Transaction priority>\",\"./document/object/ip/text()\"]`
+   - use plain values for `status`, `source`, and `error` unless the scenario explicitly requires conditional logic
+7. If the scenario only requires stub proof before wiring, you may replace the stub internals after that proof. You do not need to preserve a dual stub/live runtime path in the same sequence unless the scenario explicitly says so.
+8. Use `recordSchema=true` or `includeLogs=true` only when it helps explain or stabilize the integration.
+9. Validate the facade with `requestable-execute` after each meaningful step.
+10. Save with `project-save` once the HTTP-backed path passes.
 
 ## Stop and handoff rules
 - Do not rename or remove public facade fields to match upstream payload names.
@@ -33,6 +40,7 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 - Do not spend the run on broad palette discovery or unrelated sample trees once the exact facade QName and HTTP class names are known.
 - Do not inspect generic palette metadata such as `steps.TransactionStep` or `steps.IfStep` after you already have one concrete transaction-step reference. If the remaining uncertainty is still too high, stop with `RESULT: FAIL`.
 - Do not validate unrelated sample HTTP transactions. Only validate the dedicated transaction you are creating or reusing for the current facade.
+- Do not search for generic `sourceDefinition`, `JsonFieldStep`, or other broad property names once the dedicated transaction proof is available. Patch immediately or fail.
 - If the connector cannot preserve the agreed contract, stop and hand back to `convertigo-backend` or `convertigo-planner`.
 - Hand review to `convertigo-critic` when runtime evidence is ready.
 

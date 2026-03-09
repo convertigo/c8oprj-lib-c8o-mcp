@@ -125,14 +125,14 @@ C8O.dbo.LLM_HINTS = C8O.dbo.LLM_HINTS || {};
 
 var SINGLE_SOURCE_HINT =
   'SmartType sources must be JSON arrays of the form ["<stepPriority>", "<xpath>"]. ' +
-  'The first element is the numeric priority of the step exposing the XML (for example an InputVariablesStep), ' +
-  'the second element is the XPath to the desired node (for example ./email/text()). ' +
+  'The first element is the numeric priority of the step exposing the source document, ' +
+  'the second element is the XPath evaluated against that step output. ' +
+  'For TransactionStep or RequestableStep output, start from ./document/... (for example ./document/object/ip/text()). ' +
   'Do not reference requestable variable names or QNames directly, and never merge both values into a single string (e.g., no "123,./text()").';
 
 var SMART_TYPE_VALUE_HINT =
   'SmartType values are JSON objects like {"mode":"PLAIN","expression":"text"}. ' +
-  'Use "mode":"JS" with "expression":"<javascript>" for evaluated expressions, or "mode":"SOURCE" with a ' +
-  '"sources":[["<stepPriority>","<xpath>"]] array to pull data from another step.';
+  'Use {"mode":"JS","expression":"<javascript>"} for evaluated expressions, or {"mode":"SOURCE","sources":["<stepPriority>","<xpath>"]} to pull data from another step output.';
 
 var MULTI_SOURCES_HINT =
   'sourcesDefinition expects an array of entries, each entry providing a label, a SmartType source (same ["<stepPriority>", "<xpath>"] structure), and an optional fallback value. ' +

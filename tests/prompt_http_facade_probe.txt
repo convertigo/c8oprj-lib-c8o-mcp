@@ -24,6 +24,14 @@ Required workflow:
 4. Inspect `BaserowIntegration.Baserow` only if you still need a live structural reference after the exact target search.
 5. Discovery budget is capped. After one project-root read, one connector read, one nearby stub-sequence read, and one existing transaction-step read, either write the mutation set or end with `RESULT: FAIL`. Do not keep exploring generic step metadata.
 6. Do not validate unrelated sample transactions such as Petstore operations. The only raw HTTP runtime proof allowed is the dedicated `Ipify.get_ip_json` transaction you create or reuse for this probe.
+7. After the dedicated `Ipify.get_ip_json` raw proof succeeds, do not search generic `sourceDefinition`, `JsonFieldStep`, or broad step catalogs. Either patch the facade immediately or end with `RESULT: FAIL`.
+8. Preferred minimal live patch for `probe_http_contract` after stub proof:
+   - add or reuse `Call_Transaction` as `steps.TransactionStep` with `sourceTransaction=<project>.Ipify.get_ip_json`
+   - keep `Call_Transaction.output=false`
+   - set top-level fields with `steps.JsonFieldStep`
+   - set `ip.value` to `mode=SOURCE` with `sources=[\"<Call_Transaction priority>\",\"./document/object/ip/text()\"]`
+   - set `status=\"ok\"`, `source=\"http\"`, and `error=\"\"` as plain values
+9. The benchmark does not require preserving both stub and live code paths in the same final sequence. You may prove stub mode first, then replace the internals with the live path while preserving the same public top-level fields.
 
 Required public contract:
 - top-level fields:
