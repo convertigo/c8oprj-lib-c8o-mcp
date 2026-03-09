@@ -21,6 +21,7 @@ Read this when a feature needs an HTTP connector or HTTP transaction behind a Co
 4. During setup, keep `httpInfo=true` so transport behavior stays visible.
 5. Validate the transaction directly with `requestable-execute`.
 6. Use `recordSchema=true` when schema capture helps downstream wiring.
+7. When benchmark or product flow requires a real Convertigo stub proof, create the stub file explicitly with `requestable-stub-set`, then validate the facade with `requestable-execute` and `__stub=true`.
 
 ### Facade mapping recipe
 1. Keep the HTTP transaction output behind the facade.
@@ -47,6 +48,8 @@ The top-level fields stay stable even when the real HTTP call fails.
 - `databaseobject-tree-apply`
 - `databaseobject-schema`
 - `requestable-execute`
+- `requestable-stub-get`
+- `requestable-stub-set`
 - `log-view`
 - `project-save`
 

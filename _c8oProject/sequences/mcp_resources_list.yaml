@@ -191,7 +191,7 @@ comment: Handles MCP resources/list requests
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                 - SmartType: 
                   - ↑mode: JS
-                  - →→: item && item.scopeTags ? item.scopeTags : []
+                  - →→: 'item && item.scopeTags ? item.scopeTags : []'
             key: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -204,7 +204,7 @@ comment: Handles MCP resources/list requests
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                 - SmartType: 
                   - ↑mode: JS
-                  - →→: item && item.prerequisites ? item.prerequisites : []
+                  - →→: 'item && item.prerequisites ? item.prerequisites : []'
             key: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -217,7 +217,7 @@ comment: Handles MCP resources/list requests
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                 - SmartType: 
                   - ↑mode: JS
-                  - →→: item && item.recommendedTools ? item.recommendedTools : []
+                  - →→: 'item && item.recommendedTools ? item.recommendedTools : []'
             key: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -230,7 +230,7 @@ comment: Handles MCP resources/list requests
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                 - SmartType: 
                   - ↑mode: JS
-                  - →→: item && item.promptNames ? item.promptNames : []
+                  - →→: 'item && item.promptNames ? item.promptNames : []'
             key: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType

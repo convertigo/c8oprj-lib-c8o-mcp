@@ -40,7 +40,7 @@ Required public contract:
   - `error`: string
 
 Rules:
-1. Make the facade executable in stub mode first and prove it runs.
+1. Make the facade executable in stub mode first and prove it runs. When the default stub file does not exist yet, create it with `requestable-stub-set` before calling the facade with `__stub=true`.
 2. Create or update the HTTP integration behind that facade.
 3. Replace the stub internals without changing the public top-level fields.
 4. Map the upstream `ip` field into the facade `ip` field. Do not leak raw connector field names at the public facade level.

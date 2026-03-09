@@ -30,6 +30,8 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
 | `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection (`includeLogs=true` appends execution logs). |
+| `requestable-stub-get`        | `tools_requestable_stub_get.yaml`           | Read the XML stub file for a sequence or transaction using Convertigo's default stub filename logic, or an explicit file under `stubs/`. |
+| `requestable-stub-set`        | `tools_requestable_stub_set.yaml`           | Create or replace the XML stub file for a sequence or transaction, validating that the stub root element is `<document>`. |
 | `databaseobject-schema`       | `tools_databaseobject_schema.yaml`          | Return a minimal schema/sample for a requestable or request node (`type=xml|json|jsonschema`; `internal=true` for `sourceDefinition` view). |
 | `databaseobject-search`       | `tools_databaseobject_search.yaml`          | Search database objects via substring/regex matching on YAML content; output now reports `scanned`, `returned`, `hasMore`, `nextCursor`, and a lean `matches[]`. |
 
@@ -57,10 +59,13 @@ Use these short forms first; keep advanced parameters for diagnostics only.
 | `mobile-builder-open` | `mobile-builder-open {"project":"<project>"}` | `project` | `timeoutSec`, `logsLimit`, `forceRestart` |
 | `marketplace-list` | `marketplace-list {}` | `search`, `topics`, `_nextCursor` | `limit`, `maxPages` |
 | `marketplace-import` | `marketplace-import {\"project\":\"<name>\"}` | `project` | `importedProjectName` |
+| `requestable-stub-get` | `requestable-stub-get {"targetRequestable":"<project>[.<connector>].<requestable>"}` | `targetRequestable`, `stubFilename` | none |
+| `requestable-stub-set` | `requestable-stub-set {"targetRequestable":"<project>[.<connector>].<requestable>","content":"<document>...</document>"}` | `targetRequestable`, `content`, `stubFilename` | none |
 
 Notes:
 - `marketplace-list` and `marketplace-import` are strict now: legacy aliases are rejected.
 - `marketplace-import` enforces starter rename: when the selected entry is a starter, `importedProjectName` is required.
+- `requestable-stub-get` and `requestable-stub-set` follow the same default filename logic as Convertigo runtime stubs (`<sequence>_default.xml` or `<connector>.<transaction>_default.xml`).
 - `log-view` accepts `q/since/until` aliases to reduce verbosity in common calls.
 - `batch-call` and tree mutation refs accept only object syntax (`{"$ref":"id.path"}`); `${{...}}` placeholders are rejected with an explicit error.
 

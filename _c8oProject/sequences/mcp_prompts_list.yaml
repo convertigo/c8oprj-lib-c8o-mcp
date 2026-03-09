@@ -116,7 +116,7 @@ comment: Handles MCP prompts/list requests
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item && item.scopeTags ? item.scopeTags : []
+                - →→: 'item && item.scopeTags ? item.scopeTags : []'
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -129,7 +129,7 @@ comment: Handles MCP prompts/list requests
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item && item.guideIds ? item.guideIds : []
+                - →→: 'item && item.guideIds ? item.guideIds : []'
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -142,7 +142,7 @@ comment: Handles MCP prompts/list requests
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item && item.recommendedTools ? item.recommendedTools : []
+                - →→: 'item && item.recommendedTools ? item.recommendedTools : []'
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -155,7 +155,7 @@ comment: Handles MCP prompts/list requests
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item && item.handoffTo ? item.handoffTo : []
+                - →→: 'item && item.handoffTo ? item.handoffTo : []'
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -168,7 +168,7 @@ comment: Handles MCP prompts/list requests
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: item && item.outputContract ? item.outputContract : []
+                - →→: 'item && item.outputContract ? item.outputContract : []'
           key: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType

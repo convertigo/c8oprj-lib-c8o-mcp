@@ -20,7 +20,7 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 ## Mandatory workflow
 1. Inspect the current facade and connector subtree before the first write.
 2. If the exact facade requestable already exists, validate it first and inspect only that exact subtree before widening discovery.
-3. Keep stub-first validation when the scenario requires proving contract stability before live wiring.
+3. Keep stub-first validation when the scenario requires proving contract stability before live wiring. When the contract proof depends on a real Convertigo stub file, use `requestable-stub-set` on the target facade before calling `requestable-execute` with `__stub=true`.
 4. When the required `className` is already known, do not browse generic palette categories. Create or patch the minimal connector and transaction objects directly.
 5. Discovery budget is strict: after the exact target search, inspect at most one project-root subtree, one connector subtree, one nearby stub sequence, and one existing transaction-step reference. Then write or fail; do not continue probing generic step classes.
 6. For this benchmark family, prefer the minimal facade patch:

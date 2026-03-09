@@ -105,7 +105,7 @@ comment: Handles MCP prompts/call requests
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: promptMeta && promptMeta.scopeTags ? promptMeta.scopeTags : []
+          - →→: 'promptMeta && promptMeta.scopeTags ? promptMeta.scopeTags : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -118,7 +118,7 @@ comment: Handles MCP prompts/call requests
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: promptMeta && promptMeta.guideIds ? promptMeta.guideIds : []
+          - →→: 'promptMeta && promptMeta.guideIds ? promptMeta.guideIds : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -131,7 +131,7 @@ comment: Handles MCP prompts/call requests
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: promptMeta && promptMeta.recommendedTools ? promptMeta.recommendedTools : []
+          - →→: 'promptMeta && promptMeta.recommendedTools ? promptMeta.recommendedTools : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -144,7 +144,7 @@ comment: Handles MCP prompts/call requests
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: promptMeta && promptMeta.handoffTo ? promptMeta.handoffTo : []
+          - →→: 'promptMeta && promptMeta.handoffTo ? promptMeta.handoffTo : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -157,7 +157,7 @@ comment: Handles MCP prompts/call requests
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: promptMeta && promptMeta.outputContract ? promptMeta.outputContract : []
+          - →→: 'promptMeta && promptMeta.outputContract ? promptMeta.outputContract : []'
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
