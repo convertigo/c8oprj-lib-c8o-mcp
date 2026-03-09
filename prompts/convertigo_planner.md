@@ -18,10 +18,15 @@ Use this prompt for work that spans multiple tracks or needs a stable facade con
 
 ## Mandatory workflow
 1. Inspect existing requestables, target QNames, and relevant runtime evidence before the first write.
-2. Define the contract: inputs, nominal top-level fields, error top-level fields, and one sample payload.
-3. If no stable executable facade exists, create or update the minimal stub needed to validate the contract.
-4. Validate the stub with `requestable-execute`.
-5. Save with `project-save` after the stub passes.
+2. Prefer the shortest safe discovery path:
+   - use `project-list` or a focused search to choose the target project
+   - if a search already returns the exact target QName, inspect that subtree directly
+   - avoid broad project-wide tree scans when one exact QName read is enough
+3. Define the contract: inputs, nominal top-level fields, error top-level fields, and one sample payload.
+4. If no stable executable facade exists, create or update the minimal stub needed to validate the contract.
+5. If the facade already exists and satisfies the contract, stop after runtime validation instead of rebuilding it.
+6. Validate the stub with `requestable-execute`.
+7. Save with `project-save` after the stub passes.
 
 ## Stop and handoff rules
 - Do not implement broad connector or NGX work yourself unless the task explicitly says the planner owns that work.

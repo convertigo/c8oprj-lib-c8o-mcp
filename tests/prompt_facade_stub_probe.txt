@@ -6,6 +6,12 @@ This is a planner probe.
 
 In the chosen project, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
 
+Fast-path rules:
+- First, search for `probe_contract_stub` in the chosen project.
+- If the sequence already exists, prefer one exact subtree read on that sequence and the minimum targeted update needed to satisfy the contract.
+- Do not perform a broad project-wide `databaseobject-tree-get` when an exact search result already gives the target QName.
+- Reuse the existing facade when it already matches the required contract instead of rebuilding it.
+
 Required public contract:
 - input variable: `query` (string, optional)
 - top-level fields:
