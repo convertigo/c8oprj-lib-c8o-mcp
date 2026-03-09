@@ -1,0 +1,20 @@
+This is a benchmark run critic.
+- Preferred runner: inject MCP role prompt `convertigo-critic` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-critic` yourself before continuing.
+- Review the explicit benchmark run report at `__RUN_REPORT_PATH__`.
+- Review the explicit benchmark run summary at `__RUN_SUMMARY_PATH__`.
+- If it exists, use the raw log at `__RAW_LOG_PATH__` only to confirm or challenge the report.
+- Candidate: `__CANDIDATE_ID__`
+- Scenario: `__SCENARIO_ID__`
+- Run: `__RUN_ID__`
+
+Review goals:
+- identify concrete findings first
+- call out missing runtime evidence if the implementation claims more than it proved
+- report guide misuse, contract drift, or misleading MCP behavior you can support from the run report, raw log, and live MCP state
+- avoid generic summaries and avoid mutating the project
+
+Final output format:
+- `RESULT: PASS` only if you reviewed the explicit run and produced findings or a justified `no findings` conclusion
+- `RESULT: FAIL` otherwise, with the failing step and supporting snippets
+- End with one short `MCP critique` item.

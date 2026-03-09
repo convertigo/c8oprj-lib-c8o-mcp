@@ -106,7 +106,13 @@
         "promptFile",
         "runLabel",
         "benchmarkId",
-        "task"
+        "task",
+        "suiteId",
+        "candidateId",
+        "scenarioId",
+        "workspaceId",
+        "fixtureId",
+        "criticTargetRunId"
       ],
       "properties": {
         "promptFile": {
@@ -128,6 +134,42 @@
           ]
         },
         "task": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "suiteId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidateId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scenarioId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fixtureId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "criticTargetRunId": {
           "type": [
             "string",
             "null"

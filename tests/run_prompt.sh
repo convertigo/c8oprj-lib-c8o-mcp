@@ -2,9 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_DIR="${SCRIPT_DIR}/workspace"
-LOG_DIR="${SCRIPT_DIR}/logs"
-REPORT_DIR_ROOT="${SCRIPT_DIR}/reports"
+DEFAULT_WORKSPACE_DIR="${SCRIPT_DIR}/workspace"
+WORKSPACE_DIR="${WORKSPACE_DIR:-${DEFAULT_WORKSPACE_DIR}}"
+LOG_DIR="${LOG_DIR:-${SCRIPT_DIR}/logs}"
+REPORT_DIR_ROOT="${REPORT_DIR_ROOT:-${SCRIPT_DIR}/reports}"
+ARTIFACT_DIR_ROOT="${ARTIFACT_DIR_ROOT:-}"
 MCP_URL="${MCP_URL:-http://localhost:18080/convertigo/api/mcp}"
 MCP_PROTOCOL_VERSION="${MCP_PROTOCOL_VERSION:-2025-06-18}"
 
@@ -13,7 +15,8 @@ mkdir -p "${WORKSPACE_DIR}" "${LOG_DIR}"
 PROMPT_FILE="${1:-${SCRIPT_DIR}/prompt.txt}"
 RUN_LABEL="${2:-$(basename "${PROMPT_FILE}" .txt)}"
 ROLE_PROMPT_NAME="${3:-}"
-LOG_FILE="${LOG_DIR}/${RUN_LABEL}_$(date +%Y%m%d_%H%M%S).log"
+RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d_%H%M%S)}"
+RUN_ID="${RUN_LABEL}_${RUN_STAMP}"
 PAYLOAD_FILE="${PROMPT_FILE}"
 TEMP_PROMPT_FILE=""
 CODEX_MODEL="${CODEX_MODEL:-}"
@@ -25,11 +28,28 @@ ROLE_PROMPT_FETCHED="false"
 ROLE_PROMPT_METADATA_JSON=""
 MCP_SERVER_INFO_JSON=""
 MCP_INITIALIZE_WARNING=""
+SUITE_ID="${SUITE_ID:-}"
+CANDIDATE_ID="${CANDIDATE_ID:-}"
+SCENARIO_ID="${SCENARIO_ID:-}"
+BENCHMARK_ID="${BENCHMARK_ID:-}"
+WORKSPACE_ID="${WORKSPACE_ID:-}"
+FIXTURE_ID="${FIXTURE_ID:-}"
+CRITIC_TARGET_RUN_ID="${CRITIC_TARGET_RUN_ID:-}"
 DEFAULT_CODEX_BIN="${SCRIPT_DIR}/bin/codex"
 if [[ -x "${DEFAULT_CODEX_BIN}" ]]; then
   CODEX_BIN="${CODEX_BIN:-${DEFAULT_CODEX_BIN}}"
 else
   CODEX_BIN="${CODEX_BIN:-codex}"
+fi
+
+if [[ -n "${ARTIFACT_DIR_ROOT}" ]]; then
+  RUN_ARTIFACT_DIR="${ARTIFACT_DIR_ROOT}/${RUN_ID}"
+  mkdir -p "${RUN_ARTIFACT_DIR}"
+  LOG_FILE="${RUN_ARTIFACT_DIR}/raw.log"
+  REPORT_DIR="${RUN_ARTIFACT_DIR}"
+else
+  LOG_FILE="${LOG_DIR}/${RUN_ID}.log"
+  REPORT_DIR="${REPORT_DIR_ROOT}/${RUN_ID}"
 fi
 
 INIT_RESPONSE="$(curl -sS -X POST "${MCP_URL}" \
@@ -73,6 +93,7 @@ fi
 {
   echo "codex_bin=${CODEX_BIN}"
   echo "codex_version=$("${CODEX_BIN}" --version)"
+  echo "run_id=${RUN_ID}"
   echo "run_label=${RUN_LABEL}"
   echo "prompt_file=${PROMPT_FILE}"
   echo "mcp_url=${MCP_URL}"
@@ -88,6 +109,27 @@ fi
   echo "role_prompt_revision=${ROLE_PROMPT_REVISION:-none}"
   if [[ -n "${ROLE_PROMPT_METADATA_JSON}" ]]; then
     echo "role_prompt_metadata_json=${ROLE_PROMPT_METADATA_JSON}"
+  fi
+  if [[ -n "${SUITE_ID}" ]]; then
+    echo "suite_id=${SUITE_ID}"
+  fi
+  if [[ -n "${CANDIDATE_ID}" ]]; then
+    echo "candidate_id=${CANDIDATE_ID}"
+  fi
+  if [[ -n "${SCENARIO_ID}" ]]; then
+    echo "scenario_id=${SCENARIO_ID}"
+  fi
+  if [[ -n "${BENCHMARK_ID}" ]]; then
+    echo "benchmark_id=${BENCHMARK_ID}"
+  fi
+  if [[ -n "${WORKSPACE_ID}" ]]; then
+    echo "workspace_id=${WORKSPACE_ID}"
+  fi
+  if [[ -n "${FIXTURE_ID}" ]]; then
+    echo "fixture_id=${FIXTURE_ID}"
+  fi
+  if [[ -n "${CRITIC_TARGET_RUN_ID}" ]]; then
+    echo "critic_target_run_id=${CRITIC_TARGET_RUN_ID}"
   fi
   echo "codex_model=${CODEX_MODEL:-default}"
   echo "codex_reasoning_effort=${CODEX_REASONING_EFFORT}"
@@ -114,8 +156,6 @@ fi
 
 echo "finished_at=$(date -Iseconds)" | tee -a "${LOG_FILE}"
 
-RUN_ID="$(basename "${LOG_FILE}" .log)"
-REPORT_DIR="${REPORT_DIR_ROOT}/${RUN_ID}"
 python3 "${SCRIPT_DIR}/scripts/report_codex_run.py" \
   --log "${LOG_FILE}" \
   --out-dir "${REPORT_DIR}" \
@@ -125,6 +165,7 @@ if [[ -n "${TEMP_PROMPT_FILE}" ]]; then
   rm -f "${TEMP_PROMPT_FILE}"
 fi
 
+echo "RunId: ${RUN_ID}"
 echo "Log: $LOG_FILE"
 echo "Report: ${REPORT_DIR}/report.json"
 echo "Summary: ${REPORT_DIR}/summary.md"

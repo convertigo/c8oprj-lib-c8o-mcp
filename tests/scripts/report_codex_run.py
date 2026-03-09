@@ -254,15 +254,25 @@ def strip_trailing_housekeeping(lines):
 
 def extract_final_output(lines, result_index):
     trimmed = strip_trailing_housekeeping(lines)
+    last_codex = None
+    for index, line in enumerate(trimmed):
+        if line.strip() == "codex":
+            last_codex = index
+
+    content_start = 0
+    if last_codex is not None:
+        separator_count = 0
+        content_start = last_codex + 1
+        for index in range(last_codex + 1, len(trimmed)):
+            if trimmed[index].strip() == "--------":
+                separator_count += 1
+                if separator_count == 2:
+                    content_start = index + 1
+                    break
+
     if result_index is None:
-        last_codex = None
-        for index, line in enumerate(trimmed):
-            if line.strip() == "codex":
-                last_codex = index
-        if last_codex is None:
-            return ""
-        return "\n".join(trimmed[last_codex + 1 :]).strip()
-    return "\n".join(trimmed[result_index:]).strip()
+        return "\n".join(trimmed[content_start:]).strip()
+    return "\n".join(trimmed[content_start : result_index + 1]).strip()
 
 
 def parse_sections(raw_text):
@@ -275,7 +285,10 @@ def parse_sections(raw_text):
     def flush():
         nonlocal current_name, current_lines, paragraph_gap
         if current_name is not None:
-            sections[current_name] = "\n".join(current_lines).strip()
+            section_lines = list(current_lines)
+            while section_lines and RESULT_RE.match(section_lines[-1].strip()):
+                section_lines.pop()
+            sections[current_name] = "\n".join(section_lines).strip()
             section_names.append(current_name)
         current_name = None
         current_lines = []
@@ -522,7 +535,7 @@ def main():
 
     report = {
         "schemaVersion": SCHEMA_VERSION,
-        "runId": log_path.stem,
+        "runId": key_values.get("run_id") or log_path.stem,
         "startedAt": started_at.isoformat() if started_at else None,
         "finishedAt": finished_at.isoformat() if finished_at else None,
         "durationMs": duration_ms,
@@ -537,8 +550,14 @@ def main():
         "scenario": {
             "promptFile": key_values.get("prompt_file"),
             "runLabel": key_values.get("run_label"),
-            "benchmarkId": None,
+            "benchmarkId": key_values.get("benchmark_id"),
             "task": key_values.get("run_label"),
+            "suiteId": key_values.get("suite_id"),
+            "candidateId": key_values.get("candidate_id"),
+            "scenarioId": key_values.get("scenario_id"),
+            "workspaceId": key_values.get("workspace_id"),
+            "fixtureId": key_values.get("fixture_id"),
+            "criticTargetRunId": key_values.get("critic_target_run_id"),
         },
         "rolePrompt": role_prompt,
         "guideContext": role_prompt.get("guideIds", []),

@@ -369,18 +369,45 @@ Exit criteria:
 - failures can be grouped by tool, guide, benchmark, or provider
 - current status: satisfied for structured reporting; scoring, benchmark ids, and provider comparison remain Phase 4 work
 
-## Phase 4 - Benchmarking
+## [DONE] Phase 4 - Benchmarking
 
 Goal: measure progress with controlled tasks and objective scoring.
 
-Benchmark families:
+Status:
+
+- completed with candidate-based campaign plumbing in `tests/benchmarks/`, `tests/scripts/`, and `review/schemas/`
+- benchmark suite `phase4_v1` now defines `6` scored scenarios
+- run critic and aggregate critic now target explicit artifact paths, never `latest log`
+- PostgreSQL fixture `postgres-v1` is real and deterministic, with fresh container lifecycle per SQL run
+- campaign outputs are isolated under `tests/campaigns/<candidateId>/` and ignored by Git
+- a full synthetic campaign executed successfully against candidate `0.0.11+9acfece` and produced scored outputs plus grouped findings
+- fixture validation was executed against a live Docker-backed PostgreSQL container
+
+Delivered benchmark families:
 
 - project discovery
 - sequence authoring
 - HTTP transaction authoring
 - NGX UI mutation
 - recovery from invalid QName or invalid assumptions
-- documentation-following behavior
+- SQL facade integration
+
+Delivered scoring and campaign assets:
+
+- benchmark suite schema: `review/schemas/benchmark-suite.schema.json`
+- campaign aggregate schema: `review/schemas/campaign-aggregate.schema.json`
+- suite manifest: `tests/benchmarks/suites/phase4_v1.json`
+- campaign runner: `tests/scripts/run_campaign.py`
+- campaign scorer: `tests/scripts/score_campaign.py`
+- explicit run critic prompt: `tests/prompt_critic_run_review.txt`
+- explicit aggregate critic prompt: `tests/prompt_critic_aggregate_review.txt`
+- SQL fixture assets: `tests/fixtures/sql/postgres-v1/`
+- campaign artifact layout:
+  - `tests/campaigns/<candidateId>/manifest.json`
+  - `tests/campaigns/<candidateId>/runs/<scenarioId>/<runId>/...`
+  - `tests/campaigns/<candidateId>/critics/<scenarioId>/<runId>/...`
+  - `tests/campaigns/<candidateId>/aggregate/findings.json`
+  - `tests/campaigns/<candidateId>/aggregate/findings.md`
 
 Evaluation dimensions:
 
@@ -393,10 +420,19 @@ Evaluation dimensions:
 - respect of guidance and warnings
 - clarity of final critique
 
+Validated outcomes:
+
+- one candidate campaign can now generate run reports, critic reports, an aggregate report, and weighted scores in one pass
+- explicit run-targeted critics avoid recursive `latest log` behavior
+- grouped findings now surface actionable tool issues such as `palette-list` invalid-target UX and `databaseobject-tree-get` recovery breadcrumbs
+- SQL runs are backed by a fresh PostgreSQL container initialized from tracked scripts
+- campaign layout is parallel-safe by identifier and directory structure even though execution is still sequential by default
+
 Exit criteria:
 
 - at least a small benchmark suite is stable and repeatable
 - benchmark scoring is automated enough to compare providers and prompts
+- current status: satisfied for benchmark plumbing, scoring, and deterministic SQL fixtures; broader live model/provider comparison remains the next phase
 
 ## Phase 5 - Automated Improvement Loop
 

@@ -1,0 +1,47 @@
+This is a SQL specialist probe.
+- Preferred runner: inject MCP role prompt `convertigo-sql` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-sql` yourself before continuing.
+- Choose the target project in this order: `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Use the first one that exists and report the chosen project name.
+
+Use the PostgreSQL benchmark fixture described below. Do not invent connection settings.
+- host: `__PG_HOST__`
+- port: `__PG_PORT__`
+- database: `__PG_DATABASE__`
+- user: `__PG_USER__`
+- password: `__PG_PASSWORD__`
+- fixture metadata: `__FIXTURE_METADATA_PATH__`
+
+Fixture data contract:
+- seeded rows:
+  - `seed-a` / `Seed A`
+  - `seed-b` / `Seed B`
+- deterministic write row:
+  - `phase4-row` / `Phase 4 Row`
+
+In the chosen project, create or update a facade sequence named `probe_sql_contract` backed by a PostgreSQL SQL connector and transaction path.
+Required public contract:
+- top-level fields:
+  - `status`: `ok` or `error`
+  - `source`: always `sql`
+  - `items`: array of objects with `id` and `label`
+  - `total`: integer
+  - `error`: string
+
+Rules:
+1. Discover the SQL connector and transaction palette entries before the first write.
+2. Configure the connector from the fixture settings only.
+3. Make the facade executable for a read path first and prove that `seed-a` and `seed-b` are returned.
+4. Add a deterministic write path that inserts `phase4-row` if missing.
+5. Re-run the facade and prove that `phase4-row` is present without changing the public top-level fields.
+6. Save the project.
+
+Required final output sections:
+- `Changed Objects`
+- `Contract Check`
+- `Runtime Evidence`
+- `Open Handoff`
+
+Final output format:
+- `RESULT: PASS` only if the facade proves the seeded read path, the deterministic write path, the post-write read path, and keeps the same public contract throughout.
+- `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
+- End with one short `MCP critique` item.

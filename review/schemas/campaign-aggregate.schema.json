@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/campaign-aggregate.schema.json",
+  "title": "Convertigo Campaign Aggregate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "candidateId",
+    "suiteId",
+    "startedAt",
+    "finishedAt",
+    "overallScore",
+    "passCount",
+    "failCount",
+    "skippedCount",
+    "gateFailureCount",
+    "averageToolCalls",
+    "averageDurationMs",
+    "ragCallRate",
+    "scenarioResults",
+    "topFindings",
+    "aggregateCritic"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "candidateId": {
+      "type": "string"
+    },
+    "suiteId": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "overallScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "passCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skippedCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "gateFailureCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "averageToolCalls": {
+      "type": "number",
+      "minimum": 0
+    },
+    "averageDurationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "ragCallRate": {
+      "type": "number",
+      "minimum": 0
+    },
+    "scenarioResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenarioId",
+          "runId",
+          "status",
+          "gateStatus",
+          "score",
+          "weightedScore",
+          "runReportPath",
+          "criticReportPath"
+        ],
+        "properties": {
+          "scenarioId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED",
+              "UNKNOWN"
+            ]
+          },
+          "gateStatus": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "weightedScore": {
+            "type": "number",
+            "minimum": 0
+          },
+          "runReportPath": {
+            "type": "string"
+          },
+          "criticReportPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "topFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "area",
+          "subjectId",
+          "symptom",
+          "count",
+          "severity",
+          "scenarioIds",
+          "evidenceRunIds",
+          "providers",
+          "models",
+          "recommendedOwner"
+        ],
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "guide",
+              "prompt",
+              "scenario",
+              "fixture"
+            ]
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "symptom": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "severity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "scenarioIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceRunIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommendedOwner": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "aggregateCritic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "status",
+        "reportPath",
+        "summaryPath"
+      ],
+      "properties": {
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reportPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summaryPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
