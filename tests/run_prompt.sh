@@ -139,12 +139,12 @@ fi
 
 CODEX_ARGS=(
   exec
+  -s
+  danger-full-access
   --config 'mcp.servers.convertigo.type="http"'
   --config "mcp.servers.convertigo.url=\"${MCP_URL}\""
   --config "model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\""
   --config "request_timeout=${CODEX_REQUEST_TIMEOUT}"
-  --config 'sandbox=danger-full-access'
-  --config 'ask-for-approval=never'
   --cd "${WORKSPACE_DIR}"
 )
 
