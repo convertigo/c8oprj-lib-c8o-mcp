@@ -7,6 +7,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -109,7 +110,7 @@ def get_project_version():
     raise RuntimeError("Could not find project version in c8oProject.yaml")
 
 
-def call_mcp(url, payload):
+def call_mcp(url, payload, timeout=10):
     request = Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -119,13 +120,22 @@ def call_mcp(url, payload):
         },
         method="POST",
     )
-    with urlopen(request, timeout=10) as response:
+    with urlopen(request, timeout=timeout) as response:
         return json.load(response)
 
 
 def get_mcp_server_version(url):
-    response = call_mcp(url, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
-    return response.get("result", {}).get("serverInfo", {}).get("version")
+    last_error = None
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    for attempt in range(1, 4):
+        try:
+            response = call_mcp(url, payload, timeout=20)
+            return response.get("result", {}).get("serverInfo", {}).get("version")
+        except Exception as exc:
+            last_error = exc
+            if attempt < 3:
+                time.sleep(2)
+    raise last_error
 
 
 def get_codex_version(codex_bin):
