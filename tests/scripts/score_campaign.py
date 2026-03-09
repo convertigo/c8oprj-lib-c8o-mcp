@@ -163,14 +163,50 @@ def extract_finding_lines(critic_report):
 
 def is_actionable_finding(text):
     lower = normalize_text(text)
+    if not lower:
+        return False
     generic_tokens = [
         "no blocking finding",
         "one concrete mcp critique captured from the run is enough for this review",
         "accept the run for benchmark scoring",
         "no material evidence gap",
         "guide-compliant",
+        "no material findings",
+        "ordered project selection is correct",
+        "runtime proof is sufficient",
+        "the fast path was followed",
+        "the packet’s contract claims are supported",
+        "the packet's contract claims are supported",
+        "accept the run as a justified pass",
+        "no decisive evidence gap",
+        "compliant with the main workflow and scenario rules",
     ]
-    return bool(lower) and all(token not in lower for token in generic_tokens)
+    if any(token in lower for token in generic_tokens):
+        return False
+    negative_markers = [
+        "failed",
+        "missing",
+        "missed",
+        "did not",
+        "avoid",
+        "noise",
+        "unclear",
+        "auto-saved",
+        "autosave",
+        "unimplemented",
+        "unsupported",
+        "ambigu",
+        "error message",
+        "should ",
+        "should expose",
+        "should say",
+        "not clearly",
+        "conflict",
+        "inconsistent",
+        "friction",
+        "blocked",
+    ]
+    return any(marker in lower for marker in negative_markers)
 
 
 def infer_finding_shape(text):
@@ -187,14 +223,14 @@ def infer_finding_shape(text):
     ]
     for tool in tools:
         if tool in lower:
-            return ("tool", tool, "mcp-tooling")
+            return ("tool", tool, "tool")
     if "guide" in lower:
-        return ("guide", "guide-compliance", "guides")
+        return ("guide", "guide-compliance", "guide")
     if "prompt" in lower:
-        return ("prompt", "prompt-behavior", "prompts")
+        return ("prompt", "prompt-behavior", "prompt")
     if "postgres" in lower or "fixture" in lower or "docker" in lower:
-        return ("fixture", "postgres-v1", "fixtures")
-    return ("scenario", "benchmark-flow", "benchmarks")
+        return ("fixture", "postgres-v1", "fixture")
+    return ("scenario", "benchmark-flow", "scenario")
 
 
 def infer_severity(text):

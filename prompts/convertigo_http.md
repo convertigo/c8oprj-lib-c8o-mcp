@@ -25,6 +25,7 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 5. Discovery budget is strict: after the exact target search, inspect at most one project-root subtree, one connector subtree, one nearby stub sequence, and one existing transaction-step reference. Then write or fail; do not continue probing generic step classes.
 6. For this benchmark family, prefer the minimal facade patch:
    - keep or create `Call_Transaction` as a `steps.TransactionStep` with `sourceTransaction=<project>.Ipify.get_ip_json`
+   - when you are adding `Call_Transaction` under an existing sequence, patch the sequence with `target=<sequence qname>`, `at="self"`, and `tree.children=[...]`; do not call `databaseobject-tree-apply` with `at="inside"` and a wrapper root that only contains `children`
    - keep `output=false` on the transaction step
    - expose public fields with `steps.JsonFieldStep`
    - set `ip` with `value.mode=SOURCE` and `value.sources=[\"<Call_Transaction priority>\",\"./document/object/ip/text()\"]`
