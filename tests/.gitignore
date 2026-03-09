@@ -1,6 +1,7 @@
 logs/
 reports/
 campaigns/
+improvement/
 workspace/
 __pycache__/
 *.pyc

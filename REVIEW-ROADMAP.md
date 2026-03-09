@@ -438,6 +438,34 @@ Exit criteria:
 
 Goal: let the project improve itself through repeated critique and correction.
 
+Status:
+
+- scaffolding implemented in `tests/scripts/run_improvement_cycle.py`, `tests/scripts/compare_campaigns.py`, `tests/prompt_maintainer_cycle.txt`, and `review/schemas/`
+- the maintainer role prompt is now part of the prompt catalog as `convertigo-maintainer`
+- the repository prompt catalog now carries `8` file-backed prompts, with `convertigo-maintainer` linked from the relevant guides
+- the repository project version is now `0.0.12` for the Phase 5 candidate baseline
+- runtime artifacts are isolated under `tests/improvement/<baselineCandidateId>/<cycleId>/`
+- schemas and synthetic comparison outputs validate successfully against the new Phase 5 contracts
+- the improvement orchestrator already enforces one clean baseline repository before it opens a cycle
+- live cycle validation remains blocked until `codex exec` is healthy again
+
+Phase 5 v1 loop:
+
+1. pick one scored Phase 4 baseline campaign
+2. build a compact maintainer packet from grouped findings and cited evidence
+3. open one isolated candidate worktree and branch
+4. run one maintainer session that applies the smallest coherent patch set, bumps the version, and commits one candidate
+5. replay the same benchmark slice against the same provider/model/codex version tuple
+6. compare baseline vs replay with an explicit accept/reject/block verdict
+
+Phase 5 v1 outputs:
+
+- `tests/improvement/<baselineCandidateId>/<cycleId>/manifest.json`
+- `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/packet.json`
+- `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/prompt.txt`
+- `tests/improvement/<baselineCandidateId>/<cycleId>/candidate/metadata.json`
+- `tests/improvement/<baselineCandidateId>/<cycleId>/compare/comparison.json`
+
 Loop:
 
 1. execute benchmark with a selected provider, model, and prompt set
@@ -451,6 +479,7 @@ Exit criteria:
 
 - the loop improves benchmark results over several iterations
 - regressions are detected automatically
+- one full cycle can produce a maintainer packet, one committed candidate, one replay campaign, and one accept/reject/block verdict without manual log archaeology
 
 ## Phase 6 - Parallel Execution
 

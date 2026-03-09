@@ -256,5 +256,39 @@
       "recommendation"
     ],
     "mutatesProject": false
+  },
+  {
+    "name": "convertigo-maintainer",
+    "file": "convertigo_maintainer.md",
+    "title": "Convertigo Maintainer",
+    "description": "Single-cycle maintainer that turns aggregate findings into one committed candidate patch set.",
+    "promptId": "convertigo/maintainer",
+    "revision": 1,
+    "roleId": "maintainer",
+    "scopeTags": ["maintainer", "improvement-cycle", "candidate"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "project-js-get",
+      "project-js-set",
+      "requestable-execute",
+      "project-save"
+    ],
+    "handoffTo": [],
+    "outputContract": [
+      "selectedFindings",
+      "changesApplied",
+      "versionBump",
+      "expectedBenchmarkEffect",
+      "residualRisks",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
   }
 ]

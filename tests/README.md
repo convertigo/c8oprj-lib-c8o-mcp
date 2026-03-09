@@ -13,14 +13,18 @@ This folder stores reproducible prompts/scripts for running Codex CLI scenarios 
 - `prompt_critic_review.txt`: Legacy critic review of the latest prior probe log. Kept for history only.
 - `prompt_critic_run_review.txt`: Critic review of one explicit benchmark run. The agent must fetch `convertigo-critic`.
 - `prompt_critic_aggregate_review.txt`: Critic review of one explicit benchmark campaign. The agent must fetch `convertigo-critic`.
+- `prompt_maintainer_cycle.txt`: Maintainer-cycle template that injects one maintainer packet and requires one committed candidate. The agent must fetch `convertigo-maintainer`.
+- `bin/codex`: Wrapper used by default by `run_prompt.sh`. It pins the npm package version in one place through `CODEX_NPM_VERSION` (default `0.111.0`) and avoids depending on the machine-wide `codex`.
 - `run_prompt.sh`: Helper to run Codex CLI from the repository root (`bash tests/run_prompt.sh [prompt_file] [run_label] [role_prompt_name]`). When the third argument is set, the script fetches the role prompt from MCP first and injects it into the Codex run.
 - `scripts/report_codex_run.py`: Converts one raw Codex CLI log into `report.json` plus `summary.md`.
 - `scripts/run_campaign.py`: Runs one benchmark campaign for a frozen MCP candidate.
 - `scripts/score_campaign.py`: Scores one benchmark campaign and writes aggregate findings.
+- `scripts/compare_campaigns.py`: Compares a baseline campaign aggregate against a replayed candidate campaign and emits a verdict.
+- `scripts/run_improvement_cycle.py`: Builds one maintainer packet, opens one candidate worktree/branch, runs one maintainer candidate, replays the benchmark slice, and writes the comparison verdict.
 - `benchmarks/suites/phase4_v1.json`: Tracked benchmark suite manifest for Phase 4.
 - `fixtures/sql/postgres-v1/`: PostgreSQL fixture used by the SQL benchmark scenario.
 
-All prompts are written in English and stay scenario-specific. The preferred validation path is to inject the matching MCP role prompt through `run_prompt.sh`, not to duplicate role instructions inside the scenario file. Unless the prompt says otherwise, target project selection is deterministic: use the first loaded project from `codex_test`, `firstTimeSuccess`, `MyTemplateNgxTest2`, `MyNewApp`. Probe prompts must end with concrete pass/fail or skip evidence plus one short MCP critique item.
+All prompts are written in English and stay scenario-specific. The preferred validation path is to inject the matching MCP role prompt through `run_prompt.sh`, not to duplicate role instructions inside the scenario file. Scenario files define their own target-selection rules and expected evidence. Probe prompts must end with concrete pass/fail or skip evidence plus one short MCP critique item.
 
 Runtime artifact layout:
 
@@ -29,6 +33,12 @@ Runtime artifact layout:
 - Markdown summary: `tests/reports/<runId>/summary.md`
 
 The runner prints all three paths at the end of each run. Reports are derived artifacts, not tracked repository content.
+
+By default, test runs use `tests/bin/codex`, which wraps `npx -y @openai/codex@<version>`. To try another npm version without editing the runner:
+
+```bash
+CODEX_NPM_VERSION=0.112.0 bash tests/run_prompt.sh tests/prompt_facade_stub_probe.txt planner_smoke convertigo-planner
+```
 
 Campaign artifact layout:
 
@@ -42,11 +52,33 @@ Campaign artifact layout:
 
 Phase 4 benchmark campaigns are file-first and sequential by default, but their layout is parallel-safe. Critic prompts must target explicit report paths, never the latest log.
 
+Improvement-cycle artifact layout:
+
+- Cycle root: `tests/improvement/<baselineCandidateId>/<cycleId>/`
+- Cycle manifest: `tests/improvement/<baselineCandidateId>/<cycleId>/manifest.json`
+- Maintainer packet: `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/packet.json`
+- Maintainer prompt: `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/prompt.txt`
+- Maintainer run artifacts: `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/run/`
+- Candidate metadata: `tests/improvement/<baselineCandidateId>/<cycleId>/candidate/metadata.json`
+- Replay campaign root: `tests/improvement/<baselineCandidateId>/<cycleId>/replay/<candidateId>/`
+- Comparison output: `tests/improvement/<baselineCandidateId>/<cycleId>/compare/`
+
+The improvement loop assumes that the provided MCP URL targets the candidate runtime you want to mutate and replay. The default local Studio target is useful for scaffolding and packet generation, but isolated live cycles need a candidate-aware Convertigo runtime.
+
+The improvement orchestrator also refuses to start from a dirty repository. Commit or stash local changes before opening a cycle so the candidate branch starts from a clean baseline SHA.
+
 Run one campaign:
 
 ```bash
 python3 tests/scripts/run_campaign.py \
   --suite tests/benchmarks/suites/phase4_v1.json
+```
+
+Run one improvement cycle from an existing scored campaign:
+
+```bash
+python3 tests/scripts/run_improvement_cycle.py \
+  --baseline-campaign-dir tests/campaigns/<candidateId>
 ```
 
 Backfill an old log manually:

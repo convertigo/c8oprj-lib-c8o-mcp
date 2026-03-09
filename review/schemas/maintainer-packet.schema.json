@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/maintainer-packet.schema.json",
+  "title": "Convertigo Maintainer Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "baselineCandidateId",
+    "baselineGitSha",
+    "suiteId",
+    "provider",
+    "model",
+    "codexVersion",
+    "projectVersion",
+    "topFindings",
+    "selectedFindings",
+    "scenarioSummary",
+    "relevantGuides",
+    "relevantPrompts",
+    "allowedMutationAreas",
+    "forbiddenMutationAreas",
+    "evidencePaths",
+    "acceptanceTargets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "baselineCandidateId": {
+      "type": "string"
+    },
+    "baselineGitSha": {
+      "type": "string"
+    },
+    "suiteId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "codexVersion": {
+      "type": "string"
+    },
+    "projectVersion": {
+      "type": "string"
+    },
+    "topFindings": {
+      "$ref": "#/$defs/findingList"
+    },
+    "selectedFindings": {
+      "$ref": "#/$defs/findingList"
+    },
+    "scenarioSummary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenarioId",
+          "status",
+          "gateStatus",
+          "score",
+          "weightedScore"
+        ],
+        "properties": {
+          "scenarioId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED",
+              "UNKNOWN"
+            ]
+          },
+          "gateStatus": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "weightedScore": {
+            "type": "number",
+            "minimum": 0
+          },
+          "runReportPath": {
+            "type": "string"
+          },
+          "criticReportPath": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "relevantGuides": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relevantPrompts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowedMutationAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbiddenMutationAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidencePaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaignManifest",
+        "aggregateFindings",
+        "runReports",
+        "runSummaries",
+        "criticReports",
+        "rawLogs"
+      ],
+      "properties": {
+        "campaignManifest": {
+          "type": "string"
+        },
+        "aggregateFindings": {
+          "type": "string"
+        },
+        "runReports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "runSummaries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "criticReports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rawLogs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "acceptanceTargets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overallScoreMinDelta",
+        "maxOverallScoreRegression",
+        "forbidPassToFail",
+        "forbidGateFailureIncrease",
+        "forbidFailCountIncrease",
+        "requiredRunnerTuple",
+        "targetedFindingKeys"
+      ],
+      "properties": {
+        "overallScoreMinDelta": {
+          "type": "number"
+        },
+        "maxOverallScoreRegression": {
+          "type": "number",
+          "minimum": 0
+        },
+        "forbidPassToFail": {
+          "type": "boolean"
+        },
+        "forbidGateFailureIncrease": {
+          "type": "boolean"
+        },
+        "forbidFailCountIncrease": {
+          "type": "boolean"
+        },
+        "requiredRunnerTuple": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "model",
+            "codexVersion"
+          ],
+          "properties": {
+            "provider": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "codexVersion": {
+              "type": "string"
+            }
+          }
+        },
+        "targetedFindingKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "findingList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "area",
+          "subjectId",
+          "symptom",
+          "count",
+          "severity",
+          "scenarioIds",
+          "evidenceRunIds",
+          "providers",
+          "models",
+          "recommendedOwner"
+        ],
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "guide",
+              "prompt",
+              "scenario",
+              "fixture"
+            ]
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "symptom": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "severity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "scenarioIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceRunIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommendedOwner": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

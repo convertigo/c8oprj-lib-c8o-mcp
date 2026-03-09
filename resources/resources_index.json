@@ -24,7 +24,8 @@
       "convertigo-sql",
       "convertigo-http",
       "convertigo-frontend-ngx",
-      "convertigo-critic"
+      "convertigo-critic",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "start",
     "fallbackToRag": false
@@ -57,7 +58,8 @@
       "convertigo-sql",
       "convertigo-http",
       "convertigo-frontend-ngx",
-      "convertigo-critic"
+      "convertigo-critic",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
@@ -87,7 +89,8 @@
     "promptNames": [
       "convertigo-quickstart",
       "convertigo-planner",
-      "convertigo-frontend-ngx"
+      "convertigo-frontend-ngx",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
@@ -116,7 +119,8 @@
       "convertigo-planner",
       "convertigo-backend",
       "convertigo-sql",
-      "convertigo-http"
+      "convertigo-http",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
@@ -144,7 +148,8 @@
       "project-save"
     ],
     "promptNames": [
-      "convertigo-sql"
+      "convertigo-sql",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
@@ -172,7 +177,8 @@
       "project-save"
     ],
     "promptNames": [
-      "convertigo-http"
+      "convertigo-http",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
@@ -202,7 +208,8 @@
       "project-save"
     ],
     "promptNames": [
-      "convertigo-frontend-ngx"
+      "convertigo-frontend-ngx",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "domain",
     "fallbackToRag": false
@@ -235,7 +242,8 @@
       "convertigo-sql",
       "convertigo-http",
       "convertigo-frontend-ngx",
-      "convertigo-critic"
+      "convertigo-critic",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "validation",
     "fallbackToRag": false
@@ -256,7 +264,8 @@
       "requestable-execute"
     ],
     "promptNames": [
-      "convertigo-backend"
+      "convertigo-backend",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "reference",
     "fallbackToRag": true
@@ -279,7 +288,8 @@
       "requestable-execute"
     ],
     "promptNames": [
-      "convertigo-backend"
+      "convertigo-backend",
+      "convertigo-maintainer"
     ],
     "guidanceLevel": "reference",
     "fallbackToRag": true

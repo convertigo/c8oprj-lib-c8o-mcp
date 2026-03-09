@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/improvement-cycle.schema.json",
+  "title": "Convertigo Improvement Cycle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "cycleId",
+    "state",
+    "baselineCandidateId",
+    "baselineCampaignPath",
+    "baselineGitSha",
+    "suiteId",
+    "provider",
+    "model",
+    "codexVersion",
+    "startedAt",
+    "finishedAt",
+    "worktreePath",
+    "branchName",
+    "maintainerPromptName",
+    "packetPath",
+    "promptPath",
+    "maintainerRun",
+    "candidate",
+    "replayCampaignPath",
+    "comparisonPath",
+    "blockingReason"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "cycleId": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "PREPARED",
+        "MAINTAINER_RUNNING",
+        "CANDIDATE_COMMITTED",
+        "REPLAY_RUNNING",
+        "ACCEPTED",
+        "REJECTED",
+        "BLOCKED"
+      ]
+    },
+    "baselineCandidateId": {
+      "type": "string"
+    },
+    "baselineCampaignPath": {
+      "type": "string"
+    },
+    "baselineGitSha": {
+      "type": "string"
+    },
+    "suiteId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "codexVersion": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "worktreePath": {
+      "type": "string"
+    },
+    "branchName": {
+      "type": "string"
+    },
+    "maintainerPromptName": {
+      "type": "string"
+    },
+    "packetPath": {
+      "type": "string"
+    },
+    "promptPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "maintainerRun": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "status",
+        "reportPath",
+        "summaryPath"
+      ],
+      "properties": {
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reportPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summaryPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "candidate": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "candidateId",
+        "gitSha",
+        "projectVersion",
+        "commitMessage",
+        "metadataPath"
+      ],
+      "properties": {
+        "candidateId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "gitSha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commitMessage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadataPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "replayCampaignPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "comparisonPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blockingReason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

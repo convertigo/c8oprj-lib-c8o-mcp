@@ -1,0 +1,25 @@
+This is a maintainer improvement cycle.
+
+- Preferred runner: inject MCP role prompt `convertigo-maintainer` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-maintainer` yourself before continuing.
+- The isolated candidate worktree root is `__WORKTREE_PATH__`.
+- The maintainer packet path is `__MAINTAINER_PACKET_PATH__`.
+- Read the maintainer packet first. Use the embedded copy below as the primary source, then open only cited artifacts when needed.
+
+## Maintainer Packet
+
+__MAINTAINER_PACKET_CONTENT__
+
+Cycle requirements:
+1. Work only on the selected findings from the packet.
+2. Keep the patch set minimal and coherent.
+3. Use MCP-first for Convertigo project edits.
+4. Save the project before the final commit when project mutations occurred.
+5. Bump the project version from `__BASELINE_PROJECT_VERSION__` to `__TARGET_PROJECT_VERSION__`.
+6. Commit the candidate in the isolated worktree with this exact message:
+   `__COMMIT_MESSAGE__`
+
+Final output format:
+- `RESULT: PASS` only if the selected findings were addressed, the version was bumped to `__TARGET_PROJECT_VERSION__`, and the commit was created.
+- Otherwise `RESULT: FAIL` with the failing step and the most useful evidence snippet.
+- End with one short `MCP critique` item.
