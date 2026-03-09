@@ -35,6 +35,7 @@ BENCHMARK_ID="${BENCHMARK_ID:-}"
 WORKSPACE_ID="${WORKSPACE_ID:-}"
 FIXTURE_ID="${FIXTURE_ID:-}"
 CRITIC_TARGET_RUN_ID="${CRITIC_TARGET_RUN_ID:-}"
+CODEX_DISABLE_MCP="${CODEX_DISABLE_MCP:-0}"
 DEFAULT_CODEX_BIN="${SCRIPT_DIR}/bin/codex"
 if [[ -x "${DEFAULT_CODEX_BIN}" ]]; then
   CODEX_BIN="${CODEX_BIN:-${DEFAULT_CODEX_BIN}}"
@@ -141,12 +142,18 @@ CODEX_ARGS=(
   exec
   -s
   danger-full-access
-  --config 'mcp.servers.convertigo.type="http"'
-  --config "mcp.servers.convertigo.url=\"${MCP_URL}\""
+  --config 'mcp.servers={}'
   --config "model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\""
   --config "request_timeout=${CODEX_REQUEST_TIMEOUT}"
   --cd "${WORKSPACE_DIR}"
 )
+
+if [[ "${CODEX_DISABLE_MCP}" != "1" ]]; then
+  CODEX_ARGS+=(
+    --config 'mcp.servers.convertigo={type="http"}'
+    --config "mcp.servers.convertigo.url=\"${MCP_URL}\""
+  )
+fi
 
 if [[ -n "${CODEX_MODEL}" ]]; then
   CODEX_ARGS+=(--model "${CODEX_MODEL}")

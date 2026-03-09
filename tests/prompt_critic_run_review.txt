@@ -19,8 +19,9 @@ Review goals:
 - inspect artifacts with targeted extraction only:
   - packet: read directly
   - summary: read directly only when the packet is insufficient
-  - report: prefer `jq` or `rg -n` for exact fields only when needed
+  - report: prefer `jq` or `rg -n` only on these stable keys when needed: `.result`, `.warnings`, `.errors`, `.toolStats`, `.finalOutput.sections`, `.durationMs`, `.startedAt`, `.finishedAt`
   - raw log: prefer `rg -n` for the exact disputed tool call or result line only when needed
+- do not assume `report.json` mirrors packet names like `key_evidence` or `tool_summary`; the packet is the primary normalized view
 - do not dump broad `sed` or `tail` slices of `report.json` or `raw.log`
 - do not call `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless one of the explicit artifact paths is unreadable
 - avoid generic summaries and avoid mutating the project

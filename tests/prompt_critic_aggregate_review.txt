@@ -18,7 +18,8 @@ Review goals:
 - inspect artifacts with targeted extraction only:
   - packet: read directly
   - manifest: read directly only when the packet is insufficient
-  - reports: prefer `jq` or `rg -n` for exact fields only when needed
+  - reports: prefer `jq` or `rg -n` only on stable keys like `.result`, `.warnings`, `.errors`, `.toolStats`, `.finalOutput.sections`, aggregate finding fields, and manifest metadata
+  - do not assume run reports mirror packet names like `key_evidence` or `tool_summary`; the packet is the primary normalized view
   - do not dump whole report files unless a field cannot be extracted any other way
 - do not call `prompts/list`, `resources/list`, `list_mcp_resources`, or `list_mcp_resource_templates` unless one of the explicit artifact paths is unreadable
 - keep the result concise and evidence-backed

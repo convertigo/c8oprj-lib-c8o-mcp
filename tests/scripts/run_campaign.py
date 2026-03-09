@@ -255,6 +255,7 @@ def scenario_run_env(
     fixture_id="",
     critic_target_run_id="",
     run_stamp="",
+    disable_mcp=False,
 ):
     env = {
         "SUITE_ID": suite_id,
@@ -276,6 +277,8 @@ def scenario_run_env(
         env["FIXTURE_ID"] = fixture_id
     if critic_target_run_id:
         env["CRITIC_TARGET_RUN_ID"] = critic_target_run_id
+    if disable_mcp:
+        env["CODEX_DISABLE_MCP"] = "1"
     return env
 
 
@@ -604,6 +607,7 @@ def main():
                 f"critic-{run_data['runId']}",
                 critic_target_run_id=run_data["runId"],
                 run_stamp=critic_run_stamp,
+                disable_mcp=True,
             ),
             timeout_sec=args.critic_timeout,
         )
@@ -648,6 +652,7 @@ def main():
             f"{suite['suiteId']}/aggregate-critic",
             "aggregate-critic",
             run_stamp=aggregate_run_stamp,
+            disable_mcp=True,
         ),
         timeout_sec=args.aggregate_timeout,
     )

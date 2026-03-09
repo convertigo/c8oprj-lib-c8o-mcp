@@ -14,7 +14,7 @@ PROTOCOL_VERSION = "2025-06-18"
 SCHEMA_VERSION = "1.0.0"
 KV_RE = re.compile(r"^([a-z0-9_]+)=(.*)$")
 HEADER_RE = re.compile(r"^(provider|model|reasoning effort|session id):\s*(.*)$")
-RESULT_RE = re.compile(r"^`?RESULT:\s*(PASS|FAIL|SKIPPED|UNKNOWN)(?:\s*-\s*(.*?))?`?$")
+RESULT_RE = re.compile(r"^(?:[-*]\s+)?`?RESULT:\s*(PASS|FAIL|SKIPPED|UNKNOWN)(?:\s*-\s*(.*?))?`?$")
 TOOL_CALL_RE = re.compile(r"^tool ([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\((.*)\)$")
 TOOL_STATUS_RE = re.compile(
     r"^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\(.*\)\s+(success|failed)\s+in\s+([0-9.]+)(ms|s):$"
