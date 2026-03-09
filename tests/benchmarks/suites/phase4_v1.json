@@ -180,7 +180,7 @@
         { "id": "critic-result-pass", "type": "criticStatus", "expected": "PASS" },
         { "id": "required-sections", "type": "requiredSections", "sections": ["Changed Objects", "Recovery Evidence", "Runtime Evidence", "Open Handoff"] },
         { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["databaseobject-tree-get", "databaseobject-tree-apply", "requestable-execute", "project-save"] },
-        { "id": "required-terms", "type": "requiredTerms", "terms": ["invalid target", "corrected target", "probe_recovery_target"] },
+        { "id": "required-terms", "type": "requiredTerms", "terms": ["missingparent", "corrected parent", "probe_recovery_target"] },
         { "id": "runtime-evidence", "type": "runtimeEvidence" },
         { "id": "save-evidence", "type": "saveEvidence" }
       ],

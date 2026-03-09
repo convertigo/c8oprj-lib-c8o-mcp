@@ -181,6 +181,7 @@ def is_actionable_finding(text):
         "accept the run as a justified pass",
         "no decisive evidence gap",
         "compliant with the main workflow and scenario rules",
+        "no material contract failure is supported beyond that",
     ]
     if any(token in lower for token in generic_tokens):
         return False
