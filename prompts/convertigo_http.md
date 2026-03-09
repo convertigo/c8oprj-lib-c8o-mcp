@@ -22,14 +22,16 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 2. If the exact facade requestable already exists, validate it first and inspect only that exact subtree before widening discovery.
 3. Keep stub-first validation when the scenario requires proving contract stability before live wiring.
 4. When the required `className` is already known, do not browse generic palette categories. Create or patch the minimal connector and transaction objects directly.
-5. Use `recordSchema=true` or `includeLogs=true` only when it helps explain or stabilize the integration.
-6. Validate the facade with `requestable-execute` after each meaningful step.
-7. Save with `project-save` once the HTTP-backed path passes.
+5. Discovery budget is strict: after the exact target search, inspect at most one project-root subtree, one connector subtree, one nearby stub sequence, and one existing transaction-step reference. Then write or fail; do not continue probing generic step classes.
+6. Use `recordSchema=true` or `includeLogs=true` only when it helps explain or stabilize the integration.
+7. Validate the facade with `requestable-execute` after each meaningful step.
+8. Save with `project-save` once the HTTP-backed path passes.
 
 ## Stop and handoff rules
 - Do not rename or remove public facade fields to match upstream payload names.
 - Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - Do not spend the run on broad palette discovery or unrelated sample trees once the exact facade QName and HTTP class names are known.
+- Do not inspect generic palette metadata such as `steps.TransactionStep` or `steps.IfStep` after you already have one concrete transaction-step reference. If the remaining uncertainty is still too high, stop with `RESULT: FAIL`.
 - If the connector cannot preserve the agreed contract, stop and hand back to `convertigo-backend` or `convertigo-planner`.
 - Hand review to `convertigo-critic` when runtime evidence is ready.
 

@@ -2,6 +2,7 @@ This is an HTTP specialist probe.
 - Preferred runner: inject MCP role prompt `convertigo-http` before this scenario starts.
 - If no role prompt was injected, fetch `convertigo-http` yourself before continuing.
 - Benchmark policy: do not use local YAML-editing skills or the `convertigo-project-editor` workflow for this scenario. Use MCP tools only for Convertigo project mutations.
+- Use `project-list(limit=50)` or continue pagination until the priority-order project check is real. Do not pick `BaserowIntegration` only because `SqlBlob` was outside the first page.
 - Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
 - If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
 
@@ -19,6 +20,7 @@ Required workflow:
 2. If `probe_http_contract` already exists, run it in stub mode first and inspect only that exact subtree.
 3. If you already know the required `className` values, do not spend time on generic `palette-list` exploration. Create or patch the minimal HTTP connector and transaction objects directly.
 4. Inspect `BaserowIntegration.Baserow` only if you still need a live structural reference after the exact target search.
+5. Discovery budget is capped. After one project-root read, one connector read, one nearby stub-sequence read, and one existing transaction-step read, either write the mutation set or end with `RESULT: FAIL`. Do not keep exploring generic step metadata.
 
 Required public contract:
 - top-level fields:
