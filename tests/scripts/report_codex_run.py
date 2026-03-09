@@ -131,16 +131,11 @@ def to_millis(value, unit):
 
 def parse_key_values(lines):
     parsed = {}
-    started = False
     for line in lines:
         stripped = line.strip()
         match = KV_RE.match(stripped)
         if match:
-            started = True
             parsed[match.group(1)] = match.group(2)
-            continue
-        if started:
-            break
     return parsed
 
 
