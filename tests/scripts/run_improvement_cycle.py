@@ -421,14 +421,14 @@ def collect_candidate_benchmark_paths(root, baseline_campaign_dir, baseline_mani
     if candidate_paths:
         return sorted({str(path.resolve()) for path in candidate_paths})
 
-    search_root = root / "tests" / "campaigns"
-    if search_root.is_dir():
-        for path in sorted(search_root.rglob("report.json")):
-            if file_matches_patterns(path, patterns):
-                candidate_paths.append(path)
-        for path in sorted(search_root.rglob("summary.md")):
-            if file_matches_patterns(path, patterns):
-                candidate_paths.append(path)
+    for search_root in (root / "tests" / "campaigns", root / "tests" / "improvement"):
+        if search_root.is_dir():
+            for path in sorted(search_root.rglob("report.json")):
+                if file_matches_patterns(path, patterns):
+                    candidate_paths.append(path)
+            for path in sorted(search_root.rglob("summary.md")):
+                if file_matches_patterns(path, patterns):
+                    candidate_paths.append(path)
     return sorted({str(path.resolve()) for path in candidate_paths})
 
 
