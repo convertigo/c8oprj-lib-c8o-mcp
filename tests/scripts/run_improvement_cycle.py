@@ -12,8 +12,44 @@ from pathlib import Path
 SCHEMA_VERSION = "1.1.0"
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 MAINTAINER_PROMPT_NAME = "convertigo-maintainer"
-FINDING_TARGET_SCENARIOS = {
-    "finding-httpconnector-port-coercion": ["http-facade-integration-v1"],
+FINDING_SPECS = {
+    "finding-httpconnector-port-coercion": {
+        "targetedScenarios": ["http-facade-integration-v1"],
+        "benchmarkPatterns": [
+            r"port coercion",
+            r"numeric connector ports",
+            r"materializ(?:ed|ing) runtime port `0`",
+            r"silently materializing `0`",
+        ],
+        "verification": "http-port-coercion",
+        "selectionReason": (
+            "Selected finding-httpconnector-port-coercion because the latest feedback triage marks it as an "
+            "MCP-owned maintainer candidate and historical benchmark evidence already corroborates the same numeric "
+            "HttpConnector.port coercion bug. All unrelated open findings remain out of scope for this cycle."
+        ),
+    },
+    "finding-ngx-ui-control-directive-wrapper-semantics": {
+        "targetedScenarios": ["ngx-contract-ui-v1"],
+        "benchmarkPatterns": [
+            r"directive-node semantics",
+            r"directive composition",
+            r"invalid angular output",
+            r"duplicated `\*ngfor`",
+            r"duplicated \*ngfor",
+            r"empty sibling `ng-container`",
+            r"empty sibling ng-container",
+            r"broken `\*ngif`/`\*ngfor` generation",
+            r"broken \*ngif/\*ngfor generation",
+            r"wrapper semantics",
+        ],
+        "verification": "ngx-directive-wrapper",
+        "selectionReason": (
+            "Selected finding-ngx-ui-control-directive-wrapper-semantics because the latest feedback triage marks it "
+            "as an MCP-owned maintainer candidate and the rejected cycle-001 full replay already shows the same NGX "
+            "directive-wrapper failure in benchmark evidence. All unrelated open findings remain out of scope for "
+            "this cycle."
+        ),
+    },
 }
 PORT_COERCION_PATTERNS = [
     r"materializ(?:ed|ing) runtime port `0`",
@@ -21,6 +57,18 @@ PORT_COERCION_PATTERNS = [
     r"numeric connector ports",
     r"resent as string",
     r"HttpConnector\.port=443.*port `0`",
+]
+NGX_DIRECTIVE_WRAPPER_PATTERNS = [
+    r"invalid angular output",
+    r"duplicated `\*ngfor`",
+    r"duplicated \*ngfor",
+    r"empty sibling `ng-container`",
+    r"empty sibling ng-container",
+    r"directive-node semantics",
+    r"directive composition",
+    r"wrapper semantics",
+    r"broken `\*ngif`/`\*ngfor` generation",
+    r"broken \*ngif/\*ngfor generation",
 ]
 
 
@@ -335,15 +383,15 @@ def find_feedback_finding(consolidation, finding_id):
     return None
 
 
+def finding_spec(finding_id):
+    return FINDING_SPECS.get(finding_id)
+
+
 def benchmark_keyword_patterns(finding_id):
-    if finding_id == "finding-httpconnector-port-coercion":
-        return [
-            r"port coercion",
-            r"numeric connector ports",
-            r"materializ(?:ed|ing) runtime port `0`",
-            r"silently materializing `0`",
-        ]
-    return []
+    spec = finding_spec(finding_id)
+    if not spec:
+        return []
+    return spec.get("benchmarkPatterns", [])
 
 
 def file_matches_patterns(path, patterns):
@@ -393,7 +441,10 @@ def selected_finding_for_cycle(root, baseline_campaign_dir, baseline_manifest, b
     if canonical_owner(feedback_finding.get("recommendedOwner")) not in {"tool", "guide", "prompt", "scenario", "fixture"}:
         raise RuntimeError(f"Finding {finding_id} is not owned by a maintainer-eligible area.")
 
-    targeted_scenarios = FINDING_TARGET_SCENARIOS.get(finding_id)
+    spec = finding_spec(finding_id)
+    if not spec:
+        raise RuntimeError(f"No finding spec is configured for finding: {finding_id}")
+    targeted_scenarios = spec.get("targetedScenarios")
     if not targeted_scenarios:
         raise RuntimeError(f"No targeted replay scenario is configured for finding: {finding_id}")
 
@@ -440,11 +491,7 @@ def build_packet(root, baseline_campaign_dir, baseline_manifest, baseline_aggreg
     baseline_http_run = next((item for item in baseline_manifest.get("runs", []) if item["scenarioId"] in targeted_scenarios), None)
     role_prompt_name = baseline_http_run["rolePromptName"] if baseline_http_run else None
     relevant_guides, relevant_prompts = build_relevant_context(root, role_prompt_name)
-    selection_reason = (
-        "Selected finding-httpconnector-port-coercion for cycle 001 because the latest feedback triage marks it as an "
-        "MCP-owned maintainer candidate and historical benchmark evidence already corroborates the same numeric "
-        "HttpConnector.port coercion bug. All unrelated open findings remain out of scope for this first loop validation."
-    )
+    selection_reason = finding_spec(finding_id)["selectionReason"]
     packet = {
         "schemaVersion": SCHEMA_VERSION,
         "baselineCandidateId": baseline_manifest["candidateId"],
@@ -656,6 +703,39 @@ def verify_targeted_http_replay(campaign_dir):
             raise RuntimeError(f"Targeted replay still contains HTTP port coercion evidence in {path}.")
 
 
+def ngx_directive_issue_present(text):
+    return any(re.search(pattern, text or "", flags=re.IGNORECASE) for pattern in NGX_DIRECTIVE_WRAPPER_PATTERNS)
+
+
+def verify_targeted_ngx_replay(campaign_dir):
+    manifest = load_json(Path(campaign_dir) / "manifest.json")
+    aggregate = load_json(Path(campaign_dir) / "aggregate" / "findings.json")
+    if manifest.get("finishedAt") is None:
+        raise RuntimeError("Targeted replay campaign manifest is incomplete.")
+    if len(aggregate.get("scenarioResults", [])) != 1:
+        raise RuntimeError("Targeted replay must contain exactly one scenario.")
+    result = aggregate["scenarioResults"][0]
+    if result["status"] != "PASS" or result["gateStatus"] != "PASS":
+        raise RuntimeError("Targeted replay did not pass cleanly.")
+    report_path = Path(result["runReportPath"])
+    critic_path = Path(result["criticReportPath"])
+    for path in (report_path, critic_path):
+        text = path.read_text(encoding="utf-8")
+        if ngx_directive_issue_present(text):
+            raise RuntimeError(f"Targeted replay still contains NGX directive-wrapper evidence in {path}.")
+
+
+def verify_targeted_replay(campaign_dir, finding_id):
+    verification = finding_spec(finding_id)["verification"]
+    if verification == "http-port-coercion":
+        verify_targeted_http_replay(campaign_dir)
+        return
+    if verification == "ngx-directive-wrapper":
+        verify_targeted_ngx_replay(campaign_dir)
+        return
+    raise RuntimeError(f"No targeted replay verification is configured for finding: {finding_id}")
+
+
 def main():
     args = parse_args()
     root = repo_root()
@@ -837,7 +917,7 @@ def main():
                 codex_npm_version,
                 scenario_ids=targeted_scenarios,
             )
-            verify_targeted_http_replay(targeted_campaign_dir)
+            verify_targeted_replay(targeted_campaign_dir, args.finding_id)
             cycle_manifest["targetedReplayCampaignPath"] = str(targeted_campaign_dir)
             update_cycle_manifest(cycle_manifest_path, cycle_manifest)
 
