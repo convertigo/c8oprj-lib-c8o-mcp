@@ -79,6 +79,12 @@ def parse_args():
         default=int(os.environ.get("CAMPAIGN_AGGREGATE_TIMEOUT_SEC", "600")),
         help="Wall-clock timeout in seconds for the aggregate critic.",
     )
+    parser.add_argument(
+        "--after-run-cleanup-mode",
+        default=os.environ.get("CAMPAIGN_AFTER_RUN_CLEANUP_MODE", "keep-last"),
+        choices=("on", "off", "keep-last"),
+        help="Post-run owned-project cleanup policy. 'on' deletes immediately, 'off' retains all owned projects, 'keep-last' retains the current campaign's owned projects for inspection.",
+    )
     return parser.parse_args()
 
 
@@ -184,6 +190,17 @@ def project_exists(url, project_name):
     return False
 
 
+def list_loaded_bench_projects(url, prefix="BenchAI_", limit=500):
+    result = call_mcp_tool(url, "project-list", {"filter": prefix, "limit": limit})
+    structured = result.get("structuredContent", {})
+    projects = []
+    for item in structured.get("projects", []):
+        name = item.get("name")
+        if isinstance(name, str) and name.startswith(prefix):
+            projects.append(name)
+    return sorted(set(projects))
+
+
 def import_project_fixture(url, scenario, candidate_id, run_stamp):
     fixture = scenario["projectFixture"]
     target_project = build_target_project_name(
@@ -226,6 +243,14 @@ def delete_owned_project(url, project_name):
     )
     if project_exists(url, project_name):
         raise RuntimeError(f"Benchmark cleanup did not remove owned project {project_name}.")
+
+
+def cleanup_loaded_bench_projects(url, prefix="BenchAI_"):
+    deleted = []
+    for project_name in list_loaded_bench_projects(url, prefix=prefix):
+        delete_owned_project(url, project_name)
+        deleted.append(project_name)
+    return deleted
 
 
 def provision_prepared_requestables(url, target_project, prepared_requestables):
@@ -453,6 +478,7 @@ def build_run_record(scenario, run_data, workspace_id, target_project=None, fixt
         "fixtureCreatedByRunner": fixture_created_by_runner,
         "fixtureMetadataPath": fixture_metadata_path,
         "status": run_data["report"]["result"]["status"],
+        "postRunCleanup": None,
     }
 
 
@@ -682,10 +708,18 @@ def main():
         "startedAt": utc_now(),
         "finishedAt": None,
         "suitePath": str(suite_path),
+        "beforeRunCleanup": {
+            "mode": "ownedBenchAI",
+            "deletedProjects": [],
+        },
+        "afterRunCleanupMode": args.after_run_cleanup_mode,
         "runs": [],
         "aggregateCritic": None,
         "warnings": [],
     }
+
+    deleted_before_run = cleanup_loaded_bench_projects(args.mcp_url)
+    manifest["beforeRunCleanup"]["deletedProjects"] = deleted_before_run
     update_manifest(manifest_path, manifest)
 
     generated_prompts_dir = campaign_dir / "generated_prompts"
@@ -702,6 +736,12 @@ def main():
 
         fixture_metadata = None
         project_fixture = import_project_fixture(args.mcp_url, scenario, candidate_id, run_stamp)
+        post_run_cleanup = {
+            "mode": args.after_run_cleanup_mode,
+            "deletedFromEngine": False,
+            "retainedForInspection": False,
+            "warning": None,
+        }
         try:
             provision_prepared_requestables(
                 args.mcp_url,
@@ -755,12 +795,17 @@ def main():
         finally:
             if fixture_metadata is not None:
                 teardown_postgres_fixture(Path(fixture_metadata["runtimeDir"]))
-            try:
-                delete_owned_project(args.mcp_url, project_fixture["targetProject"])
-            except Exception as exc:
-                warning = f"Cleanup warning for {project_fixture['targetProject']}: {exc}"
-                manifest["warnings"].append(warning)
-                update_manifest(manifest_path, manifest)
+            if args.after_run_cleanup_mode == "on":
+                try:
+                    delete_owned_project(args.mcp_url, project_fixture["targetProject"])
+                    post_run_cleanup["deletedFromEngine"] = True
+                except Exception as exc:
+                    warning = f"Cleanup warning for {project_fixture['targetProject']}: {exc}"
+                    post_run_cleanup["warning"] = warning
+                    manifest["warnings"].append(warning)
+                    update_manifest(manifest_path, manifest)
+            else:
+                post_run_cleanup["retainedForInspection"] = True
 
         run_record = build_run_record(
             scenario,
@@ -771,6 +816,7 @@ def main():
             project_fixture["fixtureCreatedByRunner"],
             str((Path(fixture_metadata["runtimeDir"]) / "metadata.json").resolve()) if fixture_metadata else None,
         )
+        run_record["postRunCleanup"] = post_run_cleanup
         critic_packet_path = campaign_dir / "critic_packets" / scenario_id / f"{run_data['runId']}.md"
         critic_packet_path.parent.mkdir(parents=True, exist_ok=True)
         critic_packet_path.write_text(render_run_critic_packet(run_record, run_data["report"]), encoding="utf-8")

@@ -57,7 +57,11 @@ For Phase 4.1 and later, mutating benchmark scenarios are fixture-driven:
 - the runner imports `template_ngxBuilderIonic` under a unique `BenchAI_*` project name per run
 - the scenario prompt receives that exact target project name
 - the scenario may mutate only that owned project
-- the runner deletes only that owned project after the run
+- before each campaign, the runner deletes any loaded `BenchAI_*` projects visible to the engine so the suite starts from a clean benchmark workspace
+- after each run, owned benchmark project retention is controlled by `CAMPAIGN_AFTER_RUN_CLEANUP_MODE`:
+  - `on`: delete the owned project immediately
+  - `off`: keep all owned projects from the campaign for inspection
+  - `keep-last` (default): retain the owned project for inspection and let the next campaign's preflight cleanup clear stale loaded `BenchAI_*` projects
 
 Improvement-cycle artifact layout:
 

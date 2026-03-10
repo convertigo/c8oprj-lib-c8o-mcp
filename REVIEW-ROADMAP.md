@@ -386,9 +386,22 @@ Status:
 - campaign outputs are isolated under `tests/campaigns/<candidateId>/` and ignored by Git
 - a full synthetic campaign executed successfully against candidate `0.0.11+9acfece` and produced scored outputs plus grouped findings
 - fixture validation was executed against a live Docker-backed PostgreSQL container
-- a first real live thin-slice campaign on candidate `0.0.12+57e32e2` completed with `3/3` scenario passes for planner, backend, and HTTP
-- the live thin slice now yields a fully green scored aggregate (`passCount=3`, `failCount=0`, `gateFailureCount=0`) and is strong enough to serve as a real baseline for Phase 5
-- a fresh-starter rerun on candidate `0.0.13+c598ae5` now proves exact owned-project teardown; it also surfaced that the planner benchmark must satisfy the contract on a blank starter without relying on previously shaped workspace projects
+- the earlier thin-slice milestones on `0.0.12+57e32e2` and `0.0.13+c598ae5` are now superseded by one trustworthy full-suite closure baseline on candidate `0.0.15+d6e2037`
+- the closure baseline ran all `6` scenarios on the same candidate with explicit run critics and one aggregate critic:
+  - `planner-facade-stub-v1`: `PASS`
+  - `backend-sequence-authoring-v1`: `PASS`
+  - `http-facade-integration-v1`: `PASS`
+  - `ngx-contract-ui-v1`: `PASS`
+  - `recovery-invalid-target-v1`: `PASS`
+  - `sql-facade-integration-postgres-v1`: `PASS`
+- the final aggregate for `0.0.15+d6e2037` is now the trusted Phase 4 baseline:
+  - `overallScore = 83.42`
+  - `passCount = 6`
+  - `failCount = 0`
+  - `skippedCount = 0`
+  - `gateFailureCount = 0`
+  - `finishedAt` populated in the campaign manifest
+- benchmark-mode field feedback was triaged once after the closure run and did not surface a new benchmark-owned defect that would reopen Phase 4
 - a mode-gated field feedback channel is now available for real POC runs through the Convertigo global symbol `${mcp.report.mode=off}`, without coupling ad hoc feedback to the benchmark critic flow
 
 Delivered benchmark families:
@@ -432,7 +445,10 @@ Validated outcomes:
 
 - one candidate campaign can now generate run reports, critic reports, an aggregate report, and weighted scores in one pass
 - explicit run-targeted critics avoid recursive `latest log` behavior
-- grouped findings now surface actionable tool issues such as `palette-list` invalid-target UX and `databaseobject-tree-get` recovery breadcrumbs
+- the closure baseline now distinguishes real candidate weaknesses from benchmark defects:
+  - repeated MCP/tooling friction remains visible in the aggregate critic
+  - no scenario is left `UNKNOWN`
+  - any remaining open items are accepted as real MCP/prompt UX findings, not benchmark-plumbing bugs
 - SQL runs are backed by a fresh PostgreSQL container initialized from tracked scripts
 - campaign layout is parallel-safe by identifier and directory structure even though execution is still sequential by default
 - mutating scenarios no longer depend on opportunistic workspace project discovery; the runner now prepares and tears down one explicit benchmark project per run
@@ -441,7 +457,7 @@ Exit criteria:
 
 - at least a small benchmark suite is stable and repeatable
 - benchmark scoring is automated enough to compare providers and prompts
-- current status: satisfied for benchmark plumbing, scoring, deterministic SQL fixtures, and one real live thin-slice baseline; broader live model/provider comparison remains the next phase
+- current status: satisfied for benchmark plumbing, scoring, deterministic SQL fixtures, and one real live full-suite baseline on `0.0.15+d6e2037`; Phase 5 may now start from this baseline
 
 ## Phase 5 - Automated Improvement Loop
 
@@ -452,11 +468,11 @@ Status:
 - scaffolding implemented in `tests/scripts/run_improvement_cycle.py`, `tests/scripts/compare_campaigns.py`, `tests/prompt_maintainer_cycle.txt`, and `review/schemas/`
 - the maintainer role prompt is now part of the prompt catalog as `convertigo-maintainer`
 - the repository prompt catalog now carries `8` file-backed prompts, with `convertigo-maintainer` linked from the relevant guides
-- the repository project version is now `0.0.13` for the current Phase 5 candidate baseline
+- the repository project version is now `0.0.15` and the current Phase 5 baseline candidate is `0.0.15+d6e2037`
 - runtime artifacts are isolated under `tests/improvement/<baselineCandidateId>/<cycleId>/`
 - schemas and synthetic comparison outputs validate successfully against the new Phase 5 contracts
 - the improvement orchestrator already enforces one clean baseline repository before it opens a cycle
-- `codex exec` is healthy again for live runs; one real Phase 4 thin-slice baseline is now available, but a full live Phase 5 improvement cycle has not been executed yet
+- `codex exec` is healthy again for live runs; one real Phase 4 full-suite baseline is now available, but a full live Phase 5 improvement cycle has not been executed yet
 
 Phase 5 v1 loop:
 
