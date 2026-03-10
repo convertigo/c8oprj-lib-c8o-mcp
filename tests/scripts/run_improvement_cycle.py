@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import http.cookiejar
 import json
 import os
 import re
@@ -7,11 +8,16 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from urllib.parse import urlencode
+from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
 SCHEMA_VERSION = "1.1.0"
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
+DEFAULT_ADMIN_USER = os.environ.get("CONVERTIGO_ADMIN_USER", "admin")
+DEFAULT_ADMIN_PASSWORD = os.environ.get("CONVERTIGO_ADMIN_PASSWORD", "admin")
+DEFAULT_RUNTIME_PROJECT = os.environ.get("CONVERTIGO_RUNTIME_PROJECT", "ConvertigoMCP")
 MAINTAINER_PROMPT_NAME = "convertigo-maintainer"
 PROTOCOL_VERSION = "2025-06-18"
 FINDING_SPECS = {
@@ -95,6 +101,9 @@ def parse_args():
     parser.add_argument("--improvement-root", default=str(root / "tests" / "improvement"), help="Improvement output root.")
     parser.add_argument("--cycle-id", default="cycle-001", help="Cycle identifier, for example cycle-001.")
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL, help="Convertigo MCP endpoint for the candidate runtime.")
+    parser.add_argument("--admin-user", default=DEFAULT_ADMIN_USER, help="Convertigo admin username for MCP recovery fallback.")
+    parser.add_argument("--admin-password", default=DEFAULT_ADMIN_PASSWORD, help="Convertigo admin password for MCP recovery fallback.")
+    parser.add_argument("--runtime-project", default=DEFAULT_RUNTIME_PROJECT, help="Convertigo runtime project name to reload if the MCP endpoint disappears.")
     parser.add_argument("--maintainer-timeout", type=int, default=1800, help="Wall-clock timeout in seconds for the maintainer run.")
     parser.add_argument("--scenario-timeout", type=int, default=1800, help="Wall-clock timeout in seconds for one replay scenario.")
     parser.add_argument("--critic-timeout", type=int, default=300, help="Wall-clock timeout in seconds for one replay run critic.")
@@ -131,6 +140,50 @@ def call_mcp(url, payload, timeout=10):
     )
     with urlopen(request, timeout=timeout) as response:
         return json.load(response)
+
+
+def admin_service_base_url(mcp_url):
+    marker = "/api/mcp"
+    if marker not in mcp_url:
+        raise RuntimeError(f"Unsupported MCP URL for admin fallback: {mcp_url}")
+    return mcp_url.split(marker, 1)[0]
+
+
+def call_admin_service(mcp_url, service_name, query=None, timeout=30, admin_user=DEFAULT_ADMIN_USER, admin_password=DEFAULT_ADMIN_PASSWORD):
+    if not admin_user or not admin_password:
+        raise RuntimeError("Convertigo admin credentials are required for MCP recovery fallback.")
+    base_url = admin_service_base_url(mcp_url)
+    jar = http.cookiejar.CookieJar()
+    opener = build_opener(HTTPCookieProcessor(jar))
+    auth_query = urlencode(
+        {
+            "authType": "login",
+            "authUserName": admin_user,
+            "authPassword": admin_password,
+        }
+    )
+    with opener.open(f"{base_url}/admin/services/engine.Authenticate?{auth_query}", timeout=timeout) as response:
+        auth_body = response.read().decode("utf-8", "replace")
+    if "<authenticated>true</authenticated>" not in auth_body:
+        raise RuntimeError("Convertigo admin authentication failed during MCP recovery fallback.")
+    service_url = f"{base_url}/admin/services/{service_name}"
+    if query:
+        service_url = f"{service_url}?{urlencode(query)}"
+    with opener.open(service_url, timeout=timeout) as response:
+        return response.read().decode("utf-8", "replace")
+
+
+def recover_mcp_endpoint(mcp_url, runtime_project, admin_user, admin_password):
+    body = call_admin_service(
+        mcp_url,
+        "projects.Reload",
+        {"projectName": runtime_project},
+        timeout=60,
+        admin_user=admin_user,
+        admin_password=admin_password,
+    )
+    if "<success>" not in body:
+        raise RuntimeError(f"Convertigo admin project reload did not report success for {runtime_project}.")
 
 
 def call_mcp_tool(url, tool_name, arguments=None, timeout=30):
@@ -319,15 +372,21 @@ def restore_paths_from_ref(repo_dir, ref, paths):
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
 
 
-def reload_runtime_project(url, project="ConvertigoMCP"):
-    call_mcp_tool(
-        url,
-        "project-reload",
-        {
-            "project": project,
-        },
-        timeout=120,
-    )
+def reload_runtime_project(url, project=DEFAULT_RUNTIME_PROJECT, admin_user=DEFAULT_ADMIN_USER, admin_password=DEFAULT_ADMIN_PASSWORD):
+    try:
+        call_mcp_tool(
+            url,
+            "project-reload",
+            {
+                "project": project,
+            },
+            timeout=120,
+        )
+    except Exception as exc:
+        if isinstance(exc, HTTPError) and exc.code == 404 or "HTTP Error 404" in str(exc):
+            recover_mcp_endpoint(url, project, admin_user, admin_password)
+            return
+        raise
 
 
 def latest_feedback_consolidation(root):
@@ -943,7 +1002,12 @@ def main():
         comparison = None
         try:
             restore_paths_from_ref(root, candidate_sha, changed_paths)
-            reload_runtime_project(args.mcp_url)
+            reload_runtime_project(
+                args.mcp_url,
+                project=args.runtime_project,
+                admin_user=args.admin_user,
+                admin_password=args.admin_password,
+            )
 
             targeted_campaign_root = replay_root / "targeted"
             targeted_campaign_dir = run_campaign(
@@ -991,7 +1055,12 @@ def main():
             cycle_manifest["comparisonPath"] = str(comparison_path)
         finally:
             restore_paths_from_ref(root, runtime_restore_ref, changed_paths)
-            reload_runtime_project(args.mcp_url)
+            reload_runtime_project(
+                args.mcp_url,
+                project=args.runtime_project,
+                admin_user=args.admin_user,
+                admin_password=args.admin_password,
+            )
 
         cycle_manifest["finishedAt"] = utc_now()
         update_cycle_manifest(cycle_manifest_path, cycle_manifest, state=comparison["verdict"])

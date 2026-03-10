@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import http.cookiejar
 import json
 import os
 import re
@@ -10,11 +11,16 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from urllib.parse import urlencode
+from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
 PROTOCOL_VERSION = "2025-06-18"
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
+DEFAULT_ADMIN_USER = os.environ.get("CONVERTIGO_ADMIN_USER", "admin")
+DEFAULT_ADMIN_PASSWORD = os.environ.get("CONVERTIGO_ADMIN_PASSWORD", "admin")
+DEFAULT_RUNTIME_PROJECT = os.environ.get("CONVERTIGO_RUNTIME_PROJECT", "ConvertigoMCP")
 POSTGRES_FIXTURE_ID = "postgres-v1"
 MARKETPLACE_FIXTURE_MODE = "marketplace"
 POSTGRES_DEFAULTS = {
@@ -42,6 +48,9 @@ def parse_args():
         help="Path to the benchmark suite manifest.",
     )
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL, help="Convertigo MCP endpoint.")
+    parser.add_argument("--admin-user", default=DEFAULT_ADMIN_USER, help="Convertigo admin username for MCP recovery fallback.")
+    parser.add_argument("--admin-password", default=DEFAULT_ADMIN_PASSWORD, help="Convertigo admin password for MCP recovery fallback.")
+    parser.add_argument("--runtime-project", default=DEFAULT_RUNTIME_PROJECT, help="Convertigo runtime project name to reload if the MCP endpoint disappears.")
     parser.add_argument("--campaign-root", default=str(root / "tests" / "campaigns"), help="Campaign output root.")
     parser.add_argument("--only-scenarios", default="", help="Comma-separated list of scenarioIds to run.")
     parser.add_argument("--model", default=os.environ.get("CODEX_MODEL", ""), help="Codex model override.")
@@ -131,6 +140,50 @@ def call_mcp(url, payload, timeout=10):
         return json.load(response)
 
 
+def admin_service_base_url(mcp_url):
+    marker = "/api/mcp"
+    if marker not in mcp_url:
+        raise RuntimeError(f"Unsupported MCP URL for admin fallback: {mcp_url}")
+    return mcp_url.split(marker, 1)[0]
+
+
+def call_admin_service(mcp_url, service_name, query=None, timeout=30, admin_user=DEFAULT_ADMIN_USER, admin_password=DEFAULT_ADMIN_PASSWORD):
+    if not admin_user or not admin_password:
+        raise RuntimeError("Convertigo admin credentials are required for MCP recovery fallback.")
+    base_url = admin_service_base_url(mcp_url)
+    jar = http.cookiejar.CookieJar()
+    opener = build_opener(HTTPCookieProcessor(jar))
+    auth_query = urlencode(
+        {
+            "authType": "login",
+            "authUserName": admin_user,
+            "authPassword": admin_password,
+        }
+    )
+    with opener.open(f"{base_url}/admin/services/engine.Authenticate?{auth_query}", timeout=timeout) as response:
+        auth_body = response.read().decode("utf-8", "replace")
+    if "<authenticated>true</authenticated>" not in auth_body:
+        raise RuntimeError("Convertigo admin authentication failed during MCP recovery fallback.")
+    service_url = f"{base_url}/admin/services/{service_name}"
+    if query:
+        service_url = f"{service_url}?{urlencode(query)}"
+    with opener.open(service_url, timeout=timeout) as response:
+        return response.read().decode("utf-8", "replace")
+
+
+def recover_mcp_endpoint(mcp_url, runtime_project, admin_user, admin_password):
+    body = call_admin_service(
+        mcp_url,
+        "projects.Reload",
+        {"projectName": runtime_project},
+        timeout=60,
+        admin_user=admin_user,
+        admin_password=admin_password,
+    )
+    if "<success>" not in body:
+        raise RuntimeError(f"Convertigo admin project reload did not report success for {runtime_project}.")
+
+
 def call_mcp_tool(url, tool_name, arguments=None, timeout=30):
     response = call_mcp(
         url,
@@ -152,15 +205,21 @@ def call_mcp_tool(url, tool_name, arguments=None, timeout=30):
     return response.get("result", {})
 
 
-def get_mcp_server_version(url):
+def get_mcp_server_version(url, admin_user=DEFAULT_ADMIN_USER, admin_password=DEFAULT_ADMIN_PASSWORD, runtime_project=DEFAULT_RUNTIME_PROJECT):
     last_error = None
     payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    recovered = False
     for attempt in range(1, 4):
         try:
             response = call_mcp(url, payload, timeout=20)
             return response.get("result", {}).get("serverInfo", {}).get("version")
         except Exception as exc:
             last_error = exc
+            if not recovered and isinstance(exc, HTTPError) and exc.code == 404:
+                recover_mcp_endpoint(url, runtime_project, admin_user, admin_password)
+                recovered = True
+                time.sleep(2)
+                continue
             if attempt < 3:
                 time.sleep(2)
     raise last_error
@@ -692,7 +751,12 @@ def main():
     campaign_dir.mkdir(parents=True, exist_ok=True)
 
     codex_version = get_codex_version(args.codex_bin)
-    mcp_server_version = get_mcp_server_version(args.mcp_url)
+    mcp_server_version = get_mcp_server_version(
+        args.mcp_url,
+        admin_user=args.admin_user,
+        admin_password=args.admin_password,
+        runtime_project=args.runtime_project,
+    )
     manifest_path = campaign_dir / "manifest.json"
     manifest = {
         "candidateId": candidate_id,
