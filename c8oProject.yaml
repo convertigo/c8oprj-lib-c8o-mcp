@@ -4,7 +4,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.14
+  version: 0.0.15
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
@@ -43,6 +43,7 @@
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_rag_query [sequences.GenericSequence]: 🗏 sequences/tools_rag_query.yaml
+  ↓tools_report_create [sequences.GenericSequence]: 🗏 sequences/tools_report_create.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml
   ↓tools_requestable_stub_get [sequences.GenericSequence]: 🗏 sequences/tools_requestable_stub_get.yaml
   ↓tools_requestable_stub_set [sequences.GenericSequence]: 🗏 sequences/tools_requestable_stub_set.yaml

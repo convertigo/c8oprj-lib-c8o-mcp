@@ -389,6 +389,7 @@ Status:
 - a first real live thin-slice campaign on candidate `0.0.12+57e32e2` completed with `3/3` scenario passes for planner, backend, and HTTP
 - the live thin slice now yields a fully green scored aggregate (`passCount=3`, `failCount=0`, `gateFailureCount=0`) and is strong enough to serve as a real baseline for Phase 5
 - a fresh-starter rerun on candidate `0.0.13+c598ae5` now proves exact owned-project teardown; it also surfaced that the planner benchmark must satisfy the contract on a blank starter without relying on previously shaped workspace projects
+- a mode-gated field feedback channel is now available for real POC runs through the Convertigo global symbol `${mcp.report.mode=off}`, without coupling ad hoc feedback to the benchmark critic flow
 
 Delivered benchmark families:
 
@@ -473,6 +474,49 @@ Phase 5 v1 outputs:
 - `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/prompt.txt`
 - `tests/improvement/<baselineCandidateId>/<cycleId>/candidate/metadata.json`
 - `tests/improvement/<baselineCandidateId>/<cycleId>/compare/comparison.json`
+
+## [DONE] Phase 4.2 - Field Feedback Channel
+
+Goal: capture reusable MCP/doc/prompt friction from real runs without forcing
+every POC through the full benchmark critic pipeline.
+
+Status:
+
+- completed as a mode-gated runtime feature driven by the Convertigo global
+  symbol `${mcp.report.mode=off}`
+- undefined symbol and explicit `off` are intentionally identical
+- the public MCP surface now hides or exposes `report-create` dynamically
+  without rewriting prompt files on disk
+- prompt feedback hints are appended at runtime only in `suggest` and
+  `benchmark` modes
+- field feedback reports are stored as runtime JSON artifacts under
+  `feedback/inbox/YYYY/MM/`
+
+Delivered assets:
+
+- helper: `js/reporting.js`
+- tool: `_c8oProject/sequences/tools_report_create.yaml`
+- schema: `review/schemas/feedback-report.schema.json`
+
+Behavior:
+
+- `off`
+  - no `report-create` in `tools/list`
+  - no feedback capability in `initialize`
+  - no feedback suffix in `prompts/call`
+- `suggest`
+  - `report-create` visible
+  - optional short feedback suffix in prompts
+- `benchmark`
+  - same tool exposure as `suggest`
+  - stronger benchmark-specific prompt suffix
+
+Exit criteria:
+
+- field feedback can be enabled or disabled at runtime through the symbol
+- the feature stays invisible in production mode
+- feedback artifacts remain separate from benchmark critics and Phase 5
+  maintainer ingestion
 
 Loop:
 

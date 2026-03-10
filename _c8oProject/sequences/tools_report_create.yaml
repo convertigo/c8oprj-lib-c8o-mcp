@@ -1,0 +1,158 @@
+accessibility: Private
+comment: |
+  Create a field feedback report
+  Writes one structured field-feedback report under feedback/inbox/YYYY/MM/. Available only when ${mcp.report.mode=off} resolves to suggest or benchmark.
+↓IncludeHelpers [steps.SimpleStep-1773134763160]: 
+  comment: Load reporting helper
+  expression: include("js/reporting.js");
+↓Init [steps.SimpleStep-1773134763162]: 
+  comment: Validate the report payload and persist one feedback entry
+  expression: |
+    'reportResult = C8O.reporting.writeReport({
+      area: area,
+      subjectId: subjectId,
+      severity: severity,
+      summary: summary,
+      evidence: evidence,
+      suggestion: suggestion,
+      rolePrompt: rolePrompt,
+      project: project,
+      runMode: runMode,
+      runId: runId,
+      provider: provider,
+      model: model
+    });'
+↓result [steps.JsonObjectStep-1773134763164]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1773134763166]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.status
+  ↓message [steps.JsonFieldStep-1773134763168]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.message
+  ↓reportId [steps.JsonFieldStep-1773134763170]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: reportId
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.reportId
+  ↓mode [steps.JsonFieldStep-1773134763172]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mode
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.mode
+  ↓path [steps.JsonFieldStep-1773134763174]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: path
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.path
+  ↓relativePath [steps.JsonFieldStep-1773134763176]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: relativePath
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.relativePath
+  ↓createdAt [steps.JsonFieldStep-1773134763178]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: createdAt
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.createdAt
+↓area [variables.RequestableVariable-1773134763180]: 
+  comment: 'Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.'
+  description: 'Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.'
+↓subjectId [variables.RequestableVariable-1773134763182]: 
+  comment: Short stable identifier of the subject being reported.
+  description: Short stable identifier of the subject being reported.
+↓severity [variables.RequestableVariable-1773134763184]: 
+  comment: 'Feedback severity. Allowed values: low, medium, high.'
+  description: 'Feedback severity. Allowed values: low, medium, high.'
+↓summary [variables.RequestableVariable-1773134763186]: 
+  comment: Short reusable summary of the MCP, doc, or prompt friction.
+  description: Short reusable summary of the MCP, doc, or prompt friction.
+↓evidence [variables.RequestableVariable-1773134763188]: 
+  comment: Optional concrete evidence such as an error snippet or failure symptom.
+  description: Optional concrete evidence such as an error snippet or failure symptom.
+↓suggestion [variables.RequestableVariable-1773134763190]: 
+  comment: Optional suggested improvement for the MCP, guides, or prompts.
+  description: Optional suggested improvement for the MCP, guides, or prompts.
+↓rolePrompt [variables.RequestableVariable-1773134763192]: 
+  comment: Optional prompt name or role that encountered the issue.
+  description: Optional prompt name or role that encountered the issue.
+↓project [variables.RequestableVariable-1773134763194]: 
+  comment: Optional project name involved in the run.
+  description: Optional project name involved in the run.
+↓runMode [variables.RequestableVariable-1773134763196]: 
+  comment: Optional run mode such as poc, suggest, benchmark, or campaign.
+  description: Optional run mode such as poc, suggest, benchmark, or campaign.
+↓runId [variables.RequestableVariable-1773134763198]: 
+  comment: Optional run identifier for traceability.
+  description: Optional run identifier for traceability.
+↓provider [variables.RequestableVariable-1773134763200]: 
+  comment: Optional model provider name.
+  description: Optional model provider name.
+↓model [variables.RequestableVariable-1773134763202]: 
+  comment: Optional model identifier.
+  description: Optional model identifier.

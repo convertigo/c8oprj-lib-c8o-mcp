@@ -13,11 +13,12 @@ the tools.
 - Public MCP endpoint: `http://localhost:18080/convertigo/api/mcp`
 - Current protocol: `2025-06-18`
 - Current server name: `convertigo-mcp`
-- Current live version at last review: `0.0.10`
+- Current live version at last review: `0.0.15`
 - Current public catalog:
-  - `21` tools
+  - `24` tools by default
+  - `25` tools when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`
   - `12` resources
-  - `1` prompt
+  - `8` prompts
 
 Do not trust this file over the live server. Verify with:
 
@@ -75,6 +76,11 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
   `logs`. Failures must surface through the MCP error envelope.
 - `rag-query` must not expose `stream`; backend calls must always force
   `stream=false`.
+- Field feedback is controlled at runtime by the Convertigo global symbol
+  `${mcp.report.mode=off}`.
+  - `off` hides the feedback tool and prompt hint entirely
+  - `suggest` exposes optional field feedback
+  - `benchmark` exposes the same tool with stronger benchmark wording
 - Built-in resources such as `convertigo://capabilities` and
   `convertigo://recipes/quickstart` are part of the onboarding surface and must
   stay aligned with the live contract.
@@ -108,6 +114,8 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
 - `TOOLS.md` is a short human companion, not the source of truth.
 - `project.md` is generated output and may lag or include internal details; do
   not use it as the authoritative contract for prompts or guides.
+- Runtime field feedback files are build artifacts under `feedback/inbox/` and
+  must not be committed.
 - Guide strategy is tracked in `REVIEW-ROADMAP.md`.
 
 ## Validation Checklist
@@ -141,7 +149,11 @@ After changing the MCP:
 - Phase 0: done
 - Phase 0.5: done
 - Phase 1: done
-- Next major phase: role prompts
+- Phase 2: done
+- Phase 3: done
+- Phase 4: done
+- Phase 5 scaffolding: done
+- Current follow-up: optional field feedback channel and further live benchmark expansion
 
 See `REVIEW-ROADMAP.md` for the working plan.
 

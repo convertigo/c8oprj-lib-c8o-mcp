@@ -2,7 +2,9 @@ accessibility: Private
 comment: Handles MCP prompts/call requests
 ↓IncludePromptsHelper [steps.SimpleStep-1762968988833]: 
   comment: Load prompts helper
-  expression: include("js/prompts.js");
+  expression: |
+    include("js/prompts.js");
+    include("js/reporting.js");
 ↓LookupPrompt [steps.SimpleStep-1762969029126]: 
   comment: Find prompt entry and content
   expression: |
@@ -10,7 +12,8 @@ comment: Handles MCP prompts/call requests
     if (!promptEntry) {
       throw new Error("Prompt not found: " + name);
     }
-    promptContent = c8oReadPromptFile(promptEntry);
+    promptContent = String(c8oReadPromptFile(promptEntry));
+    promptContent = C8O.reporting.appendPromptFeedback(promptContent);
     promptMeta = promptEntry;'
 ↓Result [steps.JsonObjectStep-1762969037235]: 
   comment: Build prompt response
