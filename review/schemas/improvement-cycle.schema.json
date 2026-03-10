@@ -22,7 +22,10 @@
     "maintainerPromptName",
     "packetPath",
     "promptPath",
+    "feedbackConsolidationPath",
+    "selectedFindingIds",
     "maintainerRun",
+    "targetedReplayCampaignPath",
     "candidate",
     "replayCampaignPath",
     "comparisonPath",
@@ -106,6 +109,18 @@
         "null"
       ]
     },
+    "feedbackConsolidationPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "selectedFindingIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "maintainerRun": {
       "type": [
         "object",
@@ -144,6 +159,12 @@
           ]
         }
       }
+    },
+    "targetedReplayCampaignPath": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "candidate": {
       "type": [

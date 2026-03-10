@@ -1,19 +1,32 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
+PORT_COERCION_PATTERNS = [
+    r"materializ(?:ed|ing) runtime port `0`",
+    r"silently materializing `0`",
+    r"numeric connector ports",
+    r"resent as string",
+    r"HttpConnector\.port=443.*port `0`",
+]
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Compare two scored Phase 4 benchmark campaigns.")
+    parser = argparse.ArgumentParser(description="Compare two scored benchmark campaigns.")
     parser.add_argument("--baseline-campaign-dir", required=True, help="Path to the baseline campaign directory.")
     parser.add_argument("--candidate-campaign-dir", required=True, help="Path to the candidate campaign directory.")
     parser.add_argument("--out-dir", required=True, help="Directory that will receive comparison.json and comparison.md.")
     parser.add_argument("--maintainer-packet", default="", help="Optional maintainer packet JSON path.")
+    parser.add_argument(
+        "--targeted-replay-campaign-dir",
+        default="",
+        help="Optional targeted replay campaign directory used to verify the selected finding before full replay verdict.",
+    )
     return parser.parse_args()
 
 
@@ -80,6 +93,58 @@ def build_scenario_deltas(baseline_aggregate, candidate_aggregate):
     return deltas
 
 
+def selected_finding_ids(packet):
+    if not packet:
+        return []
+    return packet.get("selectedFindingIds", [])
+
+
+def coercion_issue_present(text):
+    lowered = text or ""
+    return any(re.search(pattern, lowered, flags=re.IGNORECASE) for pattern in PORT_COERCION_PATTERNS)
+
+
+def verify_targeted_replay(targeted_dir, packet):
+    if not targeted_dir:
+        return False, ["No targeted replay campaign path was provided."]
+    campaign_dir, manifest_path, manifest, aggregate_path, aggregate = load_campaign(targeted_dir)
+    reasons = []
+    if not manifest_path.is_file():
+        reasons.append("Targeted replay manifest is missing.")
+    if manifest.get("finishedAt") is None:
+        reasons.append("Targeted replay manifest is incomplete.")
+    if aggregate is None:
+        reasons.append("Targeted replay aggregate is missing.")
+        return False, reasons
+
+    scenario_results = aggregate.get("scenarioResults", [])
+    if len(scenario_results) != 1:
+        reasons.append("Targeted replay must contain exactly one scenario.")
+    else:
+        result = scenario_results[0]
+        if result["status"] != "PASS":
+            reasons.append(f"Targeted replay scenario returned {result['status']}.")
+        if result["gateStatus"] != "PASS":
+            reasons.append(f"Targeted replay gate status is {result['gateStatus']}.")
+
+    selected_ids = selected_finding_ids(packet)
+    if "finding-httpconnector-port-coercion" in selected_ids:
+        report_paths = []
+        for run in manifest.get("runs", []):
+            for key in ("reportPath", "criticReportPath", "summaryPath"):
+                if run.get(key):
+                    report_paths.append(Path(run[key]))
+        for path in report_paths:
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8")
+            if coercion_issue_present(text):
+                reasons.append(f"Targeted replay still contains HTTP port coercion evidence in {path}.")
+                break
+
+    return len(reasons) == 0, reasons
+
+
 def format_markdown(comparison):
     lines = [
         "# Campaign Comparison",
@@ -89,6 +154,7 @@ def format_markdown(comparison):
         f"- `suiteId`: `{comparison['suiteId']}`",
         f"- `provider/model`: `{comparison['provider']}` / `{comparison['model']}`",
         f"- `overallScoreDelta`: `{comparison['overallScoreDelta']:.2f}`",
+        f"- `targetedReplayVerified`: `{comparison['targetedReplayVerified']}`",
         f"- `verdict`: `{comparison['verdict']}`",
         "",
         "# Verdict Reasons",
@@ -139,14 +205,15 @@ def main():
     packet = load_json(args.maintainer_packet) if args.maintainer_packet else None
 
     reasons = []
-    verdict = "REJECTED"
-
     comparison = {
         "schemaVersion": SCHEMA_VERSION,
         "baselineCandidateId": baseline_manifest["candidateId"],
         "candidateId": candidate_manifest["candidateId"],
         "baselineCampaignPath": str(baseline_dir),
         "candidateCampaignPath": str(candidate_dir),
+        "targetedReplayCampaignPath": str(Path(args.targeted_replay_campaign_dir).resolve())
+        if args.targeted_replay_campaign_dir
+        else None,
         "suiteId": baseline_manifest["suiteId"],
         "provider": candidate_manifest.get("provider"),
         "model": candidate_manifest.get("model"),
@@ -168,6 +235,8 @@ def main():
             "repeatedCountDelta": 0,
             "targetedResolvedCount": 0,
         },
+        "selectedFindingIds": selected_finding_ids(packet),
+        "targetedReplayVerified": False,
         "verdict": "BLOCKED",
         "verdictReasons": [],
         "scenarioDeltas": [],
@@ -191,7 +260,15 @@ def main():
     if not tuple_matches:
         reasons.append("Replay provider/model/codexVersion tuple does not match the baseline campaign.")
 
-    if reasons:
+    targeted_replay_reasons = []
+    if args.targeted_replay_campaign_dir:
+        comparison["targetedReplayVerified"], targeted_replay_reasons = verify_targeted_replay(
+            args.targeted_replay_campaign_dir,
+            packet,
+        )
+        reasons.extend(targeted_replay_reasons)
+
+    if reasons and (baseline_aggregate is None or candidate_aggregate is None):
         comparison["verdict"] = "BLOCKED"
         comparison["verdictReasons"] = reasons
         out_dir = Path(args.out_dir).resolve()
@@ -225,7 +302,6 @@ def main():
         targeted_keys = {
             f"{item['area']}|{item['subjectId']}|{item['symptom']}"
             for item in packet.get("selectedFindings", [])
-            if item.get("severity", 0) >= 3
         }
     targeted_resolved = 0
     if targeted_keys:
@@ -241,37 +317,41 @@ def main():
         - repeated_finding_count(baseline_aggregate["topFindings"]),
         "targetedResolvedCount": targeted_resolved,
     }
+    comparison["scenarioDeltas"] = build_scenario_deltas(baseline_aggregate, candidate_aggregate)
 
-    scenario_deltas = build_scenario_deltas(baseline_aggregate, candidate_aggregate)
-    comparison["scenarioDeltas"] = scenario_deltas
-
-    if any(item["baselineStatus"] == "PASS" and item["candidateStatus"] == "FAIL" for item in scenario_deltas):
-        verdict = "REJECTED"
-        reasons.append("At least one previously passing scenario regressed to FAIL.")
+    verdict = "REJECTED"
+    verdict_reasons = []
+    if any(item["baselineStatus"] == "PASS" and item["candidateStatus"] == "FAIL" for item in comparison["scenarioDeltas"]):
+        verdict_reasons.append("At least one previously passing scenario regressed to FAIL.")
     elif comparison["gateFailureDelta"] > 0:
-        verdict = "REJECTED"
-        reasons.append("Gate failure count increased.")
+        verdict_reasons.append("Gate failure count increased.")
     elif comparison["passFailSkippedDelta"]["failCount"] > 0:
-        verdict = "REJECTED"
-        reasons.append("Fail count increased.")
+        verdict_reasons.append("Fail count increased.")
+    elif args.targeted_replay_campaign_dir and not comparison["targetedReplayVerified"]:
+        verdict_reasons.extend(targeted_replay_reasons or ["Targeted replay verification failed."])
     elif comparison["overallScoreDelta"] >= 1.0:
         verdict = "ACCEPTED"
-        reasons.append("Overall score improved by at least 1.0.")
+        verdict_reasons.append("Overall score improved by at least 1.0.")
     else:
         repeated_decreased = comparison["findingDelta"]["repeatedCountDelta"] < 0
         targeted_improved = comparison["findingDelta"]["targetedResolvedCount"] > 0 and comparison["gateFailureDelta"] <= 0
-        if comparison["overallScoreDelta"] >= -0.1 and (repeated_decreased or targeted_improved):
+        targeted_verified = args.targeted_replay_campaign_dir and comparison["targetedReplayVerified"]
+        if comparison["overallScoreDelta"] >= -0.1 and targeted_verified:
+            verdict = "ACCEPTED"
+            verdict_reasons.append("Selected finding was verified in targeted replay without introducing a global regression.")
+        elif comparison["overallScoreDelta"] >= -0.1 and (repeated_decreased or targeted_improved):
             verdict = "ACCEPTED"
             if repeated_decreased:
-                reasons.append("Repeated actionable findings decreased without score regression beyond the tolerance.")
+                verdict_reasons.append("Repeated actionable findings decreased without score regression beyond the tolerance.")
             if targeted_improved:
-                reasons.append("A targeted high-severity finding disappeared without introducing a new gate failure.")
+                verdict_reasons.append("A targeted finding disappeared from the aggregate without introducing a new gate failure.")
         else:
-            verdict = "REJECTED"
-            reasons.append("Candidate did not clear the acceptance policy.")
+            verdict_reasons.append("Candidate did not clear the acceptance policy.")
 
+    if verdict != "ACCEPTED":
+        verdict = "REJECTED"
     comparison["verdict"] = verdict
-    comparison["verdictReasons"] = reasons
+    comparison["verdictReasons"] = verdict_reasons
 
     out_dir = Path(args.out_dir).resolve()
     write_json(out_dir / "comparison.json", comparison)

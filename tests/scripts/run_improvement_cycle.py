@@ -9,9 +9,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 MAINTAINER_PROMPT_NAME = "convertigo-maintainer"
+FINDING_TARGET_SCENARIOS = {
+    "finding-httpconnector-port-coercion": ["http-facade-integration-v1"],
+}
+PORT_COERCION_PATTERNS = [
+    r"materializ(?:ed|ing) runtime port `0`",
+    r"silently materializing `0`",
+    r"numeric connector ports",
+    r"resent as string",
+    r"HttpConnector\.port=443.*port `0`",
+]
 
 
 def repo_root():
@@ -26,6 +36,12 @@ def parse_args():
     root = repo_root()
     parser = argparse.ArgumentParser(description="Run one Phase 5 improvement cycle.")
     parser.add_argument("--baseline-campaign-dir", required=True, help="Path to the baseline Phase 4 campaign directory.")
+    parser.add_argument(
+        "--feedback-consolidation",
+        default="",
+        help="Optional explicit feedback consolidation JSON. Defaults to the latest completed triage batch.",
+    )
+    parser.add_argument("--finding-id", required=True, help="The single MCP-owned finding to target in this cycle.")
     parser.add_argument("--improvement-root", default=str(root / "tests" / "improvement"), help="Improvement output root.")
     parser.add_argument("--cycle-id", default="cycle-001", help="Cycle identifier, for example cycle-001.")
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL, help="Convertigo MCP endpoint for the candidate runtime.")
@@ -112,178 +128,17 @@ def canonical_owner(value):
     return mapping.get(value, value)
 
 
-def normalize_finding(item):
+def normalize_benchmark_finding(item):
     normalized = dict(item)
     normalized["recommendedOwner"] = canonical_owner(item.get("recommendedOwner"))
     return normalized
 
 
-def select_findings(top_findings):
-    allowed = {"tool", "guide", "prompt", "scenario", "fixture"}
-    normalized = [normalize_finding(item) for item in top_findings]
-    selected = [item for item in normalized if item.get("recommendedOwner") in allowed]
-    selected.sort(key=lambda item: (-item["severity"], -item["count"], item["area"], item["subjectId"], item["symptom"]))
-    return normalized, selected[:5]
-
-
-def build_evidence_paths(manifest, selected_findings):
-    runs_by_id = {item["runId"]: item for item in manifest.get("runs", [])}
-    run_ids = []
-    for finding in selected_findings:
-        for run_id in finding.get("evidenceRunIds", []):
-            if run_id not in run_ids and run_id in runs_by_id:
-                run_ids.append(run_id)
-    return {
-        "campaignManifest": str(Path(manifest["__manifest_path__"]).resolve()),
-        "aggregateFindings": str(Path(manifest["__aggregate_path__"]).resolve()),
-        "runReports": [runs_by_id[run_id]["reportPath"] for run_id in run_ids],
-        "runSummaries": [runs_by_id[run_id]["summaryPath"] for run_id in run_ids],
-        "criticReports": [runs_by_id[run_id].get("criticReportPath") for run_id in run_ids if runs_by_id[run_id].get("criticReportPath")],
-        "rawLogs": [runs_by_id[run_id]["logPath"] for run_id in run_ids],
-    }
-
-
-def build_relevant_context(root, manifest, selected_findings):
-    prompts = prompt_catalog(root)
-    runs_by_id = {item["runId"]: item for item in manifest.get("runs", [])}
-    relevant_guides = []
-    relevant_prompts = []
-    for finding in selected_findings:
-        for run_id in finding.get("evidenceRunIds", []):
-            run_record = runs_by_id.get(run_id)
-            if not run_record:
-                continue
-            if run_record["rolePromptName"] not in relevant_prompts:
-                relevant_prompts.append(run_record["rolePromptName"])
-            role = prompts.get(run_record["rolePromptName"])
-            if role:
-                for guide_id in role.get("guideIds", []):
-                    if guide_id not in relevant_guides:
-                        relevant_guides.append(guide_id)
-    base_guides = [
-        "convertigo/start@1",
-        "convertigo/engineering-workflow@1",
-        "convertigo/validation-and-evidence@1",
-    ]
-    for guide_id in reversed(base_guides):
-        if guide_id not in relevant_guides:
-            relevant_guides.insert(0, guide_id)
-    return relevant_guides, relevant_prompts
-
-
-def build_packet(root, baseline_campaign_dir, manifest, aggregate):
-    top_findings, selected_findings = select_findings(aggregate.get("topFindings", []))
-    relevant_guides, relevant_prompts = build_relevant_context(root, manifest, selected_findings)
-    packet = {
-        "schemaVersion": SCHEMA_VERSION,
-        "baselineCandidateId": manifest["candidateId"],
-        "baselineGitSha": manifest["gitSha"],
-        "suiteId": manifest["suiteId"],
-        "provider": manifest.get("provider"),
-        "model": manifest.get("model"),
-        "codexVersion": manifest["codexVersion"],
-        "projectVersion": manifest["projectVersion"],
-        "topFindings": top_findings,
-        "selectedFindings": selected_findings,
-        "scenarioSummary": aggregate.get("scenarioResults", []),
-        "relevantGuides": relevant_guides,
-        "relevantPrompts": relevant_prompts,
-        "allowedMutationAreas": [
-            "tool",
-            "auto-documentation",
-            "guide",
-            "prompt",
-            "scenario",
-            "fixture",
-            "review-doc"
-        ],
-        "forbiddenMutationAreas": [
-            "external-infrastructure",
-            "global-provider-config",
-            "unrelated-product-work"
-        ],
-        "evidencePaths": build_evidence_paths(manifest, selected_findings),
-        "acceptanceTargets": {
-            "overallScoreMinDelta": 1.0,
-            "maxOverallScoreRegression": 0.1,
-            "forbidPassToFail": True,
-            "forbidGateFailureIncrease": True,
-            "forbidFailCountIncrease": True,
-            "requiredRunnerTuple": {
-                "provider": manifest.get("provider"),
-                "model": manifest.get("model"),
-                "codexVersion": manifest["codexVersion"],
-            },
-            "targetedFindingKeys": [finding_string(item) for item in selected_findings if item.get("severity", 0) >= 3],
-        },
-    }
-    return packet
-
-
-def render_packet_markdown(packet):
-    lines = [
-        "# Maintainer Packet",
-        "",
-        f"- Baseline candidate: `{packet['baselineCandidateId']}`",
-        f"- Suite: `{packet['suiteId']}`",
-        f"- Provider/model: `{packet['provider']}` / `{packet['model']}`",
-        f"- Codex version: `{packet['codexVersion']}`",
-        f"- Project version: `{packet['projectVersion']}`",
-        "",
-        "## Selected Findings",
-        "",
-    ]
-    if packet["selectedFindings"]:
-        for item in packet["selectedFindings"]:
-            lines.append(
-                f"- [{item['area']}/{item['subjectId']}] severity `{item['severity']}`, count `{item['count']}`: {item['symptom']}"
-            )
-    else:
-        lines.append("- none")
-
-    lines.extend(
-        [
-            "",
-            "## Relevant Guides",
-            "",
-        ]
-    )
-    for item in packet["relevantGuides"]:
-        lines.append(f"- `{item}`")
-
-    lines.extend(
-        [
-            "",
-            "## Relevant Prompts",
-            "",
-        ]
-    )
-    for item in packet["relevantPrompts"]:
-        lines.append(f"- `{item}`")
-
-    lines.extend(
-        [
-            "",
-            "## Acceptance Targets",
-            "",
-            f"- overall score delta >= `{packet['acceptanceTargets']['overallScoreMinDelta']}` is an automatic accept",
-            f"- overall score regression tolerance: `{packet['acceptanceTargets']['maxOverallScoreRegression']}`",
-            f"- forbid pass-to-fail: `{packet['acceptanceTargets']['forbidPassToFail']}`",
-            f"- forbid gate failure increase: `{packet['acceptanceTargets']['forbidGateFailureIncrease']}`",
-            f"- forbid fail count increase: `{packet['acceptanceTargets']['forbidFailCountIncrease']}`",
-            "",
-            "## Evidence Paths",
-            "",
-            f"- Campaign manifest: `{packet['evidencePaths']['campaignManifest']}`",
-            f"- Aggregate findings: `{packet['evidencePaths']['aggregateFindings']}`",
-        ]
-    )
-    for field in ("runReports", "runSummaries", "criticReports", "rawLogs"):
-        if packet["evidencePaths"][field]:
-            lines.append(f"- {field}:")
-            for item in packet["evidencePaths"][field]:
-                lines.append(f"  - `{item}`")
-    return "\n".join(lines) + "\n"
+def severity_to_int(value):
+    if isinstance(value, int):
+        return max(1, min(3, value))
+    mapping = {"low": 1, "medium": 2, "high": 3}
+    return mapping.get(str(value).lower(), 1)
 
 
 def render_template(template_path, output_path, replacements):
@@ -326,13 +181,13 @@ def run_prompt(repo_dir, prompt_path, run_label, role_prompt_name, workspace_dir
     return parsed
 
 
-def create_worktree(root, branch_name, worktree_path):
+def create_worktree(root, branch_name, worktree_path, base_ref):
     if worktree_path.exists():
         raise RuntimeError(f"Worktree path already exists: {worktree_path}")
     existing = run_command(["git", "show-ref", "--verify", f"refs/heads/{branch_name}"], cwd=root)
     if existing.returncode == 0:
         raise RuntimeError(f"Branch already exists: {branch_name}")
-    result = run_command(["git", "worktree", "add", "-b", branch_name, str(worktree_path), "HEAD"], cwd=root)
+    result = run_command(["git", "worktree", "add", "-b", branch_name, str(worktree_path), base_ref], cwd=root)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
 
@@ -355,6 +210,417 @@ def update_cycle_manifest(path, payload, state=None, blocking_reason=None):
     write_json(path, payload)
 
 
+def latest_feedback_consolidation(root):
+    candidates = sorted((root / "feedback" / "triage").glob("*/consolidation.json"))
+    if not candidates:
+        return None
+    return candidates[-1]
+
+
+def resolve_feedback_consolidation(root, explicit_path):
+    if explicit_path:
+        path = Path(explicit_path).resolve()
+        if not path.is_file():
+            raise RuntimeError(f"Feedback consolidation does not exist: {path}")
+        return path
+    latest = latest_feedback_consolidation(root)
+    if latest is None:
+        raise RuntimeError("No completed feedback consolidation was found.")
+    return latest.resolve()
+
+
+def select_benchmark_top_findings(top_findings):
+    allowed = {"tool", "guide", "prompt", "scenario", "fixture"}
+    normalized = [normalize_benchmark_finding(item) for item in top_findings]
+    selected = [item for item in normalized if item.get("recommendedOwner") in allowed]
+    selected.sort(key=lambda item: (-item["severity"], -item["count"], item["area"], item["subjectId"], item["symptom"]))
+    return normalized, selected[:5]
+
+
+def build_scenario_summary(manifest, aggregate):
+    summary = []
+    by_run_id = {item["runId"]: item for item in manifest.get("runs", [])}
+    for item in aggregate.get("scenarioResults", []):
+        run_record = by_run_id.get(item["runId"], {})
+        summary.append(
+            {
+                "scenarioId": item["scenarioId"],
+                "runId": item["runId"],
+                "status": item["status"],
+                "gateStatus": item["gateStatus"],
+                "score": item["score"],
+                "weightedScore": item["weightedScore"],
+                "runReportPath": item.get("runReportPath") or run_record.get("reportPath"),
+                "criticReportPath": item.get("criticReportPath") or run_record.get("criticReportPath"),
+            }
+        )
+    return summary
+
+
+def collect_evidence_paths(manifest, selected_run_ids):
+    runs_by_id = {item["runId"]: item for item in manifest.get("runs", [])}
+    return {
+        "campaignManifest": str(Path(manifest["__manifest_path__"]).resolve()),
+        "aggregateFindings": str(Path(manifest["__aggregate_path__"]).resolve()),
+        "runReports": [runs_by_id[run_id]["reportPath"] for run_id in selected_run_ids if runs_by_id.get(run_id, {}).get("reportPath")],
+        "runSummaries": [runs_by_id[run_id]["summaryPath"] for run_id in selected_run_ids if runs_by_id.get(run_id, {}).get("summaryPath")],
+        "criticReports": [
+            runs_by_id[run_id]["criticReportPath"]
+            for run_id in selected_run_ids
+            if runs_by_id.get(run_id, {}).get("criticReportPath")
+        ],
+        "rawLogs": [runs_by_id[run_id]["logPath"] for run_id in selected_run_ids if runs_by_id.get(run_id, {}).get("logPath")],
+    }
+
+
+def build_relevant_context(root, role_prompt_name):
+    prompts = prompt_catalog(root)
+    relevant_prompts = []
+    relevant_guides = [
+        "convertigo/start@1",
+        "convertigo/engineering-workflow@1",
+        "convertigo/validation-and-evidence@1",
+    ]
+    if role_prompt_name:
+        relevant_prompts.append(role_prompt_name)
+        role = prompts.get(role_prompt_name)
+        if role:
+            for guide_id in role.get("guideIds", []):
+                if guide_id not in relevant_guides:
+                    relevant_guides.append(guide_id)
+    if MAINTAINER_PROMPT_NAME not in relevant_prompts:
+        relevant_prompts.append(MAINTAINER_PROMPT_NAME)
+    return relevant_guides, relevant_prompts
+
+
+def find_feedback_finding(consolidation, finding_id):
+    for item in consolidation.get("groupedFindings", []):
+        if item.get("findingId") == finding_id:
+            return item
+    return None
+
+
+def benchmark_keyword_patterns(finding_id):
+    if finding_id == "finding-httpconnector-port-coercion":
+        return [
+            r"port coercion",
+            r"numeric connector ports",
+            r"materializ(?:ed|ing) runtime port `0`",
+            r"silently materializing `0`",
+        ]
+    return []
+
+
+def file_matches_patterns(path, patterns):
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
+
+
+def collect_candidate_benchmark_paths(root, baseline_campaign_dir, baseline_manifest, finding_id):
+    patterns = benchmark_keyword_patterns(finding_id)
+    if not patterns:
+        return []
+    candidate_paths = []
+    aggregate_critic_dir = baseline_campaign_dir / "aggregate" / "critic"
+    if aggregate_critic_dir.is_dir():
+        for path in sorted(aggregate_critic_dir.glob("*/report.json")) + sorted(aggregate_critic_dir.glob("*_critic_*/report.json")):
+            if file_matches_patterns(path, patterns):
+                candidate_paths.append(path)
+    for run in baseline_manifest.get("runs", []):
+        for key in ("reportPath", "summaryPath", "criticReportPath"):
+            value = run.get(key)
+            if value:
+                path = Path(value)
+                if file_matches_patterns(path, patterns):
+                    candidate_paths.append(path)
+    if candidate_paths:
+        return sorted({str(path.resolve()) for path in candidate_paths})
+
+    search_root = root / "tests" / "campaigns"
+    if search_root.is_dir():
+        for path in sorted(search_root.rglob("report.json")):
+            if file_matches_patterns(path, patterns):
+                candidate_paths.append(path)
+        for path in sorted(search_root.rglob("summary.md")):
+            if file_matches_patterns(path, patterns):
+                candidate_paths.append(path)
+    return sorted({str(path.resolve()) for path in candidate_paths})
+
+
+def selected_finding_for_cycle(root, baseline_campaign_dir, baseline_manifest, baseline_aggregate, consolidation, finding_id):
+    feedback_finding = find_feedback_finding(consolidation, finding_id)
+    if feedback_finding is None:
+        raise RuntimeError(f"Feedback consolidation does not contain finding id: {finding_id}")
+    if feedback_finding.get("targetRepo") != "c8oprj-c8o-mcp":
+        raise RuntimeError(f"Finding {finding_id} is not owned by this repo.")
+    if canonical_owner(feedback_finding.get("recommendedOwner")) not in {"tool", "guide", "prompt", "scenario", "fixture"}:
+        raise RuntimeError(f"Finding {finding_id} is not owned by a maintainer-eligible area.")
+
+    targeted_scenarios = FINDING_TARGET_SCENARIOS.get(finding_id)
+    if not targeted_scenarios:
+        raise RuntimeError(f"No targeted replay scenario is configured for finding: {finding_id}")
+
+    scenario_summary = build_scenario_summary(baseline_manifest, baseline_aggregate)
+    scenario_run_ids = [
+        item["runId"]
+        for item in scenario_summary
+        if item["scenarioId"] in targeted_scenarios
+    ]
+    benchmark_evidence_paths = collect_candidate_benchmark_paths(root, baseline_campaign_dir, baseline_manifest, finding_id)
+    if not benchmark_evidence_paths:
+        raise RuntimeError(f"Finding {finding_id} is not corroborated by benchmark evidence.")
+
+    selected = {
+        "findingId": finding_id,
+        "area": feedback_finding["area"],
+        "subjectId": feedback_finding["subjectId"],
+        "symptom": feedback_finding["symptom"],
+        "severity": severity_to_int(feedback_finding["severity"]),
+        "recommendedOwner": canonical_owner(feedback_finding["recommendedOwner"]),
+        "targetRepo": feedback_finding["targetRepo"],
+        "nextAction": feedback_finding.get("nextAction"),
+        "sourceReportIds": feedback_finding.get("sourceReportIds", []),
+        "scenarioIds": targeted_scenarios,
+        "evidenceRunIds": scenario_run_ids,
+        "providers": [baseline_manifest.get("provider")] if baseline_manifest.get("provider") else [],
+        "models": [baseline_manifest.get("model")] if baseline_manifest.get("model") else [],
+        "benchmarkEvidencePaths": benchmark_evidence_paths,
+        "feedbackEvidencePaths": feedback_finding.get("evidencePaths", []),
+    }
+    return selected, targeted_scenarios, scenario_run_ids
+
+
+def build_packet(root, baseline_campaign_dir, baseline_manifest, baseline_aggregate, feedback_consolidation, finding_id):
+    top_findings, _ = select_benchmark_top_findings(baseline_aggregate.get("topFindings", []))
+    selected, targeted_scenarios, selected_run_ids = selected_finding_for_cycle(
+        root,
+        baseline_campaign_dir,
+        baseline_manifest,
+        baseline_aggregate,
+        feedback_consolidation,
+        finding_id,
+    )
+    baseline_http_run = next((item for item in baseline_manifest.get("runs", []) if item["scenarioId"] in targeted_scenarios), None)
+    role_prompt_name = baseline_http_run["rolePromptName"] if baseline_http_run else None
+    relevant_guides, relevant_prompts = build_relevant_context(root, role_prompt_name)
+    selection_reason = (
+        "Selected finding-httpconnector-port-coercion for cycle 001 because the latest feedback triage marks it as an "
+        "MCP-owned maintainer candidate and historical benchmark evidence already corroborates the same numeric "
+        "HttpConnector.port coercion bug. All unrelated open findings remain out of scope for this first loop validation."
+    )
+    packet = {
+        "schemaVersion": SCHEMA_VERSION,
+        "baselineCandidateId": baseline_manifest["candidateId"],
+        "baselineGitSha": baseline_manifest["gitSha"],
+        "suiteId": baseline_manifest["suiteId"],
+        "provider": baseline_manifest.get("provider"),
+        "model": baseline_manifest.get("model"),
+        "codexVersion": baseline_manifest["codexVersion"],
+        "projectVersion": baseline_manifest["projectVersion"],
+        "findingSources": [
+            {
+                "findingId": finding_id,
+                "sourceType": "feedback",
+                "path": str(Path(path).resolve()),
+                "notes": "Latest feedback triage consolidation selected this MCP-owned maintainer candidate.",
+            }
+            for path in selected["feedbackEvidencePaths"]
+        ]
+        + [
+            {
+                "findingId": finding_id,
+                "sourceType": "benchmark-history" if baseline_manifest["candidateId"] not in path else "benchmark",
+                "path": path,
+                "notes": "Benchmark evidence corroborating the same port coercion issue.",
+            }
+            for path in selected["benchmarkEvidencePaths"]
+        ],
+        "selectedFindingIds": [finding_id],
+        "selectionReason": selection_reason,
+        "topFindings": top_findings,
+        "selectedFindings": [selected],
+        "scenarioSummary": build_scenario_summary(baseline_manifest, baseline_aggregate),
+        "relevantGuides": relevant_guides,
+        "relevantPrompts": relevant_prompts,
+        "allowedMutationAreas": [
+            "tool",
+            "auto-documentation",
+        ],
+        "forbiddenMutationAreas": [
+            "external-infrastructure",
+            "global-provider-config",
+            "unrelated-product-work",
+            "guide",
+            "prompt",
+            "scenario",
+            "fixture",
+        ],
+        "benchmarkEvidencePaths": selected["benchmarkEvidencePaths"],
+        "feedbackEvidencePaths": selected["feedbackEvidencePaths"],
+        "evidencePaths": collect_evidence_paths(baseline_manifest, selected_run_ids),
+        "acceptanceTargets": {
+            "overallScoreMinDelta": 1.0,
+            "maxOverallScoreRegression": 0.1,
+            "forbidPassToFail": True,
+            "forbidGateFailureIncrease": True,
+            "forbidFailCountIncrease": True,
+            "requiredRunnerTuple": {
+                "provider": baseline_manifest.get("provider"),
+                "model": baseline_manifest.get("model"),
+                "codexVersion": baseline_manifest["codexVersion"],
+            },
+            "targetedFindingKeys": [finding_string(selected)],
+        },
+    }
+    return packet, targeted_scenarios
+
+
+def render_packet_markdown(packet):
+    lines = [
+        "# Maintainer Packet",
+        "",
+        f"- Baseline candidate: `{packet['baselineCandidateId']}`",
+        f"- Suite: `{packet['suiteId']}`",
+        f"- Provider/model: `{packet['provider']}` / `{packet['model']}`",
+        f"- Codex version: `{packet['codexVersion']}`",
+        f"- Project version: `{packet['projectVersion']}`",
+        f"- Selected finding ids: `{', '.join(packet['selectedFindingIds'])}`",
+        "",
+        "## Selection Reason",
+        "",
+        packet["selectionReason"],
+        "",
+        "## Selected Findings",
+        "",
+    ]
+    for item in packet["selectedFindings"]:
+        lines.append(
+            f"- [{item['findingId']}] `{item['area']}/{item['subjectId']}` severity `{item['severity']}`: {item['symptom']}"
+        )
+    lines.extend(
+        [
+            "",
+            "## Benchmark Evidence",
+            "",
+        ]
+    )
+    for path in packet["benchmarkEvidencePaths"]:
+        lines.append(f"- `{path}`")
+    lines.extend(
+        [
+            "",
+            "## Feedback Evidence",
+            "",
+        ]
+    )
+    for path in packet["feedbackEvidencePaths"]:
+        lines.append(f"- `{path}`")
+    lines.extend(
+        [
+            "",
+            "## Relevant Guides",
+            "",
+        ]
+    )
+    for item in packet["relevantGuides"]:
+        lines.append(f"- `{item}`")
+    lines.extend(
+        [
+            "",
+            "## Relevant Prompts",
+            "",
+        ]
+    )
+    for item in packet["relevantPrompts"]:
+        lines.append(f"- `{item}`")
+    lines.extend(
+        [
+            "",
+            "## Acceptance Targets",
+            "",
+            f"- overall score delta >= `{packet['acceptanceTargets']['overallScoreMinDelta']}` is an automatic accept",
+            f"- overall score regression tolerance: `{packet['acceptanceTargets']['maxOverallScoreRegression']}`",
+            f"- forbid pass-to-fail: `{packet['acceptanceTargets']['forbidPassToFail']}`",
+            f"- forbid gate failure increase: `{packet['acceptanceTargets']['forbidGateFailureIncrease']}`",
+            f"- forbid fail count increase: `{packet['acceptanceTargets']['forbidFailCountIncrease']}`",
+            "",
+            "## Evidence Paths",
+            "",
+            f"- Campaign manifest: `{packet['evidencePaths']['campaignManifest']}`",
+            f"- Aggregate findings: `{packet['evidencePaths']['aggregateFindings']}`",
+        ]
+    )
+    for field in ("runReports", "runSummaries", "criticReports", "rawLogs"):
+        if packet["evidencePaths"][field]:
+            lines.append(f"- {field}:")
+            for item in packet["evidencePaths"][field]:
+                lines.append(f"  - `{item}`")
+    return "\n".join(lines) + "\n"
+
+
+def run_campaign(worktree_path, suite_path, campaign_root, args, codex_npm_version, scenario_ids=None):
+    command = [
+        "python3",
+        "tests/scripts/run_campaign.py",
+        "--suite",
+        str(suite_path),
+        "--campaign-root",
+        str(campaign_root),
+        "--mcp-url",
+        args.mcp_url,
+        "--request-timeout",
+        str(args.request_timeout),
+        "--scenario-timeout",
+        str(args.scenario_timeout),
+        "--critic-timeout",
+        str(args.critic_timeout),
+        "--aggregate-timeout",
+        str(args.aggregate_timeout),
+        "--reasoning-effort",
+        args.reasoning_effort,
+    ]
+    if scenario_ids:
+        command.extend(["--only-scenarios", ",".join(scenario_ids)])
+    if args.model:
+        command.extend(["--model", args.model])
+    if args.codex_bin:
+        command.extend(["--codex-bin", args.codex_bin])
+    env = os.environ.copy()
+    if codex_npm_version:
+        env["CODEX_NPM_VERSION"] = codex_npm_version
+    result = run_command(command, cwd=worktree_path, env=env)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+    campaign_dirs = sorted(Path(campaign_root).glob("*"))
+    if not campaign_dirs:
+        raise RuntimeError(f"No campaign output was produced under {campaign_root}")
+    return campaign_dirs[-1].resolve()
+
+
+def coercion_issue_present(text):
+    return any(re.search(pattern, text or "", flags=re.IGNORECASE) for pattern in PORT_COERCION_PATTERNS)
+
+
+def verify_targeted_http_replay(campaign_dir):
+    manifest = load_json(Path(campaign_dir) / "manifest.json")
+    aggregate = load_json(Path(campaign_dir) / "aggregate" / "findings.json")
+    if manifest.get("finishedAt") is None:
+        raise RuntimeError("Targeted replay campaign manifest is incomplete.")
+    if len(aggregate.get("scenarioResults", [])) != 1:
+        raise RuntimeError("Targeted replay must contain exactly one scenario.")
+    result = aggregate["scenarioResults"][0]
+    if result["status"] != "PASS" or result["gateStatus"] != "PASS":
+        raise RuntimeError("Targeted replay did not pass cleanly.")
+    report_path = Path(result["runReportPath"])
+    critic_path = Path(result["criticReportPath"])
+    for path in (report_path, critic_path):
+        text = path.read_text(encoding="utf-8")
+        if coercion_issue_present(text):
+            raise RuntimeError(f"Targeted replay still contains HTTP port coercion evidence in {path}.")
+
+
 def main():
     args = parse_args()
     root = repo_root()
@@ -367,6 +633,8 @@ def main():
     baseline_manifest["__manifest_path__"] = str(baseline_manifest_path)
     baseline_manifest["__aggregate_path__"] = str(baseline_aggregate_path)
     baseline_aggregate = load_json(baseline_aggregate_path)
+    feedback_consolidation_path = resolve_feedback_consolidation(root, args.feedback_consolidation)
+    feedback_consolidation = load_json(feedback_consolidation_path)
 
     cycle_dir = Path(args.improvement_root).resolve() / baseline_manifest["candidateId"] / args.cycle_id
     if cycle_dir.exists():
@@ -400,7 +668,10 @@ def main():
         "maintainerPromptName": MAINTAINER_PROMPT_NAME,
         "packetPath": str(packet_path),
         "promptPath": str(prompt_path),
+        "feedbackConsolidationPath": str(feedback_consolidation_path),
+        "selectedFindingIds": [args.finding_id],
         "maintainerRun": None,
+        "targetedReplayCampaignPath": None,
         "candidate": None,
         "replayCampaignPath": None,
         "comparisonPath": None,
@@ -408,11 +679,18 @@ def main():
     }
     update_cycle_manifest(cycle_manifest_path, cycle_manifest)
 
-    packet = build_packet(root, baseline_campaign_dir, baseline_manifest, baseline_aggregate)
+    packet, targeted_scenarios = build_packet(
+        root,
+        baseline_campaign_dir,
+        baseline_manifest,
+        baseline_aggregate,
+        feedback_consolidation,
+        args.finding_id,
+    )
     write_json(packet_path, packet)
     packet_md_path.write_text(render_packet_markdown(packet), encoding="utf-8")
 
-    create_worktree(root, branch_name, worktree_path)
+    create_worktree(root, branch_name, worktree_path, baseline_manifest["gitSha"])
 
     baseline_version = parse_project_version(worktree_path)
     target_version = bump_patch(baseline_version)
@@ -495,43 +773,32 @@ def main():
         }
         update_cycle_manifest(cycle_manifest_path, cycle_manifest, state="CANDIDATE_COMMITTED")
 
-        scenario_ids = ",".join(item["scenarioId"] for item in baseline_manifest.get("runs", []))
-        replay_command = [
-            "python3",
-            "tests/scripts/run_campaign.py",
-            "--suite",
-            str(worktree_path / Path(baseline_manifest["suitePath"]).relative_to(root)),
-            "--campaign-root",
-            str(replay_root),
-            "--mcp-url",
-            args.mcp_url,
-            "--request-timeout",
-            str(args.request_timeout),
-            "--scenario-timeout",
-            str(args.scenario_timeout),
-            "--critic-timeout",
-            str(args.critic_timeout),
-            "--aggregate-timeout",
-            str(args.aggregate_timeout),
-        ]
-        if scenario_ids:
-            replay_command.extend(["--only-scenarios", scenario_ids])
-        if args.model or baseline_manifest.get("model"):
-            replay_command.extend(["--model", args.model or baseline_manifest.get("model")])
-        replay_command.extend(["--reasoning-effort", args.reasoning_effort or baseline_manifest.get("reasoningEffort") or "medium"])
-        if args.codex_bin:
-            replay_command.extend(["--codex-bin", args.codex_bin])
-
-        replay_env = os.environ.copy()
-        if codex_npm_version:
-            replay_env["CODEX_NPM_VERSION"] = codex_npm_version
+        suite_path = worktree_path / Path(baseline_manifest["suitePath"]).relative_to(root)
         update_cycle_manifest(cycle_manifest_path, cycle_manifest, state="REPLAY_RUNNING")
-        replay_result = run_command(replay_command, cwd=worktree_path, env=replay_env)
-        if replay_result.returncode != 0:
-            raise RuntimeError(replay_result.stderr.strip() or replay_result.stdout.strip())
 
-        replay_candidate_dir = replay_root / candidate_id
-        cycle_manifest["replayCampaignPath"] = str(replay_candidate_dir)
+        targeted_campaign_root = replay_root / "targeted"
+        targeted_campaign_dir = run_campaign(
+            worktree_path,
+            suite_path,
+            targeted_campaign_root,
+            args,
+            codex_npm_version,
+            scenario_ids=targeted_scenarios,
+        )
+        verify_targeted_http_replay(targeted_campaign_dir)
+        cycle_manifest["targetedReplayCampaignPath"] = str(targeted_campaign_dir)
+        update_cycle_manifest(cycle_manifest_path, cycle_manifest)
+
+        full_campaign_root = replay_root / "full"
+        full_replay_dir = run_campaign(
+            worktree_path,
+            suite_path,
+            full_campaign_root,
+            args,
+            codex_npm_version,
+        )
+        cycle_manifest["replayCampaignPath"] = str(full_replay_dir)
+        update_cycle_manifest(cycle_manifest_path, cycle_manifest)
 
         compare_command = [
             "python3",
@@ -539,7 +806,9 @@ def main():
             "--baseline-campaign-dir",
             str(baseline_campaign_dir),
             "--candidate-campaign-dir",
-            str(replay_candidate_dir),
+            str(full_replay_dir),
+            "--targeted-replay-campaign-dir",
+            str(targeted_campaign_dir),
             "--out-dir",
             str(comparison_dir),
             "--maintainer-packet",
@@ -552,13 +821,13 @@ def main():
         comparison = load_json(comparison_path)
         cycle_manifest["comparisonPath"] = str(comparison_path)
         cycle_manifest["finishedAt"] = utc_now()
-        state = comparison["verdict"]
-        update_cycle_manifest(cycle_manifest_path, cycle_manifest, state=state)
+        update_cycle_manifest(cycle_manifest_path, cycle_manifest, state=comparison["verdict"])
 
         print(f"Cycle manifest: {cycle_manifest_path}")
         print(f"Maintainer packet: {packet_path}")
         print(f"Candidate metadata: {candidate_metadata_path}")
-        print(f"Replay campaign: {replay_candidate_dir}")
+        print(f"Targeted replay campaign: {targeted_campaign_dir}")
+        print(f"Full replay campaign: {full_replay_dir}")
         print(f"Comparison JSON: {comparison_path}")
         print(f"Comparison MD: {comparison_dir / 'comparison.md'}")
     except Exception as exc:

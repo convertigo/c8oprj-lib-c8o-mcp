@@ -10,6 +10,7 @@
     "candidateId",
     "baselineCampaignPath",
     "candidateCampaignPath",
+    "targetedReplayCampaignPath",
     "suiteId",
     "provider",
     "model",
@@ -20,6 +21,8 @@
     "averageDurationMsDelta",
     "ragCallRateDelta",
     "findingDelta",
+    "selectedFindingIds",
+    "targetedReplayVerified",
     "verdict",
     "verdictReasons",
     "scenarioDeltas"
@@ -39,6 +42,12 @@
     },
     "candidateCampaignPath": {
       "type": "string"
+    },
+    "targetedReplayCampaignPath": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "suiteId": {
       "type": "string"
@@ -126,6 +135,15 @@
           "minimum": 0
         }
       }
+    },
+    "selectedFindingIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "targetedReplayVerified": {
+      "type": "boolean"
     },
     "verdict": {
       "type": "string",

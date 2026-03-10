@@ -13,6 +13,9 @@
     "model",
     "codexVersion",
     "projectVersion",
+    "findingSources",
+    "selectedFindingIds",
+    "selectionReason",
     "topFindings",
     "selectedFindings",
     "scenarioSummary",
@@ -20,6 +23,8 @@
     "relevantPrompts",
     "allowedMutationAreas",
     "forbiddenMutationAreas",
+    "benchmarkEvidencePaths",
+    "feedbackEvidencePaths",
     "evidencePaths",
     "acceptanceTargets"
   ],
@@ -54,11 +59,55 @@
     "projectVersion": {
       "type": "string"
     },
+    "findingSources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "sourceType",
+          "path"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "benchmark",
+              "benchmark-history",
+              "feedback"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "selectedFindingIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "selectionReason": {
+      "type": "string"
+    },
     "topFindings": {
-      "$ref": "#/$defs/findingList"
+      "$ref": "#/$defs/benchmarkFindingList"
     },
     "selectedFindings": {
-      "$ref": "#/$defs/findingList"
+      "$ref": "#/$defs/selectedFindingList"
     },
     "scenarioSummary": {
       "type": "array",
@@ -133,6 +182,18 @@
       }
     },
     "forbiddenMutationAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "benchmarkEvidencePaths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "feedbackEvidencePaths": {
       "type": "array",
       "items": {
         "type": "string"
@@ -247,7 +308,7 @@
     }
   },
   "$defs": {
-    "findingList": {
+    "benchmarkFindingList": {
       "type": "array",
       "items": {
         "type": "object",
@@ -316,6 +377,104 @@
           },
           "recommendedOwner": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "selectedFindingList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "area",
+          "subjectId",
+          "symptom",
+          "severity",
+          "recommendedOwner",
+          "targetRepo",
+          "benchmarkEvidencePaths",
+          "feedbackEvidencePaths"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "guide",
+              "prompt",
+              "scenario",
+              "fixture"
+            ]
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "symptom": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "recommendedOwner": {
+            "type": "string"
+          },
+          "targetRepo": {
+            "type": "string"
+          },
+          "nextAction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceReportIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scenarioIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceRunIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "benchmarkEvidencePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "feedbackEvidencePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

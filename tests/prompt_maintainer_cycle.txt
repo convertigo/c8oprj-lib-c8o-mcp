@@ -1,7 +1,6 @@
 This is a maintainer improvement cycle.
 
 - Preferred runner: inject MCP role prompt `convertigo-maintainer` before this scenario starts.
-- If no role prompt was injected, fetch `convertigo-maintainer` yourself before continuing.
 - The isolated candidate worktree root is `__WORKTREE_PATH__`.
 - The maintainer packet path is `__MAINTAINER_PACKET_PATH__`.
 - Read the maintainer packet first. Use the embedded copy below as the primary source, then open only cited artifacts when needed.
