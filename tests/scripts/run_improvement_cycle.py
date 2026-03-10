@@ -7,11 +7,13 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 
 SCHEMA_VERSION = "1.1.0"
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 MAINTAINER_PROMPT_NAME = "convertigo-maintainer"
+PROTOCOL_VERSION = "2025-06-18"
 FINDING_SPECS = {
     "finding-httpconnector-port-coercion": {
         "targetedScenarios": ["http-facade-integration-v1"],
@@ -115,6 +117,41 @@ def write_json(path, payload):
 
 def run_command(args, cwd=None, env=None, timeout=None):
     return subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, timeout=timeout)
+
+
+def call_mcp(url, payload, timeout=10):
+    request = Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "MCP-Protocol-Version": PROTOCOL_VERSION,
+        },
+        method="POST",
+    )
+    with urlopen(request, timeout=timeout) as response:
+        return json.load(response)
+
+
+def call_mcp_tool(url, tool_name, arguments=None, timeout=30):
+    response = call_mcp(
+        url,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": arguments or {},
+            },
+        },
+        timeout=timeout,
+    )
+    if "error" in response:
+        error = response["error"]
+        detail = error.get("details") or error.get("message") or json.dumps(error)
+        raise RuntimeError(f"{tool_name} failed: {detail}")
+    return response.get("result", {})
 
 
 def git_output(root, *args):
