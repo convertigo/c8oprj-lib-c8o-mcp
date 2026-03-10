@@ -27,14 +27,15 @@ If both exist:
    - error
    - retry
 7. A page-level load or retry action may already exist. Reuse it if it already targets the stable facade contract cleanly.
-8. The retry state must be actionable. A visible button or marker is not enough on its own.
-9. If no safe built-in sequence/action primitive is discoverable from the live palette of the exact parent subtree, stop with `RESULT: FAIL` and cite the missing live palette primitive. Do not keep the probe structural and do not invent a custom action stack.
-10. Run `mobile-builder-open`.
-11. Inspect the returned builder logs. If browser smoke fails or the viewer URL is unreachable, call `log-view` and read the relevant build errors or success lines before concluding.
-12. If builder logs show compilation errors, unresolved imports, missing files, or a failed build, stop with `RESULT: FAIL` and cite the decisive log lines.
-13. Save the project.
+8. If the chosen requestable is `__TARGET_PROJECT__.probe_contract_stub`, any UI `CallSequenceAction` that loads or retries it must include a `UIControlVariable` named `__stub` with value `true`.
+9. The retry state must be actionable. A visible button or marker is not enough on its own.
+10. If no safe built-in sequence/action primitive is discoverable from the live palette of the exact parent subtree, stop with `RESULT: FAIL` and cite the missing live palette primitive. Do not keep the probe structural and do not invent a custom action stack.
+11. Run `mobile-builder-open`.
+12. Inspect the returned builder logs. If browser smoke fails or the viewer URL is unreachable, call `log-view` and read the relevant build errors or success lines before concluding.
+13. If builder logs show compilation errors, unresolved imports, missing files, or a failed build, stop with `RESULT: FAIL` and cite the decisive log lines.
+14. Save the project.
 
 Final output format:
-- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, tree inspection proves `CodexContractProbe` exists, the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields, the retry path is wired to a real built-in event/action path rather than a structural placeholder, and either browser smoke succeeds or build logs show a successful build with no decisive compile failure.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, tree inspection proves `CodexContractProbe` exists, the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields, any runtime use of `probe_contract_stub` passes `__stub=true`, the retry path is wired to a real built-in event/action path rather than a structural placeholder, and either browser smoke succeeds or build logs show a successful build with no decisive compile failure.
 - `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
 - End with one short `MCP critique` item.

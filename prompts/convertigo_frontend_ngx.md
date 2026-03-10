@@ -23,16 +23,18 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 3. Only call `palette-describe` for class names that came from a live `palette-list` response or from an existing tree node. Do not guess NGX action class names.
 4. If the benchmark scenario requires real retry behavior, do not settle for a structural placeholder. Keep probing the exact parent subtree until you can wire a safe built-in event/action path, or stop with `FAIL` and cite the missing live palette primitive.
 5. Bind to stable contract fields, never to raw connector payload names.
-6. After `mobile-builder-open`, inspect the returned builder logs. If the viewer URL is unreachable or runtime smoke fails, read focused builder logs with `log-view` before concluding.
-7. Treat browser reachability failure as inconclusive until builder logs say whether the project compiled or failed.
-8. Validate tree structure and, when safe, builder/runtime state.
-9. Save with `project-save` after the UI subtree is in place.
+6. If the target requestable is a stub-only facade such as `probe_contract_stub`, any `CallSequenceAction` that proves it at runtime must include a `UIControlVariable` named `__stub` with value `true`.
+7. After `mobile-builder-open`, inspect the returned builder logs. If the viewer URL is unreachable or runtime smoke fails, read focused builder logs with `log-view` before concluding.
+8. Treat browser reachability failure as inconclusive until builder logs say whether the project compiled or failed.
+9. Validate tree structure and, when safe, builder/runtime state.
+10. Save with `project-save` after the UI subtree is in place.
 
 ## Stop and handoff rules
 - If no NGX app root exists, stop cleanly and report a skip rather than inventing a new app.
 - Do not open or follow local YAML-editing skills such as `convertigo-project-editor` for this benchmark flow.
 - If the backend contract is unstable, stop and hand back to `convertigo-planner` or `convertigo-backend`.
 - Do not guess undocumented NGX action classes. If the palette does not expose a safe action primitive and the scenario requires real retry behavior, stop with `FAIL` and report the MCP gap explicitly.
+- Do not treat a stub file as runtime-ready by itself. If the chosen facade depends on Convertigo stub execution, pass `__stub=true` explicitly in the UI action variables.
 - Do not declare `PASS` after a failed browser smoke without checking builder logs. If the build failed, report `FAIL` with the decisive log evidence.
 - Hand review to `convertigo-critic` once the UI subtree and evidence exist.
 

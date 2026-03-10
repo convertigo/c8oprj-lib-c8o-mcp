@@ -18,8 +18,9 @@ Read this when implementing or changing NGX pages, bindings, routing, actions, o
 4. Build the full UI mutation plan before the first write call.
 5. Bind UI state to the agreed contract fields, not to temporary raw connector payloads.
 6. Include loading, empty, and error states, plus a real retry path for data-loading failures.
-7. Batch independent UI mutations with `batch-call` when it improves speed and readability.
-8. After `mobile-builder-open`, inspect the returned builder logs. If the viewer URL is unreachable, use `log-view` to decide whether the build failed or the viewer is merely unavailable.
+7. If the UI proves a stub-only facade at runtime, pass `__stub=true` through the `CallSequenceAction` variables. A stub file on disk is not enough by itself.
+8. Batch independent UI mutations with `batch-call` when it improves speed and readability.
+9. After `mobile-builder-open`, inspect the returned builder logs. If the viewer URL is unreachable, use `log-view` to decide whether the build failed or the viewer is merely unavailable.
 
 ### Starting from stub data
 It is valid to start UI work from a stub when:
@@ -34,6 +35,7 @@ This is not valid when the UI is forced to guess temporary names, nesting, or fa
 - Missing retry behavior for data-loading failures, or shipping only a retry marker with no action path.
 - Field names that change when the real integration replaces the stub.
 - Shipping only the happy path without loading, empty, or error handling.
+- Using a stub-only requestable in the browser without passing `__stub=true`, then concluding that the facade is empty or unstable.
 
 ## Recommended MCP tools
 - `databaseobject-tree-get`
@@ -64,5 +66,6 @@ This is not valid when the UI is forced to guess temporary names, nesting, or fa
 - Bindings target stable contract fields.
 - Loading, empty, and error states exist where backend data is required.
 - Retry behavior exists for data-loading failures and is not only a structural marker.
+- Stub-backed runtime checks pass the variables required by the underlying requestable contract, including `__stub=true` when the facade is stub-only.
 - Build logs were checked when browser smoke or viewer reachability failed.
 - Structural writes were saved after validation.
