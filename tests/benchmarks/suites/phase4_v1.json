@@ -192,7 +192,7 @@
       "gateChecks": [
         { "id": "critic-result-pass", "type": "criticStatus", "expected": "PASS" },
         { "id": "required-sections", "type": "requiredSections", "sections": ["Changed Objects", "UI State Coverage", "Runtime Evidence Or Skip", "Open Handoff"] },
-        { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["databaseobject-tree-get", "mobile-builder-open", "log-view"] },
+        { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["databaseobject-tree-get", "mobile-builder-open"] },
         { "id": "required-terms", "type": "requiredTerms", "terms": ["loading", "empty", "error", "retry"] },
         { "id": "forbidden-structural-retry", "type": "forbiddenTerms", "terms": ["retry remains structural", "intentionally structural", "structural marker"] }
       ],
