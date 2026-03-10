@@ -192,6 +192,14 @@ def create_worktree(root, branch_name, worktree_path, base_ref):
         raise RuntimeError(result.stderr.strip() or result.stdout.strip())
 
 
+def improvement_branch_name(root, baseline_candidate_id, cycle_id):
+    preferred = f"codex/candidate-{baseline_candidate_id}-{cycle_id}"
+    namespace_probe = run_command(["git", "show-ref", "--verify", "refs/heads/codex"], cwd=root)
+    if namespace_probe.returncode == 0:
+        return f"codex-candidate-{baseline_candidate_id}-{cycle_id}"
+    return preferred
+
+
 def commit_candidate(worktree_path, message):
     add = run_command(["git", "add", "-A"], cwd=worktree_path)
     if add.returncode != 0:
@@ -641,7 +649,7 @@ def main():
         raise RuntimeError(f"Improvement cycle directory already exists: {cycle_dir}")
     cycle_dir.mkdir(parents=True, exist_ok=True)
 
-    branch_name = f"codex/candidate-{baseline_manifest['candidateId']}-{args.cycle_id}"
+    branch_name = improvement_branch_name(root, baseline_manifest["candidateId"], args.cycle_id)
     worktree_path = cycle_dir / "candidate" / "worktree"
     packet_path = cycle_dir / "maintainer" / "packet.json"
     packet_md_path = cycle_dir / "maintainer" / "packet.md"
