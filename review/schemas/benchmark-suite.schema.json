@@ -253,8 +253,9 @@
                     "criticStatus",
                     "requiredSections",
                     "requiredToolCalls",
-                    "requiredTerms",
-                    "saveEvidence",
+                  "requiredTerms",
+                  "forbiddenTerms",
+                  "saveEvidence",
                     "runtimeEvidence",
                     "fixtureMetadataPresent"
                   ]

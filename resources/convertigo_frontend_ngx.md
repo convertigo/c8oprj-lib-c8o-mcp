@@ -17,7 +17,7 @@ Read this when implementing or changing NGX pages, bindings, routing, actions, o
 3. Discover valid creation entries with `palette-list`, then confirm details with `palette-describe`.
 4. Build the full UI mutation plan before the first write call.
 5. Bind UI state to the agreed contract fields, not to temporary raw connector payloads.
-6. Include loading, empty, and error states, plus a retry path for data-loading failures.
+6. Include loading, empty, and error states, plus a real retry path for data-loading failures.
 7. Batch independent UI mutations with `batch-call` when it improves speed and readability.
 8. After `mobile-builder-open`, inspect the returned builder logs. If the viewer URL is unreachable, use `log-view` to decide whether the build failed or the viewer is merely unavailable.
 
@@ -31,7 +31,7 @@ This is not valid when the UI is forced to guess temporary names, nesting, or fa
 
 ### Common UI drift
 - Binding directly to raw connector payloads instead of facade fields.
-- Missing retry behavior for data-loading failures.
+- Missing retry behavior for data-loading failures, or shipping only a retry marker with no action path.
 - Field names that change when the real integration replaces the stub.
 - Shipping only the happy path without loading, empty, or error handling.
 
@@ -63,6 +63,6 @@ This is not valid when the UI is forced to guess temporary names, nesting, or fa
 - The NGX tree changed only through valid palette-backed or canonical tree mutations.
 - Bindings target stable contract fields.
 - Loading, empty, and error states exist where backend data is required.
-- Retry behavior exists for data-loading failures.
+- Retry behavior exists for data-loading failures and is not only a structural marker.
 - Build logs were checked when browser smoke or viewer reachability failed.
 - Structural writes were saved after validation.

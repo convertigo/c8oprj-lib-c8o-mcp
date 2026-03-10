@@ -17,9 +17,7 @@ KV_RE = re.compile(r"^([a-z0-9_]+)=(.*)$")
 HEADER_RE = re.compile(r"^(provider|model|reasoning effort|session id):\s*(.*)$")
 RESULT_RE = re.compile(r"^(?:[-*]\s+)?`?RESULT:\s*(PASS|FAIL|SKIPPED|UNKNOWN)(?:\s*-\s*(.*?))?`?$")
 TOOL_CALL_RE = re.compile(r"^tool ([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\((.*)\)$")
-TOOL_STATUS_RE = re.compile(
-    r"^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\(.*\)\s+(success|failed)\s+in\s+([0-9.]+)(ms|s):$"
-)
+TOOL_STATUS_RE = re.compile(r"^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\(.*\)\s+(success|failed)\s+in\s+(.+):$")
 SECTION_RE = re.compile(r"^(?:##\s+(.+?)|\*\*(.+?)\*\*)\s*$")
 MCP_STARTUP_FAIL_RE = re.compile(r"^mcp:\s+([A-Za-z0-9_-]+)\s+failed:\s+(.*)$")
 WARN_LINE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T.*\s+WARN\s+")
@@ -138,13 +136,22 @@ def parse_iso_datetime(value):
         return None
 
 
-def to_millis(value, unit):
+def parse_duration_to_millis(value):
     if value is None:
         return None
-    number = float(value)
-    if unit == "s":
-        return int(number * 1000)
-    return int(number)
+    text = value.strip().lower()
+    minute_match = re.fullmatch(r"(?:(\d+)m)\s+(\d+(?:\.\d+)?)s", text)
+    if minute_match:
+        minutes = int(minute_match.group(1))
+        seconds = float(minute_match.group(2))
+        return int((minutes * 60 + seconds) * 1000)
+    seconds_match = re.fullmatch(r"(\d+(?:\.\d+)?)s", text)
+    if seconds_match:
+        return int(float(seconds_match.group(1)) * 1000)
+    millis_match = re.fullmatch(r"(\d+)ms", text)
+    if millis_match:
+        return int(millis_match.group(1))
+    return None
 
 
 def parse_key_values(lines):
@@ -200,7 +207,7 @@ def parse_tool_calls(lines):
                     "server": status_match.group(1),
                     "name": status_match.group(2),
                     "status": status_match.group(3),
-                    "durationMs": to_millis(status_match.group(4), status_match.group(5)),
+                    "durationMs": parse_duration_to_millis(status_match.group(4)),
                 }
             )
 
@@ -340,7 +347,7 @@ def parse_sections(raw_text):
             return False
         if text.lower() in {"tokens used", "codex"}:
             return False
-        return text == text.title() or text in {"MCP Critique", "Open Handoff", "Runtime Evidence", "Contract Check", "Changed Objects", "Stub Status", "Work Split", "Validation Plan", "Findings", "Evidence Gaps", "Guide Compliance", "Recommendation", "Outcome", "Run", "Role Prompt", "Scenario", "Key Evidence", "Warnings / Errors"}
+        return text == text.title() or text in {"MCP Critique", "Open Handoff", "Runtime Evidence", "Runtime Evidence Or Skip", "Contract Check", "Changed Objects", "UI State Coverage", "Stub Status", "Work Split", "Validation Plan", "Findings", "Evidence Gaps", "Guide Compliance", "Recommendation", "Outcome", "Run", "Role Prompt", "Scenario", "Key Evidence", "Warnings / Errors"}
 
     for line in raw_text.splitlines():
         stripped = line.strip()
@@ -419,7 +426,7 @@ def collect_errors(lines, result_status, result_reason):
     for line in lines:
         match = TOOL_STATUS_RE.match(line.strip())
         if match and match.group(3) == "failed":
-            errors.append(f"{match.group(1)}.{match.group(2)} failed in {match.group(4)}{match.group(5)}")
+            errors.append(f"{match.group(1)}.{match.group(2)} failed in {match.group(4)}")
     if result_status == "FAIL" and result_reason:
         errors.append(result_reason)
     return errors

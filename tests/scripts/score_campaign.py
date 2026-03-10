@@ -88,6 +88,8 @@ def evaluate_gate(gate, scenario, run_report, critic_report, run_record):
         return all(tool in tool_names for tool in gate["tools"])
     if gate_type == "requiredTerms":
         return all(normalize_text(term) in normalize_text(run_report["finalOutput"]["rawText"]) for term in gate["terms"])
+    if gate_type == "forbiddenTerms":
+        return not any(normalize_text(term) in normalize_text(run_report["finalOutput"]["rawText"]) for term in gate["terms"])
     if gate_type == "saveEvidence":
         return has_save_evidence(run_report)
     if gate_type == "runtimeEvidence":
