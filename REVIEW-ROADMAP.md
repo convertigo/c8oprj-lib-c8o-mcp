@@ -518,6 +518,59 @@ Exit criteria:
 - feedback artifacts remain separate from benchmark critics and Phase 5
   maintainer ingestion
 
+## [DONE] Phase 4.3 - Feedback Triage
+
+Goal: consolidate raw `report-create` inbox files into one reviewed backlog
+before any maintainer intake.
+
+Status:
+
+- completed as a local triage workflow under `feedback/triage/<batchId>/`
+- raw inbox files remain untouched under `feedback/inbox/`
+- the workflow reuses `convertigo-critic` instead of adding a new public MCP
+  role or tool
+- triage output now classifies raw reports as MCP-owned, external,
+  already-fixed, split-required, or noise
+- the first batch on the current inbox closes one already-fixed MCP finding,
+  routes one finding to `codex-cli-multiagent`, and splits one composite prompt
+  report into two MCP-owned findings
+
+Delivered assets:
+
+- packet schema: `review/schemas/feedback-triage-packet.schema.json`
+- consolidation schema: `review/schemas/feedback-consolidation.schema.json`
+- orchestrator: `review/scripts/run_feedback_triage.py`
+- critic scenario prompt: `tests/prompt_feedback_inbox_review.txt`
+- runtime layout:
+  - `feedback/triage/<batchId>/manifest.json`
+  - `feedback/triage/<batchId>/packet.json`
+  - `feedback/triage/<batchId>/packet.md`
+  - `feedback/triage/<batchId>/critic/run/...`
+  - `feedback/triage/<batchId>/consolidation.json`
+  - `feedback/triage/<batchId>/consolidation.md`
+
+Behavior:
+
+- triage validates each inbox file against `feedback-report.schema.json`
+- each source report gets one disposition:
+  - `OPEN`
+  - `CLOSED_ALREADY_FIXED`
+  - `ROUTE_EXTERNAL`
+  - `SPLIT_REQUIRED`
+  - `DROP_NOISE`
+- grouped findings carry one clear `targetRepo`, `recommendedOwner`, and
+  `nextAction`
+- cross-repo findings are preserved and routed, but do not trigger automation
+  outside this repo
+- Phase 5 maintainers should consume triaged findings, not the raw inbox
+
+Exit criteria:
+
+- field feedback can be reviewed in explicit batches without mutating the inbox
+- already-fixed findings cite current repo evidence
+- composite reports can be split into maintainable findings
+- external findings are classified without being dropped
+
 Loop:
 
 1. execute benchmark with a selected provider, model, and prompt set

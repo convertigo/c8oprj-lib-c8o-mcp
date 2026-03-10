@@ -1,0 +1,111 @@
+This is a field-feedback triage review.
+
+- Review packet JSON first: `__PACKET_JSON__`
+- Then review packet Markdown: `__PACKET_MD__`
+- Primary MCP repo: `/Users/nicolas/git/c8oprj-c8o-mcp`
+- Known external repo for synchronized-agent findings: `/Users/nicolas/git/codex-cli-multiagent`
+
+Rules:
+1. Inspect the packet and the cited evidence paths before expanding scope.
+2. Classify every source report exactly once.
+3. Split a source report when it contains distinct issues with different owners, target repos, or next actions.
+4. Use `CLOSED_ALREADY_FIXED` only with concrete current-repo evidence.
+5. Route external findings without proposing MCP repo changes for them.
+6. Keep MCP-owned findings actionable and specific.
+7. Do not mutate any repo.
+
+Allowed dispositions:
+- `OPEN`
+- `CLOSED_ALREADY_FIXED`
+- `ROUTE_EXTERNAL`
+- `SPLIT_REQUIRED`
+- `DROP_NOISE`
+
+Allowed target repos:
+- `c8oprj-c8o-mcp`
+- `codex-cli-multiagent`
+- `unknown`
+
+Allowed nextAction values:
+- `maintainer-candidate`
+- `route-external`
+- `watch`
+- `drop`
+
+Output requirements:
+- Every section below must contain valid JSON inside one fenced `json` block.
+- Use empty arrays when a section has no entries.
+- Keep `MCP Critique` to one short bullet.
+
+Required sections and exact payloads:
+
+## Report Decisions
+```json
+[
+  {
+    "reportId": "uuid",
+    "sourcePath": "/absolute/path/to/report.json",
+    "disposition": "OPEN",
+    "targetRepo": "c8oprj-c8o-mcp",
+    "notes": "short justification",
+    "splitFindingIds": ["finding-id-a"]
+  }
+]
+```
+
+## Grouped Findings
+```json
+[
+  {
+    "findingId": "finding-id-a",
+    "status": "OPEN",
+    "area": "prompt",
+    "subjectId": "convertigo-frontend-ngx-uicustom-guardrail",
+    "symptom": "short grouped symptom",
+    "severity": "high",
+    "targetRepo": "c8oprj-c8o-mcp",
+    "recommendedOwner": "prompt",
+    "sourceReportIds": ["uuid"],
+    "evidencePaths": ["/absolute/path/to/report.json"],
+    "nextAction": "maintainer-candidate"
+  }
+]
+```
+
+## External Routes
+```json
+[
+  {
+    "reportId": "uuid",
+    "targetRepo": "codex-cli-multiagent",
+    "reason": "why this is external"
+  }
+]
+```
+
+## Already Fixed
+```json
+[
+  {
+    "reportId": "uuid",
+    "evidence": "current repo evidence that this is already fixed"
+  }
+]
+```
+
+## Open MCP Findings
+```json
+[
+  {
+    "findingId": "finding-id-a",
+    "reason": "why this remains open for the MCP repo"
+  }
+]
+```
+
+## MCP Critique
+- One short MCP critique line.
+
+Finish with:
+- `RESULT: PASS` if every source report has one decision and every grouped finding has one clear target repo and next action.
+- `RESULT: FAIL - <reason>` otherwise.

@@ -116,6 +116,8 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
   not use it as the authoritative contract for prompts or guides.
 - Runtime field feedback files are build artifacts under `feedback/inbox/` and
   must not be committed.
+- Raw field feedback must be consolidated under `feedback/triage/` before it is
+  used as maintainer input.
 - Guide strategy is tracked in `REVIEW-ROADMAP.md`.
 
 ## Validation Checklist
@@ -153,7 +155,7 @@ After changing the MCP:
 - Phase 3: done
 - Phase 4: done
 - Phase 5 scaffolding: done
-- Current follow-up: optional field feedback channel and further live benchmark expansion
+- Current follow-up: feedback triage consolidation and further live benchmark expansion
 
 See `REVIEW-ROADMAP.md` for the working plan.
 

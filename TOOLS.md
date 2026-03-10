@@ -71,6 +71,8 @@ Notes:
   - `off` hides the tool and any prompt hint
   - `suggest` exposes an optional field-feedback path
   - `benchmark` exposes the same tool with stronger benchmark wording
+  - reports land in `feedback/inbox/` and should be consolidated through
+    `feedback/triage/` before maintainer use
 - `requestable-stub-get` and `requestable-stub-set` follow the same default filename logic as Convertigo runtime stubs (`<sequence>_default.xml` or `<connector>.<transaction>_default.xml`).
 - `log-view` accepts `q/since/until` aliases to reduce verbosity in common calls.
 - `batch-call` and tree mutation refs accept only object syntax (`{"$ref":"id.path"}`); `${{...}}` placeholders are rejected with an explicit error.

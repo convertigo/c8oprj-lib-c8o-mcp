@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.local/schemas/feedback-consolidation.schema.json",
+  "title": "Convertigo MCP Feedback Consolidation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "batchId",
+    "createdAt",
+    "sourceReports",
+    "summary",
+    "reportDecisions",
+    "groupedFindings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "batchId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceReports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reportId",
+          "sourcePath"
+        ],
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourcePath": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceReportCount",
+        "decisionCounts",
+        "groupedFindingCount",
+        "byTargetRepo"
+      ],
+      "properties": {
+        "sourceReportCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decisionCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "groupedFindingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byTargetRepo": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "reportDecisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reportId",
+          "sourcePath",
+          "disposition",
+          "targetRepo",
+          "notes",
+          "splitFindingIds"
+        ],
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourcePath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "CLOSED_ALREADY_FIXED",
+              "ROUTE_EXTERNAL",
+              "SPLIT_REQUIRED",
+              "DROP_NOISE"
+            ]
+          },
+          "targetRepo": {
+            "type": "string",
+            "enum": [
+              "c8oprj-c8o-mcp",
+              "codex-cli-multiagent",
+              "unknown"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "splitFindingIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "groupedFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "status",
+          "area",
+          "subjectId",
+          "symptom",
+          "severity",
+          "targetRepo",
+          "recommendedOwner",
+          "sourceReportIds",
+          "evidencePaths",
+          "nextAction"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ROUTED",
+              "WATCH",
+              "DROPPED"
+            ]
+          },
+          "area": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "symptom": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "targetRepo": {
+            "type": "string",
+            "enum": [
+              "c8oprj-c8o-mcp",
+              "codex-cli-multiagent",
+              "unknown"
+            ]
+          },
+          "recommendedOwner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceReportIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidencePaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "nextAction": {
+            "type": "string",
+            "enum": [
+              "maintainer-candidate",
+              "route-external",
+              "watch",
+              "drop"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
