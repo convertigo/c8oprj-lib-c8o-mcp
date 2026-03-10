@@ -218,6 +218,33 @@ def update_cycle_manifest(path, payload, state=None, blocking_reason=None):
     write_json(path, payload)
 
 
+def candidate_changed_paths(worktree_path, baseline_git_sha, candidate_sha):
+    output = git_output(worktree_path, "diff", "--name-only", f"{baseline_git_sha}..{candidate_sha}")
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def restore_paths_from_ref(repo_dir, ref, paths):
+    if not paths:
+        return
+    result = run_command(
+        ["git", "restore", "--source", ref, "--worktree", "--staged", "--", *paths],
+        cwd=repo_dir,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+
+
+def reload_runtime_project(url, project="ConvertigoMCP"):
+    call_mcp_tool(
+        url,
+        "project-reload",
+        {
+            "project": project,
+        },
+        timeout=120,
+    )
+
+
 def latest_feedback_consolidation(root):
     candidates = sorted((root / "feedback" / "triage").glob("*/consolidation.json"))
     if not candidates:
@@ -751,14 +778,20 @@ def main():
         update_cycle_manifest(cycle_manifest_path, cycle_manifest)
 
         diff_status = git_output(worktree_path, "status", "--porcelain")
+        candidate_sha = git_output(worktree_path, "rev-parse", "HEAD")
         if not diff_status.strip():
-            raise RuntimeError("Maintainer run finished without producing any repository diff.")
+            if candidate_sha == baseline_manifest["gitSha"]:
+                raise RuntimeError("Maintainer run finished without producing any repository diff.")
+        else:
+            candidate_version = parse_project_version(worktree_path)
+            if candidate_version == baseline_version:
+                raise RuntimeError("Maintainer run did not bump the project version.")
+            candidate_sha = commit_candidate(worktree_path, commit_message)
 
         candidate_version = parse_project_version(worktree_path)
         if candidate_version == baseline_version:
             raise RuntimeError("Maintainer run did not bump the project version.")
 
-        candidate_sha = commit_candidate(worktree_path, commit_message)
         candidate_short_sha = git_output(worktree_path, "rev-parse", "--short", "HEAD")
         candidate_id = f"{candidate_version}+{candidate_short_sha}"
         candidate_metadata = {
@@ -782,52 +815,67 @@ def main():
         update_cycle_manifest(cycle_manifest_path, cycle_manifest, state="CANDIDATE_COMMITTED")
 
         suite_path = worktree_path / Path(baseline_manifest["suitePath"]).relative_to(root)
+        changed_paths = candidate_changed_paths(worktree_path, baseline_manifest["gitSha"], candidate_sha)
+        runtime_restore_ref = git_output(root, "rev-parse", "HEAD")
+        if not changed_paths:
+            raise RuntimeError("Could not determine any candidate file changes to deploy for replay.")
         update_cycle_manifest(cycle_manifest_path, cycle_manifest, state="REPLAY_RUNNING")
 
-        targeted_campaign_root = replay_root / "targeted"
-        targeted_campaign_dir = run_campaign(
-            worktree_path,
-            suite_path,
-            targeted_campaign_root,
-            args,
-            codex_npm_version,
-            scenario_ids=targeted_scenarios,
-        )
-        verify_targeted_http_replay(targeted_campaign_dir)
-        cycle_manifest["targetedReplayCampaignPath"] = str(targeted_campaign_dir)
-        update_cycle_manifest(cycle_manifest_path, cycle_manifest)
+        targeted_campaign_dir = None
+        full_replay_dir = None
+        comparison = None
+        try:
+            restore_paths_from_ref(root, candidate_sha, changed_paths)
+            reload_runtime_project(args.mcp_url)
 
-        full_campaign_root = replay_root / "full"
-        full_replay_dir = run_campaign(
-            worktree_path,
-            suite_path,
-            full_campaign_root,
-            args,
-            codex_npm_version,
-        )
-        cycle_manifest["replayCampaignPath"] = str(full_replay_dir)
-        update_cycle_manifest(cycle_manifest_path, cycle_manifest)
+            targeted_campaign_root = replay_root / "targeted"
+            targeted_campaign_dir = run_campaign(
+                worktree_path,
+                suite_path,
+                targeted_campaign_root,
+                args,
+                codex_npm_version,
+                scenario_ids=targeted_scenarios,
+            )
+            verify_targeted_http_replay(targeted_campaign_dir)
+            cycle_manifest["targetedReplayCampaignPath"] = str(targeted_campaign_dir)
+            update_cycle_manifest(cycle_manifest_path, cycle_manifest)
 
-        compare_command = [
-            "python3",
-            str(root / "tests" / "scripts" / "compare_campaigns.py"),
-            "--baseline-campaign-dir",
-            str(baseline_campaign_dir),
-            "--candidate-campaign-dir",
-            str(full_replay_dir),
-            "--targeted-replay-campaign-dir",
-            str(targeted_campaign_dir),
-            "--out-dir",
-            str(comparison_dir),
-            "--maintainer-packet",
-            str(packet_path),
-        ]
-        compare_result = run_command(compare_command, cwd=root)
-        if compare_result.returncode != 0:
-            raise RuntimeError(compare_result.stderr.strip() or compare_result.stdout.strip())
-        comparison_path = comparison_dir / "comparison.json"
-        comparison = load_json(comparison_path)
-        cycle_manifest["comparisonPath"] = str(comparison_path)
+            full_campaign_root = replay_root / "full"
+            full_replay_dir = run_campaign(
+                worktree_path,
+                suite_path,
+                full_campaign_root,
+                args,
+                codex_npm_version,
+            )
+            cycle_manifest["replayCampaignPath"] = str(full_replay_dir)
+            update_cycle_manifest(cycle_manifest_path, cycle_manifest)
+
+            compare_command = [
+                "python3",
+                str(root / "tests" / "scripts" / "compare_campaigns.py"),
+                "--baseline-campaign-dir",
+                str(baseline_campaign_dir),
+                "--candidate-campaign-dir",
+                str(full_replay_dir),
+                "--targeted-replay-campaign-dir",
+                str(targeted_campaign_dir),
+                "--out-dir",
+                str(comparison_dir),
+                "--maintainer-packet",
+                str(packet_path),
+            ]
+            compare_result = run_command(compare_command, cwd=root)
+            if compare_result.returncode != 0:
+                raise RuntimeError(compare_result.stderr.strip() or compare_result.stdout.strip())
+            comparison_path = comparison_dir / "comparison.json"
+            comparison = load_json(comparison_path)
+            cycle_manifest["comparisonPath"] = str(comparison_path)
+        finally:
+            restore_paths_from_ref(root, runtime_restore_ref, changed_paths)
+            reload_runtime_project(args.mcp_url)
+
         cycle_manifest["finishedAt"] = utc_now()
         update_cycle_manifest(cycle_manifest_path, cycle_manifest, state=comparison["verdict"])
 

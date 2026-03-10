@@ -468,11 +468,17 @@ Status:
 - scaffolding implemented in `tests/scripts/run_improvement_cycle.py`, `tests/scripts/compare_campaigns.py`, `tests/prompt_maintainer_cycle.txt`, and `review/schemas/`
 - the maintainer role prompt is now part of the prompt catalog as `convertigo-maintainer`
 - the repository prompt catalog now carries `8` file-backed prompts, with `convertigo-maintainer` linked from the relevant guides
-- the repository project version is now `0.0.15` and the current Phase 5 baseline candidate is `0.0.15+d6e2037`
+- the repository project version is now `0.0.15` and the current trusted Phase 5 baseline candidate is `0.0.15+a371c89`
 - runtime artifacts are isolated under `tests/improvement/<baselineCandidateId>/<cycleId>/`
 - schemas and synthetic comparison outputs validate successfully against the new Phase 5 contracts
 - the improvement orchestrator already enforces one clean baseline repository before it opens a cycle
-- `codex exec` is healthy again for live runs; one real Phase 4 full-suite baseline is now available, but a full live Phase 5 improvement cycle has not been executed yet
+- `codex exec` is healthy again for live runs, and the first real mixed-intake maintainer cycle (`cycle-001`) has now been executed against `finding-httpconnector-port-coercion`
+- `cycle-001` validated the narrow Phase 5 loop:
+  - the selected finding was corroborated by both benchmark history and feedback triage
+  - the maintainer produced and committed candidate `0.0.16+14ab72e`
+  - targeted replay on `http-facade-integration-v1` passed and the original `port=0` coercion evidence disappeared
+  - full replay then rejected the candidate because previously passing scenarios regressed (`ngx-contract-ui-v1`) or introduced new gate failures (`recovery-invalid-target-v1`)
+- Phase 5 remains open because the loop is now proven end-to-end, but the first candidate was correctly rejected instead of promoted
 
 Phase 5 v1 loop:
 
@@ -490,6 +496,15 @@ Phase 5 v1 outputs:
 - `tests/improvement/<baselineCandidateId>/<cycleId>/maintainer/prompt.txt`
 - `tests/improvement/<baselineCandidateId>/<cycleId>/candidate/metadata.json`
 - `tests/improvement/<baselineCandidateId>/<cycleId>/compare/comparison.json`
+
+Current live outcome:
+
+- baseline: `0.0.15+a371c89`
+- cycle: `cycle-001`
+- targeted finding: `finding-httpconnector-port-coercion`
+- targeted replay verdict: `PASS`
+- full replay verdict: `REJECTED`
+- rejection reason: at least one previously passing scenario regressed to `FAIL`
 
 ## [DONE] Phase 4.2 - Field Feedback Channel
 
