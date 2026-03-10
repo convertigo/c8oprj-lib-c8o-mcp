@@ -12,10 +12,12 @@ __MAINTAINER_PACKET_CONTENT__
 Cycle requirements:
 1. Work only on the selected findings from the packet.
 2. Keep the patch set minimal and coherent.
-3. Use MCP-first for Convertigo project edits.
-4. Save the project before the final commit when project mutations occurred.
-5. Bump the project version from `__BASELINE_PROJECT_VERSION__` to `__TARGET_PROJECT_VERSION__`.
-6. Commit the candidate in the isolated worktree with this exact message:
+3. Use MCP-first only when the selected finding targets loaded Convertigo project objects.
+4. For tooling code, scripts, schemas, prompts, or docs, patch only the isolated worktree copy and use MCP only for runtime validation evidence.
+5. Do not use MCP `project-save` or live version mutations for a tooling-only cycle.
+6. Save the project before the final commit only when project mutations occurred.
+7. Bump the project version from `__BASELINE_PROJECT_VERSION__` to `__TARGET_PROJECT_VERSION__` in the isolated worktree.
+8. Commit the candidate in the isolated worktree with this exact message:
    `__COMMIT_MESSAGE__`
 
 Final output format:
