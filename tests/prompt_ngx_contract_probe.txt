@@ -11,24 +11,29 @@ Probe goals:
    - `__TARGET_PROJECT__.probe_http_contract`
    - `__TARGET_PROJECT__.probe_contract_stub`
    - `__TARGET_PROJECT__.probe_sql_contract`
+   - The campaign runner may already have provisioned `__TARGET_PROJECT__.probe_contract_stub` as the minimum stable contract for this benchmark.
 3. If no NGX app exists in `__TARGET_PROJECT__`, stop with `RESULT: FAIL - imported starter project is malformed`.
-4. If no stable facade requestable exists, stop with `RESULT: SKIPPED - no stable facade contract found`.
+4. If no stable facade requestable exists, stop with `RESULT: FAIL - runner-prepared facade contract is missing`.
 
 If both exist:
 1. Inspect the target NGX subtree and discover safe palette entries before any write.
-2. If `CodexContractProbe` already exists and tree inspection proves it already covers the required states and stable facade fields, do not rebuild it. Validate it, save the project, and report `PASS`.
-3. Otherwise create or update a temporary subtree named `CodexContractProbe`.
-4. Bind it to the stable contract fields, not to raw connector payload names.
-5. The subtree must make all of these states identifiable in the tree:
+2. Only call `palette-describe` on class names that came from a live `palette-list` response or from an existing tree node. Do not guess NGX action class names.
+3. If `CodexContractProbe` already exists and tree inspection proves it already covers the required states and stable facade fields, do not rebuild it. Validate it, save the project, and report `PASS`.
+4. Otherwise create or update a temporary subtree named `CodexContractProbe`.
+5. Bind it to the stable contract fields, not to raw connector payload names.
+6. The subtree must make all of these states identifiable in the tree:
    - loading
    - empty
    - error
    - retry
-6. A page-level load or retry action may already exist. Reuse it if it already targets the stable facade contract cleanly.
-7. Save the project.
+7. A page-level load or retry action may already exist. Reuse it if it already targets the stable facade contract cleanly.
+8. If no safe built-in sequence/action primitive is discoverable from the live palette of the exact parent subtree, keep the probe structural: make the retry state identifiable with a button or subtree marker, do not invent a custom action stack, and report that MCP palette gap in `MCP Critique`.
+9. Run `mobile-builder-open`.
+10. Inspect the returned builder logs. If browser smoke fails or the viewer URL is unreachable, call `log-view` and read the relevant build errors or success lines before concluding.
+11. If builder logs show compilation errors, unresolved imports, missing files, or a failed build, stop with `RESULT: FAIL` and cite the decisive log lines.
+12. Save the project.
 
 Final output format:
-- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, tree inspection proves `CodexContractProbe` exists, and the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields.
-- `RESULT: SKIPPED` only for `no stable facade contract found`.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, tree inspection proves `CodexContractProbe` exists, the temporary subtree includes loading, empty, error, and retry handling tied to stable contract fields, and either browser smoke succeeds or build logs show a successful build with no decisive compile failure.
 - `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
 - End with one short `MCP critique` item.

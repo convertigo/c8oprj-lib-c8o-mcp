@@ -127,6 +127,34 @@
               }
             }
           },
+          "preparedRequestables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "name",
+                "comment",
+                "stubContent"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "stubSequence"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "stubContent": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "allowedSkipReasons": {
             "type": "array",
             "items": {

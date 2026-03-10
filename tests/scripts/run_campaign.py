@@ -228,6 +228,42 @@ def delete_owned_project(url, project_name):
         raise RuntimeError(f"Benchmark cleanup did not remove owned project {project_name}.")
 
 
+def provision_prepared_requestables(url, target_project, prepared_requestables):
+    if not prepared_requestables:
+        return
+    for item in prepared_requestables:
+        if item["kind"] != "stubSequence":
+            raise RuntimeError(f"Unsupported prepared requestable kind: {item['kind']}")
+        requestable_name = item["name"]
+        call_mcp_tool(
+            url,
+            "databaseobject-tree-apply",
+            {
+                "target": target_project,
+                "at": "inside",
+                "mode": "merge",
+                "tree": {
+                    "className": "sequences.GenericSequence",
+                    "name": requestable_name,
+                    "properties": {
+                        "accessibility": "Public",
+                        "comment": item["comment"],
+                    },
+                },
+            },
+            timeout=120,
+        )
+        call_mcp_tool(
+            url,
+            "requestable-stub-set",
+            {
+                "targetRequestable": f"{target_project}.{requestable_name}",
+                "content": item["stubContent"],
+            },
+            timeout=120,
+        )
+
+
 def get_codex_version(codex_bin):
     binary = codex_bin or "codex"
     result = run_command([binary, "--version"])
@@ -667,6 +703,11 @@ def main():
         fixture_metadata = None
         project_fixture = import_project_fixture(args.mcp_url, scenario, candidate_id, run_stamp)
         try:
+            provision_prepared_requestables(
+                args.mcp_url,
+                project_fixture["targetProject"],
+                scenario.get("preparedRequestables", []),
+            )
             prompt_replacements = {
                 "__TARGET_PROJECT__": project_fixture["targetProject"],
                 "__FIXTURE_SOURCE_PROJECT__": project_fixture["fixtureSourceProject"],

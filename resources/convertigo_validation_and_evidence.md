@@ -50,6 +50,7 @@ MCP critique:
 - UI:
   - structure readback
   - runtime evidence when available
+  - if browser smoke fails, inspect builder logs with `mobile-builder-open` output and `log-view` before deciding whether the build failed
   - explicit loading, empty, error, and retry presence when the page depends on data
 
 ### Concise vs noisy proof
@@ -78,6 +79,7 @@ Noisy proof:
 
 ### Failure-pattern reminders
 - Runtime changed but only structure was checked.
+- UI browser smoke failed, but build logs were never inspected.
 - Save happened before validation instead of after it.
 - Reload was skipped even though runtime structure changed and clean reload mattered.
 - Final answer says "done" without naming one concrete proof.

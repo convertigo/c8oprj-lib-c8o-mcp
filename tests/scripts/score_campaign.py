@@ -190,6 +190,10 @@ def is_actionable_finding(text):
         "missing",
         "missed",
         "did not",
+        "not supportable",
+        "overstates",
+        "structural only",
+        "placeholder",
         "avoid",
         "noise",
         "unclear",
@@ -237,7 +241,7 @@ def infer_finding_shape(text):
 
 def infer_severity(text):
     lower = normalize_text(text)
-    if any(token in lower for token in ["failed", "did not complete", "contract drift", "missing runtime evidence"]):
+    if any(token in lower for token in ["failed", "did not complete", "contract drift", "missing runtime evidence", "not supportable", "runtime verification did not happen"]):
         return 3
     if any(token in lower for token in ["missing", "incomplete", "skipped"]):
         return 2

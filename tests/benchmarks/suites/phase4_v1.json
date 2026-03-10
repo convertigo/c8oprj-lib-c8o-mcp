@@ -165,7 +165,15 @@
         "cleanupPolicy": "ownedProject",
         "required": true
       },
-      "allowedSkipReasons": ["no stable facade contract found"],
+      "preparedRequestables": [
+        {
+          "kind": "stubSequence",
+          "name": "probe_contract_stub",
+          "comment": "Runner-prepared stable facade contract for the NGX benchmark.",
+          "stubContent": "<document><status>ok</status><source>stub</source><items><item><id>stub-1</id><label>Stub Item 1</label></item><item><id>stub-2</id><label>Stub Item 2</label></item></items><total>2</total><error/></document>"
+        }
+      ],
+      "allowedSkipReasons": [],
       "requiredResultStatus": "PASS",
       "scenarioWeight": 1,
       "toolCallSoftLimit": 16,
@@ -184,7 +192,7 @@
       "gateChecks": [
         { "id": "critic-result-pass", "type": "criticStatus", "expected": "PASS" },
         { "id": "required-sections", "type": "requiredSections", "sections": ["Changed Objects", "UI State Coverage", "Runtime Evidence Or Skip", "Open Handoff"] },
-        { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["databaseobject-tree-get"] },
+        { "id": "required-tool-calls", "type": "requiredToolCalls", "tools": ["databaseobject-tree-get", "mobile-builder-open", "log-view"] },
         { "id": "required-terms", "type": "requiredTerms", "terms": ["loading", "empty", "error", "retry"] }
       ],
       "criticPromptFile": "tests/prompt_critic_run_review.txt",
