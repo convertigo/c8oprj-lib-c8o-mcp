@@ -832,6 +832,77 @@ def verify_targeted_replay(campaign_dir, finding_id):
     raise RuntimeError(f"No targeted replay verification is configured for finding: {finding_id}")
 
 
+def targeted_rejection_comparison(baseline_campaign_dir, baseline_manifest, baseline_aggregate, targeted_campaign_dir, packet, reasons):
+    targeted_manifest = load_json(Path(targeted_campaign_dir) / "manifest.json")
+    targeted_aggregate = load_json(Path(targeted_campaign_dir) / "aggregate" / "findings.json")
+    scenario_id = finding_spec(packet["selectedFindingIds"][0])["targetedScenarios"][0]
+
+    baseline_results = {item["scenarioId"]: item for item in baseline_aggregate.get("scenarioResults", [])}
+    targeted_results = {item["scenarioId"]: item for item in targeted_aggregate.get("scenarioResults", [])}
+    baseline_result = baseline_results.get(scenario_id)
+    candidate_result = targeted_results.get(scenario_id)
+
+    notes = list(reasons)
+    if candidate_result:
+        failing = candidate_result.get("failingGates", [])
+        if failing:
+            notes.append("Targeted replay failing gates: " + ", ".join(failing))
+
+    comparison = {
+        "schemaVersion": "1.1.0",
+        "baselineCandidateId": baseline_manifest["candidateId"],
+        "candidateId": targeted_manifest["candidateId"],
+        "baselineCampaignPath": str(Path(baseline_campaign_dir).resolve()),
+        "candidateCampaignPath": str(Path(targeted_campaign_dir).resolve()),
+        "targetedReplayCampaignPath": str(Path(targeted_campaign_dir).resolve()),
+        "suiteId": baseline_manifest["suiteId"],
+        "provider": targeted_manifest.get("provider"),
+        "model": targeted_manifest.get("model"),
+        "overallScoreDelta": round(targeted_aggregate.get("overallScore", 0.0) - baseline_aggregate.get("overallScore", 0.0), 2),
+        "passFailSkippedDelta": {
+            "passCount": targeted_aggregate.get("passCount", 0) - baseline_aggregate.get("passCount", 0),
+            "failCount": targeted_aggregate.get("failCount", 0) - baseline_aggregate.get("failCount", 0),
+            "skippedCount": targeted_aggregate.get("skippedCount", 0) - baseline_aggregate.get("skippedCount", 0),
+        },
+        "gateFailureDelta": targeted_aggregate.get("gateFailureCount", 0) - baseline_aggregate.get("gateFailureCount", 0),
+        "averageToolCallsDelta": round(targeted_aggregate.get("averageToolCalls", 0.0) - baseline_aggregate.get("averageToolCalls", 0.0), 2),
+        "averageDurationMsDelta": round(targeted_aggregate.get("averageDurationMs", 0.0) - baseline_aggregate.get("averageDurationMs", 0.0), 2),
+        "ragCallRateDelta": round(targeted_aggregate.get("ragCallRate", 0.0) - baseline_aggregate.get("ragCallRate", 0.0), 4),
+        "findingDelta": {
+            "baselineCount": len(baseline_aggregate.get("topFindings", [])),
+            "candidateCount": len(targeted_aggregate.get("topFindings", [])),
+            "resolvedCount": 0,
+            "introducedCount": 0,
+            "repeatedCountDelta": 0,
+            "targetedResolvedCount": 0,
+        },
+        "selectedFindingIds": packet.get("selectedFindingIds", []),
+        "targetedReplayVerified": False,
+        "verdict": "REJECTED",
+        "verdictReasons": [
+            "Targeted replay failed before full-suite replay.",
+            *reasons,
+        ],
+        "scenarioDeltas": [
+            {
+                "scenarioId": scenario_id,
+                "baselineStatus": None if baseline_result is None else baseline_result.get("status"),
+                "candidateStatus": None if candidate_result is None else candidate_result.get("status"),
+                "baselineGateStatus": None if baseline_result is None else baseline_result.get("gateStatus"),
+                "candidateGateStatus": None if candidate_result is None else candidate_result.get("gateStatus"),
+                "scoreDelta": 0.0
+                if baseline_result is None or candidate_result is None
+                else round(candidate_result.get("score", 0.0) - baseline_result.get("score", 0.0), 2),
+                "weightedScoreDelta": 0.0
+                if baseline_result is None or candidate_result is None
+                else round(candidate_result.get("weightedScore", 0.0) - baseline_result.get("weightedScore", 0.0), 2),
+                "notes": notes,
+            }
+        ],
+    }
+    return comparison
+
+
 def main():
     args = parse_args()
     root = repo_root()
@@ -1018,9 +1089,33 @@ def main():
                 codex_npm_version,
                 scenario_ids=targeted_scenarios,
             )
-            verify_targeted_replay(targeted_campaign_dir, args.finding_id)
             cycle_manifest["targetedReplayCampaignPath"] = str(targeted_campaign_dir)
             update_cycle_manifest(cycle_manifest_path, cycle_manifest)
+            try:
+                verify_targeted_replay(targeted_campaign_dir, args.finding_id)
+            except RuntimeError as exc:
+                comparison_dir.mkdir(parents=True, exist_ok=True)
+                comparison = targeted_rejection_comparison(
+                    baseline_campaign_dir,
+                    baseline_manifest,
+                    baseline_aggregate,
+                    targeted_campaign_dir,
+                    packet,
+                    [str(exc)],
+                )
+                comparison_path = comparison_dir / "comparison.json"
+                write_json(comparison_path, comparison)
+                (comparison_dir / "comparison.md").write_text(json.dumps(comparison, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+                cycle_manifest["comparisonPath"] = str(comparison_path)
+                cycle_manifest["finishedAt"] = utc_now()
+                update_cycle_manifest(cycle_manifest_path, cycle_manifest, state="REJECTED")
+                print(f"Cycle manifest: {cycle_manifest_path}")
+                print(f"Maintainer packet: {packet_path}")
+                print(f"Candidate metadata: {candidate_metadata_path}")
+                print(f"Targeted replay campaign: {targeted_campaign_dir}")
+                print(f"Comparison JSON: {comparison_path}")
+                print(f"Comparison MD: {comparison_dir / 'comparison.md'}")
+                return
 
             full_campaign_root = replay_root / "full"
             full_replay_dir = run_campaign(

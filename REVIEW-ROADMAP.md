@@ -478,6 +478,12 @@ Status:
   - the maintainer produced and committed candidate `0.0.16+14ab72e`
   - targeted replay on `http-facade-integration-v1` passed and the original `port=0` coercion evidence disappeared
   - full replay then rejected the candidate because previously passing scenarios regressed (`ngx-contract-ui-v1`) or introduced new gate failures (`recovery-invalid-target-v1`)
+- `cycle-002` has now been executed against `finding-ngx-ui-control-directive-wrapper-semantics`
+  - the selected finding was corroborated by both the project-editor feedback triage batch and the rejected NGX replay evidence from `cycle-001`
+  - the maintainer produced and committed candidate `0.0.16+62808a5`
+  - targeted replay on `ngx-contract-ui-v1` correctly rejected the candidate before full-suite replay
+  - the rejection reason was not the original wrapper-placement defect anymore; the run repaired the tree structure, but the runner-prepared facade requestable still returned an empty runtime payload instead of the expected stub-backed contract
+  - the improvement orchestrator now records this kind of targeted replay failure as `REJECTED` with explicit comparison artifacts instead of misclassifying it as `BLOCKED`
 - Phase 5 remains open because the loop is now proven end-to-end, but the first candidate was correctly rejected instead of promoted
 
 Phase 5 v1 loop:
@@ -505,6 +511,11 @@ Current live outcome:
 - targeted replay verdict: `PASS`
 - full replay verdict: `REJECTED`
 - rejection reason: at least one previously passing scenario regressed to `FAIL`
+- cycle: `cycle-002`
+- targeted finding: `finding-ngx-ui-control-directive-wrapper-semantics`
+- targeted replay verdict: `REJECTED`
+- full replay verdict: not attempted
+- rejection reason: the NGX candidate repaired wrapper placement, but the runner-prepared facade requestable still returned an empty runtime payload, so the targeted replay failed before full-suite replay
 
 ## [DONE] Phase 4.2 - Field Feedback Channel
 
