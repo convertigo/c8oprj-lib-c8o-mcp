@@ -27,8 +27,6 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
     var responseStatus = "200";
     var responseHasBody = true;
     '
-↓CloseHttpSession [steps.RemoveSessionStep-1764760000001]: 
-  comment: Ensure MCP call stays stateless by terminating HTTP session early.
 ↓Parse [steps.SimpleStep-1762187729773]: 
   expression: |
     'if (("" + request).trim().length === 0) {

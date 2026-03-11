@@ -102,7 +102,17 @@ comment: |
     var structuralFlag = parseBoolean(structural, false);
     var skipProjectCheckFlag = parseBoolean(skipProjectCheck, false);
     var disableAutoBuildFlag = parseBoolean(disableAutoBuild, true);
-    var waitForCompletionFlag = parseBoolean(waitForCompletion, false);
+    var waitForCompletionRequestedFlag = parseBoolean(waitForCompletion, false);
+    var waitForCompletionFlag = waitForCompletionRequestedFlag;
+    var forcedAsyncReason = "";
+    var endpointLower = endpointText.toLowerCase();
+    var localEndpoint = !endpointLower.length
+      || endpointLower.indexOf("://localhost:") >= 0
+      || endpointLower.indexOf("://127.0.0.1:") >= 0;
+    if (waitForCompletionFlag && localEndpoint) {
+      waitForCompletionFlag = false;
+      forcedAsyncReason = "waitForCompletion forced to false for local MCP endpoint to avoid self-call timeout";
+    }
     var asyncFlag = !waitForCompletionFlag;
     var processPid = 0;
     var logPath = "";
@@ -237,6 +247,9 @@ comment: |
         successFlag = true;
         statusText = "started";
         messageText = "yaml_mcp_delta_apply started asynchronously";
+        if (forcedAsyncReason.length) {
+          messageText += " (" + forcedAsyncReason + ")";
+        }
       }
     } catch (runError) {
       var runMessage = String(runError);

@@ -1648,7 +1648,7 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument(
         "--endpoint",
-        default="http://localhost:18080/convertigo/api/mcp",
+        default="http://127.0.0.1:18080/convertigo/api/mcp",
         help="MCP endpoint URL.",
     )
     parser.add_argument(

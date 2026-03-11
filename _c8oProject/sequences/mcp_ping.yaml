@@ -7,5 +7,3 @@ comment: Builds the MCP ping response
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-↓CloseHttpSession [steps.RemoveSessionStep-1764760000002]: 
-  comment: Ensure ping call stays stateless by terminating HTTP session.
