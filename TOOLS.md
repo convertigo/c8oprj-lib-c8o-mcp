@@ -131,8 +131,9 @@ noted in the description.
   database object identified by QName.
 - [ ] `project-search` — Search database objects by name/comment and optionally
   smart-source fragments.
-- [ ] `project-list-symbols` — Expose symbol/environment definitions with their
-  scope/visibility.
+- [x] `project-list-symbols` — Expose global symbols, project default symbols,
+  and visible `${...}` references with scope/visibility for one project or all
+  loaded projects.
 
 ### Database object authoring / mutations
 - [ ] `databaseobject-ensure-sequence` — Ensure a sequence scaffold exists with

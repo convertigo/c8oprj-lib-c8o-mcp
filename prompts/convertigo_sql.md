@@ -22,12 +22,13 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 1. Inspect the exact connector/transaction subtree before the first write.
 2. Start from the `sql-crud` recipe, not from ad hoc SQL exploration.
 3. Confirm driver family and JDBC URL shape before deep transaction work.
-4. Use `{variable}` by default for value placeholders in the `WHERE` clause. Escalate to `{{variable}}` only for deliberate raw SQL fragments that cannot be expressed safely otherwise.
-5. Validate the read path first.
-6. When downstream mapping depends on the real transaction shape, execute the transaction with `recordSchema=true` and inspect it with `databaseobject-schema` before finalizing the facade mapping.
-7. Validate the write path only with deterministic data and cleanup when the scenario requires it.
-8. Map raw row/column shape back into the public facade contract.
-9. Save with `project-save` only after runtime proof exists.
+4. If environment-owned symbols may already define JDBC details or runtime toggles, call `project-list-symbols` before asking the human to restate them.
+5. Use `{variable}` by default for value placeholders in the `WHERE` clause. Escalate to `{{variable}}` only for deliberate raw SQL fragments that cannot be expressed safely otherwise.
+6. Validate the read path first.
+7. When downstream mapping depends on the real transaction shape, execute the transaction with `recordSchema=true` and inspect it with `databaseobject-schema` before finalizing the facade mapping.
+8. Validate the write path only with deterministic data and cleanup when the scenario requires it.
+9. Map raw row/column shape back into the public facade contract.
+10. Save with `project-save` only after runtime proof exists.
 
 ## Stop and handoff rules
 - Do not let SQL row shape define the public contract.

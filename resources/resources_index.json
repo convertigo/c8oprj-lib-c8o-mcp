@@ -95,6 +95,35 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-bootstrap-decision-matrix",
+    "name": "Convertigo Bootstrap Decision Matrix",
+    "title": "Convertigo Bootstrap Decision Matrix",
+    "description": "Bootstrap-first questioning and brief-building guide for mono-agent and multi-agent Convertigo sessions.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_bootstrap_decision_matrix.md",
+    "guideId": "convertigo/bootstrap-decision-matrix",
+    "revision": 1,
+    "scopeTags": ["workflow", "bootstrap", "triage", "decision-matrix", "interactive"],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1"
+    ],
+    "recommendedTools": [
+      "project-list",
+      "project-list-symbols",
+      "databaseobject-tree-get",
+      "databaseobject-search",
+      "resources/read",
+      "prompts/list"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-contract-first-delivery",
     "name": "Convertigo Contract-First Delivery",
     "title": "Convertigo Contract-First Delivery",

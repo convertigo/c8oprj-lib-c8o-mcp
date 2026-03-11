@@ -25,13 +25,14 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
    - XML
    - JSON
    - text/binary
-4. Validate the raw transaction directly before trusting the facade.
-5. When downstream mapping depends on the real payload shape, capture schema with `requestable-execute(recordSchema=true)` and inspect it with `databaseobject-schema` before finalizing the facade.
-6. Keep `httpInfo=true` during setup when transport behavior is still uncertain.
-7. When stub proof is required, use `requestable-stub-set` and validate with `__stub=true`.
-8. Treat `HttpConnector.port` as trust-sensitive: if numeric and string inputs behave differently, stop and report the friction.
-9. Validate the public facade with `requestable-execute`.
-10. Save with `project-save` once the HTTP-backed path passes.
+4. If environment-owned symbols may already define the upstream URL, auth mode, or runtime toggles, call `project-list-symbols` before asking the human to restate them.
+5. Validate the raw transaction directly before trusting the facade.
+6. When downstream mapping depends on the real payload shape, capture schema with `requestable-execute(recordSchema=true)` and inspect it with `databaseobject-schema` before finalizing the facade.
+7. Keep `httpInfo=true` during setup when transport behavior is still uncertain.
+8. When stub proof is required, use `requestable-stub-set` and validate with `__stub=true`.
+9. Treat `HttpConnector.port` as trust-sensitive: if numeric and string inputs behave differently, stop and report the friction.
+10. Validate the public facade with `requestable-execute`.
+11. Save with `project-save` once the HTTP-backed path passes.
 
 ## Stop and handoff rules
 - Do not let the connector shape define the public API.

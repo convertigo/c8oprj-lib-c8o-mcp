@@ -465,6 +465,18 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function projectListSymbolsInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Optional project technical name. Omit to scan all loaded projects." },
+        filter: { type: "string", description: "Optional case-insensitive filter on symbol name." },
+        includeValues: booleanFlagSchema(false, "Set true to include full symbol values. Default false masks values in previews.")
+      },
+      additionalProperties: false
+    };
+  }
+
   function projectDeleteInputSchema() {
     return {
       type: "object",
@@ -1063,6 +1075,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_list") {
       return projectListInputSchema();
+    }
+    if (seq === "tools_project_list_symbols") {
+      return projectListSymbolsInputSchema();
     }
     if (seq === "tools_project_delete") {
       return projectDeleteInputSchema();

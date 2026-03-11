@@ -3,23 +3,24 @@
     "name": "convertigo-quickstart",
     "file": "convertigo_quickstart.md",
     "title": "Convertigo MCP Quickstart",
-    "description": "Role-neutral bootstrap that selects the right guides, recipes, and specialist prompt.",
+    "description": "Canonical non-mutating bootstrap that selects the right guides, asks the right decisions, and hands a brief to the planner.",
     "promptId": "convertigo/quickstart",
-    "revision": 1,
+    "revision": 2,
     "roleId": "bootstrap",
     "scopeTags": ["bootstrap", "guide-selection", "triage", "recipes"],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
-      "convertigo/engineering-workflow@1"
+      "convertigo/engineering-workflow@1",
+      "convertigo/bootstrap-decision-matrix@1"
     ],
     "recommendedTools": [
       "project-list",
+      "project-list-symbols",
       "databaseobject-tree-get",
-      "databaseobject-tree-apply",
-      "batch-call",
-      "requestable-execute",
-      "project-save"
+      "databaseobject-search",
+      "resources/read",
+      "prompts/list"
     ],
     "handoffTo": [
       "convertigo/planner@1",
@@ -31,7 +32,11 @@
     ],
     "outputContract": [
       "selectedGuides",
-      "nextActions",
+      "chosenRecipe",
+      "decisions",
+      "plannerBrief",
+      "nextRole",
+      "interactiveState",
       "mcpCritique"
     ],
     "mutatesProject": false
@@ -40,15 +45,16 @@
     "name": "convertigo-planner",
     "file": "convertigo_planner.md",
     "title": "Convertigo Planner",
-    "description": "Contract-first planner that selects a recipe, creates the minimal facade stub, and splits work for specialists.",
+    "description": "Contract-first planner that consumes a bootstrap brief, creates the minimal facade stub, and splits work for specialists.",
     "promptId": "convertigo/planner",
-    "revision": 1,
+    "revision": 2,
     "roleId": "planner",
     "scopeTags": ["planner", "contract-first", "parallel-delivery", "recipes"],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
+      "convertigo/bootstrap-decision-matrix@1",
       "convertigo/contract-first-delivery@1",
       "convertigo/recipe-starter-extension@1",
       "convertigo/recipe-facade-stub@1",
@@ -57,6 +63,7 @@
     ],
     "recommendedTools": [
       "project-list",
+      "project-list-symbols",
       "databaseobject-search",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
@@ -72,10 +79,13 @@
     ],
     "outputContract": [
       "contract",
+      "selectedPattern",
       "stubStatus",
       "workSplit",
       "handoffs",
       "validationPlan",
+      "closureGates",
+      "interactiveState",
       "mcpCritique"
     ],
     "mutatesProject": true
@@ -125,7 +135,7 @@
     "title": "Convertigo SQL Specialist",
     "description": "SQL connector and transaction specialist working behind an agreed facade contract.",
     "promptId": "convertigo/sql",
-    "revision": 1,
+    "revision": 2,
     "roleId": "sql",
     "scopeTags": ["integration", "sql", "transactions"],
     "guideIds": [
@@ -138,6 +148,7 @@
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
+      "project-list-symbols",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "databaseobject-schema",
@@ -164,7 +175,7 @@
     "title": "Convertigo HTTP Specialist",
     "description": "HTTP connector and transaction specialist working behind an agreed facade contract.",
     "promptId": "convertigo/http",
-    "revision": 1,
+    "revision": 2,
     "roleId": "http",
     "scopeTags": ["integration", "http", "transactions"],
     "guideIds": [
@@ -177,6 +188,7 @@
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
+      "project-list-symbols",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "databaseobject-schema",
