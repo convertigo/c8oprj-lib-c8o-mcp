@@ -42,6 +42,11 @@ Use explicit page/container structure for:
 
 Do not hide the entire page logic inside one freeform custom fragment if the palette provides the right structural objects.
 
+Hard rule for data-backed pages:
+- do not implement the primary page body as one large `ngx.components.UICustom#UICustom` with inline `htmlTemplate`
+- reserve `UICustom` for tiny localized markup that native controls/directives cannot express safely
+- if the page depends on backend data, action chains, retry, pagination, or lifecycle loading, the structure should stay visible in the NGX tree
+
 ### Data-loading action path
 For a data-backed page, you usually need:
 - one trigger/event
@@ -219,6 +224,8 @@ Keep these checkpoints separate:
 
 If structural success exists but build/runtime fails, the task is not done. Read builder logs first, then `log-view` if needed.
 
+If the builder is healthy and the page was changed, browser smoke is part of done-ness for UX work. “Builder ready” alone is not enough.
+
 ## Stub-backed UI runtime
 
 ### When `__stub=true` matters
@@ -262,6 +269,16 @@ Fix:
 - prefer palette-backed canonical structure
 - keep directive/control composition deliberate
 
+### Drift: giant UICustom body
+Symptom:
+- most of the data page lives in one `UICustom` / `htmlTemplate` node
+- builder/runtime failures are hard to localize
+- action wiring becomes implicit instead of inspectable
+
+Fix:
+- move the page back to native NGX controls, directives, and explicit action chains
+- keep `UICustom` only for very small, isolated fragments
+
 ## Minimum validation proof
 For a credible NGX data page:
 - the target subtree exists
@@ -272,6 +289,7 @@ For a credible NGX data page:
 - retry is a real action path
 - mobile builder was started early enough to expose real build issues
 - logs were checked when the viewer/build path failed
+- latest UI mutations were saved
 
 ## Recommended MCP tools
 - `databaseobject-tree-get`
@@ -290,6 +308,7 @@ For a credible NGX data page:
 - Do not ship only the happy path.
 - Do not treat structural UI presence as runtime proof.
 - Do not forget `__stub=true` when the requestable contract needs it.
+- Do not build a contract-backed data page mainly through one large `UICustom` body.
 
 ## Completion checks
 - The page uses deliberate NGX structure and action placement.
@@ -298,3 +317,4 @@ For a credible NGX data page:
 - `mobile-builder-open` was started early on UX work.
 - Builder or log evidence was read when runtime smoke failed.
 - The page is saved only after structural and runtime/build evidence are consistent.
+- A data-backed page is not implemented mainly through one large `UICustom` fragment.

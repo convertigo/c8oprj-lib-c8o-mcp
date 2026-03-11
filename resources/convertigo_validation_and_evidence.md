@@ -49,9 +49,11 @@ MCP critique:
   - cleanup-aware write proof only when the task needs it
 - UI:
   - structure readback
-  - runtime evidence when available
+  - runtime evidence when the builder is healthy
   - if browser smoke fails, inspect builder logs with `mobile-builder-open` output and `log-view` before deciding whether the build failed
   - explicit loading, empty, error, and retry presence when the page depends on data
+  - `project-save` after the last successful UI mutation
+  - do not treat `mobile-builder-open ready=true` as a substitute for browser smoke
 
 ### Concise vs noisy proof
 Acceptable proof:
@@ -80,6 +82,8 @@ Noisy proof:
 ### Failure-pattern reminders
 - Runtime changed but only structure was checked.
 - UI browser smoke failed, but build logs were never inspected.
+- UI changes were never saved, but the run still claimed success.
+- Builder was healthy, browser smoke was skipped, and the run still claimed success.
 - Save happened before validation instead of after it.
 - Reload was skipped even though runtime structure changed and clean reload mattered.
 - Final answer says "done" without naming one concrete proof.

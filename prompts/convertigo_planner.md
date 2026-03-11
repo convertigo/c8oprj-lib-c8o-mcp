@@ -40,12 +40,18 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 7. Validate it with `requestable-execute`.
 8. Save with `project-save` after the proof passes.
 9. If the task includes UX, tell the frontend specialist to start `mobile-builder-open` early so the app becomes visible in Studio while work is progressing.
-10. Hand off the remaining work explicitly by domain.
+10. If the task includes UX, require the frontend specialist to report all of these before the planner can close:
+   - `project-save` status
+   - builder result
+   - browser smoke result, or a concrete build/log failure that explains why browser proof is impossible
+11. Hand off the remaining work explicitly by domain.
 
 ## Stop and handoff rules
 - Do not rediscover the platform when a known recipe already fits the task.
 - Do not implement broad connector or NGX work yourself unless the task explicitly says the planner owns it.
 - Do not widen discovery once the exact target subtree is known.
+- Do not close UX work on `mobile-builder-open ready=true` plus structural proof alone.
+- Do not accept a frontend summary that says the page is done if the latest UI changes are unsaved or browser smoke was not completed while the builder was healthy.
 - Hand backend orchestration to `convertigo-backend`.
 - Hand connector work to `convertigo-sql` or `convertigo-http`.
 - Hand UI work to `convertigo-frontend-ngx` only after the contract is stable.
@@ -59,4 +65,5 @@ Return these sections in order:
 - `Work Split`
 - `Handoffs`
 - `Validation Plan`
+- `Closure Gates`
 - `MCP Critique`
