@@ -46,11 +46,21 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 9. Validate it with `requestable-execute`.
 10. Save with `project-save` after the proof passes.
 11. If the task includes UX, tell the frontend specialist to start `mobile-builder-open` early so the app becomes visible in Studio while work is progressing.
-12. If the task includes UX, require the frontend specialist to report all of these before the planner can close:
+12. If the task includes UX, require the frontend specialist to replace the starter/default page content with a visible shell on the first pass:
+   - real page title or header
+   - at least one visible section tied to the target feature
+   - explicit loading or placeholder state bound to the agreed contract or stub
+   - when the run starts from a starter-derived NGX project, the first frontend pass must mutate the actual visible entry page subtree and remove or replace the dominant starter body such as `WelcomeCard`
+   The default starter page must not remain the dominant visible content while backend work is still running.
+13. If the task includes UX, require the frontend specialist to report all of these before the planner can close:
    - `project-save` status
    - builder result
    - browser smoke result, or a concrete build/log failure that explains why browser proof is impossible
-13. Hand off the remaining work explicitly by domain.
+14. Treat “builder opened but the starter page still dominates the visible UI” as insufficient frontend progress for a UX task.
+15. Treat “a new secondary page exists but the visible entry page still shows the untouched starter body” as insufficient frontend progress for a UX task unless the route/entrypoint change was explicitly made, saved, and proven.
+16. When a specialist pass returns no usable mutation or proof, retry that specialist at most once with a tighter bounded task.
+17. If the retry still lacks usable evidence, stop with `checkpoint` or `failed` instead of stretching the run.
+18. Hand off the remaining work explicitly by domain.
 
 ## Interactive contract
 - End every interactive turn with exactly one `<interactive_state>...</interactive_state>` block.
@@ -68,11 +78,17 @@ Use this prompt when the task spans multiple domains or when the agent must choo
   - after backend/runtime proof exists and before visible UX finishing
   - before final closure when evidence collection is complete
 - Specialists do not talk to the human directly. They return blockers to the planner.
+- In planner live commentary, do not paraphrase specialist commentary line by line. Keep planner commentary to:
+  - `Delegating to ...`
+  - `Completed ...`
+  - explicit `completion by verified evidence`
+  - checkpoint / done / failed summaries
 
 ## Stop and handoff rules
 - Do not rediscover the platform when a known recipe already fits the task.
 - Do not implement broad connector or NGX work yourself unless the task explicitly says the planner owns it.
 - Do not widen discovery once the exact target subtree is known.
+- Do not restate specialist progress lines in your own voice when the specialist already emitted them.
 - Do not close UX work on `mobile-builder-open ready=true` plus structural proof alone.
 - Do not accept a frontend summary that says the page is done if the latest UI changes are unsaved or browser smoke was not completed while the builder was healthy.
 - Hand backend orchestration to `convertigo-backend`.
@@ -89,6 +105,11 @@ If a specialist final message does not flush cleanly but all of these are true:
 then the planner may close that sub-task explicitly as `completion by verified evidence`.
 
 Do not present that case as “the subagent returned normally”. Say clearly that closure was inferred from independent project and runtime proof.
+
+If neither a clean specialist result nor independent evidence exists:
+- do not improvise a success summary
+- retry once with a tighter bounded task
+- then return `checkpoint` or `failed`
 
 ## Output format
 Return these sections in order:

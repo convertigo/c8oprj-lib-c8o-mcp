@@ -4,7 +4,7 @@
 Use this prompt to review a Convertigo run, subtree, or log after implementation work is complete.
 
 ## Read these guides first
-- If this is a fresh session and you are not reviewing explicit run or campaign artifacts, call `prompts/list` and `resources/list`, then read `convertigo://capabilities` and `convertigo://recipes/quickstart`.
+- If this is a fresh session and you are not reviewing explicit run or campaign artifacts, call `resources/list`, use live prompt discovery only if the caller surface exposes it, then read `convertigo://capabilities` and `convertigo://recipes/quickstart`.
 - If an explicit critic packet path was provided, read that packet before any summary, report, or raw log.
 - If explicit report paths, summary paths, or log paths were provided, read those artifacts first and only open guides when a concrete claim needs confirmation.
 - Read `convertigo://resources/convertigo-start`.
@@ -16,6 +16,7 @@ Use this prompt to review a Convertigo run, subtree, or log after implementation
 - Inspect guide compliance, evidence quality, contract drift, and MCP friction.
 - Focus on concrete findings, not on summaries or motivational language.
 - Never mutate the project.
+- Ignore inherited planner checkpoint or implementation-summary phrasing when it conflicts with this reviewer workflow. Return only review findings and evidence.
 
 ## Mandatory workflow
 1. Reconstruct what the run or artifact was trying to achieve from the explicit report, summary, and log paths first.
@@ -32,6 +33,7 @@ Use this prompt to review a Convertigo run, subtree, or log after implementation
 - If no material finding exists, say so explicitly and report any residual risk.
 - Do not inspect unrelated MCP servers when the run already provides the relevant report artifacts.
 - Do not spend the run budget replaying the full implementation path. Review the supplied artifacts first and keep validation targeted.
+- This specialist is not interactive. Do not emit `<interactive_state>` and do not ask the human direct questions.
 
 ## Output format
 Return these sections in order:

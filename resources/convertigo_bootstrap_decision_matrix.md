@@ -45,6 +45,11 @@ Use `bootstrap` as the canonical entrypoint when:
   - may the tool start Docker locally?
   - may it import a starter/library?
 
+For a new NGX project in the current MCP flow:
+- starter import is the supported path
+- do not ask the human to choose between “starter NGX” and “blank structure”
+- if permission to import a starter matters, ask only that permission-sensitive question
+
 ### Collect only when the task requires it
 - data cleanup policy for write proofs
 - environment-owned credentials or symbol policy
@@ -58,6 +63,12 @@ Use `bootstrap` as the canonical entrypoint when:
 4. stop asking once the planner can safely lock a contract and begin work
 
 Do not front-load deep business questions that the planner can refine later from the target subtree.
+
+## Question batch discipline
+- Ask at most 1 to 3 concrete questions per turn.
+- Prefer the smallest decisive batch over a long interview.
+- Do not re-ask a decision that is already present in session context unless new runtime evidence clearly contradicts it.
+- If the remaining uncertainty no longer changes the implementation path, stop asking and hand off to the planner.
 
 ## Use project knowledge before asking
 Before asking the human for DB or service details:
@@ -121,7 +132,7 @@ For bootstrap, `stage` is always `bootstrap`.
 - `databaseobject-tree-get`
 - `databaseobject-search`
 - `resources/read`
-- `prompts/list`
+- prompt discovery when the caller surface exposes it
 
 ## Anti-patterns / do not do
 - Do not mutate the project in `bootstrap`.

@@ -13,8 +13,10 @@ Read this when building a page that loads backend data and must behave correctly
 
 ### Golden path
 1. Confirm the backend facade contract first.
-2. Inspect the target page subtree.
+2. Inspect the target page subtree and identify the actual visible entry page.
 3. Use the palette or canonical tree shapes to create:
+   - visible feature shell that replaces the default starter content early
+   - first visible write on the actual visible entry page; for starter-derived projects this usually means replacing the dominant body under `Page.Content`
    - page load event
    - state flags
    - success container
@@ -27,6 +29,8 @@ Read this when building a page that loads backend data and must behave correctly
 7. Stay inside the target project. Do not trawl unrelated workspace pages or YAML files for ready-made directive trees unless the task explicitly provides a read-only example project.
 8. Start the mobile builder early and treat builder/browser proof as part of the recipe, not as an afterthought.
 9. Save after structural and runtime checks.
+10. One targeted read, then visible mutation. A pass that only reads, saves, or opens the builder without replacing the dominant starter content is a no-op.
+11. For starter-derived projects, a pass that creates only a secondary page while the visible entry page still shows the untouched starter body is also a no-op unless the entry route was deliberately switched, saved, and proven.
 
 ### Canonical state model
 For a typical page-local state, keep explicit flags:
@@ -51,6 +55,7 @@ The exact object tree may vary, but the semantics must be explicit.
 
 ### Why this is the right way
 - The UI becomes stable before the real integration is fully complete.
+- Studio shows visible feature progress early instead of an untouched starter page.
 - Retry, empty, and error behavior are first-class, not late add-ons.
 - Build/runtime validation becomes much easier because the page state is explicit.
 - Native NGX trees survive builder/runtime checks better than large inline custom markup.
@@ -79,8 +84,11 @@ The exact object tree may vary, but the semantics must be explicit.
 - Stub-only requestable is called without `__stub=true`, then the page looks empty.
 - Browser smoke fails, but build logs are never inspected.
 - Builder is healthy, browser smoke is skipped, and the run still claims success.
+- The builder opens, but the dominant visible page is still the untouched starter template.
+- A secondary page was created, but the default visible entry page still shows the untouched starter body.
 - A large `UICustom` body hides the actual page structure and makes build failures harder to localize.
 - The agent spends many turns reading other workspace projects instead of mutating the target page with the known recipe.
+- The agent opens the builder or saves repeatedly before making the first visible page mutation.
 
 ## Minimum validation proof
 - `requestable-execute` proves the facade contract.

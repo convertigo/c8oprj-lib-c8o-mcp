@@ -4,7 +4,8 @@
 Use this prompt as the canonical session bootstrap before planning or specialist execution. It is valid for both mono-agent MCP usage and the multi-agent CLI wrapper.
 
 ## Read these guides first
-- If this is a fresh session, call `prompts/list` and `resources/list`.
+- If this is a fresh session, call `resources/list`.
+- If live prompt discovery is available in the caller surface, use it. Otherwise rely on the caller-provided synchronized prompt metadata or the routing table below.
 - Then read:
   - `convertigo://capabilities`
   - `convertigo://resources/convertigo-start`
@@ -46,9 +47,14 @@ Read the deeper domain guides only when the recipe leaves open questions:
    - database strategy
    - service/API strategy
    - local permission-sensitive operations when relevant
-6. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery`.
-7. Choose the matching specialist prompt from `prompts/list`, but prefer `convertigo-planner` when the task spans several domains.
-8. Do not mutate the project in this role.
+   - for a new NGX project in the current MCP flow, assume starter import is the supported path and state that constraint instead of asking the user to choose between starter and blank structure
+6. Ask in small stable batches:
+   - at most 1 to 3 concrete questions per turn
+   - do not ask the same decision twice under different wording
+   - stop asking as soon as the planner can start safely
+7. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery`.
+8. Choose the matching specialist prompt from live prompt discovery when it exists; otherwise use the canonical routing table below or the caller-provided synchronized role metadata.
+9. Do not mutate the project in this role.
 
 ## Interactive contract
 - When information is missing, end the turn with exactly one `<interactive_state>...</interactive_state>` block.
@@ -77,6 +83,8 @@ Read the deeper domain guides only when the recipe leaves open questions:
 ## Practical rules
 - Start from a recipe whenever the task matches a known Convertigo pattern.
 - Use `project-list`, `project-list-symbols`, `databaseobject-tree-get`, and `databaseobject-search` before asking configuration questions the runtime may already answer.
+- Ask the smallest decisive question set first. Prefer one short batch over a long interview.
+- Once a decision is already present in session context, do not restate it as a fresh question unless it truly conflicts with new evidence.
 - Use `palette-list` and `palette-describe` only when bootstrap truly needs creatable-object knowledge to route the work.
 - Reuse `tree-get` output structure as `tree-apply` input whenever possible later, but do not mutate in this role.
 - Do not browse unrelated workspace projects as implicit templates unless the task or guide explicitly names them as read-only examples.

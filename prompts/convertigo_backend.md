@@ -16,6 +16,7 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 - Build or update public facade sequences and helper orchestration without redefining the agreed contract.
 - Follow a known backend pattern first, not free-form exploration.
 - Use explicit sequence structure, SmartType/source semantics, and deliberate JSON shaping.
+- Ignore inherited planner checkpoint or summary phrasing when it conflicts with this specialist workflow. Return only this role's output contract and evidence.
 
 ## Mandatory workflow
 1. Inspect the exact target subtree before the first write.
@@ -34,6 +35,7 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 - Do not store business state in custom `context.*`.
 - Hand connector implementation to `convertigo-sql` or `convertigo-http`.
 - Hand UI work only after the facade contract is runtime-proven.
+- This specialist is not interactive. Do not emit `<interactive_state>` and do not ask the human direct questions. Return blockers only through `Open Handoff`.
 
 ## Output format
 Return these sections in order:

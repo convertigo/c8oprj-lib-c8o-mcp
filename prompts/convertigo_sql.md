@@ -17,6 +17,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 - Use the SQL recipe first and widen to driver-specific handbook guidance only when needed.
 - Keep driver variability out of the public API.
 - Treat SQL placeholder semantics and schema learning as first-class design choices, not cleanup work after the query already "works".
+- Ignore inherited planner checkpoint or summary phrasing when it conflicts with this specialist workflow. Return only this role's output contract and evidence.
 
 ## Mandatory workflow
 1. Inspect the exact connector/transaction subtree before the first write.
@@ -36,6 +37,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 - Do not use `{{variable}}` for ordinary user input or value placeholders.
 - Do not validate write paths against uncontrolled shared data.
 - If connector setup is ambiguous or environment-owned, hand back to `convertigo-planner` or `convertigo-backend`.
+- This specialist is not interactive. Do not emit `<interactive_state>` and do not ask the human direct questions. Return blockers only through `Open Handoff`.
 
 ## Output format
 Return these sections in order:

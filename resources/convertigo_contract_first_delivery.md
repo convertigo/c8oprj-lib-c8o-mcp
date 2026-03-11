@@ -57,6 +57,9 @@ Define the facade requestable before the first domain-specific mutation:
    - backend specialist owns the facade sequence and orchestration
    - SQL or HTTP specialist builds the real integration behind the facade
    - UI specialist binds to the agreed payload shape, not to raw connector data
+   - UI specialist replaces the dominant starter/default page content early with a visible shell bound to the stub or stable contract, so Studio shows feature progress before final backend proof
+   - for starter-derived apps, “visible shell” means the actual visible entry page changed, not just a hidden or secondary page
+   - if a specialist returns without usable mutation or proof evidence, the planner retries that specialist at most once with a tighter bounded task, then checkpoints or fails explicitly
 4. Integration replacement:
    - replace stub internals
    - preserve the public contract
@@ -105,6 +108,8 @@ This is drift because it changes field names, nesting, and the error convention.
 ## Anti-patterns / do not do
 - Do not let the UI bind directly to a raw connector payload when a facade sequence should own the public contract.
 - Do not start UI work from an unstable response shape.
+- Do not leave the starter/default page as the dominant visible content while claiming that frontend work is progressing.
+- Do not count a newly created secondary page as visible progress while the actual visible entry page still shows the untouched starter body.
 - Do not replace the stub with a real integration that silently changes field names, nesting, or error format.
 - Do not make the connector transaction itself the only public contract when the feature needs a stable facade.
 - Do not let the planner stop at “build the backend first, then the UI later” when parallel work is possible.

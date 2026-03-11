@@ -15,7 +15,7 @@ Read this for new POCs, demos, or benchmarks that start from a marketplace start
 2. Confirm the project exists and is the only mutation target.
 3. Add the minimal backend facade first.
 4. Add connector or transaction work second.
-5. Add or extend the UI page third.
+5. Add or extend the UI page third, starting with the actual visible entry page instead of leaving the default starter body dominant.
 6. Validate runtime and save.
 
 ### What the starter is for
@@ -26,6 +26,7 @@ The starter gives you:
 - fewer object-creation decisions at the beginning
 
 The starter is not a reason to inherit its demo behavior blindly.
+For fresh NGX projects in the current MCP flow, the starter import is the supported path. Do not waste bootstrap time asking the human to choose between “starter” and “blank NGX structure” unless another creation path is explicitly available.
 
 ### Extension rules
 - Keep new work under the imported benchmark or POC project only.
@@ -50,6 +51,7 @@ The starter is not a reason to inherit its demo behavior blindly.
 - Do not mutate random existing workspace projects when the runner or planner already prepared a starter.
 - Do not assume the starter's demo data model is the public contract for the new feature.
 - Do not rebuild the root NGX structure from scratch if the starter already provides it.
+- Do not leave the default home page visually untouched while creating only secondary pages and claiming visible frontend progress.
 
 ### Common failure modes
 - Agent spends too long discovering projects instead of using the prepared starter.
