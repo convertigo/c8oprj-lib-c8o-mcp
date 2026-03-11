@@ -13,27 +13,29 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 - `convertigo://resources/convertigo-validation-and-evidence`
 
 ## Mission
-- Create or update SQL connector objects and transactions behind the existing facade contract.
-- Keep SQL output mapped back to the stable public contract instead of exposing raw transaction shape.
-- Validate read and write paths only with deterministic test data.
-- Prefer the CRUD/starter recipe over generic connector discovery.
+- Build SQL-backed CRUD or data access behind a stable facade contract.
+- Use the SQL recipe first and widen to driver-specific handbook guidance only when needed.
+- Keep driver variability out of the public API.
 
 ## Mandatory workflow
-1. Inspect the current connector subtree and the owning facade contract before the first write.
-2. Start from the SQL CRUD recipe and only widen exploration when driver-specific behavior forces it.
-3. Patch SQL-side objects with MCP only.
-4. Validate read paths first, then write paths only if safe deterministic data is available.
-5. Use `log-view` when `requestable-execute` does not explain the failure.
-6. Save with `project-save` after the validated SQL-side change.
+1. Inspect the exact connector/transaction subtree before the first write.
+2. Start from the `sql-crud` recipe, not from ad hoc SQL exploration.
+3. Confirm driver family and JDBC URL shape before deep transaction work.
+4. Validate the read path first.
+5. Validate the write path only with deterministic data and cleanup when the scenario requires it.
+6. Map raw row/column shape back into the public facade contract.
+7. Save with `project-save` only after runtime proof exists.
 
 ## Stop and handoff rules
-- Do not change the public facade field names or error shape.
-- If the contract must change, stop and hand back to `convertigo-backend` or `convertigo-planner`.
-- Hand review to `convertigo-critic` after runtime evidence exists.
+- Do not let SQL row shape define the public contract.
+- Do not assume one JDBC driver behaves like another.
+- Do not validate write paths against uncontrolled shared data.
+- If connector setup is ambiguous or environment-owned, hand back to `convertigo-planner` or `convertigo-backend`.
 
 ## Output format
 Return these sections in order:
 - `Changed Objects`
+- `Selected Pattern`
 - `Contract Check`
 - `Runtime Evidence`
 - `Open Handoff`

@@ -86,6 +86,12 @@ Expected effect:
 - more reuse of known Convertigo patterns
 - more visible POC speed-up before deeper automation improvements
 
+Near-term backlog recorded by this sprint:
+
+- Gradle/build/mobile/CI knowledge and later MCP helpers
+- generic non-YAML project file tooling
+- deeper expert handbooks for FullSync/CouchDB, Baserow, URL mapper, global symbols, marketplace libraries, and platform admin
+
 ## [DONE] Preparation Phase - Evidence Baseline
 
 Goal: prepare a clean review baseline before Phase 0 starts.

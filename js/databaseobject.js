@@ -1255,6 +1255,26 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
     } catch (_ignoreTypeName) {}
   }
 
+  var isNumericProperty =
+    propertyTypeName === "byte" ||
+    propertyTypeName === "short" ||
+    propertyTypeName === "int" ||
+    propertyTypeName === "long" ||
+    propertyTypeName === "float" ||
+    propertyTypeName === "double" ||
+    propertyTypeName === "java.lang.Byte" ||
+    propertyTypeName === "java.lang.Short" ||
+    propertyTypeName === "java.lang.Integer" ||
+    propertyTypeName === "java.lang.Long" ||
+    propertyTypeName === "java.lang.Float" ||
+    propertyTypeName === "java.lang.Double";
+
+  // Rhino numbers are JS doubles. Some Convertigo properties, such as HttpConnector.port,
+  // are compiled reliably from string form but can degrade when a raw JS number is passed through.
+  if (isNumericProperty && typeof rawSpec === "number" && isFinite(rawSpec)) {
+    return String(rawSpec);
+  }
+
   // Allow SmartType / XMLVector values provided as JSON strings (or any stringified JSON).
   if (typeof rawSpec === "string") {
     var trimmedSpec = rawSpec.trim();

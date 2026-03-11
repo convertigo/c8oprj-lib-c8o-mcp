@@ -25,6 +25,12 @@ This directory is the intake area for future domain exploration before direct pa
   4. colleague repos and prior prompts
   5. ask for the best example project only when the concept is still ambiguous or high-stakes
 
+## Current backlog signals
+- Add Gradle/build/mobile/CI knowledge and later tooling based on `convertigo-gradle-guide.md`.
+- Consider a generic project file MCP tool for non-YAML files only.
+- Keep `_c8oProject/*.yaml` out of any future generic file-write tool.
+- Use example projects only when docs, RAG, and current guides still leave a concept ambiguous.
+
 ## Current ownership targets
 - backend: `resources/convertigo_backend_sequences.md` + `prompts/convertigo_backend.md`
 - http: `resources/convertigo_integration_http.md` + `prompts/convertigo_http.md`
