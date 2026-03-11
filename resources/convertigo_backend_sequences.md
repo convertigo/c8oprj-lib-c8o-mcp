@@ -10,6 +10,9 @@ Read this when creating or changing sequences, facade requestables, orchestratio
 - Safe Rhino usage around `context`.
 - Explicit runtime validation.
 
+## Read this after the recipe
+If the task is a common facade/stub flow, read `convertigo/recipe-facade-stub@1` first. Come here when you need the deeper sequence rules, SmartType details, or Rhino guardrails that the recipe does not cover.
+
 ## Mandatory workflow
 
 ### Recipe 1: build a facade sequence with stub JSON output

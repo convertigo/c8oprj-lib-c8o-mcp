@@ -17,7 +17,7 @@ the tools.
 - Current public catalog:
   - `24` tools by default
   - `25` tools when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`
-  - `12` resources
+  - `18` resources
   - `8` prompts
 
 Do not trust this file over the live server. Verify with:
@@ -119,6 +119,9 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
 - Raw field feedback must be consolidated under `feedback/triage/` before it is
   used as maintainer input.
 - Guide strategy is tracked in `REVIEW-ROADMAP.md`.
+- Knowledge ingestion now has a tracked editor-first workflow under `knowledge/`.
+  - `knowledge/templates/` contains the proposal template set.
+  - `knowledge/inbox/` is runtime-only and must stay untracked.
 
 ## Validation Checklist
 
@@ -155,7 +158,7 @@ After changing the MCP:
 - Phase 3: done
 - Phase 4: done
 - Phase 5 scaffolding: done
-- Current follow-up: feedback triage consolidation and further live benchmark expansion
+- Current follow-up: knowledge-first recovery sprint, feedback triage consolidation, and further live benchmark expansion
 
 See `REVIEW-ROADMAP.md` for the working plan.
 

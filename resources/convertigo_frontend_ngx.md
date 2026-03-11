@@ -9,6 +9,9 @@ Read this when implementing or changing NGX pages, bindings, routing, actions, o
 - Loading, empty, and error states with retry.
 - Efficient write planning for UI trees.
 
+## Read this after the recipe
+If the task is a classic data-backed page, read `convertigo/recipe-ngx-data-page@1` first. Come here when the page needs deeper NGX structure, action chaining, or palette subtleties beyond the golden path.
+
 ## Mandatory workflow
 
 ### Contract-bound UI recipe

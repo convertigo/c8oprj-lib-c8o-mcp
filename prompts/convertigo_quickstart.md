@@ -1,66 +1,64 @@
 # Convertigo MCP Quickstart
 
 ## When to use this prompt
-Use this prompt to bootstrap a session, choose the right guides, and hand off to the specialist prompt that matches the task.
+Use this prompt to bootstrap a session, understand the platform quickly, choose the right recipe, and hand off to the right specialist role.
 
 ## Read these guides first
 - If this is a fresh session, call `prompts/list` and `resources/list`.
 - Then read:
-- `convertigo://capabilities`
-- `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-engineering-workflow`
+  - `convertigo://capabilities`
+  - `convertigo://recipes/quickstart`
+  - `convertigo://resources/convertigo-start`
+  - `convertigo://resources/convertigo-platform-big-picture`
+  - `convertigo://resources/convertigo-engineering-workflow`
 
-Read only the domain guides that match the task:
-- multi-track planning or parallel delivery: `convertigo://resources/convertigo-contract-first-delivery`
-- sequence or facade work: `convertigo://resources/convertigo-backend-sequences`
-- SQL integration: `convertigo://resources/convertigo-integration-sql`
-- HTTP integration: `convertigo://resources/convertigo-integration-http`
-- NGX UI delivery: `convertigo://resources/convertigo-frontend-ngx`
-- final validation or review: `convertigo://resources/convertigo-validation-and-evidence`
-- narrow references only when needed: `convertigo://resources/convertigo-context-api`, `convertigo://resources/convertigo-json-quickref`
+Read the smallest matching recipe next:
+- fresh app or starter extension: `convertigo://resources/convertigo-recipe-starter-extension`
+- facade sequence or stub contract: `convertigo://resources/convertigo-recipe-facade-stub`
+- HTTP-backed facade: `convertigo://resources/convertigo-recipe-http-facade`
+- SQL CRUD behind facade: `convertigo://resources/convertigo-recipe-sql-crud`
+- NGX data page: `convertigo://resources/convertigo-recipe-ngx-data-page`
+
+Read the deeper domain guides only when the recipe leaves open questions:
+- `convertigo://resources/convertigo-backend-sequences`
+- `convertigo://resources/convertigo-integration-http`
+- `convertigo://resources/convertigo-integration-sql`
+- `convertigo://resources/convertigo-frontend-ngx`
+- `convertigo://resources/convertigo-validation-and-evidence`
+- narrow references only when needed:
+  - `convertigo://resources/convertigo-context-api`
+  - `convertigo://resources/convertigo-json-quickref`
 
 ## Mission
 - Bootstrap the session.
-- Choose the right specialist prompt when the task is planner, backend, SQL, HTTP, frontend NGX, or critic work.
-- Keep the guidance thin: the guides hold the detailed domain rules.
+- Pick one matching recipe before broad exploration.
+- Choose the specialist role that should execute the work.
+- Keep Convertigo work MCP-first and object-first.
 
 ## Mandatory workflow
-1. Read the built-ins and the start/workflow guides.
-2. Pick the domain guides that match the task.
-3. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery` before the first write call.
-4. Choose the matching specialist prompt from `prompts/list`.
-5. Execute writes via MCP only.
+1. Read the built-ins, the start guide, and the big-picture guide.
+2. Pick one matching recipe before any broad discovery.
+3. Read the deeper handbook only if the recipe is not enough.
+4. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery`.
+5. Choose the matching specialist prompt from `prompts/list`.
+6. Execute writes through MCP only.
 
 ## Specialist prompt routing
 | Task shape | Specialist prompt |
-|------------|-------------------|
-| Contract-first planning or parallel split | `convertigo-planner` |
+| --- | --- |
+| Contract-first planning or multi-track split | `convertigo-planner` |
 | Sequence or facade implementation | `convertigo-backend` |
 | SQL connector implementation | `convertigo-sql` |
 | HTTP connector implementation | `convertigo-http` |
 | NGX UI work | `convertigo-frontend-ngx` |
 | Review or critique | `convertigo-critic` |
 
-## Primary tools
-| Tool | Purpose |
-|------|---------|
-| `project-list` | Discover workspace projects. |
-| `databaseobject-tree-get` | Read canonical subtrees (`childrenDepth`, `properties`). |
-| `databaseobject-tree-apply` | Create/update canonical trees (`at`, `mode`, `tree`). |
-| `batch-call` | Execute multiple MCP calls with resume/error control. |
-| `palette-list` / `palette-describe` | Discover and describe valid creatable objects. |
-| `requestable-execute` | Execute sequence/transaction and inspect payload/logs. |
-| `project-save` / `project-reload` | Persist or discard runtime changes. |
-| `log-view` | Query LogManager with structured filters. |
-
 ## Practical rules
-- QNames are case-sensitive.
-- Reuse `tree-get` output structure as input to `tree-apply` whenever possible.
-- Prefer `mode=merge`; use `mode=replace` only when subtree pruning is intended.
-- For large changes, use `batch-call` with default `optimizeMutations=true`.
-- If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery` before the first write call.
-- Use `rag-query` only when the live catalog and tracked guides do not answer the question.
+- Start from a recipe whenever the task matches a known Convertigo pattern.
+- Use `project-list`, `databaseobject-tree-get`, and `databaseobject-search` before the first write.
+- Use `palette-list` and `palette-describe` when you need valid creatable objects.
+- Reuse `tree-get` output structure as `tree-apply` input whenever possible.
+- Use RAG only when the live catalog and tracked guides still leave the concept unclear.
 
 ## Output format
 Return these sections in order:

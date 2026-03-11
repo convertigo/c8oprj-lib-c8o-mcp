@@ -31,6 +31,36 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-platform-big-picture",
+    "name": "Convertigo Platform Big Picture",
+    "title": "Convertigo Platform Big Picture",
+    "description": "Platform overview, mindset, subsystems, and the reasons behind facade-first Convertigo design.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_platform_big_picture.md",
+    "guideId": "convertigo/platform-big-picture",
+    "revision": 1,
+    "scopeTags": ["start", "platform", "architecture", "mindset"],
+    "prerequisites": ["convertigo/start@1"],
+    "recommendedTools": [
+      "resources/read",
+      "project-list",
+      "databaseobject-tree-get",
+      "databaseobject-search"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-sql",
+      "convertigo-http",
+      "convertigo-frontend-ngx",
+      "convertigo-critic",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "start",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-engineering-workflow",
     "name": "Convertigo Engineering Workflow",
     "title": "Convertigo Engineering Workflow",
@@ -96,6 +126,72 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-recipe-starter-extension",
+    "name": "Convertigo Starter Extension Recipe",
+    "title": "Convertigo Starter Extension Recipe",
+    "description": "Golden path for importing a starter project and extending it without rediscovering project structure.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_recipe_starter_extension.md",
+    "guideId": "convertigo/recipe-starter-extension",
+    "revision": 1,
+    "scopeTags": ["workflow", "recipe", "starter", "marketplace", "poc"],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1"
+    ],
+    "recommendedTools": [
+      "marketplace-import",
+      "project-list",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-sql",
+      "convertigo-http",
+      "convertigo-frontend-ngx",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-facade-stub",
+    "name": "Convertigo Facade Stub Recipe",
+    "title": "Convertigo Facade Stub Recipe",
+    "description": "Golden path for locking a facade contract and producing a minimal executable stub fast.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_recipe_facade_stub.md",
+    "guideId": "convertigo/recipe-facade-stub",
+    "revision": 1,
+    "scopeTags": ["workflow", "recipe", "backend", "facade", "stub"],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-search",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "requestable-execute",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-backend",
+      "convertigo-http",
+      "convertigo-sql",
+      "convertigo-frontend-ngx",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-backend-sequences",
     "name": "Convertigo Backend Sequences",
     "title": "Convertigo Backend Sequences",
@@ -123,6 +219,97 @@
       "convertigo-maintainer"
     ],
     "guidanceLevel": "domain",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-http-facade",
+    "name": "Convertigo HTTP Facade Recipe",
+    "title": "Convertigo HTTP Facade Recipe",
+    "description": "Golden path for building an HTTP connector and wiring it behind a stable facade contract.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_recipe_http_facade.md",
+    "guideId": "convertigo/recipe-http-facade",
+    "revision": 1,
+    "scopeTags": ["workflow", "recipe", "integration", "http", "facade"],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/recipe-facade-stub@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "requestable-execute",
+      "requestable-stub-set",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-http",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-integration-http",
+    "name": "Convertigo HTTP Integration",
+    "title": "Convertigo HTTP Integration",
+    "description": "HTTP connector and transaction setup, schema recording, transport diagnostics, and facade handoff.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_integration_http.md",
+    "guideId": "convertigo/integration-http",
+    "revision": 1,
+    "scopeTags": ["domain", "integration", "http", "transactions"],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/backend-sequences@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "databaseobject-schema",
+      "requestable-execute",
+      "log-view",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-http",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "domain",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-sql-crud",
+    "name": "Convertigo SQL CRUD Recipe",
+    "title": "Convertigo SQL CRUD Recipe",
+    "description": "Golden path for creating a SQL CRUD scaffold behind a stable facade contract.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_recipe_sql_crud.md",
+    "guideId": "convertigo/recipe-sql-crud",
+    "revision": 1,
+    "scopeTags": ["workflow", "recipe", "integration", "sql", "crud"],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/recipe-facade-stub@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "databaseobject-schema",
+      "requestable-execute",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-sql",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
     "fallbackToRag": false
   },
   {
@@ -155,32 +342,35 @@
     "fallbackToRag": false
   },
   {
-    "uri": "convertigo://resources/convertigo-integration-http",
-    "name": "Convertigo HTTP Integration",
-    "title": "Convertigo HTTP Integration",
-    "description": "HTTP connector and transaction setup, schema recording, transport diagnostics, and facade handoff.",
+    "uri": "convertigo://resources/convertigo-recipe-ngx-data-page",
+    "name": "Convertigo NGX Data Page Recipe",
+    "title": "Convertigo NGX Data Page Recipe",
+    "description": "Golden path for building a data-backed NGX page with loading, empty, error, and retry states.",
     "mimeType": "text/markdown",
-    "file": "convertigo_integration_http.md",
-    "guideId": "convertigo/integration-http",
+    "file": "convertigo_recipe_ngx_data_page.md",
+    "guideId": "convertigo/recipe-ngx-data-page",
     "revision": 1,
-    "scopeTags": ["domain", "integration", "http", "transactions"],
+    "scopeTags": ["workflow", "recipe", "frontend", "ngx", "data-page"],
     "prerequisites": [
       "convertigo/start@1",
-      "convertigo/backend-sequences@1"
+      "convertigo/platform-big-picture@1",
+      "convertigo/contract-first-delivery@1"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
+      "palette-list",
+      "palette-describe",
       "databaseobject-tree-apply",
-      "databaseobject-schema",
-      "requestable-execute",
-      "log-view",
+      "mobile-builder-open",
       "project-save"
     ],
     "promptNames": [
-      "convertigo-http",
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-frontend-ngx",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "domain",
+    "guidanceLevel": "workflow",
     "fallbackToRag": false
   },
   {

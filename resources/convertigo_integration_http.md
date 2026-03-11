@@ -9,6 +9,9 @@ Read this when a feature needs an HTTP connector or HTTP transaction behind a Co
 - Transport diagnostics that stay visible during setup.
 - Output handoff back to backend sequences.
 
+## Read this after the recipe
+If the task is a standard HTTP-backed facade, read `convertigo/recipe-http-facade@1` first. Come here when endpoint quirks, schema capture, handler details, or payload subtleties go beyond the golden path.
+
 ## Mandatory workflow
 
 ### HTTP setup recipe

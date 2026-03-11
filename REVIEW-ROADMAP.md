@@ -19,6 +19,9 @@ Build the improvement factory around Convertigo MCP:
 - Before optimizing agents further, the project still needs a stricter layering between real tools, onboarding assets, and benchmarks.
 - The live MCP server now exposes a reviewed contract whose tool metadata and public schemas are consistent enough to serve as the Phase 0 truth set.
 - Colleague projects already contain useful patterns for role decomposition, validation gates, and delivery discipline.
+- The current guide set is still too shallow to encode real Convertigo know-how at POC speed.
+- Benchmarks can now validate behavior, but they are not enough to synthesize platform expertise by themselves.
+- The next acceleration depends on knowledge ingestion from `convertigo-doc`, RAG, and curated example patterns.
 
 ## Evidence Sources
 
@@ -54,6 +57,34 @@ Rationale:
 - Feedback must be structured enough to be compared across runs.
 - Warnings should teach the model what to read next instead of failing silently.
 - RAG is a slow fallback for missing knowledge, not the default path for routine work.
+- Benchmarks validate recipes and handbooks; they do not replace them.
+
+## In Progress - Knowledge-First Recovery Sprint
+
+Goal: move from bench-first discovery to knowledge-first execution.
+
+Current direction:
+
+- add one big-picture Convertigo platform guide so the model understands what it is manipulating
+- add prescriptive golden-path recipes for the fastest common outcomes
+- keep deep handbooks for domain subtleties instead of overloading bootstrap prompts
+- add a tracked `knowledge/` workflow so future explorer agents can propose evidence without colliding on edits
+
+First-wave deliverables:
+
+- `convertigo-platform-big-picture`
+- `convertigo-recipe-facade-stub`
+- `convertigo-recipe-http-facade`
+- `convertigo-recipe-sql-crud`
+- `convertigo-recipe-ngx-data-page`
+- `convertigo-recipe-starter-extension`
+
+Expected effect:
+
+- fewer exploratory tool calls before the first correct write
+- faster planner decisions
+- more reuse of known Convertigo patterns
+- more visible POC speed-up before deeper automation improvements
 
 ## [DONE] Preparation Phase - Evidence Baseline
 
@@ -264,7 +295,7 @@ Status:
 - completed on live server `0.0.11`
 - `prompts/list` now exposes `7` file-backed prompts with machine-readable metadata
 - `prompts/get` returns the same metadata plus the prompt body, so clients do not need a second lookup
-- `resources/list` still exposes `12` resources and file-backed guides now expose `promptNames`
+- `resources/list` now exposes `18` resources and file-backed guides expose `promptNames`
 - mandatory live Codex CLI probes passed with `codex-cli 0.111.0`:
   - `convertigo-planner`
   - `convertigo-http`

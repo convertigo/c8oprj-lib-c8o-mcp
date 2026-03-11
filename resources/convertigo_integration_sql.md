@@ -9,6 +9,9 @@ Read this when a feature needs SQL connectors or SQL transactions behind a Conve
 - Validation data lifecycle.
 - Output handoff back to backend sequences.
 
+## Read this after the recipe
+If the task is a standard CRUD-style data path behind a facade, read `convertigo/recipe-sql-crud@1` first. Come here when driver-specific subtleties, validation rules, or transaction details go beyond the golden path.
+
 ## Mandatory workflow
 
 ### Safe SQL validation workflow
