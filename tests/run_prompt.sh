@@ -19,6 +19,8 @@ RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d_%H%M%S)}"
 RUN_ID="${RUN_LABEL}_${RUN_STAMP}"
 PAYLOAD_FILE="${PROMPT_FILE}"
 TEMP_PROMPT_FILE=""
+TEMP_RENDERED_PROMPT_FILE=""
+UNRESOLVED_PLACEHOLDERS=""
 CODEX_MODEL="${CODEX_MODEL:-}"
 CODEX_REASONING_EFFORT="${CODEX_REASONING_EFFORT:-medium}"
 CODEX_REQUEST_TIMEOUT="${CODEX_REQUEST_TIMEOUT:-900}"
@@ -55,6 +57,51 @@ if [[ -n "${ARTIFACT_DIR_ROOT}" ]]; then
 else
   LOG_FILE="${LOG_DIR}/${RUN_ID}.log"
   REPORT_DIR="${REPORT_DIR_ROOT}/${RUN_ID}"
+fi
+
+if grep -Eq '__[A-Z0-9_]+__' "${PROMPT_FILE}"; then
+  TEMP_RENDERED_PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/convertigo_prompt_rendered.XXXXXX")"
+  UNRESOLVED_PLACEHOLDERS="$(
+    python3 - "${PROMPT_FILE}" "${TEMP_RENDERED_PROMPT_FILE}" <<'PY'
+import os
+import pathlib
+import re
+import sys
+
+source = pathlib.Path(sys.argv[1])
+target = pathlib.Path(sys.argv[2])
+text = source.read_text(encoding="utf-8")
+mapping = {
+    "__TARGET_PROJECT__": os.getenv("TARGET_PROJECT", ""),
+    "__FIXTURE_SOURCE_PROJECT__": os.getenv("FIXTURE_SOURCE_PROJECT", ""),
+    "__PG_HOST__": os.getenv("PG_HOST", ""),
+    "__PG_PORT__": os.getenv("PG_PORT", ""),
+    "__PG_DATABASE__": os.getenv("PG_DATABASE", ""),
+    "__PG_USER__": os.getenv("PG_USER", ""),
+    "__PG_PASSWORD__": os.getenv("PG_PASSWORD", ""),
+    "__FIXTURE_METADATA_PATH__": os.getenv("FIXTURE_METADATA_PATH", ""),
+    "__WORKTREE_PATH__": os.getenv("WORKTREE_PATH", ""),
+    "__MAINTAINER_PACKET_PATH__": os.getenv("MAINTAINER_PACKET_PATH", ""),
+    "__MAINTAINER_PACKET_CONTENT__": os.getenv("MAINTAINER_PACKET_CONTENT", ""),
+    "__BASELINE_PROJECT_VERSION__": os.getenv("BASELINE_PROJECT_VERSION", ""),
+    "__TARGET_PROJECT_VERSION__": os.getenv("TARGET_PROJECT_VERSION", ""),
+    "__COMMIT_MESSAGE__": os.getenv("COMMIT_MESSAGE", ""),
+}
+
+for key, value in mapping.items():
+    if value:
+        text = text.replace(key, value)
+
+target.write_text(text, encoding="utf-8")
+placeholders = sorted(set(re.findall(r"__([A-Z0-9_]+)__", text)))
+print(" ".join(f"__{name}__" for name in placeholders))
+PY
+  )"
+  PAYLOAD_FILE="${TEMP_RENDERED_PROMPT_FILE}"
+  if [[ -n "${UNRESOLVED_PLACEHOLDERS}" ]]; then
+    echo "Prompt contains unresolved placeholders after rendering: ${UNRESOLVED_PLACEHOLDERS}" >&2
+    exit 1
+  fi
 fi
 
 INIT_RESPONSE="$(curl -sS -X POST "${MCP_URL}" \
@@ -114,6 +161,9 @@ fi
   echo "role_prompt_revision=${ROLE_PROMPT_REVISION:-none}"
   if [[ -n "${ROLE_PROMPT_METADATA_JSON}" ]]; then
     echo "role_prompt_metadata_json=${ROLE_PROMPT_METADATA_JSON}"
+  fi
+  if [[ -n "${UNRESOLVED_PLACEHOLDERS}" ]]; then
+    echo "prompt_placeholders_unresolved=${UNRESOLVED_PLACEHOLDERS}"
   fi
   if [[ -n "${SUITE_ID}" ]]; then
     echo "suite_id=${SUITE_ID}"
@@ -186,6 +236,10 @@ python3 "${SCRIPT_DIR}/scripts/report_codex_run.py" \
 
 if [[ -n "${TEMP_PROMPT_FILE}" ]]; then
   rm -f "${TEMP_PROMPT_FILE}"
+fi
+
+if [[ -n "${TEMP_RENDERED_PROMPT_FILE}" ]]; then
+  rm -f "${TEMP_RENDERED_PROMPT_FILE}"
 fi
 
 echo "RunId: ${RUN_ID}"
