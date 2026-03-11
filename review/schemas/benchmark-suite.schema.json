@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/benchmark-suite.schema.json",
+  "title": "Convertigo Benchmark Suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suiteId",
+    "title",
+    "revision",
+    "description",
+    "aggregateCriticPromptFile",
+    "scenarios"
+  ],
+  "properties": {
+    "suiteId": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "aggregateCriticPromptFile": {
+      "type": "string"
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+          "required": [
+            "scenarioId",
+            "title",
+            "promptFile",
+            "rolePromptName",
+            "benchmarkId",
+            "mutatesProject",
+            "requiresFixture",
+            "fixtureId",
+            "projectFixture",
+            "allowedSkipReasons",
+            "requiredResultStatus",
+          "scenarioWeight",
+          "toolCallSoftLimit",
+          "toolCallHardLimit",
+          "durationSoftLimitMs",
+          "durationHardLimitMs",
+          "scoreWeights",
+          "gateChecks",
+          "criticPromptFile",
+          "tags"
+        ],
+        "properties": {
+          "scenarioId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "promptFile": {
+            "type": "string"
+          },
+          "rolePromptName": {
+            "type": "string"
+          },
+          "benchmarkId": {
+            "type": "string"
+          },
+          "mutatesProject": {
+            "type": "boolean"
+          },
+          "requiresFixture": {
+            "type": "boolean"
+          },
+          "fixtureId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "projectFixture": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "fixtureAlias",
+              "sourceProject",
+              "technicalName",
+              "starter",
+              "importedNamePattern",
+              "cleanupPolicy",
+              "required"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "const": "marketplace"
+              },
+              "fixtureAlias": {
+                "type": "string"
+              },
+              "sourceProject": {
+                "type": "string"
+              },
+              "technicalName": {
+                "type": "string"
+              },
+              "starter": {
+                "type": "boolean"
+              },
+              "importedNamePattern": {
+                "type": "string"
+              },
+              "cleanupPolicy": {
+                "type": "string",
+                "const": "ownedProject"
+              },
+              "required": {
+                "type": "boolean"
+              }
+            }
+          },
+          "preparedRequestables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "name",
+                "comment",
+                "stubContent"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "stubSequence"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "stubContent": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "allowedSkipReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requiredResultStatus": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED",
+              "UNKNOWN"
+            ]
+          },
+          "scenarioWeight": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "toolCallSoftLimit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "toolCallHardLimit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "durationSoftLimitMs": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "durationHardLimitMs": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scoreWeights": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "taskSuccess",
+              "runtimeEvidenceQuality",
+              "contractPreservation",
+              "toolEfficiency",
+              "latency",
+              "guidanceCompliance",
+              "mcpCritiqueQuality"
+            ],
+            "properties": {
+              "taskSuccess": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "runtimeEvidenceQuality": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "contractPreservation": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "toolEfficiency": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "latency": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "guidanceCompliance": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mcpCritiqueQuality": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "gateChecks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "runStatus",
+                    "criticStatus",
+                    "requiredSections",
+                    "requiredToolCalls",
+                  "requiredTerms",
+                  "forbiddenTerms",
+                  "saveEvidence",
+                    "runtimeEvidence",
+                    "fixtureMetadataPresent"
+                  ]
+                },
+                "expected": {
+                  "type": "string"
+                },
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "tools": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "terms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "criticPromptFile": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

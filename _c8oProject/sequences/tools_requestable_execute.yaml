@@ -1,4 +1,7 @@
 accessibility: Private
+comment: |
+  Run a sequence or transaction
+  Executes a requestable and returns its payload. Pass variables as an object or JSON string; enable includeLogs only for debugging, and use recordSchema only on transactions.
 ↓IncludeUtil [steps.SimpleStep-1763053874391]: 
   comment: Load helper utilities
   expression: include("js/util.js");
@@ -6,6 +9,7 @@ accessibility: Private
   comment: Parse request parameters
   expression: |
     'var errors = [];
+    var startedAt = java.lang.System.currentTimeMillis();
     var requestText = C8O.util.toTrimmedString(requestable);
     if (!requestText.length) {
         throw new Error(''requestable is required'');
@@ -28,22 +32,18 @@ accessibility: Private
     if (!targetName || !targetName.length) {
         throw new Error(''requestable name is missing'');
     }
-    var variablesText = C8O.util.toTrimmedString(variables);
-    var variablesObject = {};
-    if (variablesText.length) {
-        try {
-            variablesObject = JSON.parse(variablesText);
-            if (variablesObject == null || typeof variablesObject !== ''object'' || Array.isArray(variablesObject)) {
-                throw new Error();
-            }
-        } catch (parseError) {
-            throw new Error(''variables must be a JSON object: '' + parseError);
-        }
-    }
+    var variablesObject = C8O.util.parseObjectInput(variables, {
+        label: ''variables'',
+        allowEmpty: true
+    });
     var recordSchemaFlag = false;
     try {
         recordSchemaFlag = C8O.util.toBoolean ? C8O.util.toBoolean(recordSchema, false) : (String(recordSchema || '''').toLowerCase() === ''true'');
     } catch (_ignoreRs) {}
+    var includeLogsFlag = false;
+    try {
+        includeLogsFlag = C8O.util.toBoolean ? C8O.util.toBoolean(includeLogs, false) : (String(includeLogs || '''').toLowerCase() === ''true'');
+    } catch (_ignoreIl) {}
     executionPlan = {
         requestable: requestText,
         project: projectName,
@@ -51,7 +51,9 @@ accessibility: Private
         name: targetName,
         isSequence: isSequence,
         variables: variablesObject,
-        recordSchema: recordSchemaFlag
+        recordSchema: recordSchemaFlag,
+        includeLogs: includeLogsFlag,
+        startedAt: startedAt
     };'
 ↓ConfigureCalls [steps.SimpleStep-1763055844366]: 
   comment: Configure dynamic call targets and variables
@@ -67,6 +69,44 @@ accessibility: Private
     ↓Else [steps.ElseStep-1763056367864]: 
       ↓CallTransaction [steps.TransactionStep-1763056393878]: 
         sourceTransaction: ConvertigoMCP.void.void
+↓CollectExecutionLogs [steps.SimpleStep-1772727101000]: 
+  comment: Optionally capture execution logs for this requestable execution.
+  expression: |
+    'executionLogsPayload = {
+      lines: [],
+      lineCount: 0,
+      hasMore: false,
+      query: {
+        contextId: "",
+        requestable: executionPlan ? executionPlan.requestable : "",
+        startMillis: executionPlan && executionPlan.startedAt ? executionPlan.startedAt : null,
+        endMillis: java.lang.System.currentTimeMillis(),
+        limit: 120,
+        scanned: 0
+      }
+    };
+    if (executionPlan && executionPlan.includeLogs === true) {
+      include("js/requestable_logs.js");
+      var nowTs = java.lang.System.currentTimeMillis();
+      var contextIdValue = "";
+      try {
+        contextIdValue = String(context.contextID || context.contextId || "");
+      } catch (_ignoreCtxId) {}
+      var collectedLogs = C8O.requestableLogs.collect({
+        contextId: "",
+        contextIdPrefix: "studio_" + executionPlan.project + ":",
+        project: executionPlan.project,
+        requestable: executionPlan.name,
+        connector: executionPlan.isSequence ? "" : executionPlan.connector,
+        transaction: executionPlan.isSequence ? "" : executionPlan.name,
+        startTime: executionPlan.startedAt ? (executionPlan.startedAt - 1000) : (nowTs - 30000),
+        endTime: nowTs + 1000,
+        limit: 120
+      });
+      if (collectedLogs && typeof collectedLogs === "object") {
+        executionLogsPayload = collectedLogs;
+      }
+    }'
 ↓result [steps.JsonObjectStep-1763066359376]: 
   key: 
     - xmlizable: 
@@ -83,6 +123,21 @@ accessibility: Private
             - ↑value: 1763056061207
           - java.lang.String: 
             - ↑value: ./*/document/*
+  ↓IfIncludeLogs [steps.IfStep-1772727101001]: 
+    condition: executionPlan && executionPlan.includeLogs === true
+    ↓logs [steps.JsonToXmlStep-1772727101002]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: executionLogsPayload
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: logs
 ↓jIf [steps.IfStep-1763979594981]: 
   condition: recordSchema == "true"
   ↓response [steps.SourceStep-1763979641976]: 
@@ -116,12 +171,18 @@ accessibility: Private
       txDbo.writeSchemaToFile(xsdTypes);
       Packages.com.twinsoft.convertigo.engine.Engine.theApp.schemaManager.clearCache(txDbo.getProject().getName());'
 ↓requestable [variables.RequestableVariable-1763053821400]: 
-  comment: 'Format: <project>[.<connector>].<requestable>'
+  comment: Target requestable as <project>[.<connector>].<requestable>.
+  description: Target requestable as <project>[.<connector>].<requestable>.
 ↓variables [variables.RequestableVariable-1763053833825]: 
-  comment: Optional JSON object with request variables
+  comment: Request variables as an object or a JSON string. Non-string values are serialized before execution.
+  description: Request variables as an object or a JSON string. Non-string values are serialized before execution.
   value: '{}'
 ↓recordSchema [variables.RequestableVariable-1763869930001]: 
-  comment: Set to true to record schema for transactions (writeSchemaToFile)
+  comment: Set true on transactions to update the response schema on disk. Ignored for sequences.
+  description: Set true on transactions to update the response schema on disk. Ignored for sequences.
+↓includeLogs [variables.RequestableVariable-1772727101003]: 
+  comment: Set true to append execution logs from this call.
+  description: Set true to append execution logs from this call.
 ↓ip [core.TestCase-1763981218508]: 
   ↓requestable [variables.TestCaseVariable-1763981219651]: 
     value: codex_test.http_demo.get_ip

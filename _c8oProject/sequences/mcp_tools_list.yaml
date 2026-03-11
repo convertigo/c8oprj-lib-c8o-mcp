@@ -2,7 +2,9 @@ accessibility: Private
 comment: Handles MCP tools/list calls
 ↓IncludeHelpers [steps.SimpleStep-1764146027920]: 
   comment: Load helpers
-  expression: include("js/databaseobject.js");
+  expression: |
+    include("js/databaseobject.js");
+    include("js/reporting.js");
 ↓ParseParams [steps.SimpleStep-1762961037030]: 
   comment: Extract limit from paramsJson
   expression: |
@@ -20,6 +22,7 @@ comment: Handles MCP tools/list calls
   comment: Prepare tool list and pagination
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var feedbackMode = String(C8O.reporting.resolveMode());
     var limitText = limit == null ? "" : String(limit).trim();
     var maxLimit = 500;
     var limitValue = 0;
@@ -61,6 +64,9 @@ comment: Handles MCP tools/list calls
         try {
           var seqName = seq.getName();
           if (seqName && seqName.startsWith("tools_")) {
+            if (feedbackMode == "off" && seqName == "tools_report_create") {
+              continue;
+            }
             toolNames.push(seqName);
           }
         } catch (_ignoredName) {}

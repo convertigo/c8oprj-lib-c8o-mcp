@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Save a Convertigo project to disk (engine export).
+comment: |
+  Save a project to disk
+  Exports one project from engine memory to disk. Use it after grouped mutations when autoSave was disabled.
 ↓IncludeHelpers [steps.SimpleStep-1762445150491]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -179,4 +181,5 @@ comment: Save a Convertigo project to disk (engine export).
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
 ↓project [variables.RequestableVariable-1762445570911]: 
-  comment: Project technical name (optional). Defaults to current context project when omitted.
+  comment: Project technical name. Omit only when the current context project is unambiguous.
+  description: Project technical name. Omit only when the current context project is unambiguous.

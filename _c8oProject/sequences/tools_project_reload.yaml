@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Reload a Convertigo project from disk (discard unsaved runtime state).
+comment: |
+  Reload a project from disk
+  Reloads one project and discards unsaved in-memory changes. Use only when you explicitly want disk state to win.
 ↓IncludeHelpers [steps.SimpleStep-1762445690829]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -148,4 +150,5 @@ comment: Reload a Convertigo project from disk (discard unsaved runtime state).
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
 ↓project [variables.RequestableVariable-1762445963717]: 
-  comment: Project technical name (optional). Defaults to current context project when omitted.
+  comment: Project technical name. Omit only when the current context project is unambiguous.
+  description: Project technical name. Omit only when the current context project is unambiguous.

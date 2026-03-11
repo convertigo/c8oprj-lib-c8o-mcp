@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Returns schema/sample for a database object (qname). Supports type=xml|json|jsonschema and internal=true to get request schemas. Omits empty fields.
+comment: |
+  Read a database object schema or sample
+  Returns XML, JSON, or JSON Schema for an existing object. For requestables, internal=true switches from the response schema to the request schema.
 ↓IncludeHelpers [steps.SimpleStep-1763724035350]: 
   expression: |
     include("js/databaseobject.js");
@@ -111,12 +113,15 @@ comment: Returns schema/sample for a database object (qname). Supports type=xml|
             - ↑mode: JS
             - →→: schemaResult && schemaResult.message
 ↓qname [variables.RequestableVariable-1763724006150]: 
-  comment: Database object QName (project[.path...])
+  comment: Existing QName. Case-sensitive.
+  description: Existing QName. Case-sensitive.
 ↓type [variables.RequestableVariable-1763724016646]: 
-  comment: 'Schema output type: xml|json|jsonschema (default xml).'
+  comment: 'Allowed values: xml, json, jsonschema. Default: xml.'
+  description: 'Allowed values: xml, json, jsonschema. Default: xml.'
   value: xml
 ↓internal [variables.RequestableVariable-1763724025729]: 
-  comment: Set true to fetch request schema instead of response (for requestables).
+  comment: Set true to read the request schema of a requestable instead of its response schema.
+  description: Set true to read the request schema of a requestable instead of its response schema.
   value: false
 ↓httpip [core.TestCase-1763994296762]: 
   ↓qname [variables.TestCaseVariable-1763994298722]: 

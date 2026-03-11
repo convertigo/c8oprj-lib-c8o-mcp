@@ -3,6 +3,306 @@
     "name": "convertigo-quickstart",
     "file": "convertigo_quickstart.md",
     "title": "Convertigo MCP Quickstart",
-    "description": "Prompt stored in convertigo_quickstart.md"
+    "description": "Role-neutral bootstrap that selects the right guides, recipes, and specialist prompt.",
+    "promptId": "convertigo/quickstart",
+    "revision": 1,
+    "roleId": "bootstrap",
+    "scopeTags": ["bootstrap", "guide-selection", "triage", "recipes"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1"
+    ],
+    "recommendedTools": [
+      "project-list",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "requestable-execute",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/planner@1",
+      "convertigo/backend@1",
+      "convertigo/sql@1",
+      "convertigo/http@1",
+      "convertigo/frontend-ngx@1",
+      "convertigo/critic@1"
+    ],
+    "outputContract": [
+      "selectedGuides",
+      "nextActions",
+      "mcpCritique"
+    ],
+    "mutatesProject": false
+  },
+  {
+    "name": "convertigo-planner",
+    "file": "convertigo_planner.md",
+    "title": "Convertigo Planner",
+    "description": "Contract-first planner that selects a recipe, creates the minimal facade stub, and splits work for specialists.",
+    "promptId": "convertigo/planner",
+    "revision": 1,
+    "roleId": "planner",
+    "scopeTags": ["planner", "contract-first", "parallel-delivery", "recipes"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/contract-first-delivery@1",
+      "convertigo/recipe-starter-extension@1",
+      "convertigo/recipe-facade-stub@1",
+      "convertigo/backend-sequences@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "project-list",
+      "databaseobject-search",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "requestable-execute",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/backend@1",
+      "convertigo/sql@1",
+      "convertigo/http@1",
+      "convertigo/frontend-ngx@1",
+      "convertigo/critic@1"
+    ],
+    "outputContract": [
+      "contract",
+      "stubStatus",
+      "workSplit",
+      "handoffs",
+      "validationPlan",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
+    "name": "convertigo-backend",
+    "file": "convertigo_backend.md",
+    "title": "Convertigo Backend Specialist",
+    "description": "Sequence specialist for facade requestables, orchestration, and stable response shaping.",
+    "promptId": "convertigo/backend",
+    "revision": 1,
+    "roleId": "backend",
+    "scopeTags": ["backend", "sequences", "facades"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/recipe-facade-stub@1",
+      "convertigo/backend-sequences@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "databaseobject-schema",
+      "requestable-execute",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/sql@1",
+      "convertigo/http@1",
+      "convertigo/frontend-ngx@1",
+      "convertigo/critic@1"
+    ],
+    "outputContract": [
+      "changedObjects",
+      "runtimeEvidence",
+      "openHandoff",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
+    "name": "convertigo-sql",
+    "file": "convertigo_sql.md",
+    "title": "Convertigo SQL Specialist",
+    "description": "SQL connector and transaction specialist working behind an agreed facade contract.",
+    "promptId": "convertigo/sql",
+    "revision": 1,
+    "roleId": "sql",
+    "scopeTags": ["integration", "sql", "transactions"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/recipe-sql-crud@1",
+      "convertigo/backend-sequences@1",
+      "convertigo/integration-sql@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "databaseobject-schema",
+      "requestable-execute",
+      "log-view",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/backend@1",
+      "convertigo/critic@1"
+    ],
+    "outputContract": [
+      "changedObjects",
+      "contractCheck",
+      "runtimeEvidence",
+      "openHandoff",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
+    "name": "convertigo-http",
+    "file": "convertigo_http.md",
+    "title": "Convertigo HTTP Specialist",
+    "description": "HTTP connector and transaction specialist working behind an agreed facade contract.",
+    "promptId": "convertigo/http",
+    "revision": 1,
+    "roleId": "http",
+    "scopeTags": ["integration", "http", "transactions"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/recipe-http-facade@1",
+      "convertigo/backend-sequences@1",
+      "convertigo/integration-http@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "databaseobject-schema",
+      "requestable-execute",
+      "log-view",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/backend@1",
+      "convertigo/critic@1"
+    ],
+    "outputContract": [
+      "changedObjects",
+      "contractCheck",
+      "runtimeEvidence",
+      "openHandoff",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
+    "name": "convertigo-frontend-ngx",
+    "file": "convertigo_frontend_ngx.md",
+    "title": "Convertigo Frontend NGX Specialist",
+    "description": "NGX page and binding specialist working against a stable backend facade contract.",
+    "promptId": "convertigo/frontend-ngx",
+    "revision": 1,
+    "roleId": "frontend-ngx",
+    "scopeTags": ["frontend", "ngx", "ui", "bindings"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/contract-first-delivery@1",
+      "convertigo/recipe-ngx-data-page@1",
+      "convertigo/frontend-ngx@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "palette-list",
+      "palette-describe",
+      "mobile-builder-open",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/critic@1"
+    ],
+    "outputContract": [
+      "changedObjects",
+      "uiStateCoverage",
+      "runtimeEvidenceOrSkip",
+      "openHandoff",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
+    "name": "convertigo-critic",
+    "file": "convertigo_critic.md",
+    "title": "Convertigo Critic",
+    "description": "Inspection-only reviewer for guide compliance, evidence quality, and MCP UX gaps.",
+    "promptId": "convertigo/critic",
+    "revision": 1,
+    "roleId": "critic",
+    "scopeTags": ["review", "critic", "evidence", "ux"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "resources/list",
+      "resources/read",
+      "prompts/list",
+      "prompts/call",
+      "databaseobject-tree-get",
+      "requestable-execute",
+      "log-view"
+    ],
+    "handoffTo": [],
+    "outputContract": [
+      "findings",
+      "evidenceGaps",
+      "guideCompliance",
+      "mcpUxCritique",
+      "recommendation"
+    ],
+    "mutatesProject": false
+  },
+  {
+    "name": "convertigo-maintainer",
+    "file": "convertigo_maintainer.md",
+    "title": "Convertigo Maintainer",
+    "description": "Single-cycle maintainer that turns aggregate findings into one committed candidate patch set.",
+    "promptId": "convertigo/maintainer",
+    "revision": 1,
+    "roleId": "maintainer",
+    "scopeTags": ["maintainer", "improvement-cycle", "candidate"],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/platform-big-picture@1",
+      "convertigo/engineering-workflow@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "project-js-get",
+      "project-js-set",
+      "requestable-execute",
+      "project-save"
+    ],
+    "handoffTo": [],
+    "outputContract": [
+      "selectedFindings",
+      "changesApplied",
+      "versionBump",
+      "expectedBenchmarkEffect",
+      "residualRisks",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
   }
 ]

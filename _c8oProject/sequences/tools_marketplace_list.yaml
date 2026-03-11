@@ -1,46 +1,30 @@
 accessibility: Private
-comment: Lists marketplace libraries and highlights workspace/reference status for a target project.
+comment: |
+  Search marketplace libraries
+  Lists marketplace entries and highlights workspace or reference status. Filter with search or topics before scanning many pages.
 ↓IncludeHelpers [steps.SimpleStep-1764301001000]: 
   comment: Load shared marketplace helpers
   expression: |
     include("js/databaseobject.js");
     include("js/marketplace.js");
 ↓Init [steps.SimpleStep-1764301001001]: 
-  comment: Query marketplace and compute project-aware suggestions
+  comment: Query marketplace with simplified filters
   expression: |
-    'var targetProjectName = C8O.marketplace._trim(project);
-    var targetProject = null;
-    if (targetProjectName.length) {
-      targetProject = C8O.marketplace.resolveProject(targetProjectName);
-      if (targetProject == null) {
-        throw new Error("Target project not found: " + targetProjectName);
-      }
-      targetProjectName = String(targetProject.getName());
-    }
-    
+    'marketplaceListWarnings = [];
     var listResult = C8O.marketplace.list({
-      endpoint: endpoint,
-      query: q,
-      topic: topic,
+      search: search,
       topics: topics,
-      sort: sort,
       limit: limit,
       cursor: _nextCursor,
-      includeRaw: includeRaw,
-      maxPages: maxPages,
-      defaultLibraryTopic: defaultLibraryTopic
+      maxPages: maxPages
     });
-    
-    var entries = C8O.marketplace.annotateEntries(listResult.entries, { targetProject: targetProject });
-    var suggestionCount = C8O.marketplace._toInt(suggestionLimit, 6, 1, 30);
-    var suggestions = targetProject != null ?
-      C8O.marketplace.buildSuggestions(entries, { limit: suggestionCount, projectName: targetProjectName }) :
-      [];
-    
-    marketplaceListProject = targetProjectName;
-    marketplaceListQuery = listResult.query;
+    var entries = C8O.marketplace.annotateEntries(listResult.entries, {});
+    marketplaceListProjectRequested = "";
+    marketplaceListProject = "";
+    marketplaceListProjectFound = false;
+    marketplaceListQuery = listResult.search || "";
     marketplaceListTopics = listResult.topics || [];
-    marketplaceListSort = listResult.sort;
+    marketplaceListSort = "";
     marketplaceListTotal = listResult.totalCount;
     marketplaceListReturned = entries.length;
     marketplaceListLimit = listResult.limit;
@@ -50,7 +34,7 @@ comment: Lists marketplace libraries and highlights workspace/reference status f
     marketplaceListEndpoint = listResult.endpoint;
     marketplaceListPages = listResult.pagesFetched || [];
     marketplaceListEntries = entries;
-    marketplaceListSuggestions = suggestions;
+    marketplaceListSuggestions = [];
     marketplaceListTimestamp = java.lang.System.currentTimeMillis();'
 ↓result [steps.JsonObjectStep-1764301001002]: 
   key: 
@@ -72,6 +56,33 @@ comment: Lists marketplace libraries and highlights workspace/reference status f
         - SmartType: 
           - ↑mode: JS
           - →→: marketplaceListProject
+  ↓projectRequested [steps.JsonFieldStep-1772722301000]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectRequested
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: marketplaceListProjectRequested
+  ↓projectFound [steps.JsonFieldStep-1772722301001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectFound
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: marketplaceListProjectFound === true
   ↓endpoint [steps.JsonFieldStep-1764301001004]: 
     key: 
       - xmlizable: 
@@ -895,6 +906,28 @@ comment: Lists marketplace libraries and highlights workspace/reference status f
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.actionArguments && item.actionArguments.library ? item.actionArguments.library : ""'
+  ↓warnings [steps.JsonArrayStep-1772722301002]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
+    ↓WarningsIterator [steps.SimpleIteratorStep-1772722301003]: 
+      expression: marketplaceListWarnings
+      ↓warning [steps.JsonFieldStep-1772722301004]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: warning
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: item
   ↓IfNextCursor [steps.IfStep-1764301001053]: 
     condition: marketplaceListHasMore === true && marketplaceListNextCursor != null && String(marketplaceListNextCursor).length > 0
     ↓nextCursor [steps.JsonFieldStep-1764301001054]: 
@@ -910,32 +943,20 @@ comment: Lists marketplace libraries and highlights workspace/reference status f
           - SmartType: 
             - ↑mode: JS
             - →→: marketplaceListNextCursor
-↓project [variables.RequestableVariable-1764301001055]: 
-  comment: Optional target project technical name to compute recommendation status.
-↓q [variables.RequestableVariable-1764301001056]: 
-  comment: Optional marketplace search text.
-↓topic [variables.RequestableVariable-1764301001057]: 
-  comment: 'Optional single marketplace topic (example: library, front-end).'
 ↓topics [variables.RequestableVariable-1764301001058]: 
-  comment: Optional topics list as JSON array string or comma-separated values.
-↓sort [variables.RequestableVariable-1764301001059]: 
-  comment: Optional marketplace sort value forwarded to marketplace filters.
+  comment: Optional topic filter. Accepts a single topic, a comma-separated list, or a JSON array string.
+  description: Optional topic filter. Accepts a single topic, a comma-separated list, or a JSON array string.
 ↓limit [variables.RequestableVariable-1764301001060]: 
-  comment: Maximum number of items returned per call (1-200, default 20).
+  comment: Maximum entries returned in the final result page. 1 to 200; default 20.
+  description: Maximum entries returned in the final result page. 1 to 200; default 20.
   value: 20
-↓suggestionLimit [variables.RequestableVariable-1764301001061]: 
-  comment: Maximum number of suggestions returned when project is provided (1-30, default 6).
-  value: 6
-↓endpoint [variables.RequestableVariable-1764301001062]: 
-  comment: Optional marketplace endpoint override (defaults to https://marketplace.convertigo.com/.json).
-↓includeRaw [variables.RequestableVariable-1764301001063]: 
-  comment: Optional boolean to include raw marketplace entries (default false).
-  value: false
-↓defaultLibraryTopic [variables.RequestableVariable-1764301001064]: 
-  comment: Optional boolean. True keeps the default "library" topic filter when no topic is provided.
-  value: true
 ↓maxPages [variables.RequestableVariable-1764301001065]: 
-  comment: Maximum marketplace pages fetched server-side for one call (default 20).
+  comment: Maximum upstream pages scanned before returning. 1 to 100; default 20.
+  description: Maximum upstream pages scanned before returning. 1 to 100; default 20.
   value: 20
 ↓_nextCursor [variables.RequestableVariable-1764301001066]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.
+↓search [variables.RequestableVariable-1772794060147]: 
+  comment: Search text sent to the marketplace catalog.
+  description: Search text sent to the marketplace catalog.

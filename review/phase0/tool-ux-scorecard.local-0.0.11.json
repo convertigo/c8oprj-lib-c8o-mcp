@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "1.0.0",
+  "baselineServerVersion": "0.0.11",
+  "tools": [
+    {
+      "name": "batch-call",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-delete",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-move",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-rename",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-schema",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-search",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-tree-apply",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-tree-get",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "log-view",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "marketplace-import",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "marketplace-list",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "mobile-builder-open",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "palette-describe",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "palette-list",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-js-get",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-js-set",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-list",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-reload",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-save",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "rag-query",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "requestable-execute",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented and typed where callers choose modes or limits.",
+        "Output schema matches the live structured payload."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    }
+  ]
+}

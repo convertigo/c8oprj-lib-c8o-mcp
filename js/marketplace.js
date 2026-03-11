@@ -1,6 +1,6 @@
 /*
  * Marketplace helpers for ConvertigoMCP tools.
- * Handles catalog fetch, recommendation hints and project import/reference wiring.
+ * Handles catalog fetch and project import in workspace.
  */
 
 include("js/util.js");
@@ -76,16 +76,33 @@ C8O.marketplace._asArray = function (value) {
   return [value];
 };
 
-C8O.marketplace.parseTopics = function (topicsValue, topicValue, defaultTopic) {
+C8O.marketplace.parseTopics = function (topicsValue) {
   var seen = {};
   var result = [];
   function pushTopic(value) {
     var token = C8O.marketplace._trim(value).toLowerCase();
-    if (!token.length || seen[token]) {
+    if (!token.length) {
       return;
     }
-    seen[token] = true;
-    result.push(token);
+    if (token.charAt(0) === "[" && token.charAt(token.length - 1) === "]") {
+      try {
+        var parsedArray = JSON.parse(token);
+        var parsedList = C8O.marketplace._asArray(parsedArray);
+        for (var pi = 0; pi < parsedList.length; pi++) {
+          pushTopic(parsedList[pi]);
+        }
+        return;
+      } catch (_ignoreTopicJson) {}
+    }
+    var split = token.split(/[,\n;]+/);
+    for (var si = 0; si < split.length; si++) {
+      var part = C8O.marketplace._trim(split[si]).toLowerCase();
+      if (!part.length || seen[part]) {
+        continue;
+      }
+      seen[part] = true;
+      result.push(part);
+    }
   }
 
   var topicsInput = topicsValue;
@@ -110,148 +127,152 @@ C8O.marketplace.parseTopics = function (topicsValue, topicValue, defaultTopic) {
   for (var i = 0; i < topicsList.length; i++) {
     pushTopic(topicsList[i]);
   }
-  pushTopic(topicValue);
-  if (!result.length && defaultTopic) {
-    pushTopic(defaultTopic);
-  }
   return result;
+};
+
+C8O.marketplace.normalizeListOptions = function (options) {
+  var opts = options || {};
+  var normalized = {};
+  for (var key in opts) {
+    if (Object.prototype.hasOwnProperty.call(opts, key)) {
+      normalized[key] = opts[key];
+    }
+  }
+  normalized.search = C8O.marketplace._trim(opts.search);
+  normalized.topics = opts.topics;
+  return normalized;
+};
+
+C8O.marketplace.entryHasTopic = function (entry, topic) {
+  var wanted = C8O.marketplace._trim(topic).toLowerCase();
+  if (!wanted.length) {
+    return false;
+  }
+  var topics = C8O.marketplace.parseTopics(entry && entry.topics ? entry.topics : []);
+  for (var i = 0; i < topics.length; i++) {
+    if (topics[i] === wanted) {
+      return true;
+    }
+  }
+  return false;
+};
+
+C8O.marketplace.toUsageArchiveUrl = function (cloneUrl, branch) {
+  var url = C8O.marketplace._trim(cloneUrl);
+  var gitBranch = C8O.marketplace._trim(branch);
+  if (!url.length) {
+    return "";
+  }
+  if (/\.zip($|\?)/i.test(url) || /\.car($|\?)/i.test(url)) {
+    return url;
+  }
+
+  if (url.indexOf("git@github.com:") === 0) {
+    url = "https://github.com/" + url.substring("git@github.com:".length);
+  } else if (url.indexOf("ssh://git@github.com/") === 0) {
+    url = "https://github.com/" + url.substring("ssh://git@github.com/".length);
+  }
+
+  if (url.lastIndexOf(".git") === url.length - 4) {
+    url = url.substring(0, url.length - 4);
+  }
+  if (!gitBranch.length) {
+    gitBranch = "main";
+  }
+  return url + "/archive/" + gitBranch + ".zip";
 };
 
 C8O.marketplace.buildFilters = function (options) {
   var opts = options || {};
-  var topics = C8O.marketplace.parseTopics(
-    opts.topics,
-    opts.topic,
-    C8O.marketplace._toBoolean(opts.defaultLibraryTopic, true) ? C8O.marketplace.DEFAULT_TOPIC : ""
-  );
-  var sort = C8O.marketplace._trim(opts.sort);
+  var normalized = C8O.marketplace.normalizeListOptions(opts);
+  var topics = C8O.marketplace.parseTopics(normalized.topics);
   return {
     topics: topics,
-    pushed: C8O.marketplace._trim(opts.pushed),
-    updated: C8O.marketplace._trim(opts.updated),
-    from: C8O.marketplace._trim(opts.from),
-    to: C8O.marketplace._trim(opts.to),
-    issues_pr: C8O.marketplace._trim(opts.issues_pr),
-    sort: sort
+    pushed: "",
+    updated: "",
+    from: "",
+    to: "",
+    issues_pr: "",
+    sort: ""
   };
 };
 
-C8O.marketplace._encodeFormData = function (payload) {
-  var URLEncoder = Packages.java.net.URLEncoder;
-  var parts = [];
-  for (var key in payload) {
+C8O.marketplace._toRequestValue = function (value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (_ignoreStringify) {
+    return String(value);
+  }
+};
+
+C8O.marketplace._extractRequesterPayload = function (document) {
+  var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+  if (!document) {
+    return null;
+  }
+  var root = null;
+  try {
+    root = document.getDocumentElement ? document.getDocumentElement() : document;
+  } catch (_ignoreRoot) {
+    root = null;
+  }
+  if (!root) {
+    return null;
+  }
+  var parsed = null;
+  try {
+    parsed = JSON.parse(String(XMLUtils.XmlToJson(root, true, true)));
+  } catch (parseError) {
+    throw new Error("Unable to parse marketplace connector response: " + String(parseError));
+  }
+  return parsed && parsed.document ? parsed.document : parsed;
+};
+
+C8O.marketplace.callConnector = function (payload) {
+  var InternalRequester = Packages.com.twinsoft.convertigo.engine.requesters.InternalRequester;
+  var HashMap = Packages.java.util.HashMap;
+
+  var request = new HashMap();
+  request.put("__project", "ConvertigoMCP");
+  request.put("__connector", "marketplace");
+  request.put("__transaction", "list_apply_kd_tree_js");
+  request.put("__nolog", "true");
+
+  var keys = Object.keys(payload || {});
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
     if (!Object.prototype.hasOwnProperty.call(payload, key)) {
       continue;
     }
-    var value = payload[key];
-    if (value === null || value === undefined) {
-      value = "";
-    } else if (typeof value !== "string") {
-      if (typeof value === "object") {
-        try {
-          value = JSON.stringify(value);
-        } catch (_ignoredStringify) {
-          value = String(value);
-        }
-      } else {
-        value = String(value);
-      }
-    }
-    parts.push(URLEncoder.encode(String(key), "UTF-8") + "=" + URLEncoder.encode(String(value), "UTF-8"));
+    request.put(String(key), String(C8O.marketplace._toRequestValue(payload[key])));
   }
-  return parts.join("&");
-};
 
-C8O.marketplace._readStream = function (stream) {
-  if (stream == null) {
-    return "";
-  }
-  var InputStreamReader = Packages.java.io.InputStreamReader;
-  var BufferedReader = Packages.java.io.BufferedReader;
-  var StringBuilder = Packages.java.lang.StringBuilder;
-  var reader = null;
+  var requester = null;
   try {
-    reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-    var sb = new StringBuilder();
-    var line = null;
-    while ((line = reader.readLine()) !== null) {
-      sb.append(String(line));
-    }
-    return String(sb.toString());
-  } finally {
-    if (reader != null) {
-      try {
-        reader.close();
-      } catch (_ignoreReaderClose) {}
-    } else {
-      try {
-        stream.close();
-      } catch (_ignoreStreamClose) {}
-    }
+    requester = new InternalRequester(request, context.httpServletRequest);
+  } catch (_ignoreHttpRequest) {
+    requester = new InternalRequester(request);
   }
-};
-
-C8O.marketplace.postForm = function (endpoint, payload, headers) {
-  var URL = Packages.java.net.URL;
-  var HttpURLConnection = Packages.java.net.HttpURLConnection;
-  var endpointUrl = C8O.marketplace._trim(endpoint) || C8O.marketplace.DEFAULT_ENDPOINT;
-  var body = C8O.marketplace._encodeFormData(payload || {});
-
-  var connection = null;
-  var output = null;
-  try {
-    connection = new URL(endpointUrl).openConnection();
-    if (!(connection instanceof HttpURLConnection)) {
-      throw new Error("Unsupported HTTP connection for endpoint: " + endpointUrl);
-    }
-    connection.setRequestMethod("POST");
-    connection.setDoOutput(true);
-    connection.setConnectTimeout(12000);
-    connection.setReadTimeout(60000);
-    connection.setRequestProperty("accept", "application/json, text/plain, */*");
-    connection.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-    connection.setRequestProperty("origin", "https://marketplace.convertigo.com");
-    connection.setRequestProperty("referer", "https://marketplace.convertigo.com/marketplace");
-    connection.setRequestProperty("x-convertigo-mb", C8O.marketplace.DEFAULT_MB_VERSION);
-    connection.setRequestProperty("x-convertigo-sdk", C8O.marketplace.DEFAULT_SDK_VERSION);
-
-    var headerMap = headers || {};
-    for (var headerName in headerMap) {
-      if (Object.prototype.hasOwnProperty.call(headerMap, headerName)) {
-        connection.setRequestProperty(String(headerName), String(headerMap[headerName]));
-      }
-    }
-
-    output = connection.getOutputStream();
-    output.write(new java.lang.String(body).getBytes("UTF-8"));
-    output.flush();
-
-    var statusCode = connection.getResponseCode();
-    var responseStream = statusCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
-    var responseBody = C8O.marketplace._readStream(responseStream);
-
-    return {
-      status: statusCode,
-      body: responseBody
-    };
-  } finally {
-    if (output != null) {
-      try {
-        output.close();
-      } catch (_ignoreOutputClose) {}
-    }
-    if (connection != null) {
-      try {
-        connection.disconnect();
-      } catch (_ignoreDisconnect) {}
-    }
-  }
+  var response = requester.processRequest();
+  return C8O.marketplace._extractRequesterPayload(response);
 };
 
 C8O.marketplace.queryPage = function (options) {
-  var opts = options || {};
+  var opts = C8O.marketplace.normalizeListOptions(options || {});
   var endpoint = C8O.marketplace._trim(opts.endpoint) || C8O.marketplace.DEFAULT_ENDPOINT;
-  var query = C8O.marketplace._trim(opts.query);
+  if (endpoint !== C8O.marketplace.DEFAULT_ENDPOINT) {
+    throw new Error("Custom endpoint is not supported in connector mode. Use " + C8O.marketplace.DEFAULT_ENDPOINT);
+  }
+  var query = C8O.marketplace._trim(opts.search);
   var page = C8O.marketplace._toInt(opts.page, 1, 1, 9999);
   var filters = C8O.marketplace.buildFilters(opts);
   var contextId =
@@ -266,34 +287,24 @@ C8O.marketplace.queryPage = function (options) {
     filters_selected: JSON.stringify(filters),
     q_string: query,
     page_selected: String(page),
-    __project: C8O.marketplace.DEFAULT_PROJECT,
-    __sequence: C8O.marketplace.DEFAULT_SEQUENCE,
     __uuid: "mcp-" + String(java.lang.System.currentTimeMillis()),
-    __removeNamespaces: "true",
     __context: contextId,
-    __removeContext: "true"
+    _use_post: "true"
   };
 
-  var response = C8O.marketplace.postForm(endpoint, payload, opts.headers || {});
-  if (response.status < 200 || response.status >= 300) {
-    var preview = C8O.marketplace._trim(response.body);
-    if (preview.length > 320) {
-      preview = preview.substring(0, 317) + "...";
-    }
-    throw new Error("Marketplace request failed (" + response.status + "): " + preview);
+  var parsed = C8O.marketplace.callConnector(payload);
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Marketplace connector returned an empty payload");
   }
-
-  var parsed = null;
-  try {
-    parsed = JSON.parse(response.body);
-  } catch (parseError) {
-    throw new Error("Marketplace response is not valid JSON: " + parseError);
+  var objectPayload = parsed.object && typeof parsed.object === "object" ? parsed.object : parsed;
+  if (objectPayload.object && typeof objectPayload.object === "object") {
+    objectPayload = objectPayload.object;
   }
-  if (!parsed || typeof parsed !== "object" || !parsed.object) {
+  if (!objectPayload || typeof objectPayload !== "object" || !objectPayload.filtered) {
     throw new Error("Marketplace response is missing the 'object' payload");
   }
   return {
-    object: parsed.object,
+    object: objectPayload,
     filters: filters,
     page: page
   };
@@ -323,7 +334,7 @@ C8O.marketplace._parseTopicsFromEntry = function (entry) {
   if (!entry) {
     return [];
   }
-  return C8O.marketplace.parseTopics(entry.topics, "", "");
+  return C8O.marketplace.parseTopics(entry.topics);
 };
 
 C8O.marketplace.normalizeEntry = function (entry, includeRaw) {
@@ -383,7 +394,7 @@ C8O.marketplace._dedupeEntries = function (entries) {
 };
 
 C8O.marketplace.list = function (options) {
-  var opts = options || {};
+  var opts = C8O.marketplace.normalizeListOptions(options || {});
   var endpoint = C8O.marketplace._trim(opts.endpoint) || C8O.marketplace.DEFAULT_ENDPOINT;
   var limitValue = C8O.marketplace._toInt(opts.limit, 20, 1, 200);
   var startIndex = C8O.marketplace._toInt(opts.cursor, 0, 0, 1000000);
@@ -399,19 +410,11 @@ C8O.marketplace.list = function (options) {
   for (var p = 0; p < maxPages; p++) {
     var pageResult = C8O.marketplace.queryPage({
       endpoint: endpoint,
-      query: opts.query,
-      topic: opts.topic,
+      search: opts.search,
       topics: opts.topics,
-      sort: opts.sort,
-      pushed: opts.pushed,
-      updated: opts.updated,
-      from: opts.from,
-      to: opts.to,
-      issues_pr: opts.issues_pr,
       cacheTtl: opts.cacheTtl,
       page: page,
-      headers: opts.headers,
-      defaultLibraryTopic: opts.defaultLibraryTopic
+      headers: opts.headers
     });
     var payload = pageResult.object || {};
     var filtered = C8O.marketplace._asArray(payload.filtered);
@@ -465,9 +468,8 @@ C8O.marketplace.list = function (options) {
 
   return {
     endpoint: endpoint,
-    query: C8O.marketplace._trim(opts.query),
+    search: C8O.marketplace._trim(opts.search),
     topics: C8O.marketplace.buildFilters(opts).topics,
-    sort: C8O.marketplace._trim(opts.sort),
     totalCount: totalCount,
     returned: returned.length,
     limit: limitValue,
@@ -648,6 +650,7 @@ C8O.marketplace.getProjectSharedCatalog = function (projectOrName) {
 
 C8O.marketplace.annotateEntries = function (entries, options) {
   var opts = options || {};
+  var includeDetails = C8O.marketplace._toBoolean(opts.includeDetails, false);
   var list = C8O.marketplace._asArray(entries);
   var targetProject = C8O.marketplace.resolveProject(opts.targetProject || opts.project);
   var loadedMap = C8O.marketplace.getLoadedProjectMap();
@@ -679,7 +682,7 @@ C8O.marketplace.annotateEntries = function (entries, options) {
     cloned.workspaceLoaded = workspaceLoaded;
     cloned.referencedByProject = referencedByProject;
     cloned.status = status;
-    if (workspaceLoaded) {
+    if (workspaceLoaded && includeDetails) {
       var projectName = loadedMap.lower[lowerName] || name;
       var cacheKey = C8O.marketplace._trim(projectName);
       if (!sharedCatalogCache[cacheKey]) {
@@ -765,8 +768,7 @@ C8O.marketplace.buildSuggestions = function (entries, options) {
       projectUrl: C8O.marketplace._trim(entry.projectUrl),
       actionTool: "marketplace-import",
       actionArguments: {
-        project: projectName,
-        library: C8O.marketplace._trim(entry.name)
+        project: C8O.marketplace._trim(entry.name)
       }
     });
   }
@@ -849,62 +851,33 @@ C8O.marketplace.findEntry = function (entries, options) {
 };
 
 C8O.marketplace.resolveEntry = function (options) {
-  var opts = options || {};
-  var library = C8O.marketplace._trim(opts.library || opts.name);
-  var technicalName = C8O.marketplace._trim(opts.technicalName);
-  var cloneUrl = C8O.marketplace._trim(opts.cloneUrl);
-  var htmlUrl = C8O.marketplace._trim(opts.htmlUrl);
-  var branch = C8O.marketplace._trim(opts.branch);
-
-  if (library.length && cloneUrl.length) {
-    return C8O.marketplace.normalizeEntry(
-      {
-        name: library,
-        name_tech: technicalName,
-        clone_url: cloneUrl,
-        html_url: htmlUrl,
-        default_branch: branch
-      },
-      false
-    );
+  var opts = C8O.marketplace.normalizeListOptions(options || {});
+  var projectToken = C8O.marketplace._trim(opts.project);
+  if (!projectToken.length) {
+    return null;
   }
-
-  var query = C8O.marketplace._trim(opts.query);
-  if (!query.length) {
-    query = library.length ? library : technicalName;
+  var search = C8O.marketplace._trim(opts.search);
+  if (!search.length) {
+    search = projectToken;
   }
   var result = C8O.marketplace.list({
     endpoint: opts.endpoint,
-    query: query,
-    topic: opts.topic,
+    search: search,
     topics: opts.topics,
-    sort: opts.sort,
     limit: C8O.marketplace._toInt(opts.searchLimit, 120, 10, 300),
     cursor: 0,
-    maxPages: C8O.marketplace._toInt(opts.maxPages, 10, 1, 50),
-    defaultLibraryTopic: opts.defaultLibraryTopic
+    maxPages: C8O.marketplace._toInt(opts.maxPages, 10, 1, 50)
   });
-  var match = C8O.marketplace.findEntry(result.entries, {
-    library: library,
-    technicalName: technicalName,
-    cloneUrl: cloneUrl,
-    htmlUrl: htmlUrl
-  });
-  if (match == null && result.entries.length > 0 && query.length > 0) {
-    match = result.entries[0];
-  }
-  if (match != null) {
-    if (cloneUrl.length) {
-      match.cloneUrl = cloneUrl;
-    }
-    if (branch.length) {
-      match.defaultBranch = branch;
-    }
-    if (library.length) {
-      match.name = library;
+  var wanted = projectToken.toLowerCase();
+  for (var i = 0; i < result.entries.length; i++) {
+    var entry = result.entries[i] || {};
+    var name = C8O.marketplace._trim(entry.name).toLowerCase();
+    var technicalName = C8O.marketplace._trim(entry.technicalName).toLowerCase();
+    if (name === wanted || technicalName === wanted) {
+      return entry;
     }
   }
-  return match;
+  return null;
 };
 
 C8O.marketplace.importLibrary = function (options) {
@@ -912,185 +885,130 @@ C8O.marketplace.importLibrary = function (options) {
   var ProjectUrlParser = Packages.com.twinsoft.convertigo.engine.util.ProjectUrlParser;
   var ReferencedProjectManager = Packages.com.twinsoft.convertigo.engine.ReferencedProjectManager;
 
-  var opts = options || {};
+  var opts = C8O.marketplace.normalizeListOptions(options || {});
   var warnings = [];
-
-  var targetProjectName = C8O.marketplace._trim(opts.project || opts.targetProject);
-  var targetProject = C8O.marketplace.resolveProject(targetProjectName);
-  if (targetProject == null) {
-    throw new Error("Target project not found: " + targetProjectName);
-  }
-  targetProjectName = String(targetProject.getName());
-
-  var library = C8O.marketplace._trim(opts.library || opts.lib || opts.name);
-  var technicalName = C8O.marketplace._trim(opts.technicalName);
-  var cloneUrl = C8O.marketplace._trim(opts.cloneUrl);
-  var branch = C8O.marketplace._trim(opts.branch);
-  var query = C8O.marketplace._trim(opts.query);
-  var endpoint = C8O.marketplace._trim(opts.endpoint);
-  var autoPullFlag = C8O.marketplace._toBoolean(opts.autoPull, true);
-  var importIfMissing = C8O.marketplace._toBoolean(opts.importIfMissing, true);
-  var addReference = C8O.marketplace._toBoolean(opts.addReference, true);
-  var forceImport = C8O.marketplace._toBoolean(opts.forceImport, false);
+  var requestedProject = C8O.marketplace._trim(opts.project);
+  var importedProjectName = C8O.marketplace._trim(opts.importedProjectName);
   var saveFlag = C8O.marketplace._toBoolean(opts.save, true);
-  var referenceName = C8O.marketplace._trim(opts.referenceName);
+  var forceImport = C8O.marketplace._toBoolean(opts.forceImport, false);
+
+  if (!requestedProject.length) {
+    throw new Error("project is required");
+  }
 
   var entry = C8O.marketplace.resolveEntry({
-    endpoint: endpoint,
-    library: library,
-    technicalName: technicalName,
-    cloneUrl: cloneUrl,
-    branch: branch,
-    query: query,
-    topic: opts.topic,
-    topics: opts.topics,
-    defaultLibraryTopic: opts.defaultLibraryTopic
+    endpoint: opts.endpoint,
+    project: requestedProject,
+    search: opts.search,
+    topics: opts.topics
   });
-  if (entry == null && library.length) {
-    var maybeProject = C8O.marketplace.resolveProject(library);
-    if (maybeProject != null) {
-      entry = {
-        name: String(maybeProject.getName()),
-        technicalName: technicalName,
-        description: "",
-        cloneUrl: cloneUrl,
-        htmlUrl: "",
-        defaultBranch: branch,
-        projectUrl: ""
-      };
-    }
-  }
   if (entry == null) {
-    throw new Error("Marketplace library not found: " + (library || technicalName || cloneUrl));
+    throw new Error("Marketplace project not found: " + requestedProject);
   }
 
-  var libraryName = C8O.marketplace._trim(entry.name);
-  if (!libraryName.length) {
-    libraryName = library;
-  }
-  if (!libraryName.length) {
-    throw new Error("Unable to determine library project name");
+  var sourceProjectName = C8O.marketplace._trim(entry.name);
+  if (!sourceProjectName.length) {
+    throw new Error("Unable to resolve marketplace project name for: " + requestedProject);
   }
 
-  var finalCloneUrl = C8O.marketplace._trim(cloneUrl || entry.cloneUrl);
-  var finalBranch = C8O.marketplace._trim(branch || entry.defaultBranch);
-  var projectUrl = C8O.marketplace.buildProjectUrl(libraryName, finalCloneUrl, finalBranch, autoPullFlag);
+  var importKind = "project";
+  if (C8O.marketplace.entryHasTopic(entry, "starter")) {
+    importKind = "starter";
+  } else if (C8O.marketplace.entryHasTopic(entry, "library")) {
+    importKind = "library";
+  }
+
+  if (importKind === "starter" && !importedProjectName.length) {
+    throw new Error("Starter project '" + sourceProjectName + "' requires importedProjectName.");
+  }
+  if (!importedProjectName.length) {
+    importedProjectName = sourceProjectName;
+  }
+
+  var finalCloneUrl = C8O.marketplace._trim(entry.cloneUrl);
+  var finalBranch = C8O.marketplace._trim(entry.defaultBranch);
+  var usageUrl = C8O.marketplace.toUsageArchiveUrl(finalCloneUrl, finalBranch);
+  if (!usageUrl.length) {
+    throw new Error("Unable to resolve usage archive URL for project: " + sourceProjectName);
+  }
 
   if (Engine.theApp.referencedProjectManager == null) {
     Engine.theApp.referencedProjectManager = new ReferencedProjectManager();
   }
   var refManager = Engine.theApp.referencedProjectManager;
 
-  var loadedBefore = C8O.marketplace.resolveProject(libraryName) != null;
+  var loadedBefore = C8O.marketplace.resolveProject(importedProjectName) != null;
+  var importedProject = null;
   var imported = false;
   var importStatus = loadedBefore ? "already-loaded" : "skipped";
   var importMessage = "";
 
-  if (!loadedBefore && importIfMissing) {
-    if (!finalCloneUrl.length) {
-      importStatus = "failed";
-      importMessage = "Cannot import missing library without cloneUrl";
+  if (!loadedBefore) {
+    try {
+      var parser = new ProjectUrlParser(importedProjectName + "=" + usageUrl);
+      importedProject = refManager.importProject(parser, forceImport);
+      imported = importedProject != null;
+      importStatus = imported ? "imported" : "missing";
+      if (!imported) {
+        importMessage = "Import returned no project instance";
+      }
+    } catch (importError) {
+      importStatus = "error";
+      importMessage = String(importError);
       warnings.push(importMessage);
-    } else {
-      try {
-        var parser = new ProjectUrlParser(projectUrl);
-        var importedProject = refManager.importProject(parser, forceImport);
-        imported = importedProject != null;
-        importStatus = imported ? "imported" : "missing";
-        if (!imported) {
-          importMessage = "Import returned no project instance";
-        }
-      } catch (importError) {
-        importStatus = "error";
-        importMessage = String(importError);
-        warnings.push(importMessage);
-      }
-    }
-  } else if (!loadedBefore && !importIfMissing) {
-    importStatus = "missing";
-    importMessage = "Library is not loaded and importIfMissing=false";
-  }
-
-  var loadedAfter = C8O.marketplace.resolveProject(libraryName) != null;
-  var referencesBefore = C8O.marketplace.getProjectReferenceMap(targetProject);
-  var beforeRef = referencesBefore.lower[libraryName.toLowerCase()] || null;
-  var referenceAlready = beforeRef != null;
-  var referenceAdded = false;
-  var referenceUpdated = false;
-  var referenceResolvedName = beforeRef ? beforeRef.referenceName : "";
-  var referenceProjectUrl = beforeRef ? beforeRef.projectUrl : "";
-
-  if (addReference) {
-    var ref = refManager.getReferenceFromProject(targetProject, libraryName);
-    if (ref != null) {
-      if (!referenceAlready) {
-        referenceAdded = true;
-      }
-      if (referenceName.length) {
-        try {
-          ref.setName(referenceName);
-        } catch (renameError) {
-          warnings.push("Unable to set reference name '" + referenceName + "': " + renameError);
-        }
-      }
-      if (projectUrl.length) {
-        var currentUrl = C8O.marketplace._trim(ref.getProjectName());
-        if (currentUrl !== projectUrl) {
-          ref.setProjectName(projectUrl);
-          referenceUpdated = true;
-        }
-      }
-      referenceResolvedName = C8O.marketplace._trim(ref.getName());
-      referenceProjectUrl = C8O.marketplace._trim(ref.getProjectName());
-      targetProject.hasChanged = true;
-      targetProject.changed();
     }
   }
 
+  var loadedAfter = C8O.marketplace.resolveProject(importedProjectName) != null;
   var saveResult = { saved: false, message: "" };
   if (saveFlag) {
-    var saveErrors = [];
-    saveResult = C8O.dbo.saveProject(targetProject, saveErrors);
-    if (saveErrors && saveErrors.length) {
-      for (var i = 0; i < saveErrors.length; i++) {
-        var errorItem = saveErrors[i];
-        if (errorItem && errorItem.message) {
-          warnings.push(String(errorItem.message));
+    var loadedProject = importedProject || C8O.marketplace.resolveProject(importedProjectName);
+    if (loadedProject != null) {
+      var saveErrors = [];
+      saveResult = C8O.dbo.saveProject(loadedProject, saveErrors);
+      if (saveErrors && saveErrors.length) {
+        for (var i = 0; i < saveErrors.length; i++) {
+          var errorItem = saveErrors[i];
+          if (errorItem && errorItem.message) {
+            warnings.push(String(errorItem.message));
+          }
         }
       }
     }
   }
 
   var status = "ready";
-  if (importStatus === "failed" || importStatus === "error") {
+  if (importStatus === "error") {
     status = "failed";
-  } else if (!loadedAfter && addReference && !referenceAlready && !referenceAdded) {
-    status = "incomplete";
-  } else if (!loadedAfter && importIfMissing) {
+  } else if (!loadedAfter) {
     status = "incomplete";
   }
 
   return {
     status: status,
-    targetProject: targetProjectName,
-    library: libraryName,
+    importKind: importKind,
+    targetProject: importedProjectName,
+    importedProjectName: importedProjectName,
+    library: sourceProjectName,
+    sourceProject: sourceProjectName,
     technicalName: C8O.marketplace._trim(entry.technicalName),
     cloneUrl: finalCloneUrl,
     branch: finalBranch,
     htmlUrl: C8O.marketplace._trim(entry.htmlUrl),
     description: C8O.marketplace._trim(entry.description),
-    projectUrl: projectUrl,
+    topics: entry.topics || [],
+    projectUrl: importedProjectName + "=" + usageUrl,
     loadedBefore: loadedBefore,
     loadedAfter: loadedAfter,
     imported: imported,
     importStatus: importStatus,
     importMessage: importMessage,
-    addReference: addReference,
-    referenceAlready: referenceAlready,
-    referenceAdded: referenceAdded,
-    referenceUpdated: referenceUpdated,
-    referenceName: referenceResolvedName,
-    referenceProjectUrl: referenceProjectUrl,
+    addReference: false,
+    referenceAlready: false,
+    referenceAdded: false,
+    referenceUpdated: false,
+    referenceName: "",
+    referenceProjectUrl: "",
     saved: saveFlag ? (saveResult.saved === true) : false,
     saveRequested: saveFlag,
     saveMessage: saveResult.message || "",

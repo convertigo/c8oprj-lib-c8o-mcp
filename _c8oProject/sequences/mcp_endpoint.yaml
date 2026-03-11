@@ -213,7 +213,7 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
             - java.lang.String: 
               - ↑value: 1761755111966
             - java.lang.String: 
-              - ↑value: ./document/*[@originalKeyName='error']
+              - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
       ↓CopyError [steps.XMLCopyStep-1763564357216]: 
         sourceDefinition: 
           - xmlizable: 
@@ -222,7 +222,7 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
               - java.lang.String: 
                 - ↑value: 1761755111966
               - java.lang.String: 
-                - ↑value: ./document/*[@originalKeyName='error']
+                - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
       ↓ReturnError [steps.ReturnStep-1763564357219]: 
     ↓IfResult [steps.IfExistStep-1761755111980]: 
       condition: IfResult

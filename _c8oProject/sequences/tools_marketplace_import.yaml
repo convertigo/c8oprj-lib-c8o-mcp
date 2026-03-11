@@ -1,44 +1,59 @@
 accessibility: Private
-comment: Imports a marketplace library if needed and ensures the target project references it.
+comment: |
+  Import a marketplace project
+  Imports a marketplace project into the workspace and wires the reference for the target project. Starter templates may require a new local project name.
 ↓IncludeHelpers [steps.SimpleStep-1764302001000]: 
   comment: Load shared marketplace helpers
   expression: |
     include("js/databaseobject.js");
     include("js/marketplace.js");
 ↓Init [steps.SimpleStep-1764302001001]: 
-  comment: Resolve target project, import library and ensure project reference
+  comment: Import marketplace project with optional starter rename
   expression: |
-    'var targetProjectName = C8O.marketplace._trim(project);
-    if (!targetProjectName.length && context && context.project) {
-      targetProjectName = String(context.project.getName());
-    }
-    if (!targetProjectName.length) {
+    'var requestedProject = C8O.marketplace._trim(project);
+    if (!requestedProject.length) {
       throw new Error("project is required");
     }
-    
-    marketplaceImportResult = C8O.marketplace.importLibrary({
-      project: targetProjectName,
-      library: library,
-      lib: lib,
-      technicalName: technicalName,
-      cloneUrl: cloneUrl,
-      branch: branch,
-      query: q,
-      topic: topic,
-      topics: topics,
-      endpoint: endpoint,
-      autoPull: autoPull,
-      importIfMissing: importIfMissing,
-      addReference: addReference,
-      forceImport: forceImport,
-      save: save,
-      referenceName: referenceName,
-      defaultLibraryTopic: defaultLibraryTopic
-    });
-    
-    marketplaceImportRefresh = C8O.marketplace._toBoolean(refresh, true);
+    var importedName = C8O.marketplace._trim(importedProjectName);
+    var importErrorMessage = "";
+    try {
+      marketplaceImportResult = C8O.marketplace.importLibrary({
+        project: requestedProject,
+        importedProjectName: importedName,
+        save: true,
+        forceImport: false
+      });
+    } catch (importError) {
+      importErrorMessage = String(importError);
+      marketplaceImportResult = {
+        status: "error",
+        targetProject: "",
+        library: requestedProject,
+        technicalName: "",
+        cloneUrl: "",
+        branch: "",
+        projectUrl: "",
+        loadedBefore: false,
+        loadedAfter: false,
+        imported: false,
+        importStatus: "failed",
+        importMessage: importErrorMessage,
+        addReference: false,
+        referenceAlready: false,
+        referenceAdded: false,
+        referenceUpdated: false,
+        referenceName: "",
+        referenceProjectUrl: "",
+        saveRequested: false,
+        saved: false,
+        saveMessage: "",
+        refresh: false,
+        warnings: [importErrorMessage]
+      };
+    }
+    marketplaceImportRefresh = marketplaceImportResult && marketplaceImportResult.refresh === true;
     marketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.targetProject ? String(marketplaceImportResult.targetProject) : "";
-    marketplaceImportLibraryQName = marketplaceImportResult && marketplaceImportResult.library ? String(marketplaceImportResult.library) : "";
+    marketplaceImportLibraryQName = marketplaceImportTargetQName;
     marketplaceImportLoadedAfter = marketplaceImportResult && marketplaceImportResult.loadedAfter === true;
     marketplaceImportTimestamp = java.lang.System.currentTimeMillis();'
 ↓IfRefreshProject [steps.IfStep-1764302001002]: 
@@ -64,32 +79,6 @@ comment: Imports a marketplace library if needed and ensures the target project 
         try {
           delete qname;
         } catch (_ignoreDeleteQName) {
-          qname = undefined;
-        }
-      }'
-↓IfRefreshLibrary [steps.IfStep-1764302001007]: 
-  comment: Refresh imported/loaded library project when different from target project
-  condition: marketplaceImportRefresh === true && marketplaceImportLoadedAfter === true && marketplaceImportLibraryQName.length > 0 && marketplaceImportLibraryQName !== marketplaceImportTargetQName
-  ↓PrepareRefreshLibrary [steps.SimpleStep-1764302001008]: 
-    expression: |
-      'previousRefreshQNameDefined2 = typeof qname !== "undefined" && qname !== null;
-      if (previousRefreshQNameDefined2) {
-        previousRefreshQNameValue2 = qname;
-      } else {
-        previousRefreshQNameValue2 = null;
-      }
-      qname = marketplaceImportLibraryQName;'
-  ↓CallRefreshLibrary [steps.SequenceStep-1764302001009]: 
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
-    ↓qname [variables.StepVariable-1764302001010]: 
-  ↓CleanupRefreshLibrary [steps.SimpleStep-1764302001011]: 
-    expression: |
-      'if (previousRefreshQNameDefined2) {
-        qname = previousRefreshQNameValue2;
-      } else {
-        try {
-          delete qname;
-        } catch (_ignoreDeleteQName2) {
           qname = undefined;
         }
       }'
@@ -433,45 +422,8 @@ comment: Imports a marketplace library if needed and ensures the target project 
               - ↑mode: JS
               - →→: item
 ↓project [variables.RequestableVariable-1764302001039]: 
-  comment: Target project technical name. Defaults to current context project.
-↓library [variables.RequestableVariable-1764302001040]: 
-  comment: Marketplace library name to import/reference (for example libApexCharts).
-↓lib [variables.RequestableVariable-1764302001041]: 
-  comment: Alias of library for compatibility.
-↓technicalName [variables.RequestableVariable-1764302001042]: 
-  comment: Optional marketplace technical repository name (name_tech).
-↓cloneUrl [variables.RequestableVariable-1764302001043]: 
-  comment: Optional repository clone URL override.
-↓branch [variables.RequestableVariable-1764302001044]: 
-  comment: Optional branch override used for import/reference URL.
-↓q [variables.RequestableVariable-1764302001045]: 
-  comment: Optional marketplace search text when resolving the library.
-↓topic [variables.RequestableVariable-1764302001046]: 
-  comment: Optional single marketplace topic filter while resolving library.
-↓topics [variables.RequestableVariable-1764302001047]: 
-  comment: Optional topics list as JSON array string or comma-separated values.
-↓endpoint [variables.RequestableVariable-1764302001048]: 
-  comment: Optional marketplace endpoint override (defaults to https://marketplace.convertigo.com/.json).
-↓autoPull [variables.RequestableVariable-1764302001049]: 
-  comment: Optional boolean to append :autoPull=true in project reference URL (default true).
-  value: true
-↓importIfMissing [variables.RequestableVariable-1764302001050]: 
-  comment: Optional boolean. True imports the library when absent from workspace (default true).
-  value: true
-↓addReference [variables.RequestableVariable-1764302001051]: 
-  comment: Optional boolean. True ensures target project has a ProjectSchemaReference (default true).
-  value: true
-↓forceImport [variables.RequestableVariable-1764302001052]: 
-  comment: Optional boolean forwarded to referencedProjectManager.importProject(parser, force).
-  value: false
-↓referenceName [variables.RequestableVariable-1764302001053]: 
-  comment: Optional technical name for the created/updated project reference object.
-↓save [variables.RequestableVariable-1764302001054]: 
-  comment: Optional boolean. True exports target project to disk after update (default true).
-  value: true
-↓refresh [variables.RequestableVariable-1764302001055]: 
-  comment: Optional boolean. True refreshes Studio tree for target and imported projects (default true).
-  value: true
-↓defaultLibraryTopic [variables.RequestableVariable-1764302001056]: 
-  comment: Optional boolean. True keeps default "library" topic while resolving entries.
-  value: true
+  comment: Marketplace project name.
+  description: Marketplace project name.
+↓importedProjectName [variables.RequestableVariable-1772793514924]: 
+  comment: New local project name. Required when the marketplace entry is a starter template.
+  description: New local project name. Required when the marketplace entry is a starter template.

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.local/schemas/feedback-report.schema.json",
+  "title": "Convertigo MCP Feedback Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "reportId",
+    "createdAt",
+    "mode",
+    "finding",
+    "source"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "reportId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "suggest",
+        "benchmark"
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "subjectId",
+        "severity",
+        "summary"
+      ],
+      "properties": {
+        "area": {
+          "type": "string",
+          "enum": [
+            "tool",
+            "guide",
+            "prompt",
+            "scenario",
+            "fixture",
+            "product-knowledge-gap"
+          ]
+        },
+        "subjectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "suggestion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serverVersion",
+        "projectVersion",
+        "rolePrompt",
+        "project",
+        "runMode",
+        "runId",
+        "provider",
+        "model"
+      ],
+      "properties": {
+        "serverVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rolePrompt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "project": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runMode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

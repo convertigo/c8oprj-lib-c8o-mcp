@@ -1,0 +1,36 @@
+accessibility: Private
+comment: |
+  Start or reconnect to the NGX mobile builder
+  Ensures the NGX builder is running and returns the detected live-reload URL plus readiness diagnostics. Use forceRestart only when the current builder is stuck or on the wrong state.
+responseTimeout: 120
+↓IncludeHelpers [steps.SimpleStep-1772733052615]: 
+  comment: Start builder and collect readiness/log data.
+  expression: include("js/tools_mobile_builder_open.js");
+↓result [steps.JsonToXmlStep-1772733052767]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: openMobileBuilderResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1772733052953]: 
+  comment: Existing NGX project name.
+  description: Existing NGX project name.
+↓timeoutSec [variables.RequestableVariable-1772733053163]: 
+  comment: Seconds to wait for a live-reload URL. Default 90; max 600.
+  description: Seconds to wait for a live-reload URL. Default 90; max 600.
+  value: 90
+↓logsLimit [variables.RequestableVariable-1772733053321]: 
+  comment: Maximum builder log lines returned for diagnostics. Default 40; max 200.
+  description: Maximum builder log lines returned for diagnostics. Default 40; max 200.
+  value: 40
+↓forceRestart [variables.RequestableVariable-1772733053490]: 
+  comment: Set true to restart an already running builder before waiting for readiness.
+  description: Set true to restart an already running builder before waiting for readiness.
+  value: false

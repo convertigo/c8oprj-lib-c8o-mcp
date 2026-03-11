@@ -1,5 +1,7 @@
 accessibility: Private
-comment: Lists installed Convertigo projects with metadata for MCP admin tooling.
+comment: |
+  List loaded Convertigo projects
+  Returns loaded projects with basic metadata for admin or discovery flows. Use filter before raising the limit.
 ↓IncludeHelpers [steps.SimpleStep-1764146020068]: 
   comment: Load helpers
   expression: include("js/databaseobject.js");
@@ -251,9 +253,12 @@ comment: Lists installed Convertigo projects with metadata for MCP admin tooling
             - ↑mode: JS
             - →→: nextCursorToken
 ↓filter [variables.RequestableVariable-1762437969473]: 
-  comment: Optional case-insensitive filter applied on project name and description.
+  comment: Case-insensitive filter on project name and comment.
+  description: Case-insensitive filter on project name and comment.
 ↓limit [variables.RequestableVariable-1762954306215]: 
-  comment: Maximum number of projects to return per call (1-100, default 10).
+  comment: Maximum projects returned per call. 1 to 100; default 10.
+  description: Maximum projects returned per call. 1 to 100; default 10.
   value: 10
 ↓_nextCursor [variables.RequestableVariable-1762954361919]: 
-  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.

@@ -17,3 +17,5 @@
 # Python cache
 /scripts/__pycache__/
 *.pyc
+/feedback/
+/knowledge/inbox/

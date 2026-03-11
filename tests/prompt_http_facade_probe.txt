@@ -1,0 +1,54 @@
+This is an HTTP specialist probe.
+- Benchmark policy: the campaign runner already injected `convertigo-http`.
+- Benchmark policy: do not use local YAML-editing skills or the `convertigo-project-editor` workflow for this scenario. Use MCP tools only for Convertigo project mutations.
+- Target project: `__TARGET_PROJECT__`
+- This project was imported by the campaign runner from `__FIXTURE_SOURCE_PROJECT__`.
+- Mutate only `__TARGET_PROJECT__`.
+- If `__TARGET_PROJECT__` is missing, fail immediately.
+
+In `__TARGET_PROJECT__`, create or update a facade sequence named `probe_http_contract` backed by `https://api.ipify.org?format=json`.
+Use a concrete HTTP connector and transaction path:
+- connector name: `Ipify`
+- transaction name: `get_ip_json`
+- connector class: `connectors.HttpConnector`
+- transaction class: `transactions.JsonHttpTransaction`
+- connector host: `api.ipify.org`
+- connector settings: `https=true`, `port=443`, `baseDir=""`
+- transaction sub path: `/?format=json`
+- keep `httpInfo=true` during setup
+
+Required workflow:
+1. Search `__TARGET_PROJECT__` for the exact target `probe_http_contract` before any broad discovery.
+2. If `probe_http_contract` already exists, run it in stub mode first and inspect only that exact subtree.
+3. If you already know the required `className` values, do not spend time on generic `palette-list` exploration. Create or patch the minimal HTTP connector and transaction objects directly inside `__TARGET_PROJECT__`.
+4. Discovery budget is capped. After one target-project root read, one connector read, one exact stub-sequence read, and one existing transaction-step read, either write the mutation set or end with `RESULT: FAIL`. Do not keep exploring generic step metadata.
+5. Do not validate unrelated sample transactions. The only raw HTTP runtime proof allowed is the dedicated `Ipify.get_ip_json` transaction you create or reuse for this probe.
+6. After the dedicated `Ipify.get_ip_json` raw proof succeeds, do not search generic `sourceDefinition`, `JsonFieldStep`, or broad step catalogs. Either patch the facade immediately or end with `RESULT: FAIL`.
+8. Preferred minimal live patch for `probe_http_contract` after stub proof:
+   - add or reuse `Call_Transaction` as `steps.TransactionStep` with `sourceTransaction=<project>.Ipify.get_ip_json`
+   - keep `Call_Transaction.output=false`
+   - set top-level fields with `steps.JsonFieldStep`
+   - set `ip.value` to `mode=SOURCE` with `sources=[\"<Call_Transaction priority>\",\"./document/object/ip/text()\"]`
+   - set `status=\"ok\"`, `source=\"http\"`, and `error=\"\"` as plain values
+9. The benchmark does not require preserving both stub and live code paths in the same final sequence. You may prove stub mode first, then replace the internals with the live path while preserving the same public top-level fields.
+
+Required public contract:
+- top-level fields:
+  - `status`: `ok`, `fallback`, or `error`
+  - `source`: `http` or `stub`
+  - `ip`: string
+  - `error`: string
+
+Rules:
+1. Make the facade executable in stub mode first and prove it runs. When the default stub file does not exist yet, create it with `requestable-stub-set` before calling the facade with `__stub=true`.
+2. Create or update the HTTP integration behind that facade.
+3. Replace the stub internals without changing the public top-level fields.
+4. Map the upstream `ip` field into the facade `ip` field. Do not leak raw connector field names at the public facade level.
+5. If the upstream call fails, keep the same top-level fields and types through the fallback path.
+6. Validate the dedicated raw HTTP transaction directly once before wiring the facade.
+7. Save the project if a mutation occurred.
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, the facade runs in stub mode, the dedicated `Ipify.get_ip_json` transaction runs directly, then the facade runs again with the HTTP path wired, and both facade proofs keep the same top-level fields.
+- `RESULT: FAIL` otherwise, with the failing step and tool response snippets.
+- End with one short `MCP critique` item.

@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/campaign-comparison.schema.json",
+  "title": "Convertigo Campaign Comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "baselineCandidateId",
+    "candidateId",
+    "baselineCampaignPath",
+    "candidateCampaignPath",
+    "targetedReplayCampaignPath",
+    "suiteId",
+    "provider",
+    "model",
+    "overallScoreDelta",
+    "passFailSkippedDelta",
+    "gateFailureDelta",
+    "averageToolCallsDelta",
+    "averageDurationMsDelta",
+    "ragCallRateDelta",
+    "findingDelta",
+    "selectedFindingIds",
+    "targetedReplayVerified",
+    "verdict",
+    "verdictReasons",
+    "scenarioDeltas"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "baselineCandidateId": {
+      "type": "string"
+    },
+    "candidateId": {
+      "type": "string"
+    },
+    "baselineCampaignPath": {
+      "type": "string"
+    },
+    "candidateCampaignPath": {
+      "type": "string"
+    },
+    "targetedReplayCampaignPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "suiteId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "overallScoreDelta": {
+      "type": "number"
+    },
+    "passFailSkippedDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passCount",
+        "failCount",
+        "skippedCount"
+      ],
+      "properties": {
+        "passCount": {
+          "type": "integer"
+        },
+        "failCount": {
+          "type": "integer"
+        },
+        "skippedCount": {
+          "type": "integer"
+        }
+      }
+    },
+    "gateFailureDelta": {
+      "type": "integer"
+    },
+    "averageToolCallsDelta": {
+      "type": "number"
+    },
+    "averageDurationMsDelta": {
+      "type": "number"
+    },
+    "ragCallRateDelta": {
+      "type": "number"
+    },
+    "findingDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baselineCount",
+        "candidateCount",
+        "resolvedCount",
+        "introducedCount",
+        "repeatedCountDelta",
+        "targetedResolvedCount"
+      ],
+      "properties": {
+        "baselineCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidateCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolvedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "introducedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeatedCountDelta": {
+          "type": "integer"
+        },
+        "targetedResolvedCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "selectedFindingIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "targetedReplayVerified": {
+      "type": "boolean"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "REJECTED",
+        "BLOCKED"
+      ]
+    },
+    "verdictReasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scenarioDeltas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenarioId",
+          "baselineStatus",
+          "candidateStatus",
+          "baselineGateStatus",
+          "candidateGateStatus",
+          "scoreDelta",
+          "weightedScoreDelta",
+          "notes"
+        ],
+        "properties": {
+          "scenarioId": {
+            "type": "string"
+          },
+          "baselineStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "candidateStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baselineGateStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "candidateGateStatus": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scoreDelta": {
+            "type": "number"
+          },
+          "weightedScoreDelta": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

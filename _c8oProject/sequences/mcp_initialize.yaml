@@ -1,5 +1,8 @@
 accessibility: Private
 comment: Builds the MCP initialize response
+↓IncludeReporting [steps.SimpleStep-1773134763368]: 
+  comment: Load reporting helper
+  expression: include("js/reporting.js");
 ↓result [steps.JsonObjectStep-1761754374045]: 
   key: 
     - xmlizable: 
@@ -97,6 +100,41 @@ comment: Builds the MCP initialize response
             - SmartType: 
               - ↑mode: PLAIN
               - →→: false
+    ↓FeedbackCapabilityIf [steps.IfStep-1773134763389]: 
+      condition: C8O.reporting.resolveMode() != "off"
+      ↓FeedbackCapability [steps.JsonObjectStep-1773134763393]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: feedback
+        ↓mode [steps.JsonFieldStep-1773134763395]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: mode
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: C8O.reporting.resolveMode()
+        ↓reportTool [steps.JsonFieldStep-1773134763397]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: reportTool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: '"report-create"'
   ↓serverInfo [steps.JsonObjectStep-1761754374065]: 
     key: 
       - xmlizable: 

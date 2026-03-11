@@ -1,1 +1,24 @@
-Lis seulement `convertigo_mcp_usage`, puis crée dans `codex_test` une séquence `ip_info` qui retourne la réponse de `https://api.ipify.org?format=json` (fallback si échec). Utilise uniquement les outils MCP (pas de commandes locales) et respecte l’input schema (`related` attendu). Teste via MCP et finis par une critique du MCP.
+This is the main HTTP contract scenario.
+- Preferred runner: inject MCP role prompt `convertigo-http` before this scenario starts.
+- If no role prompt was injected, fetch `convertigo-http` yourself before continuing.
+- Choose the target project in this order: `SqlBlob`, `BaserowIntegration`, `sample_HelloWorld`. Use the first one that exists and report the chosen project name.
+- If none of these exists, choose the first loaded project whose comment is `Mashup Sequencer project`, whose name does not start with `lib_`, and whose name is not `ConvertigoMCP` or `couchDB`. Report the chosen fallback explicitly.
+
+In the chosen project, create or update a facade sequence `ip_info` backed by `https://api.ipify.org?format=json`. Lock the public response contract before the first write call.
+
+Required public top-level fields:
+- `status`: `ok`, `fallback`, or `error`
+- `source`: `http` or `stub`
+- `ip`: string
+- `error`: string
+
+Rules:
+- Make the facade executable in stub mode first, then wire the real HTTP path behind the same contract.
+- If the upstream call fails, the fallback path must keep the same top-level fields and types.
+- The facade owns the public contract; the raw HTTP transaction does not.
+
+Use MCP tools only, not local shell edits. Validate through MCP, save the project, and end with:
+- the contract you used,
+- one proof before or during stub mode,
+- one proof after wiring the HTTP path,
+- one short "MCP critique" describing what felt confusing, which tools or guides were missing, and any UX improvement that would have helped.

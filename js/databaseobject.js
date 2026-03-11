@@ -125,14 +125,14 @@ C8O.dbo.LLM_HINTS = C8O.dbo.LLM_HINTS || {};
 
 var SINGLE_SOURCE_HINT =
   'SmartType sources must be JSON arrays of the form ["<stepPriority>", "<xpath>"]. ' +
-  'The first element is the numeric priority of the step exposing the XML (for example an InputVariablesStep), ' +
-  'the second element is the XPath to the desired node (for example ./email/text()). ' +
+  'The first element is the numeric priority of the step exposing the source document, ' +
+  'the second element is the XPath evaluated against that step output. ' +
+  'For TransactionStep or RequestableStep output, start from ./document/... (for example ./document/object/ip/text()). ' +
   'Do not reference requestable variable names or QNames directly, and never merge both values into a single string (e.g., no "123,./text()").';
 
 var SMART_TYPE_VALUE_HINT =
   'SmartType values are JSON objects like {"mode":"PLAIN","expression":"text"}. ' +
-  'Use "mode":"JS" with "expression":"<javascript>" for evaluated expressions, or "mode":"SOURCE" with a ' +
-  '"sources":[["<stepPriority>","<xpath>"]] array to pull data from another step.';
+  'Use {"mode":"JS","expression":"<javascript>"} for evaluated expressions, or {"mode":"SOURCE","sources":["<stepPriority>","<xpath>"]} to pull data from another step output.';
 
 var MULTI_SOURCES_HINT =
   'sourcesDefinition expects an array of entries, each entry providing a label, a SmartType source (same ["<stepPriority>", "<xpath>"] structure), and an optional fallback value. ' +
@@ -354,9 +354,9 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
     hints.push(
       "Closest existing ancestor: " +
         ancestorLabel +
-        ". Call tools_databaseobject_children with qname \"" +
+        ". Call databaseobject-tree-get with target=\"" +
         ancestorQName +
-        "\" to enumerate its children."
+        "\", childrenDepth=1, properties=\"none\"."
     );
   }
   if (!hints.length) {
@@ -398,34 +398,109 @@ C8O.dbo.resolve = function (qname, options) {
 };
 
 /**
- * Parses a JSON payload expected to be an object. Returns an empty object when invalid.
+ * Normalize property updates from any MCP-friendly representation to
+ * a key/value object accepted by applyPropertyUpdates():
+ * - map: { "Color": "success" }
+ * - array: [{ "name": "Color", "value": "success" }]
+ * - object wrapper: { "properties": [ ... ] } or { "entries": [ ... ] }
  */
-C8O.dbo.parsePropertyUpdates = function (text, errors) {
-  var trimmed = C8O.util.toTrimmedString(text);
-  if (!trimmed.length) {
-    return {};
-  }
-  var parsed = C8O.util.tryParseJson(trimmed, errors, "properties");
-  // If caller provided a JSON string (e.g., "\"{...}\""), try to parse it again.
-  if (parsed && typeof parsed === "string") {
-    var nested = C8O.util.tryParseJson(parsed, errors, "properties");
-    if (nested) {
-      parsed = nested;
-    }
-  }
-  if (!parsed) {
+C8O.dbo._normalizePropertyUpdates = function (input, errors, label) {
+  var scope = C8O.util.toTrimmedString(label || "properties");
+
+  function pushError(message) {
     if (errors && errors.push) {
-      errors.push({ name: "properties", message: "Properties payload must be a JSON object (use {} when empty, or call palette-describe for a template)." });
+      errors.push({ name: scope, message: String(message) });
     }
+  }
+
+  function toMapFromList(list) {
+    var out = {};
+    for (var i = 0; i < list.length; i++) {
+      var entry = list[i];
+      if (!entry || !C8O.util.isPlainObject(entry)) {
+        pushError("Ignoring non-object property entry at index " + i + ".");
+        continue;
+      }
+      var entryName = C8O.util.toTrimmedString(
+        entry.name != null ? entry.name :
+        (entry.key != null ? entry.key : entry.property)
+      );
+      if (!entryName.length) {
+        pushError("Ignoring property entry without name at index " + i + ".");
+        continue;
+      }
+      var hasValue = Object.prototype.hasOwnProperty.call(entry, "value");
+      var hasNewValue = Object.prototype.hasOwnProperty.call(entry, "newValue");
+      if (!hasValue && !hasNewValue) {
+        pushError("Ignoring property entry '" + entryName + "' without value.");
+        continue;
+      }
+      out[entryName] = hasValue ? entry.value : entry.newValue;
+    }
+    return out;
+  }
+
+  if (input == null) {
     return {};
   }
-  if (!C8O.util.isPlainObject(parsed)) {
-    if (errors && errors.push) {
-      errors.push({ name: "properties", message: "Properties payload must be a JSON object (use {} when empty, or call palette-describe for a template)." });
-    }
-    return {};
+
+  if (Array.isArray(input)) {
+    return toMapFromList(input);
   }
-  return parsed;
+
+  if (C8O.util.isPlainObject(input)) {
+    var wrapperList = null;
+    if (Array.isArray(input.properties)) {
+      wrapperList = input.properties;
+    } else if (Array.isArray(input.entries)) {
+      wrapperList = input.entries;
+    } else if (Array.isArray(input.updates)) {
+      wrapperList = input.updates;
+    }
+    if (wrapperList != null) {
+      return toMapFromList(wrapperList);
+    }
+    return input;
+  }
+
+  pushError("Properties payload must be a JSON object or an array of {name,value} entries.");
+  return {};
+};
+
+/**
+ * Parse and normalize property payloads.
+ */
+C8O.dbo.parsePropertyUpdates = function (input, errors) {
+  var payload = input;
+
+  if (payload && typeof payload.unwrap === "function") {
+    try {
+      payload = payload.unwrap();
+    } catch (_ignoreUnwrapPayload) {}
+  }
+
+  if (typeof payload === "string") {
+    var trimmed = C8O.util.toTrimmedString(payload);
+    if (!trimmed.length) {
+      return {};
+    }
+    var parsed = C8O.util.tryParseJson(trimmed, errors, "properties");
+    if (parsed && typeof parsed === "string") {
+      var nested = C8O.util.tryParseJson(parsed, errors, "properties");
+      if (nested) {
+        parsed = nested;
+      }
+    }
+    if (!parsed) {
+      if (errors && errors.push) {
+        errors.push({ name: "properties", message: "Properties payload must be a JSON object or an array of {name,value} entries." });
+      }
+      return {};
+    }
+    payload = parsed;
+  }
+
+  return C8O.dbo._normalizePropertyUpdates(payload, errors, "properties");
 };
 
 C8O.dbo._getDescriptorMap = function (dbo) {
@@ -577,6 +652,40 @@ C8O.dbo._prepareDynamicPropertyValue = function (rawSpec, dynamicMeta) {
     return new MobileSmartSourceType(effectiveSpec);
   }
   return C8O.dbo._buildMobileSmartSourceType(effectiveSpec);
+};
+
+C8O.dbo._isNotSetSentinelValue = function (value) {
+  if (value === false || value === "false") {
+    return true;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  var modeToken = "";
+  if (value.mode !== undefined && value.mode !== null) {
+    modeToken = String(value.mode);
+  } else if (value.type !== undefined && value.type !== null) {
+    modeToken = String(value.type);
+  }
+  modeToken = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(modeToken).toLowerCase() : String(modeToken || "").toLowerCase();
+
+  var rawValue = null;
+  if (Object.prototype.hasOwnProperty.call(value, "value")) {
+    rawValue = value.value;
+  } else if (Object.prototype.hasOwnProperty.call(value, "smartValue")) {
+    rawValue = value.smartValue;
+  } else if (Object.prototype.hasOwnProperty.call(value, "expression")) {
+    rawValue = value.expression;
+  }
+
+  if (rawValue === false) {
+    return true;
+  }
+  if (typeof rawValue === "string" && rawValue.toLowerCase() === "false") {
+    return modeToken.length === 0 || modeToken === "plain";
+  }
+  return false;
 };
 
 C8O.dbo._isClass = function (className, value) {
@@ -903,55 +1012,58 @@ C8O.dbo._isFormatedContentClass = function (propertyType) {
   }
 };
 
-C8O.dbo._isFontSourceClass = function (propertyType) {
+C8O.dbo._isMobileSmartSourceTypeClass = function (propertyType) {
   if (propertyType == null) {
     return false;
   }
   try {
-    var fontClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.FontSource');
-    return fontClass.isAssignableFrom(propertyType);
-  } catch (_ignoreFontSource) {
+    var mobileSmartSourceTypeClass = Packages.java.lang.Class.forName("com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType");
+    return mobileSmartSourceTypeClass.isAssignableFrom(propertyType);
+  } catch (_ignoreMobileSmartSourceType) {
     try {
       var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
-      return className === 'com.twinsoft.convertigo.beans.common.FontSource';
-    } catch (_ignoreName) {
+      return className === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType";
+    } catch (_ignoreMobileSmartSourceTypeName) {
       return false;
     }
   }
 };
 
-C8O.dbo._isXmlQNameClass = function (propertyType) {
-  if (propertyType == null) {
-    return false;
+C8O.dbo._normalizeMobileSmartSourceType = function (mobileSmartValue) {
+  var normalized = {
+    mode: "PLAIN",
+    value: ""
+  };
+  if (mobileSmartValue === null || mobileSmartValue === undefined) {
+    return normalized;
   }
-  try {
-    var qnameClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.XmlQName');
-    return qnameClass.isAssignableFrom(propertyType);
-  } catch (_ignoreXmlQName) {
-    try {
-      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
-      return className === 'com.twinsoft.convertigo.beans.common.XmlQName';
-    } catch (_ignoreName) {
-      return false;
-    }
-  }
-};
 
-C8O.dbo._isXMLRectangleClass = function (propertyType) {
-  if (propertyType == null) {
-    return false;
-  }
   try {
-    var rectClass = Packages.java.lang.Class.forName('com.twinsoft.convertigo.beans.common.XMLRectangle');
-    return rectClass.isAssignableFrom(propertyType);
-  } catch (_ignoreRect) {
-    try {
-      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
-      return className === 'com.twinsoft.convertigo.beans.common.XMLRectangle';
-    } catch (_ignoreName) {
-      return false;
+    if (mobileSmartValue.getMode) {
+      var mode = mobileSmartValue.getMode();
+      if (mode !== null && mode !== undefined) {
+        if (mode.name) {
+          normalized.mode = String(mode.name());
+        } else {
+          normalized.mode = String(mode);
+        }
+      }
     }
+  } catch (_ignoreMobileSmartMode) {}
+
+  try {
+    if (mobileSmartValue.getSmartValue) {
+      normalized.value = String(mobileSmartValue.getSmartValue());
+      return normalized;
+    }
+  } catch (_ignoreMobileSmartValue) {}
+
+  try {
+    normalized.value = String(mobileSmartValue);
+  } catch (_ignoreMobileSmartToString) {
+    normalized.value = "";
   }
+  return normalized;
 };
 
 C8O.dbo._normalizeSmartType = function (smartType) {
@@ -999,6 +1111,12 @@ C8O.dbo.normalizeValue = function (pd, value) {
 
   var propertyType = pd != null ? pd.getPropertyType() : null;
   var typeName = propertyType != null ? propertyType.getName() : (value.getClass ? value.getClass().getName() : typeof value);
+
+  if (C8O.dbo._isMobileSmartSourceTypeClass(propertyType) ||
+      C8O.dbo._isClass("com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType", value) ||
+      (value != null && value.getClass && String(value.getClass().getName()) === "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType")) {
+    return C8O.dbo._normalizeMobileSmartSourceType(value);
+  }
 
   if (C8O.dbo._isSmartTypeClass(propertyType) || C8O.dbo._isClass('com.twinsoft.convertigo.beans.steps.SmartType', value) || (value != null && value.getClass && String(value.getClass().getName()) === 'com.twinsoft.convertigo.beans.steps.SmartType')) {
     return C8O.dbo._normalizeSmartType(value);
@@ -1809,6 +1927,26 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
     } catch (_ignoreTypeName) {}
   }
 
+  var isNumericProperty =
+    propertyTypeName === "byte" ||
+    propertyTypeName === "short" ||
+    propertyTypeName === "int" ||
+    propertyTypeName === "long" ||
+    propertyTypeName === "float" ||
+    propertyTypeName === "double" ||
+    propertyTypeName === "java.lang.Byte" ||
+    propertyTypeName === "java.lang.Short" ||
+    propertyTypeName === "java.lang.Integer" ||
+    propertyTypeName === "java.lang.Long" ||
+    propertyTypeName === "java.lang.Float" ||
+    propertyTypeName === "java.lang.Double";
+
+  // Rhino numbers are JS doubles. Some Convertigo properties, such as HttpConnector.port,
+  // are compiled reliably from string form but can degrade when a raw JS number is passed through.
+  if (isNumericProperty && typeof rawSpec === "number" && isFinite(rawSpec)) {
+    return String(rawSpec);
+  }
+
   // Allow SmartType / XMLVector values provided as JSON strings (or any stringified JSON).
   if (typeof rawSpec === "string") {
     var trimmedSpec = rawSpec.trim();
@@ -2272,6 +2410,122 @@ C8O.dbo.applyUpdatesAndPersist = function (options) {
   };
 };
 
+C8O.dbo.finalizeMutationsByQNames = function (options) {
+  options = options || {};
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var autoSave = options.autoSave !== false;
+  var triggerMobileBuilder = options.triggerMobileBuilder !== false;
+  var errors = options.errors && options.errors.push ? options.errors : [];
+  var sourceQNames = Array.isArray(options.qnames) ? options.qnames : [];
+
+  var touchedQNames = [];
+  var touchedQNameSet = {};
+  var projectMap = {};
+  var projectAnchorMap = {};
+
+  function addTouchedQName(value) {
+    var text = C8O.util.toTrimmedString(value);
+    if (!text.length || touchedQNameSet[text]) {
+      return;
+    }
+    touchedQNameSet[text] = true;
+    touchedQNames.push(text);
+  }
+
+  function resolveProjectByName(projectName) {
+    var text = C8O.util.toTrimmedString(projectName);
+    if (!text.length) {
+      return null;
+    }
+    try {
+      return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(text, false);
+    } catch (_ignoreProjectByNameWithFlag) {
+      try {
+        return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(text);
+      } catch (_ignoreProjectByName) {
+        return null;
+      }
+    }
+  }
+
+  for (var i = 0; i < sourceQNames.length; i++) {
+    var qname = C8O.util.toTrimmedString(sourceQNames[i]);
+    if (!qname.length) {
+      continue;
+    }
+    addTouchedQName(qname);
+
+    var dbo = C8O.dbo.resolve(qname, { optional: true });
+    if (dbo) {
+      try {
+        var projectRef = dbo.getProject ? dbo.getProject() : null;
+        if (projectRef && projectRef.getName) {
+          var projectName = String(projectRef.getName());
+          if (projectName.length) {
+            projectMap[projectName] = projectRef;
+            if (!projectAnchorMap[projectName]) {
+              projectAnchorMap[projectName] = dbo;
+            }
+          }
+        }
+      } catch (_ignoreResolvedProject) {}
+      continue;
+    }
+
+    var fallbackProjectName = C8O.dbo._extractProjectName ? C8O.dbo._extractProjectName(qname) : "";
+    if (fallbackProjectName.length && !projectMap[fallbackProjectName]) {
+      var fallbackProject = resolveProjectByName(fallbackProjectName);
+      if (fallbackProject) {
+        projectMap[fallbackProjectName] = fallbackProject;
+      }
+    }
+  }
+
+  var mobileBuilderResults = [];
+  if (triggerMobileBuilder) {
+    var anchorNames = Object.keys(projectAnchorMap);
+    for (var m = 0; m < anchorNames.length; m++) {
+      var anchorProjectName = anchorNames[m];
+      var anchor = projectAnchorMap[anchorProjectName];
+      if (!anchor) {
+        continue;
+      }
+      var refreshInfo = C8O.dbo.triggerMobileBuilderRefresh(anchor, errors);
+      mobileBuilderResults.push({
+        project: anchorProjectName,
+        requested: refreshInfo && refreshInfo.requested === true,
+        triggered: refreshInfo && refreshInfo.triggered === true,
+        message: refreshInfo && refreshInfo.message ? String(refreshInfo.message) : ""
+      });
+    }
+  }
+
+  var saveResults = [];
+  if (autoSave) {
+    var projectNames = Object.keys(projectMap);
+    for (var s = 0; s < projectNames.length; s++) {
+      var projectNameForSave = projectNames[s];
+      var projectToSave = projectMap[projectNameForSave];
+      if (!projectToSave) {
+        continue;
+      }
+      var saveResult = C8O.dbo.saveProject(projectToSave, errors);
+      saveResults.push({
+        project: projectNameForSave,
+        saved: saveResult && saveResult.saved === true,
+        message: saveResult && saveResult.message ? String(saveResult.message) : ""
+      });
+    }
+  }
+
+  return {
+    touchedQNames: touchedQNames,
+    projects: Object.keys(projectMap),
+    mobileBuilder: mobileBuilderResults,
+    saveResults: saveResults
+  };
+};
+
 C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var System = java.lang.System;
@@ -2638,20 +2892,20 @@ C8O.dbo._collectNgxComponentManagers = function (referenceDbo) {
   return managers;
 };
 
-C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
+C8O.dbo._listNgxComponentsByBaseClass = function (baseClassFqcn, referenceDbo, options) {
   options = options || {};
-  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
-  if (!parsed.baseClassFqcn.length || !parsed.hasLogicalId || !C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
-    return null;
+  var baseClass = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(baseClassFqcn || "") : String(baseClassFqcn || "").trim();
+  if (!baseClass.length || !C8O.dbo._isNgxClassFqcn(baseClass)) {
+    return [];
   }
 
   var managers = C8O.dbo._collectNgxComponentManagers(referenceDbo);
   if (!managers || !managers.length) {
-    return null;
+    return [];
   }
 
-  var targetLogicalId = parsed.logicalId;
-  var targetLogicalKey = C8O.dbo._normalizePropertyLookupKey(targetLogicalId);
+  var matches = [];
+  var dedupe = {};
   for (var m = 0; m < managers.length; m++) {
     var manager = managers[m];
     if (!manager) {
@@ -2707,7 +2961,7 @@ C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, refer
       } catch (_ignoreCandidateClassName) {
         candidateClassName = "";
       }
-      if (!candidateClassName.length || candidateClassName !== parsed.baseClassFqcn) {
+      if (!candidateClassName.length || candidateClassName !== baseClass) {
         continue;
       }
 
@@ -2715,24 +2969,68 @@ C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, refer
       if (!logicalId.length) {
         continue;
       }
-      if (logicalId !== targetLogicalId) {
-        var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
-        if (!targetLogicalKey.length || logicalKey !== targetLogicalKey) {
-          continue;
-        }
+      var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
+      if (!logicalKey.length) {
+        continue;
       }
+      var dedupeKey = candidateClassName + "#" + logicalKey;
+      if (dedupe[dedupeKey]) {
+        continue;
+      }
+      dedupe[dedupeKey] = true;
 
-      return {
+      matches.push({
         manager: manager,
         component: component,
         sampleDbo: sampleDbo,
         baseClassFqcn: candidateClassName,
         logicalId: logicalId,
         logicalClassName: C8O.dbo.buildLogicalClassName(candidateClassName, logicalId)
-      };
+      });
     }
   }
 
+  return matches;
+};
+
+C8O.dbo._formatNgxCandidates = function (candidates, maxItems) {
+  if (!candidates || !candidates.length) {
+    return "";
+  }
+  var limit = maxItems > 0 ? maxItems : 8;
+  var labels = [];
+  for (var i = 0; i < candidates.length && i < limit; i++) {
+    var candidate = candidates[i];
+    if (!candidate || !candidate.logicalClassName) {
+      continue;
+    }
+    labels.push(String(candidate.logicalClassName));
+  }
+  if (candidates.length > limit) {
+    labels.push("+" + String(candidates.length - limit) + " more");
+  }
+  return labels.join(", ");
+};
+
+C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
+  options = options || {};
+  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
+  if (!parsed.baseClassFqcn.length || !parsed.hasLogicalId || !C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+    return null;
+  }
+
+  var candidates = C8O.dbo._listNgxComponentsByBaseClass(parsed.baseClassFqcn, referenceDbo, options);
+  if (!candidates.length) {
+    return null;
+  }
+
+  var targetLogicalKey = C8O.dbo._normalizePropertyLookupKey(parsed.logicalId);
+  for (var i = 0; i < candidates.length; i++) {
+    var logicalKey = C8O.dbo._normalizePropertyLookupKey(candidates[i].logicalId);
+    if (logicalKey === targetLogicalKey) {
+      return candidates[i];
+    }
+  }
   return null;
 };
 
@@ -2741,17 +3039,30 @@ C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
   var baseClassFqcn = parsed.baseClassFqcn;
 
   if (C8O.dbo._isNgxParent(parentDbo) && C8O.dbo._isNgxClassFqcn(baseClassFqcn)) {
-    if (!parsed.hasLogicalId) {
-      throw new Error(
-        "For NGX create, className must include a logical identifier using '#'. " +
-        "Example: ngx.components.UIDynamicElement#Card"
-      );
+    var candidates = C8O.dbo._listNgxComponentsByBaseClass(baseClassFqcn, parentDbo, { requireAllowedInParent: true });
+
+    if (parsed.hasLogicalId) {
+      var resolved = C8O.dbo.findNgxComponentByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
+      if (!resolved || !resolved.sampleDbo) {
+        var hints = C8O.dbo._formatNgxCandidates(candidates, 8);
+        if (hints.length) {
+          throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent. Candidates: " + hints);
+        }
+        throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
+      }
+      return resolved.sampleDbo;
     }
-    var resolved = C8O.dbo.findNgxComponentByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
-    if (!resolved || !resolved.sampleDbo) {
+
+    if (!candidates.length) {
       throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
     }
-    return resolved.sampleDbo;
+    if (candidates.length > 1) {
+      throw new Error(
+        "Ambiguous NGX palette entry '" + className + "' for the current parent. " +
+        "Use className with '#<logicalId>'. Candidates: " + C8O.dbo._formatNgxCandidates(candidates, 8)
+      );
+    }
+    return candidates[0].sampleDbo;
   }
 
   return C8O.dbo.instantiateClass(baseClassFqcn || className);
@@ -2810,6 +3121,9 @@ C8O.dbo._getBooleanDescriptorFlag = function (descriptor, key) {
 };
 
 C8O.dbo._propertyKindFromType = function (propertyType) {
+  if (C8O.dbo._isMobileSmartSourceTypeClass(propertyType)) {
+    return "smartType";
+  }
   if (C8O.dbo._isSmartTypeClass(propertyType)) {
     return "smartType";
   }
@@ -2970,7 +3284,7 @@ C8O.dbo._buildDynamicPropertyHint = function (dynamicMeta, ionBean) {
     rawValue = null;
   }
   var normalizedValue = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawValue) : rawValue;
-  if (dynamicMeta.hasNotSetSentinel === true && (normalizedValue === false || normalizedValue === "false")) {
+  if (dynamicMeta.hasNotSetSentinel === true && C8O.dbo._isNotSetSentinelValue(normalizedValue)) {
     normalizedValue = null;
   }
   return {
@@ -3071,4 +3385,318 @@ C8O.dbo.countVisibleProperties = function (dbo) {
     }
   }
   return count;
+};
+
+C8O.dbo.safeQName = function (dbo) {
+  return C8O.dbo._safeQName ? C8O.dbo._safeQName(dbo) : "";
+};
+
+C8O.dbo.safeName = function (dbo) {
+  if (!dbo) {
+    return "";
+  }
+  try {
+    if (dbo.getName) {
+      return String(dbo.getName());
+    }
+  } catch (_ignoreName) {}
+  return "";
+};
+
+C8O.dbo.safePriority = function (dbo) {
+  if (!dbo) {
+    return "";
+  }
+  try {
+    if (dbo.priority !== undefined && dbo.priority !== null) {
+      return String(dbo.priority);
+    }
+  } catch (_ignorePriority) {}
+  return "";
+};
+
+C8O.dbo.getDirectChildren = function (parentDbo) {
+  var result = [];
+  if (!parentDbo || !parentDbo.getDatabaseObjectChildren) {
+    return result;
+  }
+  var list = null;
+  try {
+    list = parentDbo.getDatabaseObjectChildren();
+  } catch (_ignoreChildrenList) {
+    list = null;
+  }
+  if (!list) {
+    return result;
+  }
+  for (var i = 0; i < list.size(); i++) {
+    var child = list.get(i);
+    if (!child) {
+      continue;
+    }
+    try {
+      if (child.getParent() !== parentDbo) {
+        continue;
+      }
+    } catch (_ignoreParentCheck) {}
+    result.push(child);
+  }
+  return result;
+};
+
+C8O.dbo.logicalClassNameForDbo = function (dbo) {
+  if (!dbo || !dbo.getClass) {
+    return "";
+  }
+  var runtimeClass = "";
+  try {
+    runtimeClass = String(dbo.getClass().getName());
+  } catch (_ignoreClass) {
+    runtimeClass = "";
+  }
+  if (!runtimeClass.length) {
+    return "";
+  }
+
+  var shortName = C8O.util.fromFqcn ? C8O.util.fromFqcn(runtimeClass) : runtimeClass;
+  if (!C8O.dbo._isNgxClassFqcn || C8O.dbo._isNgxClassFqcn(runtimeClass) !== true) {
+    return shortName;
+  }
+
+  var logicalId = "";
+  try {
+    if (C8O.dbo.getNgxComponentLogicalId) {
+      logicalId = String(C8O.dbo.getNgxComponentLogicalId(null, dbo) || "");
+    }
+  } catch (_ignoreLogicalId) {
+    logicalId = "";
+  }
+  if (!logicalId.length) {
+    var simpleName = runtimeClass;
+    var lastDot = runtimeClass.lastIndexOf(".");
+    if (lastDot >= 0 && lastDot + 1 < runtimeClass.length) {
+      simpleName = runtimeClass.substring(lastDot + 1);
+    }
+    logicalId = simpleName;
+  }
+
+  if (C8O.dbo.buildLogicalClassName) {
+    return C8O.dbo.buildLogicalClassName(shortName, logicalId);
+  }
+  return shortName + "#" + logicalId;
+};
+
+C8O.dbo._stablePropertyValue = function (value) {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+  var kind = typeof value;
+  if (kind === "string") {
+    return "s:" + value;
+  }
+  if (kind === "number") {
+    return "n:" + String(value);
+  }
+  if (kind === "boolean") {
+    return "b:" + String(value);
+  }
+  try {
+    return "j:" + JSON.stringify(value);
+  } catch (_ignoreStringify) {
+    return "x:" + String(value);
+  }
+};
+
+C8O.dbo.valuesEqual = function (left, right) {
+  if (left === right) {
+    return true;
+  }
+  return C8O.dbo._stablePropertyValue(left) === C8O.dbo._stablePropertyValue(right);
+};
+
+C8O.dbo.getDefaultPropertiesMap = function (dbo, options) {
+  var includeReadOnly = options && options.includeReadOnly === true;
+  var reservedKeys = { name: true, qname: true, priority: true, classname: true };
+  var map = {};
+  if (!dbo) {
+    return map;
+  }
+  var hints = [];
+  try {
+    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
+    var beanInfo = CachedIntrospector.getBeanInfo(dbo.getClass());
+    hints = C8O.dbo.describeBeanProperties ? C8O.dbo.describeBeanProperties(beanInfo) : [];
+  } catch (_ignoreCachedIntrospector) {
+    try {
+      var Introspector = Packages.java.beans.Introspector;
+      var fallbackInfo = Introspector.getBeanInfo(dbo.getClass());
+      hints = C8O.dbo.describeBeanProperties ? C8O.dbo.describeBeanProperties(fallbackInfo) : [];
+    } catch (_ignoreIntrospector) {
+      hints = [];
+    }
+  }
+
+  var dynamicContext = C8O.dbo._getDynamicPropertyContext ? C8O.dbo._getDynamicPropertyContext(dbo) : null;
+  for (var i = 0; i < hints.length; i++) {
+    var hint = hints[i];
+    if (!hint || !hint.name) {
+      continue;
+    }
+    if (hint.hidden === true) {
+      continue;
+    }
+    var normalizedName = C8O.dbo._normalizePropertyLookupKey ? C8O.dbo._normalizePropertyLookupKey(hint.name) : String(hint.name).toLowerCase();
+    if (reservedKeys[normalizedName]) {
+      continue;
+    }
+    if (dynamicContext && normalizedName === "beandata") {
+      continue;
+    }
+    if (!includeReadOnly && hint.readOnly === true) {
+      continue;
+    }
+    map[String(hint.name)] = hint.defaultValue;
+  }
+  return map;
+};
+
+C8O.dbo.getCurrentPropertiesMap = function (dbo, options) {
+  var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
+  var includeReadOnly = options && options.includeReadOnly === true;
+  var reservedKeys = { name: true, qname: true, priority: true, classname: true };
+  var map = {};
+  if (!dbo) {
+    return map;
+  }
+
+  var descriptorMap = C8O.dbo._getDescriptorMap ? C8O.dbo._getDescriptorMap(dbo) : {};
+  var dynamicContext = C8O.dbo._getDynamicPropertyContext ? C8O.dbo._getDynamicPropertyContext(dbo) : null;
+  var consumedDynamic = {};
+
+  var descriptorNames = Object.keys(descriptorMap || {});
+  descriptorNames.sort();
+  for (var i = 0; i < descriptorNames.length; i++) {
+    var descriptorName = descriptorNames[i];
+    if (!descriptorName || descriptorName === "class") {
+      continue;
+    }
+
+    var pd = descriptorMap[descriptorName];
+    if (!pd) {
+      continue;
+    }
+    var getter = pd.getReadMethod ? pd.getReadMethod() : null;
+    if (!getter) {
+      continue;
+    }
+    var setter = pd.getWriteMethod ? pd.getWriteMethod() : null;
+    var readOnly = setter == null;
+    if (readOnly && !includeReadOnly) {
+      continue;
+    }
+
+    var normalizedName = C8O.dbo._normalizePropertyLookupKey ? C8O.dbo._normalizePropertyLookupKey(descriptorName) : String(descriptorName).toLowerCase();
+    if (reservedKeys[normalizedName]) {
+      continue;
+    }
+    if (dynamicContext && normalizedName === "beandata") {
+      continue;
+    }
+
+    if (dynamicContext && dynamicContext.byLookup && normalizedName.length) {
+      var resolvedName = dynamicContext.byLookup[normalizedName];
+      if (resolvedName && dynamicContext.byName && dynamicContext.byName[resolvedName]) {
+        var dynamicMeta = dynamicContext.byName[resolvedName];
+        var rawDynamic = null;
+        try {
+          rawDynamic = dynamicContext.ionBean.getPropertyValue(dynamicMeta.name);
+          if (rawDynamic instanceof NativeJavaObject) {
+            rawDynamic = rawDynamic.unwrap();
+          }
+        } catch (_ignoreDynamicRead) {
+          rawDynamic = null;
+        }
+        var normalizedDynamic = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawDynamic) : rawDynamic;
+        if (dynamicMeta.hasNotSetSentinel === true && C8O.dbo._isNotSetSentinelValue(normalizedDynamic)) {
+          normalizedDynamic = null;
+        }
+        map[String(dynamicMeta.name)] = normalizedDynamic;
+        consumedDynamic[String(dynamicMeta.name)] = true;
+        continue;
+      }
+    }
+
+    var rawValue = null;
+    try {
+      rawValue = getter.invoke(dbo, null);
+      if (rawValue instanceof NativeJavaObject) {
+        rawValue = rawValue.unwrap();
+      }
+    } catch (_ignoreReadValue) {
+      rawValue = null;
+    }
+    map[String(descriptorName)] = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(pd, rawValue) : rawValue;
+  }
+
+  if (dynamicContext && dynamicContext.byName) {
+    var dynamicNames = Object.keys(dynamicContext.byName);
+    dynamicNames.sort();
+    for (var j = 0; j < dynamicNames.length; j++) {
+      var dynamicName = dynamicNames[j];
+      if (!dynamicName || consumedDynamic[dynamicName]) {
+        continue;
+      }
+      var dynamicMetaExtra = dynamicContext.byName[dynamicName];
+      if (!dynamicMetaExtra) {
+        continue;
+      }
+      var rawDynamicExtra = null;
+      try {
+        rawDynamicExtra = dynamicContext.ionBean.getPropertyValue(dynamicMetaExtra.name);
+        if (rawDynamicExtra instanceof NativeJavaObject) {
+          rawDynamicExtra = rawDynamicExtra.unwrap();
+        }
+      } catch (_ignoreDynamicExtraRead) {
+        rawDynamicExtra = null;
+      }
+      var normalizedExtra = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(null, rawDynamicExtra) : rawDynamicExtra;
+      if (dynamicMetaExtra.hasNotSetSentinel === true && C8O.dbo._isNotSetSentinelValue(normalizedExtra)) {
+        normalizedExtra = null;
+      }
+      map[String(dynamicMetaExtra.name)] = normalizedExtra;
+    }
+  }
+
+  return map;
+};
+
+C8O.dbo.getCanonicalPropertiesMap = function (dbo, propertyMode, options) {
+  var mode = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(propertyMode || "changed").toLowerCase() : String(propertyMode || "changed").toLowerCase();
+  if (mode !== "none" && mode !== "all" && mode !== "changed") {
+    mode = "changed";
+  }
+  if (mode === "none") {
+    return {};
+  }
+
+  var current = C8O.dbo.getCurrentPropertiesMap(dbo, options);
+  if (mode === "all") {
+    return current;
+  }
+
+  var defaults = C8O.dbo.getDefaultPropertiesMap(dbo, options);
+  var changed = {};
+  var names = Object.keys(current || {});
+  names.sort();
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i];
+    if (!Object.prototype.hasOwnProperty.call(defaults, name)) {
+      changed[name] = current[name];
+      continue;
+    }
+    if (!C8O.dbo.valuesEqual(current[name], defaults[name])) {
+      changed[name] = current[name];
+    }
+  }
+  return changed;
 };

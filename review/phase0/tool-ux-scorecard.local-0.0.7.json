@@ -1,0 +1,276 @@
+{
+  "schemaVersion": "1.0.0",
+  "serverVersion": "0.0.7",
+  "source": "review/live-contract/tool-catalog.local-0.0.7.json",
+  "tools": [
+    {
+      "name": "batch-call",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented.",
+        "Complex payloads now have compact structural guidance."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "databaseobject-delete",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-move",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-rename",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-schema",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-search",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "databaseobject-tree-apply",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented.",
+        "Complex payloads now have compact structural guidance."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "databaseobject-tree-get",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "log-view",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "marketplace-import",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "marketplace-list",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "mobile-builder-open",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "palette-describe",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "palette-list",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented.",
+        "Formerly silent parameters now expose call-time guidance."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-js-get",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented.",
+        "Formerly silent parameters now expose call-time guidance."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-js-set",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented.",
+        "Formerly silent parameters now expose call-time guidance."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-list",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-reload",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "project-save",
+      "grade": "A",
+      "status": "Clear and high-signal.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [],
+      "recommendedFixes": []
+    },
+    {
+      "name": "rag-query",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    },
+    {
+      "name": "requestable-execute",
+      "grade": "B",
+      "status": "Usable without extra guides, but output readability still leaves room for improvement.",
+      "strengths": [
+        "Title and description are distinct and action-oriented.",
+        "Visible input parameters are documented.",
+        "Side-effect flags now explain when they matter."
+      ],
+      "issues": [
+        "Several outputs still use opaque JSON-string fields instead of typed nested objects."
+      ],
+      "recommendedFixes": [
+        "Promote high-volume JSON string payloads to typed nested objects when the contract stabilizes."
+      ]
+    }
+  ]
+}

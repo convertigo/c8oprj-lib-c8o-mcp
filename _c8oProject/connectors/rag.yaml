@@ -1,4 +1,3 @@
-↑default: true
 https: true
 port: 443
 server: assistant.convertigo.com

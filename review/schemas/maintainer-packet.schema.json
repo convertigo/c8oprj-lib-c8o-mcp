@@ -1,0 +1,483 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convertigo.com/schemas/maintainer-packet.schema.json",
+  "title": "Convertigo Maintainer Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "baselineCandidateId",
+    "baselineGitSha",
+    "suiteId",
+    "provider",
+    "model",
+    "codexVersion",
+    "projectVersion",
+    "findingSources",
+    "selectedFindingIds",
+    "selectionReason",
+    "topFindings",
+    "selectedFindings",
+    "scenarioSummary",
+    "relevantGuides",
+    "relevantPrompts",
+    "allowedMutationAreas",
+    "forbiddenMutationAreas",
+    "benchmarkEvidencePaths",
+    "feedbackEvidencePaths",
+    "evidencePaths",
+    "acceptanceTargets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "baselineCandidateId": {
+      "type": "string"
+    },
+    "baselineGitSha": {
+      "type": "string"
+    },
+    "suiteId": {
+      "type": "string"
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "codexVersion": {
+      "type": "string"
+    },
+    "projectVersion": {
+      "type": "string"
+    },
+    "findingSources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "sourceType",
+          "path"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "benchmark",
+              "benchmark-history",
+              "feedback"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "selectedFindingIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "selectionReason": {
+      "type": "string"
+    },
+    "topFindings": {
+      "$ref": "#/$defs/benchmarkFindingList"
+    },
+    "selectedFindings": {
+      "$ref": "#/$defs/selectedFindingList"
+    },
+    "scenarioSummary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenarioId",
+          "status",
+          "gateStatus",
+          "score",
+          "weightedScore"
+        ],
+        "properties": {
+          "scenarioId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED",
+              "UNKNOWN"
+            ]
+          },
+          "gateStatus": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIPPED"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "weightedScore": {
+            "type": "number",
+            "minimum": 0
+          },
+          "runReportPath": {
+            "type": "string"
+          },
+          "criticReportPath": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "relevantGuides": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relevantPrompts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowedMutationAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbiddenMutationAreas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "benchmarkEvidencePaths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "feedbackEvidencePaths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidencePaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaignManifest",
+        "aggregateFindings",
+        "runReports",
+        "runSummaries",
+        "criticReports",
+        "rawLogs"
+      ],
+      "properties": {
+        "campaignManifest": {
+          "type": "string"
+        },
+        "aggregateFindings": {
+          "type": "string"
+        },
+        "runReports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "runSummaries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "criticReports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rawLogs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "acceptanceTargets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overallScoreMinDelta",
+        "maxOverallScoreRegression",
+        "forbidPassToFail",
+        "forbidGateFailureIncrease",
+        "forbidFailCountIncrease",
+        "requiredRunnerTuple",
+        "targetedFindingKeys"
+      ],
+      "properties": {
+        "overallScoreMinDelta": {
+          "type": "number"
+        },
+        "maxOverallScoreRegression": {
+          "type": "number",
+          "minimum": 0
+        },
+        "forbidPassToFail": {
+          "type": "boolean"
+        },
+        "forbidGateFailureIncrease": {
+          "type": "boolean"
+        },
+        "forbidFailCountIncrease": {
+          "type": "boolean"
+        },
+        "requiredRunnerTuple": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "model",
+            "codexVersion"
+          ],
+          "properties": {
+            "provider": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "codexVersion": {
+              "type": "string"
+            }
+          }
+        },
+        "targetedFindingKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "benchmarkFindingList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "area",
+          "subjectId",
+          "symptom",
+          "count",
+          "severity",
+          "scenarioIds",
+          "evidenceRunIds",
+          "providers",
+          "models",
+          "recommendedOwner"
+        ],
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "guide",
+              "prompt",
+              "scenario",
+              "fixture"
+            ]
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "symptom": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "severity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "scenarioIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceRunIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommendedOwner": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "selectedFindingList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "findingId",
+          "area",
+          "subjectId",
+          "symptom",
+          "severity",
+          "recommendedOwner",
+          "targetRepo",
+          "benchmarkEvidencePaths",
+          "feedbackEvidencePaths"
+        ],
+        "properties": {
+          "findingId": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "guide",
+              "prompt",
+              "scenario",
+              "fixture"
+            ]
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "symptom": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "recommendedOwner": {
+            "type": "string"
+          },
+          "targetRepo": {
+            "type": "string"
+          },
+          "nextAction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceReportIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scenarioIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceRunIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "benchmarkEvidencePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "feedbackEvidencePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

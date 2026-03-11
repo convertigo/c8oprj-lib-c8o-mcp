@@ -50,6 +50,7 @@ responseExpiryDate: absolute,600
   comment: Shared helpers for JSON normalization
   expression: |
     'include("js/schema_common.js");
+        include("js/schema_overrides.js");
     
     function sampleValueForType(type) {
       type = String(type || "string").toLowerCase();
@@ -120,21 +121,37 @@ responseExpiryDate: absolute,600
 ↓BuildModels [steps.SimpleStep-1761913099509]: 
   comment: Compute input/output schema details
   expression: |
-    var requestSource = extractPayloadNode(requestModel, requestPayloadName);
+    'var requestSource = extractPayloadNode(requestModel, requestPayloadName);
     if (requestSource == null) { requestSource = {}; }
     var normalizedRequest = normalizeNode(requestSource);
     normalizedRequest = pruneInternalKeys(normalizedRequest);
     inputSchemaJson = buildSchemaNode(normalizedRequest);
     if (inputSchemaJson && typeof inputSchemaJson === "object") { inputSchemaJson.additionalProperties = false; }
+    
+    var sequenceKey = String(sequence || "").trim().toLowerCase();
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyInput === "function") {
+      inputSchemaJson = C8O.schemaOverrides.applyInput(sequence, inputSchemaJson, targetRequestable);
+    }
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.decorateInput === "function") {
+      inputSchemaJson = C8O.schemaOverrides.decorateInput(sequenceKey, inputSchemaJson, targetRequestable);
+    }
+    
     var responseSource = extractPayloadNode(responseModel, responsePayloadName);
     if (responseSource == null) { responseSource = responseModel; }
     if (responseSource && responseSource.response) { responseSource = responseSource.response; }
     if (responseSource && responseSource.result) { responseSource = responseSource.result; }
     var normalizedResponse = normalizeNode(responseSource);
     schemaJson = buildSchemaNode(normalizedResponse);
-    delete schemaJson.required;
-    exampleJson = normalizedResponse;
-    
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyOutput === "function") {
+      schemaJson = C8O.schemaOverrides.applyOutput(sequence, schemaJson, targetRequestable, normalizedResponse);
+    }
+    if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.decorateOutput === "function") {
+      schemaJson = C8O.schemaOverrides.decorateOutput(sequenceKey, schemaJson, targetRequestable, normalizedResponse);
+    }
+    if (schemaJson && typeof schemaJson === "object") {
+      delete schemaJson.required;
+    }
+    exampleJson = normalizedResponse;'
 ↓result [steps.JsonObjectStep-1761747759787]: 
   key: 
     - xmlizable: 

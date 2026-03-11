@@ -126,6 +126,90 @@ C8O.util.isPlainObject = function (value) {
 };
 
 /**
+ * Coerces a request value to a plain object.
+ * Accepts plain objects, JSON object strings, and double-stringified JSON object strings.
+ */
+C8O.util.parseObjectInput = function (value, options) {
+  var opts = options || {};
+  var label = C8O.util.toTrimmedString(opts.label || "value");
+  if (!label.length) {
+    label = "value";
+  }
+  var allowEmpty = opts.allowEmpty !== false;
+  var maxDepth = 3;
+
+  function objectFromJavaMap(mapValue) {
+    var out = {};
+    try {
+      var it = mapValue.keySet().iterator();
+      while (it.hasNext()) {
+        var key = it.next();
+        out[String(key)] = mapValue.get(key);
+      }
+      return out;
+    } catch (_ignoreMap) {
+      return null;
+    }
+  }
+
+  if (value != null) {
+    try {
+      var JavaMap = Packages.java.util.Map;
+      if (value instanceof JavaMap) {
+        var mapped = objectFromJavaMap(value);
+        if (mapped != null) {
+          return mapped;
+        }
+      }
+    } catch (_ignoreJavaMap) {}
+
+    // Keep only plain JS objects; Java wrappers (String, JSONObject...) must be parsed from text.
+    var tag = "";
+    try {
+      tag = Object.prototype.toString.call(value);
+    } catch (_ignoreTag) {
+      tag = "";
+    }
+    if (tag === "[object Object]") {
+      return value;
+    }
+  }
+
+  var text = C8O.util.toTrimmedString(value);
+  if (!text.length) {
+    if (allowEmpty) {
+      return {};
+    }
+    throw new Error(label + " is required");
+  }
+
+  var candidate = text;
+  var depth = 0;
+  while (depth < maxDepth) {
+    var parsed = null;
+    try {
+      parsed = JSON.parse(candidate);
+    } catch (parseError) {
+      throw new Error(label + " must be a JSON object: " + parseError);
+    }
+    if (C8O.util.isPlainObject(parsed)) {
+      return parsed;
+    }
+    if (typeof parsed === "string") {
+      var nested = C8O.util.toTrimmedString(parsed);
+      if (nested.length) {
+        candidate = nested;
+        depth++;
+        continue;
+      }
+    }
+    break;
+  }
+
+  throw new Error(label + " must be a JSON object");
+};
+
+/**
  * Converts a Rhino/Java value into a printable preview string.
  */
 C8O.util.previewValue = function (value) {
@@ -364,5 +448,3 @@ C8O.requestable.configureExecutor = function (executionPlan) {
     EngineLog.debug('[tools_requestable_execute] transaction vars=' + txCount + ' target=' + executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   }
 };
-
-

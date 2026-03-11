@@ -1,0 +1,236 @@
+accessibility: Private
+comment: |
+  Read a canonical database object tree
+  Returns a canonical subtree rooted at an existing QName. Tune depth, property mode, and limit to keep responses small; use the cursor to continue long traversals.
+↓IncludeHelpers [steps.SimpleStep-1772627667774]: 
+  comment: Load shared helpers.
+  expression: include("js/databaseobject.js");
+↓Sequence_JS [steps.SimpleStep-1772627667911]: 
+  comment: Collect tree metadata.
+  expression: include("js/tools_databaseobject_tree_get.js");
+↓result [steps.JsonObjectStep-1772627676059]: 
+  comment: Build result payload.
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓rootQName [steps.JsonFieldStep-1772627692484]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rootQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeRootQName || ""
+  ↓view [steps.JsonFieldStep-1772719245000]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: view
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeView || "children"
+  ↓startOffset [steps.JsonFieldStep-1772627692644]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: startOffset
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeStartOffset
+  ↓returnedNodes [steps.JsonFieldStep-1772627692763]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: returnedNodes
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeReturnedNodes
+  ↓scannedNodes [steps.JsonFieldStep-1772627692897]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: scannedNodes
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeScannedNodes
+  ↓maxDepth [steps.JsonFieldStep-1772627692995]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: maxDepth
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeMaxDepth
+  ↓maxNodes [steps.JsonFieldStep-1772627693096]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: maxNodes
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeMaxNodes
+  ↓rootCount [steps.JsonFieldStep-1772627693205]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rootCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeRootCount
+  ↓truncated [steps.JsonFieldStep-1772627693315]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: truncated
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeTruncated === true
+  ↓hasMore [steps.JsonFieldStep-1772627693425]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: hasMore
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeHasMore === true
+  ↓totalNodes [steps.JsonFieldStep-1772627693544]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: totalNodes
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeTotalNodes
+  ↓IfNextCursor [steps.IfStep-1772627702129]: 
+    comment: Emit nextCursor when more data is available.
+    condition: notEmpty(treeNextCursor)
+    ↓nextCursor [steps.JsonFieldStep-1772627716944]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: treeNextCursor
+  ↓IfTree [steps.IfStep-1772627702278]: 
+    comment: Emit tree object when qname is provided.
+    condition: treeData != null
+    ↓Tree [steps.JsonToXmlStep-1772627717076]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: treeData
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: tree
+  ↓IfForest [steps.IfStep-1772627702473]: 
+    comment: Emit forest roots for workspace browsing or extra chunks.
+    condition: Array.isArray(forestData) && forestData.length > 0
+    ↓Forest [steps.JsonToXmlStep-1772627717342]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: forestData
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: forest
+↓target [variables.RequestableVariable-1772627661816]: 
+  comment: Existing QName. Case-sensitive.
+  description: Existing QName. Case-sensitive.
+↓properties [variables.RequestableVariable-1772627661953]: 
+  comment: 'Allowed values: none, changed, all. changed keeps only properties that differ from defaults.'
+  description: 'Allowed values: none, changed, all. changed keeps only properties that differ from defaults.'
+  value: changed
+↓limit [variables.RequestableVariable-1772627662171]: 
+  comment: Maximum nodes returned per call. 1 to 5000; default 200.
+  description: Maximum nodes returned per call. 1 to 5000; default 200.
+  value: 200
+↓childrenDepth [variables.RequestableVariable-1772627662271]: 
+  comment: Descendant levels to include. 0 returns only the target; default 1; max 20.
+  description: Descendant levels to include. 0 returns only the target; default 1; max 20.
+  value: 1
+↓_nextCursor [variables.RequestableVariable-1772627662380]: 
+  comment: Opaque cursor from a previous response. Internal pagination token.
+  description: Opaque cursor from a previous response. Internal pagination token.

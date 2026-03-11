@@ -2,7 +2,9 @@ accessibility: Private
 comment: Handles MCP prompts/call requests
 ↓IncludePromptsHelper [steps.SimpleStep-1762968988833]: 
   comment: Load prompts helper
-  expression: include("js/prompts.js");
+  expression: |
+    include("js/prompts.js");
+    include("js/reporting.js");
 ↓LookupPrompt [steps.SimpleStep-1762969029126]: 
   comment: Find prompt entry and content
   expression: |
@@ -10,7 +12,8 @@ comment: Handles MCP prompts/call requests
     if (!promptEntry) {
       throw new Error("Prompt not found: " + name);
     }
-    promptContent = c8oReadPromptFile(promptEntry);
+    promptContent = String(c8oReadPromptFile(promptEntry));
+    promptContent = C8O.reporting.appendPromptFeedback(promptContent);
     promptMeta = promptEntry;'
 ↓Result [steps.JsonObjectStep-1762969037235]: 
   comment: Build prompt response
@@ -59,6 +62,125 @@ comment: Handles MCP prompts/call requests
         - SmartType: 
           - ↑mode: JS
           - →→: promptMeta && promptMeta.description || ""
+  ↓PromptId [steps.JsonFieldStep-1773900200001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: promptId
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.promptId || ""
+  ↓Revision [steps.JsonFieldStep-1773900200002]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: revision
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.revision
+  ↓RoleId [steps.JsonFieldStep-1773900200003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: roleId
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.roleId || ""
+  ↓ScopeTags [steps.JsonToXmlStep-1773900200004]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.scopeTags ? promptMeta.scopeTags : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: scopeTags
+  ↓GuideIds [steps.JsonToXmlStep-1773900200005]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.guideIds ? promptMeta.guideIds : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: guideIds
+  ↓RecommendedTools [steps.JsonToXmlStep-1773900200006]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.recommendedTools ? promptMeta.recommendedTools : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: recommendedTools
+  ↓HandoffTo [steps.JsonToXmlStep-1773900200007]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.handoffTo ? promptMeta.handoffTo : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: handoffTo
+  ↓OutputContract [steps.JsonToXmlStep-1773900200008]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.outputContract ? promptMeta.outputContract : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: outputContract
+  ↓MutatesProject [steps.JsonFieldStep-1773900200009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: mutatesProject
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.mutatesProject === true
   ↓Messages [steps.JsonArrayStep-1762969065619]: 
     key: 
       - xmlizable: 

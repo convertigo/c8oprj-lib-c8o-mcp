@@ -1,0 +1,37 @@
+This is a planner probe.
+- Benchmark policy: the campaign runner already injected `convertigo-planner`.
+- Benchmark policy: do not use local YAML-editing skills or the `convertigo-project-editor` workflow for this scenario. Use MCP tools only for Convertigo project mutations.
+- Target project: `__TARGET_PROJECT__`
+- This project was imported by the campaign runner from `__FIXTURE_SOURCE_PROJECT__`.
+- Mutate only `__TARGET_PROJECT__`.
+- If `__TARGET_PROJECT__` is missing, fail immediately.
+
+In `__TARGET_PROJECT__`, create or update a facade sequence named `probe_contract_stub`. This probe is stub-only: do not create any connector transaction for it.
+
+Fast-path rules:
+- First, search for `probe_contract_stub` in `__TARGET_PROJECT__`.
+- If the sequence already exists, prefer one exact subtree read on that sequence and the minimum targeted update needed to satisfy the contract.
+- Do not perform a broad project-wide `databaseobject-tree-get` when an exact search result already gives the target QName inside `__TARGET_PROJECT__`.
+- Reuse the existing facade when it already matches the required contract instead of rebuilding it.
+
+Required public contract:
+- input variable: `query` (string, optional)
+- top-level fields:
+  - `status`: `ok` or `error`
+  - `source`: always `stub`
+  - `items`: array of objects with `id` and `label`
+  - `total`: integer
+  - `error`: string
+
+Rules:
+1. Lock the contract before the first write call.
+2. Make the sequence executable immediately.
+3. Keep the response shape stable for both nominal and error cases.
+4. Validate it with `requestable-execute`.
+5. Save the project.
+6. Produce explicit handoff guidance for backend, SQL or HTTP, frontend NGX, and critic follow-up.
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, the sequence exists, executes, and returns exactly the required top-level fields with `source="stub"`.
+- Otherwise `RESULT: FAIL` with the failing step and tool response snippets.
+- End with one short `MCP critique` item.

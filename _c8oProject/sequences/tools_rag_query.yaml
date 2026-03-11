@@ -1,8 +1,7 @@
 accessibility: Private
 comment: |
-  'Query Convertigo knowledge base
-  Use when you are unsure how to use Convertigo (features, setup, APIs, best practices, or troubleshooting).
-  Queries the Convertigo RAG/guides and returns practical guidance. Typical response time: 30-60 seconds.'
+  Query the Convertigo knowledge base
+  Fallback helper for features, setup, APIs, and troubleshooting. It is slower than local guides, so prefer documented workflows when you already have them.
 responseTimeout: 120
 ↓Init [steps.SimpleStep-1764181200001]: 
   comment: Validate inputs and prepare connector variables
@@ -12,11 +11,7 @@ responseTimeout: 120
       throw new Error("question is required");
     }
     Question = questionText;
-    streamText = stream == null ? "false" : String(stream).trim().toLowerCase();
-    if (streamText !== "true") {
-      streamText = "false";
-    }
-    stream = streamText;
+    stream = "false";
     historyText = history == null ? null : String(history).trim();
     History = historyText && historyText.length ? historyText : null;
     promptText = prompt == null ? null : String(prompt).trim();
@@ -232,11 +227,11 @@ responseTimeout: 120
           - ↑mode: PLAIN
           - →→: This query can take 30-60 seconds.
 ↓question [variables.RequestableVariable-1764181200039]: 
-  comment: User question to send to the Convertigo knowledge base.
+  comment: Question sent to the Convertigo knowledge base.
+  description: Question sent to the Convertigo knowledge base.
 ↓history [variables.RequestableVariable-1764181200041]: 
-  comment: Optional JSON string representing prior conversation turns.
+  comment: Optional prior conversation turns, usually serialized as JSON.
+  description: Optional prior conversation turns, usually serialized as JSON.
 ↓prompt [variables.RequestableVariable-1764181200043]: 
-  comment: Optional custom guidance for the RAG answer style.
-↓stream [variables.RequestableVariable-1764181200045]: 
-  comment: Set to true to request streamed behavior from LRagQuery (default false).
-  value: false
+  comment: Optional extra guidance for answer style or scope.
+  description: Optional extra guidance for answer style or scope.

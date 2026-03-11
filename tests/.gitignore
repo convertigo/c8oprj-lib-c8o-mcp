@@ -1,5 +1,9 @@
 logs/
+reports/
+campaigns/
+improvement/
 workspace/
+__pycache__/
+*.pyc
 *.log
 prompt_[0-9]*.txt
-
