@@ -30,6 +30,8 @@ This directory is the intake area for future domain exploration before direct pa
 - Consider a generic project file MCP tool for non-YAML files only.
 - Keep `_c8oProject/*.yaml` out of any future generic file-write tool.
 - Use example projects only when docs, RAG, and current guides still leave a concept ambiguous.
+- Add richer NGX picker/smart source MCP support inspired by `NgxPickerComposite.java`.
+- Add clearer transaction/schema helper UX on top of `requestable-execute(recordSchema=true)` and `databaseobject-schema`.
 
 ## Current ownership targets
 - backend: `resources/convertigo_backend_sequences.md` + `prompts/convertigo_backend.md`

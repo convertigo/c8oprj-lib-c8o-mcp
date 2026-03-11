@@ -65,6 +65,58 @@ If the environment is new or driver-specific:
 
 ## SQL transaction patterns
 
+## SQL variable semantics you must not guess
+
+### `{variable}` means safe parameter-style substitution
+Use `{variable}` when the variable is a value that belongs in the `WHERE` clause.
+
+What Convertigo guarantees:
+- it protects the query against SQL injection by keeping only the first represented value
+- it behaves like a value placeholder, not a raw SQL fragment
+- it is the default safe path when the query condition is value-based
+
+Why this is the right way:
+- the transaction stays readable
+- variables stay declarative
+- the agent does not have to invent ad hoc escaping rules
+
+Common trap:
+- trying to use `{variable}` outside the `WHERE` clause and then “fixing” the query with raw concatenation
+
+### `{{variable}}` means raw SQL text replacement
+Use `{{variable}}` only when the query needs a raw SQL fragment, such as:
+- a computed `WHERE` clause assembled earlier in the sequence
+- a clause or expression that must appear outside the `WHERE` clause
+- a controlled vendor-specific fragment that cannot be expressed as a value placeholder
+
+What Convertigo does not guarantee:
+- no SQL injection protection
+- no value-only constraint
+- no safety if the source value contains arbitrary SQL text
+
+Why this is dangerous:
+- the query may execute unintended SQL
+- user-controlled values become unsafe immediately
+
+Common trap:
+- using `{{variable}}` for ordinary user input just because it “works everywhere”
+
+### Variables are auto-declared from SQL placeholders
+When the query contains `{variable}` or `{{variable}}`, Convertigo auto-declares the transaction variable if it does not already exist.
+
+What to expect:
+- the first saved transaction can already expose variables derived from the query
+- the variable still needs a deliberate runtime value or test value to prove the transaction
+- auto-declaration is a convenience, not a substitute for understanding what the variable means
+
+Why this matters:
+- the agent can scaffold a transaction quickly from the query text
+- later mapping and source picking depend on these variables being understood, not only present
+
+Minimum validation proof:
+- the variable appears on the transaction
+- one execution with representative input proves the intended substitution path
+
 ### Pattern 1: read-first validation
 Always validate the read path first.
 
@@ -129,6 +181,75 @@ Good principle:
 Common trap:
 - direct interpolation of untrusted values into SQL text
 
+### Safe/default rule
+Default to `{variable}` whenever the variable is a value in the `WHERE` clause.
+
+Escalate to `{{variable}}` only when:
+- the SQL fragment must appear outside `WHERE`
+- the fragment is computed intentionally upstream
+- the source is controlled and reviewed
+
+If the task says “support search, paging, sort, or a computed clause”:
+- keep the public facade contract stable
+- decide explicitly which parts are values and which parts are raw SQL fragments
+- do not improvise the split inside a large query string
+
+## Transaction authoring model
+
+### Where variables live
+In Convertigo SQL work, the connector owns the connection and the transaction owns:
+- the SQL query
+- the transaction variables
+- output mode and row/column XML shape
+- optional execution details such as max results and auto-commit mode
+
+The facade owns:
+- API inputs
+- nominal/error output
+- remapping from transaction shape into public contract fields
+
+### What to expect before first execution
+Before the first execution:
+- the query may already auto-declare variables from placeholders
+- the raw XML shape is still only a hypothesis
+- source picker confidence is low until runtime proof exists
+
+After the first successful execution:
+- the transaction has a real result shape
+- `recordSchema=true` can persist the response schema
+- downstream backend and UI mapping becomes much safer
+
+Common trap:
+- writing a lot of facade mapping before the transaction has ever run once
+
+## Schema learning workflow
+
+### Use runtime first, then persist the schema
+When SQL work will feed facade mapping, source pickers, or later UI work:
+1. execute the transaction with representative variables
+2. use `requestable-execute(..., {"recordSchema": true})` on the transaction path
+3. read the persisted shape with `databaseobject-schema`
+4. only then finalize backend mapping and any picker-dependent work
+
+Why this is the right way:
+- schema stops being guesswork
+- source picker choices become deliberate
+- the UI and backend can align on a real structure
+
+### Schema is not only documentation
+Treat schema as:
+- the current proof of the transaction shape
+- a mapping aid for facade design
+- a prerequisite for later picker-assisted data binding
+
+Common trap:
+- building the facade blind, then discovering picker/schema pain later when the raw transaction shape finally differs
+
+Minimum validation proof:
+- one transaction execution with `recordSchema=true`
+- one `databaseobject-schema` read proving the learned shape exists
+- one facade validation using the real transaction shape
+
 ### Double goal: speed and safety
 The agent should be fast, but not by skipping parameter discipline.
 
@@ -161,6 +282,30 @@ Not acceptable fast path:
 
 Why this is the right way:
 - it composes into enterprise CRUD without rethinking the basics every time
+
+## Source-picker implications
+
+### SQL schema feeds later source work
+Even though SQL transactions produce XML-shaped output under `sql_output`, later sequence steps still depend on:
+- the real row/column shape
+- the chosen output mode
+- stable column names and nesting
+
+If schema is missing:
+- source picker choices become fragile
+- facade mapping tends to hard-code guessed paths
+- UI work will inherit uncertainty
+
+### Output mode changes picker ergonomics
+`RAW`, `AUTO`, `ELEMENT`, `ELEMENT_WITH_ATTRIBUTES`, and `FLAT_ELEMENT` do not only change documentation. They change:
+- how rows are nested
+- whether columns appear as attributes or elements
+- how easy it is to source text cleanly downstream
+
+Rule of thumb:
+- pick the output mode deliberately
+- record the schema
+- source the exact text nodes or elements the facade needs
 
 ## Driver-specific subtleties to teach the agent
 

@@ -67,6 +67,11 @@ Use events where user or lifecycle intent is clear:
 
 Do not place events arbitrarily just because they are reachable in the tree.
 
+Typical placements:
+- page lifecycle events for first load or refresh-on-enter
+- button or tap events for retry, submit, open detail, or confirm actions
+- shared action stacks only when the same chain is reused from several entry points
+
 ### Common action chains
 Sequence-backed chain:
 1. trigger event
@@ -90,6 +95,17 @@ Why this is the right way:
 Common trap:
 - calling the backend is the only thing wired; loading/empty/error/retry remain structural stubs
 
+### Where sequence and fullsync calls belong
+Use `CallSequenceAction` when:
+- the page depends on a backend facade or server-side orchestration
+- the contract already exists and the UI should consume it directly
+
+Use `CallFullSyncAction` when:
+- the page is working against synchronized local data
+- offline/local query semantics are the right source of truth
+
+Do not hide these calls inside arbitrary custom wrappers when a normal action stack already expresses the flow clearly.
+
 ## Data mapping with SmartTypes and picker
 
 ### Binding modes must be intentional
@@ -98,16 +114,26 @@ Frontend variables and action variables can carry:
 - JS/TS expressions
 - picker-based sources
 
+Treat this as a real modeling choice, not an editor detail.
+
 Use picker/source mode when:
 - the data already exists in the current page/action context
 - the source path is more stable than hand-written JS
+- the value naturally comes from a sequence result, fullsync result, iterator directive, form, or global source
 
 Use script mode when:
 - the transform is small and obvious
 - the page truly needs a computed expression
+- the value is best expressed as a short TypeScript expression
 
 Use text mode when:
 - the value is fixed configuration
+- the action variable is a deliberate literal such as a mode flag or static parameter
+
+Rule of thumb:
+- `TX` for fixed values
+- `TS` for small local computation
+- `SC` for data already present in the current action/page context
 
 ### Contract field mapping
 Bind to stable facade contract fields:
@@ -121,6 +147,18 @@ Do not bind to raw connector names that only exist temporarily.
 
 Common trap:
 - UI binds to `rows`, `payload`, or source-specific names during early implementation and never gets cleaned up
+
+### Action variables and data provenance
+For `CallSequenceAction` and `CallFullSyncAction`, action variables are the normal handoff point between the event and the backend call.
+
+Prefer:
+- `TX` for constants and explicit flags
+- `TS` for short expressions and reshaping
+- `SC` when the picker can point directly to the current iterator item, form value, previous action output, sequence source, fullsync source, or global source
+
+Why this matters:
+- the current MCP surface is simpler than Studio's picker UI
+- the guide must compensate by telling the agent when picker-backed sources are safer than handwritten expressions
 
 ## Common page pattern for data-backed UX
 
@@ -172,6 +210,14 @@ If `viewerUrl` is unreachable or browser smoke fails:
    - the page exists structurally but runtime proof is missing
 
 Do not conclude success from tree shape alone when the build logs say otherwise.
+
+### Structural success is not runtime success
+Keep these checkpoints separate:
+- structural success: the subtree and intended actions exist
+- build success: the builder compiles the app
+- runtime success: the viewer/browser path shows the expected behavior
+
+If structural success exists but build/runtime fails, the task is not done. Read builder logs first, then `log-view` if needed.
 
 ## Stub-backed UI runtime
 

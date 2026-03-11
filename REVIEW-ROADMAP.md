@@ -90,6 +90,8 @@ Near-term backlog recorded by this sprint:
 
 - Gradle/build/mobile/CI knowledge and later MCP helpers
 - generic non-YAML project file tooling
+- richer NGX picker/smart source MCP support inspired by `NgxPickerComposite.java`
+- clearer transaction/schema helper UX on top of `requestable-execute(recordSchema=true)` and `databaseobject-schema`
 - deeper expert handbooks for FullSync/CouchDB, Baserow, URL mapper, global symbols, marketplace libraries, and platform admin
 
 ## [DONE] Preparation Phase - Evidence Baseline

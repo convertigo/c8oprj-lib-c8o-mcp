@@ -30,16 +30,17 @@ Use this prompt when the task spans multiple domains or when the agent must choo
    - `starter-extension`
 2. Inspect only the exact target project and subtree you need before the first write.
 3. State the chosen pattern explicitly.
-4. Lock the contract:
+4. If the chosen pattern is `sql-crud` or `http-facade`, decide early whether downstream mapping will depend on real transport/transaction shape. If yes, require schema capture before deep mapping starts.
+5. Lock the contract:
    - inputs
    - nominal top-level fields
    - error top-level fields
    - one sample payload
-5. Create or reuse the smallest executable facade/stub that proves the contract.
-6. Validate it with `requestable-execute`.
-7. Save with `project-save` after the proof passes.
-8. If the task includes UX, tell the frontend specialist to start `mobile-builder-open` early so the app becomes visible in Studio while work is progressing.
-9. Hand off the remaining work explicitly by domain.
+6. Create or reuse the smallest executable facade/stub that proves the contract.
+7. Validate it with `requestable-execute`.
+8. Save with `project-save` after the proof passes.
+9. If the task includes UX, tell the frontend specialist to start `mobile-builder-open` early so the app becomes visible in Studio while work is progressing.
+10. Hand off the remaining work explicitly by domain.
 
 ## Stop and handoff rules
 - Do not rediscover the platform when a known recipe already fits the task.

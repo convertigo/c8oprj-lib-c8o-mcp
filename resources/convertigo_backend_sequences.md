@@ -233,6 +233,45 @@ Minimum validation proof:
 - inspect the producer tree
 - run the sequence and confirm the sourced value materializes where expected
 
+## Schema learning when mapping matters
+
+### Use schema early when the sequence depends on a requestable shape
+If a sequence is about to map the result of:
+- an SQL transaction
+- an HTTP transaction
+- another requestable whose structure is not already proven
+
+then schema matters before you finalize the mapping.
+
+Use this workflow:
+1. run the requestable with representative input
+2. when the requestable is a transaction, use `requestable-execute(..., {"recordSchema": true})`
+3. inspect the resulting shape with `databaseobject-schema`
+4. source and map against the learned structure, not a guessed one
+
+Why this is the right way:
+- facade mapping stops being speculative
+- source picker decisions become reproducible
+- later UI or specialist work inherits a real structure instead of a guess
+
+### When `recordSchema=true` is relevant
+`recordSchema=true` is relevant when:
+- the target is a transaction, not a sequence
+- downstream mapping depends on the raw source shape
+- a picker or sourceDefinition will rely on that shape later
+
+It is not a substitute for runtime proof on sequences. It is the persistence step that makes the transaction response inspectable later.
+
+### How `databaseobject-schema` helps
+Use `databaseobject-schema` after runtime proof to:
+- inspect the current response shape
+- confirm field names and nesting before building JSON mapping
+- avoid blind XPath/sourceDefinition authoring
+- support later picker-driven work without reverse-engineering the raw transaction again
+
+Common trap:
+- build the mapping blind, then discover picker/schema pain later when the raw shape differs from the first guess
+
 ## Output shaping and `output=true/false`
 Not every step should contribute to the public response. Convertigo trees are easier to maintain when orchestration and response shaping stay separate.
 
