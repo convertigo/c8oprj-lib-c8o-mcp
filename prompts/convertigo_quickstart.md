@@ -58,6 +58,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - Use `project-list`, `databaseobject-tree-get`, and `databaseobject-search` before the first write.
 - Use `palette-list` and `palette-describe` when you need valid creatable objects.
 - Reuse `tree-get` output structure as `tree-apply` input whenever possible.
+- Do not browse unrelated workspace projects as implicit templates unless the task or guide explicitly names them as read-only examples.
 - Use RAG only when the live catalog and tracked guides still leave the concept unclear.
 
 ## Output format

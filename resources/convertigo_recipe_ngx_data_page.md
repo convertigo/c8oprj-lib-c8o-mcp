@@ -24,8 +24,9 @@ Read this when building a page that loads backend data and must behave correctly
 4. Use `CallSequenceAction` or the equivalent built-in action for backend calls.
 5. Bind only to stable facade fields.
 6. Keep the main page body on native NGX objects. Do not collapse a data page into one large `UICustom` / `htmlTemplate` fragment.
-7. Start the mobile builder early and treat builder/browser proof as part of the recipe, not as an afterthought.
-8. Save after structural and runtime checks.
+7. Stay inside the target project. Do not trawl unrelated workspace pages or YAML files for ready-made directive trees unless the task explicitly provides a read-only example project.
+8. Start the mobile builder early and treat builder/browser proof as part of the recipe, not as an afterthought.
+9. Save after structural and runtime checks.
 
 ### Canonical state model
 For a typical page-local state, keep explicit flags:
@@ -46,6 +47,7 @@ The exact object tree may vary, but the semantics must be explicit.
 - Put retry on a real button event backed by a real action chain.
 - Avoid custom action calls for backend access when a built-in call sequence action exists.
 - Avoid one big `UICustom` fragment as the main implementation path for a data page.
+- Avoid “reference hunting” across the workspace to recover `directiveSource` snippets or wrapper placement from unrelated projects. If recipe + palette + target subtree are not enough, escalate the gap instead of copying opaque structures.
 
 ### Why this is the right way
 - The UI becomes stable before the real integration is fully complete.
@@ -78,6 +80,7 @@ The exact object tree may vary, but the semantics must be explicit.
 - Browser smoke fails, but build logs are never inspected.
 - Builder is healthy, browser smoke is skipped, and the run still claims success.
 - A large `UICustom` body hides the actual page structure and makes build failures harder to localize.
+- The agent spends many turns reading other workspace projects instead of mutating the target page with the known recipe.
 
 ## Minimum validation proof
 - `requestable-execute` proves the facade contract.
