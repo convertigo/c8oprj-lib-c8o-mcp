@@ -14,7 +14,9 @@ Read this when building a page that loads backend data and must behave correctly
 ### Golden path
 1. Confirm the backend facade contract first.
 2. Inspect the target page subtree and identify the actual visible entry page.
-3. Use the palette or canonical tree shapes to create:
+3. On starter-derived apps, replace the dominant starter body on the visible entry page first. Do not keep `WelcomeCard` or equivalent demo content as the main visible body while other work continues.
+4. The first visible pass must already show at least one real count, value, or repeated item bound to the stable public facade contract or stub. A static shell with placeholder copy is not enough.
+4. Use the palette or canonical tree shapes to create:
    - visible feature shell that replaces the default starter content early
    - first visible write on the actual visible entry page; for starter-derived projects this usually means replacing the dominant body under `Page.Content`
    - page load event
@@ -23,14 +25,28 @@ Read this when building a page that loads backend data and must behave correctly
    - empty state
    - error state
    - retry action
-4. Use `CallSequenceAction` or the equivalent built-in action for backend calls.
-5. Bind only to stable facade fields.
-6. Keep the main page body on native NGX objects. Do not collapse a data page into one large `UICustom` / `htmlTemplate` fragment.
-7. Stay inside the target project. Do not trawl unrelated workspace pages or YAML files for ready-made directive trees unless the task explicitly provides a read-only example project.
-8. Start the mobile builder early and treat builder/browser proof as part of the recipe, not as an afterthought.
-9. Save after structural and runtime checks.
-10. One targeted read, then visible mutation. A pass that only reads, saves, or opens the builder without replacing the dominant starter content is a no-op.
-11. For starter-derived projects, a pass that creates only a secondary page while the visible entry page still shows the untouched starter body is also a no-op unless the entry route was deliberately switched, saved, and proven.
+5. Use `CallSequenceAction` or the equivalent built-in action for backend calls.
+6. Bind only to stable facade fields.
+7. Keep the main page body on native NGX objects. Do not collapse a data page into one large `UICustom` / `htmlTemplate` fragment.
+8. Stay inside the target project. Do not trawl unrelated workspace pages or YAML files for ready-made directive trees unless the task explicitly provides a read-only example project.
+9. Start the mobile builder early and treat builder/browser proof as part of the recipe, not as an afterthought.
+10. Save after structural and runtime checks.
+11. One targeted read, then visible mutation. A pass that only reads, saves, opens the builder, or repeats broad palette discovery without replacing the dominant starter content is a no-op.
+12. For starter-derived projects, a pass that creates only a secondary page while the visible entry page still shows the untouched starter body is also a no-op unless the entry route was deliberately switched, saved, and proven.
+
+### First visible shell for common demos
+On the first pass, build the smallest shell that already looks like the requested feature:
+- real page title
+- one visible list/card/table container
+- one loading, empty, or retry state tied to the stable contract or stub
+- one real bound count, value, or repeated item from the stable contract or stub
+- one obvious action such as retry, refresh, or create
+
+This first shell is intentionally repetitive. It should be built almost mechanically from the recipe for common CRUD/list pages.
+
+### Literal fast-path template
+For starter-derived apps, use `convertigo://resources/convertigo-fast-path-ngx-entry-shell` as the default first-pass template.
+Do not redesign the first visible shell from scratch when that template already matches the task.
 
 ### Canonical state model
 For a typical page-local state, keep explicit flags:
@@ -52,6 +68,7 @@ The exact object tree may vary, but the semantics must be explicit.
 - Avoid custom action calls for backend access when a built-in call sequence action exists.
 - Avoid one big `UICustom` fragment as the main implementation path for a data page.
 - Avoid “reference hunting” across the workspace to recover `directiveSource` snippets or wrapper placement from unrelated projects. If recipe + palette + target subtree are not enough, escalate the gap instead of copying opaque structures.
+- Avoid repeated `palette-list` loops for common page primitives after the first targeted read.
 
 ### Why this is the right way
 - The UI becomes stable before the real integration is fully complete.
@@ -101,5 +118,6 @@ The exact object tree may vary, but the semantics must be explicit.
 - The target page binds to a stable facade contract.
 - Loading, empty, and error states are explicit.
 - Retry is a real action, not a visual placeholder.
+- Static placeholder labels such as `Contacts list placeholder` or `Companies list placeholder` do not count as a usable UX milestone.
 - Runtime validation covers the same contract the UI binds to.
 - The latest NGX mutations were saved.

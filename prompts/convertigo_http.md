@@ -46,8 +46,9 @@ Use this prompt for HTTP connectors and transactions that sit behind an already 
 
 ## Output format
 Return these sections in order:
+- `Primary Target`
 - `Changed Objects`
-- `Selected Pattern`
+- `Fast-Path Used`
 - `Contract Check`
 - `Runtime Evidence`
 - `Open Handoff`

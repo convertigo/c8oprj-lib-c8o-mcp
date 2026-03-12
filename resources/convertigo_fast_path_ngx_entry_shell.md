@@ -1,0 +1,104 @@
+# Convertigo Fast Path: Starter Entry Page Replacement
+
+## When to use this
+Use this fast path when a starter-derived NGX project still shows the default visible entry page and the first frontend milestone is to make the app look alive immediately.
+
+## Fast-path id
+- `starter-entry-page-replacement`
+
+## Scope
+Drive the first frontend pass mechanically:
+- inspect the visible entry page subtree once
+- replace the dominant starter body under `Application.NgxApp.Page.Content`
+- create a visible feature shell tied to the agreed contract or stub
+- only then save, build, and browser-smoke
+
+## Allowed variables
+Only parameterize these placeholders:
+- `<PROJECT_NAME>`
+- `<PAGE_TITLE>`
+- `<ENTITY_ONE_LABEL>`
+- `<ENTITY_TWO_LABEL>`
+- `<REQUESTABLE_NAME>`
+
+## Primary target
+- `<PROJECT_NAME>.Application.NgxApp.Page.Content`
+
+## Canonical first-write shape
+The first pass should replace `WelcomeCard` or equivalent starter content with this structure. Use it literally as the first `databaseobject-tree-apply` shape under `Application.NgxApp.Page.Content`, then adapt only names, text, and contract bindings:
+
+```json
+{
+  "className": "ngx.components.UIElement",
+  "name": "Content",
+  "children": [
+    {
+      "className": "ngx.components.UIDynamicElement#IonContent",
+      "name": "FeatureShell",
+      "children": [
+        {
+          "className": "ngx.components.UIDynamicElement#IonGrid",
+          "name": "ShellGrid",
+          "children": [
+            {
+              "className": "ngx.components.UIDynamicElement#IonRow",
+              "name": "HeroRow"
+            },
+            {
+              "className": "ngx.components.UIDynamicElement#IonRow",
+              "name": "StateRow"
+            },
+            {
+              "className": "ngx.components.UIDynamicElement#IonRow",
+              "name": "PrimaryListRow"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Visible shell requirements
+The first visible shell must include:
+- a real feature title, not the starter title
+- a short subtitle or caption explaining the feature
+- at least one obvious content container for the main entity
+- at least one real bound datum, count, or repeated item rendered from the public facade contract or stub
+- one visible loading, empty, or retry state
+- one obvious action such as retry, refresh, or create
+
+For a `MiniCRM`-style shell, the first visible pass can be as small as:
+- title: `Mini CRM`
+- subtitle: `Contacts and companies`
+- one contacts card/list container with a live count or first-item name from `list_contacts`
+- one companies card/list container with a live count or first-item name from `list_companies`
+- one loading/empty placeholder bound to the stub contract
+
+## Contract-backed proof rule
+The first visible pass is incomplete if it stops at static copy such as:
+- `Contacts list placeholder`
+- `Companies list placeholder`
+
+Before claiming the fast path complete, the page must show at least one real value that came from the stable public facade contract or the verified stub response.
+
+## First proof sequence
+1. `databaseobject-tree-get` on `<PROJECT_NAME>.Application.NgxApp.Page.Content` proves `WelcomeCard` no longer dominates
+2. `requestable-execute` on the public facade proves the contract used by the visible shell
+3. `project-save`
+4. `mobile-builder-open`
+5. browser smoke only after the visible shell exists
+
+## Do not do on first pass
+- do not create only a secondary page
+- do not keep the starter `WelcomeCard` as the main visible body
+- do not loop on `palette-list`
+- do not improvise a different first-pass subtree shape when this template already fits
+- do not browse other projects for `directiveSource` or YAML snippets
+- do not save/build before the first visible mutation
+- do not stop at a static shell with placeholder text where a real bound count or item could already be shown from the public stub/facade
+
+## Expected specialist output anchors
+- `Primary Target`: `<PROJECT_NAME>.Application.NgxApp.Page.Content`
+- `Fast-Path Used`: `starter-entry-page-replacement`

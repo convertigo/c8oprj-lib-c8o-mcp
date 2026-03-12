@@ -10,6 +10,9 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 - `convertigo://resources/convertigo-bootstrap-decision-matrix`
 - `convertigo://resources/convertigo-contract-first-delivery`
 - `convertigo://resources/convertigo-recipe-facade-stub`
+- `convertigo://resources/convertigo-fast-path-sql-hsqldb` when the task uses embedded HSQLDB
+- `convertigo://resources/convertigo-fast-path-sql-mariadb` when the task uses MariaDB Docker
+- `convertigo://resources/convertigo-fast-path-ngx-entry-shell` when the task includes visible UX
 - `convertigo://resources/convertigo-recipe-http-facade` when the task obviously calls an HTTP-backed source
 - `convertigo://resources/convertigo-recipe-sql-crud` when the task obviously calls for SQL-backed CRUD
 - `convertigo://resources/convertigo-recipe-ngx-data-page` when the task includes visible UX
@@ -49,7 +52,8 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 12. If the task includes UX, require the frontend specialist to replace the starter/default page content with a visible shell on the first pass:
    - real page title or header
    - at least one visible section tied to the target feature
-   - explicit loading or placeholder state bound to the agreed contract or stub
+   - at least one real bound datum, count, or repeated item rendered from the agreed public facade contract or stub
+   - explicit loading, empty, or retry state bound to the agreed contract or stub
    - when the run starts from a starter-derived NGX project, the first frontend pass must mutate the actual visible entry page subtree and remove or replace the dominant starter body such as `WelcomeCard`
    The default starter page must not remain the dominant visible content while backend work is still running.
 13. If the task includes UX, require the frontend specialist to report all of these before the planner can close:
@@ -58,9 +62,24 @@ Use this prompt when the task spans multiple domains or when the agent must choo
    - browser smoke result, or a concrete build/log failure that explains why browser proof is impossible
 14. Treat “builder opened but the starter page still dominates the visible UI” as insufficient frontend progress for a UX task.
 15. Treat “a new secondary page exists but the visible entry page still shows the untouched starter body” as insufficient frontend progress for a UX task unless the route/entrypoint change was explicitly made, saved, and proven.
-16. When a specialist pass returns no usable mutation or proof, retry that specialist at most once with a tighter bounded task.
-17. If the retry still lacks usable evidence, stop with `checkpoint` or `failed` instead of stretching the run.
-18. Hand off the remaining work explicitly by domain.
+16. Treat “the visible page is now a static shell with placeholder copy only” as insufficient frontend progress for a UX task. The first visible pass must render at least one real contract-backed datum or count.
+17. When a specialist pass returns no usable mutation or proof, retry that specialist at most once with a tighter bounded task.
+18. If the retry still lacks usable evidence, stop with `checkpoint` or `failed` instead of stretching the run.
+19. Hand off the remaining work explicitly by domain.
+20. For common SQL/list/dashboard demos, prefer a recipe-first execution style over fresh exploration:
+   - planner: lock contract, stub, and work split fast
+   - sql/backend: use the standard bootstrap/list/count facade path first
+   - frontend: make the visible shell on the real entry page first, but do not stop there; require one real bound datum or count on screen in the first visible pass
+21. For common SQL/list/dashboard demos, force named fast paths in the work split:
+   - SQL: `embedded-hsqldb` or `mariadb-docker`
+   - frontend: `starter-entry-page-replacement`
+22. On those fast-path demos, tell specialists to use the literal template resource first:
+   - SQL specialists copy the selected SQL fast-path connector/tree and SQL skeleton before improvising
+   - frontend specialists copy the `starter-entry-page-replacement` first-write shell before any palette exploration
+23. Require specialist outputs to declare both `Primary Target` and `Fast-Path Used`.
+24. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
+25. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public facade requestable.
+26. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
 
 ## Interactive contract
 - End every interactive turn with exactly one `<interactive_state>...</interactive_state>` block.
@@ -90,7 +109,9 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 - Do not widen discovery once the exact target subtree is known.
 - Do not restate specialist progress lines in your own voice when the specialist already emitted them.
 - Do not close UX work on `mobile-builder-open ready=true` plus structural proof alone.
+- Do not conclude “placeholder unchanged” if a specialist created a different connector or page target and that new target has independent evidence.
 - Do not accept a frontend summary that says the page is done if the latest UI changes are unsaved or browser smoke was not completed while the builder was healthy.
+- Do not accept a frontend summary that says the page is done if the visible page still renders static placeholder labels instead of contract-backed data or counts.
 - Hand backend orchestration to `convertigo-backend`.
 - Hand connector work to `convertigo-sql` or `convertigo-http`.
 - Hand UI work to `convertigo-frontend-ngx` only after the contract is stable.

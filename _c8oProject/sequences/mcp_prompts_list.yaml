@@ -136,6 +136,32 @@ comment: Handles MCP prompts/list requests
               - SmartType: 
                 - ↑mode: PLAIN
                 - →→: guideIds
+        ↓FastPathRefs [steps.JsonToXmlStep-1773900100010]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.fastPathRefs ? item.fastPathRefs : []'
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: fastPathRefs
+        ↓TemplateRefs [steps.JsonToXmlStep-1773900100011]: 
+          jsonObject: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.templateRefs ? item.templateRefs : []'
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: templateRefs
         ↓RecommendedTools [steps.JsonToXmlStep-1773900100006]: 
           jsonObject: 
             - xmlizable: 

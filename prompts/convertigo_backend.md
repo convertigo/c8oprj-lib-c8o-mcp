@@ -39,8 +39,9 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 
 ## Output format
 Return these sections in order:
+- `Primary Target`
 - `Changed Objects`
-- `Selected Pattern`
+- `Fast-Path Used`
 - `Runtime Evidence`
 - `Open Handoff`
 - `MCP Critique`

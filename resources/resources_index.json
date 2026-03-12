@@ -318,7 +318,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_sql_crud.md",
     "guideId": "convertigo/recipe-sql-crud",
-    "revision": 1,
+    "revision": 3,
     "scopeTags": ["workflow", "recipe", "integration", "sql", "crud"],
     "prerequisites": [
       "convertigo/start@1",
@@ -340,6 +340,100 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-fast-path-sql-hsqldb",
+    "name": "Convertigo Fast Path SQL HSQLDB",
+    "title": "Convertigo Fast Path SQL HSQLDB",
+    "description": "Literal first-pass template for an embedded HSQLDB connector with init/list/count proof.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_fast_path_sql_hsqldb.md",
+    "guideId": "convertigo/fast-path-sql-hsqldb",
+    "revision": 3,
+    "scopeTags": ["workflow", "recipe", "sql", "fast-path", "hsqldb"],
+    "prerequisites": [
+      "convertigo/recipe-sql-crud@3"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "requestable-stub-set",
+      "requestable-execute",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-planner",
+      "convertigo-sql",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false,
+    "templateId": "convertigo/fast-path-sql-hsqldb",
+    "templateKind": "fast-path",
+    "templateVariables": [
+      "projectName",
+      "connectorName",
+      "facadeSequence",
+      "contactsEntity",
+      "companiesEntity"
+    ],
+    "canonicalTargets": [
+      "<project>.<connector>",
+      "<project>.<connector>.init_schema",
+      "<project>.<connector>.list_contacts",
+      "<project>.<connector>.count_contacts",
+      "<project>.<connector>.list_companies",
+      "<project>.<connector>.count_companies"
+    ]
+  },
+  {
+    "uri": "convertigo://resources/convertigo-fast-path-sql-mariadb",
+    "name": "Convertigo Fast Path SQL MariaDB",
+    "title": "Convertigo Fast Path SQL MariaDB",
+    "description": "Literal first-pass template for a MariaDB Docker connector with init/list/count proof.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_fast_path_sql_mariadb.md",
+    "guideId": "convertigo/fast-path-sql-mariadb",
+    "revision": 2,
+    "scopeTags": ["workflow", "recipe", "sql", "fast-path", "mariadb"],
+    "prerequisites": [
+      "convertigo/recipe-sql-crud@3"
+    ],
+    "recommendedTools": [
+      "project-list-symbols",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "requestable-stub-set",
+      "requestable-execute",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-planner",
+      "convertigo-sql",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false,
+    "templateId": "convertigo/fast-path-sql-mariadb",
+    "templateKind": "fast-path",
+    "templateVariables": [
+      "projectName",
+      "connectorName",
+      "facadeSequence",
+      "dbHost",
+      "dbPort",
+      "dbName",
+      "dbUser",
+      "dbPassword"
+    ],
+    "canonicalTargets": [
+      "<project>.<connector>",
+      "<project>.<connector>.init_schema",
+      "<project>.<connector>.list_contacts",
+      "<project>.<connector>.count_contacts",
+      "<project>.<connector>.list_companies",
+      "<project>.<connector>.count_companies"
+    ]
   },
   {
     "uri": "convertigo://resources/convertigo-integration-sql",
@@ -378,7 +472,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_ngx_data_page.md",
     "guideId": "convertigo/recipe-ngx-data-page",
-    "revision": 1,
+    "revision": 3,
     "scopeTags": ["workflow", "recipe", "frontend", "ngx", "data-page"],
     "prerequisites": [
       "convertigo/start@1",
@@ -401,6 +495,46 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-fast-path-ngx-entry-shell",
+    "name": "Convertigo Fast Path NGX Entry Shell",
+    "title": "Convertigo Fast Path NGX Entry Shell",
+    "description": "Literal first-pass template for replacing starter entry content with a visible feature shell.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_fast_path_ngx_entry_shell.md",
+    "guideId": "convertigo/fast-path-ngx-entry-shell",
+    "revision": 2,
+    "scopeTags": ["workflow", "recipe", "frontend", "ngx", "fast-path"],
+    "prerequisites": [
+      "convertigo/recipe-starter-extension@1",
+      "convertigo/recipe-ngx-data-page@3"
+    ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "mobile-builder-open",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-planner",
+      "convertigo-frontend-ngx",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false,
+    "templateId": "convertigo/fast-path-ngx-entry-shell",
+    "templateKind": "fast-path",
+    "templateVariables": [
+      "projectName",
+      "pageTitle",
+      "entityOneLabel",
+      "entityTwoLabel",
+      "requestableName"
+    ],
+    "canonicalTargets": [
+      "<project>.Application.NgxApp.Page.Content"
+    ]
   },
   {
     "uri": "convertigo://resources/convertigo-frontend-ngx",
