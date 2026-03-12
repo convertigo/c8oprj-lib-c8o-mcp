@@ -9,8 +9,18 @@ var FileUtils = Packages.org.apache.commons.io.FileUtils;
 
 var requestedProject = project == null ? "" : String(project).trim();
 var filterText = filter == null ? "" : String(filter).trim().toLowerCase();
+var requestedScope = scope == null ? "" : String(scope).trim().toLowerCase();
 var includeFullValues = String(includeValues) == "true";
 var dbom = Engine.theApp.databaseObjectsManager;
+var scopeApplied = requestedProject.length > 0 ? "project" : "all";
+if (requestedScope === "all") {
+  scopeApplied = "all";
+}
+if (requestedScope === "project" && requestedProject.length > 0) {
+  scopeApplied = "project";
+}
+var projectFound = requestedProject.length === 0;
+var symbolsStatus = "ok";
 
 function trimmed(value) {
   return value == null ? "" : String(value).trim();
@@ -185,7 +195,9 @@ if (globalSymbolsFile != null && globalSymbolsFile.exists()) {
     var key = String(names.nextElement());
     var value = props.getProperty(key);
     globalValues[key] = value;
-    addSymbol("", key, "global", "resolved", value, globalSymbolsFile.getAbsolutePath());
+    if (scopeApplied === "all" && projectFound) {
+      addSymbol("", key, "global", "resolved", value, globalSymbolsFile.getAbsolutePath());
+    }
   }
 }
 
@@ -193,9 +205,12 @@ var projectNames = new ArrayList();
 if (requestedProject.length > 0) {
   var requested = dbom.getOriginalProjectByName(requestedProject);
   if (requested == null) {
-    throw new Error("Project not found: " + requestedProject);
+    projectFound = false;
+    symbolsStatus = "not_found";
+  } else {
+    projectFound = true;
+    projectNames.add(requestedProject);
   }
-  projectNames.add(requestedProject);
 } else {
   var namesList = dbom.getAllProjectNamesList();
   for (var ni = 0; ni < namesList.size(); ni++) {
@@ -204,7 +219,7 @@ if (requestedProject.length > 0) {
 }
 
 var scannedReferenceProjects = 0;
-var referenceScanEnabled = requestedProject.length > 0 || projectNames.size() <= 10;
+var referenceScanEnabled = projectFound && (requestedProject.length > 0 || projectNames.size() <= 10);
 
 for (var pi = 0; pi < projectNames.size(); pi++) {
   var projectName = String(projectNames.get(pi));
@@ -235,9 +250,12 @@ for (var pi = 0; pi < projectNames.size(); pi++) {
 }
 
 var summaryMap = new LinkedHashMap();
+summaryMap.put("status", symbolsStatus);
+summaryMap.put("scopeApplied", scopeApplied);
+summaryMap.put("projectFound", java.lang.Boolean.valueOf(projectFound));
 summaryMap.put("requestedProject", requestedProject);
 summaryMap.put("returned", java.lang.Integer.valueOf(symbolsList.size()));
 summaryMap.put("projectCount", java.lang.Integer.valueOf(projectNames.size()));
 summaryMap.put("referenceScanEnabled", java.lang.Boolean.valueOf(referenceScanEnabled));
 summaryMap.put("scannedReferenceProjects", java.lang.Integer.valueOf(scannedReferenceProjects));
-summaryMap.put("globalSymbolsFile", globalSymbolsFile != null ? globalSymbolsFile.getAbsolutePath() : "");
+summaryMap.put("globalSymbolsFile", scopeApplied === "all" && globalSymbolsFile != null ? globalSymbolsFile.getAbsolutePath() : "");

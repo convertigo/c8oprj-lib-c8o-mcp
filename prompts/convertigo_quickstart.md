@@ -6,6 +6,7 @@ Use this prompt as the canonical session bootstrap before planning or specialist
 ## Read these guides first
 - If this is a fresh session, call `resources/list`.
 - If live prompt discovery is available in the caller surface, use it. Otherwise rely on the caller-provided synchronized prompt metadata or the routing table below.
+- If the task matches a known fast path, use `resources/templates/list` to discover template-bearing resources, then read only the matching template with `resources/read`.
 - Then read:
   - `convertigo://capabilities`
   - `convertigo://resources/convertigo-start`
@@ -40,7 +41,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 1. Read the built-ins, the start guide, the big-picture guide, and the bootstrap decision matrix.
 2. Pick one matching recipe before any broad discovery.
 3. Inspect only the exact target project or subtree required to answer the next bootstrap question.
-4. When the task depends on environment, DB, service/API, or existing runtime configuration, use `project-list-symbols` early to avoid asking for information the project already exposes.
+4. When the task depends on environment, DB, service/API, or existing runtime configuration, use `project-list-symbols` early to avoid asking for information the project already exposes. When `project` is supplied, treat the default scope as project-local unless you explicitly need `scope=all`.
 5. Collect these decisions before handing off:
    - target project: existing or new
    - recipe or primary pattern
@@ -83,6 +84,9 @@ Read the deeper domain guides only when the recipe leaves open questions:
 ## Practical rules
 - Start from a recipe whenever the task matches a known Convertigo pattern.
 - Use `project-list`, `project-list-symbols`, `databaseobject-tree-get`, and `databaseobject-search` before asking configuration questions the runtime may already answer.
+- Use `resources/templates/list` only to pick a template-bearing guide quickly; read the actual content through `resources/read`.
+- Treat `project-reload` as rollback to disk, not as a freshness step. If runtime proof is stale after a mutation, that is a tooling issue to surface, not a reason to normalize reload into bootstrap.
+- Never call `project-reload` on the active MCP server project itself; use `project-save` to persist changes without unloading the endpoint.
 - Ask the smallest decisive question set first. Prefer one short batch over a long interview.
 - Once a decision is already present in session context, do not restate it as a fresh question unless it truly conflicts with new evidence.
 - Use `palette-list` and `palette-describe` only when bootstrap truly needs creatable-object knowledge to route the work.

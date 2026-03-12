@@ -74,6 +74,7 @@ Do not front-load deep business questions that the planner can refine later from
 Before asking the human for DB or service details:
 - call `project-list`
 - call `project-list-symbols` when symbols or environment-specific configuration may already answer the question
+- when `project` is supplied, treat the default symbol scope as project-local; use `scope=all` only when global/cross-project context is truly needed
 - inspect only the exact target subtree if needed
 
 Why this matters:

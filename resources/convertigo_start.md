@@ -35,23 +35,24 @@ Read this first for any MCP session that touches a Convertigo project.
 
 ### Minimal MCP session recipe
 1. Call `resources/list`.
-2. Read the built-in resources first:
+2. If the task matches a known fast path, call `resources/templates/list` and read only the matching template through `resources/read`.
+3. Read the built-in resources first:
    - `convertigo://capabilities`
    - `convertigo://recipes/quickstart`
-3. Read `convertigo://resources/convertigo-platform-big-picture` before the first serious mutation when the session is new to Convertigo.
-4. Inspect the target workspace or subtree before any write call:
+4. Read `convertigo://resources/convertigo-platform-big-picture` before the first serious mutation when the session is new to Convertigo.
+5. Inspect the target workspace or subtree before any write call:
    - `project-list`
    - `databaseobject-tree-get`
    - `databaseobject-search` when discovery is uncertain
-5. If you need to create an object, confirm the allowed entry with:
+6. If you need to create an object, confirm the allowed entry with:
    - `palette-list`
    - `palette-describe`
-6. Pick one matching recipe before the first broad mutation.
-7. Build the mutation plan before the first write call.
-8. Apply changes with `databaseobject-tree-apply` or `batch-call`.
-9. Validate behavior with `requestable-execute`. Use `log-view` only when execution feedback is not enough.
-10. Save with `project-save`.
-11. Read a specialized handbook only when the recipe leaves open questions.
+7. Pick one matching recipe before the first broad mutation.
+8. Build the mutation plan before the first write call.
+9. Apply changes with `databaseobject-tree-apply` or `batch-call`.
+10. Validate behavior with `requestable-execute`. Use `log-view` only when execution feedback is not enough.
+11. Save with `project-save`.
+12. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 
@@ -85,6 +86,7 @@ Lock these decisions before the first mutation:
 - expected response contract when the task changes runtime behavior
 - validation call to run immediately after the mutation
 - whether the task requires only `project-save` or also `project-reload`
+- whether the task truly needs rollback/reload proof; `project-reload` is not a freshness step for `requestable-execute`
 
 ### Guide escalation example
 Correct escalation for a multi-track feature:
@@ -108,6 +110,7 @@ Correct escalation for a multi-track feature:
 - `batch-call`
 - `requestable-execute`
 - `project-save`
+- `resources/templates/list`
 
 ## Anti-patterns / do not do
 - Do not edit `_c8oProject` YAML as the normal authoring path.

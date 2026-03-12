@@ -89,7 +89,20 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
         '
   ↓jElse [steps.ElseStep-1762187848346]: 
     ↓onParse [steps.SimpleStep-1762252495497]: 
-      expression: include("js/mcp_endpoint_router.js");
+      expression: |
+        'try {
+          include("js/mcp_endpoint_router.js");
+        } catch (routeError) {
+          callSequence = "mcp_error_response";
+          responseStatus = "500";
+          callVariables = {
+            status: "500",
+            code: "-32603",
+            message: "Internal MCP routing error",
+            dataJson: JSON.stringify({ method: methodName, message: String(routeError) }),
+            requestIdJson: requestIdJson
+          };
+        }'
 ↓ApplyStatus [steps.SetResponseStatusStep-1761755111962]: 
   statusCode: 
     - xmlizable: 
@@ -97,6 +110,19 @@ comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
       - SmartType: 
         - ↑mode: JS
         - →→: responseStatus
+↓ApplyJsonContentType [steps.SetResponseHeaderStep-1764249300001]: 
+  headerName: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: Content-Type
+  headerValue: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: application/json; charset=UTF-8
 ↓ApplyProtocolHeader [steps.SetResponseHeaderStep-1761755111964]: 
   headerName: 
     - xmlizable: 

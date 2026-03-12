@@ -1434,7 +1434,14 @@ C8O.dbo.saveProject = function (project, errors) {
   }
   try {
     Engine.theApp.databaseObjectsManager.exportProject(project);
-    return { saved: true, message: "" };
+    var invalidation = C8O.dbo.invalidateProjectRuntime(project, errors);
+    return {
+      saved: true,
+      message: "",
+      runtimeInvalidated: invalidation.invalidated === true,
+      invalidatedProject: invalidation.project || "",
+      invalidatedQNames: invalidation.resetQNames || []
+    };
   } catch (saveError) {
     var message = String(saveError);
     if (errors && errors.push) {
@@ -1442,6 +1449,52 @@ C8O.dbo.saveProject = function (project, errors) {
     }
     return { saved: false, message: message };
   }
+};
+
+C8O.dbo.invalidateProjectRuntime = function (projectOrName, errors) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var project = null;
+  if (projectOrName != null) {
+    if (typeof projectOrName === "string") {
+      try {
+        project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(C8O.util.toTrimmedString(projectOrName));
+      } catch (_ignoreProjectLookup) {
+        project = null;
+      }
+    } else {
+      project = projectOrName;
+    }
+  }
+  var result = {
+    invalidated: false,
+    project: "",
+    resetQNames: [],
+    schemaCacheCleared: false,
+    message: ""
+  };
+  if (project == null) {
+    result.message = "No project reference provided";
+    return result;
+  }
+  try {
+    result.project = String(project.getName());
+  } catch (_ignoreProjectName) {
+    result.project = "";
+  }
+  try {
+    C8O.dbo._resetIfNeeded(project, result.resetQNames);
+  } catch (resetError) {
+    result.message = String(resetError);
+    if (errors && errors.push) {
+      errors.push({ name: "__invalidate__", message: result.message });
+    }
+  }
+  try {
+    Engine.theApp.schemaManager.clearCache(result.project);
+    result.schemaCacheCleared = true;
+  } catch (_ignoreSchemaCache) {}
+  result.invalidated = result.resetQNames.length > 0 || result.schemaCacheCleared === true;
+  return result;
 };
 
 C8O.dbo.saveProjectIfNeeded = function (project, autoSaveFlag, errors) {

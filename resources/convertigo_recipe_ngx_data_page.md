@@ -15,8 +15,14 @@ Read this when building a page that loads backend data and must behave correctly
 1. Confirm the backend facade contract first.
 2. Inspect the target page subtree and identify the actual visible entry page.
 3. On starter-derived apps, replace the dominant starter body on the visible entry page first. Do not keep `WelcomeCard` or equivalent demo content as the main visible body while other work continues.
-4. The first visible pass must already show at least one real count, value, or repeated item bound to the stable public facade contract or stub. A static shell with placeholder copy is not enough.
-4. Use the palette or canonical tree shapes to create:
+4. The first visible pass must already make the real entry page look alive:
+   - title/header changed
+   - starter body replaced
+   - one visible feature section exists
+   - loading, empty, or retry states are visible
+   - one contract-shaped slot exists for the eventual live count/item binding
+5. If stable facade proof already exists, bind one real count, value, or repeated item in that first pass. Otherwise treat this as `phase 1` shell progress and return for a second binding pass after backend proof.
+6. Use the palette or canonical tree shapes to create:
    - visible feature shell that replaces the default starter content early
    - first visible write on the actual visible entry page; for starter-derived projects this usually means replacing the dominant body under `Page.Content`
    - page load event
@@ -39,10 +45,11 @@ On the first pass, build the smallest shell that already looks like the requeste
 - real page title
 - one visible list/card/table container
 - one loading, empty, or retry state tied to the stable contract or stub
-- one real bound count, value, or repeated item from the stable contract or stub
+- one contract-shaped slot or placeholder surface for the eventual live count/item
 - one obvious action such as retry, refresh, or create
 
 This first shell is intentionally repetitive. It should be built almost mechanically from the recipe for common CRUD/list pages.
+Once backend proof exists, the second pass replaces the placeholder surface with one real bound count, value, or repeated item.
 
 ### Literal fast-path template
 For starter-derived apps, use `convertigo://resources/convertigo-fast-path-ngx-entry-shell` as the default first-pass template.

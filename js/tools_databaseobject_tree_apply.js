@@ -146,6 +146,23 @@ if (treeApplyWarnings.length > 0) {
   }
 }
 
+var treeApplySerializationWarnings = [];
+if (C8O.util && typeof C8O.util.toJsonSafe === "function") {
+  treeApplyResult = C8O.util.toJsonSafe(treeApplyResult, {
+    path: "treeApplyResult",
+    maxDepth: 16,
+    warnings: treeApplySerializationWarnings
+  });
+}
+if (treeApplySerializationWarnings.length > 0) {
+  if (!treeApplyResult.warnings) {
+    treeApplyResult.warnings = [];
+  }
+  for (var swi = 0; swi < treeApplySerializationWarnings.length; swi++) {
+    treeApplyResult.warnings.push("serialization: " + treeApplySerializationWarnings[swi]);
+  }
+}
+
 treeApplyRefreshRequested = asBoolean(refreshInput, true) === true;
 treeApplyRefreshQName = "";
 treeApplyStudioRefresh = null;

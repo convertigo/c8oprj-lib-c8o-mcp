@@ -57,7 +57,9 @@ Define the facade requestable before the first domain-specific mutation:
    - backend specialist owns the facade sequence and orchestration
    - SQL or HTTP specialist builds the real integration behind the facade
    - UI specialist binds to the agreed payload shape, not to raw connector data
-   - UI specialist replaces the dominant starter/default page content early with a visible shell bound to the stub or stable contract, so Studio shows feature progress before final backend proof
+   - UI specialist replaces the dominant starter/default page content early with a visible shell driven by the stub or stable contract shape, so Studio shows feature progress before final backend proof
+   - this visible shell may be a `phase 1` shell with loading/empty/retry states and contract-shaped placeholders before live data is ready
+   - once backend proof exists, the UI specialist performs `phase 2` to swap placeholder copy for live bindings and browser proof
    - for starter-derived apps, “visible shell” means the actual visible entry page changed, not just a hidden or secondary page
    - if a specialist returns without usable mutation or proof evidence, the planner retries that specialist at most once with a tighter bounded task, then checkpoints or fails explicitly
 4. Integration replacement:

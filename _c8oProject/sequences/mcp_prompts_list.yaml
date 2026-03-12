@@ -110,6 +110,19 @@ comment: Handles MCP prompts/list requests
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.roleId || ""
+        ↓ModelProfile [steps.JsonFieldStep-1773900100012]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: modelProfile
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item.modelProfile || ""
         ↓ScopeTags [steps.JsonToXmlStep-1773900100004]: 
           jsonObject: 
             - xmlizable: 

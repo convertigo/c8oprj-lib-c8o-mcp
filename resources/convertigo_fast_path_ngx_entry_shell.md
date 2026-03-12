@@ -12,6 +12,7 @@ Drive the first frontend pass mechanically:
 - replace the dominant starter body under `Application.NgxApp.Page.Content`
 - create a visible feature shell tied to the agreed contract or stub
 - only then save, build, and browser-smoke
+- use one direct `databaseobject-tree-apply` on `Application.NgxApp.Page.Content` as the first write
 
 ## Allowed variables
 Only parameterize these placeholders:
@@ -25,7 +26,7 @@ Only parameterize these placeholders:
 - `<PROJECT_NAME>.Application.NgxApp.Page.Content`
 
 ## Canonical first-write shape
-The first pass should replace `WelcomeCard` or equivalent starter content with this structure. Use it literally as the first `databaseobject-tree-apply` shape under `Application.NgxApp.Page.Content`, then adapt only names, text, and contract bindings:
+The first pass should replace `WelcomeCard` or equivalent starter content with this structure. Use it literally as the first `databaseobject-tree-apply` shape under `Application.NgxApp.Page.Content`, then adapt only names, text, and contract bindings. Do not start with `batch-call`, a preliminary delete, or broad palette discovery.
 
 ```json
 {
@@ -65,19 +66,24 @@ The first visible shell must include:
 - a real feature title, not the starter title
 - a short subtitle or caption explaining the feature
 - at least one obvious content container for the main entity
-- at least one real bound datum, count, or repeated item rendered from the public facade contract or stub
+- at least one contract-shaped data slot or placeholder surface ready to host the public facade fields
 - one visible loading, empty, or retry state
 - one obvious action such as retry, refresh, or create
 
 For a `MiniCRM`-style shell, the first visible pass can be as small as:
 - title: `Mini CRM`
 - subtitle: `Contacts and companies`
-- one contacts card/list container with a live count or first-item name from `list_contacts`
-- one companies card/list container with a live count or first-item name from `list_companies`
+- one contacts card/list container with a reserved live-count or first-item slot from `list_contacts`
+- one companies card/list container with a reserved live-count or first-item slot from `list_companies`
 - one loading/empty placeholder bound to the stub contract
 
+## Two phases
+- `phase 1`: visible shell now. Replace the starter body, make the page visibly feature-shaped, and leave contract-shaped placeholders/loading states if live data is not proved yet.
+- `phase 2`: live bindings. Once backend proof exists, replace placeholder copy with one real count, item, or repeated row/card from the public facade and collect browser smoke.
+
 ## Contract-backed proof rule
-The first visible pass is incomplete if it stops at static copy such as:
+The first visible pass is incomplete if it stops at untouched starter content.  
+The overall UX flow is incomplete if it stops forever at static copy such as:
 - `Contacts list placeholder`
 - `Companies list placeholder`
 
@@ -85,19 +91,21 @@ Before claiming the fast path complete, the page must show at least one real val
 
 ## First proof sequence
 1. `databaseobject-tree-get` on `<PROJECT_NAME>.Application.NgxApp.Page.Content` proves `WelcomeCard` no longer dominates
-2. `requestable-execute` on the public facade proves the contract used by the visible shell
-3. `project-save`
-4. `mobile-builder-open`
+2. `project-save`
+3. `mobile-builder-open`
+4. if facade proof already exists, `requestable-execute` on the public facade plus one real bound value on screen
 5. browser smoke only after the visible shell exists
 
 ## Do not do on first pass
 - do not create only a secondary page
 - do not keep the starter `WelcomeCard` as the main visible body
 - do not loop on `palette-list`
+- do not use `batch-call` or a separate `databaseobject-delete` just to remove `WelcomeCard`; replace the dominant starter body by applying the first-write shape directly on `Application.NgxApp.Page.Content`
+- do not use `databaseobject-search`, `rag-query`, or repeated `palette-describe` calls before the first direct `databaseobject-tree-apply`
 - do not improvise a different first-pass subtree shape when this template already fits
 - do not browse other projects for `directiveSource` or YAML snippets
 - do not save/build before the first visible mutation
-- do not stop at a static shell with placeholder text where a real bound count or item could already be shown from the public stub/facade
+- do not declare overall UX complete with only a static shell and placeholder text
 
 ## Expected specialist output anchors
 - `Primary Target`: `<PROJECT_NAME>.Application.NgxApp.Page.Content`

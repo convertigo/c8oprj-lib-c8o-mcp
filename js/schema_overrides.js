@@ -471,7 +471,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         project: { type: "string", description: "Optional project technical name. Omit to scan all loaded projects." },
         filter: { type: "string", description: "Optional case-insensitive filter on symbol name." },
-        includeValues: booleanFlagSchema(false, "Set true to include full symbol values. Default false masks values in previews.")
+        includeValues: booleanFlagSchema(false, "Set true to include full symbol values. Default false masks values in previews."),
+        scope: {
+          type: "string",
+          enum: ["project", "all"],
+          description: "Optional symbol scope. Defaults to project when project is provided, otherwise all."
+        }
       },
       additionalProperties: false
     };

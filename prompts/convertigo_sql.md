@@ -31,6 +31,8 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
    - `mariadb-docker`
 4. Confirm driver family and JDBC URL shape before deep transaction work.
 5. If environment-owned symbols may already define JDBC details or runtime toggles, call `project-list-symbols` before asking the human to restate them.
+   - when `project` is supplied, project-local scope is the default
+   - escalate to `scope=all` only when project-local symbols are insufficient
 6. Follow the straight-through CRUD family by default:
    - one bootstrap/init transaction for deterministic schema plus seed
    - one `list` transaction
@@ -47,6 +49,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
    - `embedded-hsqldb` -> use the literal connector/tree and SQL skeleton from `convertigo-fast-path-sql-hsqldb`
    - `mariadb-docker` -> use the literal connector/tree and SQL skeleton from `convertigo-fast-path-sql-mariadb`
    Do not improvise a different connector family, transaction family, or seed pattern while the fast path still fits.
+   Retrieve that template through `resources/templates/list` then `resources/read` when the live catalog is available.
 9. For embedded HSQLDB demos, prefer deterministic `CREATE TABLE IF NOT EXISTS` plus `DELETE`/`INSERT` seed transactions. Do not start with `MERGE INTO` or other dialect-heavy shortcuts unless the exact project already proves them.
 10. Do not start with paging/search/sort cleverness. Prove `list` and `count` first, then add bounded extras only if the scenario still needs them.
 11. Use `{variable}` by default for value placeholders in the `WHERE` clause. Escalate to `{{variable}}` only for deliberate raw SQL fragments that cannot be expressed safely otherwise.
@@ -56,6 +59,10 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 15. Map raw row/column shape back into the public facade contract.
 16. `Primary Target` must be the connector qname you actually created or repaired, for example `<PROJECT_NAME>.<CONNECTOR_NAME>`. Do not report the public facade sequence as the SQL primary target.
 17. Save with `project-save` only after runtime proof exists.
+18. Treat `requestable-execute` as live-memory validation:
+   - before save, it must already see the current mutation
+   - after save, it must still see the same mutation
+   - `project-reload` is rollback to disk, not a freshness workaround
 
 ## Stop and handoff rules
 - Do not let SQL row shape define the public contract.

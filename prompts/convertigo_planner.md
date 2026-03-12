@@ -39,6 +39,8 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 3. Inspect only the exact target project and subtree you need before the first write.
 4. State the chosen pattern explicitly.
 5. If environment-owned DB/service configuration matters, call `project-list-symbols` before asking the human or specialist to rediscover it.
+   - when `project` is provided, assume project-local symbol scope by default
+   - ask for `scope=all` only when you explicitly need global or cross-project context
 6. If the chosen pattern is `sql-crud` or `http-facade`, decide early whether downstream mapping will depend on real transport/transaction shape. If yes, require schema capture before deep mapping starts.
 7. Lock the contract:
    - inputs
@@ -47,39 +49,48 @@ Use this prompt when the task spans multiple domains or when the agent must choo
    - one sample payload
 8. Create or reuse the smallest executable facade/stub that proves the contract.
 9. Validate it with `requestable-execute`.
+   - `requestable-execute` reads live Studio memory; do not insert `project-reload` as a freshness step
+   - use `project-reload` only when you intentionally want rollback-to-disk proof
+   - never call `project-reload` on the active MCP server project; use `project-save` there
 10. Save with `project-save` after the proof passes.
 11. If the task includes UX, tell the frontend specialist to start `mobile-builder-open` early so the app becomes visible in Studio while work is progressing.
 12. If the task includes UX, require the frontend specialist to replace the starter/default page content with a visible shell on the first pass:
    - real page title or header
    - at least one visible section tied to the target feature
-   - at least one real bound datum, count, or repeated item rendered from the agreed public facade contract or stub
+   - at least one contract-shaped data slot, card, or list container ready to host the agreed public facade fields
    - explicit loading, empty, or retry state bound to the agreed contract or stub
    - when the run starts from a starter-derived NGX project, the first frontend pass must mutate the actual visible entry page subtree and remove or replace the dominant starter body such as `WelcomeCard`
    The default starter page must not remain the dominant visible content while backend work is still running.
+13. For UX work, split frontend delivery into two explicit passes whenever live backend proof is not ready yet:
+   - `phase 1`: visible shell now, using the stable contract or stub shape, without waiting for final SQL/backend proof
+   - `phase 2`: bind one real datum, count, or repeated item from the live public facade, then collect builder/browser evidence
+14. Launch the `frontend-ngx` shell pass in parallel as soon as the contract or stub is validated. Do not wait for final SQL/backend proof just to make the visible page look alive.
 13. If the task includes UX, require the frontend specialist to report all of these before the planner can close:
    - `project-save` status
    - builder result
    - browser smoke result, or a concrete build/log failure that explains why browser proof is impossible
-14. Treat “builder opened but the starter page still dominates the visible UI” as insufficient frontend progress for a UX task.
-15. Treat “a new secondary page exists but the visible entry page still shows the untouched starter body” as insufficient frontend progress for a UX task unless the route/entrypoint change was explicitly made, saved, and proven.
-16. Treat “the visible page is now a static shell with placeholder copy only” as insufficient frontend progress for a UX task. The first visible pass must render at least one real contract-backed datum or count.
-17. When a specialist pass returns no usable mutation or proof, retry that specialist at most once with a tighter bounded task.
-18. If the retry still lacks usable evidence, stop with `checkpoint` or `failed` instead of stretching the run.
-19. Hand off the remaining work explicitly by domain.
-20. For common SQL/list/dashboard demos, prefer a recipe-first execution style over fresh exploration:
+15. Treat “builder opened but the starter page still dominates the visible UI” as insufficient frontend progress for a UX task.
+16. Treat “a new secondary page exists but the visible entry page still shows the untouched starter body” as insufficient frontend progress for a UX task unless the route/entrypoint change was explicitly made, saved, and proven.
+17. Treat “the visible page is only a static shell with placeholder copy” as acceptable only for the early shell checkpoint. It is never enough for final UX closure.
+18. Once backend proof exists, require a second frontend pass that replaces placeholder copy with at least one real contract-backed datum or count before closure.
+19. When a specialist pass returns no usable mutation or proof, retry that specialist at most once with a tighter bounded task.
+20. If the retry still lacks usable evidence, stop with `checkpoint` or `failed` instead of stretching the run.
+21. Hand off the remaining work explicitly by domain.
+22. For common SQL/list/dashboard demos, prefer a recipe-first execution style over fresh exploration:
    - planner: lock contract, stub, and work split fast
    - sql/backend: use the standard bootstrap/list/count facade path first
-   - frontend: make the visible shell on the real entry page first, but do not stop there; require one real bound datum or count on screen in the first visible pass
-21. For common SQL/list/dashboard demos, force named fast paths in the work split:
+   - frontend: make the visible shell on the real entry page first, even if it is initially contract-shaped and loading-focused, then schedule the live-binding pass as soon as backend proof exists
+23. For common SQL/list/dashboard demos, force named fast paths in the work split:
    - SQL: `embedded-hsqldb` or `mariadb-docker`
    - frontend: `starter-entry-page-replacement`
-22. On those fast-path demos, tell specialists to use the literal template resource first:
+24. On those fast-path demos, tell specialists to use the literal template resource first:
    - SQL specialists copy the selected SQL fast-path connector/tree and SQL skeleton before improvising
    - frontend specialists copy the `starter-entry-page-replacement` first-write shell before any palette exploration
-23. Require specialist outputs to declare both `Primary Target` and `Fast-Path Used`.
-24. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
-25. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public facade requestable.
-26. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
+25. Require specialist outputs to declare both `Primary Target` and `Fast-Path Used`.
+26. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
+27. When a known SQL or NGX fast path is selected, use `resources/templates/list` plus `resources/read` to retrieve the exact template guide instead of paraphrasing it from memory.
+28. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public facade requestable.
+29. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
 
 ## Interactive contract
 - End every interactive turn with exactly one `<interactive_state>...</interactive_state>` block.

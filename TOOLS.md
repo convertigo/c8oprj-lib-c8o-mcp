@@ -27,10 +27,10 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-js-set`              | `tools_project_js_set.yaml`                 | Create or update a helper script in the project `js/` directory. |
 | `project-delete`              | `tools_project_delete.yaml`                 | Delete one loaded project exactly by technical name, including its files and optional `.car` archive cleanup. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
-| `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
+| `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory; use it as rollback, not as a freshness step. Reloading the active MCP server project is forbidden because it would unload the running endpoint. |
 | `report-create`              | `tools_report_create.yaml`                  | Write one structured field-feedback report under `feedback/inbox/YYYY/MM/`. Exposed only when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`. |
 | `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
-| `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection (`includeLogs=true` appends execution logs). |
+| `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction against live Studio memory and return its payload for inspection (`includeLogs=true` appends execution logs). |
 | `requestable-stub-get`        | `tools_requestable_stub_get.yaml`           | Read the XML stub file for a sequence or transaction using Convertigo's default stub filename logic, or an explicit file under `stubs/`. |
 | `requestable-stub-set`        | `tools_requestable_stub_set.yaml`           | Create or replace the XML stub file for a sequence or transaction, validating that the stub root element is `<document>`. |
 | `databaseobject-schema`       | `tools_databaseobject_schema.yaml`          | Return a minimal schema/sample for a requestable or request node (`type=xml|json|jsonschema`; `internal=true` for `sourceDefinition` view). |
@@ -47,6 +47,11 @@ Phase 1 guides are exposed through `resources/list` with versioned metadata
 (`guideId`, `revision`, `scopeTags`, `prerequisites`, `recommendedTools`,
 `guidanceLevel`, `fallbackToRag`). Use the built-ins first, then choose the
 right guide from the catalog instead of relying on hard-coded legacy URIs.
+
+Fast-path template guides are also exposed through `resources/templates/list`.
+This is a filtered view of the resource catalog for template-bearing entries
+such as the SQL and NGX fast paths. Read the content itself through
+`resources/read`.
 
 ### Practical defaults
 
@@ -76,6 +81,9 @@ Notes:
 - `requestable-stub-get` and `requestable-stub-set` follow the same default filename logic as Convertigo runtime stubs (`<sequence>_default.xml` or `<connector>.<transaction>_default.xml`).
 - `log-view` accepts `q/since/until` aliases to reduce verbosity in common calls.
 - `batch-call` and tree mutation refs accept only object syntax (`{"$ref":"id.path"}`); `${{...}}` placeholders are rejected with an explicit error.
+- `project-list-symbols` now defaults to project-local scope when `project` is provided. Use `scope=all` only when you explicitly want global/cross-project noise back.
+- `requestable-execute` reads the live in-memory Studio state. Saved mutations stay visible without reload; `project-reload` is rollback to disk, not a refresh primitive.
+- Never call `project-reload` on the active MCP server project itself. Use `project-save` to persist MCP project changes without unloading the endpoint.
 
 ### Pagination helpers
 

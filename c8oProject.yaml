@@ -20,6 +20,7 @@
   ↓mcp_prompts_call [sequences.GenericSequence]: 🗏 sequences/mcp_prompts_call.yaml
   ↓mcp_prompts_list [sequences.GenericSequence]: 🗏 sequences/mcp_prompts_list.yaml
   ↓mcp_resources_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_list.yaml
+  ↓mcp_resources_templates_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_templates_list.yaml
   ↓mcp_resources_read [sequences.GenericSequence]: 🗏 sequences/mcp_resources_read.yaml
   ↓mcp_tools_list [sequences.GenericSequence]: 🗏 sequences/mcp_tools_list.yaml
   ↓tools_batch_call [sequences.GenericSequence]: 🗏 sequences/tools_batch_call.yaml

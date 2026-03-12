@@ -9,24 +9,35 @@ comment: |
   comment: Resolve project and perform reload
   expression: |
     'var providedName = C8O.util.toTrimmedString(project);
+    var currentProjectName = "";
+    if (context && context.project) {
+      currentProjectName = String(context.project.getName());
+    }
     if (!providedName.length && context && context.project) {
-      providedName = String(context.project.getName());
+      providedName = currentProjectName;
     }
     
     var errorEntries = [];
     var reloadResult;
     if (providedName.length) {
-      reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
+      if (currentProjectName.length && providedName === currentProjectName) {
+        var forbiddenMessage = "Reloading the active MCP server project is forbidden because it unloads the running endpoint. Use project-save if you need to persist changes.";
+        errorEntries.push({ name: "__forbidden__", message: forbiddenMessage });
+        reloadResult = { reloaded: false, message: forbiddenMessage, status: "forbidden" };
+      } else {
+        reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
+      }
     } else {
       var missingMessage = "Project name is required";
       errorEntries.push({ name: "__reload__", message: missingMessage });
-      reloadResult = { reloaded: false, message: missingMessage };
+      reloadResult = { reloaded: false, message: missingMessage, status: "missing" };
     }
     
     var reloadedFlag = reloadResult.reloaded === true;
-    var statusText = reloadedFlag ? "reloaded" : (providedName.length ? "failed" : "missing");
+    var statusText = reloadResult.status || (reloadedFlag ? "reloaded" : (providedName.length ? "failed" : "missing"));
     
     projectReloadRequested = providedName;
+    projectReloadCurrentProject = currentProjectName;
     projectReloadReloaded = reloadedFlag;
     projectReloadMessage = reloadResult.message || "";
     projectReloadTimestamp = java.lang.System.currentTimeMillis();
@@ -53,6 +64,19 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadRequested
+  ↓currentProject [steps.JsonFieldStep-1764249500001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: currentProject
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadCurrentProject
   ↓reloaded [steps.JsonFieldStep-1762445799436]: 
     key: 
       - xmlizable: 

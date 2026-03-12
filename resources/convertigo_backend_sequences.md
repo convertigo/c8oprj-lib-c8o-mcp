@@ -272,6 +272,38 @@ Use `databaseobject-schema` after runtime proof to:
 Common trap:
 - build the mapping blind, then discover picker/schema pain later when the raw shape differs from the first guess
 
+### `IteratorStep.condition` semantics
+`IteratorStep.condition` is not a free-form prose flag. Treat it as a normal conditional expression evaluated at runtime.
+
+Use it when:
+- you already have an iterator source
+- you need to skip some candidate items without changing the source itself
+
+Keep it simple:
+- the condition must evaluate to a boolean-like result
+- use one explicit JS expression when you need computed logic
+- leave it empty when every iterated item should pass
+
+Valid patterns:
+- `item != null`
+- `String(item).length > 0`
+- `vars.enabled == "true"`
+
+Invalid patterns:
+- raw XPath fragments without a boolean expression
+- comma-joined source tokens
+- human prose such as `only when not empty`
+- copied `sourceDefinition` arrays or JSON objects placed into `condition`
+
+Rule of thumb:
+- `sourceDefinition` chooses **what** you iterate
+- `condition` decides **whether the current iterated item continues**
+
+If you are not sure:
+1. prove the iterator source first
+2. start with no condition
+3. add one minimal boolean expression only when the filtering rule is explicit
+
 ## Output shaping and `output=true/false`
 Not every step should contribute to the public response. Convertigo trees are easier to maintain when orchestration and response shaping stay separate.
 

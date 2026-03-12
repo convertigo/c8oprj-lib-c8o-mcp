@@ -37,6 +37,9 @@ MCP critique:
 | Metadata-only tree change with no runtime consequence | usually no |
 | UI or requestable work where final confidence depends on clean reload | yes |
 
+`requestable-execute` validates the live in-memory Studio state. Use `project-reload` only when you intentionally want to prove rollback-to-disk or reload cleanliness.
+Never reload the active MCP server project itself; use `project-save` there because reload unloads the running endpoint.
+
 ### Minimal smoke by task type
 - Backend sequence:
   - one successful `requestable-execute`
@@ -72,10 +75,12 @@ Noisy proof:
 - `batch-call`
 - `project-save`
 - `project-reload`
+- `resources/templates/list` when a validation or delivery guide points to a template-bearing fast path
 
 ## Anti-patterns / do not do
 - Do not finish on structural intuition alone.
 - Do not skip save or reload when the task changed runtime structure and reload proof matters.
+- Do not use reload as a substitute for live-memory runtime proof.
 - Do not flood the final result with raw logs when one focused proof is enough.
 - Do not hide unresolved risk or tooling gaps.
 

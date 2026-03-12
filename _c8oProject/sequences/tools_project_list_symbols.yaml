@@ -12,6 +12,19 @@ comment: |
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
+  ↓Status [steps.JsonFieldStep-1764249400001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: summaryMap.get("status")
   ↓Symbols [steps.JsonArrayStep-1762876000105]: 
     key: 
       - xmlizable: 
@@ -140,6 +153,46 @@ comment: |
         - SmartType: 
           - ↑mode: PLAIN
           - →→: summary
+    ↓Status [steps.JsonFieldStep-1764249400002]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: status
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryMap.get("status")
+    ↓ScopeApplied [steps.JsonFieldStep-1764249400003]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: scopeApplied
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryMap.get("scopeApplied")
+    ↓ProjectFound [steps.JsonFieldStep-1764249400004]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: projectFound
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryMap.get("projectFound")
     ↓RequestedProject [steps.JsonFieldStep-1762876000129]: 
       key: 
         - xmlizable: 
@@ -229,3 +282,5 @@ comment: |
 ↓includeValues [variables.RequestableVariable-1762876000145]: 
   comment: Set true to include full symbol values. Default false masks values in previews.
   value: false
+↓scope [variables.RequestableVariable-1764249400005]: 
+  comment: Optional symbol scope. Defaults to project when project is provided, otherwise all.

@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": ["start", "onboarding", "tree-authoring"],
     "prerequisites": [],
     "recommendedTools": [
@@ -318,7 +318,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_sql_crud.md",
     "guideId": "convertigo/recipe-sql-crud",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": ["workflow", "recipe", "integration", "sql", "crud"],
     "prerequisites": [
       "convertigo/start@1",
@@ -368,6 +368,7 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false,
+    "resourceKind": "template",
     "templateId": "convertigo/fast-path-sql-hsqldb",
     "templateKind": "fast-path",
     "templateVariables": [
@@ -414,6 +415,7 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false,
+    "resourceKind": "template",
     "templateId": "convertigo/fast-path-sql-mariadb",
     "templateKind": "fast-path",
     "templateVariables": [
@@ -477,7 +479,7 @@
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
-      "convertigo/contract-first-delivery@1"
+      "convertigo/contract-first-delivery@2"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
@@ -504,11 +506,11 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_ngx_entry_shell.md",
     "guideId": "convertigo/fast-path-ngx-entry-shell",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": ["workflow", "recipe", "frontend", "ngx", "fast-path"],
     "prerequisites": [
       "convertigo/recipe-starter-extension@1",
-      "convertigo/recipe-ngx-data-page@3"
+      "convertigo/recipe-ngx-data-page@4"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
@@ -523,6 +525,7 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false,
+    "resourceKind": "template",
     "templateId": "convertigo/fast-path-ngx-entry-shell",
     "templateKind": "fast-path",
     "templateVariables": [

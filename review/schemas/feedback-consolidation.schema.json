@@ -108,8 +108,7 @@
               "OPEN",
               "CLOSED_ALREADY_FIXED",
               "ROUTE_EXTERNAL",
-              "SPLIT_REQUIRED",
-              "DROP_NOISE"
+              "DUPLICATE"
             ]
           },
           "targetRepo": {
@@ -163,9 +162,9 @@
             "type": "string",
             "enum": [
               "OPEN",
-              "ROUTED",
-              "WATCH",
-              "DROPPED"
+              "CLOSED_ALREADY_FIXED",
+              "ROUTE_EXTERNAL",
+              "DUPLICATE"
             ]
           },
           "area": {

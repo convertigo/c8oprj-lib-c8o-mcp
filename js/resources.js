@@ -72,7 +72,41 @@ function c8oLoadResourcesIndex() {
     }
     parsed.push(builtin);
   }
+  for (var k = 0; k < parsed.length; k++) {
+    var normalizedEntry = c8oNormalizeResourceEntry(parsed[k]);
+    if (normalizedEntry) {
+      parsed[k] = normalizedEntry;
+    }
+  }
   return parsed;
+}
+
+function c8oNormalizeResourceEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return entry;
+  }
+  if (!entry.resourceKind && entry.templateId) {
+    entry.resourceKind = "template";
+  }
+  if (!entry.templateKind && entry.resourceKind === "template") {
+    entry.templateKind = "catalog-template";
+  }
+  return entry;
+}
+
+function c8oListTemplateResources() {
+  var index = c8oLoadResourcesIndex();
+  var results = [];
+  for (var i = 0; i < index.length; i++) {
+    var entry = index[i];
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    if (String(entry.resourceKind || "").toLowerCase() === "template" || C8O.util.toTrimmedString(entry.templateId).length > 0) {
+      results.push(entry);
+    }
+  }
+  return results;
 }
 
 function c8oFindResourceByUri(resourceUri) {

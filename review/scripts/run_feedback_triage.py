@@ -19,8 +19,7 @@ ALLOWED_DISPOSITIONS = [
     "OPEN",
     "CLOSED_ALREADY_FIXED",
     "ROUTE_EXTERNAL",
-    "SPLIT_REQUIRED",
-    "DROP_NOISE",
+    "DUPLICATE",
 ]
 TARGET_REPOS = {"c8oprj-c8o-mcp", "codex-cli-multiagent", "unknown"}
 
@@ -387,6 +386,41 @@ def build_consolidation(batch_id, packet, critic_report):
         raise RuntimeError("Grouped Findings must be a JSON array.")
 
     packet_by_id = {item["reportId"]: item for item in packet["sourceReports"]}
+
+    def normalize_disposition(value):
+        mapping = {
+            "SPLIT_REQUIRED": "OPEN",
+            "DROP_NOISE": "DUPLICATE",
+        }
+        return mapping.get(value, value)
+
+    def normalize_group_status(value):
+        mapping = {
+            "ROUTED": "ROUTE_EXTERNAL",
+            "WATCH": "OPEN",
+            "DROPPED": "DUPLICATE",
+        }
+        return mapping.get(value, value)
+
+    seen_subjects = {}
+    for decision in report_decisions:
+        decision["disposition"] = normalize_disposition(decision.get("disposition"))
+        packet_item = packet_by_id.get(decision.get("reportId"))
+        subject_id = (((packet_item or {}).get("finding") or {}).get("subjectId") or "").strip()
+        if subject_id and decision["disposition"] != "CLOSED_ALREADY_FIXED":
+            if subject_id in seen_subjects:
+                anchor_report_id = seen_subjects[subject_id]
+                decision["disposition"] = "DUPLICATE"
+                note = decision.get("notes") or ""
+                duplicate_note = f"Duplicate source report for subjectId {subject_id}; consolidated under {anchor_report_id}."
+                decision["notes"] = duplicate_note if not note else duplicate_note + " " + note
+                decision["splitFindingIds"] = []
+            else:
+                seen_subjects[subject_id] = decision.get("reportId")
+
+    for finding in grouped_findings:
+        finding["status"] = normalize_group_status(finding.get("status"))
+
     resolved_parser_reports = find_resolved_parser_reports(repo_root())
     if resolved_parser_reports:
         for decision in report_decisions:
@@ -456,7 +490,7 @@ def consolidation_markdown(consolidation):
     if consolidation["groupedFindings"]:
         for item in consolidation["groupedFindings"]:
             lines.append(
-                f"- `{item['findingId']}` `{item['targetRepo']}` `{item['recommendedOwner']}` `{item['nextAction']}`: {item['symptom']}"
+                f"- `{item['findingId']}` `{item['status']}` `{item['targetRepo']}` `{item['recommendedOwner']}` `{item['nextAction']}`: {item['symptom']}"
             )
     else:
         lines.append("- none")

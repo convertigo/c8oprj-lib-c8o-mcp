@@ -24,10 +24,13 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 3. Keep public contract fields explicit and stable while implementation evolves.
 4. Prefer explicit flow steps, sequence/transaction calls, and JSON steps over opaque script-heavy shaping.
 5. When mapping depends on a transaction shape, require runtime proof first and use `recordSchema=true` plus `databaseobject-schema` before locking the final mapping.
+   - `requestable-execute` reads live Studio memory
+   - do not introduce `project-reload` as a freshness step
 6. Escalate to the deep backend handbook only when the recipe is insufficient.
 7. Reuse `databaseobject-tree-get` output shape when patching with `databaseobject-tree-apply`.
 8. Validate runtime behavior with `requestable-execute` as soon as one logical block is coherent.
 9. Save with `project-save` only when a mutation occurred and runtime proof exists.
+10. Use `resources/templates/list` only when the planner or recipe already identified a template-bearing fast path; read the actual template via `resources/read`.
 
 ## Stop and handoff rules
 - Do not redefine the public contract without an explicit planner decision.

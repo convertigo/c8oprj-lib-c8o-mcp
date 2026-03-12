@@ -230,6 +230,133 @@ C8O.util.previewValue = function (value) {
 };
 
 /**
+ * Recursively converts Rhino/Java values into JSON-safe plain JS values.
+ */
+C8O.util.toJsonSafe = function (value, options) {
+  var opts = options || {};
+  var warnings = opts.warnings && opts.warnings.push ? opts.warnings : null;
+  var path = C8O.util.toTrimmedString(opts.path || "$");
+  var maxDepth = opts.maxDepth == null ? 12 : opts.maxDepth;
+  var seen = opts._seen || [];
+
+  function addWarning(message) {
+    if (warnings) {
+      warnings.push(path + ": " + message);
+    }
+  }
+
+  function convert(current, currentPath, depth) {
+    var localOpts = {
+      warnings: warnings,
+      maxDepth: maxDepth,
+      _seen: seen
+    };
+    localOpts.path = currentPath;
+    return C8O.util.toJsonSafe(current, localOpts);
+  }
+
+  try {
+    var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
+    if (value instanceof NativeJavaObject) {
+      value = value.unwrap();
+    }
+  } catch (_ignoreNativeJavaObject) {}
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (maxDepth <= 0) {
+    addWarning("max depth reached during JSON-safe conversion");
+    return C8O.util.previewValue(value);
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  try {
+    if (value instanceof Packages.java.lang.Number) {
+      return Number(value);
+    }
+  } catch (_ignoreJavaNumber) {}
+  try {
+    if (value instanceof Packages.java.lang.Boolean) {
+      return Boolean(value.booleanValue());
+    }
+  } catch (_ignoreJavaBoolean) {}
+  try {
+    if (value instanceof Packages.java.lang.CharSequence) {
+      return String(value);
+    }
+  } catch (_ignoreJavaCharSequence) {}
+
+  if (Array.isArray(value)) {
+    var jsArray = [];
+    for (var i = 0; i < value.length; i++) {
+      jsArray.push(convert(value[i], path + "[" + i + "]", maxDepth - 1));
+    }
+    return jsArray;
+  }
+
+  try {
+    if (value instanceof Packages.java.util.Map) {
+      var mapped = {};
+      var mapIterator = value.entrySet().iterator();
+      while (mapIterator.hasNext()) {
+        var mapEntry = mapIterator.next();
+        var mapKey = String(mapEntry.getKey());
+        mapped[mapKey] = convert(mapEntry.getValue(), path + "." + mapKey, maxDepth - 1);
+      }
+      return mapped;
+    }
+  } catch (_ignoreJavaMap) {}
+
+  try {
+    if (value instanceof Packages.java.util.Collection) {
+      var coll = [];
+      var collIterator = value.iterator();
+      var index = 0;
+      while (collIterator.hasNext()) {
+        coll.push(convert(collIterator.next(), path + "[" + index + "]", maxDepth - 1));
+        index++;
+      }
+      return coll;
+    }
+  } catch (_ignoreJavaCollection) {}
+
+  if (typeof value === "object") {
+    for (var si = 0; si < seen.length; si++) {
+      if (seen[si] === value) {
+        addWarning("circular reference replaced with preview string");
+        return C8O.util.previewValue(value);
+      }
+    }
+    seen.push(value);
+    try {
+      var tag = "";
+      try {
+        tag = Object.prototype.toString.call(value);
+      } catch (_ignoreTag) {
+        tag = "";
+      }
+      if (tag === "[object Object]") {
+        var plain = {};
+        for (var key in value) {
+          if (Object.prototype.hasOwnProperty.call(value, key)) {
+            plain[key] = convert(value[key], path + "." + key, maxDepth - 1);
+          }
+        }
+        return plain;
+      }
+    } finally {
+      seen.pop();
+    }
+  }
+
+  addWarning("non-plain value converted to preview string");
+  return C8O.util.previewValue(value);
+};
+
+/**
  * Builds a standard result envelope for operations that need status/message metadata.
  */
 C8O.util.makeFileResult = function (status, message, extras) {
@@ -383,6 +510,36 @@ C8O.requestable._addVariables = function (step, map) {
   }
 };
 
+C8O.requestable._resetExecutionState = function (executionPlan, seqStep, txStep) {
+  if (!executionPlan || !C8O.dbo) {
+    return;
+  }
+  if (executionPlan.isSequence) {
+    try {
+      var seqQName = executionPlan.project + ".sq:" + executionPlan.name;
+      var seqDbo = C8O.dbo.resolve(seqQName, { optional: true });
+      C8O.dbo._resetIfNeeded(seqStep, []);
+      C8O.dbo._resetIfNeeded(seqDbo, []);
+      if (seqDbo && seqDbo.getProject) {
+        C8O.dbo._resetIfNeeded(seqDbo.getProject(), []);
+      }
+    } catch (_ignoreSeqReset) {}
+    return;
+  }
+  try {
+    var txQName = executionPlan.project + ".cn:" + executionPlan.connector + ".tr:" + executionPlan.name;
+    var txDbo = C8O.dbo.resolve(txQName, { optional: true });
+    C8O.dbo._resetIfNeeded(txStep, []);
+    C8O.dbo._resetIfNeeded(txDbo, []);
+    if (txDbo && txDbo.getConnector) {
+      C8O.dbo._resetIfNeeded(txDbo.getConnector(), []);
+    }
+    if (txDbo && txDbo.getProject) {
+      C8O.dbo._resetIfNeeded(txDbo.getProject(), []);
+    }
+  } catch (_ignoreTxReset) {}
+};
+
 /**
  * Configures the CallSequence/CallTransaction steps inside tools_requestable_execute
  * so that sequences/transactions can be invoked without relying on a separate internal_call.
@@ -409,6 +566,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
     seqStep.setSourceSequence(executionPlan.project + '.' + executionPlan.name);
     C8O.requestable._clearVariables(seqStep);
     C8O.requestable._addVariables(seqStep, executionPlan.variables || {});
+    C8O.requestable._resetExecutionState(executionPlan, seqStep, txStep);
     if (EngineLog) {
       var seqCount = seqStep.getVariables() != null ? seqStep.getVariables().size() : 0;
       EngineLog.debug('[tools_requestable_execute] sequence vars=' + seqCount + ' target=' + executionPlan.project + '.' + executionPlan.name);
@@ -428,6 +586,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
   txStep.setSourceTransaction(executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   C8O.requestable._clearVariables(txStep);
   C8O.requestable._addVariables(txStep, executionPlan.variables || {});
+  C8O.requestable._resetExecutionState(executionPlan, seqStep, txStep);
   if (executionPlan.recordSchema === true) {
     try {
       var txQName = executionPlan.project + '.cn:' + executionPlan.connector + '.tr:' + executionPlan.name;
