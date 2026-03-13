@@ -1,0 +1,178 @@
+accessibility: Private
+comment: |
+  Create or update deterministic CRUD scaffolding
+  Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell.
+↓IncludeHelpers [steps.SimpleStep-1773318201001]: 
+  comment: Load deterministic CRUD helpers
+  expression: include("js/tools_crud.js");
+↓Init [steps.SimpleStep-1773318201002]: 
+  comment: Parse inputs and execute the CRUD upsert
+  expression: |
+    'crudUpsertResult = C8O.crud.upsertCrud({
+      spec: spec,
+      sequence: C8O.util.toBoolean(sequence, true),
+      ui: C8O.util.toBoolean(ui, false)
+    });'
+↓Result [steps.JsonObjectStep-1773318201003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1773318201004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.status ? crudUpsertResult.status : ""'
+  ↓project [steps.JsonFieldStep-1773318201005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.project ? crudUpsertResult.project : ""'
+  ↓driverFamily [steps.JsonFieldStep-1773318201006]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: driverFamily
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.driverFamily ? crudUpsertResult.driverFamily : ""'
+  ↓connectorQname [steps.JsonFieldStep-1773318201007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: connectorQname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.connectorQname ? crudUpsertResult.connectorQname : ""'
+  ↓sequence [steps.JsonFieldStep-1773318201008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: sequence
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: crudUpsertResult && crudUpsertResult.sequence === true
+  ↓uiEnabled [steps.JsonFieldStep-1773318201009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: uiEnabled
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: crudUpsertResult && crudUpsertResult.uiEnabled === true
+  ↓primaryTargets [steps.JsonToXmlStep-1773318201010]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.primaryTargets ? crudUpsertResult.primaryTargets : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: primaryTargets
+  ↓created [steps.JsonToXmlStep-1773318201011]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.created ? crudUpsertResult.created : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: created
+  ↓updated [steps.JsonToXmlStep-1773318201012]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.updated ? crudUpsertResult.updated : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: updated
+  ↓runtimeEvidence [steps.JsonToXmlStep-1773318201013]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.runtimeEvidence ? crudUpsertResult.runtimeEvidence : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: runtimeEvidence
+  ↓warnings [steps.JsonToXmlStep-1773318201014]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUpsertResult && crudUpsertResult.warnings ? crudUpsertResult.warnings : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
+↓spec [variables.RequestableVariable-1773318201016]: 
+  comment: Structured CRUD specification including project, database, facade, entities, seed, and UI options.
+  description: Structured CRUD specification including project, database, facade, entities, seed, and UI options.
+↓sequence [variables.RequestableVariable-1773318201017]: 
+  comment: Set true to create or update public CRUD sequences in addition to SQL transactions.
+  description: Set true to create or update public CRUD sequences in addition to SQL transactions.
+  value: true
+↓ui [variables.RequestableVariable-1773318201018]: 
+  comment: Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.
+  description: Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.
+  value: false
