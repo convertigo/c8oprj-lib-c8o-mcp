@@ -136,6 +136,7 @@ C8O.util.parseObjectInput = function (value, options) {
     label = "value";
   }
   var allowEmpty = opts.allowEmpty !== false;
+  var allowArray = opts.allowArray === true;
   var maxDepth = 3;
 
   function objectFromJavaMap(mapValue) {
@@ -173,6 +174,9 @@ C8O.util.parseObjectInput = function (value, options) {
     if (tag === "[object Object]") {
       return value;
     }
+    if (allowArray && tag === "[object Array]") {
+      return value;
+    }
   }
 
   var text = C8O.util.toTrimmedString(value);
@@ -195,6 +199,9 @@ C8O.util.parseObjectInput = function (value, options) {
     if (C8O.util.isPlainObject(parsed)) {
       return parsed;
     }
+    if (allowArray && Array.isArray(parsed)) {
+      return parsed;
+    }
     if (typeof parsed === "string") {
       var nested = C8O.util.toTrimmedString(parsed);
       if (nested.length) {
@@ -206,7 +213,7 @@ C8O.util.parseObjectInput = function (value, options) {
     break;
   }
 
-  throw new Error(label + " must be a JSON object");
+  throw new Error(label + (allowArray ? " must be a JSON object or array" : " must be a JSON object"));
 };
 
 /**

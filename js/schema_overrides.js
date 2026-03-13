@@ -493,6 +493,71 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function upsertCrudInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        spec: {
+          type: "object",
+          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options.",
+          additionalProperties: true
+        },
+        sequence: booleanFlagSchema(true, "Set true to create or update public CRUD sequences in addition to SQL transactions."),
+        ui: booleanFlagSchema(false, "Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.")
+      },
+      required: ["spec"],
+      additionalProperties: false
+    };
+  }
+
+  function crudStatusInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Existing project technical name." },
+        connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
+        facadePrefix: { type: "string", description: "Optional public CRUD sequence prefix. Defaults to crud." },
+        mode: {
+          type: "string",
+          enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
+          description: "Optional driver family hint used when no connector is provided yet."
+        },
+        variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
+  function upsertNgxCrudKitInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Existing NGX project technical name." },
+        entities: {
+          description: "Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections.",
+          oneOf: [
+            { type: "string" },
+            { type: "array", items: { type: "object", additionalProperties: true } },
+            { type: "object", additionalProperties: true }
+          ]
+        },
+        variant: { type: "string", description: "UI variant, for example dashboard, list-form, or master-detail." },
+        facadePrefix: { type: "string", description: "Public CRUD facade prefix used for shell labels and future wiring." },
+        entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
+        runtimeEvidence: {
+          description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",
+          oneOf: [
+            { type: "string" },
+            { type: "object", additionalProperties: true }
+          ]
+        }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
   function openObjectSchema(properties) {
     return {
       type: "object",
@@ -952,6 +1017,62 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+	  function crudStatusOutputSchema() {
+	    return closedObjectSchema({
+      status: { type: "string" },
+      project: { type: "string" },
+      driverFamily: { type: "string" },
+      connectorQname: { type: "string" },
+      transactions: openObjectSchema({
+        present: stringArraySchema(),
+        missing: stringArraySchema()
+      }),
+      sequences: openObjectSchema({
+        present: stringArraySchema(),
+        missing: stringArraySchema()
+      }),
+	      ui: openObjectSchema({
+	        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
+	        visibleShellPresent: { type: "boolean" },
+	        liveBindingPresent: { type: "boolean" },
+	        targetQName: { type: "string" }
+	      }),
+	      missing: stringArraySchema(),
+	      warnings: stringArraySchema()
+	    });
+	  }
+
+	  function upsertNgxCrudKitOutputSchema() {
+	    return closedObjectSchema({
+      status: { type: "string" },
+      project: { type: "string" },
+	      sharedComponents: stringArraySchema(),
+	      pageTargets: stringArraySchema(),
+	      runtimeEvidence: openObjectSchema({}),
+	      warnings: stringArraySchema()
+	    });
+	  }
+
+	  function upsertCrudOutputSchema() {
+	    return closedObjectSchema({
+      status: { type: "string" },
+      project: { type: "string" },
+      driverFamily: { type: "string" },
+      connectorQname: { type: "string" },
+      sequence: { type: "boolean" },
+      uiEnabled: { type: "boolean" },
+      primaryTargets: openObjectSchema({
+        sql: { type: "string" },
+        flow: stringArraySchema(),
+        ui: stringArraySchema()
+      }),
+      created: stringArraySchema(),
+	      updated: stringArraySchema(),
+	      runtimeEvidence: openObjectSchema({}),
+	      warnings: stringArraySchema()
+	    });
+	  }
+
   function cleanDocText(value) {
     var text = value == null ? "" : String(value);
     text = text.replace(/\r\n?/g, "\n").trim();
@@ -1087,6 +1208,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_project_delete") {
       return projectDeleteInputSchema();
     }
+    if (seq === "tools_upsert_crud") {
+      return upsertCrudInputSchema();
+    }
+    if (seq === "tools_crud_status") {
+      return crudStatusInputSchema();
+    }
+    if (seq === "tools_upsert_ngx_crud_kit") {
+      return upsertNgxCrudKitInputSchema();
+    }
 
     if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) {
       return defaultObjectSchema();
@@ -1132,6 +1262,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_delete") {
       return projectDeleteOutputSchema();
+    }
+    if (seq === "tools_upsert_crud") {
+      return upsertCrudOutputSchema();
+    }
+    if (seq === "tools_crud_status") {
+      return crudStatusOutputSchema();
+    }
+    if (seq === "tools_upsert_ngx_crud_kit") {
+      return upsertNgxCrudKitOutputSchema();
     }
 
     if (!outputSchema || typeof outputSchema !== "object" || Array.isArray(outputSchema)) {

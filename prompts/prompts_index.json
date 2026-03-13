@@ -5,10 +5,15 @@
     "title": "Convertigo MCP Quickstart",
     "description": "Canonical non-mutating bootstrap that selects the right guides, asks the right decisions, and hands a brief to the planner.",
     "promptId": "convertigo/quickstart",
-    "revision": 3,
+    "revision": 6,
     "roleId": "bootstrap",
     "modelProfile": "balanced",
-    "scopeTags": ["bootstrap", "guide-selection", "triage", "recipes"],
+    "scopeTags": [
+      "bootstrap",
+      "guide-selection",
+      "triage",
+      "recipes"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -18,8 +23,10 @@
     "recommendedTools": [
       "project-list",
       "project-list-symbols",
+      "crud-status",
       "databaseobject-tree-get",
       "databaseobject-search",
+      "resources/templates/list",
       "resources/read",
       "prompts/list"
     ],
@@ -48,10 +55,15 @@
     "title": "Convertigo Planner",
     "description": "Contract-first planner that consumes a bootstrap brief, creates the minimal facade stub, and splits work for specialists.",
     "promptId": "convertigo/planner",
-    "revision": 7,
+    "revision": 10,
     "roleId": "planner",
     "modelProfile": "high",
-    "scopeTags": ["planner", "contract-first", "parallel-delivery", "recipes"],
+    "scopeTags": [
+      "planner",
+      "contract-first",
+      "parallel-delivery",
+      "recipes"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -60,29 +72,37 @@
       "convertigo/contract-first-delivery@2",
       "convertigo/recipe-starter-extension@1",
       "convertigo/recipe-facade-stub@1",
-      "convertigo/fast-path-sql-hsqldb@3",
-      "convertigo/fast-path-sql-mariadb@2",
-      "convertigo/fast-path-ngx-entry-shell@3",
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
+      "convertigo/fast-path-ngx-entry-shell@4",
       "convertigo/recipe-ngx-data-page@4",
       "convertigo/backend-sequences@1",
       "convertigo/validation-and-evidence@1"
     ],
     "fastPathRefs": [
       "embedded-hsqldb",
+      "postgresql-service",
       "mariadb-docker",
       "starter-entry-page-replacement"
     ],
     "templateRefs": [
-      "convertigo/fast-path-sql-hsqldb@3",
-      "convertigo/fast-path-sql-mariadb@2",
-      "convertigo/fast-path-ngx-entry-shell@3"
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
+      "convertigo/fast-path-ngx-entry-shell@4"
     ],
     "recommendedTools": [
       "project-list",
       "project-list-symbols",
+      "crud-status",
       "databaseobject-search",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
+      "upsert-crud",
+      "upsert-ngx-crud-kit",
+      "resources/templates/list",
+      "resources/read",
       "requestable-execute",
       "project-save"
     ],
@@ -112,10 +132,14 @@
     "title": "Convertigo Backend Specialist",
     "description": "Sequence specialist for facade requestables, orchestration, and stable response shaping.",
     "promptId": "convertigo/backend",
-    "revision": 5,
+    "revision": 8,
     "roleId": "backend",
     "modelProfile": "fast",
-    "scopeTags": ["backend", "sequences", "facades"],
+    "scopeTags": [
+      "backend",
+      "sequences",
+      "facades"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -125,9 +149,13 @@
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
+      "crud-status",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "batch-call",
+      "upsert-crud",
+      "resources/templates/list",
+      "resources/read",
       "databaseobject-schema",
       "requestable-execute",
       "project-save"
@@ -154,33 +182,44 @@
     "title": "Convertigo SQL Specialist",
     "description": "SQL connector and transaction specialist working behind an agreed facade contract.",
     "promptId": "convertigo/sql",
-    "revision": 5,
+    "revision": 8,
     "roleId": "sql",
     "modelProfile": "fast",
-    "scopeTags": ["integration", "sql", "transactions"],
+    "scopeTags": [
+      "integration",
+      "sql",
+      "transactions"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
       "convertigo/recipe-sql-crud@3",
-      "convertigo/fast-path-sql-hsqldb@3",
-      "convertigo/fast-path-sql-mariadb@2",
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
       "convertigo/backend-sequences@1",
       "convertigo/integration-sql@1",
       "convertigo/validation-and-evidence@1"
     ],
     "fastPathRefs": [
       "embedded-hsqldb",
+      "postgresql-service",
       "mariadb-docker"
     ],
     "templateRefs": [
-      "convertigo/fast-path-sql-hsqldb@3",
-      "convertigo/fast-path-sql-mariadb@2"
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3"
     ],
     "recommendedTools": [
       "project-list-symbols",
+      "crud-status",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
+      "upsert-crud",
+      "resources/templates/list",
+      "resources/read",
       "databaseobject-schema",
       "requestable-execute",
       "log-view",
@@ -207,10 +246,14 @@
     "title": "Convertigo HTTP Specialist",
     "description": "HTTP connector and transaction specialist working behind an agreed facade contract.",
     "promptId": "convertigo/http",
-    "revision": 5,
+    "revision": 6,
     "roleId": "http",
     "modelProfile": "fast",
-    "scopeTags": ["integration", "http", "transactions"],
+    "scopeTags": [
+      "integration",
+      "http",
+      "transactions"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -250,17 +293,22 @@
     "title": "Convertigo Frontend NGX Specialist",
     "description": "NGX page and binding specialist working against a stable backend facade contract.",
     "promptId": "convertigo/frontend-ngx",
-    "revision": 5,
+    "revision": 7,
     "roleId": "frontend-ngx",
     "modelProfile": "fast",
-    "scopeTags": ["frontend", "ngx", "ui", "bindings"],
+    "scopeTags": [
+      "frontend",
+      "ngx",
+      "ui",
+      "bindings"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
       "convertigo/contract-first-delivery@2",
       "convertigo/recipe-ngx-data-page@4",
-      "convertigo/fast-path-ngx-entry-shell@3",
+      "convertigo/fast-path-ngx-entry-shell@4",
       "convertigo/frontend-ngx@1",
       "convertigo/validation-and-evidence@1"
     ],
@@ -268,12 +316,15 @@
       "starter-entry-page-replacement"
     ],
     "templateRefs": [
-      "convertigo/fast-path-ngx-entry-shell@3"
+      "convertigo/fast-path-ngx-entry-shell@4"
     ],
     "recommendedTools": [
+      "crud-status",
+      "upsert-ngx-crud-kit",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
-      "batch-call",
+      "resources/templates/list",
+      "resources/read",
       "palette-list",
       "palette-describe",
       "mobile-builder-open",
@@ -303,7 +354,12 @@
     "revision": 2,
     "roleId": "critic",
     "modelProfile": "high",
-    "scopeTags": ["review", "critic", "evidence", "ux"],
+    "scopeTags": [
+      "review",
+      "critic",
+      "evidence",
+      "ux"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -338,7 +394,11 @@
     "revision": 2,
     "roleId": "maintainer",
     "modelProfile": "high",
-    "scopeTags": ["maintainer", "improvement-cycle", "candidate"],
+    "scopeTags": [
+      "maintainer",
+      "improvement-cycle",
+      "candidate"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",

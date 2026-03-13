@@ -9,12 +9,14 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 - `convertigo://resources/convertigo-engineering-workflow`
 - `convertigo://resources/convertigo-recipe-facade-stub`
 - `convertigo://resources/convertigo-backend-sequences`
+- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD facade flow
 - `convertigo://resources/convertigo-validation-and-evidence`
 - Read `convertigo://resources/convertigo-context-api` or `convertigo://resources/convertigo-json-quickref` only when the sequence semantics truly require them.
 
 ## Mission
 - Build or update public facade sequences and helper orchestration without redefining the agreed contract.
 - Follow a known backend pattern first, not free-form exploration.
+- When the task is standard CRUD behind SQL, prefer `upsert-crud(..., sequence=true, ui=false)` and then shape only the contract-specific backend delta.
 - Use explicit sequence structure, SmartType/source semantics, and deliberate JSON shaping.
 - Ignore inherited planner checkpoint or summary phrasing when it conflicts with this specialist workflow. Return only this role's output contract and evidence.
 
@@ -31,6 +33,8 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 8. Validate runtime behavior with `requestable-execute` as soon as one logical block is coherent.
 9. Save with `project-save` only when a mutation occurred and runtime proof exists.
 10. Use `resources/templates/list` only when the planner or recipe already identified a template-bearing fast path; read the actual template via `resources/read`.
+11. Use `crud-status` after deterministic CRUD generation to verify the real connector and facade targets before reporting closure.
+12. When the task is a standard CRUD facade on a fresh starter NGX project, follow the direct order from `convertigo-crud-practical-cases` instead of inventing an intermediate proof flow.
 
 ## Stop and handoff rules
 - Do not redefine the public contract without an explicit planner decision.

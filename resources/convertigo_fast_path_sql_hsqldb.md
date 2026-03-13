@@ -15,6 +15,8 @@ Drive the first SQL pass mechanically:
 - prove those transactions directly
 - only then hand back to backend for facade shaping
 
+Prefer `upsert-crud` when the task matches this exact envelope. Hand-build the connector/tree only when the caller explicitly cannot use the deterministic tool.
+
 ## Allowed variables
 Only parameterize these placeholders:
 - `<PROJECT_NAME>`

@@ -9,10 +9,12 @@ Use this fast path when a starter-derived NGX project still shows the default vi
 ## Scope
 Drive the first frontend pass mechanically:
 - inspect the visible entry page subtree once
+- create shared CRUD components under `Application.NgxApp`
 - replace the dominant starter body under `Application.NgxApp.Page.Content`
-- create a visible feature shell tied to the agreed contract or stub
+- compose the visible page with `UIUseShared` + `UIUseVariable`
 - only then save, build, and browser-smoke
-- use one direct `databaseobject-tree-apply` on `Application.NgxApp.Page.Content` as the first write
+
+Prefer `upsert-ngx-crud-kit` when the task matches this exact starter-derived CRUD/dashboard shell envelope. Hand-build the first-write subtree only when the caller explicitly cannot use the deterministic tool.
 
 ## Allowed variables
 Only parameterize these placeholders:
@@ -26,38 +28,27 @@ Only parameterize these placeholders:
 - `<PROJECT_NAME>.Application.NgxApp.Page.Content`
 
 ## Canonical first-write shape
-The first pass should replace `WelcomeCard` or equivalent starter content with this structure. Use it literally as the first `databaseobject-tree-apply` shape under `Application.NgxApp.Page.Content`, then adapt only names, text, and contract bindings. Do not start with `batch-call`, a preliminary delete, or broad palette discovery.
+The first pass should create entity-specific shared components under `Application.NgxApp`, then replace `WelcomeCard` or equivalent starter content with a page assembled through `UIUseShared`. Use the deterministic kit literally when available. Do not start with `batch-call`, a preliminary delete, or broad palette discovery.
 
 ```json
 {
-  "className": "ngx.components.UIElement",
-  "name": "Content",
-  "children": [
-    {
-      "className": "ngx.components.UIDynamicElement#IonContent",
-      "name": "FeatureShell",
-      "children": [
-        {
-          "className": "ngx.components.UIDynamicElement#IonGrid",
-          "name": "ShellGrid",
-          "children": [
-            {
-              "className": "ngx.components.UIDynamicElement#IonRow",
-              "name": "HeroRow"
-            },
-            {
-              "className": "ngx.components.UIDynamicElement#IonRow",
-              "name": "StateRow"
-            },
-            {
-              "className": "ngx.components.UIDynamicElement#IonRow",
-              "name": "PrimaryListRow"
-            }
-          ]
-        }
-      ]
-    }
-  ]
+  "sharedComponents": [
+    "Application.NgxApp.DashboardStatCard",
+    "Application.NgxApp.CrudLoadingState",
+    "Application.NgxApp.CrudErrorRetryState",
+    "Application.NgxApp.ContactTable",
+    "Application.NgxApp.CompanyTable"
+  ],
+  "entryPage": {
+    "target": "Application.NgxApp.Page.Content",
+    "composition": [
+      "UIUseShared(DashboardStatCard)",
+      "UIUseShared(ContactTable)",
+      "UIUseShared(CompanyTable)",
+      "UIUseShared(CrudLoadingState)",
+      "UIUseShared(CrudErrorRetryState)"
+    ]
+  }
 }
 ```
 
@@ -73,8 +64,8 @@ The first visible shell must include:
 For a `MiniCRM`-style shell, the first visible pass can be as small as:
 - title: `Mini CRM`
 - subtitle: `Contacts and companies`
-- one contacts card/list container with a reserved live-count or first-item slot from `list_contacts`
-- one companies card/list container with a reserved live-count or first-item slot from `list_companies`
+- one `ContactTable` shared component instance with a reserved live-count or first-item slot from `list_contacts`
+- one `CompanyTable` shared component instance with a reserved live-count or first-item slot from `list_companies`
 - one loading/empty placeholder bound to the stub contract
 
 ## Two phases
@@ -90,15 +81,18 @@ The overall UX flow is incomplete if it stops forever at static copy such as:
 Before claiming the fast path complete, the page must show at least one real value that came from the stable public facade contract or the verified stub response.
 
 ## First proof sequence
-1. `databaseobject-tree-get` on `<PROJECT_NAME>.Application.NgxApp.Page.Content` proves `WelcomeCard` no longer dominates
-2. `project-save`
-3. `mobile-builder-open`
-4. if facade proof already exists, `requestable-execute` on the public facade plus one real bound value on screen
-5. browser smoke only after the visible shell exists
+1. `upsert-ngx-crud-kit` creates shared components under `<PROJECT_NAME>.Application.NgxApp`
+2. `crud-status` proves `starterDominant == false` and `visibleShellPresent == true`
+3. `databaseobject-tree-get` on `<PROJECT_NAME>.Application.NgxApp.Page.Content` proves the page uses `UIUseShared`
+4. `project-save`
+5. `mobile-builder-open`
+6. if facade proof already exists, `requestable-execute` on the public facade plus one real bound value on screen
+7. browser smoke only after the visible shell exists
 
 ## Do not do on first pass
 - do not create only a secondary page
 - do not keep the starter `WelcomeCard` as the main visible body
+- do not inline-build the whole first-pass CRUD page if `upsert-ngx-crud-kit` is applicable
 - do not loop on `palette-list`
 - do not use `batch-call` or a separate `databaseobject-delete` just to remove `WelcomeCard`; replace the dominant starter body by applying the first-write shape directly on `Application.NgxApp.Page.Content`
 - do not use `databaseobject-search`, `rag-query`, or repeated `palette-describe` calls before the first direct `databaseobject-tree-apply`

@@ -28,6 +28,9 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-delete`              | `tools_project_delete.yaml`                 | Delete one loaded project exactly by technical name, including its files and optional `.car` archive cleanup. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory; use it as rollback, not as a freshness step. Reloading the active MCP server project is forbidden because it would unload the running endpoint. |
+| `crud-status`                 | `tools_crud_status.yaml`                    | Inspect the current deterministic CRUD state for a project, connector, facade prefix, and visible UI target. |
+| `upsert-crud`                 | `tools_upsert_crud.yaml`                    | Create or update an idempotent SQL CRUD scaffold from a structured spec, optionally exposing public sequences and a visible NGX shell. |
+| `upsert-ngx-crud-kit`         | `tools_upsert_ngx_crud_kit.yaml`            | Create deterministic CRUD shared components under `Application.NgxApp`, then replace the visible starter body with a page assembled through `UIUseShared` + `UIUseVariable`. |
 | `report-create`              | `tools_report_create.yaml`                  | Write one structured field-feedback report under `feedback/inbox/YYYY/MM/`. Exposed only when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`. |
 | `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction against live Studio memory and return its payload for inspection (`includeLogs=true` appends execution logs). |
@@ -53,6 +56,11 @@ This is a filtered view of the resource catalog for template-bearing entries
 such as the SQL and NGX fast paths. Read the content itself through
 `resources/read`.
 
+For deterministic CRUD validation, also read
+`convertigo://resources/convertigo-crud-practical-cases`. It gives the direct
+tool-first order to prove HSQL, PostgreSQL, and MariaDB on fresh starter NGX
+projects before asking agents to improvise.
+
 ### Practical defaults
 
 Use these short forms first; keep advanced parameters for diagnostics only.
@@ -68,6 +76,9 @@ Use these short forms first; keep advanced parameters for diagnostics only.
 | `report-create` | `report-create {"area":"tool","subjectId":"databaseobject-tree-apply","severity":"medium","summary":"Iterator condition is hard to discover."}` | `area`, `subjectId`, `severity`, `summary` | `evidence`, `suggestion`, `rolePrompt`, `project`, `runMode`, `runId`, `provider`, `model` |
 | `requestable-stub-get` | `requestable-stub-get {"targetRequestable":"<project>[.<connector>].<requestable>"}` | `targetRequestable`, `stubFilename` | none |
 | `requestable-stub-set` | `requestable-stub-set {"targetRequestable":"<project>[.<connector>].<requestable>","content":"<document>...</document>"}` | `targetRequestable`, `content`, `stubFilename` | none |
+| `crud-status` | `crud-status {"project":"MiniCRM"}` | `project`, `connector`, `facadePrefix` | `mode`, `variant` |
+| `upsert-crud` | `upsert-crud {"spec":{...}}` | `spec`, `sequence`, `ui` | none |
+| `upsert-ngx-crud-kit` | `upsert-ngx-crud-kit {"project":"MiniCRM"}` | `project`, `entities`, `entryPage` | `variant`, `facadePrefix`, `runtimeEvidence` |
 
 Notes:
 - `marketplace-list` and `marketplace-import` are strict now: legacy aliases are rejected.
@@ -84,6 +95,32 @@ Notes:
 - `project-list-symbols` now defaults to project-local scope when `project` is provided. Use `scope=all` only when you explicitly want global/cross-project noise back.
 - `requestable-execute` reads the live in-memory Studio state. Saved mutations stay visible without reload; `project-reload` is rollback to disk, not a refresh primitive.
 - Never call `project-reload` on the active MCP server project itself. Use `project-save` to persist MCP project changes without unloading the endpoint.
+- `upsert-crud` and `upsert-ngx-crud-kit` trigger a Studio Project Explorer refresh on the project root after a successful save, so newly created connectors, sequences, and visible NGX shell changes appear without a manual refresh.
+
+### Direct CRUD proof order
+
+For a standard starter NGX + SQL CRUD scenario, use this direct order before routing
+work through the multi-agent wrapper:
+
+1. `upsert-crud` with a fully explicit `spec`
+2. `crud-status`
+3. `requestable-execute` on:
+   - `init_schema`
+   - `list_contacts`
+   - `count_contacts`
+   - `list_companies`
+   - `count_companies`
+4. `upsert-ngx-crud-kit`
+5. final `crud-status`
+
+Proof is sufficient when:
+- `upsert-crud.status == "success"`
+- `crud-status.transactions.missing == []`
+- `crud-status.sequences.missing == []` when sequences are enabled
+- final `crud-status.ui.starterDominant == false`
+- final `crud-status.ui.visibleShellPresent == true`
+- the target application contains shared components such as `ContactTable`, `ContactCard`, `ContactForm`, `CompanyTable`, `CompanyCard`, `CompanyForm` under `<PROJECT>.Application.NgxApp`
+- the visible entry page composes those components through `UIUseShared` with `sharedcomponent` references pointing to the local shared component QNames
 
 ### Pagination helpers
 

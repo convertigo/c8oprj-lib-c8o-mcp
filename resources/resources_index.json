@@ -38,7 +38,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_platform_big_picture.md",
     "guideId": "convertigo/platform-big-picture",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": ["start", "platform", "architecture", "mindset"],
     "prerequisites": ["convertigo/start@1"],
     "recommendedTools": [
@@ -349,15 +349,15 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_hsqldb.md",
     "guideId": "convertigo/fast-path-sql-hsqldb",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": ["workflow", "recipe", "sql", "fast-path", "hsqldb"],
     "prerequisites": [
       "convertigo/recipe-sql-crud@3"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
-      "databaseobject-tree-apply",
-      "requestable-stub-set",
+      "upsert-crud",
+      "crud-status",
       "requestable-execute",
       "project-save"
     ],
@@ -388,6 +388,62 @@
     ]
   },
   {
+    "uri": "convertigo://resources/convertigo-fast-path-sql-postgresql",
+    "name": "Convertigo Fast Path SQL PostgreSQL",
+    "title": "Convertigo Fast Path SQL PostgreSQL",
+    "description": "Literal first-pass template for a PostgreSQL connector with init/list/count proof.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_fast_path_sql_postgresql.md",
+    "guideId": "convertigo/fast-path-sql-postgresql",
+    "revision": 1,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "sql",
+      "fast-path",
+      "postgresql"
+    ],
+    "prerequisites": [
+      "convertigo/recipe-sql-crud@3"
+    ],
+    "recommendedTools": [
+      "project-list-symbols",
+      "databaseobject-tree-get",
+      "upsert-crud",
+      "crud-status",
+      "requestable-execute",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-planner",
+      "convertigo-sql",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false,
+    "resourceKind": "template",
+    "templateId": "convertigo/fast-path-sql-postgresql",
+    "templateKind": "fast-path",
+    "templateVariables": [
+      "projectName",
+      "connectorName",
+      "facadeSequence",
+      "dbHost",
+      "dbPort",
+      "dbName",
+      "dbUser",
+      "dbPassword"
+    ],
+    "canonicalTargets": [
+      "<project>.<connector>",
+      "<project>.<connector>.init_schema",
+      "<project>.<connector>.list_contacts",
+      "<project>.<connector>.count_contacts",
+      "<project>.<connector>.list_companies",
+      "<project>.<connector>.count_companies"
+    ]
+  },
+  {
     "uri": "convertigo://resources/convertigo-fast-path-sql-mariadb",
     "name": "Convertigo Fast Path SQL MariaDB",
     "title": "Convertigo Fast Path SQL MariaDB",
@@ -395,7 +451,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_mariadb.md",
     "guideId": "convertigo/fast-path-sql-mariadb",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": ["workflow", "recipe", "sql", "fast-path", "mariadb"],
     "prerequisites": [
       "convertigo/recipe-sql-crud@3"
@@ -403,8 +459,8 @@
     "recommendedTools": [
       "project-list-symbols",
       "databaseobject-tree-get",
-      "databaseobject-tree-apply",
-      "requestable-stub-set",
+      "upsert-crud",
+      "crud-status",
       "requestable-execute",
       "project-save"
     ],
@@ -436,6 +492,48 @@
       "<project>.<connector>.list_companies",
       "<project>.<connector>.count_companies"
     ]
+  },
+  {
+    "uri": "convertigo://resources/convertigo-crud-practical-cases",
+    "name": "Convertigo CRUD Practical Cases",
+    "title": "Convertigo CRUD Practical Cases",
+    "description": "Copyable direct MCP flows for proving deterministic CRUD on fresh starter NGX projects.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_crud_practical_cases.md",
+    "guideId": "convertigo/crud-practical-cases",
+    "revision": 1,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "crud",
+      "sql",
+      "ngx",
+      "validation"
+    ],
+    "prerequisites": [
+      "convertigo/recipe-sql-crud@4",
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
+      "convertigo/fast-path-ngx-entry-shell@3"
+    ],
+    "recommendedTools": [
+      "upsert-crud",
+      "crud-status",
+      "requestable-execute",
+      "upsert-ngx-crud-kit",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-quickstart",
+      "convertigo-planner",
+      "convertigo-sql",
+      "convertigo-backend",
+      "convertigo-frontend-ngx",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
   },
   {
     "uri": "convertigo://resources/convertigo-integration-sql",
@@ -474,7 +572,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_ngx_data_page.md",
     "guideId": "convertigo/recipe-ngx-data-page",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": ["workflow", "recipe", "frontend", "ngx", "data-page"],
     "prerequisites": [
       "convertigo/start@1",
@@ -514,7 +612,8 @@
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
-      "databaseobject-tree-apply",
+      "upsert-ngx-crud-kit",
+      "crud-status",
       "mobile-builder-open",
       "project-save"
     ],

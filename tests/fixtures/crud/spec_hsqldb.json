@@ -1,0 +1,48 @@
+{
+  "project": "CrudSmokeHsql",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "crudsmoke_hsql",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "crm",
+    "publicListSequence": "crm_list"
+  },
+  "entities": [
+    {
+      "name": "contacts",
+      "label": "Contacts",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "type": "VARCHAR(128)" },
+        { "name": "LastName", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true }
+      ]
+    },
+    {
+      "name": "companies",
+      "label": "Companies",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Industry", "type": "VARCHAR(128)" },
+        { "name": "City", "type": "VARCHAR(128)" }
+      ]
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 2
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "dashboard"
+  }
+}

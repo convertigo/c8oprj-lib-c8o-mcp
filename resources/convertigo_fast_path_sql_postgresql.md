@@ -1,14 +1,14 @@
-# Convertigo Fast Path: MariaDB Docker SQL Scaffold
+# Convertigo Fast Path: PostgreSQL SQL Scaffold
 
 ## When to use this
-Use this fast path when the brief selects MariaDB via local Docker Compose and the first milestone is a deterministic read path behind a stable facade contract.
+Use this fast path when the brief selects PostgreSQL and the first milestone is a deterministic read path behind a stable facade contract.
 
 ## Fast-path id
-- `mariadb-docker`
+- `postgresql-service`
 
 ## Scope
 Drive the first SQL pass mechanically:
-- create or validate one MariaDB connector
+- create or validate one PostgreSQL connector
 - create `init_schema`
 - create `list_contacts` / `count_contacts`
 - create `list_companies` / `count_companies`
@@ -39,8 +39,8 @@ Use the literal tree pattern below as the first `databaseobject-tree-apply`, the
   "className": "connectors.SqlConnector",
   "name": "<CONNECTOR_NAME>",
   "properties": {
-    "jdbcDriverClassName": "org.mariadb.jdbc.Driver",
-    "jdbcURL": "jdbc:mariadb://<DB_HOST>:<DB_PORT>/<DB_NAME>",
+    "jdbcDriverClassName": "org.postgresql.Driver",
+    "jdbcURL": "jdbc:postgresql://<DB_HOST>:<DB_PORT>/<DB_NAME>",
     "jdbcUserName": "<DB_USER>",
     "jdbcUserPassword": "<DB_PASSWORD>"
   },
@@ -75,7 +75,7 @@ Keep the first pass restricted to schema plus read proof. Copy these statements 
 ### `init_schema`
 ```sql
 CREATE TABLE IF NOT EXISTS contacts (
-  id INT AUTO_INCREMENT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   full_name VARCHAR(128) NOT NULL,
   company_name VARCHAR(128),
   email VARCHAR(160),
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS contacts (
 );
 
 CREATE TABLE IF NOT EXISTS companies (
-  id INT AUTO_INCREMENT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   company_name VARCHAR(128) NOT NULL,
   industry VARCHAR(64),
   city VARCHAR(96),
@@ -140,8 +140,8 @@ Run these in order before claiming success:
 - no advanced pagination
 - no search/sort extras
 - no write-path family unless the brief explicitly requires it
-- no schema exploration beyond the connector plus the five transactions above
+- no dialect exploration beyond the connector plus the five transactions above
 
 ## Expected specialist output anchors
 - `Primary Target`: `<PROJECT_NAME>.<CONNECTOR_NAME>`
-- `Fast-Path Used`: `mariadb-docker`
+- `Fast-Path Used`: `postgresql-service`

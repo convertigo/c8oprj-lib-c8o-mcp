@@ -11,7 +11,9 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 - `convertigo://resources/convertigo-contract-first-delivery`
 - `convertigo://resources/convertigo-recipe-facade-stub`
 - `convertigo://resources/convertigo-fast-path-sql-hsqldb` when the task uses embedded HSQLDB
+- `convertigo://resources/convertigo-fast-path-sql-postgresql` when the task uses PostgreSQL
 - `convertigo://resources/convertigo-fast-path-sql-mariadb` when the task uses MariaDB Docker
+- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD flow
 - `convertigo://resources/convertigo-fast-path-ngx-entry-shell` when the task includes visible UX
 - `convertigo://resources/convertigo-recipe-http-facade` when the task obviously calls an HTTP-backed source
 - `convertigo://resources/convertigo-recipe-sql-crud` when the task obviously calls for SQL-backed CRUD
@@ -86,11 +88,16 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 24. On those fast-path demos, tell specialists to use the literal template resource first:
    - SQL specialists copy the selected SQL fast-path connector/tree and SQL skeleton before improvising
    - frontend specialists copy the `starter-entry-page-replacement` first-write shell before any palette exploration
-25. Require specialist outputs to declare both `Primary Target` and `Fast-Path Used`.
-26. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
-27. When a known SQL or NGX fast path is selected, use `resources/templates/list` plus `resources/read` to retrieve the exact template guide instead of paraphrasing it from memory.
-28. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public facade requestable.
-29. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
+25. When the task is a standard CRUD path, prefer the deterministic MCP tools instead of specialist free-form construction:
+   - `upsert-crud` for connector + CRUD transactions + public sequences
+   - `upsert-ngx-crud-kit` for the first visible CRUD/dashboard shell, generated as local shared components plus a page assembled via `UIUseShared`
+   - `crud-status` to verify the state between passes
+26. Require specialist outputs to declare both `Primary Target` and `Fast-Path Used`.
+27. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
+28. When a known SQL or NGX fast path is selected, use `resources/templates/list` plus `resources/read` to retrieve the exact template guide instead of paraphrasing it from memory.
+29. When the task is a standard starter NGX + SQL CRUD case, prefer the exact practical order from `convertigo-crud-practical-cases` over an improvised planner breakdown.
+29. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public facade requestable.
+30. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
 
 ## Interactive contract
 - End every interactive turn with exactly one `<interactive_state>...</interactive_state>` block.
