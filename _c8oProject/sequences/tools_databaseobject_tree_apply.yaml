@@ -342,6 +342,10 @@ comment: |
   comment: Default true. Refreshes the Studio tree from the computed common ancestor.
   description: Default true. Refreshes the Studio tree from the computed common ancestor.
   value: true
+↓optimizeMutations [variables.RequestableVariable-1773334001001]: 
+  comment: Set true to defer save, Studio refresh, and mobile-builder finalization for this mutation so a higher-level batch can finalize once.
+  description: Set true to defer save, Studio refresh, and mobile-builder finalization for this mutation so a higher-level batch can finalize once.
+  value: false
 ↓triggerMobileBuilder [variables.RequestableVariable-1772721701002]: 
   comment: Default true. Triggers mobile-builder refresh after mobile-impacting mutations.
   description: Default true. Triggers mobile-builder refresh after mobile-impacting mutations.

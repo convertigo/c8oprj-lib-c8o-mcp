@@ -1029,6 +1029,57 @@ C8O.dbo._isMobileSmartSourceTypeClass = function (propertyType) {
   }
 };
 
+C8O.dbo._isXmlQNameClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var xmlQNameClass = Packages.java.lang.Class.forName("com.twinsoft.convertigo.beans.common.XmlQName");
+    return xmlQNameClass.isAssignableFrom(propertyType);
+  } catch (_ignoreXmlQName) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === "com.twinsoft.convertigo.beans.common.XmlQName";
+    } catch (_ignoreXmlQNameName) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._isXMLRectangleClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var xmlRectangleClass = Packages.java.lang.Class.forName("com.twinsoft.convertigo.beans.common.XMLRectangle");
+    return xmlRectangleClass.isAssignableFrom(propertyType);
+  } catch (_ignoreXmlRectangle) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === "com.twinsoft.convertigo.beans.common.XMLRectangle";
+    } catch (_ignoreXmlRectangleName) {
+      return false;
+    }
+  }
+};
+
+C8O.dbo._isFontSourceClass = function (propertyType) {
+  if (propertyType == null) {
+    return false;
+  }
+  try {
+    var fontSourceClass = Packages.java.lang.Class.forName("com.twinsoft.convertigo.beans.common.FontSource");
+    return fontSourceClass.isAssignableFrom(propertyType);
+  } catch (_ignoreFontSource) {
+    try {
+      var className = propertyType.getName ? String(propertyType.getName()) : String(propertyType);
+      return className === "com.twinsoft.convertigo.beans.common.FontSource";
+    } catch (_ignoreFontSourceName) {
+      return false;
+    }
+  }
+};
+
 C8O.dbo._normalizeMobileSmartSourceType = function (mobileSmartValue) {
   var normalized = {
     mode: "PLAIN",

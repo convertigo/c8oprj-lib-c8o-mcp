@@ -180,6 +180,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: "merge",
           description: "Allowed values: merge or replace. replace also removes children missing from the patched scope."
         },
+        optimizeMutations: booleanFlagSchema(
+          false,
+          "Set true to defer save, Studio refresh, and mobile-builder finalization for this mutation so a higher-level batch can finalize once."
+        ),
         tree: Object.assign(treeNodeSchema(), {
           description: "Canonical node payload using the tree-get shape. Read-only top-level fields such as qname, depth, hasChildren, directChildrenCount, subtreeCount, and priority are ignored."
         })
@@ -352,7 +356,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         qname: { type: "string", description: "Existing QName. Case-sensitive." },
         autoSave: booleanFlagSchema(true, "Set false to keep the deletion in memory and skip project export."),
-        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
+        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh."),
+        optimizeMutations: booleanFlagSchema(
+          false,
+          "Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once."
+        )
       },
       additionalProperties: false
     };
@@ -373,7 +381,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Allowed values: inside, before, after. inside moves under the target; before or after reorders next to it."
         },
         autoSave: booleanFlagSchema(true, "Set false to keep the move in memory and skip project export."),
-        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
+        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh."),
+        optimizeMutations: booleanFlagSchema(
+          false,
+          "Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once."
+        )
       },
       additionalProperties: false
     };
@@ -391,7 +403,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Allowed values: update_none, update_local, update_all. Controls how references are rewritten after the rename."
         },
         autoSave: booleanFlagSchema(true, "Set false to keep the rename in memory and skip project export."),
-        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
+        refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh."),
+        optimizeMutations: booleanFlagSchema(
+          false,
+          "Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once."
+        )
       },
       additionalProperties: false
     };

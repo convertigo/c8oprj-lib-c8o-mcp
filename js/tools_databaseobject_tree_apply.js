@@ -39,8 +39,15 @@ var onErrorInput = (typeof onError !== "undefined") ? onError : "stop";
 var resumeFromInput = (typeof resumeFrom !== "undefined") ? resumeFrom : null;
 var executionIdInput = (typeof executionId !== "undefined") ? executionId : null;
 var dryRunInput = (typeof dryRun !== "undefined") ? dryRun : false;
+var optimizeMutationsInput = (typeof optimizeMutations !== "undefined") ? optimizeMutations : false;
 var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
 var triggerMobileBuilderInput = (typeof triggerMobileBuilder !== "undefined") ? triggerMobileBuilder : true;
+var optimizeMutationsFlag = asBoolean(optimizeMutationsInput, false) === true;
+if (optimizeMutationsFlag) {
+  autoSaveInput = false;
+  refreshInput = false;
+  triggerMobileBuilderInput = false;
+}
 
 var targetInput = asTrimmed(target);
 if (!targetInput.length) {

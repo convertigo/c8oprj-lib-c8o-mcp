@@ -28,6 +28,78 @@ comment: Launch project mobile builder in Studio (Execute / build-serve), option
       } catch (_ignoreParseInteger) {}
       return defaultValue;
     };
+    var parsePortFromUrl = function(url) {
+      var text = trim(url);
+      if (!text.length) {
+        return 0;
+      }
+      var match = /https?:\/\/[^/:]+:(\d+)/i.exec(text);
+      if (match && match.length > 1) {
+        try {
+          return parseInt(match[1], 10);
+        } catch (_ignoreParsePort) {}
+      }
+      return 0;
+    };
+    var readPrivateField = function(target, fieldName) {
+      if (target == null || !fieldName) {
+        return null;
+      }
+      try {
+        var clazz = target.getClass ? target.getClass() : null;
+        while (clazz != null) {
+          try {
+            var field = clazz.getDeclaredField(String(fieldName));
+            field.setAccessible(true);
+            return field.get(target);
+          } catch (_ignoreMissingField) {
+            clazz = clazz.getSuperclass ? clazz.getSuperclass() : null;
+          }
+        }
+      } catch (_ignoreReadField) {}
+      return null;
+    };
+    var readEditorState = function(editorRef) {
+      var state = {
+        port: 0,
+        viewerUrl: ""
+      };
+      if (editorRef == null) {
+        return state;
+      }
+      try {
+        var rawPort = readPrivateField(editorRef, "portNode");
+        if (rawPort != null) {
+          var parsedPort = parseInt(String(rawPort), 10);
+          if (!isNaN(parsedPort) && parsedPort > 0) {
+            state.port = parsedPort;
+          }
+        }
+      } catch (_ignoreEditorPort) {}
+      try {
+        if (editorRef.getCurrentUrl) {
+          var currentUrl = trim(editorRef.getCurrentUrl());
+          if (currentUrl.length && currentUrl !== "about:blank") {
+            state.viewerUrl = currentUrl;
+          }
+        }
+      } catch (_ignoreCurrentUrl) {}
+      if (!state.viewerUrl.length) {
+        try {
+          var baseUrl = trim(readPrivateField(editorRef, "baseUrl"));
+          if (baseUrl.length) {
+            state.viewerUrl = baseUrl;
+          }
+        } catch (_ignoreBaseUrl) {}
+      }
+      if (!(state.port > 0) && state.viewerUrl.length) {
+        state.port = parsePortFromUrl(state.viewerUrl);
+      }
+      if (!state.viewerUrl.length && state.port > 0) {
+        state.viewerUrl = "http://localhost:" + state.port;
+      }
+      return state;
+    };
     var runInUiThread = function(action) {
       var display = Display.getDefault();
       if (display == null) {
@@ -365,6 +437,8 @@ comment: Launch project mobile builder in Studio (Execute / build-serve), option
     resultBuildErrorDetected = false;
     resultBuildLogExcerpt = "";
     resultBuildErrorExcerpt = "";
+    resultBuilderViewerUrl = "";
+    resultBuilderPort = 0;
     var launchedBuilder = null;
     try {
       if (!resultStudioMode) {
@@ -420,6 +494,9 @@ comment: Launch project mobile builder in Studio (Execute / build-serve), option
           if (editor == null) {
             throw new Error("Unable to retrieve the application component editor.");
           }
+          var editorState = readEditorState(editor);
+          resultBuilderViewerUrl = editorState.viewerUrl;
+          resultBuilderPort = editorState.port;
           launchedBuilder = resolvedProject.getMobileBuilder();
           resultBuilderWasRunning = isBuilderRunning(launchedBuilder, null);
           resultBuilderProcessRunning = isProjectNodeProcessRunning(requestedProject);
@@ -492,7 +569,7 @@ comment: Launch project mobile builder in Studio (Execute / build-serve), option
           if (Engine.logStudio != null) {
             try { Engine.logStudio.info(resultBuildMarker + " END"); } catch (_ignoreMarkerEnd) {}
           }
-          var markerForLogs = (resultLaunchAction === "logs_only") ? "" : resultBuildMarker;
+          var markerForLogs = (resultLaunchAction === "logs_only" || resultLaunchAction === "already_running") ? "" : resultBuildMarker;
           var summary = collectBuildSummary(markerForLogs, requestedProject, 3145728, 150, 24000);
           resultBuildStatus = summary.status;
           resultBuildLogPath = summary.logPath;
@@ -501,6 +578,20 @@ comment: Launch project mobile builder in Studio (Execute / build-serve), option
           resultBuildErrorDetected = summary.errorDetected;
           resultBuildLogExcerpt = summary.excerpt;
           resultBuildErrorExcerpt = summary.errorExcerpt;
+          if (resultBuildStatus === "unknown" &&
+              resultLaunchAction === "already_running" &&
+              resultBuilderProcessRunning &&
+              !resultBuildErrorDetected &&
+              (resultBuilderPort > 0 || resultBuilderViewerUrl.length)) {
+            resultBuildStatus = "success";
+            resultBuildLogCaptured = true;
+            if (resultBuildLogLines < 1) {
+              resultBuildLogLines = 1;
+            }
+            if (!resultBuildLogExcerpt.length) {
+              resultBuildLogExcerpt = "Builder already running; reused live-reload endpoint " + (resultBuilderViewerUrl.length ? resultBuilderViewerUrl : ("http://localhost:" + resultBuilderPort));
+            }
+          }
         } else {
           resultBuildStatus = "not_collected";
         }

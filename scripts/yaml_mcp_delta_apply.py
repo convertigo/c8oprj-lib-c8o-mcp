@@ -5,7 +5,9 @@ POC: apply YAML scalar deltas to Convertigo Studio memory through MCP tools.
 Goal:
 - Keep a YAML-first workflow.
 - Avoid full project reload for simple property edits.
-- Push only changed scalar properties via `databaseobject-properties-set`.
+- Push only changed scalar properties via `databaseobject-tree-apply`.
+- When running in the common apply mode (`--save --refresh`), batch mutations so
+  Studio refresh/save/mobile-builder finalization happen once at the end.
 
 Current scope:
 - Synchronizes inline bean structure recursively (create/delete/reorder) when `--structural` is set.
@@ -23,9 +25,11 @@ Current scope:
 - Skips unsupported nested/XMLizable formats, plus attributes (`↑`) and text nodes (`→`) as standalone properties.
 - Descends only into inline children inside a file; `🗏` children are handled by their own subfiles.
 - Uses MCP tools:
-  - databaseobject-properties-get
-  - databaseobject-properties-set
-  - databaseobject-create/delete/move (optional structural sync)
+  - databaseobject-tree-get
+  - databaseobject-tree-apply
+  - databaseobject-tree-apply
+  - databaseobject-delete/move (optional structural sync)
+  - batch-call (optimized mutation finalization when save+refresh are requested)
   - requestable-execute (optional internal_studio_refresh)
   - requestable-execute (optional internal_studio_autobuild)
   - requestable-execute (optional internal_studio_ngx_sources_sync)
@@ -300,6 +304,30 @@ def bean_data_equal(current: Any, desired: Any) -> bool:
     return False
 
 
+def extract_ionbean_name(raw_value: Any) -> str | None:
+    parsed = parse_json_value(raw_value)
+    if not isinstance(parsed, dict):
+        return None
+    bean_name, _props, ok = canonical_bean_data(parsed)
+    if not ok or not bean_name:
+        return None
+    return str(bean_name).strip() or None
+
+
+def to_tree_apply_class_name(class_name: str | None, scalar_props: dict[str, Any]) -> str | None:
+    if not class_name:
+        return None
+    text = str(class_name).strip()
+    if not text or "#" in text:
+        return text
+    if "UIDynamic" not in text:
+        return text
+    bean_name = extract_ionbean_name(scalar_props.get("beanData"))
+    if not bean_name:
+        return text
+    return f"{text}#{bean_name}"
+
+
 def format_fontsource_display(spec: dict[str, Any]) -> str:
     family = str(spec.get("fontFamily") or "").strip()
     weight = str(spec.get("fontWeight") or "").strip()
@@ -537,6 +565,52 @@ class SyncStats:
     structural_delete_ops: int = 0
     property_updates: int = 0
     touched_qnames: set[str] = field(default_factory=set)
+
+
+def queue_mutation_call(
+    mutation_calls: list[dict[str, Any]] | None,
+    tool: str,
+    arguments: dict[str, Any],
+) -> None:
+    if mutation_calls is None:
+        return
+    mutation_calls.append({"tool": tool, "arguments": arguments})
+
+
+def build_tree_apply_mutation_args(
+    target: str,
+    *,
+    at: str,
+    tree: dict[str, Any],
+    mode: str = "merge",
+) -> dict[str, Any]:
+    return {
+        "target": target,
+        "at": at,
+        "mode": mode,
+        "tree": tree,
+        "autoSave": False,
+        "refresh": False,
+        "triggerMobileBuilder": False,
+    }
+
+
+def build_delete_mutation_args(qname: str) -> dict[str, Any]:
+    return {
+        "qname": qname,
+        "autoSave": False,
+        "refresh": False,
+    }
+
+
+def build_move_mutation_args(qname: str, target: str, position: str) -> dict[str, Any]:
+    return {
+        "qname": qname,
+        "target": target,
+        "position": position,
+        "autoSave": False,
+        "refresh": False,
+    }
 
 def resolve_include_path(current_file: Path, project_root: Path, rel_path: str) -> Path:
     if current_file.name == "c8oProject.yaml":
@@ -1152,29 +1226,27 @@ class McpClient:
 
 
 def get_runtime_children(client: McpClient, parent_qname: str) -> tuple[list[dict[str, Any]], list[str]]:
-    warnings: list[str] = []
-    all_children: list[dict[str, Any]] = []
-    cursor = ""
-    page_guard = 0
-    while True:
-        args: dict[str, Any] = {"qname": parent_qname, "depth": "1", "limit": "200"}
-        if cursor:
-            args["_nextCursor"] = cursor
-        result = client.tool_call("databaseobject-children", args)
-        children = result.get("children")
-        if not isinstance(children, list):
-            raise RuntimeError(f"{parent_qname}: databaseobject-children returned unexpected payload")
-        all_children.extend(children)
-        cursor = str(result.get("nextCursor") or "").strip()
-        if not cursor:
-            break
-        page_guard += 1
-        if page_guard > 100:
-            warnings.append(f"{parent_qname}: pagination guard reached while listing children")
-            break
+    tree, warnings = get_runtime_tree(
+        client,
+        parent_qname,
+        children_depth=1,
+        properties_mode="none",
+        limit=200,
+    )
+    return normalize_runtime_children_from_tree(parent_qname, tree), warnings
 
+
+def normalize_runtime_children_from_tree(
+    parent_qname: str,
+    tree: dict[str, Any],
+) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
-    for entry in all_children:
+    children = tree.get("children")
+    if children is None:
+        children = []
+    if not isinstance(children, list):
+        raise RuntimeError(f"{parent_qname}: databaseobject-tree-get returned unexpected payload (invalid children)")
+    for entry in children:
         if not isinstance(entry, dict):
             continue
         name = entry.get("name")
@@ -1189,7 +1261,46 @@ def get_runtime_children(client: McpClient, parent_qname: str) -> tuple[list[dic
                 "className": str(class_name) if class_name is not None else "",
             }
         )
-    return normalized, warnings
+    return normalized
+
+
+def build_runtime_child_tree_map(tree: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    children = tree.get("children")
+    if children is None or not isinstance(children, list):
+        return {}
+
+    by_name: dict[str, dict[str, Any]] = {}
+    alias_conflicts: set[str] = set()
+
+    for child in children:
+        if not isinstance(child, dict):
+            continue
+        raw_name = str(child.get("name") or "")
+        if not raw_name:
+            continue
+        by_name.setdefault(raw_name, child)
+
+    for child in children:
+        if not isinstance(child, dict):
+            continue
+        raw_name = str(child.get("name") or "")
+        if not raw_name:
+            continue
+        alias = strip_runtime_name_prefix(raw_name)
+        if alias == raw_name:
+            continue
+        existing = by_name.get(alias)
+        if existing is None:
+            by_name[alias] = child
+            continue
+        existing_qname = str(existing.get("qname") or "")
+        current_qname = str(child.get("qname") or "")
+        if existing_qname and current_qname and existing_qname != current_qname:
+            alias_conflicts.add(alias)
+
+    for alias in alias_conflicts:
+        by_name.pop(alias, None)
+    return by_name
 
 
 def list_runtime_projects(client: McpClient) -> set[str]:
@@ -1221,22 +1332,169 @@ def class_names_match(runtime_class: str, desired_class: str | None) -> bool:
         return True
     rc = runtime_class.strip()
     dc = desired_class.strip()
+    rc_base = rc.split("#", 1)[0]
+    dc_base = dc.split("#", 1)[0]
     if rc == dc:
+        return True
+    if rc_base == dc_base:
         return True
     # Accept fully-qualified class names too.
     if rc.endswith("." + dc):
         return True
     if dc.endswith("." + rc):
         return True
+    if rc_base.endswith("." + dc_base):
+        return True
+    if dc_base.endswith("." + rc_base):
+        return True
     return False
 
 
 def runtime_node_exists(client: McpClient, qname: str) -> bool:
     try:
-        client.tool_call("databaseobject-properties-get", {"qname": qname, "limit": "1"})
-        return True
+        tree, _warnings = get_runtime_tree(
+            client,
+            qname,
+            children_depth=0,
+            properties_mode="none",
+            limit=1,
+        )
+        return bool(tree.get("qname"))
     except Exception:
         return False
+
+
+def get_runtime_tree(
+    client: McpClient,
+    qname: str,
+    *,
+    children_depth: int,
+    properties_mode: str,
+    limit: int,
+) -> tuple[dict[str, Any], list[str]]:
+    warnings: list[str] = []
+    result = client.tool_call(
+        "databaseobject-tree-get",
+        {
+            "target": qname,
+            "childrenDepth": children_depth,
+            "properties": properties_mode,
+            "limit": limit,
+        },
+    )
+    tree = result.get("tree")
+    if not isinstance(tree, dict):
+        raise RuntimeError(f"{qname}: databaseobject-tree-get returned unexpected payload (missing tree)")
+    if bool(result.get("hasMore")):
+        warnings.append(f"{qname}: databaseobject-tree-get truncated runtime payload; using first page only")
+    return tree, warnings
+
+
+def get_runtime_property_map(
+    client: McpClient,
+    qname: str,
+    prop_names: list[str],
+    runtime_tree: dict[str, Any] | None = None,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    if runtime_tree is None:
+        tree, warnings = get_runtime_tree(
+            client,
+            qname,
+            children_depth=0,
+            properties_mode="all",
+            limit=1,
+        )
+    else:
+        tree = runtime_tree
+        warnings = []
+    props = tree.get("properties")
+    if not isinstance(props, dict):
+        return {}, warnings + [f"{qname}: unexpected tree-get payload (missing properties object)"]
+
+    current_map: dict[str, dict[str, Any]] = {}
+    prop_names_lc = {name.lower(): name for name in prop_names}
+    for raw_name, raw_entry in props.items():
+        runtime_name = str(raw_name)
+        desired_name = prop_names_lc.get(runtime_name.lower(), runtime_name)
+        if isinstance(raw_entry, dict):
+            entry = dict(raw_entry)
+        else:
+            entry = {"value": raw_entry}
+        entry.setdefault("name", desired_name)
+        current_map[desired_name] = entry
+    return current_map, warnings
+
+
+def yaml_node_to_tree_payload(node: YamlNode) -> dict[str, Any]:
+    tree: dict[str, Any] = {"name": node.name}
+    tree_class_name = to_tree_apply_class_name(node.class_name, node.scalar_props)
+    if tree_class_name:
+        tree["className"] = tree_class_name
+    if node.scalar_props:
+        tree["properties"] = dict(node.scalar_props)
+    inline_children = [yaml_node_to_tree_payload(child) for child in node.children if not child.file_backed]
+    if inline_children:
+        tree["children"] = inline_children
+    return tree
+
+
+def create_runtime_child(
+    client: McpClient,
+    parent_qname: str,
+    child: YamlNode,
+) -> dict[str, Any]:
+    result = client.tool_call(
+        "databaseobject-tree-apply",
+        {
+            "target": parent_qname,
+            "at": "inside",
+            "mode": "merge",
+            "tree": yaml_node_to_tree_payload(child),
+        },
+    )
+    summary = result.get("summary")
+    if isinstance(summary, dict):
+        created = int(summary.get("created") or 0)
+        applied = int(summary.get("applied") or 0)
+        successful = int(summary.get("successfulOps") or 0)
+        failed = int(summary.get("failedOps") or 0)
+        if failed > 0:
+            raise RuntimeError(
+                f"{parent_qname}.{child.name}: databaseobject-tree-apply reported failedOps={failed}"
+            )
+        if created <= 0 and applied <= 0 and successful <= 0:
+            raise RuntimeError(
+                f"{parent_qname}.{child.name}: databaseobject-tree-apply reported no effective mutation"
+            )
+    return result
+
+
+def apply_runtime_properties(
+    client: McpClient,
+    qname: str,
+    updates: dict[str, Any],
+) -> tuple[int, list[str]]:
+    result = client.tool_call(
+        "databaseobject-tree-apply",
+        {
+            "target": qname,
+            "at": "self",
+            "mode": "merge",
+            "tree": {"properties": updates},
+        },
+    )
+    warnings: list[str] = []
+    summary = result.get("summary")
+    if isinstance(summary, dict):
+        failed = int(summary.get("failedOps") or 0)
+        updated = int(summary.get("updatedProperties") or 0)
+        partial = int(summary.get("partialOps") or 0)
+        if failed > 0:
+            raise RuntimeError(f"{qname}: databaseobject-tree-apply reported failedOps={failed}")
+        if partial > 0:
+            warnings.append(f"{qname}: databaseobject-tree-apply reported partialOps={partial}")
+        return updated, warnings
+    return len(updates), warnings
 
 
 def call_refresh(client: McpClient, qname: str, changed_properties: list[str] | None = None) -> str:
@@ -1297,43 +1555,139 @@ def call_ngx_sources_sync(
     return {}
 
 
+def execute_mutation_batch(
+    client: McpClient,
+    mutation_calls: list[dict[str, Any]],
+) -> tuple[dict[str, Any], list[str]]:
+    result = client.tool_call(
+        "batch-call",
+        {
+            "calls": mutation_calls,
+            "onError": "stop",
+            "optimizeMutations": True,
+        },
+    )
+
+    warnings: list[str] = []
+    status = str(result.get("status") or "").strip().lower()
+    summary = result.get("summary")
+    if not isinstance(summary, dict):
+        summary = {}
+    failed_calls = int(summary.get("failedCalls") or 0)
+    partial_calls = int(summary.get("partialCalls") or 0)
+    if status != "ok" or failed_calls > 0 or partial_calls > 0:
+        raise RuntimeError(
+            "batch-call reported "
+            f"status={status or 'unknown'}, failedCalls={failed_calls}, partialCalls={partial_calls}"
+        )
+
+    errors = result.get("errors")
+    if isinstance(errors, list) and errors:
+        joined = ", ".join(
+            str(entry.get("message") or entry.get("code") or entry)
+            for entry in errors
+            if entry
+        )
+        raise RuntimeError(f"batch-call returned errors: {joined}")
+
+    mutation_finalize = result.get("mutationFinalize")
+    if isinstance(mutation_finalize, dict):
+        finalize_errors = mutation_finalize.get("errors")
+        if isinstance(finalize_errors, list) and finalize_errors:
+            joined = ", ".join(
+                str(entry.get("message") or entry.get("code") or entry)
+                for entry in finalize_errors
+                if entry
+            )
+            raise RuntimeError(f"batch-call finalization reported errors: {joined}")
+        refresh_qname = str(mutation_finalize.get("refreshQName") or "").strip()
+        if refresh_qname:
+            print(f"REFRESH {refresh_qname}: batched")
+        save_results = mutation_finalize.get("saveResults")
+        if isinstance(save_results, list):
+            for entry in save_results:
+                if isinstance(entry, dict):
+                    project = str(entry.get("project") or "").strip()
+                    saved = bool(entry.get("saved"))
+                    message = str(entry.get("message") or "").strip()
+                    label = project or "project"
+                    print(f"SAVE {label}: {'done' if saved else (message or 'skipped')}")
+        mobile_builder = mutation_finalize.get("mobileBuilder")
+        if isinstance(mobile_builder, list):
+            for entry in mobile_builder:
+                if not isinstance(entry, dict):
+                    continue
+                project = str(entry.get("project") or "").strip()
+                triggered = bool(entry.get("triggered"))
+                message = str(entry.get("message") or "").strip()
+                label = project or "project"
+                if triggered or message:
+                    print(f"MOBILE_BUILDER {label}: {message or 'triggered'}")
+
+    calls = result.get("calls")
+    if isinstance(calls, list):
+        for call in calls:
+            if not isinstance(call, dict):
+                continue
+            call_warnings = call.get("warnings")
+            if not isinstance(call_warnings, list):
+                continue
+            for entry in call_warnings:
+                if isinstance(entry, dict):
+                    msg = str(entry.get("message") or entry.get("code") or "").strip()
+                else:
+                    msg = str(entry).strip()
+                if msg:
+                    warnings.append(msg)
+
+    return result, warnings
+
+
 def apply_structural_for_parent(
     client: McpClient,
     parent_qname: str,
     desired_children: list[YamlNode],
     dry_run: bool,
-) -> tuple[int, int, list[str], dict[str, str]]:
+    mutation_calls: list[dict[str, Any]] | None = None,
+    runtime_children: list[dict[str, Any]] | None = None,
+) -> tuple[int, int, list[str], dict[str, str], set[str]]:
     """
     Returns:
       - number of structural operations applied (or that would be applied in dry-run)
       - number of delete operations applied (or planned in dry-run)
       - warnings
       - resolved child qname map by child name (post-reconciliation snapshot)
+      - names of children created during this sync pass
     """
     warnings: list[str] = []
-    runtime_children, w = get_runtime_children(client, parent_qname)
-    warnings.extend(w)
+    if runtime_children is None:
+        runtime_children, w = get_runtime_children(client, parent_qname)
+        warnings.extend(w)
 
     runtime_names = [c["name"] for c in runtime_children]
     if len(runtime_names) != len(set(runtime_names)):
         warnings.append(
             f"{parent_qname}: duplicate runtime child names detected; structural sync skipped for safety"
         )
-        return 0, 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
+        return 0, 0, warnings, {c["name"]: c["qname"] for c in runtime_children}, set()
 
     desired_names = [c.name for c in desired_children]
     if len(desired_names) != len(set(desired_names)):
         warnings.append(
             f"{parent_qname}: duplicate YAML child names detected; structural sync skipped for safety"
         )
-        return 0, 0, warnings, {c["name"]: c["qname"] for c in runtime_children}
+        return 0, 0, warnings, {c["name"]: c["qname"] for c in runtime_children}, set()
 
     runtime_by_name = build_runtime_name_to_entry(runtime_children)
     desired_by_name = {c.name: c for c in desired_children}
     desired_order = [c.name for c in desired_children]
+    name_to_qname = {
+        name: entry["qname"] for name, entry in build_runtime_name_to_entry(runtime_children).items()
+    }
+    current_order = [c["name"] for c in runtime_children]
 
     to_delete_qnames: list[str] = []
-    to_create: list[ChildDecl] = []
+    to_create: list[YamlNode] = []
 
     # Replacement when class changed.
     for desired in desired_children:
@@ -1374,6 +1728,7 @@ def apply_structural_for_parent(
 
     ops = 0
     delete_ops = 0
+    created_child_names: set[str] = set()
 
     for qname in to_delete_qnames:
         if dry_run:
@@ -1381,10 +1736,24 @@ def apply_structural_for_parent(
             ops += 1
             delete_ops += 1
             continue
-        client.tool_call("databaseobject-delete", {"qname": qname, "autoSave": "false"})
+        if mutation_calls is None:
+            client.tool_call("databaseobject-delete", {"qname": qname, "autoSave": "false"})
+        else:
+            queue_mutation_call(mutation_calls, "databaseobject-delete", build_delete_mutation_args(qname))
         print(f"DELETED {qname}")
         ops += 1
         delete_ops += 1
+        for runtime in runtime_children:
+            if runtime["qname"] != qname:
+                continue
+            raw_name = str(runtime["name"])
+            alias = strip_runtime_name_prefix(raw_name)
+            if raw_name in current_order:
+                current_order.remove(raw_name)
+            name_to_qname.pop(raw_name, None)
+            if alias != raw_name:
+                name_to_qname.pop(alias, None)
+            break
 
     for child in to_create:
         if dry_run:
@@ -1392,31 +1761,29 @@ def apply_structural_for_parent(
                 f"DRY-RUN CREATE under {parent_qname}: name={child.name}, className={child.class_name}, mode=inside"
             )
             ops += 1
+            created_child_names.add(child.name)
+            name_to_qname.setdefault(child.name, f"{parent_qname}.{child.name}")
+            if child.name not in current_order:
+                current_order.append(child.name)
             continue
-        client.tool_call(
-            "databaseobject-create",
-            {
-                "related": parent_qname,
-                "mode": "inside",
-                "className": child.class_name,
-                "name": child.name,
-                "autoSave": "false",
-            },
-        )
+        if mutation_calls is None:
+            create_runtime_child(client, parent_qname, child)
+        else:
+            queue_mutation_call(
+                mutation_calls,
+                "databaseobject-tree-apply",
+                build_tree_apply_mutation_args(
+                    parent_qname,
+                    at="inside",
+                    tree=yaml_node_to_tree_payload(child),
+                ),
+            )
         print(f"CREATED {parent_qname}.{child.name}")
         ops += 1
-
-    # Reorder according to YAML order for children that exist runtime-side.
-    runtime_children_after, w2 = get_runtime_children(client, parent_qname)
-    warnings.extend(w2)
-    current_order = [c["name"] for c in runtime_children_after]
-    name_to_qname = {
-        name: entry["qname"] for name, entry in build_runtime_name_to_entry(runtime_children_after).items()
-    }
-
-    if dry_run:
-        for child in to_create:
-            name_to_qname.setdefault(child.name, f"{parent_qname}.{child.name}")
+        created_child_names.add(child.name)
+        name_to_qname[child.name] = f"{parent_qname}.{child.name}"
+        if child.name not in current_order:
+            current_order.append(child.name)
 
     ordered_existing = [n for n in desired_order if n in name_to_qname]
 
@@ -1440,15 +1807,22 @@ def apply_structural_for_parent(
             print(f"DRY-RUN MOVE {cur_qname} after {prev_qname}")
             ops += 1
         else:
-            client.tool_call(
-                "databaseobject-move",
-                {
-                    "qname": cur_qname,
-                    "target": prev_qname,
-                    "position": "after",
-                    "autoSave": "false",
-                },
-            )
+            if mutation_calls is None:
+                client.tool_call(
+                    "databaseobject-move",
+                    {
+                        "qname": cur_qname,
+                        "target": prev_qname,
+                        "position": "after",
+                        "autoSave": "false",
+                    },
+                )
+            else:
+                queue_mutation_call(
+                    mutation_calls,
+                    "databaseobject-move",
+                    build_move_mutation_args(cur_qname, prev_qname, "after"),
+                )
             print(f"MOVED {cur_qname} after {prev_qname}")
             ops += 1
 
@@ -1457,38 +1831,21 @@ def apply_structural_for_parent(
         prev_pos = current_order.index(prev_name)
         current_order.insert(prev_pos + 1, cur_name)
 
-    return ops, delete_ops, warnings, name_to_qname
+    return ops, delete_ops, warnings, name_to_qname, created_child_names
 
 
 def compute_updates_for_qname(
     client: McpClient,
     qname: str,
     desired_props: dict[str, Any],
+    runtime_tree: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     if not desired_props:
         return {}, []
     prop_names = sorted(desired_props.keys())
-    result = client.tool_call(
-        "databaseobject-properties-get",
-        {
-            "qname": qname,
-            "properties": json.dumps(prop_names),
-            "includeHints": "false",
-            "limit": str(max(25, len(prop_names))),
-        },
-    )
-
-    entries = result.get("properties")
-    if not isinstance(entries, list):
-        return {}, [f"{qname}: unexpected properties-get payload (missing properties array)"]
-
-    current_map: dict[str, dict[str, Any]] = {}
-    for entry in entries:
-        if isinstance(entry, dict) and "name" in entry:
-            current_map[str(entry["name"])] = entry
+    current_map, warnings = get_runtime_property_map(client, qname, prop_names, runtime_tree=runtime_tree)
 
     updates: dict[str, Any] = {}
-    warnings: list[str] = []
     for name, desired_value in desired_props.items():
         current_entry = current_map.get(name)
         if current_entry is None:
@@ -1520,18 +1877,53 @@ def sync_yaml_node(
     refresh: bool,
     stats: SyncStats,
     warnings_out: list[str],
-) -> None:
+    mutation_calls: list[dict[str, Any]] | None = None,
+    runtime_tree: dict[str, Any] | None = None,
+) -> bool:
     node_changed = False
     changed_props_for_refresh: list[str] = []
+    created_child_names: set[str] = set()
+
+    snapshot_tree: dict[str, Any] | None = None
+    snapshot_warnings: list[str] = []
+    runtime_children: list[dict[str, Any]] = []
+    child_tree_map: dict[str, dict[str, Any]] = {}
+    if node.scalar_props or node.children:
+        use_prefetched_tree = runtime_tree is not None and not node.children
+        if use_prefetched_tree:
+            snapshot_tree = runtime_tree
+        else:
+            try:
+                snapshot_tree, snapshot_warnings = get_runtime_tree(
+                    client,
+                    node_qname,
+                    children_depth=1 if node.children else 0,
+                    properties_mode="all",
+                    limit=200 if node.children else 1,
+                )
+            except Exception as exc:
+                snapshot_tree = None
+                snapshot_warnings = [f"{node_qname}: unable to read runtime snapshot: {exc}"]
+        warnings_out.extend(snapshot_warnings)
+        if snapshot_tree is not None and node.children:
+            try:
+                runtime_children = normalize_runtime_children_from_tree(node_qname, snapshot_tree)
+                child_tree_map = build_runtime_child_tree_map(snapshot_tree)
+            except Exception as exc:
+                warnings_out.append(f"{node_qname}: unable to normalize runtime children: {exc}")
+                runtime_children = []
+                child_tree_map = {}
 
     child_qname_map: dict[str, str] = {}
     if structural:
         try:
-            ops, delete_ops, warnings, child_qname_map = apply_structural_for_parent(
+            ops, delete_ops, warnings, child_qname_map, created_child_names = apply_structural_for_parent(
                 client=client,
                 parent_qname=node_qname,
                 desired_children=node.children,
                 dry_run=dry_run,
+                mutation_calls=mutation_calls,
+                runtime_children=runtime_children if runtime_children else None,
             )
             if ops > 0:
                 node_changed = True
@@ -1544,8 +1936,6 @@ def sync_yaml_node(
             child_qname_map = {}
     else:
         try:
-            runtime_children, warnings = get_runtime_children(client, node_qname)
-            warnings_out.extend(warnings)
             child_qname_map = {
                 name: entry["qname"] for name, entry in build_runtime_name_to_entry(runtime_children).items()
             }
@@ -1555,7 +1945,12 @@ def sync_yaml_node(
 
     if node.scalar_props:
         try:
-            updates, warnings = compute_updates_for_qname(client, node_qname, node.scalar_props)
+            updates, warnings = compute_updates_for_qname(
+                client,
+                node_qname,
+                node.scalar_props,
+                runtime_tree=snapshot_tree,
+            )
             warnings_out.extend(warnings)
         except Exception as exc:
             warnings_out.append(f"{node_qname}: failed to compute scalar updates: {exc}")
@@ -1566,35 +1961,35 @@ def sync_yaml_node(
             if dry_run:
                 print(f"DRY-RUN {node_qname}: would update [{keys}]")
                 stats.property_updates += len(updates)
+                node_changed = True
             else:
-                try:
-                    result = client.tool_call(
-                        "databaseobject-properties-set",
-                        {"qname": node_qname, "properties": updates, "autoSave": "false"},
+                if mutation_calls is not None:
+                    queue_mutation_call(
+                        mutation_calls,
+                        "databaseobject-tree-apply",
+                        build_tree_apply_mutation_args(
+                            node_qname,
+                            at="self",
+                            tree={"properties": updates},
+                        ),
                     )
-                    updated_entries = result.get("updated", [])
-                    applied_count = (
-                        len(updated_entries) if isinstance(updated_entries, list) else len(updates)
-                    )
-                    stats.property_updates += applied_count
-                    errors = result.get("errors")
-                    if isinstance(errors, list) and errors:
-                        for item in errors:
-                            if isinstance(item, dict):
-                                msg = item.get("message") or str(item)
-                            else:
-                                msg = str(item)
-                            warnings_out.append(f"{node_qname}: apply warning: {msg}")
-                    print(f"APPLIED {node_qname}: {applied_count} property update(s) [{keys}]")
-                except Exception as exc:
-                    warnings_out.append(f"{node_qname}: apply failed: {exc}")
-                    applied_count = 0
+                    applied_count = len(updates)
+                    print(f"QUEUED {node_qname}: {applied_count} property update(s) [{keys}]")
+                else:
+                    try:
+                        applied_count, apply_warnings = apply_runtime_properties(client, node_qname, updates)
+                        warnings_out.extend(apply_warnings)
+                        print(f"APPLIED {node_qname}: {applied_count} property update(s) [{keys}]")
+                    except Exception as exc:
+                        warnings_out.append(f"{node_qname}: apply failed: {exc}")
+                        applied_count = 0
+                stats.property_updates += applied_count
                 if applied_count > 0:
                     node_changed = True
             if updates:
                 stats.touched_qnames.add(node_qname)
 
-    if refresh and node_changed:
+    if refresh and node_changed and mutation_calls is None:
         try:
             status = (
                 call_refresh(client, node_qname, changed_props_for_refresh) if not dry_run else "requested"
@@ -1604,8 +1999,12 @@ def sync_yaml_node(
             warnings_out.append(f"{node_qname}: refresh failed: {exc}")
 
     # Recurse only into inline children. File-backed children are handled by their own subfiles.
+    subtree_changed = node_changed
     for child in node.children:
         if child.file_backed:
+            continue
+        if child.name in created_child_names:
+            subtree_changed = True
             continue
         child_qname = child_qname_map.get(child.name)
         if child_qname is None:
@@ -1620,10 +2019,12 @@ def sync_yaml_node(
                     f"{node_qname}: child '{child.name}' missing runtime node and structural sync disabled; subtree skipped"
                 )
                 continue
-        if structural and dry_run and not runtime_node_exists(client, child_qname):
-            # Skip transient/stale qnames during dry-run reconciliation.
-            continue
-        sync_yaml_node(
+        child_runtime_tree = None
+        if not child.children:
+            child_runtime_tree = child_tree_map.get(child.name)
+            if child_runtime_tree is None:
+                child_runtime_tree = child_tree_map.get(strip_runtime_name_prefix(child.name))
+        child_changed = sync_yaml_node(
             client=client,
             node=child,
             node_qname=child_qname,
@@ -1632,7 +2033,11 @@ def sync_yaml_node(
             refresh=refresh,
             stats=stats,
             warnings_out=warnings_out,
+            mutation_calls=mutation_calls,
+            runtime_tree=child_runtime_tree,
         )
+        subtree_changed = subtree_changed or child_changed
+    return subtree_changed
 
 
 def main(argv: list[str]) -> int:
@@ -1670,7 +2075,10 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--refresh",
         action="store_true",
-        help="After each applied object/parent update, call ConvertigoMCP.internal_studio_refresh via requestable-execute.",
+        help=(
+            "Request a Studio refresh after mutations. "
+            "When combined with --save in apply mode, refresh/save/mobile-builder finalization are batched once at the end."
+        ),
     )
     parser.add_argument(
         "--save",
@@ -1790,6 +2198,7 @@ def main(argv: list[str]) -> int:
 
     restore_auto_build: bool | None = None
     preflight_warnings: list[str] = []
+    use_mutation_batch = bool(args.save and args.refresh and not args.dry_run)
 
     if args.disable_auto_build and not args.dry_run:
         try:
@@ -1819,6 +2228,7 @@ def main(argv: list[str]) -> int:
         stats = SyncStats()
         all_warnings: list[str] = list(parse_warnings)
         all_warnings.extend(preflight_warnings)
+        mutation_calls: list[dict[str, Any]] | None = [] if use_mutation_batch else None
         for qname, names in sorted(unsupported_by_qname.items()):
             if not names:
                 continue
@@ -1840,6 +2250,7 @@ def main(argv: list[str]) -> int:
                     refresh=args.refresh,
                     stats=stats,
                     warnings_out=all_warnings,
+                    mutation_calls=mutation_calls,
                 )
             except Exception as exc:
                 eprint(f"ERROR: sync failed for {qname}: {exc}")
@@ -1853,7 +2264,19 @@ def main(argv: list[str]) -> int:
             )
             return 0
 
-        if stats.structural_delete_ops > 0:
+        if use_mutation_batch and mutation_calls:
+            try:
+                batch_res, batch_warnings = execute_mutation_batch(client, mutation_calls)
+                all_warnings.extend(batch_warnings)
+                summary = batch_res.get("summary")
+                if isinstance(summary, dict):
+                    planned = int(summary.get("planned") or 0)
+                    applied = int(summary.get("applied") or 0)
+                    print(f"BATCH applied {applied}/{planned} queued mutation call(s)")
+            except Exception as exc:
+                eprint(f"ERROR: mutation batch failed: {exc}")
+                return 2
+        elif stats.structural_delete_ops > 0:
             try:
                 sync_res = call_ngx_sources_sync(client, project_name)
                 sync_status = str(sync_res.get("status") or "").strip().lower()
@@ -1876,7 +2299,7 @@ def main(argv: list[str]) -> int:
         for warning in all_warnings:
             eprint(f"WARN: {warning}")
 
-        if args.save and stats.touched_qnames:
+        if args.save and stats.touched_qnames and not use_mutation_batch:
             try:
                 save_res = client.tool_call("project-save", {"project": project_name})
                 save_status = str(save_res.get("status", ""))

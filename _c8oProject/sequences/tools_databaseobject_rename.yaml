@@ -18,6 +18,12 @@ comment: |
     var autoSaveFlag = C8O.util.parseAutoSaveFlag(autoSaveInput, true);
     var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
     var refreshFlag = C8O.util.toBoolean(refreshInput, true) === true;
+    var optimizeMutationsInput = (typeof optimizeMutations !== "undefined") ? optimizeMutations : false;
+    var optimizeMutationsFlag = C8O.util.toBoolean(optimizeMutationsInput, false) === true;
+    if (optimizeMutationsFlag) {
+      autoSaveFlag = false;
+      refreshFlag = false;
+    }
     
     var renameResult = C8O.dbo.renameObject({ qname: qname, name: name, update: update });
     
@@ -403,3 +409,7 @@ comment: |
   comment: Set false to skip Studio tree refresh.
   description: Set false to skip Studio tree refresh.
   value: true
+↓optimizeMutations [variables.RequestableVariable-1773334001004]: 
+  comment: Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once.
+  description: Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once.
+  value: false

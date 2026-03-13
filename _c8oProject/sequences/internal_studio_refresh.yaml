@@ -16,7 +16,28 @@ comment: Refreshes the Eclipse Project Explorer for a target database object
     resultTargetQName = refreshResult && refreshResult.targetQName ? String(refreshResult.targetQName) : "";
     resultQName = refreshResult && refreshResult.qname ? String(refreshResult.qname) : (qname == null ? "" : String(qname));
     resultStudioMode = refreshResult ? refreshResult.studioMode === true : false;
-    refreshExecuted = refreshResult ? refreshResult.executed === true : false;'
+    refreshExecuted = refreshResult ? refreshResult.executed === true : false;
+    resultDescriptorCount = 0;
+    resultDescriptorHasPosition = false;
+    resultDescriptorHasMessage = false;
+    resultDescriptorHasDuration = false;
+    resultDescriptorIds = "[]";
+    resultIonBeanLoaded = false;
+    resultIonBeanName = "";
+    resultIonBeanPropertyCount = 0;
+    resultIonBeanVisiblePropertyCount = 0;
+    resultIonBeanVisiblePropertyNames = "[]";
+    resultIonBeanError = "";
+    resultSelectedTreeClass = "";
+    resultSelectedObjectClass = "";
+    resultReloadDescriptorsApplied = false;
+    resultReloadDescriptorsError = "";
+    resultSourceFilesUpdated = false;
+    resultSourceFilesUpdateError = "";
+    resultChangedPropertiesRequested = "";
+    resultChangedPropertiesCount = 0;
+    resultChangedPropertiesFired = 0;
+    resultChangedPropertiesError = "";'
 ↓result [steps.JsonObjectStep-1762342576352]: 
   key: 
     - xmlizable: 
