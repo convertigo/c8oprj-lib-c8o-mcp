@@ -32,6 +32,10 @@ Collect or confirm:
 - `entities[]`
 - `ui.entryPage`
 - optional `ui.variant`
+- for the generic CRUD fast path, default to:
+  - `ui.variant=entity-pages`
+  - landing page on `Page`
+  - one generated entity page per CRUD entity
 - for the CRM demo profile, prefer:
   - `ui.variant=master-detail`
   - `seed.profile=crm`
@@ -53,6 +57,11 @@ If some fields are missing, ask only for the missing CRUD spec items.
 10. Run `crud-proof` with `expectUiShell=true` and pass the `viewerUrl` from `mobile-builder-open`.
 11. Save with `project-save` when the target project was mutated and save proof is still needed.
 12. Do not call planner, critic, or maintainer prompts from this flow.
+
+## UI variant policy
+- `entity-pages` is the recommended generic CRUD UI.
+- `dashboard` is a legacy single-page fallback, kept for compatibility only.
+- `master-detail` remains the recommended CRM-specific UI.
 
 ## Out-of-scope redirect
 If the request needs custom backend architecture, HTTP integration, or non-standard handwritten NGX composition before CRUD proof, stop with:

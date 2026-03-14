@@ -1685,12 +1685,24 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
     mb.prepareBatchBuild();
     BatchOperationHelper.start();
     batchStarted = true;
-    if (context && context.application != null && typeof context.application.updateSourceFiles === "function") {
-      context.application.updateSourceFiles();
-      result.strategy = "application.updateSourceFiles";
-    } else if (context && context.mainScriptComponent != null && typeof context.mainScriptComponent.updateSourceFiles === "function") {
-      context.mainScriptComponent.updateSourceFiles();
-      result.strategy = "mainScriptComponent.updateSourceFiles";
+    var refreshStrategies = [];
+    var refreshed = false;
+    var mainComponent = context ? context.mainScriptComponent : null;
+    var application = context ? context.application : null;
+    if (mainComponent != null && typeof mainComponent.updateSourceFiles === "function") {
+      mainComponent.updateSourceFiles();
+      refreshStrategies.push("mainScriptComponent.updateSourceFiles");
+      refreshed = true;
+    }
+    if (application != null
+      && typeof application.updateSourceFiles === "function"
+      && application !== mainComponent) {
+      application.updateSourceFiles();
+      refreshStrategies.push("application.updateSourceFiles");
+      refreshed = true;
+    }
+    if (refreshed) {
+      result.strategy = refreshStrategies.join(" + ");
     } else {
       mb.appChanged();
       result.strategy = "builder.appChanged";

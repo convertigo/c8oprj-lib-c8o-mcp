@@ -51,6 +51,36 @@ C8O.crud = C8O.crud || {};
     if (Array.isArray(value)) {
       return value;
     }
+    if (typeof value !== "string" && typeof value.length === "number") {
+      var byLength = [];
+      for (var i = 0; i < value.length; i++) {
+        byLength.push(value[i]);
+      }
+      return byLength;
+    }
+    if (typeof value.size === "function" && typeof value.get === "function") {
+      var bySize = [];
+      var size = 0;
+      try {
+        size = value.size();
+      } catch (_ignoreSize) {
+        size = 0;
+      }
+      for (var j = 0; j < size; j++) {
+        bySize.push(value.get(j));
+      }
+      return bySize;
+    }
+    if (typeof value.iterator === "function") {
+      var byIterator = [];
+      try {
+        var iterator = value.iterator();
+        while (iterator.hasNext()) {
+          byIterator.push(iterator.next());
+        }
+        return byIterator;
+      } catch (_ignoreIterator) {}
+    }
     return [value];
   }
 
@@ -71,6 +101,23 @@ C8O.crud = C8O.crud || {};
       return "";
     }
     return text.substring(0, 1).toUpperCase() + text.substring(1);
+  }
+
+  function pascalize(value) {
+    var text = trimmed(value);
+    if (!text.length) {
+      return "";
+    }
+    var parts = String(text).split(/[^A-Za-z0-9]+/);
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var part = trimmed(parts[i]);
+      if (!part.length) {
+        continue;
+      }
+      out.push(ucfirst(part));
+    }
+    return out.join("");
   }
 
   function singularize(name) {
@@ -734,7 +781,7 @@ C8O.crud = C8O.crud || {};
     result.seed.profile = trimmed(result.seed.profile || "");
     result.seed.rowsPerEntity = parseInt(result.seed.rowsPerEntity, 10);
     result.ui.entryPage = trimmed(result.ui.entryPage || "Page");
-    result.ui.variant = trimmed(result.ui.variant || "dashboard");
+    result.ui.variant = trimmed(result.ui.variant || "entity-pages");
     applyCrmDefaults(result);
     if (isNaN(result.seed.rowsPerEntity) || result.seed.rowsPerEntity <= 0) {
       result.seed.rowsPerEntity = result.seed.profile === "crm" ? 20 : 2;
@@ -834,7 +881,7 @@ C8O.crud = C8O.crud || {};
       }
     }
 
-    if (trimmed(spec.ui.variant).toLowerCase() === "dashboard" || !trimmed(spec.ui.variant).length) {
+    if (trimmed(spec.ui.variant).toLowerCase() === "dashboard" || trimmed(spec.ui.variant).toLowerCase() === "entity-pages" || !trimmed(spec.ui.variant).length) {
       spec.ui.variant = "master-detail";
     }
     return spec;
@@ -1572,6 +1619,362 @@ C8O.crud = C8O.crud || {};
     );
   }
 
+  function triggerUiSourceRefreshTargets(targets, result, evidencePath) {
+    var summary = {
+      requested: false,
+      studioMode: false,
+      mobileObject: false,
+      triggered: false,
+      message: "",
+      strategy: "",
+      resetQNames: [],
+      targets: []
+    };
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var MobileBuilder = Packages.com.twinsoft.convertigo.engine.mobile.MobileBuilder;
+    var BatchOperationHelper = Packages.com.twinsoft.convertigo.engine.helpers.BatchOperationHelper;
+    try {
+      summary.studioMode = Engine.isStudioMode() === true;
+    } catch (_ignoreStudioMode) {
+      summary.studioMode = false;
+    }
+    var unique = {};
+    var entries = ensureArray(targets);
+    var strategySet = {};
+    for (var i = 0; i < entries.length; i++) {
+      var entry = entries[i];
+      var qname = trimmed(typeof entry === "string" ? entry : (entry && entry.qname));
+      if (!qname.length || unique[qname]) {
+        continue;
+      }
+      unique[qname] = true;
+      var targetResult = {
+        target: qname,
+        requested: false,
+        triggered: false,
+        strategy: "",
+        resetQNames: [],
+        message: ""
+      };
+      var dbo = null;
+      try {
+        dbo = C8O.dbo.resolve(qname, { optional: true });
+      } catch (_ignoreResolveTarget) {
+        dbo = null;
+      }
+      if (!dbo) {
+        targetResult.message = "Skipped: target not found";
+        summary.targets.push(targetResult);
+        continue;
+      }
+      var mobileObject = false;
+      try {
+        mobileObject = C8O.dbo._isMobileObject(dbo) === true;
+      } catch (_ignoreMobileObject) {
+        mobileObject = false;
+      }
+      summary.mobileObject = summary.mobileObject || mobileObject;
+      targetResult.requested = summary.studioMode && mobileObject;
+      summary.requested = summary.requested || targetResult.requested;
+      if (!targetResult.requested) {
+        targetResult.message = !summary.studioMode ? "Skipped: Studio mode required" : "Skipped: target is not a mobile object";
+        summary.targets.push(targetResult);
+        continue;
+      }
+      try {
+        var mb = MobileBuilder.getBuilderOf(dbo);
+        if (mb == null) {
+          targetResult.message = "Skipped: no mobile builder for target";
+          summary.targets.push(targetResult);
+          continue;
+        }
+        var context = C8O.dbo._resolveNgxRefreshContext ? C8O.dbo._resolveNgxRefreshContext(dbo) : {
+          mainScriptComponent: null,
+          application: null,
+          resetQNames: []
+        };
+        if (context && context.resetQNames && context.resetQNames.length) {
+          targetResult.resetQNames = ensureArray(context.resetQNames);
+          summary.resetQNames = summary.resetQNames.concat(targetResult.resetQNames);
+        }
+        var batchStarted = false;
+        var batchStopped = false;
+        try {
+          mb.prepareBatchBuild();
+          BatchOperationHelper.start();
+          batchStarted = true;
+          var strategies = [];
+          var mainComponent = context ? context.mainScriptComponent : null;
+          var application = context ? context.application : null;
+          if (mainComponent != null && typeof mainComponent.updateSourceFiles === "function") {
+            mainComponent.updateSourceFiles();
+            strategies.push("mainScriptComponent.updateSourceFiles");
+          }
+          if (application != null
+            && typeof application.updateSourceFiles === "function"
+            && application !== mainComponent) {
+            application.updateSourceFiles();
+            strategies.push("application.updateSourceFiles");
+          }
+          if (!strategies.length) {
+            mb.appChanged();
+            strategies.push("builder.appChanged");
+          }
+          BatchOperationHelper.stop();
+          batchStopped = true;
+          targetResult.triggered = true;
+          targetResult.strategy = strategies.join(" + ");
+          targetResult.message = "Mobile builder refresh triggered via " + targetResult.strategy;
+          for (var strategyIndex = 0; strategyIndex < strategies.length; strategyIndex++) {
+            strategySet[strategies[strategyIndex]] = true;
+          }
+          summary.triggered = true;
+        } finally {
+          if (batchStarted && !batchStopped) {
+            try {
+              BatchOperationHelper.stop();
+            } catch (_ignoreBatchStop) {}
+          }
+        }
+      } catch (refreshError) {
+        targetResult.message = "Unable to trigger mobile builder refresh: " + String(refreshError);
+        addWarning(result, targetResult.message + " (" + qname + ")");
+      }
+      summary.targets.push(targetResult);
+    }
+    var strategiesOut = Object.keys(strategySet);
+    summary.strategy = strategiesOut.join(" | ");
+    summary.message = summary.triggered
+      ? "Mobile builder refresh triggered for " + String(summary.targets.filter(function (item) { return item.triggered; }).length) + " target(s)."
+      : "Mobile builder refresh skipped.";
+    if (!summary.resetQNames.length) {
+      delete summary.resetQNames;
+    }
+    return summary;
+  }
+
+  function dboCommentText(dbo) {
+    if (!dbo || typeof dbo.getComment !== "function") {
+      return "";
+    }
+    try {
+      return trimmed(dbo.getComment());
+    } catch (_ignoreComment) {
+      return "";
+    }
+  }
+
+  function isManagedCrudPage(page) {
+    var comment = dboCommentText(page);
+    return comment.indexOf("Deterministic CRUD entity page") === 0;
+  }
+
+  function isManagedCrudSharedComponent(component) {
+    var comment = dboCommentText(component);
+    if (!comment.length) {
+      return false;
+    }
+    return comment.indexOf("Deterministic CRUD") === 0
+      || comment.indexOf("CRM live-state") === 0
+      || comment.indexOf("Temporary dashboard bootstrap card") === 0;
+  }
+
+  function isManagedCrudSharedAction(actionStack) {
+    var name = "";
+    try {
+      name = trimmed(actionStack && actionStack.getName ? actionStack.getName() : "");
+    } catch (_ignoreActionName) {
+      name = "";
+    }
+    if (name.indexOf("crud_") === 0 || name.indexOf("crm_") === 0) {
+      return true;
+    }
+    var comment = dboCommentText(actionStack);
+    return comment.indexOf("CRUD ") === 0 || comment.indexOf("CRM ") === 0;
+  }
+
+  function collectManagedCrudCleanupQNames(ngxApp, expectedQNames) {
+    var expected = {};
+    var entries = ensureArray(expectedQNames);
+    for (var i = 0; i < entries.length; i++) {
+      var expectedQName = trimmed(entries[i]);
+      if (expectedQName.length) {
+        expected[expectedQName] = true;
+      }
+    }
+    var stale = [];
+    function pushIfManaged(list, predicate) {
+      var values = ensureArray(list);
+      for (var index = 0; index < values.length; index++) {
+        var dbo = values[index];
+        var qname = "";
+        try {
+          qname = trimmed(dbo && dbo.getQName ? dbo.getQName() : "");
+        } catch (_ignoreQName) {
+          qname = "";
+        }
+        if (!qname.length || expected[qname]) {
+          continue;
+        }
+        if (predicate(dbo)) {
+          stale.push(qname);
+        }
+      }
+    }
+    try {
+      pushIfManaged(ngxApp && ngxApp.getPageComponentList ? ngxApp.getPageComponentList() : [], isManagedCrudPage);
+    } catch (_ignorePages) {}
+    try {
+      pushIfManaged(ngxApp && ngxApp.getSharedActionList ? ngxApp.getSharedActionList() : [], isManagedCrudSharedAction);
+    } catch (_ignoreActions) {}
+    try {
+      pushIfManaged(ngxApp && ngxApp.getSharedComponentList ? ngxApp.getSharedComponentList() : [], isManagedCrudSharedComponent);
+    } catch (_ignoreComponents) {}
+    return stale;
+  }
+
+  function deleteFileRecursively(file) {
+    if (!file || !file.exists()) {
+      return 0;
+    }
+    var deleted = 0;
+    if (file.isDirectory()) {
+      var children = file.listFiles();
+      if (children != null) {
+        for (var i = 0; i < children.length; i++) {
+          deleted += deleteFileRecursively(children[i]);
+        }
+      }
+    }
+    if (file.delete()) {
+      deleted += 1;
+    }
+    return deleted;
+  }
+
+  function cleanupGeneratedIonicSources(projectName, ngxApp) {
+    var File = Packages.java.io.File;
+    var projectDir = C8O.project.resolveProjectDirectory({ projectName: projectName });
+    var appDir = new File(projectDir, "_private/ionic/src/app");
+    var pagesDir = new File(appDir, "pages");
+    var componentsDir = new File(appDir, "components");
+    var expectedPageDirs = {};
+    var expectedComponentDirs = {};
+    var projectPrefix = normalizedIdentifier(projectName).toLowerCase();
+    try {
+      var pageList = ensureArray(ngxApp && ngxApp.getPageComponentList ? ngxApp.getPageComponentList() : []);
+      for (var pageIndex = 0; pageIndex < pageList.length; pageIndex++) {
+        var pageName = trimmed(pageList[pageIndex] && pageList[pageIndex].getName ? pageList[pageIndex].getName() : "").toLowerCase();
+        if (pageName.length) {
+          expectedPageDirs[pageName] = true;
+        }
+      }
+    } catch (_ignorePageList) {}
+    try {
+      var sharedList = ensureArray(ngxApp && ngxApp.getSharedComponentList ? ngxApp.getSharedComponentList() : []);
+      for (var sharedIndex = 0; sharedIndex < sharedList.length; sharedIndex++) {
+        var sharedName = trimmed(sharedList[sharedIndex] && sharedList[sharedIndex].getName ? sharedList[sharedIndex].getName() : "");
+        if (sharedName.length) {
+          expectedComponentDirs[projectPrefix + "." + normalizedIdentifier(sharedName).toLowerCase()] = true;
+        }
+      }
+    } catch (_ignoreSharedList) {}
+    var summary = {
+      pagesRemoved: [],
+      componentsRemoved: [],
+      deletedCount: 0
+    };
+    if (pagesDir.exists()) {
+      var pageDirs = pagesDir.listFiles();
+      if (pageDirs != null) {
+        for (var i = 0; i < pageDirs.length; i++) {
+          var pageDir = pageDirs[i];
+          if (!pageDir.isDirectory()) {
+            continue;
+          }
+          var pageDirName = String(pageDir.getName()).toLowerCase();
+          if (expectedPageDirs[pageDirName]) {
+            continue;
+          }
+          summary.deletedCount += deleteFileRecursively(pageDir);
+          summary.pagesRemoved.push(pageDirName);
+        }
+      }
+    }
+    if (componentsDir.exists()) {
+      var componentDirs = componentsDir.listFiles();
+      if (componentDirs != null) {
+        for (var j = 0; j < componentDirs.length; j++) {
+          var componentDir = componentDirs[j];
+          if (!componentDir.isDirectory()) {
+            continue;
+          }
+          var componentDirName = String(componentDir.getName()).toLowerCase();
+          if (componentDirName.indexOf(projectPrefix + ".") !== 0) {
+            continue;
+          }
+          if (expectedComponentDirs[componentDirName]) {
+            continue;
+          }
+          summary.deletedCount += deleteFileRecursively(componentDir);
+          summary.componentsRemoved.push(componentDirName);
+        }
+      }
+    }
+    return summary;
+  }
+
+  function purgeManagedGeneratedIonicSources(projectName, pageNames, sharedComponentNames) {
+    var File = Packages.java.io.File;
+    var projectDir = C8O.project.resolveProjectDirectory({ projectName: projectName });
+    var appDir = new File(projectDir, "_private/ionic/src/app");
+    var pagesDir = new File(appDir, "pages");
+    var componentsDir = new File(appDir, "components");
+    var projectPrefix = normalizedIdentifier(projectName).toLowerCase();
+    var summary = {
+      pageDirsPurged: [],
+      componentDirsPurged: [],
+      deletedCount: 0
+    };
+    var seen = {};
+    var pageEntries = ensureArray(pageNames);
+    for (var i = 0; i < pageEntries.length; i++) {
+      var pageName = trimmed(pageEntries[i]).toLowerCase();
+      if (!pageName.length || seen["page:" + pageName]) {
+        continue;
+      }
+      seen["page:" + pageName] = true;
+      var pageDir = new File(pagesDir, pageName);
+      if (pageDir.exists()) {
+        summary.deletedCount += deleteFileRecursively(pageDir);
+        summary.pageDirsPurged.push(pageName);
+      }
+    }
+    var sharedEntries = ensureArray(sharedComponentNames);
+    for (var j = 0; j < sharedEntries.length; j++) {
+      var rawShared = trimmed(sharedEntries[j]);
+      if (!rawShared.length) {
+        continue;
+      }
+      var sharedName = rawShared;
+      var lastDot = sharedName.lastIndexOf(".");
+      if (lastDot >= 0) {
+        sharedName = sharedName.substring(lastDot + 1);
+      }
+      var componentDirName = projectPrefix + "." + normalizedIdentifier(sharedName).toLowerCase();
+      if (!componentDirName.length || seen["component:" + componentDirName]) {
+        continue;
+      }
+      seen["component:" + componentDirName] = true;
+      var componentDir = new File(componentsDir, componentDirName);
+      if (componentDir.exists()) {
+        summary.deletedCount += deleteFileRecursively(componentDir);
+        summary.componentDirsPurged.push(componentDirName);
+      }
+    }
+    return summary;
+  }
+
   function collectNestedValue(payload, paths) {
     for (var i = 0; i < paths.length; i++) {
       var current = payload;
@@ -1950,6 +2353,87 @@ C8O.crud = C8O.crud || {};
 
   function sharedComponentQName(projectName, componentName) {
     return ngxAppQName(projectName) + "." + trimmed(componentName);
+  }
+
+  function entityPageName(entity) {
+    return pascalize(entity && entity.name) + "Page";
+  }
+
+  function entityPageQName(projectName, entity) {
+    return pageQName(projectName, entityPageName(entity));
+  }
+
+  function entityPageContentQName(projectName, entity) {
+    return findPageContentQName(projectName, entityPageName(entity));
+  }
+
+  function entityRouteSegment(entity) {
+    return normalizedIdentifier(entity && entity.name).replace(/_/g, "-").toLowerCase();
+  }
+
+  function entityRoutePath(entity) {
+    return "/" + entityRouteSegment(entity);
+  }
+
+  function firstNonPrimaryField(entity) {
+    var preview = schemaPreviewFields(entity, 1, false);
+    return preview.length ? preview[0] : (entity && entity.primaryField ? entity.primaryField : null);
+  }
+
+  function secondPreviewField(entity) {
+    var preview = schemaPreviewFields(entity, 2, false);
+    return preview.length > 1 ? preview[1] : (preview[0] || entity.primaryField || null);
+  }
+
+  function entityUiConfig(projectName, facadePrefix, entity) {
+    var editableFields = ensureArray(entity && entity.fields).filter(function (field) {
+      return field && field.primary !== true;
+    });
+    var relationFields = editableFields.filter(function (field) {
+      return field && field.references;
+    });
+    var uniqueFields = editableFields.filter(function (field) {
+      return field && field.unique === true;
+    }).map(function (field) {
+      return field.column;
+    });
+    return {
+      key: entity.name,
+      singular: entity.singular,
+      label: entity.label,
+      pageName: entityPageName(entity),
+      routeSegment: entityRouteSegment(entity),
+      routePath: entityRoutePath(entity),
+      primaryColumn: (entity.primaryField && entity.primaryField.column) || "id",
+      primaryLabel: (entity.primaryField && entity.primaryField.label) || "Id",
+      previewPrimaryColumn: ((firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id",
+      previewSecondaryColumn: ((secondPreviewField(entity) || firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id",
+      listRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "list"),
+      readRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "read"),
+      createRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "create"),
+      updateRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "update"),
+      deleteRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "delete"),
+      editableFields: editableFields.map(function (field) {
+        return {
+          name: field.name,
+          column: field.column,
+          label: field.label,
+          type: field.type,
+          required: field.required === true,
+          unique: field.unique === true,
+          references: field.references ? clone(field.references) : null
+        };
+      }),
+      relationFields: relationFields.map(function (field) {
+        return {
+          column: field.column,
+          label: field.label,
+          entity: pluralize(normalizedIdentifier(field.references.entity)),
+          targetField: normalizedIdentifier(field.references.field || "id")
+        };
+      }),
+      uniqueFields: uniqueFields
+    };
   }
 
   function normalizeUiEntities(rawEntities) {
@@ -2562,6 +3046,23 @@ C8O.crud = C8O.crud || {};
     ];
   }
 
+  function entityPagesUiGlobals() {
+    return [
+      "crudBuildStage",
+      "crudLoading",
+      "crudError",
+      "crudStatus",
+      "crudRows",
+      "crudCounts",
+      "crudSamples",
+      "crudSelected",
+      "crudDrafts",
+      "crudModes",
+      "crudEntityStatus",
+      "crudEntityErrors"
+    ];
+  }
+
   function crmUiGlobals() {
     return [
       "crmBuildStage",
@@ -2577,7 +3078,14 @@ C8O.crud = C8O.crud || {};
   }
 
   function statefulUiGlobals(variant) {
-    return trimmed(variant).toLowerCase() === "master-detail" ? crmUiGlobals() : dashboardUiGlobals();
+    var normalizedVariant = trimmed(variant).toLowerCase();
+    if (normalizedVariant === "master-detail") {
+      return crmUiGlobals();
+    }
+    if (normalizedVariant === "entity-pages") {
+      return entityPagesUiGlobals();
+    }
+    return dashboardUiGlobals();
   }
 
   function everyQNameExists(qnames) {
@@ -2625,13 +3133,54 @@ C8O.crud = C8O.crud || {};
     return "(((this.global?.crudSamples || {})[" + keyExpr + "]) || null)";
   }
 
+  function crudSelectedExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudSelected || {})[" + keyExpr + "]) || null)";
+  }
+
+  function crudDraftExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudDrafts || {})[" + keyExpr + "]) || {})";
+  }
+
+  function crudModeExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudModes || {})[" + keyExpr + "]) || 'update')";
+  }
+
+  function crudEntityStatusExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudEntityStatus || {})[" + keyExpr + "]) || 'idle')";
+  }
+
+  function crudEntityErrorExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudEntityErrors || {})[" + keyExpr + "]) || '')";
+  }
+
   function dynamicFieldAccessExpression(targetExpression, fieldExpression, fallbackExpression) {
     var targetExpr = trimmed(targetExpression || "null") || "null";
     var fieldExpr = trimmed(fieldExpression || "''") || "''";
     var fallbackExpr = fallbackExpression == null ? "''" : String(fallbackExpression);
+    var literalField = null;
+    if ((fieldExpr.charAt(0) === "'" && fieldExpr.charAt(fieldExpr.length - 1) === "'") ||
+      (fieldExpr.charAt(0) === "\"" && fieldExpr.charAt(fieldExpr.length - 1) === "\"")) {
+      literalField = fieldExpr.substring(1, fieldExpr.length - 1);
+      if (fieldExpr.charAt(0) === "'") {
+        literalField = literalField.replace(/\\'/g, "'");
+      } else {
+        literalField = literalField.replace(/\\"/g, "\"");
+      }
+    }
+    if (literalField != null) {
+      return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
+        targetExpr + "?.[" + scriptLiteral(literalField.toUpperCase()) + "] ?? " +
+        targetExpr + "?.[" + scriptLiteral(literalField.toLowerCase()) + "] ?? " +
+        fallbackExpr + ")";
+    }
     return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
-      targetExpr + "?.[(('' + (" + fieldExpr + " ?? '')).toUpperCase())] ?? " +
-      targetExpr + "?.[(('' + (" + fieldExpr + " ?? '')).toLowerCase())] ?? " +
+      targetExpr + "?.[(('' + (" + fieldExpr + " || '')).toUpperCase())] ?? " +
+      targetExpr + "?.[(('' + (" + fieldExpr + " || '')).toLowerCase())] ?? " +
       fallbackExpr + ")";
   }
 
@@ -3495,6 +4044,1450 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function blankPageScriptContent() {
+    return [
+      "/*Begin_c8o_PageImport*/",
+      "/*End_c8o_PageImport*/",
+      "/*Begin_c8o_PageDeclaration*/",
+      "/*End_c8o_PageDeclaration*/",
+      "/*Begin_c8o_PageConstructor*/",
+      "/*End_c8o_PageConstructor*/",
+      "/*Begin_c8o_PageFunction*/",
+      "/*End_c8o_PageFunction*/",
+      ""
+    ].join("\n");
+  }
+
+  function entityPagesDefaultDraft(config) {
+    var draft = {};
+    var fields = ensureArray(config && config.editableFields);
+    for (var i = 0; i < fields.length; i++) {
+      draft[fields[i].column] = "";
+    }
+    return draft;
+  }
+
+  function entityPagesButtonNode(name, label, options, children) {
+    var extra = options && typeof options === "object" ? options : {};
+    var properties = {};
+    if (extra.color) {
+      properties.IonColor = {
+        mode: "PLAIN",
+        value: String(extra.color)
+      };
+    }
+    if (extra.fill) {
+      properties.IonFill = {
+        mode: "PLAIN",
+        value: String(extra.fill)
+      };
+    }
+    if (extra.routerPath) {
+      properties.LinkRouterPath = {
+        mode: "PLAIN",
+        value: String(extra.routerPath)
+      };
+      properties.LinkRouterDirection = {
+        mode: "PLAIN",
+        value: String(extra.routerDirection || "forward")
+      };
+    }
+    return {
+      className: "ngx.components.UIDynamicElement#Button",
+      name: name,
+      properties: properties,
+      children: [plainTextNode(name + "Text", label)].concat(ensureArray(children))
+    };
+  }
+
+  function entityPagesHeaderTitleTree(titleText) {
+    return {
+      className: "ngx.components.UIDynamicElement#Header",
+      name: "Header",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#ToolBar",
+          name: "ToolBar",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#BarTitle",
+              name: "BarTitle",
+              children: [
+                plainTextNode("Text", titleText)
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function entityPagesSharedRetryStateTree(componentName, projectName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRUD entity-pages error state with retry action."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "ErrorCard",
+          properties: {
+            IonColor: {
+              mode: "PLAIN",
+              value: "warning"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "ErrorHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "ErrorTitle",
+                  plainTextNode("ErrorTitleText", "Retry CRUD state")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "ErrorContent",
+              children: [
+                scriptTextNode("ErrorText", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                entityPagesButtonNode(
+                  "RetryButton",
+                  "Retry",
+                  { color: "primary" },
+                  [
+                    controlEventNode("Event", [
+                      dynamicInvokeNode("InvokeRetryDashboard", dashboardActionQName(projectName, "crud_retry_dashboard"), [])
+                    ])
+                  ]
+                )
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function entityPagesListPanelTree(projectName, entity) {
+    var componentName = pascalize(entity.name) + "ListPanel";
+    var config = entityUiConfig(projectName, "crud", entity);
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Stateful CRUD list panel for " + entity.label + "."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral(entity.label)),
+        compVariableNode("EntityKey", scriptLiteral(config.key)),
+        compVariableNode("PrimaryField", scriptLiteral(config.previewPrimaryColumn)),
+        compVariableNode("SecondaryField", scriptLiteral(config.previewSecondaryColumn)),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentName + "Card",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentName + "Header",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentName + "Title",
+                  scriptTextNode("TitleText", "this.Title || " + scriptLiteral(entity.label))
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  componentName + "Subtitle",
+                  scriptTextNode("SubtitleText", "'Loaded ' + (" + dashboardCountExpression("this.EntityKey") + ") + ' rows'")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentName + "Content",
+              children: [
+                entityPagesButtonNode(
+                  "NewButton",
+                  "New " + entity.singular,
+                  { fill: "outline" },
+                  [
+                    controlEventNode("Event", [
+                      dynamicInvokeNode("InvokeNew", dashboardActionQName(projectName, "crud_new_" + entity.singular), [])
+                    ])
+                  ]
+                ),
+                ifDirectiveNode(
+                  componentName + "Empty",
+                  dashboardCountExpression("this.EntityKey") + " === 0",
+                  [
+                    textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      componentName + "EmptyParagraph",
+                      plainTextNode("EmptyText", "No rows available yet.")
+                    )
+                  ]
+                ),
+                {
+                  className: "ngx.components.UIDynamicElement#List",
+                  name: componentName + "List",
+                  children: [
+                    iterationDirectiveNode(
+                      componentName + "Loop",
+                      projectName,
+                      "row",
+                      dashboardRowsExpression("this.EntityKey"),
+                      [
+                        {
+                          className: "ngx.components.UIDynamicElement#ListItem",
+                          name: componentName + "Item",
+                          properties: {
+                            Button: {
+                              mode: "PLAIN",
+                              value: "true"
+                            },
+                            Detail: {
+                              mode: "PLAIN",
+                              value: "false"
+                            }
+                          },
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#Label",
+                              name: componentName + "Label",
+                              children: [
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Heading2",
+                                  componentName + "Heading",
+                                  smartTextNode("HeadingText", iterationSourceValue(projectName, dynamicFieldAccessExpression("row", "this.PrimaryField", scriptLiteral("No primary value"))))
+                                ),
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  componentName + "Paragraph",
+                                  smartTextNode("ParagraphText", iterationSourceValue(projectName, dynamicFieldAccessExpression("row", "this.SecondaryField", scriptLiteral("No secondary value"))))
+                                )
+                              ]
+                            },
+                            controlEventNode("Event", [
+                              dynamicInvokeNode("InvokeSelect", dashboardActionQName(projectName, "crud_select_" + entity.singular), [
+                                controlVariableNode("row_id", iterationSourceValue(projectName, "row?.ID ?? row?.id"))
+                              ])
+                            ])
+                          ]
+                        }
+                      ],
+                      "idx"
+                    )
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function entityPagesDetailCardTree(entity) {
+    var componentName = pascalize(entity.name) + "DetailCard";
+    var primaryField = (firstNonPrimaryField(entity) || entity.primaryField || {}).column || "id";
+    var secondaryField = (secondPreviewField(entity) || firstNonPrimaryField(entity) || entity.primaryField || {}).column || primaryField;
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Stateful CRUD detail card for " + entity.label + "."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral(ucfirst(entity.singular) + " detail")),
+        compVariableNode("EntityKey", scriptLiteral(entity.name)),
+        compVariableNode("PrimaryField", scriptLiteral(primaryField)),
+        compVariableNode("SecondaryField", scriptLiteral(secondaryField)),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentName + "Root",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentName + "Header",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentName + "TitleSlot",
+                  scriptTextNode("TitleText", "this.Title || " + scriptLiteral(ucfirst(entity.singular) + " detail"))
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentName + "Content",
+              children: [
+                scriptTextNode("PrimaryText", dynamicFieldAccessExpression(crudSelectedExpression("this.EntityKey"), "this.PrimaryField", scriptLiteral("No record selected"))),
+                scriptTextNode("SecondaryText", dynamicFieldAccessExpression(crudSelectedExpression("this.EntityKey"), "this.SecondaryField", scriptLiteral("No secondary value"))),
+                scriptTextNode("StatusText", "'Mode: ' + (" + crudModeExpression("this.EntityKey") + ") + ' | Status: ' + (" + crudEntityStatusExpression("this.EntityKey") + ")"),
+                ifDirectiveNode(
+                  componentName + "ErrorVisible",
+                  "!!" + crudEntityErrorExpression("this.EntityKey"),
+                  [
+                    textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      componentName + "ErrorText",
+                      scriptTextNode("ErrorTextValue", crudEntityErrorExpression("this.EntityKey"))
+                    )
+                  ]
+                )
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function buildDraftFieldUpdateScript(entityKey, fieldColumn) {
+    return [
+      "page.global = page.global || {};",
+      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
+      "var draft = Object.assign({}, drafts[" + scriptLiteral(entityKey) + "] || {});",
+      "var value = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '');",
+      "draft[" + scriptLiteral(fieldColumn) + "] = value == null ? '' : value;",
+      "drafts[" + scriptLiteral(entityKey) + "] = draft;",
+      "page.global.crudDrafts = drafts;",
+      "page.ref.markForCheck();",
+      "return draft;"
+    ].join("\n");
+  }
+
+  function buildRelationSelectNode(projectName, entityKey, field, entities) {
+    var relatedEntity = findEntityByName(entities, field.references && field.references.entity);
+    var relatedPreview = relatedEntity ? (firstNonPrimaryField(relatedEntity) || relatedEntity.primaryField || {}) : {};
+    var relatedLabelField = relatedPreview.column || "id";
+    var relatedKey = relatedEntity ? relatedEntity.name : pluralize(normalizedIdentifier(field.references.entity));
+    return {
+      className: "ngx.components.UIDynamicElement#Select",
+      name: pascalize(field.column) + "Select",
+      properties: {
+        Label: {
+          mode: "PLAIN",
+          value: field.label
+        },
+        LabelPlacement: {
+          mode: "PLAIN",
+          value: "stacked"
+        },
+        Placeholder: {
+          mode: "PLAIN",
+          value: "Select " + field.label
+        },
+        Interface: {
+          mode: "PLAIN",
+          value: "popover"
+        },
+        Value: {
+          mode: "SCRIPT",
+          value: dynamicFieldAccessExpression(crudDraftExpression(scriptLiteral(entityKey)), scriptLiteral(field.column), "''")
+        }
+      },
+      children: [
+        iterationDirectiveNode(
+          pascalize(field.column) + "OptionLoop",
+          projectName,
+          "option",
+          "((this.global?.crudRows || {})[" + scriptLiteral(relatedKey) + "] || [])",
+          [
+            {
+              className: "ngx.components.UIDynamicElement#SelectOption",
+              name: pascalize(field.column) + "Option",
+              properties: {
+                Value: {
+                  mode: "SCRIPT",
+                  value: "String(option?.ID ?? option?.id ?? '')"
+                }
+              },
+              children: [
+                smartTextNode("OptionText", iterationSourceValue(projectName, dynamicFieldAccessExpression("option", scriptLiteral(relatedLabelField), scriptLiteral("Option"))))
+              ]
+            }
+          ],
+          "idx"
+        ),
+        controlEventNode("ChangeEvent", [
+          customAsyncActionNode(
+            "Store" + pascalize(field.column),
+            buildDraftFieldUpdateScript(entityKey, field.column),
+            "Store selected relation value into CRUD draft state."
+          )
+        ], {
+          attrName: "(ionChange)",
+          eventName: "ionChange"
+        })
+      ]
+    };
+  }
+
+  function buildTextInputNode(entityKey, field) {
+    return {
+      className: "ngx.components.UIDynamicElement#Input",
+      name: pascalize(field.column) + "Input",
+      properties: {
+        Label: {
+          mode: "PLAIN",
+          value: field.label
+        },
+        LabelPlacement: {
+          mode: "PLAIN",
+          value: "stacked"
+        },
+        Placeholder: {
+          mode: "PLAIN",
+          value: field.label
+        },
+        Value: {
+          mode: "SCRIPT",
+          value: dynamicFieldAccessExpression(crudDraftExpression(scriptLiteral(entityKey)), scriptLiteral(field.column), "''")
+        },
+        Required: {
+          mode: "PLAIN",
+          value: field.required ? "true" : "false"
+        }
+      },
+      children: [
+        controlEventNode("InputEvent", [
+          customAsyncActionNode(
+            "Store" + pascalize(field.column),
+            buildDraftFieldUpdateScript(entityKey, field.column),
+            "Store input value into CRUD draft state."
+          )
+        ], {
+          attrName: "(ionInput)",
+          eventName: "ionInput"
+        })
+      ]
+    };
+  }
+
+  function entityPagesFormFieldNode(projectName, entity, field, entities) {
+    return {
+      className: "ngx.components.UIDynamicElement#FormItem",
+      name: pascalize(field.column) + "Item",
+      children: [
+        field.references ? buildRelationSelectNode(projectName, entity.name, field, entities) : buildTextInputNode(entity.name, field)
+      ]
+    };
+  }
+
+  function entityPagesEditFormTree(projectName, entity, entities) {
+    var componentName = pascalize(entity.name) + "EditForm";
+    var nonPrimaryFields = ensureArray(entity.fields).filter(function (field) {
+      return field && field.primary !== true;
+    });
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Stateful CRUD edit form for " + entity.label + "."
+      },
+      children: [
+        compVariableNode("EntityKey", scriptLiteral(entity.name)),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentName + "Root",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentName + "Header",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentName + "Title",
+                  scriptTextNode("TitleText", "(" + crudModeExpression("this.EntityKey") + " === 'create' ? " + scriptLiteral("Create " + entity.singular) + " : " + scriptLiteral("Edit " + entity.singular) + ")")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentName + "Content",
+              children: nonPrimaryFields.map(function (field) {
+                return entityPagesFormFieldNode(projectName, entity, field, entities);
+              }).concat([
+                scriptTextNode("FormStatus", "'Entity status: ' + (" + crudEntityStatusExpression("this.EntityKey") + ")"),
+                ifDirectiveNode(
+                  componentName + "ErrorVisible",
+                  "!!" + crudEntityErrorExpression("this.EntityKey"),
+                  [
+                    textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      componentName + "ErrorMessage",
+                      scriptTextNode("ErrorText", crudEntityErrorExpression("this.EntityKey"))
+                    )
+                  ]
+                ),
+                entityPagesButtonNode(
+                  "SaveButton",
+                  "Save " + entity.singular,
+                  { color: "primary" },
+                  [
+                    controlEventNode("Event", [
+                      dynamicInvokeNode("InvokeSave", dashboardActionQName(projectName, "crud_save_" + entity.singular), [])
+                    ])
+                  ]
+                ),
+                entityPagesButtonNode(
+                  "CancelButton",
+                  "Cancel",
+                  { fill: "outline" },
+                  [
+                    controlEventNode("Event", [
+                      dynamicInvokeNode("InvokeCancel", dashboardActionQName(projectName, "crud_cancel_" + entity.singular), [])
+                    ])
+                  ]
+                ),
+                ifDirectiveNode(
+                  componentName + "DeleteVisible",
+                  "!!" + crudSelectedExpression("this.EntityKey"),
+                  [
+                    entityPagesButtonNode(
+                      "DeleteButton",
+                      "Delete " + entity.singular,
+                      { color: "danger", fill: "outline" },
+                      [
+                        controlEventNode("Event", [
+                          dynamicInvokeNode("InvokeDelete", dashboardActionQName(projectName, "crud_delete_" + entity.singular), [])
+                        ])
+                      ]
+                    )
+                  ]
+                )
+              ])
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function buildEntityPagesSharedComponentsTree(projectName, entities, stage) {
+    var components = [
+      dashboardHeaderComponentTree("CrudPageHeader", projectName, entities),
+      dashboardStatCardGlobalTree("DashboardStatCard"),
+      dashboardLoadingStateTree("CrudLoadingState"),
+      entityPagesSharedRetryStateTree("CrudErrorRetryState", projectName)
+    ];
+    if (trimmed(stage).toLowerCase() !== "final") {
+      components.push(dashboardWorkInProgressCardTree("WorkInProgressCard"));
+    }
+    for (var i = 0; i < entities.length; i++) {
+      components.push(entityPagesListPanelTree(projectName, entities[i]));
+      components.push(entityPagesDetailCardTree(entities[i]));
+      components.push(entityPagesEditFormTree(projectName, entities[i], entities));
+    }
+    return {
+      qnames: components.map(function (component) { return sharedComponentQName(projectName, component.name); }),
+      tree: {
+        children: components
+      }
+    };
+  }
+
+  function buildEntityPagesBootstrapActionScript(projectName, facadePrefix, entities, stage) {
+    var configs = entities.map(function (entity) {
+      var config = entityUiConfig(projectName, facadePrefix, entity);
+      config.defaultDraft = entityPagesDefaultDraft(config);
+      return config;
+    });
+    return [
+      "page.global = page.global || {};",
+      "var configs = " + JSON.stringify(configs) + ";",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var statusOf = function(result) { return (result && result.status) ? result.status : 'ok'; };",
+      "page.global.crudBuildStage = " + scriptLiteral(trimmed(stage || "bootstrap")) + ";",
+      "page.global.crudLoading = true;",
+      "page.global.crudError = '';",
+      "page.global.crudStatus = 'loading';",
+      "page.global.crudRows = {};",
+      "page.global.crudCounts = {};",
+      "page.global.crudSamples = {};",
+      "page.global.crudSelected = {};",
+      "page.global.crudDrafts = {};",
+      "page.global.crudModes = {};",
+      "page.global.crudEntityStatus = {};",
+      "page.global.crudEntityErrors = {};",
+      "page.ref.markForCheck();",
+      "try {",
+      "  var results = await Promise.all(configs.map(async function(config) {",
+      "    try {",
+      "      var result = " + actionCallFromExpressionSnippet("config.listRequestable", "{}", 3000, 5000, true) + ";",
+      "      return { config: config, rows: extractRows(result), status: statusOf(result), error: statusOf(result) === 'ok' ? '' : (result?.error || ('Unable to load ' + String(config.label || config.key).toLowerCase())) };",
+      "    } catch (e) {",
+      "      var message = (e && e.message) ? e.message : ('' + e);",
+      "      page.c8o.log.debug('[MB] crud_bootstrap_dashboard failed for ' + String((config && config.key) || 'entity'), e);",
+      "      return { config: config, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()) };",
+      "    }",
+      "  }));",
+      "  var rowsByKey = {};",
+      "  var countsByKey = {};",
+      "  var samplesByKey = {};",
+      "  var selectedByKey = {};",
+      "  var draftsByKey = {};",
+      "  var modesByKey = {};",
+      "  var statusByKey = {};",
+      "  var errorsByKey = {};",
+      "  var firstError = '';",
+      "  for (var i = 0; i < results.length; i++) {",
+      "    var item = results[i];",
+      "    var key = item.config.key;",
+      "    var rows = Array.isArray(item.rows) ? item.rows : [];",
+      "    var selected = rows[0] || null;",
+      "    rowsByKey[key] = rows;",
+      "    countsByKey[key] = rows.length;",
+      "    samplesByKey[key] = rows[0] || null;",
+      "    selectedByKey[key] = selected;",
+      "    draftsByKey[key] = cloneRecord(selected || item.config.defaultDraft || {});",
+      "    modesByKey[key] = selected ? 'update' : 'create';",
+      "    statusByKey[key] = item.status === 'ok' ? (rows.length ? 'ready' : 'empty') : 'error';",
+      "    errorsByKey[key] = item.status === 'ok' ? '' : (item.error || ('Unable to load ' + String(item.config.label || key).toLowerCase()));",
+      "    if (!firstError && errorsByKey[key]) {",
+      "      firstError = errorsByKey[key];",
+      "    }",
+      "  }",
+      "  page.global.crudRows = rowsByKey;",
+      "  page.global.crudCounts = countsByKey;",
+      "  page.global.crudSamples = samplesByKey;",
+      "  page.global.crudSelected = selectedByKey;",
+      "  page.global.crudDrafts = draftsByKey;",
+      "  page.global.crudModes = modesByKey;",
+      "  page.global.crudEntityStatus = statusByKey;",
+      "  page.global.crudEntityErrors = errorsByKey;",
+      "  page.global.crudError = firstError;",
+      "  page.global.crudStatus = firstError ? 'error' : 'ok';",
+      "  page.ref.markForCheck();",
+      "  return { status: page.global.crudStatus, results: results };",
+      "} finally {",
+      "  page.global.crudLoading = false;",
+      "  page.ref.markForCheck();",
+      "}"
+    ].join("\n");
+  }
+
+  function buildEntityPagesRefreshActionScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
+      "var hasAnyErrors = function() { var errors = page.global?.crudEntityErrors || {}; for (var key in errors) { if (errors[key]) { return true; } } return false; };",
+      "var key = config.key;",
+      "var previousSelected = ((page.global?.crudSelected || {})[key]) || null;",
+      "var previousDraft = cloneRecord(((page.global?.crudDrafts || {})[key]) || {});",
+      "var previousMode = ((page.global?.crudModes || {})[key]) || 'update';",
+      "var previousSelectedId = normalizeId(previousSelected);",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'loading' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "page.ref.markForCheck();",
+      "try {",
+      "  var result = " + actionCallSnippet(cfg.listRequestable, "{}", 3000, 5000, true) + ";",
+      "  var rows = extractRows(result);",
+      "  var selected = rows.find(function(row) { return normalizeId(row) === previousSelectedId; }) || rows[0] || null;",
+      "  var mode = previousMode === 'create' && !previousSelectedId ? 'create' : (selected ? 'update' : 'create');",
+      "  var draft = mode === 'create' ? Object.assign({}, config.defaultDraft || {}, previousDraft || {}) : cloneRecord(selected || config.defaultDraft || {});",
+      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { [key]: rows });",
+      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { [key]: rows.length });",
+      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { [key]: rows[0] || null });",
+      "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
+      "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: draft });",
+      "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: mode });",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: rows.length ? 'ready' : 'empty' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "  page.global.crudError = hasAnyErrors() ? (page.global.crudError || '') : '';",
+      "  page.global.crudStatus = hasAnyErrors() ? 'error' : 'ok';",
+      "  page.ref.markForCheck();",
+      "  return result;",
+      "} catch (e) {",
+      "  var message = (e && e.message) ? e.message : ('' + e);",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'error' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: message || ('Unable to load ' + String(config.label || key).toLowerCase()) });",
+      "  page.global.crudError = page.global.crudEntityErrors[key];",
+      "  page.global.crudStatus = 'error';",
+      "  page.c8o.log.debug('[MB] crud_refresh_' + key + ' failed', e);",
+      "  page.ref.markForCheck();",
+      "  return { status: 'error', error: page.global.crudError, sql_output: [] };",
+      "}"
+    ].join("\n");
+  }
+
+  function buildEntityPagesOpenPageScript(config) {
+    return [
+      "var route = " + scriptLiteral(config.routePath) + ";",
+      "try {",
+      "  if (page && page['angularRouter'] && typeof page['angularRouter'].navigateByUrl === 'function') {",
+      "    return await page['angularRouter'].navigateByUrl(route);",
+      "  }",
+      "  if (page && page.router && page.router['angularRouter'] && typeof page.router['angularRouter'].navigateByUrl === 'function') {",
+      "    return await page.router['angularRouter'].navigateByUrl(route);",
+      "  }",
+      "  if (page && typeof page['navigateByUrl'] === 'function') {",
+      "    return await page['navigateByUrl'](route);",
+      "  }",
+      "  if (typeof window !== 'undefined' && window.location) {",
+      "    window.location.assign(route);",
+      "  }",
+      "} finally {",
+      "  return;",
+      "}"
+    ].join("\n");
+  }
+
+  function buildEntityPagesBootstrapPageScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
+      "var key = config.key;",
+      "var rows = ((page.global?.crudRows || {})[key]) || [];",
+      "var previousSelected = ((page.global?.crudSelected || {})[key]) || null;",
+      "var previousSelectedId = normalizeId(previousSelected);",
+      "var selected = rows.find(function(row) { return normalizeId(row) === previousSelectedId; }) || rows[0] || null;",
+      "var mode = ((page.global?.crudModes || {})[key]) || (selected ? 'update' : 'create');",
+      "var existingDraft = cloneRecord(((page.global?.crudDrafts || {})[key]) || {});",
+      "var draft = mode === 'create' ? Object.assign({}, config.defaultDraft || {}, existingDraft || {}) : cloneRecord(selected || config.defaultDraft || {});",
+      "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
+      "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: draft });",
+      "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: mode });",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: rows.length ? 'ready' : 'empty' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: ((page.global?.crudEntityErrors || {})[key]) || '' });",
+      "page.ref.markForCheck();",
+      "return { status: 'ok', rows: rows.length, mode: mode };"
+    ].join("\n");
+  }
+
+  function buildEntityPagesSelectActionScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var key = config.key;",
+      "var rows = ((page.global?.crudRows || {})[key]) || [];",
+      "var rowId = String(vars.row_id ?? '');",
+      "var selected = rows.find(function(row) { return String(row?.ID ?? row?.id ?? '') === rowId; }) || null;",
+      "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
+      "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(selected || config.defaultDraft || {}) });",
+      "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: selected ? 'update' : 'create' });",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'ready' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "page.ref.markForCheck();",
+      "return selected;"
+    ].join("\n");
+  }
+
+  function buildEntityPagesNewActionScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [config.key]: null });",
+      "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [config.key]: JSON.parse(JSON.stringify(config.defaultDraft || {})) });",
+      "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [config.key]: 'create' });",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [config.key]: 'editing' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [config.key]: '' });",
+      "page.ref.markForCheck();",
+      "return page.global.crudDrafts[config.key];"
+    ].join("\n");
+  }
+
+  function buildEntityPagesCancelActionScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var selected = ((page.global?.crudSelected || {})[config.key]) || null;",
+      "var draft = cloneRecord(selected || config.defaultDraft || {});",
+      "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [config.key]: draft });",
+      "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [config.key]: selected ? 'update' : 'create' });",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [config.key]: selected ? 'ready' : 'editing' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [config.key]: '' });",
+      "page.ref.markForCheck();",
+      "return draft;"
+    ].join("\n");
+  }
+
+  function buildEntityPagesSaveActionScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var key = config.key;",
+      "var draft = cloneRecord(((page.global?.crudDrafts || {})[key]) || {});",
+      "var selected = ((page.global?.crudSelected || {})[key]) || null;",
+      "var mode = ((page.global?.crudModes || {})[key]) || (selected ? 'update' : 'create');",
+      "var entityErrors = Object.assign({}, page.global.crudEntityErrors || {});",
+      "var entityStatus = Object.assign({}, page.global.crudEntityStatus || {});",
+      "var variables = {};",
+      "for (var i = 0; i < config.editableFields.length; i++) {",
+      "  var field = config.editableFields[i];",
+      "  variables[field.column] = draft[field.column] == null ? '' : String(draft[field.column]);",
+      "}",
+      "if (mode !== 'create') {",
+      "  variables[config.primaryColumn] = normalizeId(selected || draft || {});",
+      "}",
+      "entityStatus[key] = 'saving';",
+      "entityErrors[key] = '';",
+      "page.global.crudEntityStatus = entityStatus;",
+      "page.global.crudEntityErrors = entityErrors;",
+      "page.ref.markForCheck();",
+      "try {",
+      "  var requestable = mode === 'create' ? config.createRequestable : config.updateRequestable;",
+      "  await page['call'].apply(page, [requestable, Object.assign({__localCache_priority: null, __localCache_ttl: 0}, variables), null, 10000, true]);",
+      "  var listResult = " + actionCallSnippet(cfg.listRequestable, "{}", 0, 10000, true) + ";",
+      "  var rows = extractRows(listResult);",
+      "  var selectedId = normalizeId(selected || draft || {});",
+      "  var nextSelected = null;",
+      "  if (mode === 'create') {",
+      "    if (Array.isArray(config.uniqueFields) && config.uniqueFields.length) {",
+      "      nextSelected = rows.find(function(row) {",
+      "        for (var index = 0; index < config.uniqueFields.length; index++) {",
+      "          var column = config.uniqueFields[index];",
+      "          var expected = draft[column] == null ? '' : String(draft[column]);",
+      "          var actual = row ? String(row[column.toUpperCase()] ?? row[column] ?? '') : '';",
+      "          if (actual !== expected) {",
+      "            return false;",
+      "          }",
+      "        }",
+      "        return true;",
+      "      }) || null;",
+      "    }",
+      "    nextSelected = nextSelected || (rows.length ? rows[rows.length - 1] : null);",
+      "  } else {",
+      "    nextSelected = rows.find(function(row) { return normalizeId(row) === selectedId; }) || null;",
+      "  }",
+      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { [key]: rows });",
+      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { [key]: rows.length });",
+      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { [key]: rows[0] || null });",
+      "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: nextSelected });",
+      "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(nextSelected || config.defaultDraft || {}) });",
+      "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: nextSelected ? 'update' : 'create' });",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'saved' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "  page.global.crudError = '';",
+      "  page.global.crudStatus = 'ok';",
+      "  page.ref.markForCheck();",
+      "  return { status: 'ok', mode: mode };",
+      "} catch (e) {",
+      "  var message = (e && e.message) ? e.message : ('' + e);",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'error' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: message || ('Unable to save ' + String(config.label || key).toLowerCase()) });",
+      "  page.global.crudError = page.global.crudEntityErrors[key];",
+      "  page.global.crudStatus = 'error';",
+      "  page.c8o.log.debug('[MB] crud_save_' + key + ' failed', e);",
+      "  page.ref.markForCheck();",
+      "  return { status: 'error', error: page.global.crudError };",
+      "}"
+    ].join("\n");
+  }
+
+  function buildEntityPagesDeleteActionScript(config) {
+    var cfg = clone(config);
+    cfg.defaultDraft = entityPagesDefaultDraft(config);
+    return [
+      "page.global = page.global || {};",
+      "var config = " + JSON.stringify(cfg) + ";",
+      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
+      "var key = config.key;",
+      "var selected = ((page.global?.crudSelected || {})[key]) || null;",
+      "var selectedId = normalizeId(selected);",
+      "if (!selectedId) {",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'ready' });",
+      "  page.ref.markForCheck();",
+      "  return { status: 'skipped', message: 'No selected row.' };",
+      "}",
+      "if (typeof window !== 'undefined' && typeof window.confirm === 'function') {",
+      "  var confirmed = window.confirm('Delete ' + String(config.singular || 'record') + ' #' + selectedId + '?');",
+      "  if (!confirmed) {",
+      "    page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'cancelled' });",
+      "    page.ref.markForCheck();",
+      "    return { status: 'cancelled' };",
+      "  }",
+      "}",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'deleting' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "page.ref.markForCheck();",
+      "try {",
+      "  await page['call'].apply(page, [config.deleteRequestable, Object.assign({__localCache_priority: null, __localCache_ttl: 0}, { [config.primaryColumn]: selectedId }), null, 10000, true]);",
+      "  var listResult = " + actionCallSnippet(cfg.listRequestable, "{}", 0, 10000, true) + ";",
+      "  var rows = extractRows(listResult);",
+      "  var nextSelected = rows[0] || null;",
+      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { [key]: rows });",
+      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { [key]: rows.length });",
+      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { [key]: rows[0] || null });",
+      "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: nextSelected });",
+      "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(nextSelected || config.defaultDraft || {}) });",
+      "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: nextSelected ? 'update' : 'create' });",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'deleted' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "  page.global.crudError = '';",
+      "  page.global.crudStatus = 'ok';",
+      "  page.ref.markForCheck();",
+      "  return { status: 'ok' };",
+      "} catch (e) {",
+      "  var message = (e && e.message) ? e.message : ('' + e);",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'error' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: message || ('Unable to delete ' + String(config.label || key).toLowerCase()) });",
+      "  page.global.crudError = page.global.crudEntityErrors[key];",
+      "  page.global.crudStatus = 'error';",
+      "  page.c8o.log.debug('[MB] crud_delete_' + key + ' failed', e);",
+      "  page.ref.markForCheck();",
+      "  return { status: 'error', error: page.global.crudError };",
+      "}"
+    ].join("\n");
+  }
+
+  function buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) {
+    var qnames = [];
+    var children = [];
+    var configs = entities.map(function (entity) {
+      return entityUiConfig(projectName, facadePrefix, entity);
+    });
+    var bootstrapQName = dashboardActionQName(projectName, "crud_bootstrap_dashboard");
+    qnames.push(bootstrapQName, dashboardActionQName(projectName, "crud_retry_dashboard"));
+    children.push(
+      actionStackNode(
+        "crud_bootstrap_dashboard",
+        [],
+        [
+          customAsyncActionNode(
+            "BootstrapDashboard",
+            buildEntityPagesBootstrapActionScript(projectName, facadePrefix, entities, stage),
+            "Bootstrap landing and entity-page CRUD state."
+          )
+        ],
+        "CRUD entity-pages bootstrap action."
+      ),
+      actionStackNode(
+        "crud_retry_dashboard",
+        [],
+        [
+          dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
+        ],
+        "CRUD entity-pages retry action."
+      )
+    );
+    for (var i = 0; i < configs.length; i++) {
+      var config = configs[i];
+      var refreshName = "crud_refresh_" + config.key;
+      var bootstrapPageName = "crud_bootstrap_" + config.key + "_page";
+      var selectName = "crud_select_" + config.singular;
+      var newName = "crud_new_" + config.singular;
+      var saveName = "crud_save_" + config.singular;
+      var deleteName = "crud_delete_" + config.singular;
+      var cancelName = "crud_cancel_" + config.singular;
+      var openName = "crud_open_" + config.key + "_page";
+      qnames.push(
+        dashboardActionQName(projectName, refreshName),
+        dashboardActionQName(projectName, bootstrapPageName),
+        dashboardActionQName(projectName, selectName),
+        dashboardActionQName(projectName, newName),
+        dashboardActionQName(projectName, saveName),
+        dashboardActionQName(projectName, deleteName),
+        dashboardActionQName(projectName, cancelName),
+        dashboardActionQName(projectName, openName)
+      );
+      children.push(
+        actionStackNode(
+          refreshName,
+          [],
+          [
+            customAsyncActionNode(
+              "Refresh" + pascalize(config.key),
+              buildEntityPagesRefreshActionScript(config),
+              "Refresh CRUD state for " + config.label + "."
+            )
+          ],
+          "CRUD refresh action for " + config.label + "."
+        ),
+        actionStackNode(
+          bootstrapPageName,
+          [],
+          [
+            customAsyncActionNode(
+              "Bootstrap" + pascalize(config.key) + "Page",
+              buildEntityPagesBootstrapPageScript(config),
+              "Prepare selection and draft state for the " + config.label + " page."
+            )
+          ],
+          "CRUD entity page bootstrap for " + config.label + "."
+        ),
+        actionStackNode(
+          selectName,
+          [stackVariableNode("row_id", "''")],
+          [
+            customAsyncActionNode(
+              "Select" + pascalize(config.singular),
+              buildEntityPagesSelectActionScript(config),
+              "Select one " + config.singular + " row."
+            )
+          ],
+          "CRUD select action for " + config.label + "."
+        ),
+        actionStackNode(
+          newName,
+          [],
+          [
+            customAsyncActionNode(
+              "New" + pascalize(config.singular),
+              buildEntityPagesNewActionScript(config),
+              "Prepare a new " + config.singular + " draft."
+            )
+          ],
+          "CRUD new action for " + config.label + "."
+        ),
+        actionStackNode(
+          saveName,
+          [],
+          [
+            customAsyncActionNode(
+              "Save" + pascalize(config.singular),
+              buildEntityPagesSaveActionScript(config),
+              "Persist the current " + config.singular + " draft."
+            )
+          ],
+          "CRUD save action for " + config.label + "."
+        ),
+        actionStackNode(
+          deleteName,
+          [],
+          [
+            customAsyncActionNode(
+              "Delete" + pascalize(config.singular),
+              buildEntityPagesDeleteActionScript(config),
+              "Delete the selected " + config.singular + "."
+            )
+          ],
+          "CRUD delete action for " + config.label + "."
+        ),
+        actionStackNode(
+          cancelName,
+          [],
+          [
+            customAsyncActionNode(
+              "Cancel" + pascalize(config.singular),
+              buildEntityPagesCancelActionScript(config),
+              "Reset the current " + config.singular + " draft."
+            )
+          ],
+          "CRUD cancel action for " + config.label + "."
+        ),
+        actionStackNode(
+          openName,
+          [],
+          [
+            customAsyncActionNode(
+              "Open" + pascalize(config.key) + "Page",
+              buildEntityPagesOpenPageScript(config),
+              "Navigate to the " + config.label + " page."
+            )
+          ],
+          "CRUD navigation action for " + config.label + "."
+        )
+      );
+    }
+    return {
+      qnames: qnames,
+      tree: {
+        children: children
+      }
+    };
+  }
+
+  function landingRouteCardNode(entity) {
+    var componentPrefix = pascalize(entity.name);
+    return {
+      className: "ngx.components.UIDynamicElement#GridCol",
+      name: componentPrefix + "RouteCol",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentPrefix + "RouteCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentPrefix + "RouteHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentPrefix + "RouteTitle",
+                  plainTextNode(componentPrefix + "RouteTitleText", entity.label)
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  componentPrefix + "RouteSubtitle",
+                  scriptTextNode("RouteSubtitleText", "'Rows: ' + (" + dashboardCountExpression(scriptLiteral(entity.name)) + ")")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentPrefix + "RouteContent",
+              children: [
+                scriptTextNode("RoutePreview", dynamicFieldAccessExpression(dashboardSampleExpression(scriptLiteral(entity.name)), scriptLiteral(((firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id"), scriptLiteral("No live sample yet"))),
+                entityPagesButtonNode("OpenPageButton", "Open " + entity.label, { routerPath: entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function buildEntityPagesLandingShellTree(projectName, entities, stage) {
+    var children = [
+      {
+        className: "ngx.components.UIDynamicElement#Grid",
+        name: "CrudDashboardGrid",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridRow",
+            name: "HeaderRow",
+            children: [
+              {
+                className: "ngx.components.UIDynamicElement#GridCol",
+                name: "HeaderCol",
+                children: [
+                  buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
+                    useVariableNode("Title", scriptLiteral(ucfirst(projectName) + " CRUD landing")),
+                    useVariableNode("Subtitle", scriptLiteral("Open an entity page to edit live facade data."))
+                  ])
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ];
+    var gridChildren = children[0].children;
+    if (trimmed(stage).toLowerCase() !== "final") {
+      gridChildren.push({
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "BootstrapRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "BootstrapCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
+            ]
+          }
+        ]
+      });
+    }
+    gridChildren.push({
+      className: "ngx.components.UIDynamicElement#GridRow",
+      name: "MetricsRow",
+      children: entities.map(function (entity) {
+        return {
+          className: "ngx.components.UIDynamicElement#GridCol",
+          name: pascalize(entity.name) + "MetricCol",
+          children: [
+            buildUseSharedNode(sharedComponentQName(projectName, "DashboardStatCard"), "Use" + pascalize(entity.name) + "StatCard", [
+              useVariableNode("Title", scriptLiteral(entity.label)),
+              useVariableNode("EntityKey", scriptLiteral(entity.name)),
+              useVariableNode("Caption", scriptLiteral("Landing state is live"))
+            ])
+          ]
+        };
+      })
+    });
+    gridChildren.push({
+      className: "ngx.components.UIDynamicElement#GridRow",
+      name: "RouteRow",
+      children: entities.map(function (entity) {
+        return landingRouteCardNode(entity);
+      })
+    });
+    gridChildren.push(
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "LoadingRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "LoadingCol",
+            children: [
+              ifDirectiveNode(
+                "LoadingVisible",
+                "this.global?.crudLoading === true",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+              )
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "ErrorRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "ErrorCol",
+            children: [
+              ifDirectiveNode(
+                "ErrorVisible",
+                "!!this.global?.crudError",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+              )
+            ]
+          }
+        ]
+      }
+    );
+    return {
+      className: "ngx.components.UIDynamicElement#Content",
+      name: "Content",
+      properties: {
+        Padding: {
+          mode: "PLAIN",
+          value: "ion-padding"
+        }
+      },
+      children: children
+    };
+  }
+
+  function buildEntityPageShellTree(projectName, entity, stage) {
+    var prefix = pascalize(entity.name);
+    return {
+      className: "ngx.components.UIDynamicElement#Content",
+      name: "Content",
+      properties: {
+        Padding: {
+          mode: "PLAIN",
+          value: "ion-padding"
+        }
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Grid",
+          name: "CrudEntityPageGrid",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#GridRow",
+              name: "PageHeaderRow",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridCol",
+                  name: "PageHeaderCol",
+                  children: [
+                    buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
+                      useVariableNode("Title", scriptLiteral(entity.label + " workspace")),
+                      useVariableNode("Subtitle", scriptLiteral("Select, edit, create, then return to the landing page if needed."))
+                    ]),
+                    entityPagesButtonNode("BackToLanding", "Back to landing", { routerPath: "/home", routerDirection: "back", fill: "outline" }, [])
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function appendEntityPageRows(projectName, entity, shellTree, stage) {
+    var prefix = pascalize(entity.name);
+    var gridChildren = ensureArray(shellTree && shellTree.children && shellTree.children[0] && shellTree.children[0].children);
+    if (trimmed(stage).toLowerCase() !== "final") {
+      gridChildren.push({
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "BootstrapRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "BootstrapCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
+            ]
+          }
+        ]
+      });
+    }
+    gridChildren.push(
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: prefix + "ListRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: prefix + "ListCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, prefix + "ListPanel"), "Use" + prefix + "ListPanel", [])
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: prefix + "DetailRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: prefix + "DetailCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, prefix + "DetailCard"), "Use" + prefix + "DetailCard", [])
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: prefix + "FormRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: prefix + "FormCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, prefix + "EditForm"), "Use" + prefix + "EditForm", [])
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: prefix + "LoadingRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: prefix + "LoadingCol",
+            children: [
+              ifDirectiveNode(
+                prefix + "LoadingVisible",
+                "this.global?.crudLoading === true || " + crudEntityStatusExpression(scriptLiteral(entity.name)) + " === 'loading'",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+              )
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: prefix + "ErrorRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: prefix + "ErrorCol",
+            children: [
+              ifDirectiveNode(
+                prefix + "ErrorVisible",
+                "!!this.global?.crudError || !!" + crudEntityErrorExpression(scriptLiteral(entity.name)),
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+              )
+            ]
+          }
+        ]
+      }
+    );
+    shellTree.children[0].children = gridChildren;
+    return shellTree;
+  }
+
+  function buildEntityPageRootTree(entity) {
+    return {
+      className: "ngx.components.PageComponent#PageComponent",
+      name: entityPageName(entity),
+      properties: {
+        comment: "Deterministic CRUD entity page for " + entity.label + ".",
+        icon: "list",
+        preloadPriority: "low",
+        segment: entityRouteSegment(entity),
+        title: entity.label
+      },
+      children: [
+        entityPagesHeaderTitleTree(entity.label),
+        {
+          className: "ngx.components.UIDynamicElement#Content",
+          name: "Content",
+          properties: {
+            Padding: {
+              mode: "PLAIN",
+              value: "ion-padding"
+            }
+          },
+          children: []
+        }
+      ]
+    };
+  }
+
+  function buildEntityPagesLandingLoadTree(projectName, entryPage) {
+    return {
+      qname: pageQName(projectName, entryPage),
+      legacyQNames: [
+        pageQName(projectName, entryPage) + ".PageEvent",
+        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
+      ],
+      tree: {
+        properties: {
+          scriptContent: blankPageScriptContent()
+        },
+        children: [
+          pageEventNode(
+            "PageEvent",
+            "onWillLoad",
+            [
+              dynamicInvokeNode("InvokeBootstrapDashboard", dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+            ],
+            "Bootstrap CRUD entity-pages state on landing load."
+          )
+        ]
+      }
+    };
+  }
+
+  function buildEntityPageLoadTree(projectName, entity) {
+    return {
+      qname: entityPageQName(projectName, entity),
+      legacyQNames: [
+        entityPageQName(projectName, entity) + ".PageEvent"
+      ],
+      tree: {
+        properties: {
+          scriptContent: blankPageScriptContent()
+        },
+        children: [
+          pageEventNode(
+            "PageEvent",
+            "onWillLoad",
+            [
+              dynamicInvokeNode("InvokeBootstrapDashboard", dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
+              dynamicInvokeNode("InvokeBootstrap" + pascalize(entity.name) + "Page", dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
+            ],
+            "Bootstrap CRUD entity page state on page load."
+          )
+        ]
+      }
+    };
+  }
+
   function crmActionQName(projectName, actionName) {
     return ngxAppQName(projectName) + "." + trimmed(actionName);
   }
@@ -4316,12 +6309,27 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function controlEventNode(name, children) {
-    return {
+  function controlEventNode(name, children, options) {
+    var node = {
       className: "ngx.components.UIControlEvent#UIControlEvent",
       name: name,
       children: ensureArray(children)
     };
+    var extra = options && typeof options === "object" ? options : {};
+    var properties = {};
+    if (trimmed(extra.attrName).length) {
+      properties.attrName = String(extra.attrName);
+    };
+    if (trimmed(extra.eventName).length) {
+      properties.eventName = String(extra.eventName);
+    }
+    if (trimmed(extra.comment).length) {
+      properties.comment = String(extra.comment);
+    }
+    if (Object.keys(properties).length) {
+      node.properties = properties;
+    }
+    return node;
   }
 
   function stackVariableNode(name, defaultValue) {
@@ -5041,8 +7049,8 @@ C8O.crud = C8O.crud || {};
     var serialized = JSON.stringify(uiTree || {});
     return {
       starterDominant: serialized.indexOf("WelcomeCard") !== -1,
-      visibleShellPresent: /FeatureShell|CrudDashboardGrid|CrmMasterDetailGrid|UseCrudPageHeader|UseWorkInProgressCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseContactTable|UseCompanyCard|UseCompanyTable/.test(serialized),
-      liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared|UIUseVariable/.test(serialized)
+      visibleShellPresent: /FeatureShell|CrudDashboardGrid|CrudEntityPageGrid|CrmMasterDetailGrid|UseCrudPageHeader|UseWorkInProgressCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseContactTable|UseCompanyCard|UseCompanyTable|ListPanel|DetailCard|EditForm/.test(serialized),
+      liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared|UIUseVariable|UIControlEvent/.test(serialized)
     };
   }
 
@@ -5083,8 +7091,10 @@ C8O.crud = C8O.crud || {};
     var entities = hydrateUiEntitiesFromFacade(projectName, trimmed(options.facadePrefix || "crud"), normalizeUiEntities(options.entities), result);
     var entryPage = trimmed(options.entryPage || "Page");
     var facadePrefix = trimmed(options.facadePrefix || "crud");
-    var variant = trimmed(options.variant || "dashboard").toLowerCase() || "dashboard";
+    var variant = trimmed(options.variant || "entity-pages").toLowerCase() || "entity-pages";
     var stage = trimmed(options.stage || "final").toLowerCase() || "final";
+    var isMasterDetail = variant === "master-detail";
+    var isEntityPages = variant === "entity-pages";
     var pageQNameValue = pageQName(projectName, entryPage);
     var contentQName = findPageContentQName(projectName, entryPage);
     var ngxApp = C8O.dbo.resolve(ngxAppQName(projectName), { optional: true });
@@ -5105,13 +7115,13 @@ C8O.crud = C8O.crud || {};
       updated: 0
     };
     var sharedBuildStartedAt = nowMillis();
-    var sharedComponents = variant === "master-detail"
+    var sharedComponents = isMasterDetail
       ? buildCrmSharedComponentsTree(projectName, stage)
-      : buildDashboardSharedComponentsTree(projectName, entities, stage);
-    var sharedActions = variant === "master-detail"
+      : (isEntityPages ? buildEntityPagesSharedComponentsTree(projectName, entities, stage) : buildDashboardSharedComponentsTree(projectName, entities, stage));
+    var sharedActions = isMasterDetail
       ? buildCrmActionStacksTree(projectName, facadePrefix, stage)
-      : buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage);
-    var reuseExistingSharedActions = stage === "final" && everyQNameExists(sharedActions.qnames);
+      : (isEntityPages ? buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
+    var reuseExistingSharedActions = stage === "final" && !isEntityPages && everyQNameExists(sharedActions.qnames);
     var sharedActionChildren = reuseExistingSharedActions ? [] : ensureArray(sharedActions.tree.children);
     setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
     result.runtimeEvidence.sharedComponentsRequested = ensureArray(sharedComponents.tree.children).length;
@@ -5121,17 +7131,58 @@ C8O.crud = C8O.crud || {};
     result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
     result.runtimeEvidence.uiGlobals = statefulUiGlobals(variant);
     var pageShellStartedAt = nowMillis();
-    var pageShellTree = variant === "master-detail"
+    var pageShellTree = isMasterDetail
       ? buildCrmMasterDetailPageShellTree(projectName, stage)
-      : buildDashboardPageShellTree(projectName, entities, stage);
+      : (isEntityPages ? buildEntityPagesLandingShellTree(projectName, entities, stage) : buildDashboardPageShellTree(projectName, entities, stage));
     setDuration(timings, "buildPageShellTreeMs", pageShellStartedAt);
     result.runtimeEvidence.pageShellTreeNodeCount = countTreeNodes(pageShellTree);
     var pageLoadStartedAt = nowMillis();
-    var pageLoadTree = variant === "master-detail"
+    var pageLoadTree = isMasterDetail
       ? buildCrmPageLoadTree(projectName, entryPage, stage)
-      : buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage);
+      : (isEntityPages ? buildEntityPagesLandingLoadTree(projectName, entryPage) : buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage));
     setDuration(timings, "buildPageLoadTreeMs", pageLoadStartedAt);
     result.runtimeEvidence.pageLoadTreeNodeCount = countTreeNodes(pageLoadTree.tree);
+    var entityPageRoots = [];
+    var entityPageShells = [];
+    var entityPageLoads = [];
+    if (isEntityPages) {
+      for (var entityIndex = 0; entityIndex < entities.length; entityIndex++) {
+        var currentEntity = entities[entityIndex];
+        entityPageRoots.push(buildEntityPageRootTree(currentEntity));
+        var entityShellTree = buildEntityPageShellTree(projectName, currentEntity, stage);
+        appendEntityPageRows(projectName, currentEntity, entityShellTree, stage);
+        entityPageShells.push({
+          entity: currentEntity.name,
+          qname: entityPageContentQName(projectName, currentEntity),
+          tree: entityShellTree
+        });
+        entityPageLoads.push({
+          entity: currentEntity.name,
+          tree: buildEntityPageLoadTree(projectName, currentEntity)
+        });
+      }
+    }
+    result.runtimeEvidence.pageNames = [entryPage].concat(entityPageRoots.map(function (pageTree) {
+      return pageTree.name;
+    }));
+    result.runtimeEvidence.pageRoutes = ["/home"].concat(entityPageRoots.map(function (pageTree, index) {
+      return entityRoutePath(entities[index]);
+    }));
+    result.runtimeEvidence.entityPages = entityPageRoots.map(function (pageTree, index) {
+      return {
+        entity: entities[index].name,
+        pageName: pageTree.name,
+        route: entityRoutePath(entities[index]),
+        contentQName: entityPageShells[index] ? entityPageShells[index].qname : "",
+        sharedRefs: entityPageShells[index] ? collectSharedRefs(entityPageShells[index].tree, []) : []
+      };
+    });
+    var expectedManagedCrudQNames = [pageQName(projectName, entryPage)]
+      .concat(sharedComponents.qnames || [])
+      .concat(sharedActions.qnames || [])
+      .concat(entityPageLoads.map(function (item) { return item.tree.qname; }));
+    var cleanupQNames = collectManagedCrudCleanupQNames(ngxApp, expectedManagedCrudQNames);
+    result.runtimeEvidence.cleanupTargets = cleanupQNames;
     var batchApplyStartedAt = nowMillis();
     var pageMutationOperations = [
       {
@@ -5149,16 +7200,6 @@ C8O.crud = C8O.crud || {};
         }
       }
     ];
-    if (stage === "final") {
-      var bootstrapRowQName = statefulBootstrapRowQName(projectName, entryPage, variant);
-      if (C8O.dbo.resolve(bootstrapRowQName, { optional: true })) {
-        pageMutationOperations.unshift({
-          type: "delete",
-          opId: "delete_" + normalizedIdentifier(bootstrapRowQName),
-          qname: bootstrapRowQName
-        });
-      }
-    }
     var legacyPageLoadQNames = ensureArray(pageLoadTree.legacyQNames);
     for (var legacyIndex = 0; legacyIndex < legacyPageLoadQNames.length; legacyIndex++) {
       var legacyQName = trimmed(legacyPageLoadQNames[legacyIndex]);
@@ -5174,7 +7215,14 @@ C8O.crud = C8O.crud || {};
         qname: legacyQName
       });
     }
-    var batchOperations = [
+    var cleanupOperations = cleanupQNames.map(function (qname) {
+      return {
+        type: "delete",
+        opId: "cleanup_" + normalizedIdentifier(qname),
+        qname: qname
+      };
+    });
+    var batchOperations = cleanupOperations.concat([
       {
         type: "upsertTree",
         opId: "shared_components",
@@ -5185,7 +7233,7 @@ C8O.crud = C8O.crud || {};
           reorder: false
         },
         patch: {
-          children: ensureArray(sharedComponents.tree.children).concat(sharedActionChildren)
+          children: ensureArray(sharedComponents.tree.children).concat(sharedActionChildren).concat(entityPageRoots)
         }
       },
       {
@@ -5202,7 +7250,39 @@ C8O.crud = C8O.crud || {};
           children: ensureArray(pageShellTree.children)
         }
       }
-    ].concat(pageMutationOperations);
+    ]).concat(pageMutationOperations);
+    for (var pageIndex = 0; pageIndex < entityPageShells.length; pageIndex++) {
+      batchOperations.push(
+        {
+          type: "upsertTree",
+          opId: "entity_page_" + normalizedIdentifier(entityPageShells[pageIndex].entity),
+          qname: entityPageShells[pageIndex].qname,
+          strategy: {
+            replaceOnClassMismatch: true,
+            pruneMissing: true,
+            reorder: false
+          },
+          patch: {
+            properties: entityPageShells[pageIndex].tree.properties || {},
+            children: ensureArray(entityPageShells[pageIndex].tree.children)
+          }
+        },
+        {
+          type: "upsertTree",
+          opId: "entity_page_load_" + normalizedIdentifier(entityPageLoads[pageIndex].entity),
+          qname: entityPageLoads[pageIndex].tree.qname,
+          strategy: {
+            replaceOnClassMismatch: true,
+            pruneMissing: false,
+            reorder: false
+          },
+          patch: {
+            properties: entityPageLoads[pageIndex].tree.tree.properties || {},
+            children: ensureArray(entityPageLoads[pageIndex].tree.tree.children)
+          }
+        }
+      );
+    }
     if (reuseExistingSharedActions) {
       var buildStageQName = statefulBootstrapStageQName(projectName, variant);
       if (C8O.dbo.resolve(buildStageQName, { optional: true })) {
@@ -5275,6 +7355,9 @@ C8O.crud = C8O.crud || {};
     }
     setDuration(timings, "configureSharedBindingsMs", sharedBindingsStartedAt);
     result.pageTargets.push(contentQName);
+    for (var targetIndex = 0; targetIndex < entityPageShells.length; targetIndex++) {
+      result.pageTargets.push(entityPageShells[targetIndex].qname);
+    }
     result.runtimeEvidence.entryPage = entryPage;
     result.runtimeEvidence.facadePrefix = facadePrefix;
     result.runtimeEvidence.pageSharedRefs = collectSharedRefs(pageShellTree, []);
@@ -5296,12 +7379,38 @@ C8O.crud = C8O.crud || {};
       addWarning(result, "Unable to inspect NGX shell after apply: " + String(uiInspectError));
     }
     try {
-      var mobileBuilderStartedAt = nowMillis();
-      result.runtimeEvidence.mobileBuilder = C8O.dbo.triggerMobileBuilderRefresh(pageDbo || contentDbo || ngxApp, ensureWarnings(result));
-      setDuration(timings, "mobileBuilderMs", mobileBuilderStartedAt);
       var projectSaveStartedAt = nowMillis();
       result.runtimeEvidence.projectSave = summarizeSaveResult(C8O.dbo.saveProject(project, []), result);
       setDuration(timings, "projectSaveMs", projectSaveStartedAt);
+      var generatedSourcesCleanupStartedAt = nowMillis();
+      result.runtimeEvidence.generatedSourcesCleanup = cleanupGeneratedIonicSources(projectName, ngxApp);
+      setDuration(timings, "generatedSourcesCleanupMs", generatedSourcesCleanupStartedAt);
+      var managedPageNames = [entryPage];
+      for (var managedPageIndex = 0; managedPageIndex < entityPageShells.length; managedPageIndex++) {
+        var managedPageQName = trimmed(entityPageShells[managedPageIndex] && entityPageShells[managedPageIndex].qname);
+        if (!managedPageQName.length) {
+          continue;
+        }
+        managedPageNames.push(managedPageQName.substring(managedPageQName.lastIndexOf(".") + 1));
+      }
+      var managedSourcePurgeStartedAt = nowMillis();
+      result.runtimeEvidence.generatedSourcesPurge = purgeManagedGeneratedIonicSources(
+        projectName,
+        managedPageNames,
+        sharedComponents.qnames || []
+      );
+      setDuration(timings, "generatedSourcesPurgeMs", managedSourcePurgeStartedAt);
+      var mobileBuilderStartedAt = nowMillis();
+      var refreshTargets = [pageQName(projectName, entryPage)].concat(sharedComponents.qnames || []);
+      for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {
+        refreshTargets.push(entityPageLoads[refreshIndex].tree.qname);
+      }
+      result.runtimeEvidence.mobileBuilder = triggerUiSourceRefreshTargets(
+        refreshTargets,
+        result,
+        "$.runtimeEvidence.mobileBuilder"
+      );
+      setDuration(timings, "mobileBuilderMs", mobileBuilderStartedAt);
       var studioRefreshStartedAt = nowMillis();
       result.runtimeEvidence.studioRefresh = refreshStudioProjectTree(project, result, "studioRefresh");
       setDuration(timings, "studioRefreshMs", studioRefreshStartedAt);
@@ -5654,7 +7763,7 @@ C8O.crud = C8O.crud || {};
       },
       ui: {
         entryPage: trimmed(options.entryPage || "Page"),
-        variant: trimmed(options.variant || (trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? "master-detail" : "dashboard"))
+        variant: trimmed(options.variant || (trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? "master-detail" : "entity-pages"))
       },
       database: normalizeDatabaseSpec({
         project: projectName,

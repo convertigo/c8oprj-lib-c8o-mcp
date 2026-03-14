@@ -115,6 +115,11 @@ def singularize_name(name):
     return text
 
 
+def pascalize_name(name):
+    parts = re.split(r"[^A-Za-z0-9]+", str(name or ""))
+    return "".join(part[:1].upper() + part[1:] for part in parts if part)
+
+
 def load_spec(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -145,6 +150,11 @@ def expected_ui_globals(variant):
         "crudRows",
         "crudCounts",
         "crudSamples",
+        "crudSelected",
+        "crudDrafts",
+        "crudModes",
+        "crudEntityStatus",
+        "crudEntityErrors",
     ]
 
 
@@ -230,7 +240,7 @@ def validate_runtime(url, spec, artifact_dir):
     connector = spec["database"]["connector"]
     facade_prefix = spec["facade"]["prefix"]
     entry_page = spec["ui"].get("entryPage", "Page")
-    variant = spec["ui"].get("variant", "dashboard")
+    variant = spec["ui"].get("variant", "entity-pages")
     entities = spec["entities"]
     entity_names = [entity["name"] for entity in entities]
     requestables = ["init_schema"] + [f"list_{name}" for name in entity_names] + [f"count_{name}" for name in entity_names]
@@ -309,7 +319,7 @@ def validate_runtime(url, spec, artifact_dir):
         {
             "project": project,
             "entities": spec["entities"],
-            "variant": spec["ui"].get("variant", "dashboard"),
+            "variant": spec["ui"].get("variant", "entity-pages"),
             "stage": "bootstrap",
             "facadePrefix": facade_prefix,
             "entryPage": entry_page,
@@ -338,7 +348,7 @@ def validate_runtime(url, spec, artifact_dir):
         {
             "project": project,
             "entities": spec["entities"],
-            "variant": spec["ui"].get("variant", "dashboard"),
+            "variant": spec["ui"].get("variant", "entity-pages"),
             "stage": "final",
             "facadePrefix": facade_prefix,
             "entryPage": entry_page,
@@ -350,6 +360,13 @@ def validate_runtime(url, spec, artifact_dir):
     final_runtime = final_ui_result.get("runtimeEvidence") or {}
     assert_true(int(final_runtime.get("sharedActionsRequested") or 0) > 0, f"Final UI did not keep shared actions for {project}")
     assert_true((final_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected final UI globals for {project}: {final_runtime.get('uiGlobals')}")
+    if variant == "entity-pages":
+        expected_page_names = [entry_page] + [f"{pascalize_name(entity['name'])}Page" for entity in entities]
+        expected_page_routes = ["/home"] + [f"/{entity['name'].lower()}" for entity in entities]
+        assert_true((final_runtime.get("pageNames") or []) == expected_page_names, f"Unexpected pageNames for {project}: {final_runtime.get('pageNames')}")
+        assert_true((final_runtime.get("pageRoutes") or []) == expected_page_routes, f"Unexpected pageRoutes for {project}: {final_runtime.get('pageRoutes')}")
+        entity_pages = final_runtime.get("entityPages") or []
+        assert_true(len(entity_pages) == len(entities), f"Unexpected entityPages count for {project}: {len(entity_pages)}")
     final_refs = set((final_ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
     assert_true(f"{project}.Application.NgxApp.WorkInProgressCard" not in final_refs, f"Final shell still exposes WorkInProgressCard in {project}")
     mobile_builder_final = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60, "forceRestart": True}, timeout=180)
@@ -411,7 +428,6 @@ def validate_runtime(url, spec, artifact_dir):
         "CrudPageHeader",
         "CrudLoadingState",
         "CrudErrorRetryState",
-        "WorkInProgressCard",
     }
     if is_crm:
         expected_components.update({
@@ -427,14 +443,22 @@ def validate_runtime(url, spec, artifact_dir):
             "crm_retry_dashboard",
         })
     else:
-        expected_components.update({"crud_bootstrap_dashboard", "crud_retry_dashboard"})
+        expected_components.update({"DashboardStatCard", "crud_bootstrap_dashboard", "crud_retry_dashboard"})
         for entity in entities:
-            singular = singularize_name(entity["name"]).capitalize()
+            singular = pascalize_name(singularize_name(entity["name"]))
+            plural = pascalize_name(entity["name"])
             expected_components.update({
-                f"{singular}Table",
-                f"{singular}Card",
-                f"{singular}Form",
+                f"{plural}ListPanel",
+                f"{plural}DetailCard",
+                f"{plural}EditForm",
                 f"crud_refresh_{entity['name']}",
+                f"crud_open_{entity['name']}_page",
+                f"crud_bootstrap_{entity['name']}_page",
+                f"crud_select_{singularize_name(entity['name'])}",
+                f"crud_new_{singularize_name(entity['name'])}",
+                f"crud_save_{singularize_name(entity['name'])}",
+                f"crud_delete_{singularize_name(entity['name'])}",
+                f"crud_cancel_{singularize_name(entity['name'])}",
             })
     missing_components = sorted(expected_components - app_names)
     assert_true(not missing_components, f"Missing shared CRUD components for {project}: {', '.join(missing_components)}")
@@ -445,20 +469,61 @@ def validate_runtime(url, spec, artifact_dir):
         f"{project}.Application.NgxApp.CrudPageHeader" in page_shared_refs,
         f"Entry page does not use CrudPageHeader in {project}",
     )
-    for entity in entities:
-        singular = singularize_name(entity["name"]).capitalize()
+    if not is_crm and variant == "entity-pages":
         assert_true(
-            f"{project}.Application.NgxApp.{singular}Table" in page_shared_refs,
-            f"Entry page does not use {singular}Table in {project}",
+            f"{project}.Application.NgxApp.DashboardStatCard" in page_shared_refs,
+            f"Entry page does not use DashboardStatCard in {project}",
         )
-        assert_true(
-            f"{project}.Application.NgxApp.{singular}Card" in page_shared_refs,
-            f"Entry page does not use {singular}Card in {project}",
-        )
-        if not is_crm:
+        for entity_page in final_runtime.get("entityPages") or []:
+            entity_name = str(entity_page.get("entity") or "")
+            shared_refs = set(entity_page.get("sharedRefs") or [])
+            plural = pascalize_name(entity_name)
             assert_true(
-                f"{project}.Application.NgxApp.{singular}Form" in page_shared_refs,
-                f"Entry page does not use {singular}Form in {project}",
+                f"{project}.Application.NgxApp.CrudPageHeader" in shared_refs,
+                f"{entity_name} page does not use CrudPageHeader in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.{plural}ListPanel" in shared_refs,
+                f"{entity_name} page does not use {plural}ListPanel in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.{plural}DetailCard" in shared_refs,
+                f"{entity_name} page does not use {plural}DetailCard in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.{plural}EditForm" in shared_refs,
+                f"{entity_name} page does not use {plural}EditForm in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.CrudLoadingState" in shared_refs and
+                f"{project}.Application.NgxApp.CrudErrorRetryState" in shared_refs,
+                f"{entity_name} page does not use shared state components in {project}",
+            )
+    elif is_crm:
+        for entity in entities:
+            singular = singularize_name(entity["name"]).capitalize()
+            assert_true(
+                f"{project}.Application.NgxApp.{singular}Table" in page_shared_refs,
+                f"Entry page does not use {singular}Table in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.{singular}Card" in page_shared_refs,
+                f"Entry page does not use {singular}Card in {project}",
+            )
+    else:
+        for entity in entities:
+            plural = pascalize_name(entity["name"])
+            assert_true(
+                f"{project}.Application.NgxApp.{plural}ListPanel" in page_shared_refs,
+                f"Entry page does not use {plural}ListPanel in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.{plural}DetailCard" in page_shared_refs,
+                f"Entry page does not use {plural}DetailCard in {project}",
+            )
+            assert_true(
+                f"{project}.Application.NgxApp.{plural}EditForm" in page_shared_refs,
+                f"Entry page does not use {plural}EditForm in {project}",
             )
     assert_true(
         f"{project}.Application.NgxApp.CrudLoadingState" in page_shared_refs and
@@ -524,8 +589,13 @@ def main():
 
     results = {"artifacts": [], "scenarios": [], "deletedProjects": deleted_projects}
 
-    hsql_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_hsqldb.json", "")
-    artifact_path, summary = validate_runtime(args.mcp_url, hsql_spec, artifact_dir)
+    poll_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.json", "")
+    artifact_path, summary = validate_runtime(args.mcp_url, poll_spec, artifact_dir)
+    results["artifacts"].append(str(artifact_path))
+    results["scenarios"].append(summary)
+
+    crm_hsql_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_hsqldb.json", "")
+    artifact_path, summary = validate_runtime(args.mcp_url, crm_hsql_spec, artifact_dir)
     results["artifacts"].append(str(artifact_path))
     results["scenarios"].append(summary)
 

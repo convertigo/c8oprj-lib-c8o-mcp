@@ -16,8 +16,9 @@ Always validate on a fresh disposable project instead of a project already pollu
 5. Call `crud-status` again and confirm:
    - `ui.starterDominant == false`
    - `ui.visibleShellPresent == true`
-   - shared components such as `ContactTable`, `ContactCard`, `ContactForm`, `CompanyTable`, `CompanyCard`, `CompanyForm` now exist under `<PROJECT>.Application.NgxApp`
-   - the visible entry page uses those components through `UIUseShared` and `sharedcomponent` references
+   - landing components such as `DashboardStatCard`, `CrudPageHeader`, `CrudLoadingState`, and `CrudErrorRetryState` now exist under `<PROJECT>.Application.NgxApp`
+   - entity page components such as `ContactsListPanel`, `ContactsDetailCard`, `ContactsEditForm`, `CompaniesListPanel`, `CompaniesDetailCard`, and `CompaniesEditForm` now exist under `<PROJECT>.Application.NgxApp`
+   - the visible entry page uses landing shared components, and each entity page uses the entity-specific `UIUseShared` references
 6. In Studio, the project tree should already be refreshed on the project root by the tool itself. If you are validating live during a demo, treat the refreshed tree plus `crud-status` as the source of truth.
 
 ### Copyable HSQL spec
@@ -67,7 +68,7 @@ Always validate on a fresh disposable project instead of a project already pollu
   },
   "ui": {
     "entryPage": "Page",
-    "variant": "dashboard"
+    "variant": "entity-pages"
   }
 }
 ```
@@ -89,16 +90,16 @@ Always validate on a fresh disposable project instead of a project already pollu
 - final `crud-status.ui.visibleShellPresent == true`
 
 ## Shared component fast path
-- `upsert-ngx-crud-kit` now creates entity-specific `UISharedRegularComponent` objects directly in the target app.
+- `upsert-ngx-crud-kit` now creates landing + entity-page shared components directly in the target app.
 - These shared components live under `<PROJECT>.Application.NgxApp`, not under the page subtree itself.
 - For a two-entity CRUD shell, expect at least:
   - `DashboardStatCard`
+  - `CrudPageHeader`
   - `CrudLoadingState`
-  - `CrudEmptyState`
   - `CrudErrorRetryState`
-  - `ContactTable`, `ContactCard`, `ContactForm`
-  - `CompanyTable`, `CompanyCard`, `CompanyForm`
-- The visible entry page should mostly assemble those components with `UIUseShared` and `UIUseVariable`, not rebuild the shell inline.
+  - `ContactsListPanel`, `ContactsDetailCard`, `ContactsEditForm`
+  - `CompaniesListPanel`, `CompaniesDetailCard`, `CompaniesEditForm`
+- The visible entry page should mostly assemble landing components with `UIUseShared`, and each entity page should assemble the entity-specific list/detail/form components.
 - This pattern is curated from Convertigo's existing shared-component usage in `lib_ExtendedComponents_ui_ngx`, `lib_Datamodel_ui_ngx`, and `sampleKitchenSink`. Agents should not mine those projects freely during a CRUD fast path; the tool already applies the pattern deterministically.
 
 ## Disposable validation projects

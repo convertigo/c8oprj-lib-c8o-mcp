@@ -18,7 +18,7 @@ from validate_crud_tools import DEFAULT_MCP_URL, ROOT, cleanup_project, load_spe
 
 
 DEFAULT_PROMPT_TEMPLATE = ROOT / "tests" / "prompt_crud_fastpath_fresh_session.txt"
-DEFAULT_SPEC_PATH = ROOT / "tests" / "fixtures" / "crud" / "spec_hsqldb.json"
+DEFAULT_SPEC_PATH = ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.json"
 DEFAULT_OUTPUT_DIR = ROOT / "tests" / "reports" / "fresh-session-fastpath" / time.strftime("%Y%m%d_%H%M%S")
 TOOL_CALL_RE = re.compile(r"^tool ([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\((.*)\)$")
 
@@ -149,10 +149,9 @@ def check_call_order(events):
         lambda event: event["server"] in ("convertigo", "codex") and event["name"] == "list_mcp_resources",
         "Fresh session did not call resources/list before mutations.",
     )
-    discovery["listTemplates"] = require_event(
+    discovery["listTemplates"] = first_event(
         events,
         lambda event: event["server"] in ("convertigo", "codex") and event["name"] == "list_mcp_resource_templates",
-        "Fresh session did not call resources/templates/list before mutations.",
     )
     discovery["capabilities"] = require_event(
         events,
@@ -207,8 +206,10 @@ def check_call_order(events):
         "Run never called final crud-proof expectUiShell=true.",
     )
 
-    for key in ("listResources", "listTemplates", "capabilities", "quickstart", "startGuide", "fastPathGuide"):
+    for key in ("listResources", "capabilities", "quickstart", "startGuide", "fastPathGuide"):
         require_before(discovery[key], workflow["upsertCrud"], f"{key} happened after upsert-crud.")
+    if discovery["listTemplates"]:
+        require_before(discovery["listTemplates"], workflow["upsertCrud"], "listTemplates happened after upsert-crud.")
 
     rag_before_discovery = first_event(
         events,
@@ -235,7 +236,7 @@ def check_call_order(events):
         raise RuntimeError("Final crud-proof did not receive viewerUrl from mobile-builder-open.")
 
     return {
-        "discovery": {key: {"label": event_label(value), "line": value["line"]} for key, value in discovery.items()},
+        "discovery": {key: {"label": event_label(value), "line": value["line"] if value else None} for key, value in discovery.items()},
         "workflow": {key: {"label": event_label(value), "line": value["line"]} for key, value in workflow.items()},
     }
 

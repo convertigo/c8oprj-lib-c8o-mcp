@@ -65,6 +65,6 @@
   },
   "ui": {
     "entryPage": "Page",
-    "variant": "dashboard"
+    "variant": "entity-pages"
   }
 }

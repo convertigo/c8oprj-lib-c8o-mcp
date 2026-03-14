@@ -34,6 +34,12 @@ Default assumptions for the fast path:
 - visible entry page is `Page`
 - facade prefix is `crud`
 - deterministic shared-component shell is acceptable for the first visible pass
+- for the generic CRUD UI, prefer `ui.variant=entity-pages`
+- `entity-pages` means:
+  - landing dashboard on `Page`
+  - one generated page per entity
+  - shared actions + global state + shared components already wired
+- treat `dashboard` as a legacy single-page fallback
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 
 ## Deterministic rail
