@@ -3,7 +3,7 @@
     "name": "convertigo-quickstart",
     "file": "convertigo_quickstart.md",
     "title": "Convertigo MCP Quickstart",
-    "description": "Canonical non-mutating bootstrap that selects the right guides, asks the right decisions, and hands a brief to the planner.",
+    "description": "Exploratory bootstrap that selects guides, asks the right decisions, and redirects standard SQL CRUD + starter NGX work to the mono-agent fast path.",
     "promptId": "convertigo/quickstart",
     "revision": 6,
     "roleId": "bootstrap",
@@ -50,10 +50,53 @@
     "mutatesProject": false
   },
   {
+    "name": "convertigo-crud-fastpath",
+    "file": "convertigo_crud_fastpath.md",
+    "title": "Convertigo CRUD Fast Path",
+    "description": "Recommended mono-agent rail for deterministic SQL CRUD plus starter NGX UI work.",
+    "promptId": "convertigo/crud-fastpath",
+    "revision": 1,
+    "roleId": "crud-fastpath",
+    "modelProfile": "balanced",
+    "scopeTags": [
+      "mono-agent",
+      "crud",
+      "sql",
+      "ngx",
+      "fast-path"
+    ],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/crud-fastpath@1",
+      "convertigo/crud-practical-cases@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "project-list",
+      "project-list-symbols",
+      "upsert-crud",
+      "crud-proof",
+      "upsert-ngx-crud-kit",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/quickstart@1",
+      "convertigo/planner@1"
+    ],
+    "outputContract": [
+      "spec",
+      "actions",
+      "proof",
+      "route",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
     "name": "convertigo-planner",
     "file": "convertigo_planner.md",
     "title": "Convertigo Planner",
-    "description": "Contract-first planner that consumes a bootstrap brief, creates the minimal facade stub, and splits work for specialists.",
+    "description": "Exploratory contract-first planner for non-fast-path work that consumes a bootstrap brief, creates the minimal facade stub, and splits work for specialists.",
     "promptId": "convertigo/planner",
     "revision": 10,
     "roleId": "planner",
@@ -349,7 +392,7 @@
     "name": "convertigo-critic",
     "file": "convertigo_critic.md",
     "title": "Convertigo Critic",
-    "description": "Inspection-only reviewer for guide compliance, evidence quality, and MCP UX gaps.",
+    "description": "Internal lab reviewer for guide compliance, evidence quality, and MCP UX gaps during the mono-agent recovery cycle.",
     "promptId": "convertigo/critic",
     "revision": 2,
     "roleId": "critic",
@@ -389,7 +432,7 @@
     "name": "convertigo-maintainer",
     "file": "convertigo_maintainer.md",
     "title": "Convertigo Maintainer",
-    "description": "Single-cycle maintainer that turns aggregate findings into one committed candidate patch set.",
+    "description": "Internal lab maintainer that turns aggregate findings into one candidate patch set outside the recommended mono-agent CRUD path.",
     "promptId": "convertigo/maintainer",
     "revision": 2,
     "roleId": "maintainer",

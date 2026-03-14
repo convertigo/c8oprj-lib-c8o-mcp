@@ -136,7 +136,7 @@ if [[ -n "${ROLE_PROMPT_NAME}" ]]; then
     echo
     echo "---"
     echo
-    cat "${PROMPT_FILE}"
+    cat "${PAYLOAD_FILE}"
   } > "${TEMP_PROMPT_FILE}"
   PAYLOAD_FILE="${TEMP_PROMPT_FILE}"
   ROLE_PROMPT_FETCHED="true"

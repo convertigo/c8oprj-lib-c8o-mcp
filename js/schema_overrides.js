@@ -517,12 +517,42 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
         facadePrefix: { type: "string", description: "Optional public CRUD sequence prefix. Defaults to crud." },
+        entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
         mode: {
           type: "string",
           enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
           description: "Optional driver family hint used when no connector is provided yet."
         },
         variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
+  function crudProofInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Existing project technical name." },
+        connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
+        facadePrefix: { type: "string", description: "Optional public CRUD sequence prefix. Defaults to crud." },
+        entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
+        mode: {
+          type: "string",
+          enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
+          description: "Optional driver family hint used when no connector is provided yet."
+        },
+        variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." },
+        expectUiShell: booleanFlagSchema(false, "Set true to require visible shell evidence and starter replacement on the entry page."),
+        proofRequestables: {
+          description: "Requestables to execute as proof. Accepts a JSON array string, an array of strings, or a comma-separated string.",
+          oneOf: [
+            { type: "string" },
+            { type: "array", items: { type: "string" } },
+            { type: "object", additionalProperties: true }
+          ]
+        }
       },
       required: ["project"],
       additionalProperties: false
@@ -1042,6 +1072,63 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 	    });
 	  }
 
+	  function crudProofCheckSchema() {
+	    return closedObjectSchema({
+	      id: { type: "string" },
+	      status: { type: "string" },
+	      ok: { type: "boolean" },
+	      message: { type: "string" },
+	      target: { type: "string" }
+	    });
+	  }
+
+	  function requestableProofOutputSchema() {
+	    return closedObjectSchema({
+	      requestable: { type: "string" },
+	      status: { type: "string" },
+	      ok: { type: "boolean" },
+	      total: { oneOf: [{ type: "number" }, { type: "string" }] },
+	      itemCount: { type: "number" },
+	      source: { type: "string" },
+	      message: { type: "string" }
+	    });
+	  }
+
+	  function crudProofOutputSchema() {
+	    return closedObjectSchema({
+      status: { type: "string" },
+      project: { type: "string" },
+      driverFamily: { type: "string" },
+      connectorQname: { type: "string" },
+      entryPage: { type: "string" },
+      expectUiShell: { type: "boolean" },
+      transactions: openObjectSchema({
+        present: stringArraySchema(),
+        missing: stringArraySchema()
+      }),
+      sequences: openObjectSchema({
+        present: stringArraySchema(),
+        missing: stringArraySchema()
+      }),
+	      ui: openObjectSchema({
+	        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
+	        visibleShellPresent: { type: "boolean" },
+	        liveBindingPresent: { type: "boolean" },
+	        targetQName: { type: "string" }
+	      }),
+	      requestables: {
+	        type: "array",
+	        items: requestableProofOutputSchema()
+	      },
+	      checks: {
+	        type: "array",
+	        items: crudProofCheckSchema()
+	      },
+	      missing: stringArraySchema(),
+	      warnings: stringArraySchema()
+	    });
+	  }
+
 	  function upsertNgxCrudKitOutputSchema() {
 	    return closedObjectSchema({
       status: { type: "string" },
@@ -1214,6 +1301,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_crud_status") {
       return crudStatusInputSchema();
     }
+    if (seq === "tools_crud_proof") {
+      return crudProofInputSchema();
+    }
     if (seq === "tools_upsert_ngx_crud_kit") {
       return upsertNgxCrudKitInputSchema();
     }
@@ -1268,6 +1358,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_crud_status") {
       return crudStatusOutputSchema();
+    }
+    if (seq === "tools_crud_proof") {
+      return crudProofOutputSchema();
     }
     if (seq === "tools_upsert_ngx_crud_kit") {
       return upsertNgxCrudKitOutputSchema();

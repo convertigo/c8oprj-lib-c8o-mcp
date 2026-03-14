@@ -490,32 +490,6 @@ C8O.crud = C8O.crud || {};
     return dbo;
   }
 
-  function removeChild(parent, child, result) {
-    if (!parent || !child) {
-      return;
-    }
-    try {
-      parent.remove(child);
-      try {
-        child.hasChanged = true;
-      } catch (_ignoreChildChangedFlag) {}
-      try {
-        parent.hasChanged = true;
-      } catch (_ignoreParentChangedFlag) {}
-      try {
-        var project = parent.getProject ? parent.getProject() : null;
-        if (project) {
-          project.hasChanged = true;
-        }
-      } catch (_ignoreProjectFlag) {}
-      if (result && result.updated) {
-        result.updated.push(child.getFullQName ? String(child.getFullQName()) : String(child));
-      }
-    } catch (removeError) {
-      addWarning(result || {}, "Unable to remove child " + String(child) + ": " + String(removeError));
-    }
-  }
-
   function ensureChild(parent, className, name, result) {
     var existing = findChild(parent, name, className);
     if (existing) {
@@ -553,73 +527,29 @@ C8O.crud = C8O.crud || {};
     return applied;
   }
 
-  function sameBaseClass(dbo, className) {
-    if (!dbo || !className) {
-      return false;
-    }
-    try {
-      var parsed = C8O.dbo.parseLogicalClassToken(className || "");
-      return String(dbo.getClass().getName()) === String(parsed.baseClassFqcn || className);
-    } catch (_ignoreSameBaseClass) {
-      return false;
-    }
+  function nowMillis() {
+    return java.lang.System.currentTimeMillis();
   }
 
-  function getChildrenArray(parent) {
-    var list = [];
-    if (!parent || !parent.getDatabaseObjectChildren) {
-      return list;
+  function setDuration(bucket, key, startedAt) {
+    if (!bucket || !key) {
+      return 0;
     }
-    try {
-      var children = parent.getDatabaseObjectChildren();
-      for (var i = 0; i < children.size(); i++) {
-        list.push(children.get(i));
-      }
-    } catch (_ignoreChildrenArray) {}
-    return list;
+    var duration = nowMillis() - startedAt;
+    bucket[key] = duration;
+    return duration;
   }
 
-  function syncDeterministicNode(parent, spec, result, replaceChildren) {
-    if (!parent || !spec) {
-      return null;
+  function countTreeNodes(node) {
+    if (!node || typeof node !== "object") {
+      return 0;
     }
-    var existing = findChild(parent, spec.name, null);
-    if (existing && spec.className && !sameBaseClass(existing, spec.className)) {
-      removeChild(parent, existing, result);
-      existing = null;
+    var total = 1;
+    var children = ensureArray(node.children);
+    for (var i = 0; i < children.length; i++) {
+      total += countTreeNodes(children[i]);
     }
-    var dbo = existing || createChild(parent, spec.className, spec.name);
-    if (!existing && result && result.created) {
-      result.created.push(dbo.getFullQName ? String(dbo.getFullQName()) : String(dbo));
-    }
-    if (spec.properties) {
-      applyUpdates(dbo, spec.properties, result);
-    }
-    var desiredChildren = ensureArray(spec.children);
-    var desiredByName = {};
-    for (var i = 0; i < desiredChildren.length; i++) {
-      if (desiredChildren[i] && desiredChildren[i].name) {
-        desiredByName[String(desiredChildren[i].name)] = true;
-      }
-    }
-    if (replaceChildren) {
-      var currentChildren = getChildrenArray(dbo);
-      for (var j = 0; j < currentChildren.length; j++) {
-        var childName = "";
-        try {
-          childName = String(currentChildren[j].getName());
-        } catch (_ignoreChildName) {
-          childName = "";
-        }
-        if (childName && !desiredByName[childName]) {
-          removeChild(dbo, currentChildren[j], result);
-        }
-      }
-    }
-    for (var childIndex = 0; childIndex < desiredChildren.length; childIndex++) {
-      syncDeterministicNode(dbo, desiredChildren[childIndex], result, true);
-    }
-    return dbo;
+    return total;
   }
 
 	  function connectorProperties(spec) {
@@ -1132,6 +1062,175 @@ C8O.crud = C8O.crud || {};
     }
   }
 
+  function dedupeStrings(values) {
+    var seen = {};
+    var deduped = [];
+    var items = ensureArray(values);
+    for (var i = 0; i < items.length; i++) {
+      var current = trimmed(items[i]);
+      if (!current.length || seen[current]) {
+        continue;
+      }
+      seen[current] = true;
+      deduped.push(current);
+    }
+    return deduped;
+  }
+
+  function parseLooseJson(value) {
+    var candidate = value;
+    for (var depth = 0; depth < 3; depth++) {
+      if (typeof candidate !== "string") {
+        return candidate;
+      }
+      var text = trimmed(candidate);
+      if (!text.length) {
+        return "";
+      }
+      try {
+        candidate = JSON.parse(text);
+      } catch (_ignoreLooseJson) {
+        return text;
+      }
+    }
+    return candidate;
+  }
+
+  function toArrayLike(value) {
+    if (value == null) {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return value.slice();
+    }
+    try {
+      var NativeArray = Packages.org.mozilla.javascript.NativeArray;
+      if (value instanceof NativeArray) {
+        var nativeLength = Number(value.getLength ? value.getLength() : value.length);
+        var nativeItems = [];
+        for (var i = 0; i < nativeLength; i++) {
+          nativeItems.push(value[i]);
+        }
+        return nativeItems;
+      }
+    } catch (_ignoreNativeArray) {}
+    try {
+      if (value instanceof Packages.java.util.Collection) {
+        var collectionItems = [];
+        var iterator = value.iterator();
+        while (iterator.hasNext()) {
+          collectionItems.push(iterator.next());
+        }
+        return collectionItems;
+      }
+    } catch (_ignoreJavaCollection) {}
+    try {
+      var javaClass = value && value.getClass ? value.getClass() : null;
+      if (javaClass && javaClass.isArray && javaClass.isArray()) {
+        var JavaArray = Packages.java.lang.reflect.Array;
+        var arrayLength = JavaArray.getLength(value);
+        var arrayItems = [];
+        for (var j = 0; j < arrayLength; j++) {
+          arrayItems.push(JavaArray.get(value, j));
+        }
+        return arrayItems;
+      }
+    } catch (_ignoreJavaArray) {}
+    return null;
+  }
+
+  function normalizeProofRequestablesInput(value) {
+    var source = value;
+    if (source == null) {
+      return [];
+    }
+    var arrayLike = toArrayLike(source);
+    if (arrayLike) {
+      return dedupeStrings(arrayLike);
+    }
+    if (C8O.util && typeof C8O.util.toJsonSafe === "function") {
+      source = C8O.util.toJsonSafe(source, { maxDepth: 4 });
+      arrayLike = toArrayLike(source);
+      if (arrayLike) {
+        return dedupeStrings(arrayLike);
+      }
+    }
+    if (typeof source === "string") {
+      source = parseLooseJson(source);
+    }
+    arrayLike = toArrayLike(source);
+    if (arrayLike) {
+      return dedupeStrings(arrayLike);
+    }
+    if (Array.isArray(source)) {
+      return dedupeStrings(source);
+    }
+    if (source && typeof source === "object") {
+      if (Array.isArray(source.requestables)) {
+        return dedupeStrings(source.requestables);
+      }
+      arrayLike = toArrayLike(source.requestables);
+      if (arrayLike) {
+        return dedupeStrings(arrayLike);
+      }
+      if (typeof source.requestables === "string") {
+        return normalizeProofRequestablesInput(source.requestables);
+      }
+    }
+    var text = trimmed(source);
+    if (!text.length) {
+      return [];
+    }
+    if (text.indexOf(",") !== -1) {
+      return dedupeStrings(text.split(","));
+    }
+    return [text];
+  }
+
+  function resolveProofRequestableQName(requestable, projectName, connectorName) {
+    var text = trimmed(requestable);
+    if (!text.length) {
+      return "";
+    }
+    if (text.indexOf(".") !== -1) {
+      if (text.indexOf(projectName + ".") === 0) {
+        return text;
+      }
+      if (text.split(".").length >= 3) {
+        return text;
+      }
+      return projectName + "." + text;
+    }
+    if (trimmed(connectorName).length) {
+      return projectName + "." + connectorName + "." + text;
+    }
+    return projectName + "." + text;
+  }
+
+  function proofCheck(id, ok, message, target) {
+    var check = {
+      id: trimmed(id),
+      status: ok ? "ok" : "missing",
+      ok: ok === true
+    };
+    if (trimmed(message).length) {
+      check.message = String(message);
+    }
+    if (trimmed(target).length) {
+      check.target = String(target);
+    }
+    return check;
+  }
+
+  function pushMissing(result, value) {
+    if (!result.missing) {
+      result.missing = [];
+    }
+    if (trimmed(value).length) {
+      result.missing.push(String(value));
+    }
+  }
+
   function summarizeTreeApplyResult(treeResult, target, result) {
     var safe = C8O.util.toJsonSafe ? C8O.util.toJsonSafe(treeResult, {
       warnings: ensureWarnings(result),
@@ -1139,6 +1238,50 @@ C8O.crud = C8O.crud || {};
     }) : treeResult;
     return {
       status: normalizeStatus(safe && safe.status, "success"),
+      target: target,
+      durationMs: safe && safe.durationMs != null ? Number(safe.durationMs) : 0,
+      summary: safe && safe.summary ? safe.summary : {}
+    };
+  }
+
+  function firstBatchErrorMessage(batchResult) {
+    if (batchResult && Array.isArray(batchResult.errors) && batchResult.errors.length) {
+      var firstError = batchResult.errors[0];
+      if (firstError && firstError.message) {
+        return String(firstError.message);
+      }
+      return String(firstError);
+    }
+    if (batchResult && batchResult.stop && batchResult.stop.message) {
+      return String(batchResult.stop.message);
+    }
+    return "Batch apply failed.";
+  }
+
+  function collectBatchWarnings(batchResult, result, prefix) {
+    var warnings = batchResult && Array.isArray(batchResult.warnings) ? batchResult.warnings : [];
+    var label = trimmed(prefix);
+    for (var i = 0; i < warnings.length; i++) {
+      addWarning(result, (label.length ? label + ": " : "") + String(warnings[i]));
+    }
+  }
+
+  function operationSummary(batchResult, opId, target) {
+    var operations = batchResult && Array.isArray(batchResult.operations) ? batchResult.operations : [];
+    for (var i = 0; i < operations.length; i++) {
+      var operation = operations[i];
+      if (trimmed(operation && operation.opId) !== trimmed(opId)) {
+        continue;
+      }
+      return {
+        status: normalizeStatus(operation && operation.status, "success"),
+        target: target,
+        phase: trimmed(operation && operation.phase),
+        appliedCount: Array.isArray(operation && operation.applied) ? operation.applied.length : 0
+      };
+    }
+    return {
+      status: "unknown",
       target: target
     };
   }
@@ -1151,8 +1294,12 @@ C8O.crud = C8O.crud || {};
     return applicationQName(projectName) + ".NgxApp";
   }
 
+  function pageQName(projectName, entryPage) {
+    return ngxAppQName(projectName) + "." + trimmed(entryPage || "Page");
+  }
+
   function findPageContentQName(projectName, entryPage) {
-    return trimmed(projectName) + ".Application.NgxApp." + trimmed(entryPage || "Page") + ".Content";
+    return pageQName(projectName, entryPage) + ".Content";
   }
 
   function sharedComponentQName(projectName, componentName) {
@@ -1165,15 +1312,67 @@ C8O.crud = C8O.crud || {};
     for (var i = 0; i < entries.length; i++) {
       var raw = entries[i] || {};
       var entityName = pluralize(normalizedIdentifier(raw.name || raw.entity || raw.label || ("entity_" + (i + 1))));
+      var fields = [];
+      var rawFields = ensureArray(raw.fields);
+      for (var fieldIndex = 0; fieldIndex < rawFields.length; fieldIndex++) {
+        var rawField = rawFields[fieldIndex] || {};
+        var rawFieldName = trimmed(rawField.name || rawField.column || "");
+        if (!rawFieldName.length) {
+          continue;
+        }
+        fields.push({
+          name: rawFieldName,
+          column: normalizedIdentifier(rawField.column || rawFieldName),
+          label: trimmed(rawField.label || rawFieldName),
+          type: trimmed(rawField.type || "VARCHAR(255)"),
+          primary: toBoolean(rawField.primary, false),
+          unique: toBoolean(rawField.unique, false),
+          required: rawField.required == null ? false : toBoolean(rawField.required, false)
+        });
+      }
+      var primaryField = null;
+      for (var primaryIndex = 0; primaryIndex < fields.length; primaryIndex++) {
+        if (fields[primaryIndex].primary) {
+          primaryField = fields[primaryIndex];
+          break;
+        }
+      }
+      if (!primaryField && fields.length) {
+        primaryField = fields[0];
+      }
       normalized.push({
         name: entityName,
         singular: singularize(entityName),
-        label: trimmed(raw.label || ucfirst(entityName))
+        label: trimmed(raw.label || ucfirst(entityName)),
+        fields: fields,
+        primaryField: primaryField
       });
     }
     if (!normalized.length) {
-      normalized.push({ name: "contacts", singular: "contact", label: "Contacts" });
-      normalized.push({ name: "companies", singular: "company", label: "Companies" });
+      normalized.push({
+        name: "contacts",
+        singular: "contact",
+        label: "Contacts",
+        fields: [
+          { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true },
+          { name: "FirstName", column: "firstname", label: "FirstName", type: "VARCHAR(128)", primary: false, unique: false, required: false },
+          { name: "LastName", column: "lastname", label: "LastName", type: "VARCHAR(128)", primary: false, unique: false, required: false },
+          { name: "Email", column: "email", label: "Email", type: "VARCHAR(255)", primary: false, unique: true, required: false }
+        ],
+        primaryField: { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true }
+      });
+      normalized.push({
+        name: "companies",
+        singular: "company",
+        label: "Companies",
+        fields: [
+          { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true },
+          { name: "Name", column: "name", label: "Name", type: "VARCHAR(255)", primary: false, unique: true, required: false },
+          { name: "Industry", column: "industry", label: "Industry", type: "VARCHAR(128)", primary: false, unique: false, required: false },
+          { name: "City", column: "city", label: "City", type: "VARCHAR(128)", primary: false, unique: false, required: false }
+        ],
+        primaryField: { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true }
+      });
     }
     return normalized;
   }
@@ -1185,7 +1384,11 @@ C8O.crud = C8O.crud || {};
     if (typeof value === "number" || typeof value === "boolean") {
       return String(value);
     }
-    return JSON.stringify(String(value));
+    return "'" + String(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, "\\r")
+      .replace(/\n/g, "\\n") + "'";
   }
 
   function compVariableNode(name, valueExpression, comment) {
@@ -1203,20 +1406,111 @@ C8O.crud = C8O.crud || {};
   }
 
   function useVariableNode(name, valueExpression, comment) {
+    var smartValue = null;
+    if (valueExpression && typeof valueExpression === "object" && valueExpression.mode) {
+      smartValue = valueExpression;
+    } else {
+      smartValue = {
+        mode: "SCRIPT",
+        value: valueExpression || "''"
+      };
+    }
     var node = {
       className: "ngx.components.UIUseVariable#UIUseVariable",
       name: name,
       properties: {
-        varValue: {
-          mode: "SCRIPT",
-          value: valueExpression || "''"
-        }
+        varValue: smartValue
       }
     };
     if (comment) {
       node.properties.comment = String(comment);
     }
     return node;
+  }
+
+  function controlVariableNode(name, valueExpression, comment) {
+    var smartValue = null;
+    if (valueExpression && typeof valueExpression === "object" && valueExpression.mode) {
+      smartValue = valueExpression;
+    } else {
+      smartValue = {
+        mode: "SCRIPT",
+        value: valueExpression || "''"
+      };
+    }
+    var node = {
+      className: "ngx.components.UIControlVariable#UIControlVariable",
+      name: name,
+      properties: {
+        varValue: smartValue
+      }
+    };
+    if (comment) {
+      node.properties.comment = String(comment);
+    }
+    return node;
+  }
+
+  function pageEventNode(name, viewEvent, children, comment) {
+    var node = {
+      className: "ngx.components.UIPageEvent#UIPageEvent",
+      name: name,
+      properties: {
+        viewEvent: trimmed(viewEvent || "onWillEnter")
+      },
+      children: ensureArray(children)
+    };
+    if (comment) {
+      node.properties.comment = String(comment);
+    }
+    return node;
+  }
+
+  function buildPageScriptContent(projectName, entities, facadePrefix) {
+    var facadeToken = trimmed(facadePrefix || "crud");
+    var requestables = [];
+    for (var i = 0; i < entities.length; i++) {
+      requestables.push(facadeSequenceQName(projectName, facadeToken, entities[i], "count"));
+      requestables.push(facadeSequenceQName(projectName, facadeToken, entities[i], "list"));
+    }
+    return [
+      "/*Begin_c8o_PageImport*/",
+      "/*End_c8o_PageImport*/",
+      "/*Begin_c8o_PageDeclaration*/",
+      "\tpublic crudFacadeRequestables: string[] = [" + requestables.map(function (requestable) { return scriptLiteral(requestable); }).join(", ") + "];",
+      "/*End_c8o_PageDeclaration*/",
+      "/*Begin_c8o_PageConstructor*/",
+      "\t\tsetTimeout(() => {",
+      "\t\t\tthis.loadCrudFacade();",
+      "\t\t}, 0);",
+      "/*End_c8o_PageConstructor*/",
+      "/*Begin_c8o_PageFunction*/",
+      "\tpublic loadCrudFacade(): Promise<any> {",
+      "\t\tlet requestables = this.crudFacadeRequestables || [];",
+      "\t\treturn Promise.all(requestables.map((requestable) => this['call'].apply(this, [requestable, {__localCache_priority: null, __localCache_ttl: 3000}, null, 5000, false]).catch((error: any) => {",
+      "\t\t\tthis.c8o.log.debug('[MB] loadCrudFacade:', error && error.message ? error.message : error);",
+      "\t\t\treturn false;",
+      "\t\t})));",
+      "\t}",
+      "/*End_c8o_PageFunction*/",
+      ""
+    ].join("\n");
+  }
+
+  function callSequenceActionNode(name, requestableQName, variables, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    var properties = {
+      requestable: trimmed(requestableQName)
+    };
+    if (extra.threshold != null) {
+      properties.threshold = String(extra.threshold);
+    }
+    return {
+      className: "ngx.components.UIDynamicAction#CallSequenceAction",
+      name: name,
+      properties: properties,
+      children: ensureArray(variables)
+    };
   }
 
   function plainTextNode(name, value) {
@@ -1229,6 +1523,86 @@ C8O.crud = C8O.crud || {};
           value: value == null ? "" : String(value)
         }
       }
+    };
+  }
+
+  function labelNode(name, value) {
+    return {
+      className: "ngx.components.UIDynamicElement#Label",
+      name: name,
+      children: [
+        plainTextNode(name + "Text", value)
+      ]
+    };
+  }
+
+  function schemaPreviewFields(entity, limit, includePrimary) {
+    var fields = ensureArray(entity && entity.fields);
+    var preview = [];
+    for (var i = 0; i < fields.length; i++) {
+      if (!includePrimary && fields[i].primary) {
+        continue;
+      }
+      preview.push(fields[i]);
+      if (limit > 0 && preview.length >= limit) {
+        break;
+      }
+    }
+    if (!preview.length && includePrimary && entity && entity.primaryField) {
+      preview.push(entity.primaryField);
+    }
+    return preview;
+  }
+
+  function schemaFieldHint(field) {
+    if (!field) {
+      return "Field preview";
+    }
+    var parts = [];
+    if (field.type) {
+      parts.push(String(field.type));
+    }
+    if (field.required) {
+      parts.push("required");
+    }
+    if (field.unique) {
+      parts.push("unique");
+    }
+    if (field.primary) {
+      parts.push("primary key");
+    }
+    return parts.length ? parts.join(" | ") : "Field preview";
+  }
+
+  function previewListItemNode(name, titleText, detailText) {
+    var children = [labelNode(name + "Title", titleText)];
+    if (trimmed(detailText).length) {
+      children.push(labelNode(name + "Detail", detailText));
+    }
+    return {
+      className: "ngx.components.UIDynamicElement#ListItem",
+      name: name,
+      children: children
+    };
+  }
+
+  function previewListNode(name, fields, emptyText) {
+    var listChildren = [];
+    var entries = ensureArray(fields);
+    if (!entries.length) {
+      listChildren.push(previewListItemNode(name + "EmptyItem", emptyText || "No preview fields", ""));
+    }
+    for (var i = 0; i < entries.length; i++) {
+      listChildren.push(previewListItemNode(
+        name + "Item" + (i + 1),
+        entries[i].label || entries[i].name,
+        schemaFieldHint(entries[i])
+      ));
+    }
+    return {
+      className: "ngx.components.UIDynamicElement#List",
+      name: name,
+      children: listChildren
     };
   }
 
@@ -1249,6 +1623,41 @@ C8O.crud = C8O.crud || {};
         }
       })
     };
+  }
+
+  function sequenceSourceValue(projectName, sequenceName, path, options) {
+    var sequenceQName = trimmed(sequenceName);
+    var extra = options && typeof options === "object" ? options : {};
+    return {
+      mode: "SOURCE",
+      value: JSON.stringify({
+        filter: "Sequence",
+        project: projectName,
+        input: trimmed(extra.input || ""),
+        model: {
+          data: [{ sequence: sequenceQName, marker: "" }],
+          path: trimmed(path || ""),
+          prefix: extra.prefix == null ? "" : String(extra.prefix),
+          suffix: extra.suffix == null ? "" : String(extra.suffix),
+          custom: extra.custom == null ? "" : String(extra.custom),
+          useCustom: toBoolean(extra.useCustom, false)
+        }
+      })
+    };
+  }
+
+  function connectorRequestableQName(projectName, connectorName, requestableName) {
+    return trimmed(projectName) + "." + trimmed(connectorName) + "." + trimmed(requestableName);
+  }
+
+  function facadeSequenceQName(projectName, facadePrefix, entity, verb) {
+    return trimmed(projectName) + "." + trimmed(facadePrefix) + "_" + txName(entity, verb);
+  }
+
+  function sqlOutputFieldPath(field, rowIndex) {
+    var currentRow = rowIndex == null ? 0 : Number(rowIndex);
+    var outputKey = field && field.column ? String(field.column).toUpperCase() : "";
+    return "?.sql_output?.[" + currentRow + "]" + (outputKey.length ? "?." + outputKey : "");
   }
 
   function buildUseSharedNode(sharedQName, name, variables) {
@@ -1302,6 +1711,46 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function crudPageHeaderTree(componentName, projectName, entities) {
+    var defaultTitle = ucfirst(projectName) + " Live Dashboard";
+    var defaultSubtitle = entities.map(function (entity) {
+      return entity.label;
+    }).join(" and ");
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD page header shared shell."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral(defaultTitle)),
+        compVariableNode("Subtitle", scriptLiteral(defaultSubtitle)),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "CrudPageHeaderCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "CrudPageHeaderHeader",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#CardTitle",
+                  name: "CrudPageHeaderTitleSlot",
+                  children: [plainTextNode("TitleText", defaultTitle)]
+                }
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "CrudPageHeaderContent",
+              children: [plainTextNode("SubtitleText", defaultSubtitle)]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   function stateComponentTree(componentName, comment, variableSpecs, shellName, lines, includeRetryButton) {
     var children = [];
     for (var i = 0; i < variableSpecs.length; i++) {
@@ -1341,6 +1790,7 @@ C8O.crud = C8O.crud || {};
 
   function entityTableTree(entity) {
     var componentName = ucfirst(entity.singular) + "Table";
+    var previewFields = schemaPreviewFields(entity, 3, false);
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: componentName,
@@ -1373,7 +1823,9 @@ C8O.crud = C8O.crud || {};
               children: [
                 plainTextNode("CountText", "0 items"),
                 plainTextNode("SummaryText", "Awaiting facade proof"),
-                plainTextNode("SourceText", "")
+                plainTextNode("SourceText", ""),
+                plainTextNode("ColumnsHeading", "Preview columns"),
+                previewListNode(componentName + "ColumnsList", previewFields, "No schema columns")
               ]
             }
           ]
@@ -1384,6 +1836,9 @@ C8O.crud = C8O.crud || {};
 
   function entityCardTree(entity) {
     var componentName = ucfirst(entity.singular) + "Card";
+    var previewFields = schemaPreviewFields(entity, 3, false);
+    var primaryField = previewFields[0] || entity.primaryField || null;
+    var secondaryField = previewFields[1] || previewFields[0] || entity.primaryField || null;
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: componentName,
@@ -1391,9 +1846,10 @@ C8O.crud = C8O.crud || {};
         comment: "Deterministic CRUD entity card for " + entity.label + "."
       },
       children: [
-        compVariableNode("Title", scriptLiteral(ucfirst(entity.singular))),
-        compVariableNode("Primary", "'Primary field'"),
-        compVariableNode("Secondary", "'Secondary field'"),
+        compVariableNode("Title", scriptLiteral(ucfirst(entity.singular) + " snapshot")),
+        compVariableNode("Primary", scriptLiteral(primaryField ? primaryField.label + " ready for live binding" : "Primary field ready for live binding")),
+        compVariableNode("Secondary", scriptLiteral(secondaryField ? secondaryField.label + " ready for live binding" : "Secondary field ready for live binding")),
+        compVariableNode("Insight", scriptLiteral("Live facade preview")),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: componentName + "Root",
@@ -1413,8 +1869,9 @@ C8O.crud = C8O.crud || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: componentName + "Content",
               children: [
-                plainTextNode("PrimaryText", "Primary field"),
-                plainTextNode("SecondaryText", "Secondary field")
+                plainTextNode("PrimaryText", primaryField ? primaryField.label + " ready for live binding" : "Primary field ready for live binding"),
+                plainTextNode("SecondaryText", secondaryField ? secondaryField.label + " ready for live binding" : "Secondary field ready for live binding"),
+                plainTextNode("InsightText", "Live facade preview")
               ]
             }
           ]
@@ -1425,6 +1882,10 @@ C8O.crud = C8O.crud || {};
 
   function entityFormTree(entity) {
     var componentName = ucfirst(entity.singular) + "Form";
+    var editableFields = schemaPreviewFields(entity, 4, false);
+    var helperText = editableFields.length
+      ? "Prepare " + editableFields.map(function (field) { return field.label; }).join(", ") + " before wiring save actions"
+      : "Fields will be wired in a second pass";
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: componentName,
@@ -1433,8 +1894,9 @@ C8O.crud = C8O.crud || {};
       },
       children: [
         compVariableNode("Title", scriptLiteral("Edit " + ucfirst(entity.singular))),
-        compVariableNode("Helper", "'Fields will be wired in a second pass'"),
-        compVariableNode("ActionLabel", "'Save'"),
+        compVariableNode("Helper", scriptLiteral(helperText)),
+        compVariableNode("Sample", scriptLiteral("Awaiting live facade sample")),
+        compVariableNode("ActionLabel", scriptLiteral("Save " + entity.singular)),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: componentName + "Root",
@@ -1454,11 +1916,12 @@ C8O.crud = C8O.crud || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: componentName + "Content",
               children: [
-                plainTextNode("HelperText", "Fields will be wired in a second pass"),
+                plainTextNode("HelperText", helperText),
+                plainTextNode("SampleText", "Awaiting live facade sample"),
                 {
                   className: "ngx.components.UIDynamicElement#Button",
                   name: "SubmitButton",
-                  children: [plainTextNode("ActionText", "Save")]
+                  children: [plainTextNode("ActionText", "Save " + entity.singular)]
                 }
               ]
             }
@@ -1471,6 +1934,7 @@ C8O.crud = C8O.crud || {};
   function buildSharedComponentsTree(projectName, entities) {
     var components = [
       dashboardStatCardTree("DashboardStatCard"),
+      crudPageHeaderTree("CrudPageHeader", projectName, entities),
       stateComponentTree(
         "CrudLoadingState",
         "Deterministic CRUD loading state.",
@@ -1512,17 +1976,24 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function buildPageShellTree(projectName, entryPage, entities, evidence) {
+  function buildPageShellTree(projectName, entryPage, entities, evidence, facadePrefix) {
     var contactEntity = entities[0];
     var companyEntity = entities[Math.min(1, entities.length - 1)];
-    var contactCount = evidence && evidence.count_contacts && evidence.count_contacts.total != null ? evidence.count_contacts.total : "Loading...";
-    var companyCount = evidence && evidence.count_companies && evidence.count_companies.total != null ? evidence.count_companies.total : "Loading...";
-    var contactSummary = evidence && evidence.list_contacts && evidence.list_contacts.itemCount != null
-      ? evidence.list_contacts.itemCount + " contact rows proved"
-      : "Waiting for contact rows";
-    var companySummary = evidence && evidence.list_companies && evidence.list_companies.itemCount != null
-      ? evidence.list_companies.itemCount + " company rows proved"
-      : "Waiting for company rows";
+    var facadeToken = trimmed(facadePrefix || "crud");
+    var pageTitle = ucfirst(projectName) + " Live Dashboard";
+    var pageSubtitle = entities.map(function (entity) { return entity.label.toLowerCase(); }).join(" and ");
+    var contactPreviewFields = schemaPreviewFields(contactEntity, 2, false);
+    var companyPreviewFields = schemaPreviewFields(companyEntity, 2, false);
+    var contactPrimary = contactPreviewFields[0] || contactEntity.primaryField || null;
+    var contactSecondary = contactPreviewFields[1] || contactPreviewFields[0] || contactEntity.primaryField || null;
+    var companyPrimary = companyPreviewFields[0] || companyEntity.primaryField || null;
+    var companySecondary = companyPreviewFields[1] || companyPreviewFields[0] || companyEntity.primaryField || null;
+    var contactCountSequence = facadeSequenceQName(projectName, facadeToken, contactEntity, "count");
+    var companyCountSequence = facadeSequenceQName(projectName, facadeToken, companyEntity, "count");
+    var contactListSequence = facadeSequenceQName(projectName, facadeToken, contactEntity, "list");
+    var companyListSequence = facadeSequenceQName(projectName, facadeToken, companyEntity, "list");
+    var contactCountSource = sequenceSourceValue(projectName, contactCountSequence, "?.sql_output?.[0]?.TOTAL");
+    var companyCountSource = sequenceSourceValue(projectName, companyCountSequence, "?.sql_output?.[0]?.TOTAL");
     return {
       className: "ngx.components.UIDynamicElement#Content",
       name: "Content",
@@ -1539,8 +2010,10 @@ C8O.crud = C8O.crud || {};
                   className: "ngx.components.UIDynamicElement#GridCol",
                   name: "HeaderCol",
                   children: [
-                    plainTextNode("DashboardTitle", ucfirst(projectName) + " Live Dashboard"),
-                    plainTextNode("DashboardSubtitle", entities.map(function (entity) { return entity.label.toLowerCase(); }).join(" and "))
+                    buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
+                      useVariableNode("Title", scriptLiteral(pageTitle)),
+                      useVariableNode("Subtitle", scriptLiteral(pageSubtitle))
+                    ])
                   ]
                 }
               ]
@@ -1555,7 +2028,7 @@ C8O.crud = C8O.crud || {};
                   children: [
                     buildUseSharedNode(sharedComponentQName(projectName, "DashboardStatCard"), "UseContactsStatCard", [
                       useVariableNode("Title", scriptLiteral(contactEntity.label)),
-                      useVariableNode("Value", scriptLiteral(String(contactCount))),
+                      useVariableNode("Value", contactCountSource),
                       useVariableNode("Caption", scriptLiteral("Loaded from public facade"))
                     ])
                   ]
@@ -1566,7 +2039,7 @@ C8O.crud = C8O.crud || {};
                   children: [
                     buildUseSharedNode(sharedComponentQName(projectName, "DashboardStatCard"), "UseCompaniesStatCard", [
                       useVariableNode("Title", scriptLiteral(companyEntity.label)),
-                      useVariableNode("Value", scriptLiteral(String(companyCount))),
+                      useVariableNode("Value", companyCountSource),
                       useVariableNode("Caption", scriptLiteral("Loaded from public facade"))
                     ])
                   ]
@@ -1583,9 +2056,15 @@ C8O.crud = C8O.crud || {};
                   children: [
                     buildUseSharedNode(sharedComponentQName(projectName, ucfirst(contactEntity.singular) + "Table"), "Use" + ucfirst(contactEntity.singular) + "Table", [
                       useVariableNode("Title", scriptLiteral(contactEntity.label)),
-                      useVariableNode("CountLabel", scriptLiteral(String(contactCount) + " rows")),
-                      useVariableNode("Summary", scriptLiteral(contactSummary)),
-                      useVariableNode("Source", scriptLiteral("Facade " + projectName + ".crm_list_contacts"))
+                      useVariableNode("CountLabel", sequenceSourceValue(projectName, contactCountSequence, "?.sql_output?.[0]?.TOTAL", {
+                        prefix: "'' + ",
+                        suffix: " + ' rows'"
+                      })),
+                      useVariableNode("Summary", sequenceSourceValue(projectName, contactListSequence, "?.sql_output?.[0]", {
+                        custom: "listen(['" + contactListSequence + "'])?.sql_output?.length + ' contact rows proved'",
+                        useCustom: true
+                      })),
+                      useVariableNode("Source", scriptLiteral("Facade " + contactListSequence))
                     ])
                   ]
                 },
@@ -1595,9 +2074,93 @@ C8O.crud = C8O.crud || {};
                   children: [
                     buildUseSharedNode(sharedComponentQName(projectName, ucfirst(companyEntity.singular) + "Table"), "Use" + ucfirst(companyEntity.singular) + "Table", [
                       useVariableNode("Title", scriptLiteral(companyEntity.label)),
-                      useVariableNode("CountLabel", scriptLiteral(String(companyCount) + " rows")),
-                      useVariableNode("Summary", scriptLiteral(companySummary)),
-                      useVariableNode("Source", scriptLiteral("Facade " + projectName + ".crm_list_companies"))
+                      useVariableNode("CountLabel", sequenceSourceValue(projectName, companyCountSequence, "?.sql_output?.[0]?.TOTAL", {
+                        prefix: "'' + ",
+                        suffix: " + ' rows'"
+                      })),
+                      useVariableNode("Summary", sequenceSourceValue(projectName, companyListSequence, "?.sql_output?.[0]", {
+                        custom: "listen(['" + companyListSequence + "'])?.sql_output?.length + ' company rows proved'",
+                        useCustom: true
+                      })),
+                      useVariableNode("Source", scriptLiteral("Facade " + companyListSequence))
+                    ])
+                  ]
+                }
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#GridRow",
+              name: "EntityCardsRow",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridCol",
+                  name: "ContactsCardCol",
+                  children: [
+                    buildUseSharedNode(sharedComponentQName(projectName, ucfirst(contactEntity.singular) + "Card"), "Use" + ucfirst(contactEntity.singular) + "Card", [
+                      useVariableNode("Title", scriptLiteral(ucfirst(contactEntity.singular) + " snapshot")),
+                      useVariableNode("Primary", sequenceSourceValue(projectName, contactListSequence, sqlOutputFieldPath(contactPrimary, 0))),
+                      useVariableNode("Secondary", sequenceSourceValue(projectName, contactListSequence, sqlOutputFieldPath(contactSecondary, 0))),
+                      useVariableNode("Insight", sequenceSourceValue(projectName, contactCountSequence, "?.sql_output?.[0]?.TOTAL", {
+                        prefix: "'Facade snapshot: ' + ",
+                        suffix: " + ' contacts'"
+                      }))
+                    ])
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridCol",
+                  name: "CompaniesCardCol",
+                  children: [
+                    buildUseSharedNode(sharedComponentQName(projectName, ucfirst(companyEntity.singular) + "Card"), "Use" + ucfirst(companyEntity.singular) + "Card", [
+                      useVariableNode("Title", scriptLiteral(ucfirst(companyEntity.singular) + " snapshot")),
+                      useVariableNode("Primary", sequenceSourceValue(projectName, companyListSequence, sqlOutputFieldPath(companyPrimary, 0))),
+                      useVariableNode("Secondary", sequenceSourceValue(projectName, companyListSequence, sqlOutputFieldPath(companySecondary, 0))),
+                      useVariableNode("Insight", sequenceSourceValue(projectName, companyCountSequence, "?.sql_output?.[0]?.TOTAL", {
+                        prefix: "'Facade snapshot: ' + ",
+                        suffix: " + ' companies'"
+                      }))
+                    ])
+                  ]
+                }
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#GridRow",
+              name: "EntityFormsRow",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridCol",
+                  name: "ContactsFormCol",
+                  children: [
+                    buildUseSharedNode(sharedComponentQName(projectName, ucfirst(contactEntity.singular) + "Form"), "Use" + ucfirst(contactEntity.singular) + "Form", [
+                      useVariableNode("Title", scriptLiteral("Edit " + ucfirst(contactEntity.singular))),
+                      useVariableNode("Helper", sequenceSourceValue(projectName, contactCountSequence, "?.sql_output?.[0]?.TOTAL", {
+                        prefix: "'Facade rows available: ' + ",
+                        suffix: " + ' for contacts'"
+                      })),
+                      useVariableNode("Sample", sequenceSourceValue(projectName, contactListSequence, sqlOutputFieldPath(contactSecondary, 0), {
+                        prefix: "'Sample live value: ' + ",
+                        suffix: ""
+                      })),
+                      useVariableNode("ActionLabel", scriptLiteral("Save " + contactEntity.singular))
+                    ])
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridCol",
+                  name: "CompaniesFormCol",
+                  children: [
+                    buildUseSharedNode(sharedComponentQName(projectName, ucfirst(companyEntity.singular) + "Form"), "Use" + ucfirst(companyEntity.singular) + "Form", [
+                      useVariableNode("Title", scriptLiteral("Edit " + ucfirst(companyEntity.singular))),
+                      useVariableNode("Helper", sequenceSourceValue(projectName, companyCountSequence, "?.sql_output?.[0]?.TOTAL", {
+                        prefix: "'Facade rows available: ' + ",
+                        suffix: " + ' for companies'"
+                      })),
+                      useVariableNode("Sample", sequenceSourceValue(projectName, companyListSequence, sqlOutputFieldPath(companySecondary, 0), {
+                        prefix: "'Sample live value: ' + ",
+                        suffix: ""
+                      })),
+                      useVariableNode("ActionLabel", scriptLiteral("Save " + companyEntity.singular))
                     ])
                   ]
                 }
@@ -1634,21 +2197,31 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function patchTextBinding(targetQName, sourceValue, result) {
-    try {
-      var targetDbo = C8O.dbo.resolve(targetQName, { optional: true });
-      if (!targetDbo) {
-        addWarning(result, "Shared text binding target missing: " + targetQName);
-        return;
+  function buildPageLoadTree(projectName, entryPage, entities, facadePrefix) {
+    return {
+      qname: pageQName(projectName, entryPage),
+      legacyQNames: [
+        pageQName(projectName, entryPage) + ".PageEvent",
+        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
+      ],
+      tree: {
+        properties: {
+          scriptContent: buildPageScriptContent(projectName, entities, facadePrefix)
+        },
+        children: []
       }
-      applyUpdates(targetDbo, { textValue: sourceValue }, result);
-    } catch (patchError) {
-      addWarning(result, "Unable to patch shared text binding for " + targetQName + ": " + String(patchError));
-    }
+    };
   }
 
-  function configureSharedBindings(projectName, entities, result) {
+  function buildSharedBindingOperations(projectName, entities, result) {
     var componentBindings = [
+      {
+        componentName: "CrudPageHeader",
+        bindings: [
+          { suffix: ".CrudPageHeaderCard.CrudPageHeaderHeader.CrudPageHeaderTitleSlot.TitleText", variableName: "Title" },
+          { suffix: ".CrudPageHeaderCard.CrudPageHeaderContent.SubtitleText", variableName: "Subtitle" }
+        ]
+      },
       {
         componentName: "DashboardStatCard",
         bindings: [
@@ -1694,7 +2267,8 @@ C8O.crud = C8O.crud || {};
         bindings: [
           { suffix: "." + componentPrefix + "CardRoot." + componentPrefix + "CardHeader." + componentPrefix + "CardTitleSlot.TitleText", variableName: "Title" },
           { suffix: "." + componentPrefix + "CardRoot." + componentPrefix + "CardContent.PrimaryText", variableName: "Primary" },
-          { suffix: "." + componentPrefix + "CardRoot." + componentPrefix + "CardContent.SecondaryText", variableName: "Secondary" }
+          { suffix: "." + componentPrefix + "CardRoot." + componentPrefix + "CardContent.SecondaryText", variableName: "Secondary" },
+          { suffix: "." + componentPrefix + "CardRoot." + componentPrefix + "CardContent.InsightText", variableName: "Insight" }
         ]
       });
       componentBindings.push({
@@ -1702,11 +2276,13 @@ C8O.crud = C8O.crud || {};
         bindings: [
           { suffix: "." + componentPrefix + "FormRoot." + componentPrefix + "FormHeader." + componentPrefix + "FormTitleSlot.TitleText", variableName: "Title" },
           { suffix: "." + componentPrefix + "FormRoot." + componentPrefix + "FormContent.HelperText", variableName: "Helper" },
+          { suffix: "." + componentPrefix + "FormRoot." + componentPrefix + "FormContent.SampleText", variableName: "Sample" },
           { suffix: "." + componentPrefix + "FormRoot." + componentPrefix + "FormContent.SubmitButton.ActionText", variableName: "ActionLabel" }
         ]
       });
     }
 
+    var operations = [];
     for (var bindingIndex = 0; bindingIndex < componentBindings.length; bindingIndex++) {
       var componentQName = sharedComponentQName(projectName, componentBindings[bindingIndex].componentName);
       var componentDbo = C8O.dbo.resolve(componentQName, { optional: true });
@@ -1717,17 +2293,25 @@ C8O.crud = C8O.crud || {};
       var componentPriority = priorityOf(componentDbo);
       for (var bindingEntry = 0; bindingEntry < componentBindings[bindingIndex].bindings.length; bindingEntry++) {
         var binding = componentBindings[bindingIndex].bindings[bindingEntry];
-        patchTextBinding(componentQName + binding.suffix, sharedSourceValue(projectName, componentPriority, binding.variableName), result);
+        operations.push({
+          type: "setProperties",
+          opId: "bind_" + normalizedIdentifier(componentBindings[bindingIndex].componentName + "_" + binding.variableName),
+          qname: componentQName + binding.suffix,
+          properties: {
+            textValue: sharedSourceValue(projectName, componentPriority, binding.variableName)
+          }
+        });
       }
     }
+    return operations;
   }
 
   function auditUiTreePayload(uiTree) {
     var serialized = JSON.stringify(uiTree || {});
     return {
       starterDominant: serialized.indexOf("WelcomeCard") !== -1,
-      visibleShellPresent: /FeatureShell|CrudDashboardGrid|DashboardTitle|UseContactsStatCard|UseCompaniesStatCard|UseCrudLoadingState|UseCrudErrorRetryState/.test(serialized),
-      liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared/.test(serialized)
+      visibleShellPresent: /FeatureShell|CrudDashboardGrid|UseCrudPageHeader|UseContactsStatCard|UseCompaniesStatCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseCompanyCard|UseContactForm|UseCompanyForm/.test(serialized),
+      liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared|UIUseVariable/.test(serialized)
     };
   }
 
@@ -1747,15 +2331,14 @@ C8O.crud = C8O.crud || {};
   }
 
   function upsertNgxCrudKit(options) {
+    var startedAt = nowMillis();
     var result = {
       status: "success",
       project: "",
       sharedComponents: [],
       pageTargets: [],
       runtimeEvidence: {},
-      warnings: [],
-      created: [],
-      updated: []
+      warnings: []
     };
     var projectName = trimmed(options.project);
     if (!projectName.length) {
@@ -1778,59 +2361,150 @@ C8O.crud = C8O.crud || {};
     if (!contentDbo) {
       throw new Error("Entry page content not found for " + projectName + ": " + contentQName);
     }
+    var timings = {};
+    result.runtimeEvidence.timings = timings;
+    result.runtimeEvidence.mutationCounts = {
+      created: 0,
+      updated: 0
+    };
+    var sharedBuildStartedAt = nowMillis();
     var sharedComponents = buildSharedComponentsTree(projectName, entities);
-    var beforeCreated = result.created.length;
-    for (var sharedIndex = 0; sharedIndex < ensureArray(sharedComponents.tree.children).length; sharedIndex++) {
-      syncDeterministicNode(ngxApp, sharedComponents.tree.children[sharedIndex], result, true);
+    setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
+    result.runtimeEvidence.sharedComponentsRequested = ensureArray(sharedComponents.tree.children).length;
+    result.runtimeEvidence.sharedComponentTreeNodeCount = countTreeNodes(sharedComponents.tree);
+    var pageShellStartedAt = nowMillis();
+    var pageShellTree = buildPageShellTree(projectName, entryPage, entities, options.runtimeEvidence || {}, facadePrefix);
+    setDuration(timings, "buildPageShellTreeMs", pageShellStartedAt);
+    result.runtimeEvidence.pageShellTreeNodeCount = countTreeNodes(pageShellTree);
+    var pageLoadStartedAt = nowMillis();
+    var pageLoadTree = buildPageLoadTree(projectName, entryPage, entities, facadePrefix);
+    setDuration(timings, "buildPageLoadTreeMs", pageLoadStartedAt);
+    result.runtimeEvidence.pageLoadTreeNodeCount = countTreeNodes(pageLoadTree.tree);
+    var batchApplyStartedAt = nowMillis();
+    var pageMutationOperations = [
+      {
+        type: "upsertTree",
+        opId: "entry_page_load",
+        qname: pageQName(projectName, entryPage),
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          properties: pageLoadTree.tree.properties || {},
+          children: ensureArray(pageLoadTree.tree.children)
+        }
+      }
+    ];
+    var legacyPageLoadQNames = ensureArray(pageLoadTree.legacyQNames);
+    for (var legacyIndex = 0; legacyIndex < legacyPageLoadQNames.length; legacyIndex++) {
+      var legacyQName = trimmed(legacyPageLoadQNames[legacyIndex]);
+      if (!legacyQName.length) {
+        continue;
+      }
+      if (!C8O.dbo.resolve(legacyQName, { optional: true })) {
+        continue;
+      }
+      pageMutationOperations.unshift({
+        type: "delete",
+        opId: "delete_" + normalizedIdentifier(legacyQName),
+        qname: legacyQName
+      });
+    }
+    var batchApplyResult = C8O.dbo.batchApply({
+      target: ngxAppQName(projectName),
+      strict: true,
+      onError: "stop",
+      autoSave: false,
+      triggerMobileBuilder: false,
+      operations: [
+        {
+          type: "upsertTree",
+          opId: "shared_components",
+          qname: ngxAppQName(projectName),
+          strategy: {
+            replaceOnClassMismatch: true,
+            pruneMissing: false,
+            reorder: false
+          },
+          patch: {
+            children: ensureArray(sharedComponents.tree.children)
+          }
+        },
+        {
+          type: "upsertTree",
+          opId: "entry_page",
+          qname: contentQName,
+          strategy: {
+            replaceOnClassMismatch: true,
+            pruneMissing: true,
+            reorder: false
+          },
+          patch: {
+            properties: pageShellTree.properties || {},
+            children: ensureArray(pageShellTree.children)
+          }
+        }
+      ].concat(pageMutationOperations)
+    });
+    setDuration(timings, "batchTreeApplyMs", batchApplyStartedAt);
+    collectBatchWarnings(batchApplyResult, result, "batchApply");
+    if (!batchApplyResult || batchApplyResult.status === "failed" || (batchApplyResult.errors && batchApplyResult.errors.length)) {
+      throw new Error(firstBatchErrorMessage(batchApplyResult));
     }
     result.sharedComponents = sharedComponents.qnames.slice();
-    result.runtimeEvidence.sharedComponentsApply = {
-      status: result.created.length > beforeCreated ? "success" : "updated",
-      target: ngxAppQName(projectName)
-    };
-    configureSharedBindings(projectName, entities, result);
-    var pageShellTree = buildPageShellTree(projectName, entryPage, entities, options.runtimeEvidence || {});
-    if (pageShellTree.properties) {
-      applyUpdates(contentDbo, pageShellTree.properties, result);
-    }
-    var desiredChildren = ensureArray(pageShellTree.children);
-    var desiredNames = {};
-    for (var childIndex = 0; childIndex < desiredChildren.length; childIndex++) {
-      if (desiredChildren[childIndex] && desiredChildren[childIndex].name) {
-        desiredNames[String(desiredChildren[childIndex].name)] = true;
+    result.runtimeEvidence.batchApply = summarizeTreeApplyResult(batchApplyResult, ngxAppQName(projectName), result);
+    result.runtimeEvidence.sharedComponentsApply = operationSummary(batchApplyResult, "shared_components", ngxAppQName(projectName));
+    result.runtimeEvidence.treeApply = operationSummary(batchApplyResult, "entry_page", contentQName);
+    result.runtimeEvidence.pageLoadApply = operationSummary(batchApplyResult, "entry_page_load", pageQName(projectName, entryPage));
+    timings.applySharedComponentsMs = timings.batchTreeApplyMs;
+    timings.applyPagePropertiesMs = 0;
+    timings.prunePageChildrenMs = 0;
+    timings.applyPageChildrenMs = 0;
+    var batchSummary = batchApplyResult.summary || {};
+    result.runtimeEvidence.mutationCounts.created = Number(batchSummary.created || 0);
+    result.runtimeEvidence.mutationCounts.updated = Number(batchSummary.updatedProperties || 0);
+    result.runtimeEvidence.mutationCounts.deleted = Number(batchSummary.deleted || 0);
+    result.runtimeEvidence.mutationCounts.replaced = Number(batchSummary.replaced || 0);
+    var sharedBindingsStartedAt = nowMillis();
+    var sharedBindingOperations = buildSharedBindingOperations(projectName, entities, result);
+    if (sharedBindingOperations.length) {
+      var sharedBindingsBatch = C8O.dbo.batchApply({
+        target: ngxAppQName(projectName),
+        strict: true,
+        onError: "stop",
+        autoSave: false,
+        triggerMobileBuilder: false,
+        operations: sharedBindingOperations
+      });
+      collectBatchWarnings(sharedBindingsBatch, result, "sharedBindings");
+      if (!sharedBindingsBatch || sharedBindingsBatch.status === "failed" || (sharedBindingsBatch.errors && sharedBindingsBatch.errors.length)) {
+        throw new Error(firstBatchErrorMessage(sharedBindingsBatch));
       }
+      result.runtimeEvidence.sharedBindingsApply = summarizeTreeApplyResult(sharedBindingsBatch, ngxAppQName(projectName), result);
+      var bindingsSummary = sharedBindingsBatch.summary || {};
+      result.runtimeEvidence.mutationCounts.updated += Number(bindingsSummary.updatedProperties || 0);
+    } else {
+      result.runtimeEvidence.sharedBindingsApply = {
+        status: "skipped",
+        target: ngxAppQName(projectName)
+      };
     }
-    var contentChildren = getChildrenArray(contentDbo);
-    for (var existingIndex = 0; existingIndex < contentChildren.length; existingIndex++) {
-      var existingChild = contentChildren[existingIndex];
-      var existingName = "";
-      try {
-        existingName = String(existingChild.getName());
-      } catch (_ignoreExistingName) {
-        existingName = "";
-      }
-      if (existingName && !desiredNames[existingName]) {
-        removeChild(contentDbo, existingChild, result);
-      }
-    }
-    for (var pageChildIndex = 0; pageChildIndex < desiredChildren.length; pageChildIndex++) {
-      syncDeterministicNode(contentDbo, desiredChildren[pageChildIndex], result, true);
-    }
+    setDuration(timings, "configureSharedBindingsMs", sharedBindingsStartedAt);
     result.pageTargets.push(contentQName);
-    result.runtimeEvidence.treeApply = {
-      status: "success",
-      target: contentQName
-    };
     result.runtimeEvidence.entryPage = entryPage;
     result.runtimeEvidence.facadePrefix = facadePrefix;
     result.runtimeEvidence.pageSharedRefs = collectSharedRefs(pageShellTree, []);
     try {
+      var uiAuditStartedAt = nowMillis();
       var uiTree = callInternalSequence("tools_databaseobject_tree_get", {
         target: contentQName,
-        childrenDepth: 2,
+        childrenDepth: 5,
         properties: "none",
-        limit: 120
+        limit: 320
       });
+      setDuration(timings, "uiAuditTreeGetMs", uiAuditStartedAt);
       var uiAudit = auditUiTreePayload(uiTree);
       result.runtimeEvidence.shellVisible = uiAudit.visibleShellPresent;
       result.runtimeEvidence.starterDominant = uiAudit.starterDominant;
@@ -1840,14 +2514,20 @@ C8O.crud = C8O.crud || {};
       addWarning(result, "Unable to inspect NGX shell after apply: " + String(uiInspectError));
     }
     try {
+      var mobileBuilderStartedAt = nowMillis();
+      result.runtimeEvidence.mobileBuilder = C8O.dbo.triggerMobileBuilderRefresh(ngxApp, ensureWarnings(result));
+      setDuration(timings, "mobileBuilderMs", mobileBuilderStartedAt);
+      var projectSaveStartedAt = nowMillis();
       result.runtimeEvidence.projectSave = summarizeSaveResult(C8O.dbo.saveProject(project, []), result);
+      setDuration(timings, "projectSaveMs", projectSaveStartedAt);
+      var studioRefreshStartedAt = nowMillis();
       result.runtimeEvidence.studioRefresh = refreshStudioProjectTree(project, result, "studioRefresh");
+      setDuration(timings, "studioRefreshMs", studioRefreshStartedAt);
     } catch (saveUiError) {
       result.status = "partial";
       addWarning(result, "Unable to save project after NGX CRUD kit apply: " + String(saveUiError));
     }
-    delete result.created;
-    delete result.updated;
+    result.runtimeEvidence.totalDurationMs = setDuration(timings, "totalMs", startedAt);
     return result;
   }
 
@@ -1940,9 +2620,9 @@ C8O.crud = C8O.crud || {};
     try {
       var uiTree = callInternalSequence("tools_databaseobject_tree_get", {
         target: status.ui.targetQName,
-        childrenDepth: 2,
+        childrenDepth: 5,
         properties: "none",
-        limit: 120
+        limit: 320
       });
       var uiAudit = auditUiTreePayload(uiTree);
       status.ui.starterDominant = uiAudit.starterDominant;
@@ -2015,12 +2695,12 @@ C8O.crud = C8O.crud || {};
           spec.facade.prefix + "_" + txName(entity, "delete")
         ];
         var publicSources = [
-          result.connectorQname + "." + txName(entity, "list"),
-          result.connectorQname + "." + txName(entity, "count"),
-          result.connectorQname + "." + txName(entity, "read"),
-          result.connectorQname + "." + txName(entity, "create"),
-          result.connectorQname + "." + txName(entity, "update"),
-          result.connectorQname + "." + txName(entity, "delete")
+          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "list")),
+          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "count")),
+          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "read")),
+          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "create")),
+          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "update")),
+          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "delete"))
         ];
         var publicVars = [listVars, countVars, readVars, createVars, updateVars, deleteVars];
         for (var p = 0; p < publicNames.length; p++) {
@@ -2073,7 +2753,7 @@ C8O.crud = C8O.crud || {};
     return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(result, { warnings: ensureWarnings(result), path: "$" }) : result;
   }
 
-  function crudStatus(options) {
+  function inspectCrudStatus(options) {
     var projectName = trimmed(options.project);
     if (!projectName.length) {
       throw new Error("project is required");
@@ -2097,7 +2777,10 @@ C8O.crud = C8O.crud || {};
         publicListSequence: ""
       },
       seed: { enabled: true, rowsPerEntity: 2 },
-      ui: { entryPage: "Page", variant: trimmed(options.variant || "dashboard") },
+      ui: {
+        entryPage: trimmed(options.entryPage || "Page"),
+        variant: trimmed(options.variant || "dashboard")
+      },
       database: normalizeDatabaseSpec({
         project: projectName,
         database: {
@@ -2125,7 +2808,69 @@ C8O.crud = C8O.crud || {};
     } else {
       status.driverFamily = inferDriverFamilyFromConnector(connector);
     }
+    return status;
+  }
+
+  function crudStatus(options) {
+    var status = inspectCrudStatus(options || {});
     return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(status, { warnings: ensureWarnings(status), path: "$" }) : status;
+  }
+
+  function crudProof(options) {
+    var result = inspectCrudStatus(options || {});
+    result.entryPage = trimmed((options || {}).entryPage || "Page");
+    result.expectUiShell = toBoolean((options || {}).expectUiShell, false);
+    result.requestables = [];
+    result.checks = [];
+
+    if (result.status === "not_found") {
+      result.checks.push(proofCheck("project", false, "Project was not found.", result.project));
+      return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(result, { warnings: ensureWarnings(result), path: "$" }) : result;
+    }
+
+    result.checks.push(proofCheck("transactions", !(result.transactions && result.transactions.missing && result.transactions.missing.length), (result.transactions && result.transactions.missing && result.transactions.missing.length) ? "Missing SQL transactions remain." : "", result.connectorQname));
+    result.checks.push(proofCheck("sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing public CRUD sequences remain." : "", result.project));
+
+    var requestables = normalizeProofRequestablesInput((options || {}).proofRequestables);
+    var connectorName = "";
+    if (result.connectorQname && result.connectorQname.indexOf(".") !== -1) {
+      connectorName = String(result.connectorQname).split(".").slice(1).join(".");
+    } else {
+      connectorName = trimmed((options || {}).connector || "");
+    }
+    for (var i = 0; i < requestables.length; i++) {
+      var qname = resolveProofRequestableQName(requestables[i], result.project, connectorName);
+      if (!qname.length) {
+        continue;
+      }
+      var proof = proofRequestable(qname, {}, result);
+      result.requestables.push(proof);
+      result.checks.push(proofCheck("requestable:" + normalizedIdentifier(qname), proof.ok === true, proof.ok === true ? "" : (proof.message || "Runtime proof failed."), qname));
+      if (proof.ok !== true) {
+        pushMissing(result, qname);
+      }
+    }
+
+    if (result.expectUiShell) {
+      var shellVisible = result.ui && result.ui.visibleShellPresent === true;
+      var starterReplaced = result.ui && result.ui.starterDominant === false;
+      result.checks.push(proofCheck("ui-visible-shell", shellVisible, shellVisible ? "" : "Visible CRUD shell is not present on the entry page.", result.ui && result.ui.targetQName));
+      result.checks.push(proofCheck("ui-starter-replaced", starterReplaced, starterReplaced ? "" : "Starter content is still dominant on the entry page.", result.ui && result.ui.targetQName));
+      if (!shellVisible || !starterReplaced) {
+        pushMissing(result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
+      }
+    }
+
+    if (result.transactions && result.transactions.missing) {
+      result.missing = result.missing.concat(result.transactions.missing);
+    }
+    if (result.sequences && result.sequences.missing) {
+      result.missing = result.missing.concat(result.sequences.missing);
+    }
+    result.missing = dedupeStrings(result.missing);
+
+    result.status = result.missing.length ? "partial" : "success";
+    return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(result, { warnings: ensureWarnings(result), path: "$" }) : result;
   }
 
   C8O.crud.normalizeSpec = normalizeSpec;
@@ -2134,6 +2879,9 @@ C8O.crud = C8O.crud || {};
   };
   C8O.crud.crudStatus = function (options) {
     return crudStatus(options || {});
+  };
+  C8O.crud.crudProof = function (options) {
+    return crudProof(options || {});
   };
   C8O.crud.upsertNgxCrudKit = function (options) {
     var result = upsertNgxCrudKit(options || {});

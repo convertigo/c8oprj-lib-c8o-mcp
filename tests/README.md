@@ -2,6 +2,10 @@
 
 This folder stores reproducible prompts/scripts for running Codex CLI scenarios locally. Raw logs stay in `tests/logs`, derived reports in `tests/reports`, and work files in `tests/workspace` (all ignored by Git).
 
+This entire folder is an internal lab surface for benchmark and observability work. It is not the recommended public MCP onboarding path during the mono-agent CRUD recovery cycle.
+
+Exception: `scripts/run_fastpath_repeatability.py` is the dedicated repeatability runner for the recommended mono-agent CRUD fast path. It still lives under `tests/`, but it is intentionally separate from the benchmark/multi-agent lab flow.
+
 - `prompt.txt`: Main end-to-end HTTP contract scenario. The runner should inject `convertigo-http`.
 - `prompt_analyze_sentence.txt`: Backend sequence scenario. The runner should inject `convertigo-backend`.
 - `prompt_facade_stub_probe.txt`: Planner probe. The runner should inject `convertigo-planner`.
@@ -14,9 +18,11 @@ This folder stores reproducible prompts/scripts for running Codex CLI scenarios 
 - `prompt_critic_run_review.txt`: Critic review of one explicit benchmark run. The runner should inject `convertigo-critic`.
 - `prompt_critic_aggregate_review.txt`: Critic review of one explicit benchmark campaign. The runner should inject `convertigo-critic`.
 - `prompt_maintainer_cycle.txt`: Maintainer-cycle template that injects one maintainer packet and requires one committed candidate. The runner should inject `convertigo-maintainer`.
+- `prompt_crud_fastpath_repeatability.txt`: Generic mono-agent CRUD repeatability prompt template. The dedicated runner renders `__TARGET_PROJECT__` and `__CRUD_SPEC_JSON__`, then injects `convertigo-crud-fastpath`.
 - `bin/codex`: Wrapper used by default by `run_prompt.sh`. It pins the npm package version in one place through `CODEX_NPM_VERSION` (default `0.111.0`) and avoids depending on the machine-wide `codex`.
 - `run_prompt.sh`: Helper to run Codex CLI from the repository root (`bash tests/run_prompt.sh [prompt_file] [run_label] [role_prompt_name]`). When the third argument is set, the script fetches the role prompt from MCP first and injects it into the Codex run.
 - `scripts/report_codex_run.py`: Converts one raw Codex CLI log into `report.json` plus `summary.md`.
+- `scripts/run_fastpath_repeatability.py`: Dedicated sequential campaign runner for the mono-agent CRUD fast path. By default it runs `3 x HSQLDB`, `3 x PostgreSQL`, and `3 x MariaDB` through `codex exec`.
 - `scripts/run_campaign.py`: Runs one benchmark campaign for a frozen MCP candidate.
 - `scripts/score_campaign.py`: Scores one benchmark campaign and writes aggregate findings.
 - `scripts/compare_campaigns.py`: Compares a baseline campaign aggregate against a replayed candidate campaign and emits a verdict.
@@ -49,6 +55,15 @@ Campaign artifact layout:
 - Aggregate output: `tests/campaigns/<candidateId>/aggregate/`
 - Isolated workspaces: `tests/campaigns/<candidateId>/workspaces/<scenarioId>/<workspaceId>/`
 - SQL fixture runtime metadata: `tests/campaigns/<candidateId>/fixtures/sql/<runId>/`
+
+Fast-path repeatability artifact layout:
+
+- Campaign root: `tests/reports/fastpath-repeatability/<timestamp>/`
+- Rendered prompts: `tests/reports/fastpath-repeatability/<timestamp>/prompts/`
+- Per-run Codex artifacts: `tests/reports/fastpath-repeatability/<timestamp>/runs/<runId>/`
+- Per-run workspaces: `tests/reports/fastpath-repeatability/<timestamp>/workspaces/<runLabel>/`
+- Aggregate JSON summary: `tests/reports/fastpath-repeatability/<timestamp>/summary.json`
+- Aggregate Markdown summary: `tests/reports/fastpath-repeatability/<timestamp>/summary.md`
 
 Phase 4 benchmark campaigns are file-first and sequential by default, but their layout is parallel-safe. Critic prompts must target explicit report paths, never the latest log.
 
@@ -83,6 +98,12 @@ Run one campaign:
 ```bash
 python3 tests/scripts/run_campaign.py \
   --suite tests/benchmarks/suites/phase4_v1.json
+```
+
+Run the mono-agent CRUD repeatability campaign:
+
+```bash
+python3 tests/scripts/run_fastpath_repeatability.py
 ```
 
 Run one improvement cycle from an existing scored campaign:

@@ -2,6 +2,7 @@
 
 ## When to use this prompt
 Use this prompt to review a Convertigo run, subtree, or log after implementation work is complete.
+This is an internal lab prompt during the mono-agent recovery cycle, not part of the recommended public CRUD delivery path.
 
 ## Read these guides first
 - If this is a fresh session and you are not reviewing explicit run or campaign artifacts, call `resources/list`, use live prompt discovery only if the caller surface exposes it, then read `convertigo://capabilities` and `convertigo://recipes/quickstart`.

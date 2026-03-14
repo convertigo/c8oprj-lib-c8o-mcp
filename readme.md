@@ -1,103 +1,58 @@
-
-
-
 # ConvertigoMCP
 
-Mashup Sequencer project
+Convertigo MCP project for AI-assisted fullstack Convertigo development.
 
+The recommended public path is now a mono-agent MCP flow for deterministic SQL CRUD + starter NGX UI work.
+Use the MCP directly, prefer the dedicated CRUD fast path, and keep multi-agent / benchmark / maintainer flows as internal lab surfaces until the mono-agent rail is proven stable.
 
-For more technical informations : [documentation](./project.md)
+For technical details, see [documentation](./project.md).
 
-- [Installation](#installation)
-- [Rest Web Service](#rest-web-service)
-    - [Mappings](#mappings)
-        - [/mcp](#mcp)
-            - [Operations](#operations)
-                - [Get](#get)
-                - [Post](#post)
-        - [/mcp/](#mcp-1)
-            - [Operations](#operations-1)
-                - [Get](#get-1)
-                - [Post](#post-1)
+## Recommended Flow
 
+1. Start from the CRUD fast path prompt and guide:
+   - `convertigo-crud-fastpath`
+   - `convertigo://resources/convertigo-crud-fastpath`
+2. Provide one explicit CRUD spec:
+   - project
+   - SQL driver family
+   - connector name
+   - facade prefix
+   - entities
+   - visible entry page
+3. Execute the deterministic rail:
+   - `upsert-crud`
+   - `crud-proof`
+   - `upsert-ngx-crud-kit`
+   - `crud-proof`
+   - `project-save`
+
+## Internal Lab Surfaces
+
+These remain available for observability and experiments, but are not the recommended product path during the mono-agent recovery cycle:
+
+- benchmark campaigns under `tests/`
+- feedback triage under `feedback/`
+- maintainer / critic improvement loops
+- multi-agent wrapper experiments in companion repositories
 
 ## Installation
 
-1. In your Convertigo Studio click on ![](https://github.com/convertigo/convertigo/blob/develop/eclipse-plugin-studio/icons/studio/project_import.gif?raw=true "Import a project in treeview") to import a project in the treeview
-2. In the import wizard
+1. In Convertigo Studio, import the project from Git.
+2. Use the project remote URL:
 
-   ![](https://github.com/convertigo/convertigo/blob/develop/eclipse-plugin-studio/tomcat/webapps/convertigo/templates/ftl/project_import_wzd.png?raw=true "Import Project")
-   
-   paste the text below into the `Project remote URL` field:
-   <table>
-     <tr><td>Usage</td><td>Click the copy button at the end of the line</td></tr>
-     <tr><td>To contribute</td><td>
+   ```
+   ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
+   ```
 
-     ```
-     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
-     ```
-     </td></tr>
-     <tr><td>To simply use</td><td>
-
-     ```
-     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
-     ```
-     </td></tr>
-    </table>
-3. Click the `Finish` button. This will automatically import the __ConvertigoMCP__ project
-
+3. Finish the import wizard.
 
 ## Rest Web Service
 
-### Mappings
+### `/mcp` and `/mcp/`
 
-#### /mcp
+Streamable HTTP entry points for MCP JSON-RPC requests.
 
-##### Operations
+Parameters:
 
-###### Get
-
-###### Post
-
-Streamable HTTP entry point for MCP requests
-
-**Parameters**
-
-<table>
-<tr>
-<th>name</th><th>comment</th>
-</tr>
-<tr>
-<td>jsonOnly</td><td></td>
-</tr>
-<tr>
-<td>request</td><td>JSON-RPC request body</td>
-</tr>
-</table>
-
-#### /mcp/
-
-##### Operations
-
-###### Get
-
-###### Post
-
-Streamable HTTP entry point for MCP requests
-
-**Parameters**
-
-<table>
-<tr>
-<th>name</th><th>comment</th>
-</tr>
-<tr>
-<td>jsonOnly</td><td></td>
-</tr>
-<tr>
-<td>request</td><td>JSON-RPC request body</td>
-</tr>
-</table>
-
-
-
+- `jsonOnly`
+- `request`: JSON-RPC request body

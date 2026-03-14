@@ -24,6 +24,7 @@ Read this first for any MCP session that touches a Convertigo project.
 | Understand the platform before touching anything | `convertigo/platform-big-picture@1` | Explains what Convertigo is, why facades exist, and how the platform parts fit together. |
 | Single sequence or facade change | `convertigo/recipe-facade-stub@1`, then `convertigo/backend-sequences@1` | Start with the golden path, then go deeper on response shape, JSON steps, SmartTypes, and validation rules. |
 | SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | Start with the CRUD scaffold recipe, then go deeper on driver and transaction subtleties. |
+| Standard SQL CRUD + starter NGX UI | `convertigo/crud-fastpath@1` | Preferred mono-agent public path for the current recovery cycle. |
 | HTTP-backed feature | `convertigo/recipe-http-facade@1`, then `convertigo/integration-http@1` | Start with the connector and facade recipe, then go deeper on payload, schema, and handler details. |
 | NGX UI task | `convertigo/recipe-ngx-data-page@1`, then `convertigo/frontend-ngx@1` | Start with the canonical data-page pattern, then go deeper on palette, actions, and bindings. |
 | New app or starter-based POC | `convertigo/recipe-starter-extension@1` | Gives the fast path for importing a starter and extending it instead of rediscovering project structure. |
@@ -48,11 +49,12 @@ Read this first for any MCP session that touches a Convertigo project.
    - `palette-list`
    - `palette-describe`
 7. Pick one matching recipe before the first broad mutation.
-8. Build the mutation plan before the first write call.
-9. Apply changes with `databaseobject-tree-apply` or `batch-call`.
-10. Validate behavior with `requestable-execute`. Use `log-view` only when execution feedback is not enough.
-11. Save with `project-save`.
-12. Read a specialized handbook only when the recipe leaves open questions.
+8. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
+9. Build the mutation plan before the first write call.
+10. Apply changes with `databaseobject-tree-apply` or `batch-call`.
+11. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
+12. Save with `project-save`.
+13. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 
@@ -109,6 +111,7 @@ Correct escalation for a multi-track feature:
 - `databaseobject-tree-apply`
 - `batch-call`
 - `requestable-execute`
+- `crud-proof`
 - `project-save`
 - `resources/templates/list`
 

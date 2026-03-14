@@ -1,0 +1,225 @@
+accessibility: Private
+comment: |
+  Prove deterministic CRUD state
+  Combines CRUD status, requestable execution summaries, and optional UI shell checks for the mono-agent fast path.
+↓IncludeHelpers [steps.SimpleStep-1773414214582]: 
+  comment: Load deterministic CRUD helpers
+  expression: include("js/tools_crud.js");
+↓Init [steps.SimpleStep-1773414214584]: 
+  comment: Inspect CRUD state and execute proof requestables
+  expression: |
+    'crudProofResult = C8O.crud.crudProof({
+      project: project,
+      connector: connector,
+      facadePrefix: facadePrefix,
+      mode: mode,
+      variant: variant,
+      entryPage: entryPage,
+      expectUiShell: C8O.util.toBoolean(expectUiShell, false),
+      proofRequestables: proofRequestables
+    });'
+↓Result [steps.JsonObjectStep-1773414214587]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1773414214590]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.status ? crudProofResult.status : ""'
+  ↓project [steps.JsonFieldStep-1773414214594]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.project ? crudProofResult.project : ""'
+  ↓driverFamily [steps.JsonFieldStep-1773414214596]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: driverFamily
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.driverFamily ? crudProofResult.driverFamily : ""'
+  ↓connectorQname [steps.JsonFieldStep-1773414214598]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: connectorQname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.connectorQname ? crudProofResult.connectorQname : ""'
+  ↓entryPage [steps.JsonFieldStep-1773414214600]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: entryPage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.entryPage ? crudProofResult.entryPage : ""'
+  ↓expectUiShell [steps.JsonFieldStep-1773414214604]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: expectUiShell
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: crudProofResult && crudProofResult.expectUiShell === true
+  ↓transactions [steps.JsonToXmlStep-1773414214607]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.transactions ? crudProofResult.transactions : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: transactions
+  ↓sequences [steps.JsonToXmlStep-1773414214609]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.sequences ? crudProofResult.sequences : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: sequences
+  ↓ui [steps.JsonToXmlStep-1773414214612]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.ui ? crudProofResult.ui : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: ui
+  ↓requestables [steps.JsonToXmlStep-1773414214615]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.requestables ? crudProofResult.requestables : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: requestables
+  ↓checks [steps.JsonToXmlStep-1773414214617]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.checks ? crudProofResult.checks : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: checks
+  ↓missing [steps.JsonToXmlStep-1773414214619]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.missing ? crudProofResult.missing : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: missing
+  ↓warnings [steps.JsonToXmlStep-1773414214622]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.warnings ? crudProofResult.warnings : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
+↓project [variables.RequestableVariable-1773414214624]: 
+  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  schemaType: xsd:boolean
+↓connector [variables.RequestableVariable-1773414214627]: 
+  comment: Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
+  description: Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
+↓facadePrefix [variables.RequestableVariable-1773414214629]: 
+  comment: Optional public CRUD sequence prefix. Defaults to crud.
+  description: Optional public CRUD sequence prefix. Defaults to crud.
+↓mode [variables.RequestableVariable-1773414214631]: 
+  comment: Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
+  description: Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
+↓variant [variables.RequestableVariable-1773414214633]: 
+  comment: Optional UI variant hint used when checking visible CRUD shell coverage.
+  description: Optional UI variant hint used when checking visible CRUD shell coverage.
+↓entryPage [variables.RequestableVariable-1773414214635]: 
+  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  schemaType: xsd:boolean
+↓expectUiShell [variables.RequestableVariable-1773414214637]: 
+  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  schemaType: xsd:boolean
+↓proofRequestables [variables.RequestableVariable-1773414214639]: 
+  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  schemaType: xsd:boolean

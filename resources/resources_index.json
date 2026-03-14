@@ -19,6 +19,7 @@
     ],
     "promptNames": [
       "convertigo-quickstart",
+      "convertigo-crud-fastpath",
       "convertigo-planner",
       "convertigo-backend",
       "convertigo-sql",
@@ -28,6 +29,38 @@
       "convertigo-maintainer"
     ],
     "guidanceLevel": "start",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-crud-fastpath",
+    "name": "Convertigo CRUD Fast Path",
+    "title": "Convertigo CRUD Fast Path",
+    "description": "Recommended mono-agent path for deterministic SQL CRUD plus starter NGX UI work.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_crud_fastpath.md",
+    "guideId": "convertigo/crud-fastpath",
+    "revision": 1,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "crud",
+      "sql",
+      "ngx",
+      "mono-agent"
+    ],
+    "prerequisites": [
+      "convertigo/start@1"
+    ],
+    "recommendedTools": [
+      "upsert-crud",
+      "crud-proof",
+      "upsert-ngx-crud-kit",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-crud-fastpath"
+    ],
+    "guidanceLevel": "workflow",
     "fallbackToRag": false
   },
   {
@@ -54,6 +87,7 @@
       "convertigo-sql",
       "convertigo-http",
       "convertigo-frontend-ngx",
+      "convertigo-crud-fastpath",
       "convertigo-critic",
       "convertigo-maintainer"
     ],
@@ -530,6 +564,7 @@
       "convertigo-sql",
       "convertigo-backend",
       "convertigo-frontend-ngx",
+      "convertigo-crud-fastpath",
       "convertigo-maintainer"
     ],
     "guidanceLevel": "workflow",
@@ -692,6 +727,7 @@
       "project-reload"
     ],
     "promptNames": [
+      "convertigo-crud-fastpath",
       "convertigo-planner",
       "convertigo-backend",
       "convertigo-sql",

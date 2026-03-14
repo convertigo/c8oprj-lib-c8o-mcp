@@ -1,0 +1,80 @@
+This is a mono-agent CRUD fast-path probe.
+- Benchmark policy: the runner already injected `convertigo-crud-fastpath`.
+- Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Target project: `__TARGET_PROJECT__`
+- Mutate only `__TARGET_PROJECT__`.
+
+Create or update a standard SQL CRUD + starter NGX project for `__TARGET_PROJECT__` with this explicit HSQLDB spec:
+
+```json
+{
+  "project": "__TARGET_PROJECT__",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "crudexecfastpath",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "crm",
+    "publicListSequence": "crm_list"
+  },
+  "entities": [
+    {
+      "name": "contacts",
+      "label": "Contacts",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "type": "VARCHAR(128)" },
+        { "name": "LastName", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true }
+      ]
+    },
+    {
+      "name": "companies",
+      "label": "Companies",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Industry", "type": "VARCHAR(128)" },
+        { "name": "City", "type": "VARCHAR(128)" }
+      ]
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 2
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "dashboard"
+  }
+}
+```
+
+Required proof requestables:
+- `init_schema`
+- `list_contacts`
+- `count_contacts`
+- `list_companies`
+- `count_companies`
+
+Required workflow:
+1. Stay on the standard CRUD fast path. Do not call planner, critic, maintainer, or specialist prompts.
+2. Use the exact project name `__TARGET_PROJECT__`.
+3. Run `upsert-crud` first.
+4. Run `crud-proof` with the proof requestables above.
+5. If backend proof fails, stop with `RESULT: FAIL`.
+6. Run `upsert-ngx-crud-kit`.
+7. Run `crud-proof` again with `expectUiShell=true`.
+8. Save the project if a mutation occurred and a final save is still needed.
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.
+- Otherwise `RESULT: FAIL` with the failing step and the most useful tool response snippets.
+- End with one short `MCP critique` item.

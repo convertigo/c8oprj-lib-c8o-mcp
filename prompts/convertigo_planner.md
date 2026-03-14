@@ -2,6 +2,7 @@
 
 ## When to use this prompt
 Use this prompt when the task spans multiple domains or when the agent must choose a known Convertigo pattern before backend, integration, or UI work begins. In interactive flows, this prompt runs after `bootstrap`.
+Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-fastpath` instead.
 
 ## Read these guides first
 - `convertigo://resources/convertigo-start`

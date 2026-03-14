@@ -24,6 +24,7 @@
   ↓mcp_resources_templates_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_templates_list.yaml
   ↓mcp_tools_list [sequences.GenericSequence]: 🗏 sequences/mcp_tools_list.yaml
   ↓tools_batch_call [sequences.GenericSequence]: 🗏 sequences/tools_batch_call.yaml
+  ↓tools_crud_proof [sequences.GenericSequence]: 🗏 sequences/tools_crud_proof.yaml
   ↓tools_crud_status [sequences.GenericSequence]: 🗏 sequences/tools_crud_status.yaml
   ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml
   ↓tools_databaseobject_move [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_move.yaml

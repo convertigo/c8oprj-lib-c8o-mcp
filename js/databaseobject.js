@@ -2264,6 +2264,171 @@ C8O.dbo._collectNgxComponentManagers = function (referenceDbo) {
   return managers;
 };
 
+C8O.dbo._ngxCreateCandidateCache = C8O.dbo._ngxCreateCandidateCache || {};
+
+C8O.dbo.clearNgxCreateCandidateCache = function () {
+  C8O.dbo._ngxCreateCandidateCache = {};
+};
+
+C8O.dbo._getNgxCreateContextKey = function (referenceDbo) {
+  var projectName = "";
+  var parentClassName = "";
+  try {
+    var project = referenceDbo && referenceDbo.getProject ? referenceDbo.getProject() : null;
+    projectName = project && project.getName ? String(project.getName() || "") : "";
+  } catch (_ignoreNgxCreateProjectName) {
+    projectName = "";
+  }
+  try {
+    parentClassName = referenceDbo && referenceDbo.getClass ? String(referenceDbo.getClass().getName() || "") : "";
+  } catch (_ignoreNgxCreateParentClass) {
+    parentClassName = "";
+  }
+  return projectName + "|" + parentClassName;
+};
+
+C8O.dbo._instantiateNgxPaletteCandidate = function (candidate) {
+  if (!candidate || !candidate.manager || !candidate.component) {
+    return null;
+  }
+  try {
+    return candidate.manager.createBean(candidate.component);
+  } catch (_ignoreInstantiateNgxCandidate) {
+    return null;
+  }
+};
+
+C8O.dbo._listNgxCreateCandidatesByBaseClass = function (baseClassFqcn, referenceDbo, options) {
+  options = options || {};
+  var baseClass = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(baseClassFqcn || "") : String(baseClassFqcn || "").trim();
+  if (!baseClass.length || !C8O.dbo._isNgxClassFqcn(baseClass)) {
+    return [];
+  }
+
+  var cacheKey = "";
+  if (options.requireAllowedInParent === true && referenceDbo) {
+    cacheKey = C8O.dbo._getNgxCreateContextKey(referenceDbo) + "|" + baseClass;
+    if (C8O.dbo._ngxCreateCandidateCache[cacheKey]) {
+      return C8O.dbo._ngxCreateCandidateCache[cacheKey];
+    }
+  }
+
+  var managers = C8O.dbo._collectNgxComponentManagers(referenceDbo);
+  if (!managers || !managers.length) {
+    return [];
+  }
+
+  var matches = [];
+  var dedupe = {};
+  for (var m = 0; m < managers.length; m++) {
+    var manager = managers[m];
+    if (!manager) {
+      continue;
+    }
+    try {
+      if (typeof manager.reloadComponents === "function") {
+        manager.reloadComponents();
+      }
+    } catch (_ignoreReloadForCreate) {}
+
+    var components = null;
+    try {
+      components = manager.getComponentsByGroup();
+    } catch (_ignoreComponentsForCreate) {
+      components = null;
+    }
+    if (!components) {
+      continue;
+    }
+
+    for (var i = 0; i < components.size(); i++) {
+      var component = components.get(i);
+      if (!component) {
+        continue;
+      }
+
+      if (options.requireAllowedInParent === true && referenceDbo) {
+        var allowed = false;
+        try {
+          allowed = component.isAllowedIn(referenceDbo) === true;
+        } catch (_ignoreAllowedForCreate) {
+          allowed = false;
+        }
+        if (!allowed) {
+          continue;
+        }
+      }
+
+      var sampleDbo = C8O.dbo._instantiateNgxPaletteCandidate({
+        manager: manager,
+        component: component
+      });
+      if (!sampleDbo) {
+        continue;
+      }
+
+      var candidateClassName = "";
+      try {
+        candidateClassName = String(sampleDbo.getClass().getName() || "");
+      } catch (_ignoreCandidateClassNameForCreate) {
+        candidateClassName = "";
+      }
+      if (!candidateClassName.length || candidateClassName !== baseClass) {
+        continue;
+      }
+
+      var logicalId = C8O.dbo.getNgxComponentLogicalId(component, sampleDbo);
+      if (!logicalId.length) {
+        continue;
+      }
+      var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
+      if (!logicalKey.length) {
+        continue;
+      }
+      var dedupeKey = candidateClassName + "#" + logicalKey;
+      if (dedupe[dedupeKey]) {
+        continue;
+      }
+      dedupe[dedupeKey] = true;
+
+      matches.push({
+        manager: manager,
+        component: component,
+        baseClassFqcn: candidateClassName,
+        logicalId: logicalId,
+        logicalClassName: C8O.dbo.buildLogicalClassName(candidateClassName, logicalId)
+      });
+    }
+  }
+
+  if (cacheKey.length) {
+    C8O.dbo._ngxCreateCandidateCache[cacheKey] = matches;
+  }
+  return matches;
+};
+
+C8O.dbo._findNgxCreateCandidateByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
+  options = options || {};
+  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
+  if (!parsed.baseClassFqcn.length || !parsed.hasLogicalId || !C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+    return null;
+  }
+
+  var candidates = C8O.dbo._listNgxCreateCandidatesByBaseClass(parsed.baseClassFqcn, referenceDbo, options);
+  if (!candidates.length) {
+    return null;
+  }
+
+  var targetLogicalKey = C8O.dbo._normalizePropertyLookupKey(parsed.logicalId);
+  for (var i = 0; i < candidates.length; i++) {
+    var logicalKey = C8O.dbo._normalizePropertyLookupKey(candidates[i].logicalId);
+    if (logicalKey === targetLogicalKey) {
+      return candidates[i];
+    }
+  }
+  return null;
+};
+
 C8O.dbo._listNgxComponentsByBaseClass = function (baseClassFqcn, referenceDbo, options) {
   options = options || {};
   var baseClass = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(baseClassFqcn || "") : String(baseClassFqcn || "").trim();
@@ -2411,18 +2576,25 @@ C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
   var baseClassFqcn = parsed.baseClassFqcn;
 
   if (C8O.dbo._isNgxParent(parentDbo) && C8O.dbo._isNgxClassFqcn(baseClassFqcn)) {
-    var candidates = C8O.dbo._listNgxComponentsByBaseClass(baseClassFqcn, parentDbo, { requireAllowedInParent: true });
+    var candidates = C8O.dbo._listNgxCreateCandidatesByBaseClass(baseClassFqcn, parentDbo, { requireAllowedInParent: true });
 
     if (parsed.hasLogicalId) {
-      var resolved = C8O.dbo.findNgxComponentByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
-      if (!resolved || !resolved.sampleDbo) {
+      var resolved = C8O.dbo._findNgxCreateCandidateByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
+      var resolvedDbo = C8O.dbo._instantiateNgxPaletteCandidate(resolved);
+      if (!resolved || !resolvedDbo) {
+        C8O.dbo.clearNgxCreateCandidateCache();
+        candidates = C8O.dbo._listNgxCreateCandidatesByBaseClass(baseClassFqcn, parentDbo, { requireAllowedInParent: true });
+        resolved = C8O.dbo._findNgxCreateCandidateByLogicalClass(className, parentDbo, { requireAllowedInParent: true });
+        resolvedDbo = C8O.dbo._instantiateNgxPaletteCandidate(resolved);
+      }
+      if (!resolved || !resolvedDbo) {
         var hints = C8O.dbo._formatNgxCandidates(candidates, 8);
         if (hints.length) {
           throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent. Candidates: " + hints);
         }
         throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
       }
-      return resolved.sampleDbo;
+      return resolvedDbo;
     }
 
     if (!candidates.length) {
@@ -2434,7 +2606,19 @@ C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
         "Use className with '#<logicalId>'. Candidates: " + C8O.dbo._formatNgxCandidates(candidates, 8)
       );
     }
-    return candidates[0].sampleDbo;
+    var singleDbo = C8O.dbo._instantiateNgxPaletteCandidate(candidates[0]);
+    if (!singleDbo) {
+      C8O.dbo.clearNgxCreateCandidateCache();
+      candidates = C8O.dbo._listNgxCreateCandidatesByBaseClass(baseClassFqcn, parentDbo, { requireAllowedInParent: true });
+      if (!candidates.length) {
+        throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
+      }
+      singleDbo = C8O.dbo._instantiateNgxPaletteCandidate(candidates[0]);
+    }
+    if (!singleDbo) {
+      throw new Error("Unable to instantiate NGX palette entry '" + className + "' for the current parent");
+    }
+    return singleDbo;
   }
 
   return C8O.dbo.instantiateClass(baseClassFqcn || className);

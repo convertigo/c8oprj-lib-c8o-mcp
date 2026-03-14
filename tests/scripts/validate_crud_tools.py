@@ -37,12 +37,12 @@ def wait_for_mcp_ready(url, timeout=60):
                 {
                     "jsonrpc": "2.0",
                     "id": 1,
-                    "method": "tools/list",
-                    "params": {},
+                    "method": "initialize",
+                    "params": {"protocolVersion": PROTOCOL_VERSION},
                 },
                 timeout=10,
             )
-            if "result" in response:
+            if response.get("result", {}).get("serverInfo"):
                 return
         except Exception as error:
             last_error = error
@@ -94,10 +94,6 @@ def assert_true(condition, message):
         raise RuntimeError(message)
 
 
-def requestable_name(project, connector, tx):
-    return f"{project}.{connector}.{tx}"
-
-
 def unique_project(base):
     return f"{base}_{int(time.time())}"
 
@@ -124,6 +120,17 @@ def flatten_tree_names(node, names=None):
     return names
 
 
+def flatten_tree_classnames(node, classnames=None):
+    classnames = classnames or []
+    if isinstance(node, dict):
+        class_name = node.get("className")
+        if class_name:
+            classnames.append(str(class_name))
+        for child in node.get("children") or []:
+            flatten_tree_classnames(child, classnames)
+    return classnames
+
+
 def serialize_tree(node):
     return json.dumps(node or {}, ensure_ascii=True, sort_keys=True)
 
@@ -132,6 +139,8 @@ def validate_runtime(url, spec, artifact_dir):
     project = spec["project"]
     connector = spec["database"]["connector"]
     facade_prefix = spec["facade"]["prefix"]
+    entry_page = spec["ui"].get("entryPage", "Page")
+    requestables = ["init_schema", "list_contacts", "count_contacts", "list_companies", "count_companies"]
     artifact = {"project": project, "steps": []}
 
     print(f"[crud-validate] start project={project} driver={spec['database']['mode']}", flush=True)
@@ -144,17 +153,35 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(upsert.get("status") == "success", f"upsert-crud did not succeed for {project}")
     print(f"[crud-validate] upsert-crud ok project={project}", flush=True)
 
-    status1 = call_tool(url, "crud-status", {"project": project, "connector": connector, "facadePrefix": facade_prefix}, timeout=120)
-    artifact["steps"].append({"tool": "crud-status-after-upsert", "result": status1})
-    assert_true(status1.get("status") == "ok", f"crud-status not ok after upsert for {project}")
-    assert_true(not status1.get("transactions", {}).get("missing"), f"Missing transactions after upsert for {project}")
-    print(f"[crud-validate] crud-status after upsert ok project={project}", flush=True)
+    backend_proof = call_tool(
+        url,
+        "crud-proof",
+        {
+            "project": project,
+            "connector": connector,
+            "facadePrefix": facade_prefix,
+            "proofRequestables": requestables,
+        },
+        timeout=180,
+    )
+    artifact["steps"].append({"tool": "crud-proof-backend", "result": backend_proof})
+    assert_true(backend_proof.get("status") == "success", f"crud-proof backend did not succeed for {project}")
+    assert_true(not backend_proof.get("missing"), f"crud-proof backend missing targets for {project}")
+    assert_true(not backend_proof.get("transactions", {}).get("missing"), f"Missing transactions after upsert for {project}")
+    assert_true(not backend_proof.get("sequences", {}).get("missing"), f"Missing sequences after upsert for {project}")
+    print(f"[crud-validate] backend crud-proof ok project={project}", flush=True)
 
-    requestables = ["init_schema", "list_contacts", "count_contacts", "list_companies", "count_companies"]
-    for tx in requestables:
-        exec_result = call_tool(url, "requestable-execute", {"requestable": requestable_name(project, connector, tx), "variables": "{}"}, timeout=120)
-        artifact["steps"].append({"tool": "requestable-execute", "requestable": tx, "result": exec_result})
-        print(f"[crud-validate] proof ok project={project} requestable={tx}", flush=True)
+    public_requestables = [
+        f"{project}.{facade_prefix}_list_contacts",
+        f"{project}.{facade_prefix}_count_contacts",
+        f"{project}.{facade_prefix}_list_companies",
+        f"{project}.{facade_prefix}_count_companies",
+    ]
+    for requestable in public_requestables:
+        public_result = call_tool(url, "requestable-execute", {"requestable": requestable, "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": requestable, "result": public_result})
+        assert_true("error" not in public_result, f"Public facade requestable failed for {project}: {requestable}")
+    print(f"[crud-validate] public facade requestables ok project={project}", flush=True)
 
     ui_result = call_tool(
         url,
@@ -164,7 +191,7 @@ def validate_runtime(url, spec, artifact_dir):
             "entities": spec["entities"],
             "variant": spec["ui"].get("variant", "dashboard"),
             "facadePrefix": facade_prefix,
-            "entryPage": spec["ui"].get("entryPage", "Page"),
+            "entryPage": entry_page,
         },
         timeout=180,
     )
@@ -172,12 +199,27 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(ui_result.get("status") == "success", f"upsert-ngx-crud-kit did not succeed for {project}")
     print(f"[crud-validate] upsert-ngx-crud-kit ok project={project}", flush=True)
 
-    status2 = call_tool(url, "crud-status", {"project": project, "connector": connector, "facadePrefix": facade_prefix}, timeout=120)
-    artifact["steps"].append({"tool": "crud-status-final", "result": status2})
-    ui = status2.get("ui", {})
+    final_proof = call_tool(
+        url,
+        "crud-proof",
+        {
+            "project": project,
+            "connector": connector,
+            "facadePrefix": facade_prefix,
+            "entryPage": entry_page,
+            "expectUiShell": True,
+            "proofRequestables": requestables,
+        },
+        timeout=180,
+    )
+    artifact["steps"].append({"tool": "crud-proof-final", "result": final_proof})
+    assert_true(final_proof.get("status") == "success", f"crud-proof final did not succeed for {project}")
+    assert_true(not final_proof.get("missing"), f"crud-proof final missing targets for {project}")
+    ui = final_proof.get("ui", {})
     assert_true(ui.get("starterDominant") is False, f"Starter still dominant for {project}")
     assert_true(ui.get("visibleShellPresent") is True, f"Visible shell missing for {project}")
-    print(f"[crud-validate] final crud-status ui ok project={project}", flush=True)
+    assert_true(ui.get("liveBindingPresent") is True, f"Live UI bindings missing for {project}")
+    print(f"[crud-validate] final crud-proof ui ok project={project}", flush=True)
 
     ngx_tree = call_tool(
         url,
@@ -193,6 +235,7 @@ def validate_runtime(url, spec, artifact_dir):
     artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp", "result": ngx_tree})
     app_names = set(flatten_tree_names(ngx_tree.get("tree")))
     expected_components = {
+        "CrudPageHeader",
         "DashboardStatCard",
         "CrudLoadingState",
         "CrudEmptyState",
@@ -210,6 +253,10 @@ def validate_runtime(url, spec, artifact_dir):
 
     page_shared_refs = set((ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
     assert_true(
+        f"{project}.Application.NgxApp.CrudPageHeader" in page_shared_refs,
+        f"Entry page does not use CrudPageHeader in {project}",
+    )
+    assert_true(
         f"{project}.Application.NgxApp.DashboardStatCard" in page_shared_refs,
         f"Entry page does not use DashboardStatCard in {project}",
     )
@@ -218,7 +265,38 @@ def validate_runtime(url, spec, artifact_dir):
         f"{project}.Application.NgxApp.CompanyTable" in page_shared_refs,
         f"Entry page does not use entity shared tables in {project}",
     )
+    assert_true(
+        f"{project}.Application.NgxApp.ContactCard" in page_shared_refs and
+        f"{project}.Application.NgxApp.CompanyCard" in page_shared_refs,
+        f"Entry page does not use entity shared cards in {project}",
+    )
+    assert_true(
+        f"{project}.Application.NgxApp.ContactForm" in page_shared_refs and
+        f"{project}.Application.NgxApp.CompanyForm" in page_shared_refs,
+        f"Entry page does not use entity shared forms in {project}",
+    )
     print(f"[crud-validate] entry page uses shared components project={project}", flush=True)
+
+    page_tree = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": f"{project}.Application.NgxApp.Page",
+            "childrenDepth": 1,
+            "properties": "changed",
+            "limit": 120,
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.Page", "result": page_tree})
+    page_properties = (page_tree.get("tree") or {}).get("properties") or {}
+    script_content = str(page_properties.get("scriptContent") or "")
+    assert_true("loadCrudFacade" in script_content, f"Entry page runtime bootstrap missing in {project}")
+    assert_true(f"{project}.crm_count_contacts" in script_content, f"Contact count bootstrap requestable missing in {project}")
+    assert_true(f"{project}.crm_list_contacts" in script_content, f"Contact list bootstrap requestable missing in {project}")
+    assert_true(f"{project}.crm_count_companies" in script_content, f"Company count bootstrap requestable missing in {project}")
+    assert_true(f"{project}.crm_list_companies" in script_content, f"Company list bootstrap requestable missing in {project}")
+    print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
 
     artifact_path = artifact_dir / f"{project}.json"
     artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
@@ -227,10 +305,10 @@ def validate_runtime(url, spec, artifact_dir):
         "project": project,
         "driverFamily": upsert.get("driverFamily"),
         "upsertCrudStatus": upsert.get("status"),
-        "crudStatusAfterUpsert": status1.get("status"),
+        "crudProofBackendStatus": backend_proof.get("status"),
         "upsertNgxCrudKitStatus": ui_result.get("status"),
-        "crudStatusFinal": status2.get("status"),
-        "ui": status2.get("ui", {}),
+        "crudProofFinalStatus": final_proof.get("status"),
+        "ui": final_proof.get("ui", {}),
     }
 
 

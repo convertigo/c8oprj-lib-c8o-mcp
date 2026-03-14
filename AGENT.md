@@ -14,11 +14,21 @@ the tools.
 - Current protocol: `2025-06-18`
 - Current server name: `convertigo-mcp`
 - Current live version at last review: `0.0.15`
-- Current public catalog:
-  - `24` tools by default
-  - `25` tools when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`
-  - `18` resources
-  - `8` prompts
+- Current public catalog at last live verification on `2026-03-13`:
+  - `30` tools
+  - `25` resources
+  - `9` prompts
+
+## Product Posture
+
+- The recommended public path is now mono-agent MCP for standard SQL CRUD +
+  starter NGX UI work.
+- The current recommended prompt/resource pair is:
+  - `convertigo-crud-fastpath`
+  - `convertigo://resources/convertigo-crud-fastpath`
+- Planner, critic, maintainer, benchmark, and feedback-triage flows remain
+  available, but they are internal lab surfaces during the mono-agent recovery
+  cycle.
 
 Do not trust this file over the live server. Verify with:
 
@@ -40,7 +50,9 @@ The review artifacts under `review/` follow this rule.
 
 ## Canonical MCP Model
 
-Convertigo MCP is now tree-first.
+Convertigo MCP remains tree-first at the primitive level, with one supported
+deterministic fast path layered on top for standard SQL CRUD + starter NGX UI
+delivery.
 
 - Inspect with `databaseobject-tree-get`
 - Mutate with `databaseobject-tree-apply`
@@ -48,7 +60,15 @@ Convertigo MCP is now tree-first.
 - Validate behavior with `requestable-execute`
 - Persist with `project-save`
 
-Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
+For standard SQL CRUD + starter NGX UI work, the recommended public rail is:
+
+- `upsert-crud`
+- `crud-proof`
+- `upsert-ngx-crud-kit`
+- `project-save`
+
+Do not present planner/specialist routing, benchmark flows, or manual YAML
+editing as the default path for that scope.
 
 ## Maintainer Rules
 
@@ -112,6 +132,8 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
 - English only.
 - The live MCP catalog is the primary contract surface.
 - `TOOLS.md` is a short human companion, not the source of truth.
+- Public onboarding should bias toward the mono-agent CRUD fast path when it
+  matches the task.
 - `project.md` is generated output and may lag or include internal details; do
   not use it as the authoritative contract for prompts or guides.
 - Runtime field feedback files are build artifacts under `feedback/inbox/` and
@@ -122,6 +144,8 @@ Do not reintroduce the older CRUD-style authoring flow in guides or prompts.
 - Knowledge ingestion now has a tracked editor-first workflow under `knowledge/`.
   - `knowledge/templates/` contains the proposal template set.
   - `knowledge/inbox/` is runtime-only and must stay untracked.
+  - `knowledge/monoagent_crud_calibration.md` captures the current example-first
+    calibration baseline for the mono-agent rail.
 
 ## Validation Checklist
 

@@ -581,7 +581,7 @@ include("js/databaseobject_ops.js");
     return result;
   }
 
-  function getChildMapByName(parentDbo, warnings, parentQName) {
+  function getChildMapByName(parentDbo, warnings, parentQName, ctx) {
     var map = {};
     var duplicates = {};
     var children = getDirectChildren(parentDbo);
@@ -821,7 +821,7 @@ include("js/databaseobject_ops.js");
       return;
     }
 
-    var runtimeChildMap = getChildMapByName(parentDbo, report.warnings, parentQName);
+    var runtimeChildMap = getChildMapByName(parentDbo, report.warnings, parentQName, ctx);
     var desiredNames = [];
     var desiredNameSet = {};
 

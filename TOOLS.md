@@ -29,6 +29,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
 | `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory; use it as rollback, not as a freshness step. Reloading the active MCP server project is forbidden because it would unload the running endpoint. |
 | `crud-status`                 | `tools_crud_status.yaml`                    | Inspect the current deterministic CRUD state for a project, connector, facade prefix, and visible UI target. |
+| `crud-proof`                  | `tools_crud_proof.yaml`                     | Prove the deterministic CRUD rail by combining status checks, requestable execution summaries, and optional UI shell evidence. |
 | `upsert-crud`                 | `tools_upsert_crud.yaml`                    | Create or update an idempotent SQL CRUD scaffold from a structured spec, optionally exposing public sequences and a visible NGX shell. |
 | `upsert-ngx-crud-kit`         | `tools_upsert_ngx_crud_kit.yaml`            | Create deterministic CRUD shared components under `Application.NgxApp`, then replace the visible starter body with a page assembled through `UIUseShared` + `UIUseVariable`. |
 | `report-create`              | `tools_report_create.yaml`                  | Write one structured field-feedback report under `feedback/inbox/YYYY/MM/`. Exposed only when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`. |
@@ -57,9 +58,9 @@ such as the SQL and NGX fast paths. Read the content itself through
 `resources/read`.
 
 For deterministic CRUD validation, also read
-`convertigo://resources/convertigo-crud-practical-cases`. It gives the direct
-tool-first order to prove HSQL, PostgreSQL, and MariaDB on fresh starter NGX
-projects before asking agents to improvise.
+`convertigo://resources/convertigo-crud-fastpath` first, then
+`convertigo://resources/convertigo-crud-practical-cases` when driver-specific
+detail is still needed.
 
 ### Practical defaults
 
@@ -77,6 +78,7 @@ Use these short forms first; keep advanced parameters for diagnostics only.
 | `requestable-stub-get` | `requestable-stub-get {"targetRequestable":"<project>[.<connector>].<requestable>"}` | `targetRequestable`, `stubFilename` | none |
 | `requestable-stub-set` | `requestable-stub-set {"targetRequestable":"<project>[.<connector>].<requestable>","content":"<document>...</document>"}` | `targetRequestable`, `content`, `stubFilename` | none |
 | `crud-status` | `crud-status {"project":"MiniCRM"}` | `project`, `connector`, `facadePrefix` | `mode`, `variant` |
+| `crud-proof` | `crud-proof {"project":"MiniCRM","proofRequestables":["MiniCRM.appdb.init_schema"]}` | `project`, `proofRequestables` | `connector`, `facadePrefix`, `mode`, `variant`, `entryPage`, `expectUiShell` |
 | `upsert-crud` | `upsert-crud {"spec":{...}}` | `spec`, `sequence`, `ui` | none |
 | `upsert-ngx-crud-kit` | `upsert-ngx-crud-kit {"project":"MiniCRM"}` | `project`, `entities`, `entryPage` | `variant`, `facadePrefix`, `runtimeEvidence` |
 
@@ -99,26 +101,20 @@ Notes:
 
 ### Direct CRUD proof order
 
-For a standard starter NGX + SQL CRUD scenario, use this direct order before routing
-work through the multi-agent wrapper:
+For a standard starter NGX + SQL CRUD scenario, use this direct mono-agent order:
 
 1. `upsert-crud` with a fully explicit `spec`
-2. `crud-status`
-3. `requestable-execute` on:
-   - `init_schema`
-   - `list_contacts`
-   - `count_contacts`
-   - `list_companies`
-   - `count_companies`
+2. `crud-proof` for backend evidence
 4. `upsert-ngx-crud-kit`
-5. final `crud-status`
+5. final `crud-proof` with `expectUiShell=true`
 
 Proof is sufficient when:
 - `upsert-crud.status == "success"`
-- `crud-status.transactions.missing == []`
-- `crud-status.sequences.missing == []` when sequences are enabled
-- final `crud-status.ui.starterDominant == false`
-- final `crud-status.ui.visibleShellPresent == true`
+- `crud-proof.missing == []`
+- `crud-proof.transactions.missing == []`
+- `crud-proof.sequences.missing == []` when sequences are enabled
+- final `crud-proof.ui.starterDominant == false`
+- final `crud-proof.ui.visibleShellPresent == true`
 - the target application contains shared components such as `ContactTable`, `ContactCard`, `ContactForm`, `CompanyTable`, `CompanyCard`, `CompanyForm` under `<PROJECT>.Application.NgxApp`
 - the visible entry page composes those components through `UIUseShared` with `sharedcomponent` references pointing to the local shared component QNames
 
