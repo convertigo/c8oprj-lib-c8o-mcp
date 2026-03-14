@@ -13,7 +13,9 @@ comment: |
       connector: connector,
       facadePrefix: facadePrefix,
       mode: mode,
-      variant: variant
+      profile: profile,
+      variant: variant,
+      entryPage: entryPage
     });'
 ↓Result [steps.JsonObjectStep-1773318301003]: 
   key: 
@@ -154,3 +156,6 @@ comment: |
 ↓variant [variables.RequestableVariable-1773318301017]: 
   comment: Optional UI variant hint used when checking visible CRUD shell coverage.
   description: Optional UI variant hint used when checking visible CRUD shell coverage.
+↓profile [variables.RequestableVariable-1773470574447]: 
+  comment: Optional CRUD profile hint, for example crm.
+  description: Optional CRUD profile hint, for example crm.

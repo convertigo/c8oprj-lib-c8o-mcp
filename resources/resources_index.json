@@ -11,9 +11,9 @@
     "scopeTags": ["start", "onboarding", "tree-authoring"],
     "prerequisites": [],
     "recommendedTools": [
-      "project-list",
+      "resources/list",
+      "prompts/list",
       "databaseobject-tree-get",
-      "databaseobject-tree-apply",
       "requestable-execute",
       "project-save"
     ],
@@ -55,6 +55,7 @@
       "upsert-crud",
       "crud-proof",
       "upsert-ngx-crud-kit",
+      "mobile-builder-open",
       "project-save"
     ],
     "promptNames": [

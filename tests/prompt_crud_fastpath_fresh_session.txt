@@ -1,0 +1,22 @@
+This is a fresh-session mono-agent CRUD fast-path entry probe.
+
+- The runner already injected `convertigo-crud-fastpath`.
+- The workspace directory is intentionally empty.
+- Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Mutate only `__TARGET_PROJECT__`.
+
+Create or update a CRUD demo project named `__TARGET_PROJECT__` with this explicit spec:
+
+```json
+__CRUD_SPEC_JSON__
+```
+
+Expected outcome:
+- the project is created or updated through the deterministic CRUD fast path
+- the UI becomes visible early through the mobile viewer
+- the final proof covers backend requestables, visible shell replacement, and viewer proof
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly and the final backend + UI proof is green.
+- Otherwise `RESULT: FAIL` with the failing step and the most useful tool response snippets.
+- End with one short `MCP critique` item.

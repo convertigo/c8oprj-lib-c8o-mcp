@@ -13,9 +13,11 @@ comment: |
       connector: connector,
       facadePrefix: facadePrefix,
       mode: mode,
+      profile: profile,
       variant: variant,
       entryPage: entryPage,
       expectUiShell: C8O.util.toBoolean(expectUiShell, false),
+      viewerUrl: viewerUrl,
       proofRequestables: proofRequestables
     });'
 ↓Result [steps.JsonObjectStep-1773414214587]: 
@@ -195,6 +197,19 @@ comment: |
         - SmartType: 
           - ↑mode: PLAIN
           - →→: warnings
+  ↓crm [steps.JsonToXmlStep-1773470825155]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudProofResult && crudProofResult.crm ? crudProofResult.crm : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: crm
 ↓project [variables.RequestableVariable-1773414214624]: 
   comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
   description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
@@ -223,3 +238,9 @@ comment: |
   comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
   description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
   schemaType: xsd:boolean
+↓profile [variables.RequestableVariable-1773470568856]: 
+  comment: Optional CRUD profile hint, for example crm.
+  description: Optional CRUD profile hint, for example crm.
+↓viewerUrl [variables.RequestableVariable-1773471749929]: 
+  comment: Optional viewer URL returned by mobile-builder-open. When provided, crud-proof also probes the served mobile viewer bundle.
+  description: Optional viewer URL returned by mobile-builder-open. When provided, crud-proof also probes the served mobile viewer bundle.

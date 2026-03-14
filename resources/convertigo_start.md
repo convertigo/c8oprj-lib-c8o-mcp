@@ -36,25 +36,28 @@ Read this first for any MCP session that touches a Convertigo project.
 
 ### Minimal MCP session recipe
 1. Call `resources/list`.
-2. If the task matches a known fast path, call `resources/templates/list` and read only the matching template through `resources/read`.
-3. Read the built-in resources first:
+2. If live prompt discovery exists in the caller surface, call `prompts/list` before selecting a role prompt.
+3. If the task matches a known fast path, call `resources/templates/list` and read only the matching template through `resources/read`.
+4. Read the built-in resources first:
    - `convertigo://capabilities`
    - `convertigo://recipes/quickstart`
-4. Read `convertigo://resources/convertigo-platform-big-picture` before the first serious mutation when the session is new to Convertigo.
-5. Inspect the target workspace or subtree before any write call:
+5. Read `convertigo://resources/convertigo-platform-big-picture` before the first serious mutation when the session is new to Convertigo.
+6. Inspect the target workspace or subtree before any write call:
    - `project-list`
    - `databaseobject-tree-get`
    - `databaseobject-search` when discovery is uncertain
-6. If you need to create an object, confirm the allowed entry with:
+7. If you need to create an object, confirm the allowed entry with:
    - `palette-list`
    - `palette-describe`
-7. Pick one matching recipe before the first broad mutation.
-8. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
-9. Build the mutation plan before the first write call.
-10. Apply changes with `databaseobject-tree-apply` or `batch-call`.
-11. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
-12. Save with `project-save`.
-13. Read a specialized handbook only when the recipe leaves open questions.
+8. Pick one matching recipe before the first broad mutation.
+9. Do not call `rag-query` before the start guide and the chosen recipe were read.
+10. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
+11. Build the mutation plan before the first write call.
+12. Apply changes with `databaseobject-tree-apply` or `batch-call`.
+13. For a new CRUD UI project, make the app visible early: `upsert-crud` -> backend proof -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final proof with `viewerUrl`.
+14. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
+15. Save with `project-save`.
+16. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 

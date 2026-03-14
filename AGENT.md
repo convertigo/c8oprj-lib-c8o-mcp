@@ -63,8 +63,11 @@ delivery.
 For standard SQL CRUD + starter NGX UI work, the recommended public rail is:
 
 - `upsert-crud`
-- `crud-proof`
-- `upsert-ngx-crud-kit`
+- backend `crud-proof`
+- `upsert-ngx-crud-kit stage=bootstrap`
+- `mobile-builder-open`
+- `upsert-ngx-crud-kit stage=final`
+- final `crud-proof(viewerUrl)`
 - `project-save`
 
 Do not present planner/specialist routing, benchmark flows, or manual YAML

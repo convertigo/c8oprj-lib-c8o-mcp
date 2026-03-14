@@ -72,11 +72,12 @@
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
-      "project-list",
-      "project-list-symbols",
+      "resources/list",
+      "prompts/list",
       "upsert-crud",
       "crud-proof",
       "upsert-ngx-crud-kit",
+      "mobile-builder-open",
       "project-save"
     ],
     "handoffTo": [

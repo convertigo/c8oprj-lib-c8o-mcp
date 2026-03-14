@@ -15,8 +15,11 @@ C8O.project.resolveProjectDirectory = function (options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
   var projectInstance = null;
+  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "ConvertigoMCP";
   if (opts.project) {
     projectInstance = opts.project;
+  } else if (opts.projectName) {
+    projectInstance = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName));
   } else if (context && context.requestedObject && context.requestedObject.getProject) {
     try {
       projectInstance = context.requestedObject.getProject();
@@ -24,7 +27,6 @@ C8O.project.resolveProjectDirectory = function (options) {
       projectInstance = null;
     }
   }
-  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "ConvertigoMCP";
   if (!projectInstance) {
     projectInstance = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName));
   }

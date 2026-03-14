@@ -12,6 +12,7 @@ For technical details, see [documentation](./project.md).
 1. Start from the CRUD fast path prompt and guide:
    - `convertigo-crud-fastpath`
    - `convertigo://resources/convertigo-crud-fastpath`
+   - on a fresh session, call `resources/list` first and `prompts/list` when the caller surface exposes it
 2. Provide one explicit CRUD spec:
    - project
    - SQL driver family
@@ -21,9 +22,11 @@ For technical details, see [documentation](./project.md).
    - visible entry page
 3. Execute the deterministic rail:
    - `upsert-crud`
-   - `crud-proof`
-   - `upsert-ngx-crud-kit`
-   - `crud-proof`
+   - backend `crud-proof`
+   - `upsert-ngx-crud-kit stage=bootstrap`
+   - `mobile-builder-open`
+   - `upsert-ngx-crud-kit stage=final`
+   - final `crud-proof` with the returned `viewerUrl`
    - `project-save`
 
 ## Internal Lab Surfaces

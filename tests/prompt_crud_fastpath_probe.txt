@@ -32,7 +32,8 @@ Create or update a standard SQL CRUD + starter NGX project for `__TARGET_PROJECT
         { "name": "Id", "type": "INT", "primary": true },
         { "name": "FirstName", "type": "VARCHAR(128)" },
         { "name": "LastName", "type": "VARCHAR(128)" },
-        { "name": "Email", "type": "VARCHAR(255)", "unique": true }
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "CompanyId", "column": "company_id", "type": "INT", "required": true, "references": { "entity": "companies", "field": "id" } }
       ]
     },
     {
@@ -48,11 +49,12 @@ Create or update a standard SQL CRUD + starter NGX project for `__TARGET_PROJECT
   ],
   "seed": {
     "enabled": true,
-    "rowsPerEntity": 2
+    "profile": "crm",
+    "rowsPerEntity": 20
   },
   "ui": {
     "entryPage": "Page",
-    "variant": "dashboard"
+    "variant": "master-detail"
   }
 }
 ```
@@ -63,6 +65,7 @@ Required proof requestables:
 - `count_contacts`
 - `list_companies`
 - `count_companies`
+- `list_company_contacts`
 
 Required workflow:
 1. Stay on the standard CRUD fast path. Do not call planner, critic, maintainer, or specialist prompts.
@@ -70,9 +73,11 @@ Required workflow:
 3. Run `upsert-crud` first.
 4. Run `crud-proof` with the proof requestables above.
 5. If backend proof fails, stop with `RESULT: FAIL`.
-6. Run `upsert-ngx-crud-kit`.
-7. Run `crud-proof` again with `expectUiShell=true`.
-8. Save the project if a mutation occurred and a final save is still needed.
+6. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
+7. Run `mobile-builder-open` and keep the returned `viewerUrl`.
+8. Run `upsert-ngx-crud-kit` with `stage=final`.
+9. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
+10. Save the project if a mutation occurred and a final save is still needed.
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.

@@ -499,11 +499,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         spec: {
           type: "object",
-          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options.",
+          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
           additionalProperties: true
         },
         sequence: booleanFlagSchema(true, "Set true to create or update public CRUD sequences in addition to SQL transactions."),
-        ui: booleanFlagSchema(false, "Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.")
+        ui: booleanFlagSchema(false, "Set true to also assemble the deterministic NGX CRUD kit on the visible entry page. For CRM fast-path UI, run upsert-ngx-crud-kit explicitly with stage=bootstrap then stage=final.")
       },
       required: ["spec"],
       additionalProperties: false
@@ -523,7 +523,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
           description: "Optional driver family hint used when no connector is provided yet."
         },
-        variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." }
+        variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." },
+        profile: { type: "string", description: "Optional CRUD profile hint, for example crm." }
       },
       required: ["project"],
       additionalProperties: false
@@ -544,7 +545,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Optional driver family hint used when no connector is provided yet."
         },
         variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." },
+        profile: { type: "string", description: "Optional CRUD profile hint, for example crm." },
         expectUiShell: booleanFlagSchema(false, "Set true to require visible shell evidence and starter replacement on the entry page."),
+        viewerUrl: { type: "string", description: "Optional viewer URL returned by mobile-builder-open. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle." },
         proofRequestables: {
           description: "Requestables to execute as proof. Accepts a JSON array string, an array of strings, or a comma-separated string.",
           oneOf: [
@@ -572,7 +575,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
             { type: "object", additionalProperties: true }
           ]
         },
-        variant: { type: "string", description: "UI variant, for example dashboard, list-form, or master-detail." },
+        variant: { type: "string", description: "UI variant, for example dashboard, list-form, or master-detail. The CRM rail uses master-detail." },
+        stage: {
+          type: "string",
+          enum: ["bootstrap", "final"],
+          description: "UI assembly stage. bootstrap shows a visible work-in-progress shell early; final removes the bootstrap marker after proof."
+        },
         facadePrefix: { type: "string", description: "Public CRUD facade prefix used for shell labels and future wiring." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
         runtimeEvidence: {
@@ -1065,7 +1073,20 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 	        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
 	        visibleShellPresent: { type: "boolean" },
 	        liveBindingPresent: { type: "boolean" },
-	        targetQName: { type: "string" }
+	        targetQName: { type: "string" },
+          viewerProbe: openObjectSchema({
+            attempted: { type: "boolean" },
+            ok: { type: "boolean" },
+            url: { type: "string" },
+            finalUrl: { type: "string" },
+            statusCode: { type: "number" },
+            htmlOk: { type: "boolean" },
+            bundleCount: { type: "number" },
+            scriptUrls: stringArraySchema(),
+            markersFound: stringArraySchema(),
+            missingMarkers: stringArraySchema(),
+            message: { type: "string" }
+          })
 	      }),
 	      missing: stringArraySchema(),
 	      warnings: stringArraySchema()

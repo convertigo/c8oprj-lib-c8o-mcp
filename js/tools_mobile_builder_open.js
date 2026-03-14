@@ -107,6 +107,41 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return text;
   }
 
+  function urlReachable(url, timeoutMs) {
+    var text = trim(url);
+    if (!text.length) {
+      return false;
+    }
+    var URL = Packages.java.net.URL;
+    var connection = null;
+    var timeout = parseIntBounded(timeoutMs, 1500, 200, 10000);
+    try {
+      connection = new URL(text).openConnection();
+      if (connection.setConnectTimeout) {
+        connection.setConnectTimeout(timeout);
+      }
+      if (connection.setReadTimeout) {
+        connection.setReadTimeout(timeout);
+      }
+      if (connection.setRequestMethod) {
+        connection.setRequestMethod("GET");
+      }
+      if (connection.setRequestProperty) {
+        connection.setRequestProperty("Accept", "text/html,application/javascript,text/javascript,*/*");
+      }
+      var code = connection.getResponseCode ? Number(connection.getResponseCode() || 0) : 200;
+      return code >= 200 && code < 500;
+    } catch (_ignoreReachable) {
+      return false;
+    } finally {
+      if (connection && connection.disconnect) {
+        try {
+          connection.disconnect();
+        } catch (_ignoreDisconnect) {}
+      }
+    }
+  }
+
   function isStudioRuntime(Engine) {
     try {
       if (Engine && typeof Engine.isStudio === "function") {
@@ -407,7 +442,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 result.editorRef = editor;
                 result.editorState = readEditorState(editor);
                 var alreadyRunning = result.editorState.port > 0 || result.editorState.viewerUrl.length > 0;
-                var shouldLaunch = forceRestart === true || !alreadyRunning;
+                var editorReachable = urlReachable(result.editorState.viewerUrl || result.editorState.nodeUrl, 1500);
+                var shouldLaunch = forceRestart === true || !alreadyRunning || !editorReachable;
                 if (shouldLaunch) {
                   editor.launchBuilder(false, false);
                   result.builderLaunchRequested = true;
@@ -512,7 +548,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       hasReusableEditor = editorBootState.port > 0 || String(editorBootState.viewerUrl || "").length > 0;
     } catch (_ignoreBootState) {}
     var launchedFromEditor = editorResult && editorResult.builderLaunchRequested === true;
-    var reusedExistingBuilder = hasReusableEditor && !forceRestartValue && !launchedFromEditor;
+    var reusableEditorReachable = false;
+    try {
+      reusableEditorReachable = urlReachable((editorBootState && (editorBootState.viewerUrl || editorBootState.nodeUrl)) || "", 1500);
+    } catch (_ignoreReusableReachable) {}
+    var reusedExistingBuilder = hasReusableEditor && reusableEditorReachable && !forceRestartValue && !launchedFromEditor;
     if (!launchedFromEditor && !reusedExistingBuilder) {
       MobileBuilder.initBuilder(projectRef);
       startBuildWithWsBuilder(projectName, endpoint);
@@ -538,7 +578,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (!(snapshot.port > 0) && editorState.port > 0) {
         snapshot.port = editorState.port;
       }
-      if (snapshot.openUrl.length || (snapshot.port != null && snapshot.port > 0)) {
+      var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
+      if (candidateUrl.length && urlReachable(candidateUrl, 1500)) {
         ready = true;
         break;
       }
@@ -556,7 +597,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (!(snapshot.port > 0) && editorState.port > 0) {
         snapshot.port = editorState.port;
       }
-      if (snapshot.openUrl.length || (snapshot.port != null && snapshot.port > 0)) {
+      var finalCandidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
+      if (finalCandidateUrl.length && urlReachable(finalCandidateUrl, 1500)) {
         ready = true;
       }
     }

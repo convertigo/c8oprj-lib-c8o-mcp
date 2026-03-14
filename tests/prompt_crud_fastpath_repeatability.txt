@@ -17,16 +17,19 @@ Required proof requestables:
 - `count_contacts`
 - `list_companies`
 - `count_companies`
+- `list_company_contacts`
 
 Required workflow:
 1. Stay on the standard CRUD fast path. Do not call planner, critic, maintainer, or specialist prompts.
 2. Run `upsert-crud` first with the exact spec above.
 3. Run `crud-proof` with the proof requestables above.
 4. If backend proof fails, stop with `RESULT: FAIL`.
-5. Run `upsert-ngx-crud-kit`.
-6. Run `crud-proof` again with `expectUiShell=true`.
-7. If the final UI proof fails, stop with `RESULT: FAIL`.
-8. Save the project if a mutation occurred and a final save is still needed.
+5. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
+6. Run `mobile-builder-open` and keep the returned `viewerUrl`.
+7. Run `upsert-ngx-crud-kit` with `stage=final`.
+8. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
+9. If the final UI proof fails, stop with `RESULT: FAIL`.
+10. Save the project if a mutation occurred and a final save is still needed.
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.

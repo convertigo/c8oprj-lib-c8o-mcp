@@ -108,6 +108,382 @@ C8O.crud = C8O.crud || {};
     return String(value == null ? "" : value).replace(/'/g, "''");
   }
 
+  function toInt(value, defaultValue) {
+    if (value == null || value === "") {
+      return defaultValue;
+    }
+    try {
+      var parsed = parseInt(String(value), 10);
+      return isNaN(parsed) ? defaultValue : parsed;
+    } catch (_ignoreInt) {
+      return defaultValue;
+    }
+  }
+
+  function closeQuietly(closeable) {
+    if (!closeable || !closeable.close) {
+      return;
+    }
+    try {
+      closeable.close();
+    } catch (_ignoreClose) {}
+  }
+
+  function readJavaStream(stream) {
+    if (!stream) {
+      return "";
+    }
+    var Scanner = Packages.java.util.Scanner;
+    var scanner = null;
+    try {
+      scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
+      return scanner.hasNext() ? String(scanner.next()) : "";
+    } finally {
+      closeQuietly(scanner);
+    }
+  }
+
+  function httpFetchText(url, timeoutMs) {
+    var URL = Packages.java.net.URL;
+    var connection = null;
+    var responseCode = 0;
+    var responseText = "";
+    var errorText = "";
+    var finalUrl = trimmed(url);
+    var timeout = toInt(timeoutMs, 10000);
+    try {
+      connection = new URL(finalUrl).openConnection();
+      if (connection.setConnectTimeout) {
+        connection.setConnectTimeout(timeout);
+      }
+      if (connection.setReadTimeout) {
+        connection.setReadTimeout(timeout);
+      }
+      if (connection.setRequestMethod) {
+        connection.setRequestMethod("GET");
+      }
+      if (connection.setRequestProperty) {
+        connection.setRequestProperty("Accept", "text/html,application/javascript,text/javascript,*/*");
+        connection.setRequestProperty("Accept-Encoding", "identity");
+      }
+      responseCode = connection.getResponseCode ? Number(connection.getResponseCode() || 0) : 200;
+      try {
+        finalUrl = String(connection.getURL ? connection.getURL() : finalUrl);
+      } catch (_ignoreFinalUrl) {}
+      if (responseCode >= 400 && connection.getErrorStream) {
+        errorText = readJavaStream(connection.getErrorStream());
+      } else if (connection.getInputStream) {
+        responseText = readJavaStream(connection.getInputStream());
+      }
+    } finally {
+      if (connection && connection.disconnect) {
+        try {
+          connection.disconnect();
+        } catch (_ignoreDisconnect) {}
+      }
+    }
+    return {
+      url: trimmed(url),
+      finalUrl: finalUrl,
+      statusCode: responseCode,
+      body: responseText,
+      errorBody: errorText
+    };
+  }
+
+  function resolveUrl(baseUrl, relativeUrl) {
+    var URL = Packages.java.net.URL;
+    var base = trimmed(baseUrl);
+    var relative = trimmed(relativeUrl);
+    if (!relative.length) {
+      return base;
+    }
+    try {
+      return String(new URL(new URL(base), relative).toString());
+    } catch (_ignoreResolveUrl) {
+      return relative;
+    }
+  }
+
+  function parseScriptUrls(html, baseUrl) {
+    var sources = [];
+    var seen = {};
+    var text = String(html || "");
+    var htmlBase = trimmed(baseUrl);
+    var baseMatch = /<base[^>]+href=["']([^"']+)["']/i.exec(text);
+    if (baseMatch && baseMatch.length > 1) {
+      htmlBase = resolveUrl(baseUrl, baseMatch[1]);
+    }
+    var pattern = /<script[^>]+src=["']([^"']+\.js[^"']*)["']/ig;
+    var match = null;
+    while ((match = pattern.exec(text)) !== null) {
+      var resolved = resolveUrl(htmlBase || baseUrl, match[1]);
+      if (!resolved.length || seen[resolved]) {
+        continue;
+      }
+      seen[resolved] = true;
+      sources.push(resolved);
+    }
+    return sources;
+  }
+
+  function readTextFile(fileRef) {
+    var Files = Packages.java.nio.file.Files;
+    var StandardCharsets = Packages.java.nio.charset.StandardCharsets;
+    if (!fileRef || !fileRef.exists || !fileRef.exists()) {
+      return "";
+    }
+    return String(Files.readString(fileRef.toPath(), StandardCharsets.UTF_8));
+  }
+
+  function listViewerBundleFiles(projectName) {
+    var File = Packages.java.io.File;
+    var projectDir = C8O.project.resolveProjectDirectory({ projectName: projectName });
+    var displayDir = new File(projectDir, "DisplayObjects/mobile");
+    var result = {
+      displayDir: displayDir,
+      indexFile: new File(displayDir, "index.html"),
+      bundles: []
+    };
+    if (!displayDir.exists() || !displayDir.isDirectory()) {
+      return result;
+    }
+    var children = displayDir.listFiles() || [];
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      if (!child || !child.isFile || !child.isFile()) {
+        continue;
+      }
+      var childName = trimmed(child.getName());
+      if (/\.js$/i.test(childName)) {
+        result.bundles.push(child);
+      }
+    }
+    return result;
+  }
+
+  function viewerBundleMarkers(projectName, facadePrefix, hasCrmRelation, sequenceQNames) {
+    var prefix = trimmed(facadePrefix || "crud");
+    var markers = [];
+    var sequences = ensureArray(sequenceQNames);
+    for (var i = 0; i < sequences.length; i++) {
+      var qname = trimmed(sequences[i]);
+      if (!qname.length) {
+        continue;
+      }
+      var basename = qname.indexOf(".") === -1 ? qname : qname.split(".").pop();
+      if (basename.indexOf(":") !== -1) {
+        basename = basename.split(":").pop();
+      }
+      if (basename.indexOf(prefix + "_list_") === 0) {
+        markers.push(basename);
+      }
+    }
+    if (hasCrmRelation) {
+      markers.push(prefix + "_list_company_contacts");
+      markers.push(trimmed(projectName) + ".crm_list_company_contacts");
+    }
+    markers = dedupeList(markers);
+    if (!markers.length) {
+      markers = ["crudFacadeRequestables"];
+    }
+    return markers;
+  }
+
+  function parseImportedScriptUrls(bundleText, baseUrl) {
+    var urls = [];
+    var seen = {};
+    var text = String(bundleText || "");
+    var pattern = /["']((?:\.\/|\.\.\/|\/)[^"']+\.js(?:\?[^"']*)?)["']/g;
+    var match = null;
+    while ((match = pattern.exec(text)) !== null) {
+      var resolved = resolveUrl(baseUrl, match[1]);
+      if (!resolved.length || seen[resolved]) {
+        continue;
+      }
+      seen[resolved] = true;
+      urls.push(resolved);
+    }
+    return urls;
+  }
+
+  function dedupeList(values) {
+    var out = [];
+    var seen = {};
+    var list = ensureArray(values);
+    for (var i = 0; i < list.length; i++) {
+      var value = trimmed(list[i]);
+      if (!value.length || seen[value]) {
+        continue;
+      }
+      seen[value] = true;
+      out.push(value);
+    }
+    return out;
+  }
+
+  function probeViewer(viewerUrl, projectName, facadePrefix, hasCrmRelation, sequenceQNames, warnings) {
+    var probe = {
+      attempted: false,
+      ok: false,
+      url: trimmed(viewerUrl),
+      finalUrl: trimmed(viewerUrl),
+      statusCode: 0,
+      htmlOk: false,
+      bundleCount: 0,
+      displayPath: "",
+      indexPath: "",
+      scriptUrls: [],
+      fetchedBundles: [],
+      markersFound: [],
+      missingMarkers: [],
+      message: ""
+    };
+    probe.attempted = true;
+    try {
+      var rootFetch = null;
+      var appHtml = "";
+      var appUrl = trimmed(viewerUrl);
+      if (probe.url.length) {
+        try {
+          rootFetch = httpFetchText(probe.url, 10000);
+          probe.statusCode = Number(rootFetch.statusCode || 0);
+          probe.finalUrl = trimmed(rootFetch.finalUrl || probe.url);
+          var rootBody = String(rootFetch.body || "");
+          if (rootBody.indexOf("<app-root") !== -1 || rootBody.indexOf("<ion-app") !== -1) {
+            appHtml = rootBody;
+            appUrl = probe.finalUrl;
+          } else if (rootBody.indexOf("Convertigo FlashUpdate") !== -1 || rootBody.indexOf("flashupdate.js") !== -1) {
+            var candidateUrls = [
+              resolveUrl(probe.finalUrl || probe.url, "displayobjects/mobile/index.html"),
+              resolveUrl(probe.finalUrl || probe.url, "DisplayObjects/mobile/index.html")
+            ];
+            for (var candidateIndex = 0; candidateIndex < candidateUrls.length; candidateIndex++) {
+              var candidateFetch = httpFetchText(candidateUrls[candidateIndex], 10000);
+              var candidateBody = String(candidateFetch.body || "");
+              if (candidateFetch.statusCode >= 200 && candidateFetch.statusCode < 400 && (candidateBody.indexOf("<app-root") !== -1 || candidateBody.indexOf("<ion-app") !== -1)) {
+                appHtml = candidateBody;
+                appUrl = trimmed(candidateFetch.finalUrl || candidateUrls[candidateIndex]);
+                probe.statusCode = Number(candidateFetch.statusCode || probe.statusCode || 0);
+                probe.finalUrl = appUrl;
+                break;
+              }
+            }
+          }
+        } catch (remoteViewerError) {
+          if (warnings) {
+            warnings.push("Viewer remote probe fallback to local DisplayObjects: " + String(remoteViewerError));
+          }
+        }
+      }
+      var viewerFiles = listViewerBundleFiles(projectName);
+      probe.displayPath = viewerFiles.displayDir ? String(viewerFiles.displayDir.getAbsolutePath()) : "";
+      probe.indexPath = viewerFiles.indexFile ? String(viewerFiles.indexFile.getAbsolutePath()) : "";
+      var htmlBody = appHtml.length ? appHtml : readTextFile(viewerFiles.indexFile);
+      if (!probe.statusCode) {
+        probe.statusCode = htmlBody.length ? 200 : 0;
+      }
+      probe.htmlOk = htmlBody.length > 0 && (htmlBody.indexOf("<app-root") !== -1 || htmlBody.indexOf("<ion-app") !== -1 || htmlBody.indexOf("<title>") !== -1);
+      probe.scriptUrls = appUrl.length ? parseScriptUrls(htmlBody, appUrl) : [];
+      var bundleSources = [];
+      var maxBundles = Math.min(probe.scriptUrls.length, 24);
+      for (var i = 0; i < maxBundles; i++) {
+        var bundleUrl = probe.scriptUrls[i];
+        try {
+          var bundleFetch = httpFetchText(bundleUrl, 10000);
+          var bundleText = String(bundleFetch.body || "");
+          probe.fetchedBundles.push({
+            url: bundleUrl,
+            statusCode: Number(bundleFetch.statusCode || 0),
+            size: bundleText.length
+          });
+          if (bundleText.length) {
+            bundleSources.push(bundleText);
+          }
+        } catch (bundleFetchError) {
+          probe.fetchedBundles.push({
+            url: bundleUrl,
+            statusCode: 0,
+            size: 0
+          });
+          if (warnings) {
+            warnings.push("Viewer bundle fetch fallback to local file for " + bundleUrl + ": " + String(bundleFetchError));
+          }
+        }
+      }
+      var importedBundleUrls = [];
+      for (var sourceIndex = 0; sourceIndex < bundleSources.length; sourceIndex++) {
+        importedBundleUrls = importedBundleUrls.concat(parseImportedScriptUrls(bundleSources[sourceIndex], appUrl));
+      }
+      importedBundleUrls = dedupeList(importedBundleUrls);
+      var importedLimit = Math.min(importedBundleUrls.length, 12);
+      for (var importedIndex = 0; importedIndex < importedLimit; importedIndex++) {
+        var importedUrl = importedBundleUrls[importedIndex];
+        try {
+          var importedFetch = httpFetchText(importedUrl, 10000);
+          var importedText = String(importedFetch.body || "");
+          probe.fetchedBundles.push({
+            url: importedUrl,
+            statusCode: Number(importedFetch.statusCode || 0),
+            size: importedText.length
+          });
+          if (importedText.length) {
+            bundleSources.push(importedText);
+          }
+        } catch (importedFetchError) {
+          probe.fetchedBundles.push({
+            url: importedUrl,
+            statusCode: 0,
+            size: 0
+          });
+          if (warnings) {
+            warnings.push("Viewer imported bundle fallback to local file for " + importedUrl + ": " + String(importedFetchError));
+          }
+        }
+      }
+      if (!bundleSources.length && viewerFiles.bundles && viewerFiles.bundles.length) {
+        var fallbackBundleCount = Math.min(viewerFiles.bundles.length, 24);
+        for (var fallbackIndex = 0; fallbackIndex < fallbackBundleCount; fallbackIndex++) {
+          var fallbackBundleFile = viewerFiles.bundles[fallbackIndex];
+          var fallbackBundleUrl = String(fallbackBundleFile.getAbsolutePath());
+          var fallbackBundleText = readTextFile(fallbackBundleFile);
+          probe.fetchedBundles.push({
+            url: fallbackBundleUrl,
+            statusCode: fallbackBundleText.length ? 200 : 0,
+            size: fallbackBundleText.length
+          });
+          if (fallbackBundleText.length) {
+            bundleSources.push(fallbackBundleText);
+          }
+        }
+      }
+      probe.bundleCount = probe.fetchedBundles.length;
+      var bundleTextJoined = bundleSources.join("\n");
+      var markers = viewerBundleMarkers(projectName, facadePrefix, hasCrmRelation, sequenceQNames);
+      for (var markerIndex = 0; markerIndex < markers.length; markerIndex++) {
+        var marker = markers[markerIndex];
+        if (bundleTextJoined.indexOf(marker) !== -1) {
+          probe.markersFound.push(marker);
+        } else {
+          probe.missingMarkers.push(marker);
+        }
+      }
+      probe.markersFound = dedupeList(probe.markersFound);
+      probe.missingMarkers = dedupeList(probe.missingMarkers);
+      probe.ok = probe.htmlOk && probe.missingMarkers.length === 0;
+      probe.message = probe.ok
+        ? "Viewer build artifacts exist and include the expected CRM bundle markers."
+        : ("Viewer probe failed. statusCode=" + probe.statusCode + ", missingMarkers=" + probe.missingMarkers.join(", "));
+    } catch (viewerError) {
+      probe.ok = false;
+      probe.message = "Viewer probe failed: " + String(viewerError);
+      if (warnings) {
+        warnings.push(probe.message);
+      }
+    }
+    return probe;
+  }
+
   function normalizedIdentifier(name) {
     var text = trimmed(name).replace(/[^A-Za-z0-9_]/g, "_");
     if (!text.length) {
@@ -279,7 +655,7 @@ C8O.crud = C8O.crud || {};
     }
     return {
       name: rawName,
-      column: normalizedIdentifier(rawName),
+      column: normalizedIdentifier(rawField.column || rawName),
       type: trimmed(rawField.type || "VARCHAR(255)"),
       label: trimmed(rawField.label || rawName),
       primary: toBoolean(rawField.primary, false),
@@ -355,13 +731,113 @@ C8O.crud = C8O.crud || {};
     result.facade.prefix = trimmed(result.facade.prefix || "crud");
     result.facade.publicListSequence = trimmed(result.facade.publicListSequence || "");
     result.seed.enabled = result.seed.enabled == null ? true : toBoolean(result.seed.enabled, true);
+    result.seed.profile = trimmed(result.seed.profile || "");
     result.seed.rowsPerEntity = parseInt(result.seed.rowsPerEntity, 10);
-    if (isNaN(result.seed.rowsPerEntity) || result.seed.rowsPerEntity <= 0) {
-      result.seed.rowsPerEntity = 2;
-    }
     result.ui.entryPage = trimmed(result.ui.entryPage || "Page");
     result.ui.variant = trimmed(result.ui.variant || "dashboard");
+    applyCrmDefaults(result);
+    if (isNaN(result.seed.rowsPerEntity) || result.seed.rowsPerEntity <= 0) {
+      result.seed.rowsPerEntity = result.seed.profile === "crm" ? 20 : 2;
+    }
     return result;
+  }
+
+  function findEntityByName(entities, entityName) {
+    var expected = pluralize(normalizedIdentifier(entityName || ""));
+    var entries = ensureArray(entities);
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].name === expected) {
+        return entries[i];
+      }
+    }
+    return null;
+  }
+
+  function findField(entity, predicate) {
+    var fields = ensureArray(entity && entity.fields);
+    for (var i = 0; i < fields.length; i++) {
+      if (predicate(fields[i], i)) {
+        return fields[i];
+      }
+    }
+    return null;
+  }
+
+  function crmRelationContext(spec) {
+    var contacts = findEntityByName(spec && spec.entities, "contacts");
+    var companies = findEntityByName(spec && spec.entities, "companies");
+    if (!contacts || !companies) {
+      return null;
+    }
+    var relationField = findField(contacts, function (field) {
+      return field && field.references && pluralize(normalizedIdentifier(field.references.entity)) === companies.name;
+    });
+    if (!relationField) {
+      relationField = findField(contacts, function (field) {
+        var column = normalizedIdentifier(field && field.column);
+        return column === "company_id" || column === "companyid";
+      });
+      if (relationField && !relationField.references) {
+        relationField.references = {
+          entity: companies.name,
+          field: companies.primaryField ? companies.primaryField.column : "id"
+        };
+      }
+    }
+    if (!relationField) {
+      return null;
+    }
+    return {
+      contacts: contacts,
+      companies: companies,
+      relationField: relationField
+    };
+  }
+
+  function applyCrmDefaults(spec) {
+    var contacts = findEntityByName(spec.entities, "contacts");
+    var companies = findEntityByName(spec.entities, "companies");
+    var isCrm = !!(contacts && companies);
+    if (!spec.seed.profile.length) {
+      spec.seed.profile = isCrm ? "crm" : "basic";
+    }
+    if (!isCrm) {
+      return spec;
+    }
+
+    var companyRelationField = findField(contacts, function (field) {
+      var column = normalizedIdentifier(field && field.column);
+      return column === "company_id" || column === "companyid" || normalizedIdentifier(field && field.name) === "companyid";
+    });
+    if (!companyRelationField) {
+      companyRelationField = {
+        name: "CompanyId",
+        column: "company_id",
+        type: "INT",
+        label: "Company",
+        primary: false,
+        unique: false,
+        required: true,
+        references: {
+          entity: companies.name,
+          field: companies.primaryField ? companies.primaryField.column : "id"
+        }
+      };
+      contacts.fields.push(companyRelationField);
+    } else if (!companyRelationField.references) {
+      companyRelationField.references = {
+        entity: companies.name,
+        field: companies.primaryField ? companies.primaryField.column : "id"
+      };
+      if (companyRelationField.required == null) {
+        companyRelationField.required = true;
+      }
+    }
+
+    if (trimmed(spec.ui.variant).toLowerCase() === "dashboard" || !trimmed(spec.ui.variant).length) {
+      spec.ui.variant = "master-detail";
+    }
+    return spec;
   }
 
 	  function findProjectByName(projectName) {
@@ -552,6 +1028,21 @@ C8O.crud = C8O.crud || {};
     return total;
   }
 
+  function collectTreeNames(node, names) {
+    var out = names || [];
+    if (!node || typeof node !== "object") {
+      return out;
+    }
+    if (node.name != null && String(node.name).length) {
+      out.push(String(node.name));
+    }
+    var children = ensureArray(node.children);
+    for (var i = 0; i < children.length; i++) {
+      collectTreeNames(children[i], out);
+    }
+    return out;
+  }
+
 	  function connectorProperties(spec) {
 	    var db = spec.database;
 	    return {
@@ -660,7 +1151,86 @@ C8O.crud = C8O.crud || {};
     if (column.indexOf("industry") !== -1) {
       return rowIndex % 2 === 0 ? "Software" : "Services";
     }
+    if (column.indexOf("phone") !== -1) {
+      return "+33 1 40 " + String(10 + (base % 80)) + " " + String(10 + ((base + 7) % 80));
+    }
     return ucfirst(field.label || field.name) + " " + base;
+  }
+
+  function pickSeedLookupField(entity) {
+    var fields = ensureArray(entity && entity.fields);
+    var preferred = ["name", "email", "title", "firstname"];
+    for (var p = 0; p < preferred.length; p++) {
+      var preferredField = findField(entity, function (field) {
+        return !field.primary && normalizedIdentifier(field.column) === preferred[p];
+      });
+      if (preferredField) {
+        return preferredField;
+      }
+    }
+    var uniqueField = findField(entity, function (field) {
+      return !field.primary && field.unique === true;
+    });
+    if (uniqueField) {
+      return uniqueField;
+    }
+    var firstField = findField(entity, function (field) {
+      return !field.primary;
+    });
+    return firstField || (entity && entity.primaryField) || null;
+  }
+
+  function orderedEntities(spec) {
+    var entities = ensureArray(spec && spec.entities);
+    var map = {};
+    var ordered = [];
+    var visiting = {};
+    var visited = {};
+    for (var i = 0; i < entities.length; i++) {
+      map[entities[i].name] = entities[i];
+    }
+    function visit(entity) {
+      if (!entity || visited[entity.name]) {
+        return;
+      }
+      if (visiting[entity.name]) {
+        return;
+      }
+      visiting[entity.name] = true;
+      var fields = ensureArray(entity.fields);
+      for (var f = 0; f < fields.length; f++) {
+        if (!fields[f].references || !fields[f].references.entity) {
+          continue;
+        }
+        visit(map[pluralize(normalizedIdentifier(fields[f].references.entity))]);
+      }
+      visiting[entity.name] = false;
+      visited[entity.name] = true;
+      ordered.push(entity);
+    }
+    for (var j = 0; j < entities.length; j++) {
+      visit(entities[j]);
+    }
+    return ordered;
+  }
+
+  function renderSeedValue(spec, entity, field, rowIndex) {
+    if (field.primary) {
+      return "DEFAULT";
+    }
+    if (field.references && field.references.entity) {
+      var targetEntity = findEntityByName(spec.entities, field.references.entity);
+      var lookupField = pickSeedLookupField(targetEntity);
+      if (targetEntity && lookupField) {
+        var targetValue = sampleValueForField(targetEntity, lookupField, rowIndex % Math.max(1, spec.seed.rowsPerEntity));
+        return "(SELECT " + targetEntity.primaryField.column + " FROM " + targetEntity.name + " WHERE " + lookupField.column + " = '" + escapeSqlString(targetValue) + "')";
+      }
+    }
+    return "'" + escapeSqlString(sampleValueForField(entity, field, rowIndex)) + "'";
+  }
+
+  function buildDeleteSql(entity) {
+    return "DELETE FROM " + entity.name + ";";
   }
 
   function buildSeedSql(spec, entity) {
@@ -676,31 +1246,33 @@ C8O.crud = C8O.crud || {};
     if (!fields.length) {
       return "";
     }
-    var statements = ["DELETE FROM " + entity.name];
-    var rowCount = Math.max(1, Math.min(spec.seed.rowsPerEntity, 5));
+    var rowCount = Math.max(1, spec.seed.rowsPerEntity);
     var values = [];
     for (var row = 0; row < rowCount; row++) {
       var rowValues = [];
       for (var j = 0; j < fields.length; j++) {
-        rowValues.push("'" + escapeSqlString(sampleValueForField(entity, fields[j], row)) + "'");
+        rowValues.push(renderSeedValue(spec, entity, fields[j], row));
       }
       values.push("  (" + rowValues.join(", ") + ")");
     }
-    statements.push(
-      "INSERT INTO " + entity.name + " (" + fields.map(function (item) { return item.column; }).join(", ") + ") VALUES\n" + values.join(",\n")
-    );
-    return statements.join(";\n") + ";";
+    return "INSERT INTO " + entity.name + " (" + fields.map(function (item) { return item.column; }).join(", ") + ") VALUES\n" + values.join(",\n") + ";";
   }
 
   function buildInitSql(spec) {
+    var entityOrder = orderedEntities(spec);
     var chunks = [];
-    for (var i = 0; i < spec.entities.length; i++) {
-      chunks.push(buildCreateTableSql(spec, spec.entities[i]) + ";");
+    for (var i = 0; i < entityOrder.length; i++) {
+      chunks.push(buildCreateTableSql(spec, entityOrder[i]) + ";");
     }
-    for (var j = 0; j < spec.entities.length; j++) {
-      var seedSql = buildSeedSql(spec, spec.entities[j]);
-      if (seedSql.length) {
-        chunks.push(seedSql);
+    if (spec.seed.enabled === true) {
+      for (var j = entityOrder.length - 1; j >= 0; j--) {
+        chunks.push(buildDeleteSql(entityOrder[j]));
+      }
+      for (var k = 0; k < entityOrder.length; k++) {
+        var seedSql = buildSeedSql(spec, entityOrder[k]);
+        if (seedSql.length) {
+          chunks.push(seedSql);
+        }
       }
     }
     return chunks.join("\n\n");
@@ -739,11 +1311,29 @@ C8O.crud = C8O.crud || {};
     }
   }
 
-  function buildCrudSql(entity, verb) {
+  function buildCrudSql(spec, entity, verb) {
     var columns = listColumns(entity);
     var pk = entity.primaryField.column;
     var nonPkFields = entity.fields.filter(function (field) { return !field.primary; });
+    var crm = crmRelationContext(spec);
     if (verb === "list") {
+      if (crm && entity.name === crm.contacts.name) {
+        return [
+          "SELECT c." + columns.join(", c."),
+          ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
+          "FROM " + entity.name + " c",
+          "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
+          "ORDER BY c." + pk + " ASC"
+        ].join("\n");
+      }
+      if (crm && entity.name === crm.companies.name) {
+        return [
+          "SELECT co." + columns.join(", co."),
+          ", (SELECT COUNT(*) FROM " + crm.contacts.name + " ct WHERE ct." + crm.relationField.column + " = co." + crm.companies.primaryField.column + ") AS contact_count",
+          "FROM " + entity.name + " co",
+          "ORDER BY co." + pk + " ASC"
+        ].join("\n");
+      }
       return "SELECT " + columns.join(", ") + "\nFROM " + entity.name + "\nORDER BY " + pk + " ASC";
     }
     if (verb === "count") {
@@ -762,6 +1352,22 @@ C8O.crud = C8O.crud || {};
       return "DELETE FROM " + entity.name + "\nWHERE " + pk + " = {" + pk + "}";
     }
     return "";
+  }
+
+  function buildCrmCompanyContactsSql(spec) {
+    var crm = crmRelationContext(spec);
+    if (!crm) {
+      return "";
+    }
+    var contactColumns = listColumns(crm.contacts);
+    return [
+      "SELECT c." + contactColumns.join(", c."),
+      ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
+      "FROM " + crm.contacts.name + " c",
+      "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
+      "WHERE c." + crm.relationField.column + " = {company_id}",
+      "ORDER BY c." + crm.contacts.primaryField.column + " ASC"
+    ].join("\n");
   }
 
   function ensureConnector(project, spec, result) {
@@ -1044,22 +1650,62 @@ C8O.crud = C8O.crud || {};
     return summary;
   }
 
-  function proofRequestable(requestable, variables, result) {
+  function requestablePayload(requestable, variables, result) {
     try {
-      var payload = callInternalSequence("tools_requestable_execute", {
+      return callInternalSequence("tools_requestable_execute", {
         requestable: requestable,
         variables: variables || {}
       });
-      return summarizeRequestableProof(payload, requestable, result);
     } catch (proofError) {
       addWarning(result, "Unable to execute proof for " + requestable + ": " + String(proofError));
       return {
-        requestable: requestable,
         status: "error",
-        ok: false,
-        message: String(proofError)
+        error: String(proofError)
       };
     }
+  }
+
+  function proofRequestable(requestable, variables, result) {
+    var payload = requestablePayload(requestable, variables, result);
+    return summarizeRequestableProof(payload, requestable, result);
+  }
+
+  function firstSqlOutputRow(payload) {
+    var sqlOutput = collectNestedValue(payload, [
+      ["sql_output"],
+      ["result", "sql_output"],
+      ["response", "sql_output"],
+      ["document", "sql_output"]
+    ]);
+    if (Array.isArray(sqlOutput) && sqlOutput.length) {
+      return sqlOutput[0];
+    }
+    return null;
+  }
+
+  function collectSqlOutputRows(payload) {
+    var sqlOutput = collectNestedValue(payload, [
+      ["sql_output"],
+      ["result", "sql_output"],
+      ["response", "sql_output"],
+      ["document", "sql_output"],
+      ["transaction", "document", "sql_output"],
+      ["result", "transaction", "document", "sql_output"],
+      ["response", "transaction", "document", "sql_output"]
+    ]);
+    return Array.isArray(sqlOutput) ? sqlOutput : [];
+  }
+
+  function extractRowField(row, candidates) {
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      if (row[candidates[i]] !== undefined && row[candidates[i]] !== null && row[candidates[i]] !== "") {
+        return row[candidates[i]];
+      }
+    }
+    return null;
   }
 
   function dedupeStrings(values) {
@@ -1327,7 +1973,8 @@ C8O.crud = C8O.crud || {};
           type: trimmed(rawField.type || "VARCHAR(255)"),
           primary: toBoolean(rawField.primary, false),
           unique: toBoolean(rawField.unique, false),
-          required: rawField.required == null ? false : toBoolean(rawField.required, false)
+          required: rawField.required == null ? false : toBoolean(rawField.required, false),
+          references: rawField.references && typeof rawField.references === "object" ? clone(rawField.references) : null
         });
       }
       var primaryField = null;
@@ -1375,6 +2022,100 @@ C8O.crud = C8O.crud || {};
       });
     }
     return normalized;
+  }
+
+  function fieldLabelFromKey(rawKey) {
+    var text = trimmed(rawKey);
+    if (!text.length) {
+      return "Field";
+    }
+    return text
+      .replace(/_/g, " ")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/\s+/g, " ")
+      .replace(/^\w/, function (char) { return char.toUpperCase(); });
+  }
+
+  function needsUiFieldHydration(entity) {
+    var fields = ensureArray(entity && entity.fields);
+    if (!fields.length) {
+      return true;
+    }
+    for (var i = 0; i < fields.length; i++) {
+      if (!fields[i].primary) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function hydrateUiEntityFromFacade(projectName, facadePrefix, entity, result) {
+    if (!entity || !needsUiFieldHydration(entity)) {
+      return entity;
+    }
+    var requestable = facadeSequenceQName(projectName, facadePrefix, entity, "list");
+    var payload = requestablePayload(requestable, {}, result);
+    var rows = collectSqlOutputRows(payload);
+    var firstRow = rows.length && rows[0] && typeof rows[0] === "object" ? rows[0] : null;
+    if (!firstRow) {
+      return entity;
+    }
+    var existingByColumn = {};
+    var existingFields = ensureArray(entity.fields);
+    for (var index = 0; index < existingFields.length; index++) {
+      var existingField = existingFields[index];
+      existingByColumn[normalizedIdentifier(existingField && existingField.column)] = existingField;
+    }
+    var hydratedFields = [];
+    var rowKeys = Object.keys(firstRow);
+    for (var keyIndex = 0; keyIndex < rowKeys.length; keyIndex++) {
+      var rawKey = trimmed(rowKeys[keyIndex]);
+      if (!rawKey.length) {
+        continue;
+      }
+      var column = normalizedIdentifier(rawKey);
+      var current = existingByColumn[column] || null;
+      hydratedFields.push({
+        name: current && trimmed(current.name).length ? current.name : rawKey,
+        column: column,
+        label: current && trimmed(current.label).length ? current.label : fieldLabelFromKey(rawKey),
+        type: current && trimmed(current.type).length ? current.type : "VARCHAR(255)",
+        primary: current ? toBoolean(current.primary, false) : column === "id",
+        unique: current ? toBoolean(current.unique, false) : false,
+        required: current ? toBoolean(current.required, false) : false,
+        references: current && current.references ? clone(current.references) : null
+      });
+    }
+    if (!hydratedFields.length) {
+      return entity;
+    }
+    var primaryField = null;
+    for (var hydratedIndex = 0; hydratedIndex < hydratedFields.length; hydratedIndex++) {
+      if (hydratedFields[hydratedIndex].primary) {
+        primaryField = hydratedFields[hydratedIndex];
+        break;
+      }
+    }
+    if (!primaryField) {
+      primaryField = hydratedFields[0];
+      primaryField.primary = true;
+    }
+    return {
+      name: entity.name,
+      singular: entity.singular,
+      label: entity.label,
+      fields: hydratedFields,
+      primaryField: primaryField
+    };
+  }
+
+  function hydrateUiEntitiesFromFacade(projectName, facadePrefix, entities, result) {
+    var hydrated = [];
+    var list = ensureArray(entities);
+    for (var i = 0; i < list.length; i++) {
+      hydrated.push(hydrateUiEntityFromFacade(projectName, facadePrefix, list[i], result));
+    }
+    return hydrated;
   }
 
   function scriptLiteral(value) {
@@ -1505,6 +2246,15 @@ C8O.crud = C8O.crud || {};
     if (extra.threshold != null) {
       properties.threshold = String(extra.threshold);
     }
+    if (extra.noLoading != null) {
+      properties.noLoading = String(toBoolean(extra.noLoading, false));
+    }
+    if (extra.cacheTtl != null) {
+      properties.cacheTtl = String(extra.cacheTtl);
+    }
+    if (extra.timeout != null) {
+      properties.timeout = String(extra.timeout);
+    }
     return {
       className: "ngx.components.UIDynamicAction#CallSequenceAction",
       name: name,
@@ -1513,15 +2263,51 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function plainTextNode(name, value) {
+  function customAsyncActionNode(name, actionValue, comment) {
+    var properties = {
+      actionValue: actionValue || "return;"
+    };
+    if (trimmed(comment).length) {
+      properties.comment = String(comment);
+    }
+    return {
+      className: "ngx.components.UICustomAsyncAction#UICustomAsyncAction",
+      name: name,
+      properties: properties
+    };
+  }
+
+  function smartTextNode(name, smartValue) {
     return {
       className: "ngx.components.UIText#UIText",
       name: name,
       properties: {
-        textValue: {
-          mode: "PLAIN",
-          value: value == null ? "" : String(value)
-        }
+        textValue: smartValue
+      }
+    };
+  }
+
+  function plainTextNode(name, value) {
+    return smartTextNode(name, {
+      mode: "PLAIN",
+      value: value == null ? "" : String(value)
+    });
+  }
+
+  function scriptTextNode(name, valueExpression) {
+    return smartTextNode(name, {
+      mode: "SCRIPT",
+      value: valueExpression || "''"
+    });
+  }
+
+  function attributeNode(name, attrName, smartValue) {
+    return {
+      className: "ngx.components.UIAttribute#UIAttribute",
+      name: name,
+      properties: {
+        attrName: String(attrName),
+        attrValue: smartValue
       }
     };
   }
@@ -1536,14 +2322,72 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function textElementNode(className, name, textNode) {
+    return {
+      className: className,
+      name: name,
+      children: [textNode]
+    };
+  }
+
   function schemaPreviewFields(entity, limit, includePrimary) {
     var fields = ensureArray(entity && entity.fields);
-    var preview = [];
+    var ranked = [];
+    function fieldPriority(field) {
+      var column = normalizedIdentifier(field && (field.column || field.name));
+      if (!column.length) {
+        return 900;
+      }
+      if (field.primary) {
+        return includePrimary ? 800 : 1000;
+      }
+      if (field.references || /(^|_)(id|.*_id)$/.test(column)) {
+        return 300;
+      }
+      var preferred = [
+        "name",
+        "title",
+        "firstname",
+        "lastname",
+        "email",
+        "city",
+        "industry",
+        "category",
+        "status",
+        "vote",
+        "comment",
+        "preferred_day",
+        "phone"
+      ];
+      for (var p = 0; p < preferred.length; p++) {
+        if (column === preferred[p]) {
+          return p;
+        }
+      }
+      if (field.unique === true) {
+        return 120;
+      }
+      return 180;
+    }
     for (var i = 0; i < fields.length; i++) {
       if (!includePrimary && fields[i].primary) {
         continue;
       }
-      preview.push(fields[i]);
+      ranked.push({
+        field: fields[i],
+        order: i,
+        priority: fieldPriority(fields[i])
+      });
+    }
+    ranked.sort(function (left, right) {
+      if (left.priority !== right.priority) {
+        return left.priority - right.priority;
+      }
+      return left.order - right.order;
+    });
+    var preview = [];
+    for (var index = 0; index < ranked.length; index++) {
+      preview.push(ranked[index].field);
       if (limit > 0 && preview.length >= limit) {
         break;
       }
@@ -1650,6 +2494,37 @@ C8O.crud = C8O.crud || {};
     return trimmed(projectName) + "." + trimmed(connectorName) + "." + trimmed(requestableName);
   }
 
+  function globalSourceValue(projectName, path, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    return {
+      mode: "SOURCE",
+      value: JSON.stringify({
+        filter: "Global",
+        project: projectName,
+        input: trimmed(extra.input || ""),
+        model: {
+          data: [{ sharedObject: "router.sharedObject" }],
+          path: trimmed(path || ""),
+          prefix: extra.prefix == null ? "" : String(extra.prefix),
+          suffix: extra.suffix == null ? "" : String(extra.suffix),
+          custom: extra.custom == null ? "" : String(extra.custom),
+          useCustom: toBoolean(extra.useCustom, false)
+        }
+      })
+    };
+  }
+
+  function iterationSourceValue(projectName, inputExpression) {
+    return {
+      mode: "SOURCE",
+      value: JSON.stringify({
+        filter: "Iteration",
+        project: projectName,
+        input: String(inputExpression || "")
+      })
+    };
+  }
+
   function facadeSequenceQName(projectName, facadePrefix, entity, verb) {
     return trimmed(projectName) + "." + trimmed(facadePrefix) + "_" + txName(entity, verb);
   }
@@ -1669,6 +2544,1862 @@ C8O.crud = C8O.crud || {};
       },
       children: variables || []
     };
+  }
+
+  function dashboardActionQName(projectName, actionName) {
+    return ngxAppQName(projectName) + "." + trimmed(actionName);
+  }
+
+  function dashboardUiGlobals() {
+    return [
+      "crudBuildStage",
+      "crudLoading",
+      "crudError",
+      "crudStatus",
+      "crudRows",
+      "crudCounts",
+      "crudSamples"
+    ];
+  }
+
+  function crmUiGlobals() {
+    return [
+      "crmBuildStage",
+      "crmLoading",
+      "crmError",
+      "crmStatus",
+      "crmCompanies",
+      "crmContacts",
+      "crmCounts",
+      "crmSelectedCompany",
+      "crmCompanyContacts"
+    ];
+  }
+
+  function statefulUiGlobals(variant) {
+    return trimmed(variant).toLowerCase() === "master-detail" ? crmUiGlobals() : dashboardUiGlobals();
+  }
+
+  function everyQNameExists(qnames) {
+    var entries = ensureArray(qnames);
+    if (!entries.length) {
+      return false;
+    }
+    for (var i = 0; i < entries.length; i++) {
+      var qname = trimmed(entries[i]);
+      if (!qname.length || !C8O.dbo.resolve(qname, { optional: true })) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function statefulBootstrapStageQName(projectName, variant) {
+    var normalizedVariant = trimmed(variant).toLowerCase();
+    return (normalizedVariant === "master-detail"
+      ? crmActionQName(projectName, "crm_bootstrap_dashboard")
+      : dashboardActionQName(projectName, "crud_bootstrap_dashboard")) + ".SetBuildStage";
+  }
+
+  function statefulBootstrapRowQName(projectName, entryPage, variant) {
+    var normalizedVariant = trimmed(variant).toLowerCase();
+    var pageRoot = pageQName(projectName, entryPage) + ".Content.";
+    return normalizedVariant === "master-detail"
+      ? pageRoot + "CrmMasterDetailGrid.BootstrapRow"
+      : pageRoot + "CrudDashboardGrid.BootstrapRow";
+  }
+
+  function dashboardRowsExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudRows || {})[" + keyExpr + "]) || [])";
+  }
+
+  function dashboardCountExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    var rowsExpr = dashboardRowsExpression(keyExpr);
+    return "((this.global?.crudCounts || {})[" + keyExpr + "] ?? ((" + rowsExpr + ").length ?? 0))";
+  }
+
+  function dashboardSampleExpression(entityKeyExpression) {
+    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
+    return "(((this.global?.crudSamples || {})[" + keyExpr + "]) || null)";
+  }
+
+  function dynamicFieldAccessExpression(targetExpression, fieldExpression, fallbackExpression) {
+    var targetExpr = trimmed(targetExpression || "null") || "null";
+    var fieldExpr = trimmed(fieldExpression || "''") || "''";
+    var fallbackExpr = fallbackExpression == null ? "''" : String(fallbackExpression);
+    return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
+      targetExpr + "?.[(('' + (" + fieldExpr + " ?? '')).toUpperCase())] ?? " +
+      targetExpr + "?.[(('' + (" + fieldExpr + " ?? '')).toLowerCase())] ?? " +
+      fallbackExpr + ")";
+  }
+
+  function dashboardHeaderComponentTree(componentName, projectName, entities) {
+    var defaultTitle = ucfirst(projectName) + " Live Dashboard";
+    var defaultSubtitle = entities.map(function (entity) {
+      return entity.label;
+    }).join(" and ");
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD dashboard header bound to global state."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral(defaultTitle)),
+        compVariableNode("Subtitle", scriptLiteral(defaultSubtitle)),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "CrudPageHeaderCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "CrudPageHeaderHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "CrudPageHeaderTitleSlot",
+                  scriptTextNode("TitleText", "this.Title || " + scriptLiteral(defaultTitle))
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  "CrudPageHeaderSubtitleSlot",
+                  scriptTextNode("SubtitleText", "this.Subtitle || (this.global?.crudStatus === 'ok' ? 'Public facade data is live.' : (this.global?.crudLoading ? 'Loading public facade...' : (this.global?.crudError || 'Preparing public facade state.')))")
+                )
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardWorkInProgressCardTree(componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Temporary dashboard bootstrap card."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "WorkInProgressCard",
+          properties: {
+            IonColor: {
+              mode: "PLAIN",
+              value: "warning"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "WorkInProgressHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "WorkInProgressTitle",
+                  plainTextNode("WorkInProgressTitleText", "Work in progress")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "WorkInProgressContent",
+              children: [
+                scriptTextNode("WorkInProgressText", "'Bootstrap stage visible. Current build stage: ' + (this.global?.crudBuildStage ?? 'bootstrap')"),
+                plainTextNode("WorkInProgressHint", "The CRUD shell is visible while live shared actions populate global state.")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardStatCardGlobalTree(componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD dashboard stat card bound to global state."
+      },
+      children: [
+        compVariableNode("Title", "'Title'"),
+        compVariableNode("EntityKey", "'items'"),
+        compVariableNode("Caption", "'Loaded from public facade'"),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "DashboardCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "DashboardHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "DashboardTitleSlot",
+                  scriptTextNode("TitleText", "this.Title || 'Title'")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "DashboardContent",
+              children: [
+                scriptTextNode("ValueText", "'' + (" + dashboardCountExpression("this.EntityKey") + ")"),
+                scriptTextNode("CaptionText", "this.Caption || (this.global?.crudLoading ? 'Loading public facade...' : (this.global?.crudError || 'Loaded from public facade'))")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardLoadingStateTree(componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD loading state bound to global state."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "LoadingCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "LoadingContent",
+              children: [
+                scriptTextNode("LoadingText", "this.global?.crudLoading ? 'Loading public facade rows...' : ('State: ' + (this.global?.crudStatus ?? 'idle'))")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardErrorRetryStateTree(componentName, projectName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD error state with retry action."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "ErrorCard",
+          properties: {
+            IonColor: {
+              mode: "PLAIN",
+              value: "warning"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "ErrorHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "ErrorTitle",
+                  plainTextNode("ErrorTitleText", "Retry public facade")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "ErrorContent",
+              children: [
+                scriptTextNode("ErrorText", "this.global?.crudError || 'Retry if one public facade call fails.'"),
+                {
+                  className: "ngx.components.UIDynamicElement#Button",
+                  name: "RetryButton",
+                  properties: {
+                    IonColor: {
+                      mode: "PLAIN",
+                      value: "primary"
+                    }
+                  },
+                  children: [
+                    plainTextNode("RetryText", "Retry"),
+                    controlEventNode("Event", [
+                      customAsyncActionNode(
+                        "RetryDashboard",
+                        [
+                          "try {",
+                          "  if (typeof window !== 'undefined' && window.location && typeof window.location.reload === 'function') {",
+                          "    window.location.reload();",
+                          "  }",
+                          "} finally {",
+                          "  return;",
+                          "}"
+                        ].join("\n"),
+                        "Reload the current page to rerun the dashboard bootstrap action."
+                      )
+                    ])
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardEntityTableTreeGlobal(projectName, entity) {
+    var componentName = ucfirst(entity.singular) + "Table";
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD table summary bound to global state for " + entity.label + "."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral(entity.label)),
+        compVariableNode("EntityKey", scriptLiteral(entity.name)),
+        compVariableNode("PrimaryField", scriptLiteral((entity.primaryField && entity.primaryField.column) || "id")),
+        compVariableNode("SecondaryField", scriptLiteral(((schemaPreviewFields(entity, 2, false)[0] || entity.primaryField || {}).column) || "id")),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentName + "Card",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentName + "Header",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentName + "TitleSlot",
+                  scriptTextNode("TitleText", "this.Title || " + scriptLiteral(entity.label))
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  componentName + "SubtitleSlot",
+                  scriptTextNode("SubtitleText", "'Loaded ' + (" + dashboardCountExpression("this.EntityKey") + ") + ' rows'")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentName + "Content",
+              children: [
+                ifDirectiveNode(
+                  componentName + "Empty",
+                  dashboardCountExpression("this.EntityKey") + " === 0",
+                  [
+                    textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      componentName + "EmptyParagraph",
+                      plainTextNode("EmptyText", "No rows available yet.")
+                    )
+                  ]
+                ),
+                {
+                  className: "ngx.components.UIDynamicElement#List",
+                  name: componentName + "List",
+                  children: [
+                    iterationDirectiveNode(
+                      componentName + "Loop",
+                      projectName,
+                      "row",
+                      dashboardRowsExpression("this.EntityKey"),
+                      [
+                        {
+                          className: "ngx.components.UIDynamicElement#ListItem",
+                          name: componentName + "Item",
+                          properties: {
+                            Detail: {
+                              mode: "PLAIN",
+                              value: "false"
+                            }
+                          },
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#Label",
+                              name: componentName + "Label",
+                              children: [
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Heading2",
+                                  componentName + "Heading",
+                                  smartTextNode("HeadingText", iterationSourceValue(projectName, dynamicFieldAccessExpression("row", "this.PrimaryField", scriptLiteral("No primary value"))))
+                                ),
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  componentName + "Paragraph",
+                                  smartTextNode("ParagraphText", iterationSourceValue(projectName, dynamicFieldAccessExpression("row", "this.SecondaryField", scriptLiteral("No secondary value"))))
+                                )
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    )
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardEntityCardTreeGlobal(entity) {
+    var componentName = ucfirst(entity.singular) + "Card";
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD entity card bound to global sample state for " + entity.label + "."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral(ucfirst(entity.singular) + " snapshot")),
+        compVariableNode("EntityKey", scriptLiteral(entity.name)),
+        compVariableNode("PrimaryField", scriptLiteral((schemaPreviewFields(entity, 2, false)[0] || entity.primaryField || {}).column || "id")),
+        compVariableNode("SecondaryField", scriptLiteral((schemaPreviewFields(entity, 2, false)[1] || schemaPreviewFields(entity, 2, false)[0] || entity.primaryField || {}).column || "id")),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentName + "Root",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentName + "Header",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentName + "TitleSlot",
+                  scriptTextNode("TitleText", "this.Title || " + scriptLiteral(ucfirst(entity.singular) + " snapshot"))
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentName + "Content",
+              children: [
+                scriptTextNode("PrimaryText", dynamicFieldAccessExpression(dashboardSampleExpression("this.EntityKey"), "this.PrimaryField", scriptLiteral("No sample loaded yet"))),
+                scriptTextNode("SecondaryText", dynamicFieldAccessExpression(dashboardSampleExpression("this.EntityKey"), "this.SecondaryField", scriptLiteral("No secondary value yet"))),
+                scriptTextNode("InsightText", "'Rows loaded: ' + (" + dashboardCountExpression("this.EntityKey") + ")")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function dashboardEntityFormTreeGlobal(entity) {
+    var componentName = ucfirst(entity.singular) + "Form";
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Deterministic CRUD form shell bound to global sample state for " + entity.label + "."
+      },
+      children: [
+        compVariableNode("Title", scriptLiteral("Edit " + ucfirst(entity.singular))),
+        compVariableNode("EntityKey", scriptLiteral(entity.name)),
+        compVariableNode("PrimaryField", scriptLiteral((schemaPreviewFields(entity, 2, false)[0] || entity.primaryField || {}).column || "id")),
+        compVariableNode("SecondaryField", scriptLiteral((schemaPreviewFields(entity, 2, false)[1] || schemaPreviewFields(entity, 2, false)[0] || entity.primaryField || {}).column || "id")),
+        compVariableNode("ActionLabel", scriptLiteral("Save " + entity.singular)),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentName + "Root",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentName + "Header",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentName + "TitleSlot",
+                  scriptTextNode("TitleText", "this.Title || " + scriptLiteral("Edit " + ucfirst(entity.singular)))
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentName + "Content",
+              children: [
+                scriptTextNode("HelperText", "'Facade rows available: ' + (" + dashboardCountExpression("this.EntityKey") + ") + ' for ' + (this.EntityKey || 'entity')"),
+                scriptTextNode("SampleText", "'Sample live value: ' + (" + dynamicFieldAccessExpression(dashboardSampleExpression("this.EntityKey"), "this.SecondaryField", scriptLiteral("n/a")) + ")"),
+                {
+                  className: "ngx.components.UIDynamicElement#Button",
+                  name: "SubmitButton",
+                  children: [
+                    scriptTextNode("ActionText", "this.ActionLabel || " + scriptLiteral("Save " + entity.singular))
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function buildDashboardSharedComponentsTree(projectName, entities, stage) {
+    var components = [
+      dashboardHeaderComponentTree("CrudPageHeader", projectName, entities),
+      dashboardStatCardGlobalTree("DashboardStatCard"),
+      dashboardLoadingStateTree("CrudLoadingState"),
+      dashboardErrorRetryStateTree("CrudErrorRetryState", projectName)
+    ];
+    if (trimmed(stage).toLowerCase() !== "final") {
+      components.push(dashboardWorkInProgressCardTree("WorkInProgressCard"));
+    }
+    for (var i = 0; i < entities.length; i++) {
+      components.push(dashboardEntityTableTreeGlobal(projectName, entities[i]));
+      components.push(dashboardEntityCardTreeGlobal(entities[i]));
+      components.push(dashboardEntityFormTreeGlobal(entities[i]));
+    }
+    return {
+      qnames: components.map(function (component) { return sharedComponentQName(projectName, component.name); }),
+      tree: {
+        children: components
+      }
+    };
+  }
+
+  function actionRowsExpression(resultVar) {
+    var target = trimmed(resultVar || "result");
+    return "Array.isArray(" + target + "?.sql_output) ? " + target + ".sql_output : (Array.isArray(" + target + "?.transaction?.document?.sql_output) ? " + target + ".transaction.document.sql_output : [])";
+  }
+
+  function actionCallSnippet(requestableQName, variablesExpression, cacheTtl, threshold, noLoading) {
+    return "await page['call'].apply(page, [" + scriptLiteral(trimmed(requestableQName)) + ", Object.assign({__localCache_priority: null, __localCache_ttl: " + String(cacheTtl == null ? 3000 : cacheTtl) + "}, " + (trimmed(variablesExpression) || "{}") + "), null, " + String(threshold == null ? 5000 : threshold) + ", " + (toBoolean(noLoading, true) ? "true" : "false") + "])";
+  }
+
+  function actionCallFromExpressionSnippet(requestableExpression, variablesExpression, cacheTtl, threshold, noLoading) {
+    return "await page['call'].apply(page, [" + (trimmed(requestableExpression) || "''") + ", Object.assign({__localCache_priority: null, __localCache_ttl: " + String(cacheTtl == null ? 3000 : cacheTtl) + "}, " + (trimmed(variablesExpression) || "{}") + "), null, " + String(threshold == null ? 5000 : threshold) + ", " + (toBoolean(noLoading, true) ? "true" : "false") + "])";
+  }
+
+  function buildDashboardRefreshActionScript(entity, requestableQName) {
+    var entityKeyLiteral = scriptLiteral(entity.name);
+    var errorMessageLiteral = scriptLiteral("Unable to load " + entity.label.toLowerCase());
+    var logPrefixLiteral = scriptLiteral("[MB] crud_refresh_" + entity.name + " failed");
+    return [
+      "page.global = page.global || {};",
+      "try {",
+      "  var result = " + actionCallSnippet(requestableQName, "{}", 3000, 5000, true) + ";",
+      "  var rows = " + actionRowsExpression("result") + ";",
+      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { " + entityKeyLiteral + ": rows });",
+      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { " + entityKeyLiteral + ": rows.length });",
+      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { " + entityKeyLiteral + ": (rows[0] ?? null) });",
+      "  var status = (result && result.status) ? result.status : 'ok';",
+      "  if (status !== 'ok') {",
+      "    page.global.crudError = page.global.crudError || (result?.error ?? " + errorMessageLiteral + ");",
+      "    page.global.crudStatus = 'error';",
+      "  } else {",
+      "    page.global.crudError = page.global.crudError || '';",
+      "    page.global.crudStatus = page.global.crudError ? 'error' : 'ok';",
+      "  }",
+      "  page.ref.markForCheck();",
+      "  return result;",
+      "} catch (e) {",
+      "  var message = (e && e.message) ? e.message : ('' + e);",
+      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { " + entityKeyLiteral + ": [] });",
+      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { " + entityKeyLiteral + ": 0 });",
+      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { " + entityKeyLiteral + ": null });",
+      "  page.global.crudError = page.global.crudError || message || " + errorMessageLiteral + ";",
+      "  page.global.crudStatus = 'error';",
+      "  page.c8o.log.debug(" + logPrefixLiteral + ", e);",
+      "  page.ref.markForCheck();",
+      "  return { status: 'error', error: page.global.crudError, sql_output: [] };",
+      "}"
+    ].join("\n");
+  }
+
+  function buildDashboardBootstrapActionScript(projectName, facadePrefix, entities, stage) {
+    var configs = entities.map(function (entity) {
+      return {
+        key: entity.name,
+        label: entity.label,
+        requestable: facadeSequenceQName(projectName, facadePrefix, entity, "list")
+      };
+    });
+    return [
+      "page.global = page.global || {};",
+      "page.global.crudBuildStage = " + scriptLiteral(trimmed(stage || "bootstrap")) + ";",
+      "page.global.crudLoading = true;",
+      "page.global.crudError = '';",
+      "page.global.crudStatus = 'loading';",
+      "page.global.crudRows = {};",
+      "page.global.crudCounts = {};",
+      "page.global.crudSamples = {};",
+      "page.ref.markForCheck();",
+      "var configs = " + JSON.stringify(configs) + ";",
+      "var runRefresh = async function(config) {",
+      "  try {",
+      "    var result = " + actionCallFromExpressionSnippet("config.requestable", "{}", 3000, 5000, true) + ";",
+      "    var rows = " + actionRowsExpression("result") + ";",
+      "    var status = (result && result.status) ? result.status : 'ok';",
+      "    return { key: config.key, rows: rows, status: status, error: status !== 'ok' ? (result?.error ?? ('Unable to load ' + String(config.label || config.key).toLowerCase())) : '', result: result };",
+      "  } catch (e) {",
+      "    var message = (e && e.message) ? e.message : ('' + e);",
+      "    page.c8o.log.debug('[MB] crud_bootstrap_dashboard refresh failed for ' + String((config && config.key) || 'entity'), e);",
+      "    return { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), sql_output: [] } };",
+      "  }",
+      "};",
+      "try {",
+      "  var results = await Promise.all(configs.map(function(config) { return runRefresh(config); }));",
+      "  var rowsByKey = {};",
+      "  var countsByKey = {};",
+      "  var samplesByKey = {};",
+      "  var firstError = '';",
+      "  for (var i = 0; i < results.length; i++) {",
+      "    var item = results[i];",
+      "    var rows = Array.isArray(item.rows) ? item.rows : [];",
+      "    rowsByKey[item.key] = rows;",
+      "    countsByKey[item.key] = rows.length;",
+      "    samplesByKey[item.key] = rows[0] ?? null;",
+      "    if (!firstError && item.status !== 'ok') {",
+      "      firstError = item.error || ('Unable to load ' + String(item.key || 'entity'));",
+      "    }",
+      "  }",
+      "  page.global.crudRows = rowsByKey;",
+      "  page.global.crudCounts = countsByKey;",
+      "  page.global.crudSamples = samplesByKey;",
+      "  page.global.crudError = firstError;",
+      "  page.global.crudStatus = firstError ? 'error' : 'ok';",
+      "  page.ref.markForCheck();",
+      "  return { status: page.global.crudStatus, results: results };",
+      "} finally {",
+      "  page.global.crudLoading = false;",
+      "  page.ref.markForCheck();",
+      "}"
+    ].join("\n");
+  }
+
+  function buildDashboardPageScriptContent(projectName, facadePrefix, entities, stage) {
+    var configs = entities.map(function (entity) {
+      return {
+        key: entity.name,
+        label: entity.label,
+        requestable: facadeSequenceQName(projectName, facadePrefix, entity, "list")
+      };
+    });
+    return [
+      "/*Begin_c8o_PageDeclaration*/",
+      "\tpublic __crudBootstrapStarted: boolean = false;",
+      "/*End_c8o_PageDeclaration*/",
+      "/*Begin_c8o_PageConstructor*/",
+      "\t\tsetTimeout(() => {",
+      "\t\t\tthis.bootstrapCrudDashboardState().catch((error: any) => {",
+      "\t\t\t\tthis.c8o.log.debug('[MB] bootstrapCrudDashboardState failed', error);",
+      "\t\t\t\tthis.__crudBootstrapStarted = false;",
+      "\t\t\t});",
+      "\t\t}, 0);",
+      "/*End_c8o_PageConstructor*/",
+      "/*Begin_c8o_PageFunction*/",
+      "\tpublic async bootstrapCrudDashboardState(): Promise<any> {",
+      "\t\tif (this.__crudBootstrapStarted && (this.global?.crudLoading === true || this.global?.crudStatus === 'ok')) {",
+      "\t\t\treturn this.global?.crudStatus ?? 'ok';",
+      "\t\t}",
+      "\t\tthis.__crudBootstrapStarted = true;",
+      "\t\tthis.global = this.global || {};",
+      "\t\tthis.global.crudBuildStage = " + scriptLiteral(trimmed(stage || "bootstrap")) + ";",
+      "\t\tthis.global.crudLoading = true;",
+      "\t\tthis.global.crudError = '';",
+      "\t\tthis.global.crudStatus = 'loading';",
+      "\t\tthis.global.crudRows = {};",
+      "\t\tthis.global.crudCounts = {};",
+      "\t\tthis.global.crudSamples = {};",
+      "\t\tthis.ref.markForCheck();",
+      "\t\tconst configs = " + JSON.stringify(configs) + ";",
+      "\t\ttry {",
+      "\t\t\tconst results = await Promise.all(configs.map(async (config) => {",
+      "\t\t\t\ttry {",
+      "\t\t\t\t\tconst result: any = await this['call'].apply(this, [config.requestable, {__localCache_priority: null, __localCache_ttl: 3000}, null, 5000, true]);",
+      "\t\t\t\t\tconst rows = Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []);",
+      "\t\t\t\t\tconst status = (result && result.status) ? result.status : 'ok';",
+      "\t\t\t\t\treturn { key: config.key, rows, status, error: status !== 'ok' ? (result?.error ?? ('Unable to load ' + String(config.label || config.key).toLowerCase())) : '', result };",
+      "\t\t\t\t} catch (e: any) {",
+      "\t\t\t\t\tconst message = (e && e.message) ? e.message : ('' + e);",
+      "\t\t\t\t\tthis.c8o.log.debug('[MB] bootstrapCrudDashboardState refresh failed for ' + String((config && config.key) || 'entity'), e);",
+      "\t\t\t\t\treturn { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), sql_output: [] } };",
+      "\t\t\t\t}",
+      "\t\t\t}));",
+      "\t\t\tconst rowsByKey: any = {};",
+      "\t\t\tconst countsByKey: any = {};",
+      "\t\t\tconst samplesByKey: any = {};",
+      "\t\t\tlet firstError = '';",
+      "\t\t\tfor (const item of results) {",
+      "\t\t\t\tconst rows = Array.isArray(item.rows) ? item.rows : [];",
+      "\t\t\t\trowsByKey[item.key] = rows;",
+      "\t\t\t\tcountsByKey[item.key] = rows.length;",
+      "\t\t\t\tsamplesByKey[item.key] = rows[0] ?? null;",
+      "\t\t\t\tif (!firstError && item.status !== 'ok') {",
+      "\t\t\t\t\tfirstError = item.error || ('Unable to load ' + String(item.key || 'entity'));",
+      "\t\t\t\t}",
+      "\t\t\t}",
+      "\t\t\tthis.global.crudRows = rowsByKey;",
+      "\t\t\tthis.global.crudCounts = countsByKey;",
+      "\t\t\tthis.global.crudSamples = samplesByKey;",
+      "\t\t\tthis.global.crudError = firstError;",
+      "\t\t\tthis.global.crudStatus = firstError ? 'error' : 'ok';",
+      "\t\t\tthis.ref.markForCheck();",
+      "\t\t\treturn { status: this.global.crudStatus, results };",
+      "\t\t} finally {",
+      "\t\t\tthis.global.crudLoading = false;",
+      "\t\t\tthis.ref.markForCheck();",
+      "\t\t}",
+      "\t}",
+      "/*End_c8o_PageFunction*/",
+      ""
+    ].join("\n");
+  }
+
+  function buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage) {
+    var qnames = [];
+    var children = [];
+    var bootstrapQName = dashboardActionQName(projectName, "crud_bootstrap_dashboard");
+    var retryQName = dashboardActionQName(projectName, "crud_retry_dashboard");
+    for (var i = 0; i < entities.length; i++) {
+      var entity = entities[i];
+      var actionName = "crud_refresh_" + entity.name;
+      var actionQName = dashboardActionQName(projectName, actionName);
+      var entityKeyLiteral = scriptLiteral(entity.name);
+      var requestableQName = facadeSequenceQName(projectName, facadePrefix, entity, "list");
+      qnames.push(actionQName);
+      children.push(
+        actionStackNode(
+          actionName,
+          [],
+          [
+            customAsyncActionNode(
+              "Refresh" + ucfirst(entity.name),
+              buildDashboardRefreshActionScript(entity, requestableQName),
+              "Refresh CRUD global state for " + entity.label + "."
+            )
+          ],
+          "CRUD dashboard refresh action for " + entity.label + "."
+        )
+      );
+    }
+    qnames.push(bootstrapQName, retryQName);
+    children.push(
+      actionStackNode(
+        "crud_bootstrap_dashboard",
+        [],
+        [
+          customAsyncActionNode(
+            "BootstrapDashboard",
+            buildDashboardBootstrapActionScript(projectName, facadePrefix, entities, stage),
+            "Bootstrap CRUD dashboard global state."
+          )
+        ],
+        "CRUD dashboard bootstrap action."
+      ),
+      actionStackNode(
+        "crud_retry_dashboard",
+        [],
+        [
+          dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
+        ],
+        "CRUD dashboard retry action."
+      )
+    );
+    return {
+      qnames: qnames,
+      tree: {
+        children: children
+      }
+    };
+  }
+
+  function buildDashboardPageShellTree(projectName, entities, stage) {
+    var children = [
+      {
+        className: "ngx.components.UIDynamicElement#Grid",
+        name: "CrudDashboardGrid",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridRow",
+            name: "HeaderRow",
+            children: [
+              {
+                className: "ngx.components.UIDynamicElement#GridCol",
+                name: "HeaderCol",
+                children: [
+                  buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
+                    useVariableNode("Title", scriptLiteral(ucfirst(projectName) + " Live Dashboard")),
+                    useVariableNode("Subtitle", scriptLiteral(entities.map(function (entity) { return entity.label.toLowerCase(); }).join(" and ")))
+                  ])
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ];
+    var gridChildren = children[0].children;
+    if (trimmed(stage).toLowerCase() !== "final") {
+      gridChildren.push({
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "BootstrapRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "BootstrapCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
+            ]
+          }
+        ]
+      });
+    }
+    gridChildren.push({
+      className: "ngx.components.UIDynamicElement#GridRow",
+      name: "MetricsRow",
+      children: entities.map(function (entity) {
+        return {
+          className: "ngx.components.UIDynamicElement#GridCol",
+          name: ucfirst(entity.singular) + "StatCol",
+          children: [
+            buildUseSharedNode(sharedComponentQName(projectName, "DashboardStatCard"), "Use" + ucfirst(entity.singular) + "StatCard", [
+              useVariableNode("Title", scriptLiteral(entity.label)),
+              useVariableNode("EntityKey", scriptLiteral(entity.name)),
+              useVariableNode("Caption", scriptLiteral("Loaded from public facade"))
+            ])
+          ]
+        };
+      })
+    });
+    for (var i = 0; i < entities.length; i++) {
+      var entity = entities[i];
+      var previewFields = schemaPreviewFields(entity, 2, false);
+      var primaryField = (previewFields[0] || entity.primaryField || {}).column || "id";
+      var secondaryField = (previewFields[1] || previewFields[0] || entity.primaryField || {}).column || primaryField;
+      gridChildren.push({
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: ucfirst(entity.singular) + "Row",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: ucfirst(entity.singular) + "TableCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, ucfirst(entity.singular) + "Table"), "Use" + ucfirst(entity.singular) + "Table", [
+                useVariableNode("Title", scriptLiteral(entity.label)),
+                useVariableNode("EntityKey", scriptLiteral(entity.name)),
+                useVariableNode("PrimaryField", scriptLiteral(primaryField)),
+                useVariableNode("SecondaryField", scriptLiteral(secondaryField))
+              ])
+            ]
+          },
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: ucfirst(entity.singular) + "CardCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, ucfirst(entity.singular) + "Card"), "Use" + ucfirst(entity.singular) + "Card", [
+                useVariableNode("Title", scriptLiteral(ucfirst(entity.singular) + " snapshot")),
+                useVariableNode("EntityKey", scriptLiteral(entity.name)),
+                useVariableNode("PrimaryField", scriptLiteral(primaryField)),
+                useVariableNode("SecondaryField", scriptLiteral(secondaryField))
+              ])
+            ]
+          },
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: ucfirst(entity.singular) + "FormCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, ucfirst(entity.singular) + "Form"), "Use" + ucfirst(entity.singular) + "Form", [
+                useVariableNode("Title", scriptLiteral("Edit " + ucfirst(entity.singular))),
+                useVariableNode("EntityKey", scriptLiteral(entity.name)),
+                useVariableNode("PrimaryField", scriptLiteral(primaryField)),
+                useVariableNode("SecondaryField", scriptLiteral(secondaryField)),
+                useVariableNode("ActionLabel", scriptLiteral("Save " + entity.singular))
+              ])
+            ]
+          }
+        ]
+      });
+    }
+    gridChildren.push(
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "LoadingRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "LoadingCol",
+            children: [
+              ifDirectiveNode(
+                "LoadingVisible",
+                "this.global?.crudLoading === true",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+              )
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "ErrorRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "ErrorCol",
+            children: [
+              ifDirectiveNode(
+                "ErrorVisible",
+                "!!this.global?.crudError",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+              )
+            ]
+          }
+        ]
+      }
+    );
+    return {
+      className: "ngx.components.UIDynamicElement#Content",
+      name: "Content",
+      properties: {
+        Padding: {
+          mode: "PLAIN",
+          value: "ion-padding"
+        }
+      },
+      children: children
+    };
+  }
+
+  function buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage) {
+    return {
+      qname: pageQName(projectName, entryPage),
+      legacyQNames: [
+        pageQName(projectName, entryPage) + ".PageEvent",
+        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
+      ],
+      tree: {
+        properties: {
+          scriptContent: buildDashboardPageScriptContent(projectName, facadePrefix, entities, stage)
+        },
+        children: [
+          pageEventNode(
+            "PageEvent",
+            "onWillLoad",
+            [
+              dynamicInvokeNode("InvokeBootstrapDashboard", dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+            ],
+            "Bootstrap CRUD global state on page load."
+          )
+        ]
+      }
+    };
+  }
+
+  function crmActionQName(projectName, actionName) {
+    return ngxAppQName(projectName) + "." + trimmed(actionName);
+  }
+
+  function crmHeaderComponentTree(componentName, projectName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM live-state header."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "HeaderCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "HeaderCardHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "HeaderTitle",
+                  plainTextNode("HeaderTitleText", ucfirst(projectName) + " CRM")
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  "HeaderSubtitle",
+                  scriptTextNode("HeaderSubtitleText", "(this.global?.crmStatus === 'ok') ? 'Companies, contacts, and relations are live.' : (this.global?.crmLoading ? 'Loading CRM facade...' : (this.global?.crmError || 'Preparing CRM facade state.'))")
+                )
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function crmWorkInProgressCardTree(componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "Temporary CRM bootstrap card."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "WorkInProgressCard",
+          properties: {
+            IonColor: {
+              mode: "PLAIN",
+              value: "warning"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "WorkInProgressHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "WorkInProgressTitle",
+                  plainTextNode("WorkInProgressTitleText", "Work in progress")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "WorkInProgressContent",
+              children: [
+                scriptTextNode("WorkInProgressText", "'Bootstrap stage visible. Current build stage: ' + (this.global?.crmBuildStage ?? 'bootstrap')"),
+                plainTextNode("WorkInProgressHint", "The shell is already alive while live CRM actions finish wiring data.")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function crmLoadingStateTree(componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM loading state bound to global state."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "LoadingCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "LoadingContent",
+              children: [
+                scriptTextNode("LoadingText", "this.global?.crmLoading ? 'Loading companies, contacts, and company contacts...' : 'Loading idle.'")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function crmErrorRetryStateTree(componentName, projectName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM error state with retry action."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "ErrorCard",
+          properties: {
+            IonColor: {
+              mode: "PLAIN",
+              value: "warning"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "ErrorHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "ErrorTitle",
+                  plainTextNode("ErrorTitleText", "Retry live CRM facade")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "ErrorContent",
+              children: [
+                scriptTextNode("ErrorText", "this.global?.crmError || 'Retry if one CRM sequence fails.'"),
+                {
+                  className: "ngx.components.UIDynamicElement#Button",
+                  name: "RetryButton",
+                  properties: {
+                    IonColor: {
+                      mode: "PLAIN",
+                      value: "primary"
+                    }
+                  },
+                  children: [
+                    plainTextNode("RetryText", "Retry"),
+                    controlEventNode("Event", [
+                      customAsyncActionNode(
+                        "RetryDashboard",
+                        [
+                          "try {",
+                          "  if (typeof window !== 'undefined' && window.location && typeof window.location.reload === 'function') {",
+                          "    window.location.reload();",
+                          "  }",
+                          "} finally {",
+                          "  return;",
+                          "}"
+                        ].join("\n"),
+                        "Reload the current page to rerun the CRM bootstrap action."
+                      )
+                    ])
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function companyTableTreeGlobal(projectName, componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM companies master list bound to global state."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "CompanyListCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "CompanyListHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "CompanyListTitle",
+                  plainTextNode("CompanyListTitleText", "Companies")
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  "CompanyListSubtitle",
+                  scriptTextNode("CompanyListSubtitleText", "'Loaded ' + ((this.global?.crmCompanies || []).length) + ' companies'")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "CompanyListContent",
+              children: [
+                ifDirectiveNode(
+                  "CompanyListEmpty",
+                  "(this.global?.crmCompanies || []).length === 0",
+                  [
+                    textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      "CompanyListEmptyParagraph",
+                      plainTextNode("CompanyListEmptyText", "No companies loaded yet.")
+                    )
+                  ]
+                ),
+                {
+                  className: "ngx.components.UIDynamicElement#List",
+                  name: "CompanyList",
+                  children: [
+                    sourceDirectiveNode(
+                      "CompanyLoop",
+                      "company",
+                      globalSourceValue(projectName, "?.crmCompanies"),
+                      [
+                        {
+                          className: "ngx.components.UIDynamicElement#ListItem",
+                          name: "CompanyItem",
+                          properties: {
+                            Button: {
+                              mode: "PLAIN",
+                              value: "true"
+                            },
+                            Detail: {
+                              mode: "PLAIN",
+                              value: "false"
+                            }
+                          },
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#Label",
+                              name: "CompanyLabel",
+                              children: [
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Heading2",
+                                  "CompanyHeading",
+                                  smartTextNode("CompanyHeadingText", iterationSourceValue(projectName, "company?.NAME ?? company?.name"))
+                                ),
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  "CompanyParagraph",
+                                  smartTextNode("CompanyParagraphText", iterationSourceValue(projectName, "(company?.INDUSTRY ?? company?.industry ?? '') + ' - ' + (company?.CITY ?? company?.city ?? '')"))
+                                )
+                              ]
+                            },
+                            textElementNode(
+                              "ngx.components.UIDynamicElement#Note",
+                              "CompanyCountNote",
+                              smartTextNode("CompanyCountNoteText", iterationSourceValue(projectName, "'' + (company?.CONTACT_COUNT ?? company?.contact_count ?? 0) + ' contacts'"))
+                            ),
+                            controlEventNode("Event", [
+                              dynamicInvokeNode("InvokeSelectCompany", crmActionQName(projectName, "crm_select_company"), [
+                                controlVariableNode("company_id", iterationSourceValue(projectName, "company?.ID ?? company?.id"))
+                              ])
+                            ])
+                          ]
+                        }
+                      ],
+                      "idx"
+                    )
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function companyCardTreeGlobal(componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM selected company detail bound to global state."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "SelectedCompanyCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "SelectedCompanyHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "SelectedCompanyTitle",
+                  plainTextNode("SelectedCompanyTitleText", "Selected company")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "SelectedCompanyContent",
+              children: [
+                scriptTextNode("SelectedCompanyName", "this.global?.crmSelectedCompany?.NAME ?? this.global?.crmSelectedCompany?.name ?? 'No company selected'"),
+                scriptTextNode("SelectedCompanyIndustry", "(this.global?.crmSelectedCompany?.INDUSTRY ?? this.global?.crmSelectedCompany?.industry ?? 'No industry yet')"),
+                scriptTextNode("SelectedCompanyCity", "(this.global?.crmSelectedCompany?.CITY ?? this.global?.crmSelectedCompany?.city ?? 'No city yet')"),
+                scriptTextNode("SelectedCompanyCount", "'Contacts in company: ' + (this.global?.crmSelectedCompany?.CONTACT_COUNT ?? this.global?.crmSelectedCompany?.contact_count ?? (this.global?.crmCompanyContacts || []).length ?? 0)")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function contactTableTreeGlobal(projectName, componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM company contacts detail bound to global state."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "CompanyContactsCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "CompanyContactsHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "CompanyContactsTitle",
+                  plainTextNode("CompanyContactsTitleText", "Contacts for selected company")
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  "CompanyContactsSubtitle",
+                  scriptTextNode("CompanyContactsSubtitleText", "'Selected: ' + (this.global?.crmSelectedCompany?.NAME ?? this.global?.crmSelectedCompany?.name ?? 'none')")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "CompanyContactsContent",
+              children: [
+                ifDirectiveNode(
+                  "CompanyContactsEmpty",
+                  "(this.global?.crmCompanyContacts || []).length === 0",
+                  [
+                    textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      "CompanyContactsEmptyParagraph",
+                      plainTextNode("CompanyContactsEmptyText", "No contacts linked to the selected company yet.")
+                    )
+                  ]
+                ),
+                {
+                  className: "ngx.components.UIDynamicElement#List",
+                  name: "CompanyContactsList",
+                  children: [
+                    sourceDirectiveNode(
+                      "CompanyContactsLoop",
+                      "contact",
+                      globalSourceValue(projectName, "?.crmCompanyContacts"),
+                      [
+                        {
+                          className: "ngx.components.UIDynamicElement#ListItem",
+                          name: "CompanyContactItem",
+                          properties: {
+                            Detail: {
+                              mode: "PLAIN",
+                              value: "false"
+                            }
+                          },
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#Label",
+                              name: "CompanyContactLabel",
+                              children: [
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Heading2",
+                                  "CompanyContactHeading",
+                                  smartTextNode("CompanyContactHeadingText", iterationSourceValue(projectName, "(contact?.FIRSTNAME ?? contact?.firstname ?? '') + ' ' + (contact?.LASTNAME ?? contact?.lastname ?? '')"))
+                                ),
+                                textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  "CompanyContactParagraph",
+                                  smartTextNode("CompanyContactParagraphText", iterationSourceValue(projectName, "contact?.EMAIL ?? contact?.email ?? 'No email'"))
+                                )
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "idx"
+                    )
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function contactCardTreeGlobal(projectName, componentName) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: componentName,
+      properties: {
+        comment: "CRM all contacts overview bound to global state."
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "ContactsOverviewCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "ContactsOverviewHeader",
+              children: [
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "ContactsOverviewTitle",
+                  plainTextNode("ContactsOverviewTitleText", "Contacts overview")
+                ),
+                textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  "ContactsOverviewSubtitle",
+                  scriptTextNode("ContactsOverviewSubtitleText", "'Loaded ' + ((this.global?.crmContacts || []).length) + ' contacts'")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "ContactsOverviewContent",
+              children: [
+                scriptTextNode("ContactsOverviewLead", "(this.global?.crmContacts || [])[0] ? (((this.global?.crmContacts || [])[0]?.FIRSTNAME ?? (this.global?.crmContacts || [])[0]?.firstname ?? '') + ' ' + ((this.global?.crmContacts || [])[0]?.LASTNAME ?? (this.global?.crmContacts || [])[0]?.lastname ?? '')) : 'No contact loaded yet'"),
+                scriptTextNode("ContactsOverviewCompany", "(this.global?.crmContacts || [])[0] ? ('Company: ' + (((this.global?.crmContacts || [])[0]?.COMPANY_NAME ?? (this.global?.crmContacts || [])[0]?.company_name ?? 'n/a'))) : 'Awaiting company relation preview'"),
+                scriptTextNode("ContactsOverviewStatus", "'Counts => companies: ' + ((this.global?.crmCounts || {}).companies ?? 0) + ', contacts: ' + ((this.global?.crmCounts || {}).contacts ?? 0)")
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function buildCrmSharedComponentsTree(projectName, stage) {
+    var components = [
+      crmHeaderComponentTree("CrudPageHeader", projectName),
+      crmLoadingStateTree("CrudLoadingState"),
+      crmErrorRetryStateTree("CrudErrorRetryState", projectName),
+      companyTableTreeGlobal(projectName, "CompanyTable"),
+      companyCardTreeGlobal("CompanyCard"),
+      contactTableTreeGlobal(projectName, "ContactTable"),
+      contactCardTreeGlobal(projectName, "ContactCard")
+    ];
+    if (trimmed(stage).toLowerCase() !== "final") {
+      components.push(crmWorkInProgressCardTree("WorkInProgressCard"));
+    }
+    return {
+      qnames: components.map(function (component) { return sharedComponentQName(projectName, component.name); }),
+      tree: {
+        children: components
+      }
+    };
+  }
+
+  function buildCrmActionStacksTree(projectName, facadePrefix, stage) {
+    var listCompaniesQName = trimmed(projectName) + "." + trimmed(facadePrefix) + "_list_companies";
+    var listContactsQName = trimmed(projectName) + "." + trimmed(facadePrefix) + "_list_contacts";
+    var listCompanyContactsQName = trimmed(projectName) + "." + trimmed(facadePrefix) + "_list_company_contacts";
+    var refreshCompaniesQName = crmActionQName(projectName, "crm_refresh_companies");
+    var refreshContactsQName = crmActionQName(projectName, "crm_refresh_contacts");
+    var refreshCompanyContactsQName = crmActionQName(projectName, "crm_refresh_company_contacts");
+    var selectCompanyQName = crmActionQName(projectName, "crm_select_company");
+    var bootstrapQName = crmActionQName(projectName, "crm_bootstrap_dashboard");
+    return {
+      qnames: [
+        refreshCompaniesQName,
+        refreshContactsQName,
+        refreshCompanyContactsQName,
+        selectCompanyQName,
+        bootstrapQName,
+        crmActionQName(projectName, "crm_retry_dashboard")
+      ],
+      tree: {
+        children: [
+          actionStackNode(
+            "crm_refresh_companies",
+            [],
+            [
+              callSequenceActionNode("CallCompanies", listCompaniesQName, [], { noLoading: true, cacheTtl: 3000 }),
+              setGlobalActionNode("SetCompanies", "crmCompanies", "parent.out?.sql_output ?? []"),
+              setGlobalActionNode("SetCompanyCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { companies: Number(parent.out?.sql_output?.length ?? 0) })"),
+              setGlobalActionNode("SetCompanyStatus", "crmStatus", "parent.out?.status ?? 'ok'"),
+              setGlobalActionNode("SetCompanyError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load companies') : ''"),
+              setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmSelectedCompany && (parent.out?.sql_output || []).some((item) => String(item?.ID ?? item?.id) === String(this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id))) ? this.global?.crmSelectedCompany : ((parent.out?.sql_output || [])[0] ?? null)")
+            ],
+            "CRM companies refresh action."
+          ),
+          actionStackNode(
+            "crm_refresh_contacts",
+            [],
+            [
+              callSequenceActionNode("CallContacts", listContactsQName, [], { noLoading: true, cacheTtl: 3000 }),
+              setGlobalActionNode("SetContacts", "crmContacts", "parent.out?.sql_output ?? []"),
+              setGlobalActionNode("SetContactCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { contacts: Number(parent.out?.sql_output?.length ?? 0) })"),
+              setGlobalActionNode("SetContactsStatus", "crmStatus", "(this.global?.crmError ? 'error' : (parent.out?.status ?? 'ok'))"),
+              setGlobalActionNode("SetContactsError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load contacts') : (this.global?.crmError || '')")
+            ],
+            "CRM contacts refresh action."
+          ),
+          actionStackNode(
+            "crm_refresh_company_contacts",
+            [stackVariableNode("company_id", "0")],
+            [
+              callSequenceActionNode("CallCompanyContacts", listCompanyContactsQName, [
+                controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
+              ], { noLoading: true, cacheTtl: 3000 }),
+              setGlobalActionNode("SetCompanyContacts", "crmCompanyContacts", "parent.out?.sql_output ?? []"),
+              setGlobalActionNode("SetCompanyContactsStatus", "crmStatus", "(this.global?.crmError ? 'error' : (parent.out?.status ?? 'ok'))"),
+              setGlobalActionNode("SetCompanyContactsError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load company contacts') : (this.global?.crmError || '')")
+            ],
+            "CRM selected-company contacts refresh action."
+          ),
+          actionStackNode(
+            "crm_select_company",
+            [stackVariableNode("company_id", "0")],
+            [
+              setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmCompanies || []).find((item) => String(item?.ID ?? item?.id) === String(vars.company_id ?? '')) || null"),
+              dynamicInvokeNode("InvokeRefreshCompanyContacts", refreshCompanyContactsQName, [
+                controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
+              ])
+            ],
+            "CRM company selection action."
+          ),
+          actionStackNode(
+            "crm_bootstrap_dashboard",
+            [],
+            [
+              setGlobalActionNode("SetBuildStage", "crmBuildStage", scriptLiteral(trimmed(stage || "bootstrap"))),
+              setGlobalActionNode("SetLoading", "crmLoading", "true"),
+              setGlobalActionNode("ResetError", "crmError", "''"),
+              setGlobalActionNode("SetBootstrapStatus", "crmStatus", "'loading'"),
+              dynamicInvokeNode("InvokeRefreshCompanies", refreshCompaniesQName, []),
+              dynamicInvokeNode("InvokeRefreshContacts", refreshContactsQName, []),
+              dynamicInvokeNode("InvokeRefreshCompanyContacts", refreshCompanyContactsQName, [
+                controlVariableNode("company_id", "Number(this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
+              ]),
+              setGlobalActionNode("ClearLoading", "crmLoading", "false"),
+              setGlobalActionNode("FinalizeStatus", "crmStatus", "this.global?.crmError ? 'error' : 'ok'")
+            ],
+            "CRM dashboard bootstrap action."
+          ),
+          actionStackNode(
+            "crm_retry_dashboard",
+            [],
+            [
+              dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
+            ],
+            "CRM retry action."
+          )
+        ]
+      }
+    };
+  }
+
+  function countCardNode(name, title, valueExpression, caption) {
+    return {
+      className: "ngx.components.UIDynamicElement#Card",
+      name: name,
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#CardHeader",
+          name: name + "Header",
+          children: [
+            textElementNode(
+              "ngx.components.UIDynamicElement#CardTitle",
+              name + "Title",
+              plainTextNode(name + "TitleText", title)
+            )
+          ]
+        },
+        {
+          className: "ngx.components.UIDynamicElement#CardContent",
+          name: name + "Content",
+          children: [
+            scriptTextNode(name + "ValueText", valueExpression),
+            plainTextNode(name + "CaptionText", caption)
+          ]
+        }
+      ]
+    };
+  }
+
+  function buildCrmMasterDetailPageShellTree(projectName, stage) {
+    var pageTitle = ucfirst(projectName) + " CRM";
+    var headerUse = buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", []);
+    var children = [
+      {
+        className: "ngx.components.UIDynamicElement#Grid",
+        name: "CrmMasterDetailGrid",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridRow",
+            name: "HeaderRow",
+            children: [
+              {
+                className: "ngx.components.UIDynamicElement#GridCol",
+                name: "HeaderCol",
+                children: [headerUse]
+              }
+            ]
+          }
+        ]
+      }
+    ];
+
+    if (trimmed(stage).toLowerCase() !== "final") {
+      children[0].children.push({
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "BootstrapRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "BootstrapCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
+            ]
+          }
+        ]
+      });
+    }
+
+    children[0].children.push(
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "CountsRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "CompaniesCountCol",
+            children: [
+              countCardNode("CompaniesCountCard", "Companies", "'' + ((this.global?.crmCounts || {}).companies ?? 0)", "Loaded from public facade")
+            ]
+          },
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "ContactsCountCol",
+            children: [
+              countCardNode("ContactsCountCard", "Contacts", "'' + ((this.global?.crmCounts || {}).contacts ?? 0)", "Loaded from public facade")
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "MasterDetailRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "CompaniesListCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "CompanyTable"), "UseCompanyTable", [])
+            ]
+          },
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "CompanyDetailCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "CompanyCard"), "UseCompanyCard", [])
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "ContactsRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "CompanyContactsCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "ContactTable"), "UseContactTable", [])
+            ]
+          },
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "ContactsOverviewCol",
+            children: [
+              buildUseSharedNode(sharedComponentQName(projectName, "ContactCard"), "UseContactCard", [])
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "LoadingRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "LoadingCol",
+            children: [
+              ifDirectiveNode(
+                "LoadingVisible",
+                "this.global?.crmLoading === true",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+              )
+            ]
+          }
+        ]
+      },
+      {
+        className: "ngx.components.UIDynamicElement#GridRow",
+        name: "ErrorRow",
+        children: [
+          {
+            className: "ngx.components.UIDynamicElement#GridCol",
+            name: "ErrorCol",
+            children: [
+              ifDirectiveNode(
+                "ErrorVisible",
+                "!!this.global?.crmError",
+                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+              )
+            ]
+          }
+        ]
+      }
+    );
+
+    return {
+      className: "ngx.components.UIDynamicElement#Content",
+      name: "Content",
+      properties: {
+        Padding: {
+          mode: "PLAIN",
+          value: "ion-padding"
+        }
+      },
+      children: children
+    };
+  }
+
+  function buildCrmPageLoadTree(projectName, entryPage, stage) {
+    return {
+      qname: pageQName(projectName, entryPage),
+      legacyQNames: [
+        pageQName(projectName, entryPage) + ".PageEvent",
+        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
+      ],
+      tree: {
+        properties: {
+          scriptContent: ""
+        },
+        children: [
+          pageEventNode(
+            "PageEvent",
+            "onWillLoad",
+            [
+              dynamicInvokeNode("InvokeBootstrapDashboard", crmActionQName(projectName, "crm_bootstrap_dashboard"), [])
+            ],
+            "Bootstrap CRM global state on page load."
+          )
+        ]
+      }
+    };
+  }
+
+  function ifDirectiveNode(name, expression, children) {
+    return {
+      className: "ngx.components.UIControlDirective#UIControlDirective",
+      name: name,
+      properties: {
+        directiveName: "If",
+        directiveExpression: String(expression || "false")
+      },
+      children: ensureArray(children)
+    };
+  }
+
+  function iterationDirectiveNode(name, projectName, itemName, inputExpression, children) {
+    return {
+      className: "ngx.components.UIControlDirective#UIControlDirective",
+      name: name,
+      properties: {
+        directiveItemName: trimmed(itemName || "item"),
+        directiveSource: iterationSourceValue(projectName, inputExpression)
+      },
+      children: ensureArray(children)
+    };
+  }
+
+  function sourceDirectiveNode(name, itemName, sourceValue, children, indexName) {
+    var properties = {
+      directiveItemName: trimmed(itemName || "item"),
+      directiveSource: sourceValue
+    };
+    if (trimmed(indexName).length) {
+      properties.directiveIndexName = String(indexName);
+    }
+    return {
+      className: "ngx.components.UIControlDirective#UIControlDirective",
+      name: name,
+      properties: properties,
+      children: ensureArray(children)
+    };
+  }
+
+  function controlEventNode(name, children) {
+    return {
+      className: "ngx.components.UIControlEvent#UIControlEvent",
+      name: name,
+      children: ensureArray(children)
+    };
+  }
+
+  function stackVariableNode(name, defaultValue) {
+    var node = {
+      className: "ngx.components.UIStackVariable#UIStackVariable",
+      name: name
+    };
+    if (defaultValue != null) {
+      node.properties = {
+        value: String(defaultValue)
+      };
+    }
+    return node;
+  }
+
+  function setGlobalActionNode(name, propertyName, valueExpression) {
+    return {
+      className: "ngx.components.UIDynamicAction#SetGlobalAction",
+      name: name,
+      properties: {
+        Property: {
+          mode: "PLAIN",
+          value: String(propertyName || "")
+        },
+        Value: {
+          mode: "SCRIPT",
+          value: valueExpression || "''"
+        }
+      }
+    };
+  }
+
+  function setLocalActionNode(name, propertyName, valueExpression) {
+    return {
+      className: "ngx.components.UIDynamicAction#SetLocalAction",
+      name: name,
+      properties: {
+        Property: {
+          mode: "PLAIN",
+          value: String(propertyName || "")
+        },
+        Value: {
+          mode: "SCRIPT",
+          value: valueExpression || "''"
+        }
+      }
+    };
+  }
+
+  function dynamicInvokeNode(name, stackQName, variables) {
+    return {
+      className: "ngx.components.UIDynamicInvoke#InvokeAction",
+      name: name,
+      properties: {
+        stack: String(stackQName || "")
+      },
+      children: ensureArray(variables)
+    };
+  }
+
+  function actionStackNode(name, variables, children, comment) {
+    var stackChildren = [];
+    var vars = ensureArray(variables);
+    for (var i = 0; i < vars.length; i++) {
+      stackChildren.push(vars[i]);
+    }
+    stackChildren = stackChildren.concat(ensureArray(children));
+    var node = {
+      className: "ngx.components.UIActionStack#UIActionStack",
+      name: name,
+      children: stackChildren
+    };
+    if (trimmed(comment).length) {
+      node.properties = {
+        comment: String(comment)
+      };
+    }
+    return node;
   }
 
   function dashboardStatCardTree(componentName) {
@@ -2310,7 +5041,7 @@ C8O.crud = C8O.crud || {};
     var serialized = JSON.stringify(uiTree || {});
     return {
       starterDominant: serialized.indexOf("WelcomeCard") !== -1,
-      visibleShellPresent: /FeatureShell|CrudDashboardGrid|UseCrudPageHeader|UseContactsStatCard|UseCompaniesStatCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseCompanyCard|UseContactForm|UseCompanyForm/.test(serialized),
+      visibleShellPresent: /FeatureShell|CrudDashboardGrid|CrmMasterDetailGrid|UseCrudPageHeader|UseWorkInProgressCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseContactTable|UseCompanyCard|UseCompanyTable/.test(serialized),
       liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared|UIUseVariable/.test(serialized)
     };
   }
@@ -2349,11 +5080,15 @@ C8O.crud = C8O.crud || {};
     if (!project) {
       throw new Error("Project " + projectName + " is not loaded");
     }
-    var entities = normalizeUiEntities(options.entities);
+    var entities = hydrateUiEntitiesFromFacade(projectName, trimmed(options.facadePrefix || "crud"), normalizeUiEntities(options.entities), result);
     var entryPage = trimmed(options.entryPage || "Page");
     var facadePrefix = trimmed(options.facadePrefix || "crud");
+    var variant = trimmed(options.variant || "dashboard").toLowerCase() || "dashboard";
+    var stage = trimmed(options.stage || "final").toLowerCase() || "final";
+    var pageQNameValue = pageQName(projectName, entryPage);
     var contentQName = findPageContentQName(projectName, entryPage);
     var ngxApp = C8O.dbo.resolve(ngxAppQName(projectName), { optional: true });
+    var pageDbo = C8O.dbo.resolve(pageQNameValue, { optional: true });
     var contentDbo = C8O.dbo.resolve(contentQName, { optional: true });
     if (!ngxApp) {
       throw new Error("NGX application root not found for " + projectName);
@@ -2363,21 +5098,38 @@ C8O.crud = C8O.crud || {};
     }
     var timings = {};
     result.runtimeEvidence.timings = timings;
+    result.runtimeEvidence.variant = variant;
+    result.runtimeEvidence.stage = stage;
     result.runtimeEvidence.mutationCounts = {
       created: 0,
       updated: 0
     };
     var sharedBuildStartedAt = nowMillis();
-    var sharedComponents = buildSharedComponentsTree(projectName, entities);
+    var sharedComponents = variant === "master-detail"
+      ? buildCrmSharedComponentsTree(projectName, stage)
+      : buildDashboardSharedComponentsTree(projectName, entities, stage);
+    var sharedActions = variant === "master-detail"
+      ? buildCrmActionStacksTree(projectName, facadePrefix, stage)
+      : buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage);
+    var reuseExistingSharedActions = stage === "final" && everyQNameExists(sharedActions.qnames);
+    var sharedActionChildren = reuseExistingSharedActions ? [] : ensureArray(sharedActions.tree.children);
     setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
     result.runtimeEvidence.sharedComponentsRequested = ensureArray(sharedComponents.tree.children).length;
     result.runtimeEvidence.sharedComponentTreeNodeCount = countTreeNodes(sharedComponents.tree);
+    result.runtimeEvidence.sharedActionsRequested = ensureArray(sharedActions.tree.children).length;
+    result.runtimeEvidence.sharedActionTreeNodeCount = countTreeNodes(sharedActions.tree);
+    result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
+    result.runtimeEvidence.uiGlobals = statefulUiGlobals(variant);
     var pageShellStartedAt = nowMillis();
-    var pageShellTree = buildPageShellTree(projectName, entryPage, entities, options.runtimeEvidence || {}, facadePrefix);
+    var pageShellTree = variant === "master-detail"
+      ? buildCrmMasterDetailPageShellTree(projectName, stage)
+      : buildDashboardPageShellTree(projectName, entities, stage);
     setDuration(timings, "buildPageShellTreeMs", pageShellStartedAt);
     result.runtimeEvidence.pageShellTreeNodeCount = countTreeNodes(pageShellTree);
     var pageLoadStartedAt = nowMillis();
-    var pageLoadTree = buildPageLoadTree(projectName, entryPage, entities, facadePrefix);
+    var pageLoadTree = variant === "master-detail"
+      ? buildCrmPageLoadTree(projectName, entryPage, stage)
+      : buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage);
     setDuration(timings, "buildPageLoadTreeMs", pageLoadStartedAt);
     result.runtimeEvidence.pageLoadTreeNodeCount = countTreeNodes(pageLoadTree.tree);
     var batchApplyStartedAt = nowMillis();
@@ -2397,6 +5149,16 @@ C8O.crud = C8O.crud || {};
         }
       }
     ];
+    if (stage === "final") {
+      var bootstrapRowQName = statefulBootstrapRowQName(projectName, entryPage, variant);
+      if (C8O.dbo.resolve(bootstrapRowQName, { optional: true })) {
+        pageMutationOperations.unshift({
+          type: "delete",
+          opId: "delete_" + normalizedIdentifier(bootstrapRowQName),
+          qname: bootstrapRowQName
+        });
+      }
+    }
     var legacyPageLoadQNames = ensureArray(pageLoadTree.legacyQNames);
     for (var legacyIndex = 0; legacyIndex < legacyPageLoadQNames.length; legacyIndex++) {
       var legacyQName = trimmed(legacyPageLoadQNames[legacyIndex]);
@@ -2412,41 +5174,60 @@ C8O.crud = C8O.crud || {};
         qname: legacyQName
       });
     }
+    var batchOperations = [
+      {
+        type: "upsertTree",
+        opId: "shared_components",
+        qname: ngxAppQName(projectName),
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          children: ensureArray(sharedComponents.tree.children).concat(sharedActionChildren)
+        }
+      },
+      {
+        type: "upsertTree",
+        opId: "entry_page",
+        qname: contentQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: true,
+          reorder: false
+        },
+        patch: {
+          properties: pageShellTree.properties || {},
+          children: ensureArray(pageShellTree.children)
+        }
+      }
+    ].concat(pageMutationOperations);
+    if (reuseExistingSharedActions) {
+      var buildStageQName = statefulBootstrapStageQName(projectName, variant);
+      if (C8O.dbo.resolve(buildStageQName, { optional: true })) {
+        batchOperations.push({
+          type: "setProperties",
+          opId: "stateful_build_stage",
+          qname: buildStageQName,
+          properties: {
+            Value: {
+              mode: "SCRIPT",
+              value: scriptLiteral(stage)
+            }
+          }
+        });
+      } else {
+        addWarning(result, "Unable to reuse stateful actions: build stage node not found for " + buildStageQName);
+      }
+    }
     var batchApplyResult = C8O.dbo.batchApply({
       target: ngxAppQName(projectName),
       strict: true,
       onError: "stop",
       autoSave: false,
       triggerMobileBuilder: false,
-      operations: [
-        {
-          type: "upsertTree",
-          opId: "shared_components",
-          qname: ngxAppQName(projectName),
-          strategy: {
-            replaceOnClassMismatch: true,
-            pruneMissing: false,
-            reorder: false
-          },
-          patch: {
-            children: ensureArray(sharedComponents.tree.children)
-          }
-        },
-        {
-          type: "upsertTree",
-          opId: "entry_page",
-          qname: contentQName,
-          strategy: {
-            replaceOnClassMismatch: true,
-            pruneMissing: true,
-            reorder: false
-          },
-          patch: {
-            properties: pageShellTree.properties || {},
-            children: ensureArray(pageShellTree.children)
-          }
-        }
-      ].concat(pageMutationOperations)
+      operations: batchOperations
     });
     setDuration(timings, "batchTreeApplyMs", batchApplyStartedAt);
     collectBatchWarnings(batchApplyResult, result, "batchApply");
@@ -2458,6 +5239,7 @@ C8O.crud = C8O.crud || {};
     result.runtimeEvidence.sharedComponentsApply = operationSummary(batchApplyResult, "shared_components", ngxAppQName(projectName));
     result.runtimeEvidence.treeApply = operationSummary(batchApplyResult, "entry_page", contentQName);
     result.runtimeEvidence.pageLoadApply = operationSummary(batchApplyResult, "entry_page_load", pageQName(projectName, entryPage));
+    result.runtimeEvidence.sharedActions = sharedActions.qnames.slice();
     timings.applySharedComponentsMs = timings.batchTreeApplyMs;
     timings.applyPagePropertiesMs = 0;
     timings.prunePageChildrenMs = 0;
@@ -2468,7 +5250,7 @@ C8O.crud = C8O.crud || {};
     result.runtimeEvidence.mutationCounts.deleted = Number(batchSummary.deleted || 0);
     result.runtimeEvidence.mutationCounts.replaced = Number(batchSummary.replaced || 0);
     var sharedBindingsStartedAt = nowMillis();
-    var sharedBindingOperations = buildSharedBindingOperations(projectName, entities, result);
+    var sharedBindingOperations = [];
     if (sharedBindingOperations.length) {
       var sharedBindingsBatch = C8O.dbo.batchApply({
         target: ngxAppQName(projectName),
@@ -2515,7 +5297,7 @@ C8O.crud = C8O.crud || {};
     }
     try {
       var mobileBuilderStartedAt = nowMillis();
-      result.runtimeEvidence.mobileBuilder = C8O.dbo.triggerMobileBuilderRefresh(ngxApp, ensureWarnings(result));
+      result.runtimeEvidence.mobileBuilder = C8O.dbo.triggerMobileBuilderRefresh(pageDbo || contentDbo || ngxApp, ensureWarnings(result));
       setDuration(timings, "mobileBuilderMs", mobileBuilderStartedAt);
       var projectSaveStartedAt = nowMillis();
       result.runtimeEvidence.projectSave = summarizeSaveResult(C8O.dbo.saveProject(project, []), result);
@@ -2533,6 +5315,7 @@ C8O.crud = C8O.crud || {};
 
   function buildCrudStatus(spec, connector, result) {
     var project = findProjectByName(spec.project);
+    var crm = crmRelationContext(spec);
     var status = {
       status: "ok",
       project: spec.project,
@@ -2550,7 +5333,14 @@ C8O.crud = C8O.crud || {};
         starterDominant: null,
         visibleShellPresent: false,
         liveBindingPresent: false,
+        statefulActionsPresent: false,
+        pageBootstrapPresent: false,
+        expectedGlobals: statefulUiGlobals(spec.ui.variant),
         targetQName: findPageContentQName(spec.project, spec.ui.entryPage)
+      },
+      crm: {
+        enabled: !!crm,
+        relationRequestable: crm ? (spec.project + "." + spec.facade.prefix + "_list_company_contacts") : ""
       },
       missing: [],
       warnings: []
@@ -2586,6 +5376,20 @@ C8O.crud = C8O.crud || {};
         status.missing.push(txQName);
       }
     }
+    if (!crm && C8O.dbo.resolve(spec.project + "." + spec.database.connector + ".list_contacts", { optional: true }) && C8O.dbo.resolve(spec.project + "." + spec.database.connector + ".list_companies", { optional: true })) {
+      crm = { inferred: true };
+      status.crm.enabled = true;
+      status.crm.relationRequestable = spec.project + "." + spec.facade.prefix + "_list_company_contacts";
+    }
+    if (status.crm.enabled) {
+      var relationTxQName = spec.project + "." + spec.database.connector + ".list_company_contacts";
+      if (C8O.dbo.resolve(relationTxQName, { optional: true })) {
+        status.transactions.present.push(relationTxQName);
+      } else {
+        status.transactions.missing.push(relationTxQName);
+        status.missing.push(relationTxQName);
+      }
+    }
 
     if (toBoolean(result.sequence, true)) {
       for (var k = 0; k < spec.entities.length; k++) {
@@ -2615,6 +5419,15 @@ C8O.crud = C8O.crud || {};
           }
         } catch (_ignoreSequencesList) {}
       }
+      if (status.crm.enabled) {
+        var relationSeqQName = spec.project + "." + spec.facade.prefix + "_list_company_contacts";
+        if (C8O.dbo.resolve(relationSeqQName, { optional: true })) {
+          status.sequences.present.push(relationSeqQName);
+        } else {
+          status.sequences.missing.push(relationSeqQName);
+          status.missing.push(relationSeqQName);
+        }
+      }
     }
 
     try {
@@ -2630,6 +5443,39 @@ C8O.crud = C8O.crud || {};
       status.ui.liveBindingPresent = uiAudit.liveBindingPresent;
     } catch (uiError) {
       addWarning(status, "Unable to inspect UI target: " + String(uiError));
+    }
+
+    try {
+      var bootstrapStackQName = trimmed(spec.ui.variant).toLowerCase() === "master-detail"
+        ? crmActionQName(spec.project, "crm_bootstrap_dashboard")
+        : dashboardActionQName(spec.project, "crud_bootstrap_dashboard");
+      var retryStackQName = trimmed(spec.ui.variant).toLowerCase() === "master-detail"
+        ? crmActionQName(spec.project, "crm_retry_dashboard")
+        : dashboardActionQName(spec.project, "crud_retry_dashboard");
+      status.ui.statefulActionsPresent = !!(C8O.dbo.resolve(bootstrapStackQName, { optional: true }) && C8O.dbo.resolve(retryStackQName, { optional: true }));
+    } catch (uiActionError) {
+      addWarning(status, "Unable to inspect UI shared actions: " + String(uiActionError));
+    }
+
+    try {
+      var pageTree = callInternalSequence("tools_databaseobject_tree_get", {
+        target: pageQName(spec.project, spec.ui.entryPage),
+        childrenDepth: 2,
+        properties: "all",
+        limit: 180
+      });
+      var pageNames = collectTreeNames(pageTree && pageTree.tree, []);
+      var pageScriptContent = "";
+      if (pageTree && pageTree.tree && pageTree.tree.properties && pageTree.tree.properties.scriptContent != null) {
+        pageScriptContent = String(pageTree.tree.properties.scriptContent);
+      }
+      var hasPageEventBootstrap = pageNames.indexOf("PageEvent") !== -1 && pageNames.indexOf("InvokeBootstrapDashboard") !== -1;
+      var hasScriptBootstrap = trimmed(spec.ui.variant).toLowerCase() === "master-detail"
+        ? /bootstrapCrmDashboardState|crmBuildStage/.test(pageScriptContent)
+        : /bootstrapCrudDashboardState|crudBuildStage/.test(pageScriptContent);
+      status.ui.pageBootstrapPresent = hasPageEventBootstrap || hasScriptBootstrap;
+    } catch (pageInspectError) {
+      addWarning(status, "Unable to inspect UI page bootstrap hook: " + String(pageInspectError));
     }
 
     if (status.missing.length) {
@@ -2670,14 +5516,15 @@ C8O.crud = C8O.crud || {};
     ensureSqlTransaction(connector, "RollbackTransaction", "ROLLBACK;", SqlTransaction.AUTOCOMMIT_OFF, result);
     ensureSqlTransaction(connector, "init_schema", buildInitSql(spec), SqlTransaction.AUTOCOMMIT_OFF, result);
 
+    var crm = crmRelationContext(spec);
     for (var i = 0; i < spec.entities.length; i++) {
       var entity = spec.entities[i];
-      var listTx = ensureSqlTransaction(connector, txName(entity, "list"), buildCrudSql(entity, "list"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var countTx = ensureSqlTransaction(connector, txName(entity, "count"), buildCrudSql(entity, "count"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var readTx = ensureSqlTransaction(connector, txName(entity, "read"), buildCrudSql(entity, "read"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var createTx = ensureSqlTransaction(connector, txName(entity, "create"), buildCrudSql(entity, "create"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var updateTx = ensureSqlTransaction(connector, txName(entity, "update"), buildCrudSql(entity, "update"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var deleteTx = ensureSqlTransaction(connector, txName(entity, "delete"), buildCrudSql(entity, "delete"), SqlTransaction.AUTOCOMMIT_EACH, result);
+      var listTx = ensureSqlTransaction(connector, txName(entity, "list"), buildCrudSql(spec, entity, "list"), SqlTransaction.AUTOCOMMIT_EACH, result);
+      var countTx = ensureSqlTransaction(connector, txName(entity, "count"), buildCrudSql(spec, entity, "count"), SqlTransaction.AUTOCOMMIT_EACH, result);
+      var readTx = ensureSqlTransaction(connector, txName(entity, "read"), buildCrudSql(spec, entity, "read"), SqlTransaction.AUTOCOMMIT_EACH, result);
+      var createTx = ensureSqlTransaction(connector, txName(entity, "create"), buildCrudSql(spec, entity, "create"), SqlTransaction.AUTOCOMMIT_EACH, result);
+      var updateTx = ensureSqlTransaction(connector, txName(entity, "update"), buildCrudSql(spec, entity, "update"), SqlTransaction.AUTOCOMMIT_EACH, result);
+      var deleteTx = ensureSqlTransaction(connector, txName(entity, "delete"), buildCrudSql(spec, entity, "delete"), SqlTransaction.AUTOCOMMIT_EACH, result);
 
       if (result.sequence) {
         var listVars = collectTransactionVariables(listTx);
@@ -2710,6 +5557,21 @@ C8O.crud = C8O.crud || {};
       }
     }
 
+    if (crm) {
+      var companyContactsTx = ensureSqlTransaction(connector, "list_company_contacts", buildCrmCompanyContactsSql(spec), SqlTransaction.AUTOCOMMIT_EACH, result);
+      if (result.sequence) {
+        var companyContactsVars = collectTransactionVariables(companyContactsTx);
+        var companyContactsSeq = ensurePublicSequence(
+          project,
+          spec.facade.prefix + "_list_company_contacts",
+          connectorRequestableQName(spec.project, spec.database.connector, "list_company_contacts"),
+          companyContactsVars,
+          result
+        );
+        result.primaryTargets.flow.push(companyContactsSeq.getFullQName ? String(companyContactsSeq.getFullQName()) : (spec.project + "." + spec.facade.prefix + "_list_company_contacts"));
+      }
+    }
+
     var saveResult = C8O.dbo.saveProject(project, []);
     result.runtimeEvidence.projectSave = summarizeSaveResult(saveResult, result);
     result.runtimeEvidence.studioRefresh = refreshStudioProjectTree(project, result, "studioRefresh");
@@ -2719,12 +5581,21 @@ C8O.crud = C8O.crud || {};
       result.runtimeEvidence[txName(currentEntity, "list")] = proofRequestable(spec.project + "." + spec.database.connector + "." + txName(currentEntity, "list"), {}, result);
       result.runtimeEvidence[txName(currentEntity, "count")] = proofRequestable(spec.project + "." + spec.database.connector + "." + txName(currentEntity, "count"), {}, result);
     }
+    if (crm) {
+      result.runtimeEvidence.list_company_contacts = {
+        requestable: spec.project + "." + spec.database.connector + ".list_company_contacts",
+        status: "pending",
+        ok: true,
+        message: "Relation facade created. Runtime relation proof happens in crud-proof."
+      };
+    }
 
     if (result.uiEnabled) {
       var uiResult = upsertNgxCrudKit({
         project: spec.project,
         entities: spec.entities,
         variant: spec.ui.variant,
+        stage: "bootstrap",
         facadePrefix: spec.facade.prefix,
         entryPage: spec.ui.entryPage,
         runtimeEvidence: result.runtimeEvidence
@@ -2776,10 +5647,14 @@ C8O.crud = C8O.crud || {};
         prefix: trimmed(options.facadePrefix || "crud"),
         publicListSequence: ""
       },
-      seed: { enabled: true, rowsPerEntity: 2 },
+      seed: {
+        enabled: true,
+        profile: trimmed(options.profile || (trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? "crm" : "basic")),
+        rowsPerEntity: trimmed(options.profile || "").toLowerCase() === "crm" || trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? 20 : 2
+      },
       ui: {
         entryPage: trimmed(options.entryPage || "Page"),
-        variant: trimmed(options.variant || "dashboard")
+        variant: trimmed(options.variant || (trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? "master-detail" : "dashboard"))
       },
       database: normalizeDatabaseSpec({
         project: projectName,
@@ -2820,6 +5695,7 @@ C8O.crud = C8O.crud || {};
     var result = inspectCrudStatus(options || {});
     result.entryPage = trimmed((options || {}).entryPage || "Page");
     result.expectUiShell = toBoolean((options || {}).expectUiShell, false);
+    result.viewerUrl = trimmed((options || {}).viewerUrl || "");
     result.requestables = [];
     result.checks = [];
 
@@ -2851,13 +5727,61 @@ C8O.crud = C8O.crud || {};
       }
     }
 
+    if (result.crm && result.crm.enabled) {
+      var companiesRequestable = result.project + "." + trimmed((options || {}).facadePrefix || "crud") + "_list_companies";
+      var companyListPayload = requestablePayload(companiesRequestable, {}, result);
+      var companyListProof = summarizeRequestableProof(companyListPayload, companiesRequestable, result);
+      result.requestables.push(companyListProof);
+      result.checks.push(proofCheck("requestable:" + normalizedIdentifier(companiesRequestable), companyListProof.ok === true, companyListProof.ok ? "" : (companyListProof.message || "Company list proof failed."), companiesRequestable));
+      var firstCompanyRow = firstSqlOutputRow(companyListPayload);
+      var firstCompanyId = extractRowField(firstCompanyRow, ["ID", "id"]);
+      var relationRequestable = result.crm.relationRequestable;
+      if (firstCompanyId == null || firstCompanyId === "") {
+        result.checks.push(proofCheck("crm-company-selection", false, "No company row was available to prove the company->contacts relation.", companiesRequestable));
+        pushMissing(result, relationRequestable);
+      } else {
+        var relationPayload = requestablePayload(relationRequestable, { company_id: String(firstCompanyId) }, result);
+        var relationProof = summarizeRequestableProof(relationPayload, relationRequestable, result);
+        result.requestables.push(relationProof);
+        result.checks.push(proofCheck("crm-company-contacts", relationProof.ok === true, relationProof.ok ? "" : (relationProof.message || "Company contacts relation proof failed."), relationRequestable));
+        if (relationProof.ok !== true) {
+          pushMissing(result, relationRequestable);
+        }
+      }
+    }
+
     if (result.expectUiShell) {
       var shellVisible = result.ui && result.ui.visibleShellPresent === true;
       var starterReplaced = result.ui && result.ui.starterDominant === false;
+      var liveBinding = result.ui && result.ui.liveBindingPresent === true;
+      var statefulActions = result.ui && result.ui.statefulActionsPresent === true;
+      var pageBootstrap = result.ui && result.ui.pageBootstrapPresent === true;
       result.checks.push(proofCheck("ui-visible-shell", shellVisible, shellVisible ? "" : "Visible CRUD shell is not present on the entry page.", result.ui && result.ui.targetQName));
       result.checks.push(proofCheck("ui-starter-replaced", starterReplaced, starterReplaced ? "" : "Starter content is still dominant on the entry page.", result.ui && result.ui.targetQName));
-      if (!shellVisible || !starterReplaced) {
+      result.checks.push(proofCheck("ui-live-binding", liveBinding, liveBinding ? "" : "Live state bindings are missing from the entry page.", result.ui && result.ui.targetQName));
+      result.checks.push(proofCheck("ui-stateful-actions", statefulActions, statefulActions ? "" : "Shared action stacks are missing for the UI state flow.", result.project));
+      result.checks.push(proofCheck("ui-page-bootstrap", pageBootstrap, pageBootstrap ? "" : "Entry page does not bootstrap the stateful UI flow.", result.project + ".Application.NgxApp." + result.entryPage));
+      if (result.viewerUrl.length) {
+        result.ui.viewerProbe = probeViewer(
+          result.viewerUrl,
+          result.project,
+          trimmed((options || {}).facadePrefix || "crud"),
+          result.crm && result.crm.enabled === true,
+          result.sequences && result.sequences.present ? result.sequences.present : [],
+          ensureWarnings(result)
+        );
+        result.checks.push(proofCheck(
+          "ui-viewer-probe",
+          result.ui.viewerProbe && result.ui.viewerProbe.ok === true,
+          result.ui.viewerProbe && result.ui.viewerProbe.ok === true ? "" : (result.ui.viewerProbe && result.ui.viewerProbe.message ? result.ui.viewerProbe.message : "Viewer proof failed."),
+          result.viewerUrl
+        ));
+      }
+      if (!shellVisible || !starterReplaced || !liveBinding || !statefulActions || !pageBootstrap) {
         pushMissing(result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
+      }
+      if (result.viewerUrl.length && !(result.ui && result.ui.viewerProbe && result.ui.viewerProbe.ok === true)) {
+        pushMissing(result, result.viewerUrl);
       }
     }
 

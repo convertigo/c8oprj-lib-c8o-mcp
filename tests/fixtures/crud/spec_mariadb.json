@@ -23,7 +23,8 @@
         { "name": "Id", "type": "INT", "primary": true },
         { "name": "FirstName", "type": "VARCHAR(128)" },
         { "name": "LastName", "type": "VARCHAR(128)" },
-        { "name": "Email", "type": "VARCHAR(255)", "unique": true }
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "CompanyId", "column": "company_id", "type": "INT", "required": true, "references": { "entity": "companies", "field": "id" } }
       ]
     },
     {
@@ -39,10 +40,11 @@
   ],
   "seed": {
     "enabled": true,
-    "rowsPerEntity": 2
+    "profile": "crm",
+    "rowsPerEntity": 20
   },
   "ui": {
     "entryPage": "Page",
-    "variant": "dashboard"
+    "variant": "master-detail"
   }
 }

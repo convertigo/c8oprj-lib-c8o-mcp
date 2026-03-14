@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Create or update a deterministic NGX CRUD kit
-  Replaces the visible starter entry page content with a deterministic CRUD/dashboard shell and shared UI state blocks.
+  Replaces the visible starter entry page content with a deterministic CRUD/dashboard shell, staged bootstrap/final markers, and shared UI state blocks.
 ↓IncludeHelpers [steps.SimpleStep-1773318401001]: 
   comment: Load deterministic CRUD helpers
   expression: include("js/tools_crud.js");
@@ -42,6 +42,7 @@ comment: |
       project: project,
       entities: parsedEntities,
       variant: variant,
+      stage: stage,
       facadePrefix: facadePrefix,
       entryPage: entryPage,
       runtimeEvidence: parsedRuntimeEvidence
@@ -154,3 +155,7 @@ comment: |
   comment: Optional runtime evidence object or JSON string used to surface live counts in the shell.
   description: Optional runtime evidence object or JSON string used to surface live counts in the shell.
   value: '{}'
+↓stage [variables.RequestableVariable-1773470561524]: 
+  comment: UI assembly stage. Use bootstrap for the first visible shell, then final after proof.
+  description: UI assembly stage. Use bootstrap for the first visible shell, then final after proof.
+  value: final

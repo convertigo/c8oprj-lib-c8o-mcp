@@ -34,13 +34,16 @@ Default assumptions for the fast path:
 - visible entry page is `Page`
 - facade prefix is `crud`
 - deterministic shared-component shell is acceptable for the first visible pass
+- for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 
 ## Deterministic rail
 1. Call `upsert-crud` with a complete `spec`.
 2. Call `crud-proof` for backend evidence.
-3. If backend proof is green, call `upsert-ngx-crud-kit`.
-4. Call `crud-proof` again with `expectUiShell=true`.
-5. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
+3. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
+4. Open the app early with `mobile-builder-open` and keep the returned `viewerUrl`.
+5. Call `upsert-ngx-crud-kit` again with `stage=final`.
+6. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
+7. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
 
 ## Proof contract
 `crud-proof` is sufficient when all of these hold:
@@ -51,6 +54,7 @@ Default assumptions for the fast path:
 - proof requestables report `ok=true`
 - when `expectUiShell=true`, `ui.visibleShellPresent == true`
 - when `expectUiShell=true`, `ui.starterDominant == false`
+- when a `viewerUrl` is provided, `ui.viewerProbe.ok == true`
 
 ## Example proof requestables
 For the default `Contact` / `Company` fast path:
@@ -59,6 +63,7 @@ For the default `Contact` / `Company` fast path:
 - `count_contacts`
 - `list_companies`
 - `count_companies`
+- `list_company_contacts`
 
 ## Anti-patterns
 - Do not route a standard CRUD task through planner/specialist handoffs first.

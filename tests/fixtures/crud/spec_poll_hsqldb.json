@@ -1,0 +1,70 @@
+{
+  "project": "GroupOutingsPoll",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "group_outings_poll",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "poll",
+    "publicListSequence": "poll_list"
+  },
+  "entities": [
+    {
+      "name": "groups",
+      "label": "Groups",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "City", "type": "VARCHAR(128)" }
+      ]
+    },
+    {
+      "name": "members",
+      "label": "Members",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "type": "VARCHAR(128)" },
+        { "name": "LastName", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "GroupId", "column": "group_id", "type": "INT", "required": true, "references": { "entity": "groups", "field": "id" } }
+      ]
+    },
+    {
+      "name": "outings",
+      "label": "Outings",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Title", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Category", "type": "VARCHAR(128)" },
+        { "name": "PreferredDay", "column": "preferred_day", "type": "VARCHAR(64)" },
+        { "name": "GroupId", "column": "group_id", "type": "INT", "required": true, "references": { "entity": "groups", "field": "id" } }
+      ]
+    },
+    {
+      "name": "preferences",
+      "label": "Preferences",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "MemberId", "column": "member_id", "type": "INT", "required": true, "references": { "entity": "members", "field": "id" } },
+        { "name": "OutingId", "column": "outing_id", "type": "INT", "required": true, "references": { "entity": "outings", "field": "id" } },
+        { "name": "Vote", "type": "VARCHAR(32)" },
+        { "name": "Comment", "type": "VARCHAR(255)" }
+      ]
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 8
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "dashboard"
+  }
+}

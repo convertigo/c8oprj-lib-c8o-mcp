@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -11,6 +12,11 @@ from urllib.request import Request, urlopen
 ROOT = Path("/Users/nicolas/git/c8oprj-c8o-mcp")
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 PROTOCOL_VERSION = "2025-06-18"
+TEST_PROJECT_PATTERNS = (
+    re.compile(r"^CrudSmoke"),
+    re.compile(r"^FreshSessionFastpath_"),
+    re.compile(r"^Fastpath"),
+)
 
 
 def call_mcp(url, payload, timeout=60):
@@ -98,6 +104,17 @@ def unique_project(base):
     return f"{base}_{int(time.time())}"
 
 
+def singularize_name(name):
+    text = str(name or "")
+    if text.endswith("ies"):
+        return text[:-3] + "y"
+    if text.endswith("ses"):
+        return text[:-2]
+    if text.endswith("s") and len(text) > 1:
+        return text[:-1]
+    return text
+
+
 def load_spec(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -107,6 +124,53 @@ def cleanup_project(url, project):
         call_tool(url, "project-delete", {"project": project})
     except Exception:
         pass
+
+
+def expected_ui_globals(variant):
+    return [
+        "crmBuildStage",
+        "crmLoading",
+        "crmError",
+        "crmStatus",
+        "crmCompanies",
+        "crmContacts",
+        "crmCounts",
+        "crmSelectedCompany",
+        "crmCompanyContacts",
+    ] if variant == "master-detail" else [
+        "crudBuildStage",
+        "crudLoading",
+        "crudError",
+        "crudStatus",
+        "crudRows",
+        "crudCounts",
+        "crudSamples",
+    ]
+
+
+def list_projects(url, filter_text):
+    return (call_tool(url, "project-list", {"filter": filter_text, "limit": 100}, timeout=60) or {}).get("projects", [])
+
+
+def list_test_projects(url):
+    names = []
+    for filter_text in ("CrudSmoke", "FreshSessionFastpath", "Fastpath"):
+        for project in list_projects(url, filter_text):
+            name = str(project.get("name") or "")
+            if name and any(pattern.search(name) for pattern in TEST_PROJECT_PATTERNS) and name not in names:
+                names.append(name)
+    return names
+
+
+def purge_test_projects(url, exclude=None):
+    exclude = set(exclude or [])
+    deleted = []
+    for project in list_test_projects(url):
+        if project in exclude:
+            continue
+        cleanup_project(url, project)
+        deleted.append(project)
+    return deleted
 
 
 def flatten_tree_names(node, names=None):
@@ -135,12 +199,44 @@ def serialize_tree(node):
     return json.dumps(node or {}, ensure_ascii=True, sort_keys=True)
 
 
+def sql_output_rows(payload):
+    if isinstance(payload, dict):
+        rows = payload.get("sql_output")
+        if isinstance(rows, list):
+            return rows
+        for key in ("result", "response", "document"):
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                rows = nested.get("sql_output")
+                if isinstance(rows, list):
+                    return rows
+    return []
+
+
+def first_row(payload):
+    rows = sql_output_rows(payload)
+    return rows[0] if rows else {}
+
+
+def row_value(row, *keys):
+    for key in keys:
+        if isinstance(row, dict) and key in row and row[key] not in (None, ""):
+            return row[key]
+    return None
+
+
 def validate_runtime(url, spec, artifact_dir):
     project = spec["project"]
     connector = spec["database"]["connector"]
     facade_prefix = spec["facade"]["prefix"]
     entry_page = spec["ui"].get("entryPage", "Page")
-    requestables = ["init_schema", "list_contacts", "count_contacts", "list_companies", "count_companies"]
+    variant = spec["ui"].get("variant", "dashboard")
+    entities = spec["entities"]
+    entity_names = [entity["name"] for entity in entities]
+    requestables = ["init_schema"] + [f"list_{name}" for name in entity_names] + [f"count_{name}" for name in entity_names]
+    is_crm = variant == "master-detail" and "contacts" in entity_names and "companies" in entity_names
+    if is_crm:
+        requestables.append("list_company_contacts")
     artifact = {"project": project, "steps": []}
 
     print(f"[crud-validate] start project={project} driver={spec['database']['mode']}", flush=True)
@@ -160,6 +256,8 @@ def validate_runtime(url, spec, artifact_dir):
             "project": project,
             "connector": connector,
             "facadePrefix": facade_prefix,
+            "profile": spec.get("seed", {}).get("profile", ""),
+            "variant": spec["ui"].get("variant", ""),
             "proofRequestables": requestables,
         },
         timeout=180,
@@ -171,47 +269,116 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(not backend_proof.get("sequences", {}).get("missing"), f"Missing sequences after upsert for {project}")
     print(f"[crud-validate] backend crud-proof ok project={project}", flush=True)
 
-    public_requestables = [
-        f"{project}.{facade_prefix}_list_contacts",
-        f"{project}.{facade_prefix}_count_contacts",
-        f"{project}.{facade_prefix}_list_companies",
-        f"{project}.{facade_prefix}_count_companies",
-    ]
+    public_requestables = [f"{project}.{facade_prefix}_list_{entity['name']}" for entity in entities]
+    list_results = {}
     for requestable in public_requestables:
         public_result = call_tool(url, "requestable-execute", {"requestable": requestable, "variables": "{}"}, timeout=120)
         artifact["steps"].append({"tool": "requestable-execute-public", "requestable": requestable, "result": public_result})
         assert_true("error" not in public_result, f"Public facade requestable failed for {project}: {requestable}")
+        list_results[requestable.split(f"{facade_prefix}_list_", 1)[-1]] = public_result
     print(f"[crud-validate] public facade requestables ok project={project}", flush=True)
+    if is_crm:
+        company_list_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{facade_prefix}_list_companies", "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": f"{project}.{facade_prefix}_list_companies", "result": company_list_result})
+        company_row = first_row(company_list_result or {})
+        company_id = row_value(company_row, "ID", "id")
+        assert_true(company_id is not None, f"Unable to extract a company id for relation proof in {project}")
+        relation_result = call_tool(
+            url,
+            "requestable-execute",
+            {
+                "requestable": f"{project}.{facade_prefix}_list_company_contacts",
+                "variables": {"company_id": str(company_id)},
+            },
+            timeout=120,
+        )
+        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": f"{project}.{facade_prefix}_list_company_contacts", "result": relation_result})
+        assert_true("error" not in relation_result, f"Public relation facade failed for {project}")
+        print(f"[crud-validate] public relation facade ok project={project}", flush=True)
 
-    ui_result = call_tool(
+    for entity in entities:
+        count_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{facade_prefix}_count_{entity['name']}", "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": f"{project}.{facade_prefix}_count_{entity['name']}", "result": count_result})
+        total = row_value(first_row(count_result), "TOTAL", "total")
+        assert_true(int(total) == spec["seed"]["rowsPerEntity"], f"Unexpected seed count for {project}.{entity['name']}: {total}")
+    print(f"[crud-validate] seed counts ok project={project}", flush=True)
+
+    bootstrap_ui_result = call_tool(
         url,
         "upsert-ngx-crud-kit",
         {
             "project": project,
             "entities": spec["entities"],
             "variant": spec["ui"].get("variant", "dashboard"),
+            "stage": "bootstrap",
             "facadePrefix": facade_prefix,
             "entryPage": entry_page,
         },
         timeout=180,
     )
-    artifact["steps"].append({"tool": "upsert-ngx-crud-kit", "result": ui_result})
-    assert_true(ui_result.get("status") == "success", f"upsert-ngx-crud-kit did not succeed for {project}")
-    print(f"[crud-validate] upsert-ngx-crud-kit ok project={project}", flush=True)
+    artifact["steps"].append({"tool": "upsert-ngx-crud-kit-bootstrap", "result": bootstrap_ui_result})
+    assert_true(bootstrap_ui_result.get("status") == "success", f"upsert-ngx-crud-kit bootstrap did not succeed for {project}")
+    bootstrap_runtime = bootstrap_ui_result.get("runtimeEvidence") or {}
+    assert_true(int(bootstrap_runtime.get("sharedActionsRequested") or 0) > 0, f"Bootstrap UI did not create shared actions for {project}")
+    assert_true((bootstrap_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected UI globals for {project}: {bootstrap_runtime.get('uiGlobals')}")
+    bootstrap_refs = set((bootstrap_ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
+    assert_true(f"{project}.Application.NgxApp.WorkInProgressCard" in bootstrap_refs, f"Bootstrap shell did not include WorkInProgressCard in {project}")
+    print(f"[crud-validate] bootstrap ngx crud kit ok project={project}", flush=True)
 
-    final_proof = call_tool(
+    mobile_builder = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60}, timeout=180)
+    artifact["steps"].append({"tool": "mobile-builder-open", "result": mobile_builder})
+    assert_true(mobile_builder.get("ready") is True, f"Mobile builder did not become ready for {project}")
+    viewer_url = str(mobile_builder.get("viewerUrl") or mobile_builder.get("baseUrl") or "")
+    assert_true(bool(viewer_url), f"Mobile builder did not expose a viewer URL for {project}")
+    print(f"[crud-validate] mobile builder ready project={project}", flush=True)
+
+    final_ui_result = call_tool(
         url,
-        "crud-proof",
+        "upsert-ngx-crud-kit",
         {
             "project": project,
-            "connector": connector,
+            "entities": spec["entities"],
+            "variant": spec["ui"].get("variant", "dashboard"),
+            "stage": "final",
             "facadePrefix": facade_prefix,
             "entryPage": entry_page,
-            "expectUiShell": True,
-            "proofRequestables": requestables,
         },
         timeout=180,
     )
+    artifact["steps"].append({"tool": "upsert-ngx-crud-kit-final", "result": final_ui_result})
+    assert_true(final_ui_result.get("status") == "success", f"upsert-ngx-crud-kit final did not succeed for {project}")
+    final_runtime = final_ui_result.get("runtimeEvidence") or {}
+    assert_true(int(final_runtime.get("sharedActionsRequested") or 0) > 0, f"Final UI did not keep shared actions for {project}")
+    assert_true((final_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected final UI globals for {project}: {final_runtime.get('uiGlobals')}")
+    final_refs = set((final_ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
+    assert_true(f"{project}.Application.NgxApp.WorkInProgressCard" not in final_refs, f"Final shell still exposes WorkInProgressCard in {project}")
+    mobile_builder_final = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60, "forceRestart": True}, timeout=180)
+    artifact["steps"].append({"tool": "mobile-builder-open-final", "result": mobile_builder_final})
+    assert_true(mobile_builder_final.get("ready") is True, f"Final mobile builder refresh did not become ready for {project}")
+    viewer_url = str(mobile_builder_final.get("viewerUrl") or mobile_builder_final.get("baseUrl") or viewer_url)
+    print(f"[crud-validate] final ngx crud kit ok project={project}", flush=True)
+
+    final_proof = None
+    for attempt in range(3):
+        final_proof = call_tool(
+            url,
+            "crud-proof",
+            {
+                "project": project,
+                "connector": connector,
+                "facadePrefix": facade_prefix,
+                "entryPage": entry_page,
+                "profile": spec.get("seed", {}).get("profile", ""),
+                "variant": spec["ui"].get("variant", ""),
+                "expectUiShell": True,
+                "viewerUrl": viewer_url,
+                "proofRequestables": requestables,
+            },
+            timeout=180,
+        )
+        if final_proof.get("status") == "success":
+            break
+        time.sleep(3)
     artifact["steps"].append({"tool": "crud-proof-final", "result": final_proof})
     assert_true(final_proof.get("status") == "success", f"crud-proof final did not succeed for {project}")
     assert_true(not final_proof.get("missing"), f"crud-proof final missing targets for {project}")
@@ -219,6 +386,12 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(ui.get("starterDominant") is False, f"Starter still dominant for {project}")
     assert_true(ui.get("visibleShellPresent") is True, f"Visible shell missing for {project}")
     assert_true(ui.get("liveBindingPresent") is True, f"Live UI bindings missing for {project}")
+    assert_true(ui.get("statefulActionsPresent") is True, f"Shared UI actions missing for {project}")
+    assert_true(ui.get("pageBootstrapPresent") is True, f"Entry page bootstrap missing for {project}")
+    viewer_probe = ui.get("viewerProbe") or {}
+    assert_true(viewer_probe.get("ok") is True, f"Viewer probe failed for {project}: {viewer_probe.get('message')}")
+    if is_crm:
+        assert_true((final_proof.get("crm") or {}).get("enabled") is True, f"CRM proof metadata missing for {project}")
     print(f"[crud-validate] final crud-proof ui ok project={project}", flush=True)
 
     ngx_tree = call_tool(
@@ -236,44 +409,61 @@ def validate_runtime(url, spec, artifact_dir):
     app_names = set(flatten_tree_names(ngx_tree.get("tree")))
     expected_components = {
         "CrudPageHeader",
-        "DashboardStatCard",
         "CrudLoadingState",
-        "CrudEmptyState",
         "CrudErrorRetryState",
-        "ContactTable",
-        "ContactCard",
-        "ContactForm",
-        "CompanyTable",
-        "CompanyCard",
-        "CompanyForm",
+        "WorkInProgressCard",
     }
+    if is_crm:
+        expected_components.update({
+            "ContactTable",
+            "ContactCard",
+            "CompanyTable",
+            "CompanyCard",
+            "crm_bootstrap_dashboard",
+            "crm_refresh_companies",
+            "crm_refresh_contacts",
+            "crm_select_company",
+            "crm_refresh_company_contacts",
+            "crm_retry_dashboard",
+        })
+    else:
+        expected_components.update({"crud_bootstrap_dashboard", "crud_retry_dashboard"})
+        for entity in entities:
+            singular = singularize_name(entity["name"]).capitalize()
+            expected_components.update({
+                f"{singular}Table",
+                f"{singular}Card",
+                f"{singular}Form",
+                f"crud_refresh_{entity['name']}",
+            })
     missing_components = sorted(expected_components - app_names)
     assert_true(not missing_components, f"Missing shared CRUD components for {project}: {', '.join(missing_components)}")
     print(f"[crud-validate] shared components present project={project}", flush=True)
 
-    page_shared_refs = set((ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
+    page_shared_refs = final_refs
     assert_true(
         f"{project}.Application.NgxApp.CrudPageHeader" in page_shared_refs,
         f"Entry page does not use CrudPageHeader in {project}",
     )
+    for entity in entities:
+        singular = singularize_name(entity["name"]).capitalize()
+        assert_true(
+            f"{project}.Application.NgxApp.{singular}Table" in page_shared_refs,
+            f"Entry page does not use {singular}Table in {project}",
+        )
+        assert_true(
+            f"{project}.Application.NgxApp.{singular}Card" in page_shared_refs,
+            f"Entry page does not use {singular}Card in {project}",
+        )
+        if not is_crm:
+            assert_true(
+                f"{project}.Application.NgxApp.{singular}Form" in page_shared_refs,
+                f"Entry page does not use {singular}Form in {project}",
+            )
     assert_true(
-        f"{project}.Application.NgxApp.DashboardStatCard" in page_shared_refs,
-        f"Entry page does not use DashboardStatCard in {project}",
-    )
-    assert_true(
-        f"{project}.Application.NgxApp.ContactTable" in page_shared_refs and
-        f"{project}.Application.NgxApp.CompanyTable" in page_shared_refs,
-        f"Entry page does not use entity shared tables in {project}",
-    )
-    assert_true(
-        f"{project}.Application.NgxApp.ContactCard" in page_shared_refs and
-        f"{project}.Application.NgxApp.CompanyCard" in page_shared_refs,
-        f"Entry page does not use entity shared cards in {project}",
-    )
-    assert_true(
-        f"{project}.Application.NgxApp.ContactForm" in page_shared_refs and
-        f"{project}.Application.NgxApp.CompanyForm" in page_shared_refs,
-        f"Entry page does not use entity shared forms in {project}",
+        f"{project}.Application.NgxApp.CrudLoadingState" in page_shared_refs and
+        f"{project}.Application.NgxApp.CrudErrorRetryState" in page_shared_refs,
+        f"Entry page does not use state shared components in {project}",
     )
     print(f"[crud-validate] entry page uses shared components project={project}", flush=True)
 
@@ -282,20 +472,16 @@ def validate_runtime(url, spec, artifact_dir):
         "databaseobject-tree-get",
         {
             "target": f"{project}.Application.NgxApp.Page",
-            "childrenDepth": 1,
+            "childrenDepth": 2,
             "properties": "changed",
             "limit": 120,
         },
         timeout=120,
     )
     artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.Page", "result": page_tree})
-    page_properties = (page_tree.get("tree") or {}).get("properties") or {}
-    script_content = str(page_properties.get("scriptContent") or "")
-    assert_true("loadCrudFacade" in script_content, f"Entry page runtime bootstrap missing in {project}")
-    assert_true(f"{project}.crm_count_contacts" in script_content, f"Contact count bootstrap requestable missing in {project}")
-    assert_true(f"{project}.crm_list_contacts" in script_content, f"Contact list bootstrap requestable missing in {project}")
-    assert_true(f"{project}.crm_count_companies" in script_content, f"Company count bootstrap requestable missing in {project}")
-    assert_true(f"{project}.crm_list_companies" in script_content, f"Company list bootstrap requestable missing in {project}")
+    page_names = set(flatten_tree_names(page_tree.get("tree")))
+    assert_true("PageEvent" in page_names, f"Entry page bootstrap event missing in {project}")
+    assert_true("InvokeBootstrapDashboard" in page_names, f"Entry page does not invoke the bootstrap dashboard action in {project}")
     print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
 
     artifact_path = artifact_dir / f"{project}.json"
@@ -306,7 +492,8 @@ def validate_runtime(url, spec, artifact_dir):
         "driverFamily": upsert.get("driverFamily"),
         "upsertCrudStatus": upsert.get("status"),
         "crudProofBackendStatus": backend_proof.get("status"),
-        "upsertNgxCrudKitStatus": ui_result.get("status"),
+        "upsertNgxCrudKitBootstrapStatus": bootstrap_ui_result.get("status"),
+        "upsertNgxCrudKitFinalStatus": final_ui_result.get("status"),
         "crudProofFinalStatus": final_proof.get("status"),
         "ui": final_proof.get("ui", {}),
     }
@@ -333,8 +520,9 @@ def main():
     artifact_dir = Path(args.artifacts_dir)
     artifact_dir.mkdir(parents=True, exist_ok=True)
     wait_for_mcp_ready(args.mcp_url, timeout=90)
+    deleted_projects = purge_test_projects(args.mcp_url)
 
-    results = {"artifacts": [], "scenarios": []}
+    results = {"artifacts": [], "scenarios": [], "deletedProjects": deleted_projects}
 
     hsql_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_hsqldb.json", "")
     artifact_path, summary = validate_runtime(args.mcp_url, hsql_spec, artifact_dir)
