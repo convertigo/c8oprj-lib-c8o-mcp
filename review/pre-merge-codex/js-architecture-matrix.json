@@ -96,11 +96,25 @@
     ],
     "decision": "split",
     "targetModules": [
+      "js/mobile_builder_common.js",
       "js/mobile_builder_lifecycle.js",
       "js/mobile_builder_logs.js",
       "js/mobile_builder_probe.js"
     ],
     "boundaryRule": "Tool file should orchestrate, not own log grammar or browser probe internals."
+  },
+  {
+    "surface": "js/mobile_builder_common.js",
+    "classification": "public product",
+    "currentRole": "Shared helper layer for mobile builder log parsing, compile-error detection, URL normalization, and readiness heuristics.",
+    "problems": [
+      "Should remain pure helper logic and must not absorb Studio UI lifecycle or WsBuilder calls."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/mobile_builder_common.js"
+    ],
+    "boundaryRule": "Pure parsing and readiness helpers only; keep Studio/open-editor orchestration in tools_mobile_builder_open.js or a dedicated lifecycle module."
   },
   {
     "surface": "js/resources.js",
