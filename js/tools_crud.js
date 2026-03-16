@@ -11,6 +11,7 @@ include("js/crud_ui_state.js");
 include("js/crud_ui_shared.js");
 include("js/crud_ui_pages.js");
 include("js/crud_ui_actions.js");
+include("js/crud_ui_dashboard.js");
 include("js/crud_proof.js");
 
 if (typeof C8O === "undefined") {
@@ -829,6 +830,22 @@ C8O.crud = C8O.crud || {};
       dashboardActionQName: dashboardActionQName,
       actionStackNode: actionStackNode,
       stackVariableNode: stackVariableNode,
+      dynamicInvokeNode: dynamicInvokeNode,
+      customAsyncActionNode: customAsyncActionNode
+    };
+  }
+
+  function crudUiDashboardContext() {
+    return {
+      trimmed: trimmed,
+      scriptLiteral: scriptLiteral,
+      ucfirst: ucfirst,
+      actionCallSnippet: actionCallSnippet,
+      actionCallFromExpressionSnippet: actionCallFromExpressionSnippet,
+      actionRowsExpression: actionRowsExpression,
+      facadeSequenceQName: facadeSequenceQName,
+      dashboardActionQName: dashboardActionQName,
+      actionStackNode: actionStackNode,
       dynamicInvokeNode: dynamicInvokeNode,
       customAsyncActionNode: customAsyncActionNode
     };
@@ -2201,237 +2218,19 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildDashboardRefreshActionScript(entity, requestableQName) {
-    var entityKeyLiteral = scriptLiteral(entity.name);
-    var errorMessageLiteral = scriptLiteral("Unable to load " + entity.label.toLowerCase());
-    var logPrefixLiteral = scriptLiteral("[MB] crud_refresh_" + entity.name + " failed");
-    return [
-      "page.global = page.global || {};",
-      "try {",
-      "  var result = " + actionCallSnippet(requestableQName, "{}", 3000, 5000, true) + ";",
-      "  var rows = " + actionRowsExpression("result") + ";",
-      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { " + entityKeyLiteral + ": rows });",
-      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { " + entityKeyLiteral + ": rows.length });",
-      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { " + entityKeyLiteral + ": (rows[0] ?? null) });",
-      "  var status = (result && result.status) ? result.status : 'ok';",
-      "  if (status !== 'ok') {",
-      "    page.global.crudError = page.global.crudError || (result?.error ?? " + errorMessageLiteral + ");",
-      "    page.global.crudStatus = 'error';",
-      "  } else {",
-      "    page.global.crudError = page.global.crudError || '';",
-      "    page.global.crudStatus = page.global.crudError ? 'error' : 'ok';",
-      "  }",
-      "  page.ref.markForCheck();",
-      "  return result;",
-      "} catch (e) {",
-      "  var message = (e && e.message) ? e.message : ('' + e);",
-      "  page.global.crudRows = Object.assign({}, page.global.crudRows || {}, { " + entityKeyLiteral + ": [] });",
-      "  page.global.crudCounts = Object.assign({}, page.global.crudCounts || {}, { " + entityKeyLiteral + ": 0 });",
-      "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { " + entityKeyLiteral + ": null });",
-      "  page.global.crudError = page.global.crudError || message || " + errorMessageLiteral + ";",
-      "  page.global.crudStatus = 'error';",
-      "  page.c8o.log.debug(" + logPrefixLiteral + ", e);",
-      "  page.ref.markForCheck();",
-      "  return { status: 'error', error: page.global.crudError, sql_output: [] };",
-      "}"
-    ].join("\n");
+    return C8O.crudUiDashboard.buildDashboardRefreshActionScript(crudUiDashboardContext(), entity, requestableQName);
   }
 
   function buildDashboardBootstrapActionScript(projectName, facadePrefix, entities, stage) {
-    var configs = entities.map(function (entity) {
-      return {
-        key: entity.name,
-        label: entity.label,
-        requestable: facadeSequenceQName(projectName, facadePrefix, entity, "list")
-      };
-    });
-    return [
-      "page.global = page.global || {};",
-      "page.global.crudBuildStage = " + scriptLiteral(trimmed(stage || "bootstrap")) + ";",
-      "page.global.crudLoading = true;",
-      "page.global.crudError = '';",
-      "page.global.crudStatus = 'loading';",
-      "page.global.crudRows = {};",
-      "page.global.crudCounts = {};",
-      "page.global.crudSamples = {};",
-      "page.ref.markForCheck();",
-      "var configs = " + JSON.stringify(configs) + ";",
-      "var runRefresh = async function(config) {",
-      "  try {",
-      "    var result = " + actionCallFromExpressionSnippet("config.requestable", "{}", 3000, 5000, true) + ";",
-      "    var rows = " + actionRowsExpression("result") + ";",
-      "    var status = (result && result.status) ? result.status : 'ok';",
-      "    return { key: config.key, rows: rows, status: status, error: status !== 'ok' ? (result?.error ?? ('Unable to load ' + String(config.label || config.key).toLowerCase())) : '', result: result };",
-      "  } catch (e) {",
-      "    var message = (e && e.message) ? e.message : ('' + e);",
-      "    page.c8o.log.debug('[MB] crud_bootstrap_dashboard refresh failed for ' + String((config && config.key) || 'entity'), e);",
-      "    return { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), sql_output: [] } };",
-      "  }",
-      "};",
-      "try {",
-      "  var results = await Promise.all(configs.map(function(config) { return runRefresh(config); }));",
-      "  var rowsByKey = {};",
-      "  var countsByKey = {};",
-      "  var samplesByKey = {};",
-      "  var firstError = '';",
-      "  for (var i = 0; i < results.length; i++) {",
-      "    var item = results[i];",
-      "    var rows = Array.isArray(item.rows) ? item.rows : [];",
-      "    rowsByKey[item.key] = rows;",
-      "    countsByKey[item.key] = rows.length;",
-      "    samplesByKey[item.key] = rows[0] ?? null;",
-      "    if (!firstError && item.status !== 'ok') {",
-      "      firstError = item.error || ('Unable to load ' + String(item.key || 'entity'));",
-      "    }",
-      "  }",
-      "  page.global.crudRows = rowsByKey;",
-      "  page.global.crudCounts = countsByKey;",
-      "  page.global.crudSamples = samplesByKey;",
-      "  page.global.crudError = firstError;",
-      "  page.global.crudStatus = firstError ? 'error' : 'ok';",
-      "  page.ref.markForCheck();",
-      "  return { status: page.global.crudStatus, results: results };",
-      "} finally {",
-      "  page.global.crudLoading = false;",
-      "  page.ref.markForCheck();",
-      "}"
-    ].join("\n");
+    return C8O.crudUiDashboard.buildDashboardBootstrapActionScript(crudUiDashboardContext(), projectName, facadePrefix, entities, stage);
   }
 
   function buildDashboardPageScriptContent(projectName, facadePrefix, entities, stage) {
-    var configs = entities.map(function (entity) {
-      return {
-        key: entity.name,
-        label: entity.label,
-        requestable: facadeSequenceQName(projectName, facadePrefix, entity, "list")
-      };
-    });
-    return [
-      "/*Begin_c8o_PageDeclaration*/",
-      "\tpublic __crudBootstrapStarted: boolean = false;",
-      "/*End_c8o_PageDeclaration*/",
-      "/*Begin_c8o_PageConstructor*/",
-      "\t\tsetTimeout(() => {",
-      "\t\t\tthis.bootstrapCrudDashboardState().catch((error: any) => {",
-      "\t\t\t\tthis.c8o.log.debug('[MB] bootstrapCrudDashboardState failed', error);",
-      "\t\t\t\tthis.__crudBootstrapStarted = false;",
-      "\t\t\t});",
-      "\t\t}, 0);",
-      "/*End_c8o_PageConstructor*/",
-      "/*Begin_c8o_PageFunction*/",
-      "\tpublic async bootstrapCrudDashboardState(): Promise<any> {",
-      "\t\tif (this.__crudBootstrapStarted && (this.global?.crudLoading === true || this.global?.crudStatus === 'ok')) {",
-      "\t\t\treturn this.global?.crudStatus ?? 'ok';",
-      "\t\t}",
-      "\t\tthis.__crudBootstrapStarted = true;",
-      "\t\tthis.global = this.global || {};",
-      "\t\tthis.global.crudBuildStage = " + scriptLiteral(trimmed(stage || "bootstrap")) + ";",
-      "\t\tthis.global.crudLoading = true;",
-      "\t\tthis.global.crudError = '';",
-      "\t\tthis.global.crudStatus = 'loading';",
-      "\t\tthis.global.crudRows = {};",
-      "\t\tthis.global.crudCounts = {};",
-      "\t\tthis.global.crudSamples = {};",
-      "\t\tthis.ref.markForCheck();",
-      "\t\tconst configs = " + JSON.stringify(configs) + ";",
-      "\t\ttry {",
-      "\t\t\tconst results = await Promise.all(configs.map(async (config) => {",
-      "\t\t\t\ttry {",
-      "\t\t\t\t\tconst result: any = await this['call'].apply(this, [config.requestable, {__localCache_priority: null, __localCache_ttl: 3000}, null, 5000, true]);",
-      "\t\t\t\t\tconst rows = Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []);",
-      "\t\t\t\t\tconst status = (result && result.status) ? result.status : 'ok';",
-      "\t\t\t\t\treturn { key: config.key, rows, status, error: status !== 'ok' ? (result?.error ?? ('Unable to load ' + String(config.label || config.key).toLowerCase())) : '', result };",
-      "\t\t\t\t} catch (e: any) {",
-      "\t\t\t\t\tconst message = (e && e.message) ? e.message : ('' + e);",
-      "\t\t\t\t\tthis.c8o.log.debug('[MB] bootstrapCrudDashboardState refresh failed for ' + String((config && config.key) || 'entity'), e);",
-      "\t\t\t\t\treturn { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), sql_output: [] } };",
-      "\t\t\t\t}",
-      "\t\t\t}));",
-      "\t\t\tconst rowsByKey: any = {};",
-      "\t\t\tconst countsByKey: any = {};",
-      "\t\t\tconst samplesByKey: any = {};",
-      "\t\t\tlet firstError = '';",
-      "\t\t\tfor (const item of results) {",
-      "\t\t\t\tconst rows = Array.isArray(item.rows) ? item.rows : [];",
-      "\t\t\t\trowsByKey[item.key] = rows;",
-      "\t\t\t\tcountsByKey[item.key] = rows.length;",
-      "\t\t\t\tsamplesByKey[item.key] = rows[0] ?? null;",
-      "\t\t\t\tif (!firstError && item.status !== 'ok') {",
-      "\t\t\t\t\tfirstError = item.error || ('Unable to load ' + String(item.key || 'entity'));",
-      "\t\t\t\t}",
-      "\t\t\t}",
-      "\t\t\tthis.global.crudRows = rowsByKey;",
-      "\t\t\tthis.global.crudCounts = countsByKey;",
-      "\t\t\tthis.global.crudSamples = samplesByKey;",
-      "\t\t\tthis.global.crudError = firstError;",
-      "\t\t\tthis.global.crudStatus = firstError ? 'error' : 'ok';",
-      "\t\t\tthis.ref.markForCheck();",
-      "\t\t\treturn { status: this.global.crudStatus, results };",
-      "\t\t} finally {",
-      "\t\t\tthis.global.crudLoading = false;",
-      "\t\t\tthis.ref.markForCheck();",
-      "\t\t}",
-      "\t}",
-      "/*End_c8o_PageFunction*/",
-      ""
-    ].join("\n");
+    return C8O.crudUiDashboard.buildDashboardPageScriptContent(crudUiDashboardContext(), projectName, facadePrefix, entities, stage);
   }
 
   function buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage) {
-    var qnames = [];
-    var children = [];
-    var bootstrapQName = dashboardActionQName(projectName, "crud_bootstrap_dashboard");
-    var retryQName = dashboardActionQName(projectName, "crud_retry_dashboard");
-    for (var i = 0; i < entities.length; i++) {
-      var entity = entities[i];
-      var actionName = "crud_refresh_" + entity.name;
-      var actionQName = dashboardActionQName(projectName, actionName);
-      var entityKeyLiteral = scriptLiteral(entity.name);
-      var requestableQName = facadeSequenceQName(projectName, facadePrefix, entity, "list");
-      qnames.push(actionQName);
-      children.push(
-        actionStackNode(
-          actionName,
-          [],
-          [
-            customAsyncActionNode(
-              "Refresh" + ucfirst(entity.name),
-              buildDashboardRefreshActionScript(entity, requestableQName),
-              "Refresh CRUD global state for " + entity.label + "."
-            )
-          ],
-          "CRUD dashboard refresh action for " + entity.label + "."
-        )
-      );
-    }
-    qnames.push(bootstrapQName, retryQName);
-    children.push(
-      actionStackNode(
-        "crud_bootstrap_dashboard",
-        [],
-        [
-          customAsyncActionNode(
-            "BootstrapDashboard",
-            buildDashboardBootstrapActionScript(projectName, facadePrefix, entities, stage),
-            "Bootstrap CRUD dashboard global state."
-          )
-        ],
-        "CRUD dashboard bootstrap action."
-      ),
-      actionStackNode(
-        "crud_retry_dashboard",
-        [],
-        [
-          dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
-        ],
-        "CRUD dashboard retry action."
-      )
-    );
-    return {
-      qnames: qnames,
-      tree: {
-        children: children
-      }
-    };
+    return C8O.crudUiDashboard.buildDashboardActionStacksTree(crudUiDashboardContext(), projectName, facadePrefix, entities, stage);
   }
 
   function buildDashboardPageShellTree(projectName, entities, stage) {

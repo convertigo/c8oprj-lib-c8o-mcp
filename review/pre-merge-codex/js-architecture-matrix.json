@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof helpers.",
     "currentSize": {
-      "linesApprox": 4951,
-      "functionsApprox": 138
+      "linesApprox": 4750,
+      "functionsApprox": 134
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -22,6 +22,7 @@
       "js/crud_ui_shared.js",
       "js/crud_ui_pages.js",
       "js/crud_ui_actions.js",
+      "js/crud_ui_dashboard.js",
       "js/crud_proof.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
@@ -129,6 +130,19 @@
       "js/crud_ui_actions.js"
     ],
     "boundaryRule": "Entity-pages action script and action-stack assembly only; keep page shells, state expressions, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_dashboard.js",
+    "classification": "public product",
+    "currentRole": "Dashboard-variant action scripts and page-script builders for the legacy single-page CRUD UI.",
+    "problems": [
+      "Must stay focused on dashboard bootstrap/refresh/page-script logic and avoid absorbing entity-pages actions, shared component definitions, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_dashboard.js"
+    ],
+    "boundaryRule": "Legacy dashboard script/action assembly only; keep shared components, page shells, and proof logic elsewhere."
   },
   {
     "surface": "js/crud_proof.js",
