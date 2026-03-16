@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns deterministic CRUD spec normalization, SQL CRUD scaffolding, NGX CRUD kit assembly, CRUD status/proof, and viewer evidence helpers.",
     "currentSize": {
-      "linesApprox": 8030,
-      "functionsApprox": 248
+      "linesApprox": 7770,
+      "functionsApprox": 237
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -35,6 +35,19 @@
       "js/crud_seed.js"
     ],
     "boundaryRule": "Seed generation only; keep requestable/UI/proof logic out of this file."
+  },
+  {
+    "surface": "js/crud_spec.js",
+    "classification": "public product",
+    "currentRole": "CRUD spec normalization helpers for drivers, entities, naming, and CRM defaults.",
+    "problems": [
+      "Should remain focused on spec normalization and not absorb SQL rendering, UI generation, or requestable proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_spec.js"
+    ],
+    "boundaryRule": "Spec parsing and normalization only; keep orchestration and side effects in js/tools_crud.js."
   },
   {
     "surface": "js/databaseobject.js",
