@@ -58,6 +58,200 @@ C8O.project.resolveProjectDirectory = function (options) {
   return dirFile;
 };
 
+C8O.project._readProcessStream = function (stream) {
+  if (!stream) {
+    return "";
+  }
+  var Scanner = Packages.java.util.Scanner;
+  var scanner = null;
+  try {
+    scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
+    return scanner.hasNext() ? String(scanner.next()) : "";
+  } finally {
+    if (scanner && scanner.close) {
+      try {
+        scanner.close();
+      } catch (_ignoreScannerClose) {}
+    }
+  }
+};
+
+C8O.project._runCommand = function (args, cwd) {
+  var ArrayList = Packages.java.util.ArrayList;
+  var File = Packages.java.io.File;
+  var ProcessBuilder = Packages.java.lang.ProcessBuilder;
+  var command = new ArrayList();
+  var items = args || [];
+  for (var i = 0; i < items.length; i++) {
+    command.add(String(items[i]));
+  }
+  var builder = new ProcessBuilder(command);
+  if (cwd) {
+    builder.directory(cwd instanceof File ? cwd : new File(String(cwd)));
+  }
+  var process = builder.start();
+  var stdout = C8O.project._readProcessStream(process.getInputStream());
+  var stderr = C8O.project._readProcessStream(process.getErrorStream());
+  var exitCode = process.waitFor();
+  return {
+    exitCode: Number(exitCode || 0),
+    stdout: C8O.util.toTrimmedString(stdout),
+    stderr: C8O.util.toTrimmedString(stderr)
+  };
+};
+
+C8O.project.bumpRightmostVersionSegment = function (versionText) {
+  var version = C8O.util.toTrimmedString(versionText);
+  if (!version.length) {
+    return "";
+  }
+  var parts = version.split(".");
+  if (!parts.length) {
+    return "";
+  }
+  var lastIndex = parts.length - 1;
+  if (!/^\d+$/.test(parts[lastIndex])) {
+    return "";
+  }
+  var nextValue = parseInt(parts[lastIndex], 10) + 1;
+  parts[lastIndex] = String(nextValue);
+  return parts.join(".");
+};
+
+C8O.project.readHeadProjectVersion = function (projectDir) {
+  var root = C8O.util.toTrimmedString(projectDir);
+  if (!root.length) {
+    return {
+      gitRoot: "",
+      headVersion: "",
+      tracked: false,
+      reason: "missing-project-dir"
+    };
+  }
+  try {
+    var gitRootResult = C8O.project._runCommand(["git", "-C", root, "rev-parse", "--show-toplevel"], root);
+    if (gitRootResult.exitCode !== 0 || !gitRootResult.stdout.length) {
+      return {
+        gitRoot: "",
+        headVersion: "",
+        tracked: false,
+        reason: "not-git"
+      };
+    }
+    var gitRoot = gitRootResult.stdout;
+    var trackedResult = C8O.project._runCommand(["git", "-C", gitRoot, "ls-files", "--error-unmatch", "c8oProject.yaml"], gitRoot);
+    if (trackedResult.exitCode !== 0) {
+      return {
+        gitRoot: gitRoot,
+        headVersion: "",
+        tracked: false,
+        reason: "project-file-not-tracked"
+      };
+    }
+    var headResult = C8O.project._runCommand(["git", "-C", gitRoot, "show", "HEAD:c8oProject.yaml"], gitRoot);
+    if (headResult.exitCode !== 0 || !headResult.stdout.length) {
+      return {
+        gitRoot: gitRoot,
+        headVersion: "",
+        tracked: false,
+        reason: "head-project-file-unavailable"
+      };
+    }
+    var match = /(?:^|\n)\s*version:\s*([^\n#]+)/.exec(headResult.stdout);
+    return {
+      gitRoot: gitRoot,
+      headVersion: match && match[1] ? C8O.util.toTrimmedString(match[1]) : "",
+      tracked: true,
+      reason: ""
+    };
+  } catch (commandError) {
+    return {
+      gitRoot: "",
+      headVersion: "",
+      tracked: false,
+      reason: String(commandError)
+    };
+  }
+};
+
+C8O.project.checkUpdateProjectVersion = function (projectInstance) {
+  var result = {
+    checked: false,
+    bumped: false,
+    dirty: false,
+    previousVersion: "",
+    version: "",
+    headVersion: "",
+    gitRoot: "",
+    reason: "",
+    message: ""
+  };
+  if (!projectInstance) {
+    result.reason = "missing-project";
+    return result;
+  }
+  try {
+    result.previousVersion = C8O.util.toTrimmedString(projectInstance.getVersion ? projectInstance.getVersion() : "");
+    result.version = result.previousVersion;
+  } catch (_ignoreCurrentVersion) {}
+  try {
+    result.dirty = projectInstance.hasChanged === true;
+  } catch (_ignoreDirtyFlag) {
+    result.dirty = false;
+  }
+  if (!result.dirty) {
+    result.reason = "project-clean";
+    return result;
+  }
+  var projectDir = null;
+  try {
+    projectDir = C8O.project.resolveProjectDirectory({ project: projectInstance, projectName: String(projectInstance.getName()) });
+  } catch (resolveError) {
+    result.reason = String(resolveError);
+    return result;
+  }
+  var gitInfo = C8O.project.readHeadProjectVersion(String(projectDir));
+  result.checked = true;
+  result.gitRoot = C8O.util.toTrimmedString(gitInfo.gitRoot);
+  result.headVersion = C8O.util.toTrimmedString(gitInfo.headVersion);
+  if (!gitInfo.tracked) {
+    result.reason = gitInfo.reason || "not-tracked";
+    return result;
+  }
+  if (!result.previousVersion.length) {
+    result.reason = "missing-project-version";
+    return result;
+  }
+  if (!result.headVersion.length) {
+    result.reason = "missing-head-version";
+    return result;
+  }
+  if (result.previousVersion !== result.headVersion) {
+    result.reason = "version-already-diverged";
+    return result;
+  }
+  var nextVersion = C8O.project.bumpRightmostVersionSegment(result.previousVersion);
+  if (!nextVersion.length || nextVersion === result.previousVersion) {
+    result.reason = "unsupported-version-format";
+    return result;
+  }
+  try {
+    if (typeof projectInstance.setVersion === "function") {
+      projectInstance.setVersion(nextVersion);
+    } else {
+      result.reason = "setVersion-unavailable";
+      return result;
+    }
+    result.bumped = true;
+    result.version = nextVersion;
+    result.message = "Project version auto-bumped from " + result.previousVersion + " to " + nextVersion + " before save.";
+    return result;
+  } catch (bumpError) {
+    result.reason = String(bumpError);
+    return result;
+  }
+};
+
 /**
  * Returns a trimmed string representation or an empty string when null/undefined.
  */

@@ -36,7 +36,14 @@ comment: |
     projectSaveTimestamp = java.lang.System.currentTimeMillis();
     projectSaveErrors = errorEntries;
     projectSaveStatus = projectSaveSaved ? "saved" : (projectRef == null ? "missing" : "skipped");
-    '
+    projectSaveVersionChecked = saveResult.versionChecked === true;
+    projectSaveVersionDirty = saveResult.versionDirty === true;
+    projectSaveVersionBumped = saveResult.versionBumped === true;
+    projectSavePreviousVersion = saveResult.previousVersion || "";
+    projectSaveVersion = saveResult.version || "";
+    projectSaveHeadVersion = saveResult.headVersion || "";
+    projectSaveVersionReason = saveResult.versionReason || "";
+    projectSaveVersionMessage = saveResult.versionMessage || "";'
 ↓Result [steps.JsonObjectStep-1762445207554]: 
   key: 
     - xmlizable: 
@@ -180,6 +187,113 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
+  ↓versionChecked [steps.JsonFieldStep-1773669864823]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: versionChecked
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveVersionChecked
+  ↓versionDirty [steps.JsonFieldStep-1773669864849]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: versionDirty
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveVersionDirty
+  ↓versionBumped [steps.JsonFieldStep-1773669864853]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: versionBumped
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveVersionBumped
+  ↓previousVersion [steps.JsonFieldStep-1773669864855]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: previousVersion
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSavePreviousVersion
+  ↓version [steps.JsonFieldStep-1773669864858]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: version
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveVersion
+  ↓headVersion [steps.JsonFieldStep-1773669864860]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: headVersion
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveHeadVersion
+  ↓versionReason [steps.JsonFieldStep-1773669864862]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: versionReason
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveVersionReason
+  ↓versionMessage [steps.JsonFieldStep-1773669864864]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: versionMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectSaveVersionMessage
 ↓project [variables.RequestableVariable-1762445570911]: 
   comment: Project technical name. Omit only when the current context project is unambiguous.
   description: Project technical name. Omit only when the current context project is unambiguous.

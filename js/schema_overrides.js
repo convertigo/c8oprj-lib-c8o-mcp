@@ -653,7 +653,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return closedObjectSchema({
       project: { type: "string" },
       saved: { type: "boolean" },
-      message: { type: "string" }
+      message: { type: "string" },
+      versionChecked: { type: "boolean" },
+      versionDirty: { type: "boolean" },
+      versionBumped: { type: "boolean" },
+      previousVersion: { type: "string" },
+      version: { type: "string" },
+      headVersion: { type: "string" },
+      versionReason: { type: "string" },
+      versionMessage: { type: "string" }
     });
   }
 

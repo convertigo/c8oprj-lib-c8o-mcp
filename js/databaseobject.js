@@ -1433,11 +1433,41 @@ C8O.dbo.saveProject = function (project, errors) {
     return { saved: false, message: message };
   }
   try {
+    var versionUpdate = null;
+    try {
+      versionUpdate = C8O.project.checkUpdateProjectVersion(project);
+    } catch (versionError) {
+      versionUpdate = {
+        checked: false,
+        bumped: false,
+        dirty: false,
+        previousVersion: "",
+        version: C8O.util.toTrimmedString(project && project.getVersion ? project.getVersion() : ""),
+        headVersion: "",
+        gitRoot: "",
+        reason: String(versionError),
+        message: ""
+      };
+    }
     Engine.theApp.databaseObjectsManager.exportProject(project);
     var invalidation = C8O.dbo.invalidateProjectRuntime(project, errors);
+    var finalVersion = "";
+    try {
+      finalVersion = C8O.util.toTrimmedString(project.getVersion ? project.getVersion() : "");
+    } catch (_ignoreFinalVersion) {
+      finalVersion = versionUpdate && versionUpdate.version ? String(versionUpdate.version) : "";
+    }
     return {
       saved: true,
       message: "",
+      versionChecked: !!(versionUpdate && versionUpdate.checked === true),
+      versionDirty: !!(versionUpdate && versionUpdate.dirty === true),
+      versionBumped: !!(versionUpdate && versionUpdate.bumped === true),
+      previousVersion: versionUpdate && versionUpdate.previousVersion ? String(versionUpdate.previousVersion) : "",
+      version: finalVersion,
+      headVersion: versionUpdate && versionUpdate.headVersion ? String(versionUpdate.headVersion) : "",
+      versionReason: versionUpdate && versionUpdate.reason ? String(versionUpdate.reason) : "",
+      versionMessage: versionUpdate && versionUpdate.message ? String(versionUpdate.message) : "",
       runtimeInvalidated: invalidation.invalidated === true,
       invalidatedProject: invalidation.project || "",
       invalidatedQNames: invalidation.resetQNames || []
@@ -1499,7 +1529,19 @@ C8O.dbo.invalidateProjectRuntime = function (projectOrName, errors) {
 
 C8O.dbo.saveProjectIfNeeded = function (project, autoSaveFlag, errors) {
   if (!autoSaveFlag) {
-    return { saved: false, message: "", skipped: true };
+    return {
+      saved: false,
+      message: "",
+      skipped: true,
+      versionChecked: false,
+      versionDirty: false,
+      versionBumped: false,
+      previousVersion: "",
+      version: "",
+      headVersion: "",
+      versionReason: "auto-save-disabled",
+      versionMessage: ""
+    };
   }
   return C8O.dbo.saveProject(project, errors);
 };
