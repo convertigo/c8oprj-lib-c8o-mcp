@@ -1,6 +1,6 @@
 # Convertigo MCP Maintainer Brief
 
-> Refreshed by `_refreshMaintainerDocs` from the live MCP catalog on `2026-03-16`. Live facts come from `mcp_initialize`, `mcp_tools_list`, `mcp_resources_list`, and `mcp_prompts_list`.
+> Refreshed by `_refreshMaintainerDocs` from the live MCP catalog on `{{reviewDate}}`. Live facts come from `mcp_initialize`, `mcp_tools_list`, `mcp_resources_list`, and `mcp_prompts_list`.
 
 ## Purpose
 
@@ -11,14 +11,14 @@ This file is for maintainers working on the MCP itself, not for end users of the
 ## Current State
 
 - Public MCP endpoint: `http://localhost:18080/convertigo/api/mcp`
-- Current protocol: `2025-06-18`
-- Current server name: `convertigo-mcp`
-- Current server title: `Convertigo MCP Server`
-- Current live version at last refresh: `0.0.17`
-- Current public catalog at last live verification on `2026-03-16`:
-  - `29` tools
-  - `25` resources
-  - `9` prompts
+- Current protocol: `{{protocolVersion}}`
+- Current server name: `{{serverName}}`
+- Current server title: `{{serverTitle}}`
+- Current live version at last refresh: `{{serverVersion}}`
+- Current public catalog at last live verification on `{{reviewDate}}`:
+  - `{{toolCount}}` tools
+  - `{{resourceCount}}` resources
+  - `{{promptCount}}` prompts
 
 ## Product Posture
 

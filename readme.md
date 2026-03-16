@@ -5,7 +5,7 @@ Convertigo MCP project for AI-assisted fullstack Convertigo development.
 The recommended public path is now a mono-agent MCP flow for deterministic SQL CRUD + starter NGX UI work.
 Use the MCP directly, prefer the dedicated CRUD fast path, and keep multi-agent / benchmark / maintainer flows as internal lab surfaces until the mono-agent rail is proven stable.
 
-For technical details, see [documentation](./project.md).
+For an exported structural snapshot, see [documentation](./project.md). `project.md` is generated and non-canonical; prefer the live MCP catalog plus the tracked guides under `resources/` and `prompts/`.
 
 ## Local Onboarding
 
@@ -14,6 +14,12 @@ For technical details, see [documentation](./project.md).
 3. Restart Codex so the generated `convertigo-generalist` skill is loaded and `~/.codex/config.toml` contains the local `convertigo` MCP server entry.
 
 `_setupCodex` is a Studio-local helper. It is not part of the public MCP tool surface.
+
+## Maintainer Docs
+
+When the live MCP catalog changes, run the private sequence `_refreshMaintainerDocs` from Studio to regenerate `AGENT.md` and `TOOLS.md` from the current MCP contract.
+
+`_refreshMaintainerDocs` is a Studio-local helper. It is not part of the public MCP tool surface.
 
 ## Recommended Flow
 

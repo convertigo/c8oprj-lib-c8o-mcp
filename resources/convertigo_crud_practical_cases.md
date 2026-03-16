@@ -4,22 +4,26 @@ Use these direct MCP calls for standard CRUD scaffolding before asking agents to
 Always validate on a fresh disposable project instead of a project already polluted by planner or specialist retries.
 
 ## HSQLDB starter NGX
-1. Call `upsert-crud` with `sequence=true`, `ui=false`.
-2. Call `crud-status`.
-3. Call `requestable-execute` on:
+1. Import `template_ngxBuilderIonic` with `marketplace-import` and the exact disposable project name.
+2. Open the live dev app immediately with `mobile-builder-open` and keep `viewerHomeUrl` or `viewerBaseUrl`.
+3. Call `upsert-crud` with `sequence=true`, `ui=false`.
+4. Call `crud-proof` with backend proof requestables such as:
    - `init_schema`
    - `list_contacts`
    - `count_contacts`
    - `list_companies`
    - `count_companies`
-4. Call `upsert-ngx-crud-kit`.
-5. Call `crud-status` again and confirm:
+5. Call `upsert-ngx-crud-kit` with `stage=bootstrap`.
+6. Call `mobile-builder-open` again. If it returns `compile_error`, fix the Convertigo source path or MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated frontend files.
+7. Call `upsert-ngx-crud-kit` again with `stage=final`.
+8. Call `crud-proof` again with `expectUiShell=true` and the returned `viewerUrl`, then confirm:
    - `ui.starterDominant == false`
    - `ui.visibleShellPresent == true`
+   - `ui.viewerProbe.ok == true`
    - landing components such as `DashboardStatCard`, `CrudPageHeader`, `CrudLoadingState`, and `CrudErrorRetryState` now exist under `<PROJECT>.Application.NgxApp`
    - entity page components such as `ContactsListPanel`, `ContactsDetailCard`, `ContactsEditForm`, `CompaniesListPanel`, `CompaniesDetailCard`, and `CompaniesEditForm` now exist under `<PROJECT>.Application.NgxApp`
    - the visible entry page uses landing shared components, and each entity page uses the entity-specific `UIUseShared` references
-6. In Studio, the project tree should already be refreshed on the project root by the tool itself. If you are validating live during a demo, treat the refreshed tree plus `crud-status` as the source of truth.
+9. In Studio, the project tree should already be refreshed on the project root by the tool itself. If you are validating live during a demo, treat the refreshed tree plus `crud-proof` as the source of truth.
 
 ### Copyable HSQL spec
 ```json
@@ -83,11 +87,12 @@ Always validate on a fresh disposable project instead of a project already pollu
 
 ## Proof expectations
 - `upsert-crud.status == "success"`
-- `crud-status.transactions.missing == []`
-- `crud-status.sequences.missing == []` when sequences are enabled
+- backend `crud-proof.transactions.missing == []`
+- backend `crud-proof.sequences.missing == []` when sequences are enabled
 - `upsert-ngx-crud-kit.status == "success"`
-- final `crud-status.ui.starterDominant == false`
-- final `crud-status.ui.visibleShellPresent == true`
+- final `crud-proof.ui.starterDominant == false`
+- final `crud-proof.ui.visibleShellPresent == true`
+- final `crud-proof.ui.viewerProbe.ok == true`
 
 ## Shared component fast path
 - `upsert-ngx-crud-kit` now creates landing + entity-page shared components directly in the target app.

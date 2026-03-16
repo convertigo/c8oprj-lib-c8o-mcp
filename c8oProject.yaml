@@ -4,9 +4,10 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.16
+  version: 0.0.17
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
+  ↓_refreshMaintainerDocs [sequences.GenericSequence]: 🗏 sequences/_refreshMaintainerDocs.yaml
   ↓_setupCodex [sequences.GenericSequence]: 🗏 sequences/_setupCodex.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
   ↓internal_call_stub [sequences.GenericSequence-1761756735550]: 🗏 sequences/internal_call_stub.yaml

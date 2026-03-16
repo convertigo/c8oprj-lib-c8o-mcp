@@ -159,3 +159,6 @@ comment: |
 ↓profile [variables.RequestableVariable-1773470574447]: 
   comment: Optional CRUD profile hint, for example crm.
   description: Optional CRUD profile hint, for example crm.
+↓entryPage [variables.RequestableVariable-1773672638527]: 
+  comment: Visible entry page name. Defaults to Page.
+  description: Visible entry page name. Defaults to Page.

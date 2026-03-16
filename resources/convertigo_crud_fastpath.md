@@ -3,6 +3,13 @@
 ## When to read this
 Read this first when the task is a standard SQL CRUD feature on top of a starter NGX app and the goal is reliable delivery, not broad exploration.
 
+On a fresh session, do not jump here blind. Start with `resources/list`, use `prompts/list` when the caller exposes prompt discovery, then read:
+- `convertigo://capabilities`
+- `convertigo://recipes/quickstart`
+- `convertigo://resources/convertigo-start`
+
+Then use this guide as the deterministic rail for the CRUD case.
+
 ## Scope
 This fast path is the recommended public path for the current mono-agent recovery cycle.
 
