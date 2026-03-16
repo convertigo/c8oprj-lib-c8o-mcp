@@ -91,10 +91,10 @@
   {
     "surface": "js/schema_overrides.js",
     "classification": "public product",
-    "currentRole": "Central registry for tool schema overrides.",
+    "currentRole": "Top-level registry that owns shared schema helper functions and delegates family-scoped overrides.",
     "currentSize": {
-      "linesApprox": 1500,
-      "functionsApprox": 73
+      "linesApprox": 1300,
+      "functionsApprox": 63
     },
     "problems": [
       "Single-file schema registry is getting too large to audit against the live catalog.",
@@ -109,6 +109,19 @@
       "js/schema_overrides_runtime.js"
     ],
     "boundaryRule": "Keep one top-level registry that imports family-scoped fragments."
+  },
+  {
+    "surface": "js/schema_overrides_crud.js",
+    "classification": "public product",
+    "currentRole": "CRUD-specific input/output schema overrides delegated from the top-level schema registry.",
+    "problems": [
+      "Must stay limited to CRUD family schema definitions and avoid reintroducing generic helper logic."
+    ],
+    "decision": "keep-and-grow-by-family",
+    "targetModules": [
+      "js/schema_overrides_crud.js"
+    ],
+    "boundaryRule": "CRUD-only schema overrides; shared primitives remain in js/schema_overrides.js or future common fragments."
   },
   {
     "surface": "js/tools_mobile_builder_open.js",
