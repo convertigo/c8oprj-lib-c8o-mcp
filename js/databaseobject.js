@@ -2020,6 +2020,115 @@ C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   return result;
 };
 
+C8O.dbo.removeStudioProjectTreeByName = function (projectName, errors) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var System = java.lang.System;
+
+  var requestedProject = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(projectName || "") : String(projectName || "").trim();
+  var studioMode = false;
+  try {
+    studioMode = Engine.isStudioMode() === true;
+  } catch (_ignoreStudioMode) {
+    studioMode = false;
+  }
+
+  var result = {
+    status: "pending",
+    message: "Waiting for Studio project cleanup",
+    project: requestedProject,
+    foundTreeObject: false,
+    removed: false,
+    refreshed: false,
+    paletteRefreshed: false,
+    studioMode: studioMode,
+    timestamp: System.currentTimeMillis(),
+    error: "",
+    executed: false
+  };
+
+  if (!studioMode) {
+    result.status = "skipped";
+    result.message = "Studio project cleanup skipped: Convertigo Studio required";
+    return result;
+  }
+
+  if (!requestedProject.length) {
+    result.status = "error";
+    result.message = "Project name is required";
+    if (errors && errors.push) {
+      errors.push({ name: "__studioProjectCleanup__", message: result.message });
+    }
+    return result;
+  }
+
+  try {
+    var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+    var Runnable = Packages.java.lang.Runnable;
+    var pluginInstance = ConvertigoPlugin.getDefault();
+    if (pluginInstance == null) {
+      result.status = "skipped";
+      result.message = "Convertigo plugin not available";
+      return result;
+    }
+
+    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      try {
+        var view = pluginInstance.getProjectExplorerView ? pluginInstance.getProjectExplorerView() : null;
+        if (view == null) {
+          result.status = "skipped";
+          result.message = "Project Explorer view not available";
+          return;
+        }
+
+        var treeObject = null;
+        try {
+          treeObject = view.getProjectRootObject ? view.getProjectRootObject(requestedProject) : null;
+        } catch (_ignoreTreeLookup) {
+          treeObject = null;
+        }
+
+        result.foundTreeObject = treeObject != null;
+        if (treeObject != null && view.removeProjectTreeObject) {
+          view.removeProjectTreeObject(treeObject);
+          result.removed = true;
+        }
+
+        if (view.refreshProjects) {
+          view.refreshProjects();
+          result.refreshed = true;
+        }
+        if (view.refreshTree) {
+          view.refreshTree();
+          result.refreshed = true;
+        }
+        if (pluginInstance.refreshPaletteView) {
+          pluginInstance.refreshPaletteView();
+          result.paletteRefreshed = true;
+        }
+
+        result.executed = true;
+        result.status = "cleaned";
+        result.message = treeObject != null
+          ? "Studio project tree entry removed"
+          : "Studio tree refreshed after project deletion";
+      } catch (uiError) {
+        result.status = "error";
+        result.message = String(uiError);
+        result.error = String(uiError);
+      }
+    }}));
+  } catch (cleanupError) {
+    result.status = "error";
+    result.message = String(cleanupError);
+    result.error = String(cleanupError);
+  }
+
+  if (result.status === "error" && errors && errors.push) {
+    errors.push({ name: "__studioProjectCleanup__", message: result.message, detail: result.error });
+  }
+  return result;
+};
+
 C8O.dbo.reloadProject = function (projectOrName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var name = "";

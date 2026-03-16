@@ -6,10 +6,10 @@ comment: |
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
 ↓Init [steps.SimpleStep-1773102101002]: 
-  comment: Resolve project and perform deletion
+  comment: Resolve project deletion and converge the Studio tree state
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var File = Packages.java.io.File;
+    var System = java.lang.System;
     
     var providedName = C8O.util.toTrimmedString(project);
     if (!providedName.length && context && context.project) {
@@ -23,6 +23,19 @@ comment: |
     var deletedFlag = false;
     var statusText = "missing";
     var messageText = "";
+    var studioCleanupResult = {
+      status: "skipped",
+      message: "Studio cleanup not attempted",
+      project: providedName,
+      foundTreeObject: false,
+      removed: false,
+      refreshed: false,
+      paletteRefreshed: false,
+      studioMode: false,
+      timestamp: System.currentTimeMillis(),
+      error: "",
+      executed: false
+    };
     
     if (!providedName.length) {
       messageText = "Project name is required";
@@ -46,7 +59,25 @@ comment: |
             if (plugin != null) {
               plugin.deleteProjectPluginResource(true, providedName);
             }
-          } catch (_ignoredStudioCleanup) {}
+          } catch (_ignoredStudioWorkspaceCleanup) {}
+          try {
+            studioCleanupResult = C8O.dbo.removeStudioProjectTreeByName(providedName, errorEntries);
+          } catch (studioCleanupError) {
+            studioCleanupResult = {
+              status: "error",
+              message: "Studio cleanup failed after project deletion",
+              project: providedName,
+              foundTreeObject: false,
+              removed: false,
+              refreshed: false,
+              paletteRefreshed: false,
+              studioMode: false,
+              timestamp: System.currentTimeMillis(),
+              error: String(studioCleanupError),
+              executed: false
+            };
+            errorEntries.push({ name: "__studioProjectCleanup__", message: studioCleanupResult.message, detail: studioCleanupResult.error });
+          }
           var stillExists = false;
           try {
             stillExists = Engine.theApp.databaseObjectsManager.existsProject(providedName);
@@ -56,6 +87,12 @@ comment: |
           if (!deletedFlag) {
             messageText = "Project still exists after deletion attempt";
             errorEntries.push({ name: "delete", message: messageText });
+          } else if (studioCleanupResult.status === "error") {
+            messageText = "Project deleted but Studio tree cleanup failed: " + studioCleanupResult.error;
+          } else if (studioCleanupResult.removed === true) {
+            messageText = "Project deleted and Studio tree entry removed";
+          } else {
+            messageText = "Project deleted and Studio tree refreshed";
           }
         } catch (deleteError) {
           statusText = "failed";
@@ -71,9 +108,9 @@ comment: |
     projectDeleteDeleteCar = deleteCarFlag;
     projectDeleteStatus = statusText;
     projectDeleteMessage = messageText;
-    projectDeleteTimestamp = java.lang.System.currentTimeMillis();
-    projectDeleteErrors = errorEntries;
-    '
+    projectDeleteStudioCleanup = studioCleanupResult;
+    projectDeleteTimestamp = System.currentTimeMillis();
+    projectDeleteErrors = errorEntries;'
 ↓Result [steps.JsonObjectStep-1773102101003]: 
   key: 
     - xmlizable: 
