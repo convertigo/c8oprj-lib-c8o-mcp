@@ -338,7 +338,11 @@ def validate_runtime(url, spec, artifact_dir):
     mobile_builder = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60}, timeout=180)
     artifact["steps"].append({"tool": "mobile-builder-open", "result": mobile_builder})
     assert_true(mobile_builder.get("ready") is True, f"Mobile builder did not become ready for {project}")
-    viewer_url = str(mobile_builder.get("viewerUrl") or mobile_builder.get("baseUrl") or "")
+    viewer_base_url = str(mobile_builder.get("viewerBaseUrl") or mobile_builder.get("baseUrl") or "")
+    viewer_home_url = str(mobile_builder.get("viewerHomeUrl") or "")
+    viewer_url = str(mobile_builder.get("viewerUrl") or viewer_home_url or viewer_base_url or "")
+    assert_true(bool(viewer_base_url), f"Mobile builder did not expose viewerBaseUrl for {project}")
+    assert_true(bool(viewer_home_url), f"Mobile builder did not expose viewerHomeUrl for {project}")
     assert_true(bool(viewer_url), f"Mobile builder did not expose a viewer URL for {project}")
     print(f"[crud-validate] mobile builder ready project={project}", flush=True)
 
@@ -372,7 +376,9 @@ def validate_runtime(url, spec, artifact_dir):
     mobile_builder_final = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60, "forceRestart": True}, timeout=180)
     artifact["steps"].append({"tool": "mobile-builder-open-final", "result": mobile_builder_final})
     assert_true(mobile_builder_final.get("ready") is True, f"Final mobile builder refresh did not become ready for {project}")
-    viewer_url = str(mobile_builder_final.get("viewerUrl") or mobile_builder_final.get("baseUrl") or viewer_url)
+    assert_true(bool(mobile_builder_final.get("viewerBaseUrl") or mobile_builder_final.get("baseUrl")), f"Final mobile builder refresh did not expose viewerBaseUrl for {project}")
+    assert_true(bool(mobile_builder_final.get("viewerHomeUrl")), f"Final mobile builder refresh did not expose viewerHomeUrl for {project}")
+    viewer_url = str(mobile_builder_final.get("viewerUrl") or mobile_builder_final.get("viewerHomeUrl") or mobile_builder_final.get("viewerBaseUrl") or viewer_url)
     print(f"[crud-validate] final ngx crud kit ok project={project}", flush=True)
 
     final_proof = None

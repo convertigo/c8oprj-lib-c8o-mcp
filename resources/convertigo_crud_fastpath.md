@@ -34,11 +34,13 @@ Default assumptions for the fast path:
 - visible entry page is `Page`
 - facade prefix is `crud`
 - deterministic shared-component shell is acceptable for the first visible pass
+- use the exact requested project name when it is technically valid; do not invent prefixes, suffixes, or dates
 - for the generic CRUD UI, prefer `ui.variant=entity-pages`
 - `entity-pages` means:
   - landing dashboard on `Page`
   - one generated page per entity
   - shared actions + global state + shared components already wired
+- if no explicit seed profile is provided, use `seed.profile=realistic`
 - treat `dashboard` as a legacy single-page fallback
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 
@@ -46,7 +48,7 @@ Default assumptions for the fast path:
 1. Call `upsert-crud` with a complete `spec`.
 2. Call `crud-proof` for backend evidence.
 3. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
-4. Open the app early with `mobile-builder-open` and keep the returned `viewerUrl`.
+4. Open the app early with `mobile-builder-open` and keep the returned `viewerUrl`. For the live dev app, prefer `viewerHomeUrl` or `viewerBaseUrl`; reserve `.../DisplayObjects/mobile/home` for production builds.
 5. Call `upsert-ngx-crud-kit` again with `stage=final`.
 6. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
 7. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.

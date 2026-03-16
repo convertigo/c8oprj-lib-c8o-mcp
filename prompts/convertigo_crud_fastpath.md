@@ -36,11 +36,14 @@ Collect or confirm:
   - `ui.variant=entity-pages`
   - landing page on `Page`
   - one generated entity page per CRUD entity
+  - `seed.profile=realistic`
 - for the CRM demo profile, prefer:
   - `ui.variant=master-detail`
   - `seed.profile=crm`
   - `seed.rowsPerEntity=20`
   - relation `Contact.CompanyId -> Company.Id`
+
+Use the exact requested project name when it is technically valid. Do not invent prefixes, suffixes, or dates.
 
 If some fields are missing, ask only for the missing CRUD spec items.
 
@@ -52,7 +55,7 @@ If some fields are missing, ask only for the missing CRUD spec items.
 5. Run `crud-proof` with backend requestables.
 6. If proof fails, stop and report the exact missing proof items.
 7. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
-8. If the task includes UI, call `mobile-builder-open` immediately after the bootstrap shell exists and keep the returned `viewerUrl`.
+8. If the task includes UI, call `mobile-builder-open` immediately after the bootstrap shell exists and keep the returned `viewerUrl`. Prefer `viewerHomeUrl` or `viewerBaseUrl` when a browser/devtools tool must open the live app.
 9. Run `upsert-ngx-crud-kit` with `stage=final`.
 10. Run `crud-proof` with `expectUiShell=true` and pass the `viewerUrl` from `mobile-builder-open`.
 11. Save with `project-save` when the target project was mutated and save proof is still needed.

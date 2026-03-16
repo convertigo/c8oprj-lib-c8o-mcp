@@ -369,6 +369,26 @@ C8O.crud = C8O.crud || {};
     return out;
   }
 
+  function normalizeViewerCandidateUrls(viewerUrl) {
+    var raw = trimmed(viewerUrl);
+    var candidates = [];
+    if (!raw.length) {
+      return candidates;
+    }
+    candidates.push(raw);
+    var noHash = raw.replace(/#.*$/, "").replace(/\?.*$/, "");
+    candidates.push(noHash);
+    if (/\/displayobjects\/mobile\/index\.html$/i.test(noHash)) {
+      var prodRoot = noHash.replace(/\/displayobjects\/mobile\/index\.html$/i, "");
+      candidates.push(prodRoot);
+      candidates.push(prodRoot + "/home");
+    }
+    if (/\/home$/i.test(noHash)) {
+      candidates.push(noHash.replace(/\/home$/i, ""));
+    }
+    return dedupeList(candidates);
+  }
+
   function probeViewer(viewerUrl, projectName, facadePrefix, hasCrmRelation, sequenceQNames, warnings) {
     var probe = {
       attempted: false,
@@ -392,34 +412,37 @@ C8O.crud = C8O.crud || {};
       var appHtml = "";
       var appUrl = trimmed(viewerUrl);
       if (probe.url.length) {
-        try {
-          rootFetch = httpFetchText(probe.url, 10000);
-          probe.statusCode = Number(rootFetch.statusCode || 0);
-          probe.finalUrl = trimmed(rootFetch.finalUrl || probe.url);
-          var rootBody = String(rootFetch.body || "");
-          if (rootBody.indexOf("<app-root") !== -1 || rootBody.indexOf("<ion-app") !== -1) {
-            appHtml = rootBody;
-            appUrl = probe.finalUrl;
-          } else if (rootBody.indexOf("Convertigo FlashUpdate") !== -1 || rootBody.indexOf("flashupdate.js") !== -1) {
-            var candidateUrls = [
-              resolveUrl(probe.finalUrl || probe.url, "displayobjects/mobile/index.html"),
-              resolveUrl(probe.finalUrl || probe.url, "DisplayObjects/mobile/index.html")
-            ];
-            for (var candidateIndex = 0; candidateIndex < candidateUrls.length; candidateIndex++) {
-              var candidateFetch = httpFetchText(candidateUrls[candidateIndex], 10000);
-              var candidateBody = String(candidateFetch.body || "");
-              if (candidateFetch.statusCode >= 200 && candidateFetch.statusCode < 400 && (candidateBody.indexOf("<app-root") !== -1 || candidateBody.indexOf("<ion-app") !== -1)) {
-                appHtml = candidateBody;
-                appUrl = trimmed(candidateFetch.finalUrl || candidateUrls[candidateIndex]);
-                probe.statusCode = Number(candidateFetch.statusCode || probe.statusCode || 0);
-                probe.finalUrl = appUrl;
-                break;
+        var remoteCandidates = normalizeViewerCandidateUrls(probe.url);
+        for (var remoteIndex = 0; remoteIndex < remoteCandidates.length && !appHtml.length; remoteIndex++) {
+          try {
+            rootFetch = httpFetchText(remoteCandidates[remoteIndex], 10000);
+            probe.statusCode = Number(rootFetch.statusCode || 0);
+            probe.finalUrl = trimmed(rootFetch.finalUrl || remoteCandidates[remoteIndex]);
+            var rootBody = String(rootFetch.body || "");
+            if (rootBody.indexOf("<app-root") !== -1 || rootBody.indexOf("<ion-app") !== -1) {
+              appHtml = rootBody;
+              appUrl = probe.finalUrl;
+            } else if (rootBody.indexOf("Convertigo FlashUpdate") !== -1 || rootBody.indexOf("flashupdate.js") !== -1) {
+              var candidateUrls = [
+                resolveUrl(probe.finalUrl || remoteCandidates[remoteIndex], "displayobjects/mobile/index.html"),
+                resolveUrl(probe.finalUrl || remoteCandidates[remoteIndex], "DisplayObjects/mobile/index.html")
+              ];
+              for (var candidateIndex = 0; candidateIndex < candidateUrls.length; candidateIndex++) {
+                var candidateFetch = httpFetchText(candidateUrls[candidateIndex], 10000);
+                var candidateBody = String(candidateFetch.body || "");
+                if (candidateFetch.statusCode >= 200 && candidateFetch.statusCode < 400 && (candidateBody.indexOf("<app-root") !== -1 || candidateBody.indexOf("<ion-app") !== -1)) {
+                  appHtml = candidateBody;
+                  appUrl = trimmed(candidateFetch.finalUrl || candidateUrls[candidateIndex]);
+                  probe.statusCode = Number(candidateFetch.statusCode || probe.statusCode || 0);
+                  probe.finalUrl = appUrl;
+                  break;
+                }
               }
             }
-          }
-        } catch (remoteViewerError) {
-          if (warnings) {
-            warnings.push("Viewer remote probe fallback to local DisplayObjects: " + String(remoteViewerError));
+          } catch (remoteViewerError) {
+            if (warnings) {
+              warnings.push("Viewer remote probe candidate failed for " + remoteCandidates[remoteIndex] + ": " + String(remoteViewerError));
+            }
           }
         }
       }
@@ -846,7 +869,7 @@ C8O.crud = C8O.crud || {};
     var companies = findEntityByName(spec.entities, "companies");
     var isCrm = !!(contacts && companies);
     if (!spec.seed.profile.length) {
-      spec.seed.profile = isCrm ? "crm" : "basic";
+      spec.seed.profile = isCrm ? "crm" : "realistic";
     }
     if (!isCrm) {
       return spec;
@@ -1172,34 +1195,112 @@ C8O.crud = C8O.crud || {};
   }
 
   function sampleValueForField(entity, field, rowIndex) {
+    var FIRST_NAMES = ["Camille", "Nora", "Leo", "Ines", "Arthur", "Maya", "Jules", "Sarah", "Lucas", "Emma"];
+    var LAST_NAMES = ["Martin", "Bernard", "Petit", "Robert", "Richard", "Dubois", "Moreau", "Simon", "Laurent", "Michel"];
+    var CITIES = ["Paris", "Lyon", "Bordeaux", "Nantes", "Lille", "Toulouse", "Marseille", "Rennes"];
+    var INDUSTRIES = ["Software", "Health", "Retail", "Education", "Finance", "Services"];
+    var CATEGORIES = ["Dinner", "Culture", "Outdoor", "Music", "Cinema", "Family"];
+    var DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    var STATUSES = ["active", "lead", "draft", "confirmed"];
+    var COMMENTS = [
+      "Prefers small groups and central venues.",
+      "Available after work during the week.",
+      "Would like a quieter option this month.",
+      "Happy to help with coordination.",
+      "Interested if the venue is easy to reach."
+    ];
+    var COMPANY_NAMES = ["Blue Orbit", "North Harbor", "Golden Fern", "Urban Echo", "Silver Maple", "Bright Atlas"];
+    var GROUP_NAMES = ["City Explorers", "Weekend Makers", "Food Lovers", "Culture Circle", "Sunset Club"];
+    var OUTING_TITLES = ["Sunset Picnic", "Jazz Night", "Street Food Tour", "Museum Late Opening", "Riverside Brunch"];
     var base = rowIndex + 1;
-    var column = field.column;
+    var column = normalizedIdentifier(field && (field.column || field.name));
+    var entityName = normalizedIdentifier(entity && entity.name);
     if (field.primary) {
       return null;
     }
+
+    function pick(list) {
+      return list[rowIndex % list.length];
+    }
+
+    function normalizedFieldType(fieldValue) {
+      return trimmed(fieldValue && fieldValue.type).toUpperCase().replace(/\(.*\)/, "");
+    }
+
+    function isNumericField(fieldValue) {
+      var type = normalizedFieldType(fieldValue);
+      return /^(INT|INTEGER|BIGINT|SMALLINT|DECIMAL|NUMERIC|NUMBER|DOUBLE|FLOAT|REAL)$/.test(type);
+    }
+
+    function isBooleanField(fieldValue) {
+      var type = normalizedFieldType(fieldValue);
+      return /^(BOOLEAN|BIT)$/.test(type);
+    }
+
+    if (isBooleanField(field)) {
+      return rowIndex % 2 === 0;
+    }
+    if (isNumericField(field)) {
+      if (column.indexOf("year") !== -1) {
+        return 2020 + (rowIndex % 6);
+      }
+      if (column.indexOf("score") !== -1 || column.indexOf("rank") !== -1 || column.indexOf("priority") !== -1) {
+        return (rowIndex % 5) + 1;
+      }
+      return base;
+    }
     if (column.indexOf("email") !== -1) {
-      return entity.singular + base + "@example.test";
+      var first = FIRST_NAMES[rowIndex % FIRST_NAMES.length].toLowerCase();
+      var last = LAST_NAMES[rowIndex % LAST_NAMES.length].toLowerCase();
+      return first + "." + last + base + "@example.test";
     }
     if (column.indexOf("first") !== -1) {
-      return ucfirst(entity.singular) + base;
+      return pick(FIRST_NAMES);
     }
     if (column.indexOf("last") !== -1) {
-      return "Demo" + base;
-    }
-    if (column.indexOf("name") !== -1) {
-      return ucfirst(entity.singular) + " " + base;
-    }
-    if (column.indexOf("status") !== -1) {
-      return rowIndex % 2 === 0 ? "active" : "lead";
-    }
-    if (column.indexOf("city") !== -1) {
-      return rowIndex % 2 === 0 ? "Paris" : "Lyon";
-    }
-    if (column.indexOf("industry") !== -1) {
-      return rowIndex % 2 === 0 ? "Software" : "Services";
+      return pick(LAST_NAMES);
     }
     if (column.indexOf("phone") !== -1) {
-      return "+33 1 40 " + String(10 + (base % 80)) + " " + String(10 + ((base + 7) % 80));
+      return "+33 6 " + String(10 + (base % 80)) + " " + String(10 + ((base + 7) % 80)) + " " + String(10 + ((base + 13) % 80)) + " " + String(10 + ((base + 19) % 80));
+    }
+    if (column.indexOf("status") !== -1) {
+      return pick(STATUSES);
+    }
+    if (column.indexOf("city") !== -1) {
+      return pick(CITIES);
+    }
+    if (column.indexOf("country") !== -1) {
+      return ["France", "Belgium", "Spain", "Italy"][rowIndex % 4];
+    }
+    if (column.indexOf("industry") !== -1) {
+      return pick(INDUSTRIES);
+    }
+    if (column.indexOf("category") !== -1) {
+      return pick(CATEGORIES);
+    }
+    if (column.indexOf("preferred_day") !== -1 || column.indexOf("day") !== -1) {
+      return pick(DAYS);
+    }
+    if (column.indexOf("vote") !== -1) {
+      return ["yes", "maybe", "no"][rowIndex % 3];
+    }
+    if (column.indexOf("comment") !== -1 || column.indexOf("note") !== -1 || column.indexOf("description") !== -1) {
+      return pick(COMMENTS);
+    }
+    if (column.indexOf("title") !== -1) {
+      return pick(OUTING_TITLES) + " " + base;
+    }
+    if (column.indexOf("name") !== -1) {
+      if (entityName === "companies") {
+        return pick(COMPANY_NAMES) + " " + base;
+      }
+      if (entityName === "groups") {
+        return pick(GROUP_NAMES) + " " + base;
+      }
+      return ucfirst(entity.singular) + " " + base;
+    }
+    if (column.indexOf("website") !== -1 || column.indexOf("url") !== -1) {
+      return "https://demo" + base + ".example.test";
     }
     return ucfirst(field.label || field.name) + " " + base;
   }
@@ -1262,6 +1363,30 @@ C8O.crud = C8O.crud || {};
   }
 
   function renderSeedValue(spec, entity, field, rowIndex) {
+    function normalizedFieldType(fieldValue) {
+      return trimmed(fieldValue && fieldValue.type).toUpperCase().replace(/\(.*\)/, "");
+    }
+
+    function seedLiteral(value, fieldValue) {
+      if (value === null || value === undefined) {
+        return "NULL";
+      }
+      if (typeof value === "number") {
+        return String(value);
+      }
+      if (typeof value === "boolean") {
+        if (/^(POSTGRESQL|HSQLDB|MARIADB|MYSQL)$/.test(String(spec.database.driver.id || "").toUpperCase())) {
+          return value ? "TRUE" : "FALSE";
+        }
+        return value ? "1" : "0";
+      }
+      var type = normalizedFieldType(fieldValue);
+      if (/^(INT|INTEGER|BIGINT|SMALLINT|DECIMAL|NUMERIC|NUMBER|DOUBLE|FLOAT|REAL)$/.test(type) && /^-?[0-9]+(?:\.[0-9]+)?$/.test(String(value))) {
+        return String(value);
+      }
+      return "'" + escapeSqlString(String(value)) + "'";
+    }
+
     if (field.primary) {
       return "DEFAULT";
     }
@@ -1270,10 +1395,10 @@ C8O.crud = C8O.crud || {};
       var lookupField = pickSeedLookupField(targetEntity);
       if (targetEntity && lookupField) {
         var targetValue = sampleValueForField(targetEntity, lookupField, rowIndex % Math.max(1, spec.seed.rowsPerEntity));
-        return "(SELECT " + targetEntity.primaryField.column + " FROM " + targetEntity.name + " WHERE " + lookupField.column + " = '" + escapeSqlString(targetValue) + "')";
+        return "(SELECT " + targetEntity.primaryField.column + " FROM " + targetEntity.name + " WHERE " + lookupField.column + " = " + seedLiteral(targetValue, lookupField) + ")";
       }
     }
-    return "'" + escapeSqlString(sampleValueForField(entity, field, rowIndex)) + "'";
+    return seedLiteral(sampleValueForField(entity, field, rowIndex), field);
   }
 
   function buildDeleteSql(entity) {
@@ -7758,7 +7883,7 @@ C8O.crud = C8O.crud || {};
       },
       seed: {
         enabled: true,
-        profile: trimmed(options.profile || (trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? "crm" : "basic")),
+        profile: trimmed(options.profile || (trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? "crm" : "realistic")),
         rowsPerEntity: trimmed(options.profile || "").toLowerCase() === "crm" || trimmed(options.facadePrefix || "crud").toLowerCase() === "crm" ? 20 : 2
       },
       ui: {

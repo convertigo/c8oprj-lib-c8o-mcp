@@ -52,12 +52,15 @@ Read this first for any MCP session that touches a Convertigo project.
 8. Pick one matching recipe before the first broad mutation.
 9. Do not call `rag-query` before the start guide and the chosen recipe were read.
 10. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
-11. Build the mutation plan before the first write call.
-12. Apply changes with `databaseobject-tree-apply` or `batch-call`.
-13. For a new CRUD UI project, make the app visible early: `upsert-crud` -> backend proof -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final proof with `viewerUrl`.
-14. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
-15. Save with `project-save`.
-16. Read a specialized handbook only when the recipe leaves open questions.
+11. Decide whether the task truly fits `upsert-crud` before the first write call. Editing an existing project or building a non-CRUD feature stays exploratory.
+12. Use the exact project name requested by the user when it is technically valid. Do not invent prefixes, suffixes, or dates.
+13. Build the mutation plan before the first write call.
+14. Apply changes with `databaseobject-tree-apply` or `batch-call`.
+15. For a new CRUD UI project, make the app visible early: `upsert-crud` -> backend proof -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final proof with `viewerUrl`.
+16. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
+17. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
+18. Save with `project-save`.
+19. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 

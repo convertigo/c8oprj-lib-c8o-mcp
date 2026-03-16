@@ -7,6 +7,14 @@ Use the MCP directly, prefer the dedicated CRUD fast path, and keep multi-agent 
 
 For technical details, see [documentation](./project.md).
 
+## Local Onboarding
+
+1. Import the project in Convertigo Studio.
+2. Run the private sequence `_setupCodex` once from Studio.
+3. Restart Codex so the generated `convertigo-generalist` skill is loaded and `~/.codex/config.toml` contains the local `convertigo` MCP server entry.
+
+`_setupCodex` is a Studio-local helper. It is not part of the public MCP tool surface.
+
 ## Recommended Flow
 
 1. Start from the CRUD fast path prompt and guide:
@@ -14,7 +22,7 @@ For technical details, see [documentation](./project.md).
    - `convertigo://resources/convertigo-crud-fastpath`
    - on a fresh session, call `resources/list` first and `prompts/list` when the caller surface exposes it
 2. Provide one explicit CRUD spec:
-   - project
+   - project, using the exact requested name without invented prefixes or date suffixes
    - SQL driver family
    - connector name
    - facade prefix
@@ -25,6 +33,7 @@ For technical details, see [documentation](./project.md).
    - backend `crud-proof`
    - `upsert-ngx-crud-kit stage=bootstrap`
    - `mobile-builder-open`
+   - use `viewerHomeUrl` or `viewerBaseUrl` for the live dev app; reserve `DisplayObjects/mobile/home` for production builds
    - `upsert-ngx-crud-kit stage=final`
    - final `crud-proof` with the returned `viewerUrl`
    - `project-save`

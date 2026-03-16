@@ -289,7 +289,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        project: { type: "string", description: "Existing NGX project name." },
+        project: { type: "string", description: "Existing NGX project name. Use the exact project technical name; do not invent prefixes or date suffixes." },
         timeoutSec: { type: "integer", minimum: 5, maximum: 600, default: 90, description: "Seconds to wait for a live-reload URL. Default 90; max 600." },
         logsLimit: { type: "integer", minimum: 5, maximum: 200, default: 40, description: "Maximum builder log lines returned for diagnostics. Default 40; max 200." },
         forceRestart: {
@@ -499,7 +499,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         spec: {
           type: "object",
-          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
+          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
           additionalProperties: true
         },
         sequence: booleanFlagSchema(true, "Set true to create or update public CRUD sequences in addition to SQL transactions."),
@@ -547,7 +547,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." },
         profile: { type: "string", description: "Optional CRUD profile hint, for example crm." },
         expectUiShell: booleanFlagSchema(false, "Set true to require visible shell evidence and starter replacement on the entry page."),
-        viewerUrl: { type: "string", description: "Optional viewer URL returned by mobile-builder-open. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle." },
+        viewerUrl: { type: "string", description: "Optional viewer URL returned by mobile-builder-open. In dev this should be the live viewer root or home URL, not a DisplayObjects/mobile production path. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle." },
         proofRequestables: {
           description: "Requestables to execute as proof. Accepts a JSON array string, an array of strings, or a comma-separated string.",
           oneOf: [
@@ -575,11 +575,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
             { type: "object", additionalProperties: true }
           ]
         },
-        variant: { type: "string", description: "UI variant, for example dashboard, list-form, or master-detail. The CRM rail uses master-detail." },
+        variant: { type: "string", description: "UI variant, for example entity-pages, dashboard, list-form, or master-detail. entity-pages is the recommended generic CRUD UI; dashboard is the legacy single-page fallback; the CRM rail uses master-detail." },
         stage: {
           type: "string",
           enum: ["bootstrap", "final"],
-          description: "UI assembly stage. bootstrap shows a visible work-in-progress shell early; final removes the bootstrap marker after proof."
+          description: "UI assembly stage. bootstrap shows a visible work-in-progress shell early so the mobile builder can open against a real shell; final removes the bootstrap marker after proof."
         },
         facadePrefix: { type: "string", description: "Public CRUD facade prefix used for shell labels and future wiring." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
@@ -1010,6 +1010,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       endpoint: { type: "string" },
       baseUrl: { type: "string" },
       viewerUrl: { type: "string" },
+      viewerBaseUrl: { type: "string" },
+      viewerHomeUrl: { type: "string" },
       port: { type: "number" },
       nodeUrl: { type: "string" },
       editor: mobileBuilderEditorSchema(),

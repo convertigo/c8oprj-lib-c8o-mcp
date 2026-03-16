@@ -107,6 +107,46 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return text;
   }
 
+  function stripQueryAndHash(url) {
+    var text = trim(url);
+    if (!text.length) {
+      return "";
+    }
+    var hashIndex = text.indexOf("#");
+    if (hashIndex >= 0) {
+      text = text.substring(0, hashIndex);
+    }
+    var queryIndex = text.indexOf("?");
+    if (queryIndex >= 0) {
+      text = text.substring(0, queryIndex);
+    }
+    return normalizeEndpoint(text);
+  }
+
+  function deriveViewerBaseUrl(viewerUrl, nodeUrl) {
+    var text = stripQueryAndHash(viewerUrl || nodeUrl || "");
+    if (!text.length) {
+      return normalizeEndpoint(nodeUrl || "");
+    }
+    text = text.replace(/\/displayobjects\/mobile\/home$/i, "");
+    text = text.replace(/\/displayobjects\/mobile\/index\.html$/i, "");
+    text = text.replace(/\/home$/i, "");
+    text = text.replace(/\/index\.html$/i, "");
+    return normalizeEndpoint(text);
+  }
+
+  function deriveViewerHomeUrl(viewerBaseUrl, viewerUrl) {
+    var base = normalizeEndpoint(viewerBaseUrl);
+    if (base.length) {
+      return base + "/home";
+    }
+    var raw = stripQueryAndHash(viewerUrl || "");
+    if (/\/home$/i.test(raw)) {
+      return raw;
+    }
+    return raw.length ? raw : "";
+  }
+
   function urlReachable(url, timeoutMs) {
     var text = trim(url);
     if (!text.length) {
@@ -614,6 +654,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     if (!viewerUrl.length && nodeUrl.length) {
       viewerUrl = nodeUrl;
     }
+    var viewerBaseUrl = deriveViewerBaseUrl(viewerUrl, nodeUrl);
+    var viewerHomeUrl = deriveViewerHomeUrl(viewerBaseUrl, viewerUrl);
+    if (!viewerUrl.length && viewerHomeUrl.length) {
+      viewerUrl = viewerHomeUrl;
+    }
 
     var status = ready ? "ready" : "timeout";
     var message = ready
@@ -644,8 +689,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       startedAt: startedAt,
       finishedAt: finishedAt,
       endpoint: endpoint,
-      baseUrl: viewerUrl,
+      baseUrl: viewerBaseUrl,
       viewerUrl: viewerUrl,
+      viewerBaseUrl: viewerBaseUrl,
+      viewerHomeUrl: viewerHomeUrl,
       port: port,
       nodeUrl: nodeUrl,
       editor: publicEditorResult,

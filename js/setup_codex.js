@@ -1,0 +1,369 @@
+include("js/util.js");
+include("js/resources.js");
+include("js/prompts.js");
+
+if (typeof C8O === "undefined") {
+  var C8O = {};
+}
+
+C8O.setupCodex = C8O.setupCodex || {};
+
+(function () {
+  function trim(value) {
+    return value == null ? "" : String(value).trim();
+  }
+
+  function ensureTrailingPath(base, suffix) {
+    var text = trim(base);
+    if (!text.length) {
+      return trim(suffix);
+    }
+    if (text.indexOf(trim(suffix)) === text.length - trim(suffix).length) {
+      return text;
+    }
+    return text + trim(suffix);
+  }
+
+  function userHomeDirectory() {
+    return trim(java.lang.System.getProperty("user.home"));
+  }
+
+  function resolveCodexHome(input) {
+    var File = Packages.java.io.File;
+    var raw = trim(input);
+    if (!raw.length) {
+      raw = "~/.codex";
+    }
+    if (raw === "~") {
+      raw = userHomeDirectory();
+    } else if (raw.indexOf("~/") === 0 || raw.indexOf("~\\") === 0) {
+      raw = userHomeDirectory() + raw.substring(1);
+    }
+    return new File(raw).getCanonicalFile();
+  }
+
+  function readTextIfExists(file) {
+    var Files = Packages.java.nio.file.Files;
+    var StandardCharsets = Packages.java.nio.charset.StandardCharsets;
+    if (!file || !file.isFile()) {
+      return "";
+    }
+    return String(new java.lang.String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+  }
+
+  function writeText(file, text) {
+    var Files = Packages.java.nio.file.Files;
+    var StandardCharsets = Packages.java.nio.charset.StandardCharsets;
+    java.nio.file.Files.createDirectories(file.getParentFile().toPath());
+    Files.write(
+      file.toPath(),
+      new java.lang.String(String(text == null ? "" : text)).getBytes(StandardCharsets.UTF_8),
+      java.nio.file.StandardOpenOption.CREATE,
+      java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+      java.nio.file.StandardOpenOption.WRITE
+    );
+  }
+
+  function normalizeBaseUrl(url) {
+    var text = trim(url).replace(/\/+$/g, "");
+    return text;
+  }
+
+  function deriveMcpUrl(input, warnings) {
+    var explicit = normalizeBaseUrl(input);
+    if (explicit.length) {
+      return explicit;
+    }
+    try {
+      var EnginePropertiesManager = Packages.com.twinsoft.convertigo.engine.EnginePropertiesManager;
+      var PropertyName = Packages.com.twinsoft.convertigo.engine.EnginePropertiesManager.PropertyName;
+      var baseUrl = normalizeBaseUrl(EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL));
+      if (/\/api\/mcp$/i.test(baseUrl)) {
+        return baseUrl;
+      }
+      if (/\/convertigo$/i.test(baseUrl)) {
+        return baseUrl + "/api/mcp";
+      }
+      if (/\/convertigo\/api$/i.test(baseUrl)) {
+        return baseUrl + "/mcp";
+      }
+      if (baseUrl.length) {
+        var candidate = ensureTrailingPath(baseUrl, "/convertigo/api/mcp");
+        if (warnings && warnings.push) {
+          warnings.push("Resolved MCP URL from the local server base URL using the default /convertigo/api/mcp suffix.");
+        }
+        return candidate;
+      }
+    } catch (deriveError) {
+      if (warnings && warnings.push) {
+        warnings.push("Unable to derive MCP URL from Engine properties: " + String(deriveError));
+      }
+    }
+    if (warnings && warnings.push) {
+      warnings.push("Falling back to the default local MCP URL.");
+    }
+    return "http://localhost:18080/convertigo/api/mcp";
+  }
+
+  function tomlEscape(value) {
+    return String(value == null ? "" : value)
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"');
+  }
+
+  function splitLines(text) {
+    return String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
+  }
+
+  function findSectionRange(lines, sectionName) {
+    var header = "[" + sectionName + "]";
+    var start = -1;
+    var end = lines.length;
+    for (var i = 0; i < lines.length; i++) {
+      if (trim(lines[i]) === header) {
+        start = i;
+        break;
+      }
+    }
+    if (start < 0) {
+      return { found: false, start: -1, end: -1 };
+    }
+    for (var j = start + 1; j < lines.length; j++) {
+      if (/^\s*\[.+\]\s*$/.test(lines[j])) {
+        end = j;
+        break;
+      }
+    }
+    return { found: true, start: start, end: end };
+  }
+
+  function patchConfigToml(existingText, mcpUrl) {
+    var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
+    var lines = splitLines(text);
+    var range = findSectionRange(lines, "mcp_servers.convertigo");
+    var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
+    var timeoutLine = "startup_timeout_sec = 60";
+    var status = "unchanged";
+
+    if (!range.found) {
+      if (lines.length && trim(lines[lines.length - 1]).length) {
+        lines.push("");
+      }
+      lines.push("[mcp_servers.convertigo]");
+      lines.push(urlLine);
+      lines.push(timeoutLine);
+      status = text.length ? "updated" : "created";
+      return {
+        status: status,
+        text: lines.join("\n").replace(/\n+$/, "\n")
+      };
+    }
+
+    var sectionLines = lines.slice(range.start, range.end);
+    var replacedUrl = false;
+    var replacedTimeout = false;
+    for (var i = 1; i < sectionLines.length; i++) {
+      if (/^\s*url\s*=/.test(sectionLines[i])) {
+        if (trim(sectionLines[i]) !== urlLine) {
+          sectionLines[i] = urlLine;
+          status = "updated";
+        }
+        replacedUrl = true;
+        continue;
+      }
+      if (/^\s*startup_timeout_sec\s*=/.test(sectionLines[i])) {
+        if (trim(sectionLines[i]) !== timeoutLine) {
+          sectionLines[i] = timeoutLine;
+          status = "updated";
+        }
+        replacedTimeout = true;
+      }
+    }
+    if (!replacedUrl) {
+      sectionLines.splice(1, 0, urlLine);
+      status = "updated";
+    }
+    if (!replacedTimeout) {
+      sectionLines.splice(replacedUrl ? 2 : 2, 0, timeoutLine);
+      status = "updated";
+    }
+    var newLines = lines.slice(0, range.start).concat(sectionLines).concat(lines.slice(range.end));
+    var nextText = newLines.join("\n").replace(/\n+$/, "\n");
+    if (nextText === text.replace(/\n+$/, "\n")) {
+      status = "unchanged";
+    }
+    return {
+      status: status,
+      text: nextText
+    };
+  }
+
+  function resourceSummary(uri, fallbackTitle) {
+    var entry = null;
+    try {
+      entry = c8oFindResourceByUri(uri);
+    } catch (_ignoreResourceLookup) {
+      entry = null;
+    }
+    return {
+      uri: uri,
+      title: trim(entry && (entry.title || entry.name)) || fallbackTitle,
+      description: trim(entry && entry.description) || ""
+    };
+  }
+
+  function promptSummary(name, fallbackTitle) {
+    var entry = null;
+    try {
+      entry = c8oFindPromptByName(name);
+    } catch (_ignorePromptLookup) {
+      entry = null;
+    }
+    return {
+      name: name,
+      title: trim(entry && (entry.title || entry.name)) || fallbackTitle,
+      description: trim(entry && entry.description) || ""
+    };
+  }
+
+  function buildReferenceLines() {
+    var items = [
+      resourceSummary("convertigo://capabilities", "Convertigo MCP capabilities"),
+      resourceSummary("convertigo://recipes/quickstart", "Convertigo MCP quickstart recipes"),
+      resourceSummary("convertigo://resources/convertigo-start", "Convertigo Start Guide"),
+      resourceSummary("convertigo://resources/convertigo-crud-fastpath", "Convertigo CRUD Fast Path"),
+      promptSummary("convertigo-quickstart", "Convertigo MCP Quickstart"),
+      promptSummary("convertigo-crud-fastpath", "Convertigo CRUD Fast Path")
+    ];
+    var lines = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var pointer = item.uri ? ("`" + item.uri + "`") : ("`" + item.name + "`");
+      var label = trim(item.title);
+      var description = trim(item.description);
+      lines.push("- " + pointer + " — " + label + (description.length ? (": " + description) : ""));
+    }
+    return lines;
+  }
+
+  function buildSkillMarkdown(mcpUrl) {
+    var referenceLines = buildReferenceLines();
+    return [
+      "---",
+      "name: convertigo-generalist",
+      "description: Bootstrap Codex for general Convertigo work. Use it to discover Convertigo MCP guides first, choose between exploratory work and the CRUD fast path, and apply the correct naming and viewer rules.",
+      "---",
+      "",
+      "# Convertigo Generalist",
+      "",
+      "Use this skill for general Convertigo work. Keep it procedural and rely on the MCP guides for the detailed knowledge.",
+      "",
+      "## Mandatory bootstrap",
+      "",
+      "1. Call `resources/list`.",
+      "2. If the caller surface exposes it, call `prompts/list`.",
+      "3. Read `convertigo://capabilities`.",
+      "4. Read `convertigo://recipes/quickstart`.",
+      "5. Read `convertigo://resources/convertigo-start`.",
+      "6. Only then decide the route:",
+      "   - Standard SQL CRUD + starter NGX UI: read `convertigo://resources/convertigo-crud-fastpath` and use `convertigo-crud-fastpath`.",
+      "   - Existing project edits, non-CRUD work, or tasks outside the deterministic rail: stay exploratory and follow `convertigo-quickstart`.",
+      "7. Do not call `rag-query` before the start guide and the chosen recipe were read.",
+      "",
+      "## CRUD routing",
+      "",
+      "- Do not ask the user to choose `upsert-crud`.",
+      "- Decide it yourself: use the CRUD rail only when the task is a standard SQL CRUD + starter NGX UI fit.",
+      "- Generic CRUD UI default: `ui.variant=entity-pages`.",
+      "- CRM-specific UI default: `ui.variant=master-detail`.",
+      "",
+      "## Project naming",
+      "",
+      "- Use exactly the project name requested by the user when it is technically valid.",
+      "- Do not invent prefixes, suffixes, or dates.",
+      "- If the requested name collides with an existing project, surface the collision explicitly instead of renaming it.",
+      "",
+      "## Viewer rule",
+      "",
+      "- In dev, `mobile-builder-open` serves the live app from the viewer root. Prefer `viewerHomeUrl`, or fall back to `viewerBaseUrl`.",
+      "- Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
+      "- In prod, the application URL is `.../DisplayObjects/mobile/home`.",
+      "",
+      "## Seed and visible data",
+      "",
+      "- Prefer realistic seed data by default.",
+      "- Prefer semantic preview fields such as `name`, `title`, `city`, `email`, or `comment` over `id` when a visible choice exists.",
+      "",
+      "## Current public references",
+      ""
+    ].concat(referenceLines).concat([
+      "",
+      "## Local MCP endpoint",
+      "",
+      "- Expected local MCP entry: `" + trim(mcpUrl) + "`",
+      "- If Codex is not yet configured for Convertigo, run the local Studio sequence `_setupCodex` from the ConvertigoMCP project.",
+      ""
+    ]).join("\n");
+  }
+
+  function writeManagedFile(file, content, dryRun) {
+    var existed = file.isFile();
+    var previous = readTextIfExists(file);
+    var next = String(content == null ? "" : content);
+    if (previous === next) {
+      return {
+        status: "unchanged",
+        existed: existed
+      };
+    }
+    if (dryRun !== true) {
+      writeText(file, next);
+    }
+    return {
+      status: existed ? "updated" : "created",
+      existed: existed
+    };
+  }
+
+  C8O.setupCodex.run = function (options) {
+    var File = Packages.java.io.File;
+    var opts = options || {};
+    var warnings = [];
+    var dryRun = C8O.util.toBoolean(opts.dryRun, false) === true;
+    var codexHome = resolveCodexHome(opts.codexHome);
+    var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
+    var skillsDir = new File(codexHome, "skills");
+    var skillDir = new File(skillsDir, "convertigo-generalist");
+    var skillFile = new File(skillDir, "SKILL.md");
+    var configFile = new File(codexHome, "config.toml");
+    var skillContent = buildSkillMarkdown(resolvedMcpUrl);
+    var skillWrite = writeManagedFile(skillFile, skillContent, dryRun);
+
+    var existingConfig = readTextIfExists(configFile);
+    var patchedConfig = patchConfigToml(existingConfig, resolvedMcpUrl);
+    if (patchedConfig.status !== "unchanged" && dryRun !== true) {
+      writeText(configFile, patchedConfig.text);
+    }
+
+    return {
+      skillStatus: skillWrite.status,
+      configStatus: patchedConfig.status,
+      resolvedCodexHome: String(codexHome.getAbsolutePath()),
+      resolvedMcpUrl: resolvedMcpUrl,
+      skillPath: String(skillFile.getAbsolutePath()),
+      warnings: warnings,
+      nextSteps: [
+        "Restart Codex to pick up the updated skill list.",
+        "Start a fresh Codex session in the Convertigo workspace.",
+        "Use the generated convertigo-generalist skill for general Convertigo work."
+      ],
+      dryRun: dryRun
+    };
+  };
+})();
+
+var setupCodexResult = C8O.setupCodex.run({
+  codexHome: (typeof codexHome !== "undefined") ? codexHome : "",
+  mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
+  dryRun: (typeof dryRun !== "undefined") ? dryRun : false
+});

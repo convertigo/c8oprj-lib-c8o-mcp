@@ -7,6 +7,7 @@
   version: 0.0.15
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
+  ↓_setupCodex [sequences.GenericSequence]: 🗏 sequences/_setupCodex.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
   ↓internal_call_stub [sequences.GenericSequence-1761756735550]: 🗏 sequences/internal_call_stub.yaml
   ↓internal_json_schema [sequences.GenericSequence-1761736078534]: 🗏 sequences/internal_json_schema.yaml

@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Start or reconnect to the NGX mobile builder
-  Ensures the NGX builder is running and returns the detected live-reload URL plus readiness diagnostics. Use forceRestart only when the current builder is stuck or on the wrong state.
+  Ensures the NGX builder is running and returns readiness diagnostics plus viewerBaseUrl, viewerHomeUrl, and viewerUrl. Use viewerHomeUrl or viewerBaseUrl for the live dev app; reserve DisplayObjects/mobile/home for production builds. Use forceRestart only when the current builder is stuck or on the wrong state.
 responseTimeout: 120
 ↓IncludeHelpers [steps.SimpleStep-1772733052615]: 
   comment: Start builder and collect readiness/log data.

@@ -1,0 +1,30 @@
+accessibility: Private
+comment: |
+  Setup local Codex onboarding for this MCP project
+  Generates or updates the local convertigo-generalist skill under ~/.codex/skills and minimally patches ~/.codex/config.toml to register the convertigo MCP server.
+↓IncludeHelpers [steps.SimpleStep-1773653288527]: 
+  comment: Load the local Codex setup helper.
+  expression: include("js/setup_codex.js");
+↓result [steps.JsonToXmlStep-1773653288550]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: setupCodexResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓codexHome [variables.RequestableVariable-1773653288576]: 
+  comment: Optional Codex home directory. Defaults to ~/.codex on the local Studio machine.
+  description: Optional Codex home directory. Defaults to ~/.codex on the local Studio machine.
+↓mcpUrl [variables.RequestableVariable-1773653288593]: 
+  comment: Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+  description: Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+↓dryRun [variables.RequestableVariable-1773653288599]: 
+  comment: Set true to preview the generated skill and config patch without writing files.
+  description: Set true to preview the generated skill and config patch without writing files.
+  value: false

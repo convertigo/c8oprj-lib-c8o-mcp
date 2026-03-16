@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Create or update deterministic CRUD scaffolding
-  Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell.
+  Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data.
 ↓IncludeHelpers [steps.SimpleStep-1773318201001]: 
   comment: Load deterministic CRUD helpers
   expression: include("js/tools_crud.js");
