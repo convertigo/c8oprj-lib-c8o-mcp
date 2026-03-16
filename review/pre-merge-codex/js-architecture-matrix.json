@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI node/state helpers.",
+    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI/proof helpers.",
     "currentSize": {
-      "linesApprox": 6980,
-      "functionsApprox": 191
+      "linesApprox": 6830,
+      "functionsApprox": 182
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -89,6 +89,19 @@
       "js/crud_ui_state.js"
     ],
     "boundaryRule": "Global state names, QNames, and expression helpers only; keep page assembly and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_proof.js",
+    "classification": "public product",
+    "currentRole": "CRUD proof helpers for requestable execution summaries, sql_output extraction, and proof-requestable normalization.",
+    "problems": [
+      "Should stay focused on proof/runtime inspection helpers and avoid absorbing UI page assembly or CRUD mutation logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_proof.js"
+    ],
+    "boundaryRule": "Runtime proof helpers only; keep CRUD mutation and page assembly outside this file."
   },
   {
     "surface": "js/crud_runtime.js",

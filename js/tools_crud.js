@@ -8,6 +8,7 @@ include("js/crud_runtime.js");
 include("js/crud_backend.js");
 include("js/crud_ui_nodes.js");
 include("js/crud_ui_state.js");
+include("js/crud_proof.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -721,6 +722,21 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function crudProofContext() {
+    return {
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      ensureWarnings: ensureWarnings,
+      addWarning: addWarning,
+      normalizedIdentifier: normalizedIdentifier,
+      normalizeStatus: normalizeStatus,
+      isSuccessLikeStatus: isSuccessLikeStatus,
+      dedupeStrings: dedupeStrings,
+      toJsonSafe: C8O.util && typeof C8O.util.toJsonSafe === "function" ? C8O.util.toJsonSafe : null,
+      callInternalSequence: callInternalSequence
+    };
+  }
+
   function normalizeDriver(databaseSpec) {
     return C8O.crudSpec.normalizeDriver(crudSpecContext(), databaseSpec);
   }
@@ -1375,140 +1391,28 @@ C8O.crud = C8O.crud || {};
     return summary;
   }
 
-  function collectNestedValue(payload, paths) {
-    for (var i = 0; i < paths.length; i++) {
-      var current = payload;
-      var parts = paths[i];
-      var ok = true;
-      for (var j = 0; j < parts.length; j++) {
-        var key = parts[j];
-        if (current == null || typeof current !== "object" || !(key in current)) {
-          ok = false;
-          break;
-        }
-        current = current[key];
-      }
-      if (ok && current !== undefined && current !== null) {
-        return current;
-      }
-    }
-    return null;
-  }
-
   function summarizeRequestableProof(payload, requestable, result) {
-    var safe = C8O.util.toJsonSafe ? C8O.util.toJsonSafe(payload, {
-      warnings: ensureWarnings(result),
-      path: "$.runtimeEvidence." + normalizedIdentifier(requestable)
-    }) : payload;
-    var summary = {
-      requestable: requestable,
-      status: normalizeStatus(safe && safe.status, "ok"),
-      ok: isSuccessLikeStatus(safe && safe.status)
-    };
-
-    var totalValue = collectNestedValue(safe, [
-      ["total"],
-      ["result", "total"],
-      ["response", "total"],
-      ["item", "total"],
-      ["document", "total"]
-    ]);
-    if (totalValue != null && totalValue !== "") {
-      var totalNumber = Number(totalValue);
-      summary.total = isNaN(totalNumber) ? String(totalValue) : totalNumber;
-    }
-
-    var itemsValue = collectNestedValue(safe, [
-      ["items"],
-      ["result", "items"],
-      ["response", "items"],
-      ["document", "items"]
-    ]);
-    if (Array.isArray(itemsValue)) {
-      summary.itemCount = itemsValue.length;
-    }
-
-    var sourceValue = collectNestedValue(safe, [
-      ["source"],
-      ["result", "source"],
-      ["response", "source"],
-      ["document", "source"]
-    ]);
-    if (sourceValue != null && sourceValue !== "") {
-      summary.source = String(sourceValue);
-    }
-
-    var messageValue = collectNestedValue(safe, [
-      ["message"],
-      ["result", "message"],
-      ["response", "message"],
-      ["error"],
-      ["result", "error"],
-      ["response", "error"]
-    ]);
-    if (!summary.ok && messageValue != null && messageValue !== "") {
-      summary.message = String(messageValue);
-    }
-
-    return summary;
+    return C8O.crudProof.summarizeRequestableProof(crudProofContext(), payload, requestable, result);
   }
 
   function requestablePayload(requestable, variables, result) {
-    try {
-      return callInternalSequence("tools_requestable_execute", {
-        requestable: requestable,
-        variables: variables || {}
-      });
-    } catch (proofError) {
-      addWarning(result, "Unable to execute proof for " + requestable + ": " + String(proofError));
-      return {
-        status: "error",
-        error: String(proofError)
-      };
-    }
+    return C8O.crudProof.requestablePayload(crudProofContext(), requestable, variables, result);
   }
 
   function proofRequestable(requestable, variables, result) {
-    var payload = requestablePayload(requestable, variables, result);
-    return summarizeRequestableProof(payload, requestable, result);
+    return C8O.crudProof.proofRequestable(crudProofContext(), requestable, variables, result);
   }
 
   function firstSqlOutputRow(payload) {
-    var sqlOutput = collectNestedValue(payload, [
-      ["sql_output"],
-      ["result", "sql_output"],
-      ["response", "sql_output"],
-      ["document", "sql_output"]
-    ]);
-    if (Array.isArray(sqlOutput) && sqlOutput.length) {
-      return sqlOutput[0];
-    }
-    return null;
+    return C8O.crudProof.firstSqlOutputRow(crudProofContext(), payload);
   }
 
   function collectSqlOutputRows(payload) {
-    var sqlOutput = collectNestedValue(payload, [
-      ["sql_output"],
-      ["result", "sql_output"],
-      ["response", "sql_output"],
-      ["document", "sql_output"],
-      ["transaction", "document", "sql_output"],
-      ["result", "transaction", "document", "sql_output"],
-      ["response", "transaction", "document", "sql_output"]
-    ]);
-    return Array.isArray(sqlOutput) ? sqlOutput : [];
+    return C8O.crudProof.collectSqlOutputRows(crudProofContext(), payload);
   }
 
   function extractRowField(row, candidates) {
-    if (!row || typeof row !== "object") {
-      return null;
-    }
-    for (var i = 0; i < candidates.length; i++) {
-      if (row[candidates[i]] !== undefined && row[candidates[i]] !== null && row[candidates[i]] !== "") {
-        return row[candidates[i]];
-      }
-    }
-    return null;
+    return C8O.crudProof.extractRowField(crudProofContext(), row, candidates);
   }
 
   function dedupeStrings(values) {
@@ -1526,149 +1430,16 @@ C8O.crud = C8O.crud || {};
     return deduped;
   }
 
-  function parseLooseJson(value) {
-    var candidate = value;
-    for (var depth = 0; depth < 3; depth++) {
-      if (typeof candidate !== "string") {
-        return candidate;
-      }
-      var text = trimmed(candidate);
-      if (!text.length) {
-        return "";
-      }
-      try {
-        candidate = JSON.parse(text);
-      } catch (_ignoreLooseJson) {
-        return text;
-      }
-    }
-    return candidate;
-  }
-
-  function toArrayLike(value) {
-    if (value == null) {
-      return null;
-    }
-    if (Array.isArray(value)) {
-      return value.slice();
-    }
-    try {
-      var NativeArray = Packages.org.mozilla.javascript.NativeArray;
-      if (value instanceof NativeArray) {
-        var nativeLength = Number(value.getLength ? value.getLength() : value.length);
-        var nativeItems = [];
-        for (var i = 0; i < nativeLength; i++) {
-          nativeItems.push(value[i]);
-        }
-        return nativeItems;
-      }
-    } catch (_ignoreNativeArray) {}
-    try {
-      if (value instanceof Packages.java.util.Collection) {
-        var collectionItems = [];
-        var iterator = value.iterator();
-        while (iterator.hasNext()) {
-          collectionItems.push(iterator.next());
-        }
-        return collectionItems;
-      }
-    } catch (_ignoreJavaCollection) {}
-    try {
-      var javaClass = value && value.getClass ? value.getClass() : null;
-      if (javaClass && javaClass.isArray && javaClass.isArray()) {
-        var JavaArray = Packages.java.lang.reflect.Array;
-        var arrayLength = JavaArray.getLength(value);
-        var arrayItems = [];
-        for (var j = 0; j < arrayLength; j++) {
-          arrayItems.push(JavaArray.get(value, j));
-        }
-        return arrayItems;
-      }
-    } catch (_ignoreJavaArray) {}
-    return null;
-  }
-
   function normalizeProofRequestablesInput(value) {
-    var source = value;
-    if (source == null) {
-      return [];
-    }
-    var arrayLike = toArrayLike(source);
-    if (arrayLike) {
-      return dedupeStrings(arrayLike);
-    }
-    if (C8O.util && typeof C8O.util.toJsonSafe === "function") {
-      source = C8O.util.toJsonSafe(source, { maxDepth: 4 });
-      arrayLike = toArrayLike(source);
-      if (arrayLike) {
-        return dedupeStrings(arrayLike);
-      }
-    }
-    if (typeof source === "string") {
-      source = parseLooseJson(source);
-    }
-    arrayLike = toArrayLike(source);
-    if (arrayLike) {
-      return dedupeStrings(arrayLike);
-    }
-    if (Array.isArray(source)) {
-      return dedupeStrings(source);
-    }
-    if (source && typeof source === "object") {
-      if (Array.isArray(source.requestables)) {
-        return dedupeStrings(source.requestables);
-      }
-      arrayLike = toArrayLike(source.requestables);
-      if (arrayLike) {
-        return dedupeStrings(arrayLike);
-      }
-      if (typeof source.requestables === "string") {
-        return normalizeProofRequestablesInput(source.requestables);
-      }
-    }
-    var text = trimmed(source);
-    if (!text.length) {
-      return [];
-    }
-    if (text.indexOf(",") !== -1) {
-      return dedupeStrings(text.split(","));
-    }
-    return [text];
+    return C8O.crudProof.normalizeProofRequestablesInput(crudProofContext(), value);
   }
 
   function resolveProofRequestableQName(requestable, projectName, connectorName) {
-    var text = trimmed(requestable);
-    if (!text.length) {
-      return "";
-    }
-    if (text.indexOf(".") !== -1) {
-      if (text.indexOf(projectName + ".") === 0) {
-        return text;
-      }
-      if (text.split(".").length >= 3) {
-        return text;
-      }
-      return projectName + "." + text;
-    }
-    if (trimmed(connectorName).length) {
-      return projectName + "." + connectorName + "." + text;
-    }
-    return projectName + "." + text;
+    return C8O.crudProof.resolveProofRequestableQName(crudProofContext(), requestable, projectName, connectorName);
   }
 
   function proofCheck(id, ok, message, target) {
-    var check = {
-      id: trimmed(id),
-      status: ok ? "ok" : "missing",
-      ok: ok === true
-    };
-    if (trimmed(message).length) {
-      check.message = String(message);
-    }
-    if (trimmed(target).length) {
-      check.target = String(target);
-    }
-    return check;
+    return C8O.crudProof.proofCheck(crudProofContext(), id, ok, message, target);
   }
 
   function pushMissing(result, value) {
