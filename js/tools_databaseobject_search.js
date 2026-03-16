@@ -63,13 +63,7 @@ var snippetRadius = 20;
 
 function buildRecord(dbo, depth, contextSnippet) {
   var record = {};
-  var qnameInfo = C8O.dbo.buildQNameInfo ? C8O.dbo.buildQNameInfo(dbo) : {
-    canonicalQName: C8O.dbo.safeQName(dbo),
-    legacyQName: C8O.dbo.safeQName(dbo)
-  };
-  record.qname = qnameInfo.canonicalQName;
-  record.canonicalQName = qnameInfo.canonicalQName;
-  record.legacyQName = qnameInfo.legacyQName;
+  record.qname = C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(dbo) : C8O.dbo.safeQName(dbo);
   try { record.name = String(dbo.getName()); } catch (_ignoredNameField) { record.name = ""; }
   var comment = "";
   try {
@@ -264,4 +258,3 @@ searchSummary = {
 };
 searchMatches = matchesWindow;
 nextCursorToken = nextCursorValue;
-

@@ -2215,23 +2215,6 @@ C8O.dbo._safeFullQName = function (dbo) {
   return "";
 };
 
-C8O.dbo._safeLegacyQName = function (dbo) {
-  if (!dbo) {
-    return "";
-  }
-  try {
-    if (dbo.getQName) {
-      return String(dbo.getQName());
-    }
-  } catch (_ignoreQName) {}
-  try {
-    if (dbo.getFullQName) {
-      return String(dbo.getFullQName());
-    }
-  } catch (_ignoreFullQName) {}
-  return "";
-};
-
 C8O.dbo._extractPropertyHint = function (updates, aliases) {
   if (!updates || typeof updates !== "object" || !aliases || !aliases.length) {
     return "";
@@ -3104,25 +3087,6 @@ C8O.dbo.safeQName = function (dbo) {
 
 C8O.dbo.safeFullQName = function (dbo) {
   return C8O.dbo._safeFullQName ? C8O.dbo._safeFullQName(dbo) : "";
-};
-
-C8O.dbo.safeLegacyQName = function (dbo) {
-  return C8O.dbo._safeLegacyQName ? C8O.dbo._safeLegacyQName(dbo) : "";
-};
-
-C8O.dbo.buildQNameInfo = function (dbo) {
-  var canonicalQName = C8O.dbo.safeFullQName(dbo);
-  var legacyQName = C8O.dbo.safeLegacyQName(dbo);
-  if (!canonicalQName.length) {
-    canonicalQName = legacyQName;
-  }
-  if (!legacyQName.length) {
-    legacyQName = canonicalQName;
-  }
-  return {
-    canonicalQName: canonicalQName,
-    legacyQName: legacyQName
-  };
 };
 
 C8O.dbo.safeName = function (dbo) {

@@ -98,8 +98,8 @@ Lock these decisions before the first mutation:
 
 ### QName forms
 - Tool inputs accept both the historical flat QName and the canonical prefixed QName.
-- When a tool returns both `canonicalQName` and `legacyQName`, prefer copying `canonicalQName` into follow-up tool calls.
-- Treat `legacyQName` as a compatibility alias for older traces and human-readable reports.
+- Public tool outputs use the canonical prefixed QName.
+- Prefer copying the returned `qname` directly into follow-up tool calls.
 
 ### Guide escalation example
 Correct escalation for a multi-track feature:

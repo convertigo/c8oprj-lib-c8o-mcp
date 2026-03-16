@@ -84,11 +84,7 @@ var startOffset = parseIntBounded(_nextCursor, 0, 0, 1000000000);
 var includePropertiesFlag = propertiesMode !== "none";
 
 var root = C8O.dbo.resolve(targetQName, { messagePrefix: "target" });
-var rootQNameInfo = C8O.dbo.buildQNameInfo ? C8O.dbo.buildQNameInfo(root) : {
-  canonicalQName: C8O.dbo.safeQName(root),
-  legacyQName: C8O.dbo.safeQName(root)
-};
-var rootQName = rootQNameInfo.canonicalQName;
+var rootQName = C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(root) : C8O.dbo.safeQName(root);
 
 var subtreeCountCache = {};
 function countSubtreeNodes(dbo) {
@@ -110,14 +106,8 @@ function countSubtreeNodes(dbo) {
 
 function buildNodeMeta(dbo, depth) {
   var children = C8O.dbo.getDirectChildren(dbo);
-  var qnameInfo = C8O.dbo.buildQNameInfo ? C8O.dbo.buildQNameInfo(dbo) : {
-    canonicalQName: C8O.dbo.safeQName(dbo),
-    legacyQName: C8O.dbo.safeQName(dbo)
-  };
   var meta = {
-    qname: qnameInfo.canonicalQName,
-    canonicalQName: qnameInfo.canonicalQName,
-    legacyQName: qnameInfo.legacyQName,
+    qname: C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(dbo) : C8O.dbo.safeQName(dbo),
     name: C8O.dbo.safeName(dbo),
     className: C8O.dbo.logicalClassNameForDbo(dbo),
     depth: depth,
@@ -145,8 +135,6 @@ function applyPropertiesIfNeeded(node, dbo) {
 var rootMeta = buildNodeMeta(root, 0);
 treeData = {
   qname: rootMeta.qname,
-  canonicalQName: rootMeta.canonicalQName,
-  legacyQName: rootMeta.legacyQName,
   name: rootMeta.name,
   className: rootMeta.className,
   depth: 0,
@@ -169,8 +157,6 @@ function ensureNode(meta, dbo, partial) {
   if (!node) {
     node = {
       qname: meta.qname,
-      canonicalQName: meta.canonicalQName,
-      legacyQName: meta.legacyQName,
       name: meta.name,
       className: meta.className,
       depth: meta.depth,
@@ -275,8 +261,6 @@ if (childrenDepthValue > 0) {
 }
 
 treeRootQName = rootQName;
-treeRootCanonicalQName = rootMeta.canonicalQName;
-treeRootLegacyQName = rootMeta.legacyQName;
 treeView = "tree";
 treeStartOffset = startOffset;
 treeReturnedNodes = returnedNodes;

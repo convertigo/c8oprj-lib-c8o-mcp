@@ -170,32 +170,6 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: item.databaseType
-        ↓MatchCanonicalQName [steps.JsonFieldStep-1773656558232]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: canonicalQName
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.canonicalQName
-        ↓MatchLegacyQName [steps.JsonFieldStep-1773656558234]: 
-          key: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: PLAIN
-                - →→: legacyQName
-          value: 
-            - xmlizable: 
-              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-              - SmartType: 
-                - ↑mode: JS
-                - →→: item.legacyQName
   ↓NextCursorIf [steps.IfStep-1763569756302]: 
     condition: notEmpty(nextCursorToken)
     ↓NextCursor [steps.JsonFieldStep-1763569761744]: 

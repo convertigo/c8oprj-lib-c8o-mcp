@@ -853,8 +853,6 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function treeNodeOutputSchema() {
     return openObjectSchema({
       qname: { type: "string" },
-      canonicalQName: { type: "string" },
-      legacyQName: { type: "string" },
       name: { type: "string" },
       className: { type: "string" },
       depth: { type: "number" },
@@ -874,8 +872,6 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function databaseobjectTreeGetOutputSchema() {
     return closedObjectSchema({
       rootQName: { type: "string" },
-      rootCanonicalQName: { type: "string" },
-      rootLegacyQName: { type: "string" },
       view: { type: "string" },
       startOffset: { type: "number" },
       returnedNodes: { type: "number" },
@@ -905,8 +901,6 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         type: "array",
         items: openObjectSchema({
           qname: { type: "string" },
-          canonicalQName: { type: "string" },
-          legacyQName: { type: "string" },
           name: { type: "string" },
           className: { type: "string" },
           priority: { type: "string" },
