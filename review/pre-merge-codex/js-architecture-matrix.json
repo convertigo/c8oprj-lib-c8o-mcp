@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns deterministic CRUD spec normalization, SQL CRUD scaffolding, NGX CRUD kit assembly, CRUD status/proof, and viewer evidence helpers.",
+    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend helpers.",
     "currentSize": {
-      "linesApprox": 7590,
-      "functionsApprox": 226
+      "linesApprox": 7350,
+      "functionsApprox": 215
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -48,6 +48,19 @@
       "js/crud_spec.js"
     ],
     "boundaryRule": "Spec parsing and normalization only; keep orchestration and side effects in js/tools_crud.js."
+  },
+  {
+    "surface": "js/crud_backend.js",
+    "classification": "public product",
+    "currentRole": "SQL CRUD rendering and backend scaffolding helpers for connectors, transactions, requestable variables, and public facade sequences.",
+    "problems": [
+      "Must stay focused on backend SQL and requestable scaffolding, without absorbing seed heuristics, UI assembly, or viewer proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_backend.js"
+    ],
+    "boundaryRule": "Backend CRUD SQL and requestable scaffolding only; keep orchestration, UI, and proof logic elsewhere."
   },
   {
     "surface": "js/crud_runtime.js",

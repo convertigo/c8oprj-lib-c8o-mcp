@@ -5,6 +5,7 @@ include("js/marketplace.js");
 include("js/crud_seed.js");
 include("js/crud_spec.js");
 include("js/crud_runtime.js");
+include("js/crud_backend.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -673,6 +674,24 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function crudBackendContext() {
+    return {
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      pluralize: pluralize,
+      normalizedIdentifier: normalizedIdentifier,
+      crmRelationContext: crmRelationContext,
+      buildSeedSql: buildSeedSql,
+      ensureChild: ensureChild,
+      createChild: createChild,
+      findChild: findChild,
+      applyUpdates: applyUpdates,
+      connectorProperties: connectorProperties,
+      priorityOf: priorityOf,
+      ucfirst: ucfirst
+    };
+  }
+
   function normalizeDriver(databaseSpec) {
     return C8O.crudSpec.normalizeDriver(crudSpecContext(), databaseSpec);
   }
@@ -770,53 +789,15 @@ C8O.crud = C8O.crud || {};
 	  }
 
   function mapSqlType(field, driver) {
-    var raw = trimmed(field.type || "").toUpperCase();
-    if (!raw.length) {
-      raw = "VARCHAR(255)";
-    }
-    if (raw === "TEXT") {
-      return driver.textType;
-    }
-    if (raw === "BOOLEAN") {
-      return driver.booleanType;
-    }
-    if (raw === "INT" || raw === "INTEGER") {
-      return driver.id === "oracle" ? "NUMBER" : "INT";
-    }
-    return raw;
+    return C8O.crudBackend.mapSqlType(crudBackendContext(), field, driver);
   }
 
   function renderColumnDefinition(field, driver) {
-    if (field.primary) {
-      if (field.column === "id") {
-        return field.column + " " + driver.identityColumn;
-      }
-      var pkType = mapSqlType(field, driver);
-      return field.column + " " + pkType + " PRIMARY KEY";
-    }
-    var segments = [field.column, mapSqlType(field, driver)];
-    if (field.required) {
-      segments.push("NOT NULL");
-    }
-    if (field.unique) {
-      segments.push("UNIQUE");
-    }
-    if (field.references && field.references.entity) {
-      var target = pluralize(normalizedIdentifier(field.references.entity));
-      var targetColumn = normalizedIdentifier(field.references.field || "id");
-      segments.push("REFERENCES " + target + "(" + targetColumn + ")");
-    }
-    return segments.join(" ");
+    return C8O.crudBackend.renderColumnDefinition(crudBackendContext(), field, driver);
   }
 
   function buildCreateTableSql(spec, entity) {
-    var driver = spec.database.driver;
-    var columnLines = [];
-    for (var i = 0; i < entity.fields.length; i++) {
-      columnLines.push("  " + renderColumnDefinition(entity.fields[i], driver));
-    }
-    var createPrefix = driver.id === "oracle" ? "CREATE TABLE " : "CREATE TABLE IF NOT EXISTS ";
-    return createPrefix + entity.name + " (\n" + columnLines.join(",\n") + "\n)";
+    return C8O.crudBackend.buildCreateTableSql(crudBackendContext(), spec, entity);
   }
 
   function crudSeedContext() {
@@ -844,37 +825,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function orderedEntities(spec) {
-    var entities = ensureArray(spec && spec.entities);
-    var map = {};
-    var ordered = [];
-    var visiting = {};
-    var visited = {};
-    for (var i = 0; i < entities.length; i++) {
-      map[entities[i].name] = entities[i];
-    }
-    function visit(entity) {
-      if (!entity || visited[entity.name]) {
-        return;
-      }
-      if (visiting[entity.name]) {
-        return;
-      }
-      visiting[entity.name] = true;
-      var fields = ensureArray(entity.fields);
-      for (var f = 0; f < fields.length; f++) {
-        if (!fields[f].references || !fields[f].references.entity) {
-          continue;
-        }
-        visit(map[pluralize(normalizedIdentifier(fields[f].references.entity))]);
-      }
-      visiting[entity.name] = false;
-      visited[entity.name] = true;
-      ordered.push(entity);
-    }
-    for (var j = 0; j < entities.length; j++) {
-      visit(entities[j]);
-    }
-    return ordered;
+    return C8O.crudBackend.orderedEntities(crudBackendContext(), spec);
   }
 
   function renderSeedValue(spec, entity, field, rowIndex) {
@@ -882,7 +833,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildDeleteSql(entity) {
-    return "DELETE FROM " + entity.name + ";";
+    return C8O.crudBackend.buildDeleteSql(crudBackendContext(), entity);
   }
 
   function buildSeedSql(spec, entity) {
@@ -890,165 +841,35 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildInitSql(spec) {
-    var entityOrder = orderedEntities(spec);
-    var chunks = [];
-    for (var i = 0; i < entityOrder.length; i++) {
-      chunks.push(buildCreateTableSql(spec, entityOrder[i]) + ";");
-    }
-    if (spec.seed.enabled === true) {
-      for (var j = entityOrder.length - 1; j >= 0; j--) {
-        chunks.push(buildDeleteSql(entityOrder[j]));
-      }
-      for (var k = 0; k < entityOrder.length; k++) {
-        var seedSql = buildSeedSql(spec, entityOrder[k]);
-        if (seedSql.length) {
-          chunks.push(seedSql);
-        }
-      }
-    }
-    return chunks.join("\n\n");
+    return C8O.crudBackend.buildInitSql(crudBackendContext(), spec);
   }
 
   function listColumns(entity) {
-    var columns = [];
-    for (var i = 0; i < entity.fields.length; i++) {
-      columns.push(entity.fields[i].column);
-    }
-    return columns;
+    return C8O.crudBackend.listColumns(crudBackendContext(), entity);
   }
 
   function txName(entity, verb) {
-    var plural = entity.name;
-    var singular = entity.singular;
-    switch (verb) {
-      case "init":
-        return "init_schema";
-      case "seed":
-        return "seed_" + plural;
-      case "list":
-        return "list_" + plural;
-      case "count":
-        return "count_" + plural;
-      case "read":
-        return "read_" + singular;
-      case "create":
-        return "create_" + singular;
-      case "update":
-        return "update_" + singular;
-      case "delete":
-        return "delete_" + singular;
-      default:
-        return verb + "_" + plural;
-    }
+    return C8O.crudBackend.txName(crudBackendContext(), entity, verb);
   }
 
   function buildCrudSql(spec, entity, verb) {
-    var columns = listColumns(entity);
-    var pk = entity.primaryField.column;
-    var nonPkFields = entity.fields.filter(function (field) { return !field.primary; });
-    var crm = crmRelationContext(spec);
-    if (verb === "list") {
-      if (crm && entity.name === crm.contacts.name) {
-        return [
-          "SELECT c." + columns.join(", c."),
-          ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
-          "FROM " + entity.name + " c",
-          "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
-          "ORDER BY c." + pk + " ASC"
-        ].join("\n");
-      }
-      if (crm && entity.name === crm.companies.name) {
-        return [
-          "SELECT co." + columns.join(", co."),
-          ", (SELECT COUNT(*) FROM " + crm.contacts.name + " ct WHERE ct." + crm.relationField.column + " = co." + crm.companies.primaryField.column + ") AS contact_count",
-          "FROM " + entity.name + " co",
-          "ORDER BY co." + pk + " ASC"
-        ].join("\n");
-      }
-      return "SELECT " + columns.join(", ") + "\nFROM " + entity.name + "\nORDER BY " + pk + " ASC";
-    }
-    if (verb === "count") {
-      return "SELECT COUNT(*) AS total\nFROM " + entity.name;
-    }
-    if (verb === "read") {
-      return "SELECT " + columns.join(", ") + "\nFROM " + entity.name + "\nWHERE " + pk + " = {" + pk + "}";
-    }
-    if (verb === "create") {
-      return "INSERT INTO " + entity.name + " (" + nonPkFields.map(function (field) { return field.column; }).join(", ") + ")\nVALUES (" + nonPkFields.map(function (field) { return "{" + field.column + "}"; }).join(", ") + ")";
-    }
-    if (verb === "update") {
-      return "UPDATE " + entity.name + "\nSET " + nonPkFields.map(function (field) { return field.column + " = {" + field.column + "}"; }).join(",\n    ") + "\nWHERE " + pk + " = {" + pk + "}";
-    }
-    if (verb === "delete") {
-      return "DELETE FROM " + entity.name + "\nWHERE " + pk + " = {" + pk + "}";
-    }
-    return "";
+    return C8O.crudBackend.buildCrudSql(crudBackendContext(), spec, entity, verb);
   }
 
   function buildCrmCompanyContactsSql(spec) {
-    var crm = crmRelationContext(spec);
-    if (!crm) {
-      return "";
-    }
-    var contactColumns = listColumns(crm.contacts);
-    return [
-      "SELECT c." + contactColumns.join(", c."),
-      ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
-      "FROM " + crm.contacts.name + " c",
-      "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
-      "WHERE c." + crm.relationField.column + " = {company_id}",
-      "ORDER BY c." + crm.contacts.primaryField.column + " ASC"
-    ].join("\n");
+    return C8O.crudBackend.buildCrmCompanyContactsSql(crudBackendContext(), spec);
   }
 
   function ensureConnector(project, spec, result) {
-    var connector = ensureChild(project, "connectors.SqlConnector", spec.database.connector, result);
-    applyUpdates(connector, connectorProperties(spec), result);
-    try {
-      project.setDefaultConnector(connector);
-    } catch (_ignoreDefaultConnector) {}
-    return connector;
+    return C8O.crudBackend.ensureConnector(crudBackendContext(), project, spec, result);
   }
 
   function findSqlConnectorInProject(project, preferredName) {
-    if (!project) {
-      return null;
-    }
-    var preferred = trimmed(preferredName);
-    if (preferred.length) {
-      var byName = C8O.dbo.resolve(String(project.getName()) + "." + preferred, { optional: true });
-      if (byName) {
-        return byName;
-      }
-    }
-    try {
-      var defaultConnector = project.getDefaultConnector ? project.getDefaultConnector() : null;
-      if (defaultConnector && String(defaultConnector.getClass().getName()).indexOf("SqlConnector") !== -1) {
-        return defaultConnector;
-      }
-    } catch (_ignoreDefaultSqlConnector) {}
-    try {
-      var connectors = project.getConnectorsList();
-      for (var i = 0; i < connectors.size(); i++) {
-        var connector = connectors.get(i);
-        if (connector && String(connector.getClass().getName()).indexOf("SqlConnector") !== -1) {
-          return connector;
-        }
-      }
-    } catch (_ignoreConnectorsList) {}
-    return null;
+    return C8O.crudBackend.findSqlConnectorInProject(crudBackendContext(), project, preferredName);
   }
 
   function ensureSqlTransaction(connector, name, sqlQuery, autoCommit, result) {
-    var tx = ensureChild(connector, "transactions.SqlTransaction", name, result);
-    try {
-      tx.setComment("Deterministic CRUD transaction " + name);
-    } catch (_ignoreTxComment) {}
-    tx.setSqlQuery(String(sqlQuery || ""));
-    tx.setAutoCommit(autoCommit);
-    tx.initializeQueries(true);
-    result.updated.push(tx.getFullQName ? String(tx.getFullQName()) : name);
-    return tx;
+    return C8O.crudBackend.ensureSqlTransaction(crudBackendContext(), connector, name, sqlQuery, autoCommit, result);
   }
 
   function collectTransactionVariables(tx) {
@@ -1064,49 +885,15 @@ C8O.crud = C8O.crud || {};
   }
 
   function ensureRequestableVariables(container, variableNames, result) {
-    for (var i = 0; i < variableNames.length; i++) {
-      var name = String(variableNames[i]);
-      var variable = findChild(container, name, "variables.RequestableVariable");
-      if (!variable) {
-        variable = createChild(container, "variables.RequestableVariable", name);
-        result.created.push(variable.getFullQName ? String(variable.getFullQName()) : name);
-      }
-      try {
-        variable.setDescription("Deterministic CRUD variable " + name);
-      } catch (_ignoreRequestableVariableDescription) {}
-    }
+    return C8O.crudBackend.ensureRequestableVariables(crudBackendContext(), container, variableNames, result);
   }
 
   function ensureStepVariables(step, variableNames, result) {
-    for (var i = 0; i < variableNames.length; i++) {
-      var name = String(variableNames[i]);
-      var variable = findChild(step, name, "variables.StepVariable");
-      if (!variable) {
-        variable = createChild(step, "variables.StepVariable", name);
-        result.created.push(variable.getFullQName ? String(variable.getFullQName()) : name);
-      }
-      try {
-        variable.setDescription("Forward request variable " + name);
-      } catch (_ignoreStepVariableDescription) {}
-    }
+    return C8O.crudBackend.ensureStepVariables(crudBackendContext(), step, variableNames, result);
   }
 
   function ensurePublicSequence(project, sequenceName, sourceTransaction, variableNames, result) {
-    var sequence = ensureChild(project, "sequences.GenericSequence", sequenceName, result);
-    try {
-      sequence.setComment("Deterministic CRUD facade " + sequenceName);
-    } catch (_ignoreSequenceComment) {}
-    ensureRequestableVariables(sequence, variableNames, result);
-    var txStep = ensureChild(sequence, "steps.TransactionStep", "Call" + ucfirst(sequenceName), result);
-    txStep.setSourceTransaction(sourceTransaction);
-    txStep.setOutput(true);
-    ensureStepVariables(txStep, variableNames, result);
-    var copyStep = ensureChild(sequence, "steps.XMLCopyStep", "CopyPayload", result);
-    var sourcePriority = priorityOf(txStep);
-    applyUpdates(copyStep, {
-      sourceDefinition: [sourcePriority, "./document/*"]
-    }, result);
-    return sequence;
+    return C8O.crudBackend.ensurePublicSequence(crudBackendContext(), project, sequenceName, sourceTransaction, variableNames, result);
   }
 
   function callInternalSequence(sequenceName, argsMap) {
