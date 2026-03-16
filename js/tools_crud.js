@@ -9,6 +9,7 @@ include("js/crud_backend.js");
 include("js/crud_ui_nodes.js");
 include("js/crud_ui_state.js");
 include("js/crud_ui_shared.js");
+include("js/crud_ui_pages.js");
 include("js/crud_proof.js");
 
 if (typeof C8O === "undefined") {
@@ -777,6 +778,40 @@ C8O.crud = C8O.crud || {};
       dashboardActionQName: dashboardActionQName,
       entityPagesButtonNode: entityPagesButtonNode,
       findEntityByName: findEntityByName
+    };
+  }
+
+  function crudUiPagesContext() {
+    return {
+      ensureArray: ensureArray,
+      ucfirst: ucfirst,
+      pascalize: pascalize,
+      scriptLiteral: scriptLiteral,
+      plainTextNode: plainTextNode,
+      scriptTextNode: scriptTextNode,
+      textElementNode: textElementNode,
+      ifDirectiveNode: ifDirectiveNode,
+      pageEventNode: pageEventNode,
+      dynamicInvokeNode: dynamicInvokeNode,
+      buildUseSharedNode: buildUseSharedNode,
+      useVariableNode: useVariableNode,
+      dashboardCountExpression: dashboardCountExpression,
+      dashboardSampleExpression: dashboardSampleExpression,
+      dynamicFieldAccessExpression: dynamicFieldAccessExpression,
+      buildStatefulBootstrapRow: buildStatefulBootstrapRow,
+      crudEntityStatusExpression: crudEntityStatusExpression,
+      crudEntityErrorExpression: crudEntityErrorExpression,
+      schemaPreviewFields: schemaPreviewFields,
+      firstNonPrimaryField: firstNonPrimaryField,
+      entityRoutePath: entityRoutePath,
+      entityRouteSegment: entityRouteSegment,
+      entityPageName: entityPageName,
+      entityPageQName: entityPageQName,
+      pageQName: pageQName,
+      sharedComponentQName: sharedComponentQName,
+      dashboardActionQName: dashboardActionQName,
+      entityPagesButtonNode: entityPagesButtonNode,
+      buildDashboardPageScriptContent: buildDashboardPageScriptContent
     };
   }
 
@@ -2381,184 +2416,15 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildDashboardPageShellTree(projectName, entities, stage) {
-    var children = [
-      {
-        className: "ngx.components.UIDynamicElement#Grid",
-        name: "CrudDashboardGrid",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridRow",
-            name: "HeaderRow",
-            children: [
-              {
-                className: "ngx.components.UIDynamicElement#GridCol",
-                name: "HeaderCol",
-                children: [
-                  buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
-                    useVariableNode("Title", scriptLiteral(ucfirst(projectName) + " Live Dashboard")),
-                    useVariableNode("Subtitle", scriptLiteral(entities.map(function (entity) { return entity.label.toLowerCase(); }).join(" and ")))
-                  ])
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ];
-    var gridChildren = children[0].children;
-    gridChildren.push(buildStatefulBootstrapRow(projectName, "this.global?.crudBuildStage"));
-    gridChildren.push({
-      className: "ngx.components.UIDynamicElement#GridRow",
-      name: "MetricsRow",
-      children: entities.map(function (entity) {
-        return {
-          className: "ngx.components.UIDynamicElement#GridCol",
-          name: ucfirst(entity.singular) + "StatCol",
-          children: [
-            buildUseSharedNode(sharedComponentQName(projectName, "DashboardStatCard"), "Use" + ucfirst(entity.singular) + "StatCard", [
-              useVariableNode("Title", scriptLiteral(entity.label)),
-              useVariableNode("EntityKey", scriptLiteral(entity.name)),
-              useVariableNode("Caption", scriptLiteral("Loaded from public facade"))
-            ])
-          ]
-        };
-      })
-    });
-    for (var i = 0; i < entities.length; i++) {
-      var entity = entities[i];
-      var previewFields = schemaPreviewFields(entity, 2, false);
-      var primaryField = (previewFields[0] || entity.primaryField || {}).column || "id";
-      var secondaryField = (previewFields[1] || previewFields[0] || entity.primaryField || {}).column || primaryField;
-      gridChildren.push({
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: ucfirst(entity.singular) + "Row",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: ucfirst(entity.singular) + "TableCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, ucfirst(entity.singular) + "Table"), "Use" + ucfirst(entity.singular) + "Table", [
-                useVariableNode("Title", scriptLiteral(entity.label)),
-                useVariableNode("EntityKey", scriptLiteral(entity.name)),
-                useVariableNode("PrimaryField", scriptLiteral(primaryField)),
-                useVariableNode("SecondaryField", scriptLiteral(secondaryField))
-              ])
-            ]
-          },
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: ucfirst(entity.singular) + "CardCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, ucfirst(entity.singular) + "Card"), "Use" + ucfirst(entity.singular) + "Card", [
-                useVariableNode("Title", scriptLiteral(ucfirst(entity.singular) + " snapshot")),
-                useVariableNode("EntityKey", scriptLiteral(entity.name)),
-                useVariableNode("PrimaryField", scriptLiteral(primaryField)),
-                useVariableNode("SecondaryField", scriptLiteral(secondaryField))
-              ])
-            ]
-          },
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: ucfirst(entity.singular) + "FormCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, ucfirst(entity.singular) + "Form"), "Use" + ucfirst(entity.singular) + "Form", [
-                useVariableNode("Title", scriptLiteral("Edit " + ucfirst(entity.singular))),
-                useVariableNode("EntityKey", scriptLiteral(entity.name)),
-                useVariableNode("PrimaryField", scriptLiteral(primaryField)),
-                useVariableNode("SecondaryField", scriptLiteral(secondaryField)),
-                useVariableNode("ActionLabel", scriptLiteral("Save " + entity.singular))
-              ])
-            ]
-          }
-        ]
-      });
-    }
-    gridChildren.push(
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "LoadingRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "LoadingCol",
-            children: [
-              ifDirectiveNode(
-                "LoadingVisible",
-                "this.global?.crudLoading === true",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
-              )
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "ErrorRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "ErrorCol",
-            children: [
-              ifDirectiveNode(
-                "ErrorVisible",
-                "!!this.global?.crudError",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
-              )
-            ]
-          }
-        ]
-      }
-    );
-    return {
-      className: "ngx.components.UIDynamicElement#Content",
-      name: "Content",
-      properties: {
-        Padding: {
-          mode: "PLAIN",
-          value: "ion-padding"
-        }
-      },
-      children: children
-    };
+    return C8O.crudUiPages.buildDashboardPageShellTree(crudUiPagesContext(), projectName, entities, stage);
   }
 
   function buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage) {
-    return {
-      qname: pageQName(projectName, entryPage),
-      legacyQNames: [
-        pageQName(projectName, entryPage) + ".PageEvent",
-        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
-      ],
-      tree: {
-        properties: {
-          scriptContent: buildDashboardPageScriptContent(projectName, facadePrefix, entities, stage)
-        },
-        children: [
-          pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              dynamicInvokeNode("InvokeBootstrapDashboard", dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-            ],
-            "Bootstrap CRUD global state on page load."
-          )
-        ]
-      }
-    };
+    return C8O.crudUiPages.buildDashboardPageLoadTree(crudUiPagesContext(), projectName, entryPage, facadePrefix, entities, stage);
   }
 
   function blankPageScriptContent() {
-    return [
-      "/*Begin_c8o_PageImport*/",
-      "/*End_c8o_PageImport*/",
-      "/*Begin_c8o_PageDeclaration*/",
-      "/*End_c8o_PageDeclaration*/",
-      "/*Begin_c8o_PageConstructor*/",
-      "/*End_c8o_PageConstructor*/",
-      "/*Begin_c8o_PageFunction*/",
-      "/*End_c8o_PageFunction*/",
-      ""
-    ].join("\n");
+    return C8O.crudUiPages.blankPageScriptContent();
   }
 
   function entityPagesDefaultDraft(config) {
@@ -2600,28 +2466,6 @@ C8O.crud = C8O.crud || {};
       name: name,
       properties: properties,
       children: [plainTextNode(name + "Text", label)].concat(ensureArray(children))
-    };
-  }
-
-  function entityPagesHeaderTitleTree(titleText) {
-    return {
-      className: "ngx.components.UIDynamicElement#Header",
-      name: "Header",
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#ToolBar",
-          name: "ToolBar",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#BarTitle",
-              name: "BarTitle",
-              children: [
-                plainTextNode("Text", titleText)
-              ]
-            }
-          ]
-        }
-      ]
     };
   }
 
@@ -3155,344 +2999,28 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function landingRouteCardNode(entity) {
-    var componentPrefix = pascalize(entity.name);
-    return {
-      className: "ngx.components.UIDynamicElement#GridCol",
-      name: componentPrefix + "RouteCol",
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: componentPrefix + "RouteCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: componentPrefix + "RouteHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  componentPrefix + "RouteTitle",
-                  plainTextNode(componentPrefix + "RouteTitleText", entity.label)
-                ),
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  componentPrefix + "RouteSubtitle",
-                  scriptTextNode("RouteSubtitleText", "'Rows: ' + (" + dashboardCountExpression(scriptLiteral(entity.name)) + ")")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: componentPrefix + "RouteContent",
-              children: [
-                scriptTextNode("RoutePreview", dynamicFieldAccessExpression(dashboardSampleExpression(scriptLiteral(entity.name)), scriptLiteral(((firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id"), scriptLiteral("No live sample yet"))),
-                entityPagesButtonNode("OpenPageButton", "Open " + entity.label, { routerPath: entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
-              ]
-            }
-          ]
-        }
-      ]
-    };
-  }
-
   function buildEntityPagesLandingShellTree(projectName, entities, stage) {
-    var children = [
-      {
-        className: "ngx.components.UIDynamicElement#Grid",
-        name: "CrudDashboardGrid",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridRow",
-            name: "HeaderRow",
-            children: [
-              {
-                className: "ngx.components.UIDynamicElement#GridCol",
-                name: "HeaderCol",
-                children: [
-                  buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
-                    useVariableNode("Title", scriptLiteral(ucfirst(projectName) + " CRUD landing")),
-                    useVariableNode("Subtitle", scriptLiteral("Open an entity page to edit live facade data."))
-                  ])
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ];
-    var gridChildren = children[0].children;
-    gridChildren.push(buildStatefulBootstrapRow(projectName, "this.global?.crudBuildStage"));
-    gridChildren.push({
-      className: "ngx.components.UIDynamicElement#GridRow",
-      name: "MetricsRow",
-      children: entities.map(function (entity) {
-        return {
-          className: "ngx.components.UIDynamicElement#GridCol",
-          name: pascalize(entity.name) + "MetricCol",
-          children: [
-            buildUseSharedNode(sharedComponentQName(projectName, "DashboardStatCard"), "Use" + pascalize(entity.name) + "StatCard", [
-              useVariableNode("Title", scriptLiteral(entity.label)),
-              useVariableNode("EntityKey", scriptLiteral(entity.name)),
-              useVariableNode("Caption", scriptLiteral("Landing state is live"))
-            ])
-          ]
-        };
-      })
-    });
-    gridChildren.push({
-      className: "ngx.components.UIDynamicElement#GridRow",
-      name: "RouteRow",
-      children: entities.map(function (entity) {
-        return landingRouteCardNode(entity);
-      })
-    });
-    gridChildren.push(
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "LoadingRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "LoadingCol",
-            children: [
-              ifDirectiveNode(
-                "LoadingVisible",
-                "this.global?.crudLoading === true",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
-              )
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "ErrorRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "ErrorCol",
-            children: [
-              ifDirectiveNode(
-                "ErrorVisible",
-                "!!this.global?.crudError",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
-              )
-            ]
-          }
-        ]
-      }
-    );
-    return {
-      className: "ngx.components.UIDynamicElement#Content",
-      name: "Content",
-      properties: {
-        Padding: {
-          mode: "PLAIN",
-          value: "ion-padding"
-        }
-      },
-      children: children
-    };
+    return C8O.crudUiPages.buildEntityPagesLandingShellTree(crudUiPagesContext(), projectName, entities, stage);
   }
 
   function buildEntityPageShellTree(projectName, entity, stage) {
-    var prefix = pascalize(entity.name);
-    return {
-      className: "ngx.components.UIDynamicElement#Content",
-      name: "Content",
-      properties: {
-        Padding: {
-          mode: "PLAIN",
-          value: "ion-padding"
-        }
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Grid",
-          name: "CrudEntityPageGrid",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#GridRow",
-              name: "PageHeaderRow",
-              children: [
-                {
-                  className: "ngx.components.UIDynamicElement#GridCol",
-                  name: "PageHeaderCol",
-                  children: [
-                    buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
-                      useVariableNode("Title", scriptLiteral(entity.label + " workspace")),
-                      useVariableNode("Subtitle", scriptLiteral("Select, edit, create, then return to the landing page if needed."))
-                    ]),
-                    entityPagesButtonNode("BackToLanding", "Back to landing", { routerPath: "/home", routerDirection: "back", fill: "outline" }, [])
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiPages.buildEntityPageShellTree(crudUiPagesContext(), projectName, entity, stage);
   }
 
   function appendEntityPageRows(projectName, entity, shellTree, stage) {
-    var prefix = pascalize(entity.name);
-    var gridChildren = ensureArray(shellTree && shellTree.children && shellTree.children[0] && shellTree.children[0].children);
-    gridChildren.push(buildStatefulBootstrapRow(projectName, "this.global?.crudBuildStage"));
-    gridChildren.push(
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: prefix + "ListRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: prefix + "ListCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, prefix + "ListPanel"), "Use" + prefix + "ListPanel", [])
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: prefix + "DetailRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: prefix + "DetailCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, prefix + "DetailCard"), "Use" + prefix + "DetailCard", [])
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: prefix + "FormRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: prefix + "FormCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, prefix + "EditForm"), "Use" + prefix + "EditForm", [])
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: prefix + "LoadingRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: prefix + "LoadingCol",
-            children: [
-              ifDirectiveNode(
-                prefix + "LoadingVisible",
-                "this.global?.crudLoading === true || " + crudEntityStatusExpression(scriptLiteral(entity.name)) + " === 'loading'",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
-              )
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: prefix + "ErrorRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: prefix + "ErrorCol",
-            children: [
-              ifDirectiveNode(
-                prefix + "ErrorVisible",
-                "!!this.global?.crudError || !!" + crudEntityErrorExpression(scriptLiteral(entity.name)),
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
-              )
-            ]
-          }
-        ]
-      }
-    );
-    shellTree.children[0].children = gridChildren;
-    return shellTree;
+    return C8O.crudUiPages.appendEntityPageRows(crudUiPagesContext(), projectName, entity, shellTree, stage);
   }
 
   function buildEntityPageRootTree(entity) {
-    return {
-      className: "ngx.components.PageComponent#PageComponent",
-      name: entityPageName(entity),
-      properties: {
-        comment: "Deterministic CRUD entity page for " + entity.label + ".",
-        icon: "list",
-        preloadPriority: "low",
-        segment: entityRouteSegment(entity),
-        title: entity.label
-      },
-      children: [
-        entityPagesHeaderTitleTree(entity.label),
-        {
-          className: "ngx.components.UIDynamicElement#Content",
-          name: "Content",
-          properties: {
-            Padding: {
-              mode: "PLAIN",
-              value: "ion-padding"
-            }
-          },
-          children: []
-        }
-      ]
-    };
+    return C8O.crudUiPages.buildEntityPageRootTree(crudUiPagesContext(), entity);
   }
 
   function buildEntityPagesLandingLoadTree(projectName, entryPage) {
-    return {
-      qname: pageQName(projectName, entryPage),
-      legacyQNames: [
-        pageQName(projectName, entryPage) + ".PageEvent",
-        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
-      ],
-      tree: {
-        properties: {
-          scriptContent: blankPageScriptContent()
-        },
-        children: [
-          pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              dynamicInvokeNode("InvokeBootstrapDashboard", dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-            ],
-            "Bootstrap CRUD entity-pages state on landing load."
-          )
-        ]
-      }
-    };
+    return C8O.crudUiPages.buildEntityPagesLandingLoadTree(crudUiPagesContext(), projectName, entryPage);
   }
 
   function buildEntityPageLoadTree(projectName, entity) {
-    return {
-      qname: entityPageQName(projectName, entity),
-      legacyQNames: [
-        entityPageQName(projectName, entity) + ".PageEvent"
-      ],
-      tree: {
-        properties: {
-          scriptContent: blankPageScriptContent()
-        },
-        children: [
-          pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              dynamicInvokeNode("InvokeBootstrapDashboard", dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
-              dynamicInvokeNode("InvokeBootstrap" + pascalize(entity.name) + "Page", dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
-            ],
-            "Bootstrap CRUD entity page state on page load."
-          )
-        ]
-      }
-    };
+    return C8O.crudUiPages.buildEntityPageLoadTree(crudUiPagesContext(), projectName, entity);
   }
 
   function crmActionQName(projectName, actionName) {

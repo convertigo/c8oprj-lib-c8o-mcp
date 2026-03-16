@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof helpers.",
     "currentSize": {
-      "linesApprox": 5895,
-      "functionsApprox": 156
+      "linesApprox": 5423,
+      "functionsApprox": 147
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -102,6 +102,19 @@
       "js/crud_ui_shared.js"
     ],
     "boundaryRule": "Shared component assembly only; keep page shells, actions, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_pages.js",
+    "classification": "public product",
+    "currentRole": "Page-shell and page-load builders for dashboard and entity-pages variants, including landing navigation shells and per-entity page roots.",
+    "problems": [
+      "Must stay focused on page/root assembly and avoid absorbing shared component definitions, action scripts, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_pages.js"
+    ],
+    "boundaryRule": "Page and route shell assembly only; keep shared components, state expressions, and action orchestration elsewhere."
   },
   {
     "surface": "js/crud_proof.js",
