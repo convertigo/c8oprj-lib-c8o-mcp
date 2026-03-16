@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns deterministic CRUD spec normalization, realistic seed generation, SQL CRUD scaffolding, NGX CRUD kit assembly, CRUD status/proof, and viewer evidence helpers.",
+    "currentRole": "Owns deterministic CRUD spec normalization, SQL CRUD scaffolding, NGX CRUD kit assembly, CRUD status/proof, and viewer evidence helpers.",
     "currentSize": {
-      "linesApprox": 8240,
-      "functionsApprox": 273
+      "linesApprox": 8030,
+      "functionsApprox": 248
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -22,6 +22,19 @@
       "js/crud_proof.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
+  },
+  {
+    "surface": "js/crud_seed.js",
+    "classification": "public product",
+    "currentRole": "Realistic demo-data generation helpers used by CRUD SQL seed rendering.",
+    "problems": [
+      "Should stay limited to sample value generation and seed SQL helpers, without absorbing broader CRUD orchestration."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_seed.js"
+    ],
+    "boundaryRule": "Seed generation only; keep requestable/UI/proof logic out of this file."
   },
   {
     "surface": "js/databaseobject.js",
