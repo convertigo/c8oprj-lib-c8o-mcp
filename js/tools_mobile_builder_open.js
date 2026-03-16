@@ -69,6 +69,86 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return false;
   }
 
+  function compactText(value) {
+    return trim(value).replace(/\s+/g, " ");
+  }
+
+  function parseJsonText(value) {
+    var text = trim(value);
+    if (!text.length) {
+      return null;
+    }
+    try {
+      return JSON.parse(String(text));
+    } catch (_ignoreJsonParse) {}
+    return null;
+  }
+
+  function isCompileErrorMessage(message, extra, level) {
+    var merged = lower((message == null ? "" : String(message)) + " " + (extra == null ? "" : String(extra)));
+    if (!merged.length) {
+      return false;
+    }
+    if (merged.indexOf("failed to compile") !== -1) {
+      return true;
+    }
+    if (merged.indexOf("application bundle generation failed") !== -1) {
+      return true;
+    }
+    if (merged.indexOf("compilation failed") !== -1) {
+      return true;
+    }
+    if (merged.indexOf("build failed") !== -1) {
+      return true;
+    }
+    if (/\bts[0-9]{4}\b/.test(merged) || /\bng[0-9]{4}\b/.test(merged)) {
+      return true;
+    }
+    if (merged.indexOf("[error]") !== -1 || merged.indexOf("✘ [error]") !== -1) {
+      return true;
+    }
+    if (merged.indexOf("plugin angular-compiler") !== -1) {
+      return true;
+    }
+    if (merged.indexOf("error:") !== -1 && (merged.indexOf("src/") !== -1 || merged.indexOf(".ts") !== -1 || merged.indexOf(".html") !== -1)) {
+      return true;
+    }
+    if (lower(level) === "error" && (merged.indexOf("src/") !== -1 || merged.indexOf(".ts") !== -1 || merged.indexOf(".html") !== -1)) {
+      return true;
+    }
+    return false;
+  }
+
+  function pushCompileError(result, line) {
+    if (!result.compileErrors) {
+      result.compileErrors = [];
+    }
+    var entry = {
+      time: line.time == null ? "" : String(line.time),
+      level: line.level == null ? "" : String(line.level),
+      category: line.category == null ? "" : String(line.category),
+      message: line.message == null ? "" : String(line.message),
+      extra: line.extra == null ? "" : String(line.extra)
+    };
+    var fingerprint = compactText(entry.level + " " + entry.category + " " + entry.message + " " + entry.extra);
+    if (!fingerprint.length) {
+      return;
+    }
+    for (var i = 0; i < result.compileErrors.length; i++) {
+      var existing = result.compileErrors[i];
+      var existingFingerprint = compactText(
+        String(existing.level || "") + " " +
+        String(existing.category || "") + " " +
+        String(existing.message || "") + " " +
+        String(existing.extra || "")
+      );
+      if (existingFingerprint === fingerprint) {
+        return;
+      }
+    }
+    result.compileErrors.push(entry);
+  }
+
   function parseOpenUrl(text) {
     if (!text || !String(text).length) {
       return "";
@@ -97,6 +177,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       } catch (_ignorePort) {}
     }
     return 0;
+  }
+
+  function isBlankBrowserUrl(url) {
+    var text = lower(trim(url));
+    return !text.length || text === "about:blank";
   }
 
   function normalizeEndpoint(endpoint) {
@@ -145,6 +230,49 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       return raw;
     }
     return raw.length ? raw : "";
+  }
+
+  function browserShowsInstaller(browserState) {
+    var merged = lower(
+      (browserState && browserState.statusText ? browserState.statusText : "") + " " +
+      (browserState && browserState.errorText ? browserState.errorText : "") + " " +
+      (browserState && browserState.bodyTextSample ? browserState.bodyTextSample : "")
+    );
+    if (!merged.length) {
+      return false;
+    }
+    return (
+      merged.indexOf("your application will be displayed here") !== -1 ||
+      merged.indexOf("install angular and ionic npm dependencies") !== -1 ||
+      merged.indexOf("visual app viewer") !== -1
+    );
+  }
+
+  function hasViewerReadyEvidence(snapshot, editorState, browserState, nodeUrl) {
+    var browserPresent = !!(browserState && browserState.hasBrowser === true);
+    if (browserPresent) {
+      if (browserState.hasError === true) {
+        return false;
+      }
+      if (browserShowsInstaller(browserState)) {
+        return false;
+      }
+      if (isBlankBrowserUrl(browserState.currentUrl || browserState.locationHref)) {
+        return false;
+      }
+      return true;
+    }
+    if (snapshot && snapshot.compiled === true) {
+      return true;
+    }
+    if (editorState && !isBlankBrowserUrl(editorState.currentUrl || editorState.viewerUrl)) {
+      return true;
+    }
+    var openUrl = snapshot && snapshot.openUrl ? snapshot.openUrl : "";
+    if (trim(openUrl).length && normalizeEndpoint(stripQueryAndHash(openUrl)) !== normalizeEndpoint(nodeUrl || "")) {
+      return true;
+    }
+    return false;
   }
 
   function urlReachable(url, timeoutMs) {
@@ -273,12 +401,94 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return state;
   }
 
+  function readBrowserState(editorRef) {
+    var state = {
+      hasBrowser: false,
+      currentUrl: "",
+      locationHref: "",
+      title: "",
+      statusText: "",
+      errorText: "",
+      bodyTextSample: "",
+      hasError: false,
+      progress: 0
+    };
+    if (editorRef == null) {
+      return state;
+    }
+
+    try {
+      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      var Runnable = Packages.java.lang.Runnable;
+      ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+        try {
+          var browser = readPrivateField(editorRef, "c8oBrowser");
+          if (browser == null) {
+            return;
+          }
+          state.hasBrowser = true;
+          try {
+            state.currentUrl = trim(browser.getURL ? browser.getURL() : "");
+          } catch (_ignoreBrowserUrl) {}
+          var raw = "";
+          try {
+            raw = trim(browser.executeJavaScriptAndReturnValue(
+              "(function(){try{" +
+                "var l1=document.getElementById('l1');" +
+                "var pre=document.querySelector('pre');" +
+                "var message=document.getElementById('Message');" +
+                "var text=l1&&l1.textContent?String(l1.textContent):'';" +
+                "var preText=pre&&pre.textContent?String(pre.textContent):'';" +
+                "var bodyText=document.body&&document.body.innerText?String(document.body.innerText):'';" +
+                "var progress=0;" +
+                "try{progress=Number(window._last_doProgress||0)||0;}catch(progressError){}" +
+                "var loaderHasError=!!(typeof window._loaderHasError!=='undefined'&&window._loaderHasError);" +
+                "return JSON.stringify({" +
+                  "locationHref:String(location.href||'')," +
+                  "title:String(document.title||'')," +
+                  "statusText:String(text||'')," +
+                  "errorText:String(preText||text||'')," +
+                  "bodyTextSample:String(bodyText||'').substring(0,800)," +
+                  "loaderHasError:!!loaderHasError," +
+                  "progress:progress," +
+                  "messageHidden:!!(message&&message.style&&message.style.display==='none')" +
+                "});" +
+              "}catch(e){return JSON.stringify({error:String(e)});}})();"
+            ));
+          } catch (_ignoreBrowserEval) {}
+          var parsed = parseJsonText(raw);
+          if (!parsed) {
+            return;
+          }
+          state.locationHref = trim(parsed.locationHref || "");
+          state.title = trim(parsed.title || "");
+          state.statusText = trim(parsed.statusText || "");
+          state.errorText = trim(parsed.errorText || "");
+          state.bodyTextSample = trim(parsed.bodyTextSample || "");
+          state.hasError = parsed.loaderHasError === true || isCompileErrorMessage(parsed.errorText || "", parsed.statusText || "", "error");
+          try {
+            state.progress = parseInt(String(parsed.progress), 10);
+            if (isNaN(state.progress) || state.progress < 0) {
+              state.progress = 0;
+            }
+          } catch (_ignoreBrowserProgress) {
+            state.progress = 0;
+          }
+        } catch (_ignoreBrowserState) {}
+      }}));
+    } catch (_ignoreBrowserRead) {}
+
+    return state;
+  }
+
   function parseReadyState(lines, projectName) {
     var result = {
       openUrl: "",
       port: 0,
       compiled: false,
       failed: false,
+      building: false,
+      compileErrors: [],
       relevant: []
     };
     var projectToken = lower(projectName);
@@ -326,8 +536,15 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (merged.indexOf("application bundle generation complete") !== -1) {
         result.compiled = true;
       }
-      if (merged.indexOf("failed to compile") !== -1 || merged.indexOf("error: ") !== -1) {
+      if (merged.indexOf("building") !== -1 || merged.indexOf("rebuilding") !== -1 || merged.indexOf("bundle generation") !== -1) {
+        result.building = true;
+      }
+      if (merged.indexOf("application source files updated") !== -1 || merged.indexOf("autobuild mode set to") !== -1) {
+        result.building = true;
+      }
+      if (isCompileErrorMessage(message, extra, line.level)) {
         result.failed = true;
+        pushCompileError(result, line);
       }
 
       var isRelevant = containsAny(merged, signals);
@@ -371,6 +588,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       port: parsed.port,
       compiled: parsed.compiled,
       failed: parsed.failed,
+      building: parsed.building,
+      compileErrors: parsed.compileErrors || [],
       lines: relevant,
       query: raw && raw.query ? raw.query : {}
     };
@@ -599,29 +818,66 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
 
     var deadline = startedAt + (timeoutSecValue * 1000);
+    var failureGraceMs = 8000;
+    var firstFailureAt = 0;
     var ready = false;
     var snapshot = {
       openUrl: "",
       compiled: false,
       failed: false,
+      building: false,
+      compileErrors: [],
       lines: [],
       query: {}
     };
     var editorState = readEditorState(editorRef);
+    var browserState = readBrowserState(editorRef);
 
     while (java.lang.System.currentTimeMillis() < deadline) {
       snapshot = collectBuilderLogs(projectName, startedAt, logsLimitValue);
       editorState = readEditorState(editorRef);
+      browserState = readBrowserState(editorRef);
       if (!snapshot.openUrl.length && editorState.viewerUrl.length) {
         snapshot.openUrl = editorState.viewerUrl;
       }
       if (!(snapshot.port > 0) && editorState.port > 0) {
         snapshot.port = editorState.port;
       }
+      if (browserState.currentUrl.length && !snapshot.openUrl.length && lower(browserState.currentUrl) !== "about:blank") {
+        snapshot.openUrl = browserState.currentUrl;
+      }
+      if (!snapshot.building && (
+        snapshot.lines.length > 0 ||
+        (editorState && editorState.hasEditor) ||
+        (editorResult && editorResult.opened === true) ||
+        browserState.hasBrowser === true ||
+        browserState.progress > 0
+      )) {
+        snapshot.building = true;
+      }
+      if (browserState.hasError === true) {
+        snapshot.failed = true;
+        pushCompileError(snapshot, {
+          time: "",
+          level: "ERROR",
+          category: "Loader",
+          message: browserState.errorText || browserState.statusText || "Compilation failed, please fix this error and reload the page.",
+          extra: browserState.title || browserState.locationHref || browserState.currentUrl || ""
+        });
+      }
       var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
-      if (candidateUrl.length && urlReachable(candidateUrl, 1500)) {
+      if (candidateUrl.length && urlReachable(candidateUrl, 1500) && hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "")) {
         ready = true;
         break;
+      }
+      if (snapshot.failed === true) {
+        if (!(firstFailureAt > 0)) {
+          firstFailureAt = java.lang.System.currentTimeMillis();
+        } else if ((java.lang.System.currentTimeMillis() - firstFailureAt) >= failureGraceMs) {
+          break;
+        }
+      } else {
+        firstFailureAt = 0;
       }
       try {
         java.lang.Thread.sleep(800);
@@ -631,14 +887,37 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     if (!ready) {
       snapshot = collectBuilderLogs(projectName, startedAt, logsLimitValue);
       editorState = readEditorState(editorRef);
+      browserState = readBrowserState(editorRef);
       if (!snapshot.openUrl.length && editorState.viewerUrl.length) {
         snapshot.openUrl = editorState.viewerUrl;
       }
       if (!(snapshot.port > 0) && editorState.port > 0) {
         snapshot.port = editorState.port;
       }
+      if (browserState.currentUrl.length && !snapshot.openUrl.length && lower(browserState.currentUrl) !== "about:blank") {
+        snapshot.openUrl = browserState.currentUrl;
+      }
+      if (!snapshot.building && (
+        snapshot.lines.length > 0 ||
+        (editorState && editorState.hasEditor) ||
+        (editorResult && editorResult.opened === true) ||
+        browserState.hasBrowser === true ||
+        browserState.progress > 0
+      )) {
+        snapshot.building = true;
+      }
+      if (browserState.hasError === true) {
+        snapshot.failed = true;
+        pushCompileError(snapshot, {
+          time: "",
+          level: "ERROR",
+          category: "Loader",
+          message: browserState.errorText || browserState.statusText || "Compilation failed, please fix this error and reload the page.",
+          extra: browserState.title || browserState.locationHref || browserState.currentUrl || ""
+        });
+      }
       var finalCandidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
-      if (finalCandidateUrl.length && urlReachable(finalCandidateUrl, 1500)) {
+      if (finalCandidateUrl.length && urlReachable(finalCandidateUrl, 1500) && hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "")) {
         ready = true;
       }
     }
@@ -660,10 +939,22 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       viewerUrl = viewerHomeUrl;
     }
 
-    var status = ready ? "ready" : "timeout";
+    var status = ready ? "ready" : (snapshot.failed === true ? "compile_error" : (snapshot.building === true ? "building" : "timeout"));
     var message = ready
       ? (snapshot.openUrl.length ? "Mobile builder is ready." : "Mobile builder Node listener detected.")
-      : "Mobile builder start timed out before detecting the browser URL.";
+      : (status === "compile_error"
+        ? (
+          snapshot.compileErrors && snapshot.compileErrors.length
+            ? ("Mobile builder compile failed: " + compactText((snapshot.compileErrors[0].message || "") + " " + (snapshot.compileErrors[0].extra || "")))
+            : "Mobile builder compile failed before exposing the browser URL."
+        )
+        : (status === "building"
+          ? (
+            browserState && compactText(browserState.statusText || "").length
+              ? ("Mobile builder is still building: " + compactText(browserState.statusText))
+              : "Mobile builder is still building and did not expose the browser URL before the timeout."
+          )
+          : "Mobile builder start timed out before detecting the browser URL."));
     if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
@@ -683,7 +974,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       launched: true,
       reusedBuild: reusedExistingBuilder,
       studioMode: studioMode === true,
-      threadAlive: ready || status === "timeout",
+      threadAlive: ready || status === "building",
       timeoutSec: timeoutSecValue,
       elapsedMs: elapsedMs,
       startedAt: startedAt,
@@ -697,6 +988,16 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       nodeUrl: nodeUrl,
       editor: publicEditorResult,
       editorOpened: publicEditorResult.opened === true,
+      browser: {
+        currentUrl: browserState && browserState.currentUrl ? browserState.currentUrl : "",
+        locationHref: browserState && browserState.locationHref ? browserState.locationHref : "",
+        title: browserState && browserState.title ? browserState.title : "",
+        statusText: browserState && browserState.statusText ? browserState.statusText : "",
+        errorText: browserState && browserState.errorText ? browserState.errorText : "",
+        bodyTextSample: browserState && browserState.bodyTextSample ? browserState.bodyTextSample : "",
+        progress: browserState && browserState.progress ? browserState.progress : 0
+      },
+      compileErrors: snapshot.compileErrors || [],
       logs: snapshot.lines || [],
       logQuery: snapshot.query || {}
     };

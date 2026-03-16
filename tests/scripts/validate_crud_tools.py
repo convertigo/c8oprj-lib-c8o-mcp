@@ -162,6 +162,13 @@ def list_projects(url, filter_text):
     return (call_tool(url, "project-list", {"filter": filter_text, "limit": 100}, timeout=60) or {}).get("projects", [])
 
 
+def project_exists(url, project_name):
+    for project in list_projects(url, project_name):
+        if str(project.get("name") or "") == project_name:
+            return True
+    return False
+
+
 def list_test_projects(url):
     names = []
     for filter_text in ("CrudSmoke", "FreshSessionFastpath", "Fastpath"):
@@ -254,6 +261,26 @@ def validate_runtime(url, spec, artifact_dir):
     cleanup_project(url, project)
     print(f"[crud-validate] cleanup project={project}", flush=True)
 
+    starter_import = call_tool(
+        url,
+        "marketplace-import",
+        {
+            "project": "template_ngxBuilderIonic",
+            "importedProjectName": project,
+        },
+        timeout=180,
+    )
+    artifact["steps"].append({"tool": "marketplace-import", "result": starter_import})
+    assert_true(project_exists(url, project), f"marketplace-import did not load {project}")
+    print(f"[crud-validate] marketplace-import ok project={project}", flush=True)
+
+    mobile_builder_starter = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 15, "logsLimit": 60}, timeout=45)
+    artifact["steps"].append({"tool": "mobile-builder-open-starter", "result": mobile_builder_starter})
+    assert_true(mobile_builder_starter.get("status") in ("ready", "building"), f"Starter mobile builder did not become useful for {project}: {mobile_builder_starter.get('message')}")
+    assert_true(not (mobile_builder_starter.get("compileErrors") or []), f"Starter mobile builder returned compile errors for {project}")
+    assert_true(mobile_builder_starter.get("editorOpened") is True, f"Starter mobile builder did not open the editor for {project}")
+    print(f"[crud-validate] starter mobile builder status={mobile_builder_starter.get('status')} project={project}", flush=True)
+
     upsert = call_tool(url, "upsert-crud", {"spec": spec, "sequence": True, "ui": False}, timeout=240)
     artifact["steps"].append({"tool": "upsert-crud", "result": upsert})
     assert_true(upsert.get("status") == "success", f"upsert-crud did not succeed for {project}")
@@ -331,13 +358,15 @@ def validate_runtime(url, spec, artifact_dir):
     bootstrap_runtime = bootstrap_ui_result.get("runtimeEvidence") or {}
     assert_true(int(bootstrap_runtime.get("sharedActionsRequested") or 0) > 0, f"Bootstrap UI did not create shared actions for {project}")
     assert_true((bootstrap_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected UI globals for {project}: {bootstrap_runtime.get('uiGlobals')}")
+    assert_true(bootstrap_runtime.get("workInProgressMode") == "stateful-visibility", f"Unexpected workInProgressMode for {project}: {bootstrap_runtime.get('workInProgressMode')}")
     bootstrap_refs = set((bootstrap_ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
     assert_true(f"{project}.Application.NgxApp.WorkInProgressCard" in bootstrap_refs, f"Bootstrap shell did not include WorkInProgressCard in {project}")
     print(f"[crud-validate] bootstrap ngx crud kit ok project={project}", flush=True)
 
     mobile_builder = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60}, timeout=180)
     artifact["steps"].append({"tool": "mobile-builder-open", "result": mobile_builder})
-    assert_true(mobile_builder.get("ready") is True, f"Mobile builder did not become ready for {project}")
+    assert_true(mobile_builder.get("status") == "ready", f"Mobile builder did not become ready for {project}: {mobile_builder.get('message')}")
+    assert_true(not (mobile_builder.get("compileErrors") or []), f"Mobile builder exposed compile errors for {project}")
     viewer_base_url = str(mobile_builder.get("viewerBaseUrl") or mobile_builder.get("baseUrl") or "")
     viewer_home_url = str(mobile_builder.get("viewerHomeUrl") or "")
     viewer_url = str(mobile_builder.get("viewerUrl") or viewer_home_url or viewer_base_url or "")
@@ -364,20 +393,23 @@ def validate_runtime(url, spec, artifact_dir):
     final_runtime = final_ui_result.get("runtimeEvidence") or {}
     assert_true(int(final_runtime.get("sharedActionsRequested") or 0) > 0, f"Final UI did not keep shared actions for {project}")
     assert_true((final_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected final UI globals for {project}: {final_runtime.get('uiGlobals')}")
+    assert_true(final_runtime.get("workInProgressMode") == "stateful-visibility", f"Unexpected final workInProgressMode for {project}: {final_runtime.get('workInProgressMode')}")
+    assert_true(bool(final_runtime.get("workInProgressSharedRefPresent")), f"Final shell no longer tracks WorkInProgressCard statefully for {project}")
     if variant == "entity-pages":
-        expected_page_names = [entry_page] + [f"{pascalize_name(entity['name'])}Page" for entity in entities]
-        expected_page_routes = ["/home"] + [f"/{entity['name'].lower()}" for entity in entities]
+        expected_page_names = [entry_page] + [f"{pascalize_name(entity.get('plural') or entity['name'])}Page" for entity in entities]
+        expected_page_routes = ["/home"] + [f"/{str(entity.get('routeSegment') or entity.get('plural') or entity['name']).lower()}" for entity in entities]
         assert_true((final_runtime.get("pageNames") or []) == expected_page_names, f"Unexpected pageNames for {project}: {final_runtime.get('pageNames')}")
         assert_true((final_runtime.get("pageRoutes") or []) == expected_page_routes, f"Unexpected pageRoutes for {project}: {final_runtime.get('pageRoutes')}")
         entity_pages = final_runtime.get("entityPages") or []
         assert_true(len(entity_pages) == len(entities), f"Unexpected entityPages count for {project}: {len(entity_pages)}")
-    final_refs = set((final_ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
-    assert_true(f"{project}.Application.NgxApp.WorkInProgressCard" not in final_refs, f"Final shell still exposes WorkInProgressCard in {project}")
     mobile_builder_final = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60, "forceRestart": True}, timeout=180)
     artifact["steps"].append({"tool": "mobile-builder-open-final", "result": mobile_builder_final})
-    assert_true(mobile_builder_final.get("ready") is True, f"Final mobile builder refresh did not become ready for {project}")
+    assert_true(mobile_builder_final.get("status") == "ready", f"Final mobile builder refresh did not become ready for {project}: {mobile_builder_final.get('message')}")
+    assert_true(not (mobile_builder_final.get("compileErrors") or []), f"Final mobile builder refresh exposed compile errors for {project}")
     assert_true(bool(mobile_builder_final.get("viewerBaseUrl") or mobile_builder_final.get("baseUrl")), f"Final mobile builder refresh did not expose viewerBaseUrl for {project}")
     assert_true(bool(mobile_builder_final.get("viewerHomeUrl")), f"Final mobile builder refresh did not expose viewerHomeUrl for {project}")
+    browser_state = mobile_builder_final.get("browser") or {}
+    assert_true("work in progress" not in str(browser_state.get("bodyTextSample") or "").lower(), f"Final live viewer still shows Work in progress for {project}")
     viewer_url = str(mobile_builder_final.get("viewerUrl") or mobile_builder_final.get("viewerHomeUrl") or mobile_builder_final.get("viewerBaseUrl") or viewer_url)
     print(f"[crud-validate] final ngx crud kit ok project={project}", flush=True)
 
@@ -411,7 +443,19 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(ui.get("liveBindingPresent") is True, f"Live UI bindings missing for {project}")
     assert_true(ui.get("statefulActionsPresent") is True, f"Shared UI actions missing for {project}")
     assert_true(ui.get("pageBootstrapPresent") is True, f"Entry page bootstrap missing for {project}")
+    builder_probe = ui.get("builderProbe") or {}
     viewer_probe = ui.get("viewerProbe") or {}
+    assert_true(builder_probe.get("status") == "ready", f"Builder probe failed for {project}: {builder_probe.get('message')}")
+    assert_true(not (builder_probe.get("compileErrors") or []), f"Builder probe returned compile errors for {project}")
+    assert_true(ui.get("workInProgressVisible") is False, f"Work in progress marker still visible in proof for {project}")
+    checks = {}
+    for item in (final_proof.get("checks") or []):
+        if not isinstance(item, dict):
+            continue
+        key = item.get("id") or item.get("name")
+        if key:
+            checks[key] = item
+    assert_true((checks.get("ui-work-in-progress-hidden") or {}).get("ok") is True, f"ui-work-in-progress-hidden proof failed for {project}")
     assert_true(viewer_probe.get("ok") is True, f"Viewer probe failed for {project}: {viewer_probe.get('message')}")
     if is_crm:
         assert_true((final_proof.get("crm") or {}).get("enabled") is True, f"CRM proof metadata missing for {project}")
@@ -451,26 +495,28 @@ def validate_runtime(url, spec, artifact_dir):
     else:
         expected_components.update({"DashboardStatCard", "crud_bootstrap_dashboard", "crud_retry_dashboard"})
         for entity in entities:
-            singular = pascalize_name(singularize_name(entity["name"]))
-            plural = pascalize_name(entity["name"])
+            plural_name = str(entity.get("plural") or entity["name"])
+            singular_name = str(entity.get("singular") or singularize_name(plural_name))
+            singular = pascalize_name(singular_name)
+            plural = pascalize_name(plural_name)
             expected_components.update({
                 f"{plural}ListPanel",
                 f"{plural}DetailCard",
                 f"{plural}EditForm",
-                f"crud_refresh_{entity['name']}",
-                f"crud_open_{entity['name']}_page",
-                f"crud_bootstrap_{entity['name']}_page",
-                f"crud_select_{singularize_name(entity['name'])}",
-                f"crud_new_{singularize_name(entity['name'])}",
-                f"crud_save_{singularize_name(entity['name'])}",
-                f"crud_delete_{singularize_name(entity['name'])}",
-                f"crud_cancel_{singularize_name(entity['name'])}",
+                f"crud_refresh_{plural_name}",
+                f"crud_open_{plural_name}_page",
+                f"crud_bootstrap_{plural_name}_page",
+                f"crud_select_{singular_name}",
+                f"crud_new_{singular_name}",
+                f"crud_save_{singular_name}",
+                f"crud_delete_{singular_name}",
+                f"crud_cancel_{singular_name}",
             })
     missing_components = sorted(expected_components - app_names)
     assert_true(not missing_components, f"Missing shared CRUD components for {project}: {', '.join(missing_components)}")
     print(f"[crud-validate] shared components present project={project}", flush=True)
 
-    page_shared_refs = final_refs
+    page_shared_refs = set(final_runtime.get("pageSharedRefs") or [])
     assert_true(
         f"{project}.Application.NgxApp.CrudPageHeader" in page_shared_refs,
         f"Entry page does not use CrudPageHeader in {project}",
@@ -507,7 +553,7 @@ def validate_runtime(url, spec, artifact_dir):
             )
     elif is_crm:
         for entity in entities:
-            singular = singularize_name(entity["name"]).capitalize()
+            singular = pascalize_name(entity.get("singular") or singularize_name(entity["name"]))
             assert_true(
                 f"{project}.Application.NgxApp.{singular}Table" in page_shared_refs,
                 f"Entry page does not use {singular}Table in {project}",
@@ -518,7 +564,7 @@ def validate_runtime(url, spec, artifact_dir):
             )
     else:
         for entity in entities:
-            plural = pascalize_name(entity["name"])
+            plural = pascalize_name(entity.get("plural") or entity["name"])
             assert_true(
                 f"{project}.Application.NgxApp.{plural}ListPanel" in page_shared_refs,
                 f"Entry page does not use {plural}ListPanel in {project}",

@@ -18,14 +18,16 @@ Exception: `scripts/run_fastpath_repeatability.py` is the dedicated repeatabilit
 - `prompt_critic_run_review.txt`: Critic review of one explicit benchmark run. The runner should inject `convertigo-critic`.
 - `prompt_critic_aggregate_review.txt`: Critic review of one explicit benchmark campaign. The runner should inject `convertigo-critic`.
 - `prompt_maintainer_cycle.txt`: Maintainer-cycle template that injects one maintainer packet and requires one committed candidate. The runner should inject `convertigo-maintainer`.
-- `prompt_crud_fastpath_repeatability.txt`: Generic mono-agent CRUD repeatability prompt template. The dedicated runner renders `__TARGET_PROJECT__` and `__CRUD_SPEC_JSON__`, then injects `convertigo-crud-fastpath`. The rail is now `upsert-crud -> backend proof -> upsert-ngx-crud-kit stage=bootstrap -> mobile-builder-open -> upsert-ngx-crud-kit stage=final -> final proof`.
+- `prompt_crud_fastpath_repeatability.txt`: Generic mono-agent CRUD repeatability prompt template. The dedicated runner renders `__TARGET_PROJECT__` and `__CRUD_SPEC_JSON__`, then injects `convertigo-crud-fastpath`. The rail is now `marketplace-import -> mobile-builder-open -> upsert-crud -> backend proof -> upsert-ngx-crud-kit stage=bootstrap -> mobile-builder-open -> upsert-ngx-crud-kit stage=final -> final proof`.
 - `scripts/validate_setup_codex.py`: Validates the private Studio `_setupCodex` sequence against temporary Codex homes. It checks skill generation, minimal `config.toml` patching, and idempotence.
 - `prompt_crud_fastpath_fresh_session.txt`: Minimal empty-workspace CRM brief used to verify that the injected `convertigo-crud-fastpath` role prompt still drives discovery before mutation.
+- `scripts/validate_mobile_builder_compile_error.py`: Deliberately injects a broken page script through MCP and verifies that `mobile-builder-open` returns `compile_error` plus structured compile diagnostics without waiting for a blind timeout.
+- `scripts/validate_crud_name_overrides.py`: Verifies `singular` / `plural` / `routeSegment` / `displayLabel` overrides on the generic CRUD fast path.
 - `bin/codex`: Wrapper used by default by `run_prompt.sh`. It pins the npm package version in one place through `CODEX_NPM_VERSION` (default `0.111.0`) and avoids depending on the machine-wide `codex`.
 - `run_prompt.sh`: Helper to run Codex CLI from the repository root (`bash tests/run_prompt.sh [prompt_file] [run_label] [role_prompt_name]`). When the third argument is set, the script fetches the role prompt from MCP first and injects it into the Codex run.
 - `scripts/report_codex_run.py`: Converts one raw Codex CLI log into `report.json` plus `summary.md`.
 - `scripts/run_fastpath_repeatability.py`: Dedicated sequential campaign runner for the mono-agent CRUD fast path. By default it runs `3 x HSQLDB`, `3 x PostgreSQL`, and `3 x MariaDB` through `codex exec`.
-- `scripts/validate_fresh_session_fastpath.py`: Runs one `codex exec` from an empty workspace, then parses `raw.log` to assert the discovery order (`resources/list`, resource reads, no early `rag-query`, staged UI flow, final `crud-proof(viewerUrl)`).
+- `scripts/validate_fresh_session_fastpath.py`: Runs one `codex exec` from an empty workspace, then parses `raw.log` plus the Codex session trace to assert the discovery order, the `marketplace-import -> viewer -> CRUD` flow, the absence of generated-artifact repair attempts, and the final `crud-proof(viewerUrl)`.
 - `scripts/run_campaign.py`: Runs one benchmark campaign for a frozen MCP candidate.
 - `scripts/score_campaign.py`: Scores one benchmark campaign and writes aggregate findings.
 - `scripts/compare_campaigns.py`: Compares a baseline campaign aggregate against a replayed candidate campaign and emits a verdict.

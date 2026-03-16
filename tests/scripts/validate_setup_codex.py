@@ -79,6 +79,8 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "`convertigo://resources/convertigo-crud-fastpath`",
             "Do not invent prefixes, suffixes, or dates.",
             "Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
+            "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
+            "run `marketplace-import` with that exact name",
         ],
     )
 

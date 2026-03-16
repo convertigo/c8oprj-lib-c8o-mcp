@@ -151,6 +151,84 @@ C8O.crud = C8O.crud || {};
     return text + "s";
   }
 
+  function semanticToken(value) {
+    var text = trimmed(value);
+    if (!text.length) {
+      return "";
+    }
+    try {
+      var Normalizer = Packages.java.text.Normalizer;
+      var Form = Packages.java.text.Normalizer.Form;
+      text = String(Normalizer.normalize(text, Form.NFD));
+    } catch (_ignoreNormalizer) {}
+    text = text
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z0-9]+/g, "")
+      .toLowerCase();
+    return text;
+  }
+
+  function semanticFieldToken(field) {
+    var parts = [];
+    if (field) {
+      parts.push(field.column);
+      parts.push(field.name);
+      parts.push(field.label);
+    }
+    return semanticToken(parts.join(" "));
+  }
+
+  function semanticEntityToken(entity) {
+    var parts = [];
+    if (entity) {
+      parts.push(entity.name);
+      parts.push(entity.singular);
+      parts.push(entity.label);
+      parts.push(entity.displayLabel);
+      parts.push(entity.routeSegment);
+    }
+    return semanticToken(parts.join(" "));
+  }
+
+  function tokenMatches(token, patterns) {
+    var text = semanticToken(token);
+    var values = ensureArray(patterns);
+    for (var i = 0; i < values.length; i++) {
+      var pattern = semanticToken(values[i]);
+      if (pattern.length && text.indexOf(pattern) !== -1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function humanizeIdentifier(value) {
+    var text = trimmed(value).replace(/[_\-]+/g, " ");
+    if (!text.length) {
+      return "";
+    }
+    return text.replace(/\b([a-z])/g, function (_all, char) {
+      return String(char).toUpperCase();
+    });
+  }
+
+  function normalizeEntityNames(rawEntity, fallbackName) {
+    var raw = rawEntity || {};
+    var baseName = optionalNormalizedIdentifier(raw.name || raw.entity || fallbackName || "") || "unnamed";
+    var explicitPlural = optionalNormalizedIdentifier(raw.plural || "");
+    var explicitSingular = optionalNormalizedIdentifier(raw.singular || "");
+    var pluralName = explicitPlural || (explicitSingular.length ? pluralize(explicitSingular) : pluralize(baseName));
+    var singularName = explicitSingular || singularize(pluralName);
+    var routeSegment = normalizedIdentifier(raw.routeSegment || pluralName).replace(/_/g, "-").toLowerCase();
+    var displayLabel = trimmed(raw.displayLabel || raw.label || humanizeIdentifier(pluralName));
+    return {
+      name: pluralName,
+      singular: singularName,
+      routeSegment: routeSegment,
+      displayLabel: displayLabel
+    };
+  }
+
   function escapeSqlString(value) {
     return String(value == null ? "" : value).replace(/'/g, "''");
   }
@@ -565,6 +643,11 @@ C8O.crud = C8O.crud || {};
     return text.toLowerCase();
   }
 
+  function optionalNormalizedIdentifier(name) {
+    var text = trimmed(name);
+    return text.length ? normalizedIdentifier(text) : "";
+  }
+
   function driverProfiles() {
     return {
       hsqldb: {
@@ -739,20 +822,22 @@ C8O.crud = C8O.crud || {};
     if (!rawEntity || typeof rawEntity !== "object") {
       throw new Error("Each entity must be an object");
     }
-    var entityName = pluralize(normalizedIdentifier(rawEntity.name || rawEntity.entity || ""));
-    if (!entityName.length) {
+    var naming = normalizeEntityNames(rawEntity, "");
+    if (!naming.name.length) {
       throw new Error("Entity name is required");
     }
     var normalized = {
-      name: entityName,
-      singular: singularize(entityName),
-      label: trimmed(rawEntity.label || ucfirst(entityName)),
+      name: naming.name,
+      singular: naming.singular,
+      label: naming.displayLabel,
+      displayLabel: naming.displayLabel,
+      routeSegment: naming.routeSegment,
       fields: [],
       primaryField: null
     };
     var rawFields = ensureArray(rawEntity.fields);
     for (var i = 0; i < rawFields.length; i++) {
-      var field = normalizeField(rawFields[i], entityName, i + 1, result);
+      var field = normalizeField(rawFields[i], naming.name, i + 1, result);
       normalized.fields.push(field);
       if (field.primary && normalized.primaryField == null) {
         normalized.primaryField = field;
@@ -1202,6 +1287,7 @@ C8O.crud = C8O.crud || {};
     var CATEGORIES = ["Dinner", "Culture", "Outdoor", "Music", "Cinema", "Family"];
     var DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     var STATUSES = ["active", "lead", "draft", "confirmed"];
+    var CONSERVATION_STATUSES = ["Least Concern", "Near Threatened", "Vulnerable", "Protected", "Monitoring"];
     var COMMENTS = [
       "Prefers small groups and central venues.",
       "Available after work during the week.",
@@ -1212,9 +1298,20 @@ C8O.crud = C8O.crud || {};
     var COMPANY_NAMES = ["Blue Orbit", "North Harbor", "Golden Fern", "Urban Echo", "Silver Maple", "Bright Atlas"];
     var GROUP_NAMES = ["City Explorers", "Weekend Makers", "Food Lovers", "Culture Circle", "Sunset Club"];
     var OUTING_TITLES = ["Sunset Picnic", "Jazz Night", "Street Food Tour", "Museum Late Opening", "Riverside Brunch"];
+    var ANIMAL_COMMON_NAMES = ["Renard roux", "Loutre d'Europe", "Blaireau européen", "Lynx boréal", "Cerf élaphe", "Hérisson d'Europe"];
+    var INSECT_COMMON_NAMES = ["Machaon", "Lucane cerf-volant", "Coccinelle à sept points", "Abeille charpentière", "Grand capricorne", "Paon-du-jour"];
+    var PLANT_COMMON_NAMES = ["Chêne sessile", "Pin sylvestre", "Digitale pourpre", "Orchidée abeille", "Achillée millefeuille", "Primevère officinale"];
+    var SCIENTIFIC_NAMES = ["Vulpes vulpes", "Lutra lutra", "Meles meles", "Lynx lynx", "Papilio machaon", "Quercus petraea"];
+    var ORDERS = ["Carnivora", "Coleoptera", "Lepidoptera", "Fagales", "Rosales", "Primates"];
+    var FAMILIES = ["Canidae", "Mustelidae", "Cervidae", "Papilionidae", "Fagaceae", "Rosaceae"];
+    var HABITATS = ["Mixed woodland", "Wetland edge", "Urban park", "Coastal meadow", "Mountain forest", "Riverside hedgerow"];
+    var REGIONS = ["Occitanie", "Bretagne", "Normandie", "Provence-Alpes-Cote d'Azur", "Nouvelle-Aquitaine", "Auvergne-Rhone-Alpes"];
+    var USAGES = ["Observation", "Biodiversity survey", "Educational trail", "Community garden", "Protected habitat", "Seasonal inventory"];
     var base = rowIndex + 1;
     var column = normalizedIdentifier(field && (field.column || field.name));
+    var semantic = semanticFieldToken(field);
     var entityName = normalizedIdentifier(entity && entity.name);
+    var entitySemantic = semanticEntityToken(entity);
     if (field.primary) {
       return null;
     }
@@ -1249,68 +1346,107 @@ C8O.crud = C8O.crud || {};
       }
       return base;
     }
-    if (column.indexOf("email") !== -1) {
+    if (tokenMatches(semantic, ["email", "courriel", "mail"])) {
       var first = FIRST_NAMES[rowIndex % FIRST_NAMES.length].toLowerCase();
       var last = LAST_NAMES[rowIndex % LAST_NAMES.length].toLowerCase();
       return first + "." + last + base + "@example.test";
     }
-    if (column.indexOf("first") !== -1) {
+    if (tokenMatches(semantic, ["firstname", "prenom", "givenname"])) {
       return pick(FIRST_NAMES);
     }
-    if (column.indexOf("last") !== -1) {
+    if (tokenMatches(semantic, ["lastname", "surname", "nomdefamille"])) {
       return pick(LAST_NAMES);
     }
-    if (column.indexOf("phone") !== -1) {
+    if (tokenMatches(semantic, ["phone", "telephone", "tel", "mobile"])) {
       return "+33 6 " + String(10 + (base % 80)) + " " + String(10 + ((base + 7) % 80)) + " " + String(10 + ((base + 13) % 80)) + " " + String(10 + ((base + 19) % 80));
     }
-    if (column.indexOf("status") !== -1) {
+    if (tokenMatches(semantic, ["statutconservation", "conservationstatus"])) {
+      return pick(CONSERVATION_STATUSES);
+    }
+    if (tokenMatches(semantic, ["status", "statut"])) {
       return pick(STATUSES);
     }
-    if (column.indexOf("city") !== -1) {
+    if (tokenMatches(semantic, ["city", "ville"])) {
       return pick(CITIES);
     }
-    if (column.indexOf("country") !== -1) {
+    if (tokenMatches(semantic, ["country", "pays"])) {
       return ["France", "Belgium", "Spain", "Italy"][rowIndex % 4];
     }
-    if (column.indexOf("industry") !== -1) {
+    if (tokenMatches(semantic, ["industry", "secteur"])) {
       return pick(INDUSTRIES);
     }
-    if (column.indexOf("category") !== -1) {
+    if (tokenMatches(semantic, ["category", "categorie"])) {
       return pick(CATEGORIES);
     }
-    if (column.indexOf("preferred_day") !== -1 || column.indexOf("day") !== -1) {
+    if (tokenMatches(semantic, ["preferredday", "jour", "day"])) {
       return pick(DAYS);
     }
-    if (column.indexOf("vote") !== -1) {
+    if (tokenMatches(semantic, ["vote", "preference", "choix"])) {
       return ["yes", "maybe", "no"][rowIndex % 3];
     }
-    if (column.indexOf("comment") !== -1 || column.indexOf("note") !== -1 || column.indexOf("description") !== -1) {
+    if (tokenMatches(semantic, ["comment", "note", "description", "resume", "summary"])) {
       return pick(COMMENTS);
     }
-    if (column.indexOf("title") !== -1) {
+    if (tokenMatches(semantic, ["title", "titre"])) {
       return pick(OUTING_TITLES) + " " + base;
     }
-    if (column.indexOf("name") !== -1) {
+    if (tokenMatches(semantic, ["nomscientifique", "scientificname"])) {
+      return pick(SCIENTIFIC_NAMES);
+    }
+    if (tokenMatches(semantic, ["nomcommun", "commonname"])) {
+      if (entitySemantic.indexOf("insect") !== -1) {
+        return pick(INSECT_COMMON_NAMES);
+      }
+      if (entitySemantic.indexOf("plant") !== -1 || entitySemantic.indexOf("plante") !== -1) {
+        return pick(PLANT_COMMON_NAMES);
+      }
+      return pick(ANIMAL_COMMON_NAMES);
+    }
+    if (tokenMatches(semantic, ["ordre", "order"])) {
+      return pick(ORDERS);
+    }
+    if (tokenMatches(semantic, ["famille", "family"])) {
+      return pick(FAMILIES);
+    }
+    if (tokenMatches(semantic, ["habitat"])) {
+      return pick(HABITATS);
+    }
+    if (tokenMatches(semantic, ["region", "territoire", "zone"])) {
+      return pick(REGIONS);
+    }
+    if (tokenMatches(semantic, ["usage", "use"])) {
+      return pick(USAGES);
+    }
+    if (tokenMatches(semantic, ["website", "siteweb", "url"])) {
+      return "https://demo" + base + ".example.test";
+    }
+    if (tokenMatches(semantic, ["name", "nom"])) {
       if (entityName === "companies") {
         return pick(COMPANY_NAMES) + " " + base;
       }
       if (entityName === "groups") {
         return pick(GROUP_NAMES) + " " + base;
       }
+      if (entitySemantic.indexOf("insect") !== -1) {
+        return pick(INSECT_COMMON_NAMES);
+      }
+      if (entitySemantic.indexOf("plant") !== -1 || entitySemantic.indexOf("plante") !== -1) {
+        return pick(PLANT_COMMON_NAMES);
+      }
+      if (entitySemantic.indexOf("animal") !== -1 || entitySemantic.indexOf("faune") !== -1) {
+        return pick(ANIMAL_COMMON_NAMES);
+      }
       return ucfirst(entity.singular) + " " + base;
-    }
-    if (column.indexOf("website") !== -1 || column.indexOf("url") !== -1) {
-      return "https://demo" + base + ".example.test";
     }
     return ucfirst(field.label || field.name) + " " + base;
   }
 
   function pickSeedLookupField(entity) {
     var fields = ensureArray(entity && entity.fields);
-    var preferred = ["name", "email", "title", "firstname"];
+    var preferred = ["name", "nom", "nomcommun", "nomscientifique", "email", "title", "titre", "firstname", "prenom", "city", "ville"];
     for (var p = 0; p < preferred.length; p++) {
       var preferredField = findField(entity, function (field) {
-        return !field.primary && normalizedIdentifier(field.column) === preferred[p];
+        return !field.primary && semanticFieldToken(field) === semanticToken(preferred[p]);
       });
       if (preferredField) {
         return preferredField;
@@ -2493,6 +2629,10 @@ C8O.crud = C8O.crud || {};
   }
 
   function entityRouteSegment(entity) {
+    var configured = trimmed(entity && entity.routeSegment);
+    if (configured.length) {
+      return normalizedIdentifier(configured).replace(/_/g, "-").toLowerCase();
+    }
     return normalizedIdentifier(entity && entity.name).replace(/_/g, "-").toLowerCase();
   }
 
@@ -2566,7 +2706,8 @@ C8O.crud = C8O.crud || {};
     var normalized = [];
     for (var i = 0; i < entries.length; i++) {
       var raw = entries[i] || {};
-      var entityName = pluralize(normalizedIdentifier(raw.name || raw.entity || raw.label || ("entity_" + (i + 1))));
+      var naming = normalizeEntityNames(raw, "entity_" + (i + 1));
+      var entityName = naming.name;
       var fields = [];
       var rawFields = ensureArray(raw.fields);
       for (var fieldIndex = 0; fieldIndex < rawFields.length; fieldIndex++) {
@@ -2598,8 +2739,10 @@ C8O.crud = C8O.crud || {};
       }
       normalized.push({
         name: entityName,
-        singular: singularize(entityName),
-        label: trimmed(raw.label || ucfirst(entityName)),
+        singular: naming.singular,
+        label: naming.displayLabel,
+        displayLabel: naming.displayLabel,
+        routeSegment: naming.routeSegment,
         fields: fields,
         primaryField: primaryField
       });
@@ -2943,33 +3086,26 @@ C8O.crud = C8O.crud || {};
     var fields = ensureArray(entity && entity.fields);
     var ranked = [];
     function fieldPriority(field) {
-      var column = normalizedIdentifier(field && (field.column || field.name));
-      if (!column.length) {
+      var token = semanticFieldToken(field);
+      if (!token.length) {
         return 900;
       }
       if (field.primary) {
         return includePrimary ? 800 : 1000;
       }
-      if (field.references || /(^|_)(id|.*_id)$/.test(column)) {
+      if (field.references || /(^|_)(id|.*_id)$/.test(normalizedIdentifier(field && (field.column || field.name)))) {
         return 300;
       }
       var preferred = [
-        "name",
-        "title",
-        "firstname",
-        "lastname",
-        "email",
-        "city",
-        "industry",
-        "category",
-        "status",
-        "vote",
-        "comment",
-        "preferred_day",
-        "phone"
+        ["nomcommun", "commonname", "name", "nom", "title", "titre"],
+        ["nomscientifique", "scientificname", "firstname", "prenom", "lastname", "surname"],
+        ["email", "phone", "telephone"],
+        ["city", "ville", "region", "country", "pays"],
+        ["industry", "secteur", "category", "categorie", "habitat", "usage"],
+        ["comment", "note", "description", "vote", "status", "statut"]
       ];
       for (var p = 0; p < preferred.length; p++) {
-        if (column === preferred[p]) {
+        if (tokenMatches(token, preferred[p])) {
           return p;
         }
       }
@@ -3146,7 +3282,7 @@ C8O.crud = C8O.crud || {};
 
   function buildUseSharedNode(sharedQName, name, variables) {
     return {
-      className: "ngx.components.UIUseShared#" + sharedQName,
+      className: "ngx.components.UIUseShared#UIUseShared",
       name: name,
       properties: {
         sharedcomponent: sharedQName
@@ -3240,6 +3376,34 @@ C8O.crud = C8O.crud || {};
     return normalizedVariant === "master-detail"
       ? pageRoot + "CrmMasterDetailGrid.BootstrapRow"
       : pageRoot + "CrudDashboardGrid.BootstrapRow";
+  }
+
+  function workInProgressVisibilityExpression(globalStageExpression) {
+    var source = trimmed(globalStageExpression || "''");
+    if (!source.length) {
+      source = "''";
+    }
+    return "((" + source + ") ?? 'bootstrap') !== 'final'";
+  }
+
+  function buildStatefulBootstrapRow(projectName, globalStageExpression) {
+    return {
+      className: "ngx.components.UIDynamicElement#GridRow",
+      name: "BootstrapRow",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#GridCol",
+          name: "BootstrapCol",
+          children: [
+            ifDirectiveNode(
+              "BootstrapVisible",
+              workInProgressVisibilityExpression(globalStageExpression),
+              [buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])]
+            )
+          ]
+        }
+      ]
+    };
   }
 
   function dashboardRowsExpression(entityKeyExpression) {
@@ -4014,21 +4178,7 @@ C8O.crud = C8O.crud || {};
       }
     ];
     var gridChildren = children[0].children;
-    if (trimmed(stage).toLowerCase() !== "final") {
-      gridChildren.push({
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "BootstrapRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "BootstrapCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
-            ]
-          }
-        ]
-      });
-    }
+    gridChildren.push(buildStatefulBootstrapRow(projectName, "this.global?.crudBuildStage"));
     gridChildren.push({
       className: "ngx.components.UIDynamicElement#GridRow",
       name: "MetricsRow",
@@ -5311,21 +5461,7 @@ C8O.crud = C8O.crud || {};
       }
     ];
     var gridChildren = children[0].children;
-    if (trimmed(stage).toLowerCase() !== "final") {
-      gridChildren.push({
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "BootstrapRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "BootstrapCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
-            ]
-          }
-        ]
-      });
-    }
+    gridChildren.push(buildStatefulBootstrapRow(projectName, "this.global?.crudBuildStage"));
     gridChildren.push({
       className: "ngx.components.UIDynamicElement#GridRow",
       name: "MetricsRow",
@@ -5441,21 +5577,7 @@ C8O.crud = C8O.crud || {};
   function appendEntityPageRows(projectName, entity, shellTree, stage) {
     var prefix = pascalize(entity.name);
     var gridChildren = ensureArray(shellTree && shellTree.children && shellTree.children[0] && shellTree.children[0].children);
-    if (trimmed(stage).toLowerCase() !== "final") {
-      gridChildren.push({
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "BootstrapRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "BootstrapCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
-            ]
-          }
-        ]
-      });
-    }
+    gridChildren.push(buildStatefulBootstrapRow(projectName, "this.global?.crudBuildStage"));
     gridChildren.push(
       {
         className: "ngx.components.UIDynamicElement#GridRow",
@@ -6243,21 +6365,7 @@ C8O.crud = C8O.crud || {};
       }
     ];
 
-    if (trimmed(stage).toLowerCase() !== "final") {
-      children[0].children.push({
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "BootstrapRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "BootstrapCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])
-            ]
-          }
-        ]
-      });
-    }
+    children[0].children.push(buildStatefulBootstrapRow(projectName, "this.global?.crmBuildStage"));
 
     children[0].children.push(
       {
@@ -7246,7 +7354,7 @@ C8O.crud = C8O.crud || {};
     var sharedActions = isMasterDetail
       ? buildCrmActionStacksTree(projectName, facadePrefix, stage)
       : (isEntityPages ? buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
-    var reuseExistingSharedActions = stage === "final" && !isEntityPages && everyQNameExists(sharedActions.qnames);
+    var reuseExistingSharedActions = stage === "final" && everyQNameExists(sharedActions.qnames);
     var sharedActionChildren = reuseExistingSharedActions ? [] : ensureArray(sharedActions.tree.children);
     setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
     result.runtimeEvidence.sharedComponentsRequested = ensureArray(sharedComponents.tree.children).length;
@@ -7255,6 +7363,7 @@ C8O.crud = C8O.crud || {};
     result.runtimeEvidence.sharedActionTreeNodeCount = countTreeNodes(sharedActions.tree);
     result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
     result.runtimeEvidence.uiGlobals = statefulUiGlobals(variant);
+    result.runtimeEvidence.workInProgressMode = "stateful-visibility";
     var pageShellStartedAt = nowMillis();
     var pageShellTree = isMasterDetail
       ? buildCrmMasterDetailPageShellTree(projectName, stage)
@@ -7486,6 +7595,7 @@ C8O.crud = C8O.crud || {};
     result.runtimeEvidence.entryPage = entryPage;
     result.runtimeEvidence.facadePrefix = facadePrefix;
     result.runtimeEvidence.pageSharedRefs = collectSharedRefs(pageShellTree, []);
+    result.runtimeEvidence.workInProgressSharedRefPresent = result.runtimeEvidence.pageSharedRefs.indexOf(sharedComponentQName(projectName, "WorkInProgressCard")) !== -1;
     try {
       var uiAuditStartedAt = nowMillis();
       var uiTree = callInternalSequence("tools_databaseobject_tree_get", {
@@ -7510,21 +7620,14 @@ C8O.crud = C8O.crud || {};
       var generatedSourcesCleanupStartedAt = nowMillis();
       result.runtimeEvidence.generatedSourcesCleanup = cleanupGeneratedIonicSources(projectName, ngxApp);
       setDuration(timings, "generatedSourcesCleanupMs", generatedSourcesCleanupStartedAt);
-      var managedPageNames = [entryPage];
-      for (var managedPageIndex = 0; managedPageIndex < entityPageShells.length; managedPageIndex++) {
-        var managedPageQName = trimmed(entityPageShells[managedPageIndex] && entityPageShells[managedPageIndex].qname);
-        if (!managedPageQName.length) {
-          continue;
-        }
-        managedPageNames.push(managedPageQName.substring(managedPageQName.lastIndexOf(".") + 1));
-      }
-      var managedSourcePurgeStartedAt = nowMillis();
-      result.runtimeEvidence.generatedSourcesPurge = purgeManagedGeneratedIonicSources(
-        projectName,
-        managedPageNames,
-        sharedComponents.qnames || []
-      );
-      setDuration(timings, "generatedSourcesPurgeMs", managedSourcePurgeStartedAt);
+      result.runtimeEvidence.generatedSourcesPurge = {
+        skipped: true,
+        reason: "Managed source purge disabled to avoid transient live-viewer compile failures during watched regeneration.",
+        pageDirsPurged: [],
+        componentDirsPurged: [],
+        deletedCount: 0
+      };
+      timings.generatedSourcesPurgeMs = 0;
       var mobileBuilderStartedAt = nowMillis();
       var refreshTargets = [pageQName(projectName, entryPage)].concat(sharedComponents.qnames || []);
       for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {
@@ -7569,6 +7672,7 @@ C8O.crud = C8O.crud || {};
         liveBindingPresent: false,
         statefulActionsPresent: false,
         pageBootstrapPresent: false,
+        workInProgressVisible: null,
         expectedGlobals: statefulUiGlobals(spec.ui.variant),
         targetQName: findPageContentQName(spec.project, spec.ui.entryPage)
       },
@@ -7990,12 +8094,91 @@ C8O.crud = C8O.crud || {};
       var liveBinding = result.ui && result.ui.liveBindingPresent === true;
       var statefulActions = result.ui && result.ui.statefulActionsPresent === true;
       var pageBootstrap = result.ui && result.ui.pageBootstrapPresent === true;
+      var builderProbe = null;
+      function refreshBuilderProbe(currentProbe) {
+        try {
+          return callInternalSequence("tools_mobile_builder_open", {
+            project: result.project,
+            timeoutSec: 20,
+            logsLimit: 30,
+            forceRestart: false
+          });
+        } catch (builderProbeRetryError) {
+          addWarning(result, "Unable to refresh the mobile builder probe from crud-proof: " + String(builderProbeRetryError));
+          return currentProbe;
+        }
+      }
+      try {
+        builderProbe = callInternalSequence("tools_mobile_builder_open", {
+          project: result.project,
+          timeoutSec: 20,
+          logsLimit: 30,
+          forceRestart: false
+        });
+        result.ui.builderProbe = builderProbe || {};
+        if (!result.viewerUrl.length) {
+          result.viewerUrl = trimmed(
+            (builderProbe && (builderProbe.viewerHomeUrl || builderProbe.viewerBaseUrl || builderProbe.viewerUrl)) || ""
+          );
+        }
+      } catch (builderProbeError) {
+        addWarning(result, "Unable to probe the mobile builder from crud-proof: " + String(builderProbeError));
+        result.ui.builderProbe = {
+          status: "error",
+          message: String(builderProbeError),
+          compileErrors: []
+        };
+      }
+      var builderProbeAttempts = 0;
+      while (builderProbeAttempts < 8) {
+        var currentProbe = result.ui.builderProbe || {};
+        var currentReady = currentProbe.status === "ready";
+        var currentBodyText = trimmed(currentProbe.browser && currentProbe.browser.bodyTextSample);
+        var currentWorkInProgressVisible = currentReady && /work in progress/i.test(currentBodyText);
+        if ((currentReady && !currentWorkInProgressVisible) || (currentProbe.status !== "compile_error" && currentProbe.status !== "building")) {
+          break;
+        }
+        builderProbeAttempts += 1;
+        try {
+          java.lang.Thread.sleep(1500);
+        } catch (_ignoreBuilderProbeSleep) {}
+        result.ui.builderProbe = refreshBuilderProbe(currentProbe) || currentProbe;
+      }
+      var builderReady = !!(result.ui.builderProbe && result.ui.builderProbe.status === "ready");
+      var builderCompileError = !!(result.ui.builderProbe && result.ui.builderProbe.status === "compile_error");
+      var builderBodyText = trimmed(result.ui && result.ui.builderProbe && result.ui.builderProbe.browser && result.ui.builderProbe.browser.bodyTextSample);
+      var workInProgressVisible = /work in progress/i.test(builderBodyText);
+      result.ui.workInProgressVisible = builderReady ? workInProgressVisible : null;
       result.checks.push(proofCheck("ui-visible-shell", shellVisible, shellVisible ? "" : "Visible CRUD shell is not present on the entry page.", result.ui && result.ui.targetQName));
       result.checks.push(proofCheck("ui-starter-replaced", starterReplaced, starterReplaced ? "" : "Starter content is still dominant on the entry page.", result.ui && result.ui.targetQName));
       result.checks.push(proofCheck("ui-live-binding", liveBinding, liveBinding ? "" : "Live state bindings are missing from the entry page.", result.ui && result.ui.targetQName));
       result.checks.push(proofCheck("ui-stateful-actions", statefulActions, statefulActions ? "" : "Shared action stacks are missing for the UI state flow.", result.project));
       result.checks.push(proofCheck("ui-page-bootstrap", pageBootstrap, pageBootstrap ? "" : "Entry page does not bootstrap the stateful UI flow.", result.project + ".Application.NgxApp." + result.entryPage));
-      if (result.viewerUrl.length) {
+      result.checks.push(proofCheck(
+        "ui-mobile-builder",
+        builderReady,
+        builderReady
+          ? ""
+          : (
+            builderCompileError
+              ? (
+                result.ui.builderProbe && result.ui.builderProbe.message
+                  ? result.ui.builderProbe.message
+                  : "Mobile builder compile failed."
+              )
+              : "Mobile builder did not reach the ready state."
+          ),
+        result.project
+      ));
+      result.checks.push(proofCheck(
+        "ui-work-in-progress-hidden",
+        !builderReady || !workInProgressVisible,
+        !builderReady || !workInProgressVisible
+          ? ""
+          : "Work in progress marker is still visible in the live viewer after finalization.",
+        result.viewerUrl || result.project
+      ));
+      if (result.viewerUrl.length && builderReady) {
         result.ui.viewerProbe = probeViewer(
           result.viewerUrl,
           result.project,
@@ -8011,8 +8194,17 @@ C8O.crud = C8O.crud || {};
           result.viewerUrl
         ));
       }
+      if (builderCompileError) {
+        var compileErrors = ensureArray(result.ui.builderProbe && result.ui.builderProbe.compileErrors);
+        if (compileErrors.length) {
+          addWarning(result, "Mobile builder compile errors: " + trimmed((compileErrors[0].message || "") + " " + (compileErrors[0].extra || "")));
+        }
+      }
       if (!shellVisible || !starterReplaced || !liveBinding || !statefulActions || !pageBootstrap) {
         pushMissing(result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
+      }
+      if (!builderReady) {
+        pushMissing(result, result.project);
       }
       if (result.viewerUrl.length && !(result.ui && result.ui.viewerProbe && result.ui.viewerProbe.ok === true)) {
         pushMissing(result, result.viewerUrl);

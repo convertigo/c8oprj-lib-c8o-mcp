@@ -21,15 +21,17 @@ Required proof requestables:
 
 Required workflow:
 1. Stay on the standard CRUD fast path. Do not call planner, critic, maintainer, or specialist prompts.
-2. Run `upsert-crud` first with the exact spec above.
-3. Run `crud-proof` with the proof requestables above.
-4. If backend proof fails, stop with `RESULT: FAIL`.
-5. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
-6. Run `mobile-builder-open` and keep the returned `viewerUrl`.
-7. Run `upsert-ngx-crud-kit` with `stage=final`.
-8. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
-9. If the final UI proof fails, stop with `RESULT: FAIL`.
-10. Save the project if a mutation occurred and a final save is still needed.
+2. Run `marketplace-import` first for `template_ngxBuilderIonic` with the exact project name above.
+3. Run `mobile-builder-open` immediately and keep the returned live dev `viewerUrl`.
+4. Run `upsert-crud` with the exact spec above.
+5. Run `crud-proof` with the proof requestables above.
+6. If backend proof fails, stop with `RESULT: FAIL`.
+7. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
+8. Run `mobile-builder-open` again. If it returns `compile_error`, stop with `RESULT: FAIL` and report the compile errors. Do not patch generated frontend artifacts.
+9. Run `upsert-ngx-crud-kit` with `stage=final`.
+10. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
+11. If the final UI proof fails, stop with `RESULT: FAIL`.
+12. Save the project if a mutation occurred and a final save is still needed.
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.

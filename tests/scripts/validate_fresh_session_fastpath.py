@@ -21,6 +21,7 @@ DEFAULT_PROMPT_TEMPLATE = ROOT / "tests" / "prompt_crud_fastpath_fresh_session.t
 DEFAULT_SPEC_PATH = ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.json"
 DEFAULT_OUTPUT_DIR = ROOT / "tests" / "reports" / "fresh-session-fastpath" / time.strftime("%Y%m%d_%H%M%S")
 TOOL_CALL_RE = re.compile(r"^tool ([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\((.*)\)$")
+SESSION_ID_RE = re.compile(r"^session id:\s*([a-z0-9-]+)\s*$", re.IGNORECASE)
 
 
 def parse_args():
@@ -117,6 +118,66 @@ def parse_tool_calls(log_path, report_path=None):
     return ordered_events
 
 
+def extract_session_id(log_path):
+    for line in Path(log_path).read_text(encoding="utf-8").splitlines():
+        match = SESSION_ID_RE.match(line.strip())
+        if match:
+            return match.group(1)
+    return ""
+
+
+def locate_session_trace(session_id):
+    if not session_id:
+        return None
+    matches = sorted((Path.home() / ".codex" / "sessions").rglob(f"*{session_id}.jsonl"))
+    return matches[-1] if matches else None
+
+
+def load_session_trace(trace_path):
+    events = []
+    if not trace_path or not Path(trace_path).exists():
+        return events
+    for line in Path(trace_path).read_text(encoding="utf-8", errors="ignore").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            events.append(json.loads(text))
+        except Exception:
+            continue
+    return events
+
+
+def inspect_session_trace(trace_events, workspace_path):
+    workspace = str(Path(workspace_path).resolve())
+    violations = []
+    for event in trace_events:
+        payload = event.get("payload") or {}
+        event_type = payload.get("type")
+        name = payload.get("name") or ""
+        if event_type == "function_call" and name == "exec_command":
+            try:
+                arguments = json.loads(payload.get("arguments") or "{}")
+            except Exception:
+                arguments = {}
+            cmd = str(arguments.get("cmd") or "")
+            workdir = str(arguments.get("workdir") or "")
+            lowered = cmd.lower()
+            if workspace and workdir == workspace and ("pwd" in lowered or "rg --files" in lowered or re.search(r"(^|\s)ls(\s|$)", lowered)):
+                violations.append(f"Forbidden shell workspace inspection in empty MCP-only workspace: {cmd}")
+            if "_private/ionic" in cmd or "_private/ionic" in workdir:
+                violations.append(f"Forbidden generated runtime access via exec_command: {cmd or workdir}")
+            if "displayobjects" in lowered or "displayobjects" in workdir.lower():
+                violations.append(f"Forbidden generated DisplayObjects access via exec_command: {cmd or workdir}")
+            if "npm run build" in lowered or "ionic build" in lowered or "ng build" in lowered:
+                violations.append(f"Forbidden manual frontend build outside MCP: {cmd}")
+        elif event_type == "custom_tool_call" and name == "apply_patch":
+            patch_text = str(payload.get("input") or "")
+            if "_private/ionic" in patch_text or "DisplayObjects" in patch_text:
+                violations.append("Forbidden patch on generated frontend artifacts detected in session trace.")
+    return violations
+
+
 def first_event(events, predicate):
     for event in events:
         if predicate(event):
@@ -175,6 +236,18 @@ def check_call_order(events):
     )
 
     workflow = {}
+    workflow["marketplaceImport"] = require_event(
+        events,
+        lambda event: event["server"] == "convertigo" and event["name"] == "marketplace-import",
+        "Run never called marketplace-import for the starter project.",
+    )
+    mobile_builder_events = [
+        event for event in events
+        if event["server"] == "convertigo" and event["name"] == "mobile-builder-open"
+    ]
+    if len(mobile_builder_events) < 2:
+        raise RuntimeError("Run did not call mobile-builder-open twice (starter + post-bootstrap).")
+    workflow["starterViewer"] = mobile_builder_events[0]
     workflow["upsertCrud"] = require_event(
         events,
         lambda event: event["server"] == "convertigo" and event["name"] == "upsert-crud",
@@ -191,9 +264,9 @@ def check_call_order(events):
         "Run never called upsert-ngx-crud-kit stage=bootstrap.",
     )
     workflow["mobileBuilder"] = require_event(
-        events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "mobile-builder-open",
-        "Run never called mobile-builder-open.",
+        mobile_builder_events,
+        lambda event: event["line"] > workflow["bootstrapUi"]["line"],
+        "Run never called mobile-builder-open after stage=bootstrap.",
     )
     workflow["finalUi"] = require_event(
         events,
@@ -207,13 +280,13 @@ def check_call_order(events):
     )
 
     for key in ("listResources", "capabilities", "quickstart", "startGuide", "fastPathGuide"):
-        require_before(discovery[key], workflow["upsertCrud"], f"{key} happened after upsert-crud.")
+        require_before(discovery[key], workflow["marketplaceImport"], f"{key} happened after marketplace-import.")
     if discovery["listTemplates"]:
-        require_before(discovery["listTemplates"], workflow["upsertCrud"], "listTemplates happened after upsert-crud.")
+        require_before(discovery["listTemplates"], workflow["marketplaceImport"], "listTemplates happened after marketplace-import.")
 
     rag_before_discovery = first_event(
         events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "rag-query" and event["line"] < workflow["upsertCrud"]["line"],
+        lambda event: event["server"] == "convertigo" and event["name"] == "rag-query" and event["line"] < workflow["marketplaceImport"]["line"],
     )
     if rag_before_discovery:
         raise RuntimeError("Fresh session called rag-query before completing the fast-path guide read sequence.")
@@ -225,6 +298,8 @@ def check_call_order(events):
     if project_list_before_guides:
         raise RuntimeError("Fresh session called project-list before reading the fast-path guide.")
 
+    require_before(workflow["marketplaceImport"], workflow["starterViewer"], "The starter viewer was opened before marketplace-import.")
+    require_before(workflow["starterViewer"], workflow["upsertCrud"], "upsert-crud happened before the starter viewer was opened.")
     require_before(workflow["upsertCrud"], workflow["backendProof"], "Backend crud-proof happened before upsert-crud.")
     require_before(workflow["backendProof"], workflow["bootstrapUi"], "Bootstrap UI happened before backend proof.")
     require_before(workflow["bootstrapUi"], workflow["mobileBuilder"], "mobile-builder-open happened before stage=bootstrap.")
@@ -337,6 +412,13 @@ def main():
 
         events = parse_tool_calls(record["logPath"], record["reportPath"])
         record["callOrder"] = check_call_order(events)
+        session_id = extract_session_id(record["logPath"])
+        session_trace = locate_session_trace(session_id)
+        record["sessionId"] = session_id or None
+        record["sessionTracePath"] = str(session_trace.resolve()) if session_trace else None
+        trace_violations = inspect_session_trace(load_session_trace(session_trace), workspace_dir)
+        if trace_violations:
+            raise RuntimeError("; ".join(trace_violations))
         record["status"] = "PASS"
     except Exception as exc:
         message = str(exc)

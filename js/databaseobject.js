@@ -2403,9 +2403,11 @@ C8O.dbo._collectNgxComponentManagers = function (referenceDbo) {
 };
 
 C8O.dbo._ngxCreateCandidateCache = C8O.dbo._ngxCreateCandidateCache || {};
+C8O.dbo._ngxCreateCatalogCache = C8O.dbo._ngxCreateCatalogCache || {};
 
 C8O.dbo.clearNgxCreateCandidateCache = function () {
   C8O.dbo._ngxCreateCandidateCache = {};
+  C8O.dbo._ngxCreateCatalogCache = {};
 };
 
 C8O.dbo._getNgxCreateContextKey = function (referenceDbo) {
@@ -2436,6 +2438,101 @@ C8O.dbo._instantiateNgxPaletteCandidate = function (candidate) {
   }
 };
 
+C8O.dbo._buildNgxCreateCatalog = function (referenceDbo, options) {
+  options = options || {};
+  var managers = C8O.dbo._collectNgxComponentManagers(referenceDbo);
+  if (!managers || !managers.length) {
+    return {};
+  }
+
+  var catalog = {};
+  var dedupe = {};
+  for (var m = 0; m < managers.length; m++) {
+    var manager = managers[m];
+    if (!manager) {
+      continue;
+    }
+    try {
+      if (typeof manager.reloadComponents === "function") {
+        manager.reloadComponents();
+      }
+    } catch (_ignoreReloadForCatalog) {}
+
+    var components = null;
+    try {
+      components = manager.getComponentsByGroup();
+    } catch (_ignoreComponentsForCatalog) {
+      components = null;
+    }
+    if (!components) {
+      continue;
+    }
+
+    for (var i = 0; i < components.size(); i++) {
+      var component = components.get(i);
+      if (!component) {
+        continue;
+      }
+
+      if (options.requireAllowedInParent === true && referenceDbo) {
+        var allowed = false;
+        try {
+          allowed = component.isAllowedIn(referenceDbo) === true;
+        } catch (_ignoreAllowedForCatalog) {
+          allowed = false;
+        }
+        if (!allowed) {
+          continue;
+        }
+      }
+
+      var sampleDbo = C8O.dbo._instantiateNgxPaletteCandidate({
+        manager: manager,
+        component: component
+      });
+      if (!sampleDbo) {
+        continue;
+      }
+
+      var candidateClassName = "";
+      try {
+        candidateClassName = String(sampleDbo.getClass().getName() || "");
+      } catch (_ignoreCandidateClassNameForCatalog) {
+        candidateClassName = "";
+      }
+      if (!candidateClassName.length) {
+        continue;
+      }
+
+      var logicalId = C8O.dbo.getNgxComponentLogicalId(component, sampleDbo);
+      if (!logicalId.length) {
+        continue;
+      }
+      var logicalKey = C8O.dbo._normalizePropertyLookupKey(logicalId);
+      if (!logicalKey.length) {
+        continue;
+      }
+      var dedupeKey = candidateClassName + "#" + logicalKey;
+      if (dedupe[dedupeKey]) {
+        continue;
+      }
+      dedupe[dedupeKey] = true;
+
+      if (!catalog[candidateClassName]) {
+        catalog[candidateClassName] = [];
+      }
+      catalog[candidateClassName].push({
+        manager: manager,
+        component: component,
+        baseClassFqcn: candidateClassName,
+        logicalId: logicalId,
+        logicalClassName: C8O.dbo.buildLogicalClassName(candidateClassName, logicalId)
+      });
+    }
+  }
+  return catalog;
+};
+
 C8O.dbo._listNgxCreateCandidatesByBaseClass = function (baseClassFqcn, referenceDbo, options) {
   options = options || {};
   var baseClass = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(baseClassFqcn || "") : String(baseClassFqcn || "").trim();
@@ -2444,11 +2541,26 @@ C8O.dbo._listNgxCreateCandidatesByBaseClass = function (baseClassFqcn, reference
   }
 
   var cacheKey = "";
+  var contextKey = "";
   if (options.requireAllowedInParent === true && referenceDbo) {
-    cacheKey = C8O.dbo._getNgxCreateContextKey(referenceDbo) + "|" + baseClass;
+    contextKey = C8O.dbo._getNgxCreateContextKey(referenceDbo);
+    cacheKey = contextKey + "|" + baseClass;
     if (C8O.dbo._ngxCreateCandidateCache[cacheKey]) {
       return C8O.dbo._ngxCreateCandidateCache[cacheKey];
     }
+    if (C8O.dbo._ngxCreateCatalogCache[contextKey]) {
+      var cachedMatches = C8O.dbo._ngxCreateCatalogCache[contextKey][baseClass] || [];
+      C8O.dbo._ngxCreateCandidateCache[cacheKey] = cachedMatches;
+      return cachedMatches;
+    }
+  }
+
+  if (contextKey.length) {
+    var catalog = C8O.dbo._buildNgxCreateCatalog(referenceDbo, options);
+    C8O.dbo._ngxCreateCatalogCache[contextKey] = catalog;
+    var catalogMatches = catalog[baseClass] || [];
+    C8O.dbo._ngxCreateCandidateCache[cacheKey] = catalogMatches;
+    return catalogMatches;
   }
 
   var managers = C8O.dbo._collectNgxComponentManagers(referenceDbo);

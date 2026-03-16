@@ -53,6 +53,7 @@ Never reload the active MCP server project itself; use `project-save` there beca
 - UI:
   - structure readback
   - runtime evidence when the builder is healthy
+  - if `mobile-builder-open` reports `compile_error`, treat that as the canonical compile proof and fix the source objects or MCP generator path, not the generated frontend artifacts
   - if browser smoke fails, inspect builder logs with `mobile-builder-open` output and `log-view` before deciding whether the build failed
   - explicit loading, empty, error, and retry presence when the page depends on data
   - `project-save` after the last successful UI mutation

@@ -74,10 +74,11 @@
     "recommendedTools": [
       "resources/list",
       "prompts/list",
+      "marketplace-import",
+      "mobile-builder-open",
       "upsert-crud",
       "crud-proof",
       "upsert-ngx-crud-kit",
-      "mobile-builder-open",
       "project-save"
     ],
     "handoffTo": [

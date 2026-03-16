@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Create or update deterministic CRUD scaffolding
-  Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data.
+  Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct.
 ↓IncludeHelpers [steps.SimpleStep-1773318201001]: 
   comment: Load deterministic CRUD helpers
   expression: include("js/tools_crud.js");
@@ -166,8 +166,8 @@ comment: |
           - ↑mode: PLAIN
           - →→: warnings
 ↓spec [variables.RequestableVariable-1773318201016]: 
-  comment: Structured CRUD specification including project, database, facade, entities, seed, and UI options.
-  description: Structured CRUD specification including project, database, facade, entities, seed, and UI options.
+  comment: Structured CRUD specification including project, database, facade, entities, seed, and UI options. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides.
+  description: Structured CRUD specification including project, database, facade, entities, seed, and UI options. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides.
 ↓sequence [variables.RequestableVariable-1773318201017]: 
   comment: Set true to create or update public CRUD sequences in addition to SQL transactions.
   description: Set true to create or update public CRUD sequences in addition to SQL transactions.

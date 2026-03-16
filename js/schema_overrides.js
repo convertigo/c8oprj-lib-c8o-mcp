@@ -499,7 +499,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         spec: {
           type: "object",
-          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
+          description: "Structured CRUD specification including project, database, facade, entities, seed, and UI options. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
           additionalProperties: true
         },
         sequence: booleanFlagSchema(true, "Set true to create or update public CRUD sequences in addition to SQL transactions."),
@@ -1004,6 +1004,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function mobileBuilderCompileErrorSchema() {
+    return closedObjectSchema({
+      time: { type: "string" },
+      level: { type: "string" },
+      category: { type: "string" },
+      message: { type: "string" },
+      extra: { type: "string" }
+    });
+  }
+
   function mobileBuilderEditorSchema() {
     return closedObjectSchema({
       requested: { type: "boolean" },
@@ -1037,6 +1047,19 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       nodeUrl: { type: "string" },
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
+      browser: openObjectSchema({
+        currentUrl: { type: "string" },
+        locationHref: { type: "string" },
+        title: { type: "string" },
+        statusText: { type: "string" },
+        errorText: { type: "string" },
+        bodyTextSample: { type: "string" },
+        progress: { type: "number" }
+      }),
+      compileErrors: {
+        type: "array",
+        items: mobileBuilderCompileErrorSchema()
+      },
       logs: {
         type: "array",
         items: mobileBuilderLogLineSchema()
@@ -1154,11 +1177,45 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         present: stringArraySchema(),
         missing: stringArraySchema()
       }),
-	      ui: openObjectSchema({
-	        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
-	        visibleShellPresent: { type: "boolean" },
-	        liveBindingPresent: { type: "boolean" },
-	        targetQName: { type: "string" }
+		      ui: openObjectSchema({
+		        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
+		        visibleShellPresent: { type: "boolean" },
+		        liveBindingPresent: { type: "boolean" },
+		        workInProgressVisible: { oneOf: [{ type: "boolean" }, { type: "null" }] },
+		        targetQName: { type: "string" },
+          builderProbe: openObjectSchema({
+            status: { type: "string" },
+            message: { type: "string" },
+            viewerUrl: { type: "string" },
+            viewerBaseUrl: { type: "string" },
+            viewerHomeUrl: { type: "string" },
+            browser: openObjectSchema({
+              currentUrl: { type: "string" },
+              locationHref: { type: "string" },
+              title: { type: "string" },
+              statusText: { type: "string" },
+              errorText: { type: "string" },
+              bodyTextSample: { type: "string" },
+              progress: { type: "number" }
+            }),
+            compileErrors: {
+              type: "array",
+              items: mobileBuilderCompileErrorSchema()
+            }
+          }),
+          viewerProbe: openObjectSchema({
+            attempted: { type: "boolean" },
+            ok: { type: "boolean" },
+            url: { type: "string" },
+            finalUrl: { type: "string" },
+            statusCode: { type: "number" },
+            htmlOk: { type: "boolean" },
+            bundleCount: { type: "number" },
+            scriptUrls: stringArraySchema(),
+            markersFound: stringArraySchema(),
+            missingMarkers: stringArraySchema(),
+            message: { type: "string" }
+          })
 	      }),
 	      requestables: {
 	        type: "array",

@@ -3,6 +3,8 @@ This is a fresh-session mono-agent CRUD fast-path entry probe.
 - The runner already injected `convertigo-crud-fastpath`.
 - The workspace directory is intentionally empty.
 - Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Do not inspect the empty local workspace before the MCP route decision.
+- Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts.
 - Mutate only `__TARGET_PROJECT__`.
 
 Create or update a CRUD demo project named `__TARGET_PROJECT__` with this explicit spec:

@@ -29,14 +29,17 @@ For technical details, see [documentation](./project.md).
    - entities
    - visible entry page
 3. Execute the deterministic rail:
+   - `marketplace-import` with the exact requested project name
+   - `mobile-builder-open`
+   - use `viewerHomeUrl` or `viewerBaseUrl` for the live dev app; reserve `DisplayObjects/mobile/home` for production builds
    - `upsert-crud`
    - backend `crud-proof`
    - `upsert-ngx-crud-kit stage=bootstrap`
-   - `mobile-builder-open`
-   - use `viewerHomeUrl` or `viewerBaseUrl` for the live dev app; reserve `DisplayObjects/mobile/home` for production builds
+   - `mobile-builder-open` again to surface `compile_error` if the live app does not compile
    - `upsert-ngx-crud-kit stage=final`
    - final `crud-proof` with the returned `viewerUrl`
    - `project-save`
+4. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. They are diagnostic only; fix the Convertigo source objects or the MCP generator instead.
 
 ## Internal Lab Surfaces
 

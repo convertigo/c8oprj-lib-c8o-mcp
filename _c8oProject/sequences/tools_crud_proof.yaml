@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Prove deterministic CRUD state
-  Combines CRUD status, requestable execution summaries, and optional UI shell checks for the mono-agent fast path.
+  Combines CRUD status, requestable execution summaries, UI shell checks, and mobile builder readiness diagnostics for the mono-agent fast path.
 ↓IncludeHelpers [steps.SimpleStep-1773414214582]: 
   comment: Load deterministic CRUD helpers
   expression: include("js/tools_crud.js");
@@ -211,9 +211,8 @@ comment: |
           - ↑mode: PLAIN
           - →→: crm
 ↓project [variables.RequestableVariable-1773414214624]: 
-  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
-  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
-  schemaType: xsd:boolean
+  comment: Existing project technical name.
+  description: Existing project technical name.
 ↓connector [variables.RequestableVariable-1773414214627]: 
   comment: Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
   description: Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
@@ -227,12 +226,11 @@ comment: |
   comment: Optional UI variant hint used when checking visible CRUD shell coverage.
   description: Optional UI variant hint used when checking visible CRUD shell coverage.
 ↓entryPage [variables.RequestableVariable-1773414214635]: 
-  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
-  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
-  schemaType: xsd:boolean
+  comment: Visible entry page name. Defaults to Page.
+  description: Visible entry page name. Defaults to Page.
 ↓expectUiShell [variables.RequestableVariable-1773414214637]: 
-  comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
-  description: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+  comment: Set true to require visible shell evidence, mobile builder readiness, and starter replacement on the entry page.
+  description: Set true to require visible shell evidence, mobile builder readiness, and starter replacement on the entry page.
   schemaType: xsd:boolean
 ↓proofRequestables [variables.RequestableVariable-1773414214639]: 
   comment: Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
@@ -242,5 +240,5 @@ comment: |
   comment: Optional CRUD profile hint, for example crm.
   description: Optional CRUD profile hint, for example crm.
 ↓viewerUrl [variables.RequestableVariable-1773471749929]: 
-  comment: Optional viewer URL returned by mobile-builder-open. When provided, crud-proof also probes the served mobile viewer bundle.
-  description: Optional viewer URL returned by mobile-builder-open. When provided, crud-proof also probes the served mobile viewer bundle.
+  comment: Optional viewer URL returned by mobile-builder-open. In dev this should be the live viewer root or home URL, not a DisplayObjects/mobile production path. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle and builder state.
+  description: Optional viewer URL returned by mobile-builder-open. In dev this should be the live viewer root or home URL, not a DisplayObjects/mobile production path. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle and builder state.

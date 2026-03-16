@@ -45,13 +45,15 @@ Default assumptions for the fast path:
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 
 ## Deterministic rail
-1. Call `upsert-crud` with a complete `spec`.
-2. Call `crud-proof` for backend evidence.
-3. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
-4. Open the app early with `mobile-builder-open` and keep the returned `viewerUrl`. For the live dev app, prefer `viewerHomeUrl` or `viewerBaseUrl`; reserve `.../DisplayObjects/mobile/home` for production builds.
-5. Call `upsert-ngx-crud-kit` again with `stage=final`.
-6. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
-7. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
+1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
+2. Open the app immediately with `mobile-builder-open` and keep the returned live dev URL. Prefer `viewerHomeUrl` or `viewerBaseUrl`; reserve `.../DisplayObjects/mobile/home` for production builds.
+3. Call `upsert-crud` with a complete `spec`.
+4. Call `crud-proof` for backend evidence.
+5. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
+6. Call `mobile-builder-open` again after the bootstrap shell exists. If it returns `compile_error`, fix the Convertigo source path or the MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated files.
+7. Call `upsert-ngx-crud-kit` again with `stage=final`.
+8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
+9. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
 
 ## Proof contract
 `crud-proof` is sufficient when all of these hold:
