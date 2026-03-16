@@ -26,9 +26,9 @@
   {
     "surface": "js/databaseobject.js",
     "classification": "public product",
-    "currentRole": "Main Rhino helper layer for DatabaseObject resolution, property handling, NGX creation logic, Studio refresh helpers, and save/runtime invalidation.",
+    "currentRole": "Compatibility facade that assembles DatabaseObject helpers for resolution, property handling, NGX creation logic, save/runtime invalidation, and Studio refresh.",
     "currentSize": {
-      "linesApprox": 3554
+      "linesApprox": 3050
     },
     "problems": [
       "Mixes core object operations with NGX-specific creation and project save/version logic.",
@@ -39,10 +39,37 @@
       "js/databaseobject_core.js",
       "js/databaseobject_properties.js",
       "js/databaseobject_ngx.js",
-      "js/databaseobject_save.js",
+      "js/databaseobject_persist.js",
       "js/databaseobject_studio.js"
     ],
     "boundaryRule": "Keep js/databaseobject.js as a compatibility facade that assembles focused helpers."
+  },
+  {
+    "surface": "js/databaseobject_persist.js",
+    "classification": "public product",
+    "currentRole": "Project save/version bump orchestration, runtime invalidation, mobile builder refresh, and mutation finalization helpers.",
+    "problems": [
+      "Still mixes save/version policy with mobile builder refresh finalization.",
+      "Should not absorb generic property mutation logic beyond save-related orchestration."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/databaseobject_persist.js"
+    ],
+    "boundaryRule": "Own persistence/finalization helpers only; keep core DatabaseObject traversal elsewhere."
+  },
+  {
+    "surface": "js/databaseobject_studio.js",
+    "classification": "public product",
+    "currentRole": "Studio-only tree refresh, project tree cleanup, and project reload helpers.",
+    "problems": [
+      "Must remain Studio-scoped and avoid absorbing generic project lifecycle logic."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/databaseobject_studio.js"
+    ],
+    "boundaryRule": "Studio/Eclipse interaction only; no general save or batch behavior belongs here."
   },
   {
     "surface": "js/databaseobject_batch.js",
