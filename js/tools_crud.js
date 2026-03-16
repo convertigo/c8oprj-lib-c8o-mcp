@@ -4,6 +4,7 @@ include("js/databaseobject_batch.js");
 include("js/marketplace.js");
 include("js/crud_seed.js");
 include("js/crud_spec.js");
+include("js/crud_runtime.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -662,6 +663,16 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function crudRuntimeContext() {
+    return {
+      Engine: Engine,
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      normalizedIdentifier: normalizedIdentifier,
+      addWarning: addWarning
+    };
+  }
+
   function normalizeDriver(databaseSpec) {
     return C8O.crudSpec.normalizeDriver(crudSpecContext(), databaseSpec);
   }
@@ -703,237 +714,59 @@ C8O.crud = C8O.crud || {};
   }
 
 	  function findProjectByName(projectName) {
-	    var projectToken = trimmed(projectName);
-	    if (!projectToken.length) {
-	      return null;
-	    }
-	    try {
-	      return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectToken, false);
-	    } catch (_ignoreProjectByNameWithFlag) {
-	      try {
-	        return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectToken);
-	      } catch (_ignoreProjectByName) {
-	        try {
-	          var names = C8O.dbo && C8O.dbo._listProjectNames ? C8O.dbo._listProjectNames() : [];
-	          for (var i = 0; i < names.length; i++) {
-	            if (String(names[i]) === projectToken) {
-	              return C8O.dbo.resolve(projectToken, { optional: true });
-	            }
-	          }
-	        } catch (_ignoreResolveProjectByQName) {}
-	        return null;
-	      }
-	    }
+	    return C8O.crudRuntime.findProjectByName(crudRuntimeContext(), projectName);
 	  }
 
   function ensureProject(spec, result) {
-    var project = findProjectByName(spec.project);
-    if (project) {
-      return project;
-    }
-    if (spec.starter !== "ngx") {
-      throw new Error("Project " + spec.project + " is not loaded and only starter=\"ngx\" auto-import is supported");
-    }
-    var importResult = C8O.marketplace.importLibrary({
-      project: "template_ngxBuilderIonic",
-      importedProjectName: spec.project,
-      save: true,
-      forceImport: false
-    });
-    var importReady = !!(
-      importResult &&
-      (
-        importResult.status === "ready" ||
-        importResult.status === "ok" ||
-        importResult.imported === true ||
-        importResult.loadedAfter === true
-      )
-    );
-    if (!importReady) {
-      var importMessage = importResult && importResult.importMessage ? String(importResult.importMessage) : "";
-      throw new Error(
-        "Unable to import NGX starter for project " +
-        spec.project +
-        (importMessage.length ? " (" + importMessage + ")" : "")
-      );
-    }
-    result.created.push(spec.project);
-    project = findProjectByName(spec.project);
-    if (!project) {
-      throw new Error("Imported project " + spec.project + " is still not available in memory");
-    }
-    return project;
+    return C8O.crudRuntime.ensureProject(crudRuntimeContext(), spec, result);
   }
 
   function logicalClassName(node) {
-    if (!node || !node.getClass) {
-      return "";
-    }
-    try {
-      return C8O.util.fromFqcn(String(node.getClass().getName() || ""));
-    } catch (_ignoreLogicalClass) {
-      return "";
-    }
+    return C8O.crudRuntime.logicalClassName(node);
   }
 
   function findChild(parent, name, className) {
-    if (!parent || !parent.getDatabaseObjectChildren) {
-      return null;
-    }
-    var children = parent.getDatabaseObjectChildren();
-    for (var i = 0; i < children.size(); i++) {
-      var child = children.get(i);
-      var matchesName = !name;
-      if (!matchesName) {
-        try {
-          matchesName = String(child.getName()) === name;
-        } catch (_ignoreChildName) {
-          matchesName = false;
-        }
-      }
-      if (!matchesName) {
-        continue;
-      }
-      if (!className) {
-        return child;
-      }
-      var logical = logicalClassName(child);
-      if (logical === className || String(child.getClass().getName()) === C8O.util.toFqcn(className)) {
-        return child;
-      }
-    }
-    return null;
+    return C8O.crudRuntime.findChild(crudRuntimeContext(), parent, name, className);
   }
 
   function createChild(parent, className, name) {
-    var dbo = C8O.dbo.instantiateForCreate(className, parent, {});
-    dbo.setName(name);
-    if (typeof parent.addVariable === "function" && (className === "variables.RequestableVariable" || className === "variables.StepVariable")) {
-      parent.addVariable(dbo);
-    } else {
-      parent.add(dbo);
-    }
-    try {
-      dbo.hasChanged = true;
-    } catch (_ignoreDboChanged) {}
-    try {
-      parent.hasChanged = true;
-    } catch (_ignoreParentChanged) {}
-    try {
-      var project = parent.getProject ? parent.getProject() : null;
-      if (project) {
-        project.hasChanged = true;
-      }
-    } catch (_ignoreProjectChanged) {}
-    return dbo;
+    return C8O.crudRuntime.createChild(crudRuntimeContext(), parent, className, name);
   }
 
   function ensureChild(parent, className, name, result) {
-    var existing = findChild(parent, name, className);
-    if (existing) {
-      return existing;
-    }
-    var created = createChild(parent, className, name);
-    result.created.push(created.getFullQName ? String(created.getFullQName()) : name);
-    return created;
+    return C8O.crudRuntime.ensureChild(crudRuntimeContext(), parent, className, name, result);
   }
 
   function priorityOf(dbo) {
-    try {
-      if (dbo.getPriority) {
-        return String(dbo.getPriority());
-      }
-    } catch (_ignorePriorityMethod) {}
-    try {
-      if (dbo.priority != null) {
-        return String(dbo.priority);
-      }
-    } catch (_ignorePriorityField) {}
-    return "";
+    return C8O.crudRuntime.priorityOf(dbo);
   }
 
   function applyUpdates(dbo, updates, result) {
-    var applied = C8O.dbo.applyPropertyUpdates(dbo, updates || {});
-    if (applied && applied.errors && applied.errors.length) {
-      for (var i = 0; i < applied.errors.length; i++) {
-        addWarning(result, applied.errors[i].message || applied.errors[i]);
-      }
-    }
-    if (applied && applied.applied && applied.applied.length) {
-      result.updated.push(dbo.getFullQName ? String(dbo.getFullQName()) : String(dbo));
-    }
-    return applied;
+    return C8O.crudRuntime.applyUpdates(crudRuntimeContext(), dbo, updates, result);
   }
 
   function nowMillis() {
-    return java.lang.System.currentTimeMillis();
+    return C8O.crudRuntime.nowMillis();
   }
 
   function setDuration(bucket, key, startedAt) {
-    if (!bucket || !key) {
-      return 0;
-    }
-    var duration = nowMillis() - startedAt;
-    bucket[key] = duration;
-    return duration;
+    return C8O.crudRuntime.setDuration(bucket, key, startedAt);
   }
 
   function countTreeNodes(node) {
-    if (!node || typeof node !== "object") {
-      return 0;
-    }
-    var total = 1;
-    var children = ensureArray(node.children);
-    for (var i = 0; i < children.length; i++) {
-      total += countTreeNodes(children[i]);
-    }
-    return total;
+    return C8O.crudRuntime.countTreeNodes(crudRuntimeContext(), node);
   }
 
   function collectTreeNames(node, names) {
-    var out = names || [];
-    if (!node || typeof node !== "object") {
-      return out;
-    }
-    if (node.name != null && String(node.name).length) {
-      out.push(String(node.name));
-    }
-    var children = ensureArray(node.children);
-    for (var i = 0; i < children.length; i++) {
-      collectTreeNames(children[i], out);
-    }
-    return out;
+    return C8O.crudRuntime.collectTreeNames(crudRuntimeContext(), node, names);
   }
 
 	  function connectorProperties(spec) {
-	    var db = spec.database;
-	    return {
-	      jdbcDriverClassName: db.driver.jdbcDriverClassName,
-	      jdbcURL: buildJdbcUrl(db, spec),
-	      jdbcUserName: db.driver.id === "hsqldb" ? "SA" : db.user,
-	      jdbcUserPassword: db.driver.id === "hsqldb" ? "" : db.password,
-	      comment: "Deterministic CRUD connector (" + db.driver.technology + ") for " + spec.project
-	    };
+	    return C8O.crudRuntime.connectorProperties(crudRuntimeContext(), spec);
 	  }
 
 	  function buildJdbcUrl(databaseSpec, spec) {
-	    var driverId = databaseSpec && databaseSpec.driver && databaseSpec.driver.id ? String(databaseSpec.driver.id) : "hsqldb";
-	    if (driverId === "postgresql") {
-	      return "jdbc:postgresql://" + databaseSpec.host + ":" + databaseSpec.port + "/" + databaseSpec.database;
-	    }
-	    if (driverId === "mariadb") {
-	      return "jdbc:mariadb://" + databaseSpec.host + ":" + databaseSpec.port + "/" + databaseSpec.database;
-	    }
-	    if (driverId === "mysql") {
-	      return "jdbc:mysql://" + databaseSpec.host + ":" + databaseSpec.port + "/" + databaseSpec.database;
-	    }
-	    if (driverId === "sqlserver") {
-	      return "jdbc:jtds:sqlserver://" + databaseSpec.host + ":" + databaseSpec.port + "/" + databaseSpec.database;
-	    }
-	    if (driverId === "oracle") {
-	      return "jdbc:oracle:thin:@//" + databaseSpec.host + ":" + databaseSpec.port + "/" + databaseSpec.database;
-	    }
-	    return "jdbc:hsqldb:file:./database/" + normalizedIdentifier(spec.project) + ";shutdown=true";
+	    return C8O.crudRuntime.buildJdbcUrl(crudRuntimeContext(), databaseSpec, spec);
 	  }
 
   function mapSqlType(field, driver) {
