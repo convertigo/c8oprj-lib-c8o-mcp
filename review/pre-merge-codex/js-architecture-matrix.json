@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend helpers.",
+    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI node helpers.",
     "currentSize": {
-      "linesApprox": 7350,
-      "functionsApprox": 215
+      "linesApprox": 7060,
+      "functionsApprox": 199
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -17,6 +17,7 @@
       "js/crud_spec.js",
       "js/crud_seed.js",
       "js/crud_backend.js",
+      "js/crud_ui_nodes.js",
       "js/crud_ui_shared.js",
       "js/crud_ui_pages.js",
       "js/crud_proof.js"
@@ -61,6 +62,19 @@
       "js/crud_backend.js"
     ],
     "boundaryRule": "Backend CRUD SQL and requestable scaffolding only; keep orchestration, UI, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_nodes.js",
+    "classification": "public product",
+    "currentRole": "Pure NGX node-builder helpers for shared variables, smart values, directives, actions, and shared-component usage.",
+    "problems": [
+      "Must remain a pure builder layer and avoid absorbing page-specific CRUD layouts or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_nodes.js"
+    ],
+    "boundaryRule": "Pure UI node/value builders only; keep page assembly and CRUD orchestration elsewhere."
   },
   {
     "surface": "js/crud_runtime.js",

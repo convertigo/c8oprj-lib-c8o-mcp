@@ -6,6 +6,7 @@ include("js/crud_seed.js");
 include("js/crud_spec.js");
 include("js/crud_runtime.js");
 include("js/crud_backend.js");
+include("js/crud_ui_nodes.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -689,6 +690,14 @@ C8O.crud = C8O.crud || {};
       connectorProperties: connectorProperties,
       priorityOf: priorityOf,
       ucfirst: ucfirst
+    };
+  }
+
+  function crudUiContext() {
+    return {
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      toBoolean: toBoolean
     };
   }
 
@@ -1981,92 +1990,23 @@ C8O.crud = C8O.crud || {};
   }
 
   function scriptLiteral(value) {
-    if (value === null || value === undefined) {
-      return "''";
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
-    }
-    return "'" + String(value)
-      .replace(/\\/g, "\\\\")
-      .replace(/'/g, "\\'")
-      .replace(/\r/g, "\\r")
-      .replace(/\n/g, "\\n") + "'";
+    return C8O.crudUi.scriptLiteral(crudUiContext(), value);
   }
 
   function compVariableNode(name, valueExpression, comment) {
-    var node = {
-      className: "ngx.components.UICompVariable#UICompVariable",
-      name: name
-    };
-    var properties = {};
-    if (comment) {
-      properties.comment = String(comment);
-    }
-    properties.value = valueExpression || "''";
-    node.properties = properties;
-    return node;
+    return C8O.crudUi.compVariableNode(crudUiContext(), name, valueExpression, comment);
   }
 
   function useVariableNode(name, valueExpression, comment) {
-    var smartValue = null;
-    if (valueExpression && typeof valueExpression === "object" && valueExpression.mode) {
-      smartValue = valueExpression;
-    } else {
-      smartValue = {
-        mode: "SCRIPT",
-        value: valueExpression || "''"
-      };
-    }
-    var node = {
-      className: "ngx.components.UIUseVariable#UIUseVariable",
-      name: name,
-      properties: {
-        varValue: smartValue
-      }
-    };
-    if (comment) {
-      node.properties.comment = String(comment);
-    }
-    return node;
+    return C8O.crudUi.useVariableNode(crudUiContext(), name, valueExpression, comment);
   }
 
   function controlVariableNode(name, valueExpression, comment) {
-    var smartValue = null;
-    if (valueExpression && typeof valueExpression === "object" && valueExpression.mode) {
-      smartValue = valueExpression;
-    } else {
-      smartValue = {
-        mode: "SCRIPT",
-        value: valueExpression || "''"
-      };
-    }
-    var node = {
-      className: "ngx.components.UIControlVariable#UIControlVariable",
-      name: name,
-      properties: {
-        varValue: smartValue
-      }
-    };
-    if (comment) {
-      node.properties.comment = String(comment);
-    }
-    return node;
+    return C8O.crudUi.controlVariableNode(crudUiContext(), name, valueExpression, comment);
   }
 
   function pageEventNode(name, viewEvent, children, comment) {
-    var node = {
-      className: "ngx.components.UIPageEvent#UIPageEvent",
-      name: name,
-      properties: {
-        viewEvent: trimmed(viewEvent || "onWillEnter")
-      },
-      children: ensureArray(children)
-    };
-    if (comment) {
-      node.properties.comment = String(comment);
-    }
-    return node;
+    return C8O.crudUi.pageEventNode(crudUiContext(), name, viewEvent, children, comment);
   }
 
   function buildPageScriptContent(projectName, entities, facadePrefix) {
@@ -2101,95 +2041,35 @@ C8O.crud = C8O.crud || {};
   }
 
   function callSequenceActionNode(name, requestableQName, variables, options) {
-    var extra = options && typeof options === "object" ? options : {};
-    var properties = {
-      requestable: trimmed(requestableQName)
-    };
-    if (extra.threshold != null) {
-      properties.threshold = String(extra.threshold);
-    }
-    if (extra.noLoading != null) {
-      properties.noLoading = String(toBoolean(extra.noLoading, false));
-    }
-    if (extra.cacheTtl != null) {
-      properties.cacheTtl = String(extra.cacheTtl);
-    }
-    if (extra.timeout != null) {
-      properties.timeout = String(extra.timeout);
-    }
-    return {
-      className: "ngx.components.UIDynamicAction#CallSequenceAction",
-      name: name,
-      properties: properties,
-      children: ensureArray(variables)
-    };
+    return C8O.crudUi.callSequenceActionNode(crudUiContext(), name, requestableQName, variables, options);
   }
 
   function customAsyncActionNode(name, actionValue, comment) {
-    var properties = {
-      actionValue: actionValue || "return;"
-    };
-    if (trimmed(comment).length) {
-      properties.comment = String(comment);
-    }
-    return {
-      className: "ngx.components.UICustomAsyncAction#UICustomAsyncAction",
-      name: name,
-      properties: properties
-    };
+    return C8O.crudUi.customAsyncActionNode(crudUiContext(), name, actionValue, comment);
   }
 
   function smartTextNode(name, smartValue) {
-    return {
-      className: "ngx.components.UIText#UIText",
-      name: name,
-      properties: {
-        textValue: smartValue
-      }
-    };
+    return C8O.crudUi.smartTextNode(crudUiContext(), name, smartValue);
   }
 
   function plainTextNode(name, value) {
-    return smartTextNode(name, {
-      mode: "PLAIN",
-      value: value == null ? "" : String(value)
-    });
+    return C8O.crudUi.plainTextNode(crudUiContext(), name, value);
   }
 
   function scriptTextNode(name, valueExpression) {
-    return smartTextNode(name, {
-      mode: "SCRIPT",
-      value: valueExpression || "''"
-    });
+    return C8O.crudUi.scriptTextNode(crudUiContext(), name, valueExpression);
   }
 
   function attributeNode(name, attrName, smartValue) {
-    return {
-      className: "ngx.components.UIAttribute#UIAttribute",
-      name: name,
-      properties: {
-        attrName: String(attrName),
-        attrValue: smartValue
-      }
-    };
+    return C8O.crudUi.attributeNode(crudUiContext(), name, attrName, smartValue);
   }
 
   function labelNode(name, value) {
-    return {
-      className: "ngx.components.UIDynamicElement#Label",
-      name: name,
-      children: [
-        plainTextNode(name + "Text", value)
-      ]
-    };
+    return C8O.crudUi.labelNode(crudUiContext(), name, value);
   }
 
   function textElementNode(className, name, textNode) {
-    return {
-      className: className,
-      name: name,
-      children: [textNode]
-    };
+    return C8O.crudUi.textElementNode(crudUiContext(), className, name, textNode);
   }
 
   function schemaPreviewFields(entity, limit, includePrimary) {
@@ -2306,43 +2186,11 @@ C8O.crud = C8O.crud || {};
   }
 
   function sharedSourceValue(projectName, priority, variableName) {
-    return {
-      mode: "SOURCE",
-      value: JSON.stringify({
-        filter: "Shared",
-        project: projectName,
-        input: "",
-        model: {
-          data: [{ priority: Number(priority), regular: true }],
-          path: "?." + variableName,
-          prefix: "",
-          suffix: "",
-          custom: "",
-          useCustom: false
-        }
-      })
-    };
+    return C8O.crudUi.sharedSourceValue(crudUiContext(), projectName, priority, variableName);
   }
 
   function sequenceSourceValue(projectName, sequenceName, path, options) {
-    var sequenceQName = trimmed(sequenceName);
-    var extra = options && typeof options === "object" ? options : {};
-    return {
-      mode: "SOURCE",
-      value: JSON.stringify({
-        filter: "Sequence",
-        project: projectName,
-        input: trimmed(extra.input || ""),
-        model: {
-          data: [{ sequence: sequenceQName, marker: "" }],
-          path: trimmed(path || ""),
-          prefix: extra.prefix == null ? "" : String(extra.prefix),
-          suffix: extra.suffix == null ? "" : String(extra.suffix),
-          custom: extra.custom == null ? "" : String(extra.custom),
-          useCustom: toBoolean(extra.useCustom, false)
-        }
-      })
-    };
+    return C8O.crudUi.sequenceSourceValue(crudUiContext(), projectName, sequenceName, path, options);
   }
 
   function connectorRequestableQName(projectName, connectorName, requestableName) {
@@ -2350,34 +2198,11 @@ C8O.crud = C8O.crud || {};
   }
 
   function globalSourceValue(projectName, path, options) {
-    var extra = options && typeof options === "object" ? options : {};
-    return {
-      mode: "SOURCE",
-      value: JSON.stringify({
-        filter: "Global",
-        project: projectName,
-        input: trimmed(extra.input || ""),
-        model: {
-          data: [{ sharedObject: "router.sharedObject" }],
-          path: trimmed(path || ""),
-          prefix: extra.prefix == null ? "" : String(extra.prefix),
-          suffix: extra.suffix == null ? "" : String(extra.suffix),
-          custom: extra.custom == null ? "" : String(extra.custom),
-          useCustom: toBoolean(extra.useCustom, false)
-        }
-      })
-    };
+    return C8O.crudUi.globalSourceValue(crudUiContext(), projectName, path, options);
   }
 
   function iterationSourceValue(projectName, inputExpression) {
-    return {
-      mode: "SOURCE",
-      value: JSON.stringify({
-        filter: "Iteration",
-        project: projectName,
-        input: String(inputExpression || "")
-      })
-    };
+    return C8O.crudUi.iterationSourceValue(crudUiContext(), projectName, inputExpression);
   }
 
   function facadeSequenceQName(projectName, facadePrefix, entity, verb) {
@@ -2391,14 +2216,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildUseSharedNode(sharedQName, name, variables) {
-    return {
-      className: "ngx.components.UIUseShared#UIUseShared",
-      name: name,
-      properties: {
-        sharedcomponent: sharedQName
-      },
-      children: variables || []
-    };
+    return C8O.crudUi.buildUseSharedNode(crudUiContext(), sharedQName, name, variables);
   }
 
   function dashboardActionQName(projectName, actionName) {
@@ -5613,144 +5431,39 @@ C8O.crud = C8O.crud || {};
   }
 
   function ifDirectiveNode(name, expression, children) {
-    return {
-      className: "ngx.components.UIControlDirective#UIControlDirective",
-      name: name,
-      properties: {
-        directiveName: "If",
-        directiveExpression: String(expression || "false")
-      },
-      children: ensureArray(children)
-    };
+    return C8O.crudUi.ifDirectiveNode(crudUiContext(), name, expression, children);
   }
 
   function iterationDirectiveNode(name, projectName, itemName, inputExpression, children) {
-    return {
-      className: "ngx.components.UIControlDirective#UIControlDirective",
-      name: name,
-      properties: {
-        directiveItemName: trimmed(itemName || "item"),
-        directiveSource: iterationSourceValue(projectName, inputExpression)
-      },
-      children: ensureArray(children)
-    };
+    return C8O.crudUi.iterationDirectiveNode(crudUiContext(), name, projectName, itemName, inputExpression, children);
   }
 
   function sourceDirectiveNode(name, itemName, sourceValue, children, indexName) {
-    var properties = {
-      directiveItemName: trimmed(itemName || "item"),
-      directiveSource: sourceValue
-    };
-    if (trimmed(indexName).length) {
-      properties.directiveIndexName = String(indexName);
-    }
-    return {
-      className: "ngx.components.UIControlDirective#UIControlDirective",
-      name: name,
-      properties: properties,
-      children: ensureArray(children)
-    };
+    return C8O.crudUi.sourceDirectiveNode(crudUiContext(), name, itemName, sourceValue, children, indexName);
   }
 
   function controlEventNode(name, children, options) {
-    var node = {
-      className: "ngx.components.UIControlEvent#UIControlEvent",
-      name: name,
-      children: ensureArray(children)
-    };
-    var extra = options && typeof options === "object" ? options : {};
-    var properties = {};
-    if (trimmed(extra.attrName).length) {
-      properties.attrName = String(extra.attrName);
-    };
-    if (trimmed(extra.eventName).length) {
-      properties.eventName = String(extra.eventName);
-    }
-    if (trimmed(extra.comment).length) {
-      properties.comment = String(extra.comment);
-    }
-    if (Object.keys(properties).length) {
-      node.properties = properties;
-    }
-    return node;
+    return C8O.crudUi.controlEventNode(crudUiContext(), name, children, options);
   }
 
   function stackVariableNode(name, defaultValue) {
-    var node = {
-      className: "ngx.components.UIStackVariable#UIStackVariable",
-      name: name
-    };
-    if (defaultValue != null) {
-      node.properties = {
-        value: String(defaultValue)
-      };
-    }
-    return node;
+    return C8O.crudUi.stackVariableNode(crudUiContext(), name, defaultValue);
   }
 
   function setGlobalActionNode(name, propertyName, valueExpression) {
-    return {
-      className: "ngx.components.UIDynamicAction#SetGlobalAction",
-      name: name,
-      properties: {
-        Property: {
-          mode: "PLAIN",
-          value: String(propertyName || "")
-        },
-        Value: {
-          mode: "SCRIPT",
-          value: valueExpression || "''"
-        }
-      }
-    };
+    return C8O.crudUi.setGlobalActionNode(crudUiContext(), name, propertyName, valueExpression);
   }
 
   function setLocalActionNode(name, propertyName, valueExpression) {
-    return {
-      className: "ngx.components.UIDynamicAction#SetLocalAction",
-      name: name,
-      properties: {
-        Property: {
-          mode: "PLAIN",
-          value: String(propertyName || "")
-        },
-        Value: {
-          mode: "SCRIPT",
-          value: valueExpression || "''"
-        }
-      }
-    };
+    return C8O.crudUi.setLocalActionNode(crudUiContext(), name, propertyName, valueExpression);
   }
 
   function dynamicInvokeNode(name, stackQName, variables) {
-    return {
-      className: "ngx.components.UIDynamicInvoke#InvokeAction",
-      name: name,
-      properties: {
-        stack: String(stackQName || "")
-      },
-      children: ensureArray(variables)
-    };
+    return C8O.crudUi.dynamicInvokeNode(crudUiContext(), name, stackQName, variables);
   }
 
   function actionStackNode(name, variables, children, comment) {
-    var stackChildren = [];
-    var vars = ensureArray(variables);
-    for (var i = 0; i < vars.length; i++) {
-      stackChildren.push(vars[i]);
-    }
-    stackChildren = stackChildren.concat(ensureArray(children));
-    var node = {
-      className: "ngx.components.UIActionStack#UIActionStack",
-      name: name,
-      children: stackChildren
-    };
-    if (trimmed(comment).length) {
-      node.properties = {
-        comment: String(comment)
-      };
-    }
-    return node;
+    return C8O.crudUi.actionStackNode(crudUiContext(), name, variables, children, comment);
   }
 
   function dashboardStatCardTree(componentName) {
