@@ -107,29 +107,29 @@
     "classification": "public product",
     "currentRole": "Loads resource catalog and serves built-in resources.",
     "problems": [
-      "Built-in texts drifted from the live recommended path.",
-      "Duplicates file-loading patterns also found in prompts.js."
+      "Still owns built-in resource policy plus the public resource-specific helpers.",
+      "Should stay focused on resource policy rather than accreting more generic catalog logic."
     ],
-    "decision": "split-and-rewrite",
+    "decision": "keep-with-shared-loader",
     "targetModules": [
       "js/catalog_loader.js",
       "js/resources.js"
     ],
-    "boundaryRule": "Keep resources.js focused on resource policy; move shared file/index loading into catalog_loader.js."
+    "boundaryRule": "Keep resources.js focused on resource policy; shared file/index loading is now extracted into catalog_loader.js."
   },
   {
     "surface": "js/prompts.js",
     "classification": "public product",
     "currentRole": "Loads prompt catalog and prompt files.",
     "problems": [
-      "Duplicates catalog loading logic from resources.js."
+      "Should remain a thin prompt-specific facade and not regrow generic catalog-loading code."
     ],
-    "decision": "merge-into-shared-loader",
+    "decision": "keep-on-shared-loader",
     "targetModules": [
       "js/catalog_loader.js",
       "js/prompts.js"
     ],
-    "boundaryRule": "Reuse one shared loader for prompts/resources index and file resolution."
+    "boundaryRule": "Reuse the shared catalog_loader.js helper for prompt index and file resolution."
   },
   {
     "surface": "js/util.js",
