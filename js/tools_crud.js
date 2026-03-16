@@ -7,6 +7,7 @@ include("js/crud_spec.js");
 include("js/crud_runtime.js");
 include("js/crud_backend.js");
 include("js/crud_ui_nodes.js");
+include("js/crud_ui_state.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -698,6 +699,25 @@ C8O.crud = C8O.crud || {};
       trimmed: trimmed,
       ensureArray: ensureArray,
       toBoolean: toBoolean
+    };
+  }
+
+  function crudUiStateContext() {
+    return {
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      resolveQName: function (qname) {
+        return C8O.dbo.resolve(qname, { optional: true });
+      },
+      crmActionQName: crmActionQName,
+      dashboardActionQName: dashboardActionQName,
+      pageQName: pageQName,
+      sharedComponentQName: sharedComponentQName,
+      ifDirectiveNode: ifDirectiveNode,
+      buildUseSharedNode: buildUseSharedNode,
+      scriptLiteral: function (value) {
+        return scriptLiteral(value);
+      }
     };
   }
 
@@ -2224,181 +2244,75 @@ C8O.crud = C8O.crud || {};
   }
 
   function dashboardUiGlobals() {
-    return [
-      "crudBuildStage",
-      "crudLoading",
-      "crudError",
-      "crudStatus",
-      "crudRows",
-      "crudCounts",
-      "crudSamples"
-    ];
+    return C8O.crudUiState.dashboardUiGlobals(crudUiStateContext());
   }
 
   function entityPagesUiGlobals() {
-    return [
-      "crudBuildStage",
-      "crudLoading",
-      "crudError",
-      "crudStatus",
-      "crudRows",
-      "crudCounts",
-      "crudSamples",
-      "crudSelected",
-      "crudDrafts",
-      "crudModes",
-      "crudEntityStatus",
-      "crudEntityErrors"
-    ];
+    return C8O.crudUiState.entityPagesUiGlobals(crudUiStateContext());
   }
 
   function crmUiGlobals() {
-    return [
-      "crmBuildStage",
-      "crmLoading",
-      "crmError",
-      "crmStatus",
-      "crmCompanies",
-      "crmContacts",
-      "crmCounts",
-      "crmSelectedCompany",
-      "crmCompanyContacts"
-    ];
+    return C8O.crudUiState.crmUiGlobals(crudUiStateContext());
   }
 
   function statefulUiGlobals(variant) {
-    var normalizedVariant = trimmed(variant).toLowerCase();
-    if (normalizedVariant === "master-detail") {
-      return crmUiGlobals();
-    }
-    if (normalizedVariant === "entity-pages") {
-      return entityPagesUiGlobals();
-    }
-    return dashboardUiGlobals();
+    return C8O.crudUiState.statefulUiGlobals(crudUiStateContext(), variant);
   }
 
   function everyQNameExists(qnames) {
-    var entries = ensureArray(qnames);
-    if (!entries.length) {
-      return false;
-    }
-    for (var i = 0; i < entries.length; i++) {
-      var qname = trimmed(entries[i]);
-      if (!qname.length || !C8O.dbo.resolve(qname, { optional: true })) {
-        return false;
-      }
-    }
-    return true;
+    return C8O.crudUiState.everyQNameExists(crudUiStateContext(), qnames);
   }
 
   function statefulBootstrapStageQName(projectName, variant) {
-    var normalizedVariant = trimmed(variant).toLowerCase();
-    return (normalizedVariant === "master-detail"
-      ? crmActionQName(projectName, "crm_bootstrap_dashboard")
-      : dashboardActionQName(projectName, "crud_bootstrap_dashboard")) + ".SetBuildStage";
+    return C8O.crudUiState.statefulBootstrapStageQName(crudUiStateContext(), projectName, variant);
   }
 
   function statefulBootstrapRowQName(projectName, entryPage, variant) {
-    var normalizedVariant = trimmed(variant).toLowerCase();
-    var pageRoot = pageQName(projectName, entryPage) + ".Content.";
-    return normalizedVariant === "master-detail"
-      ? pageRoot + "CrmMasterDetailGrid.BootstrapRow"
-      : pageRoot + "CrudDashboardGrid.BootstrapRow";
+    return C8O.crudUiState.statefulBootstrapRowQName(crudUiStateContext(), projectName, entryPage, variant);
   }
 
   function workInProgressVisibilityExpression(globalStageExpression) {
-    var source = trimmed(globalStageExpression || "''");
-    if (!source.length) {
-      source = "''";
-    }
-    return "((" + source + ") ?? 'bootstrap') !== 'final'";
+    return C8O.crudUiState.workInProgressVisibilityExpression(crudUiStateContext(), globalStageExpression);
   }
 
   function buildStatefulBootstrapRow(projectName, globalStageExpression) {
-    return {
-      className: "ngx.components.UIDynamicElement#GridRow",
-      name: "BootstrapRow",
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#GridCol",
-          name: "BootstrapCol",
-          children: [
-            ifDirectiveNode(
-              "BootstrapVisible",
-              workInProgressVisibilityExpression(globalStageExpression),
-              [buildUseSharedNode(sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])]
-            )
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiState.buildStatefulBootstrapRow(crudUiStateContext(), projectName, globalStageExpression);
   }
 
   function dashboardRowsExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudRows || {})[" + keyExpr + "]) || [])";
+    return C8O.crudUiState.dashboardRowsExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function dashboardCountExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    var rowsExpr = dashboardRowsExpression(keyExpr);
-    return "((this.global?.crudCounts || {})[" + keyExpr + "] ?? ((" + rowsExpr + ").length ?? 0))";
+    return C8O.crudUiState.dashboardCountExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function dashboardSampleExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudSamples || {})[" + keyExpr + "]) || null)";
+    return C8O.crudUiState.dashboardSampleExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function crudSelectedExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudSelected || {})[" + keyExpr + "]) || null)";
+    return C8O.crudUiState.crudSelectedExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function crudDraftExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudDrafts || {})[" + keyExpr + "]) || {})";
+    return C8O.crudUiState.crudDraftExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function crudModeExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudModes || {})[" + keyExpr + "]) || 'update')";
+    return C8O.crudUiState.crudModeExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function crudEntityStatusExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudEntityStatus || {})[" + keyExpr + "]) || 'idle')";
+    return C8O.crudUiState.crudEntityStatusExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function crudEntityErrorExpression(entityKeyExpression) {
-    var keyExpr = trimmed(entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudEntityErrors || {})[" + keyExpr + "]) || '')";
+    return C8O.crudUiState.crudEntityErrorExpression(crudUiStateContext(), entityKeyExpression);
   }
 
   function dynamicFieldAccessExpression(targetExpression, fieldExpression, fallbackExpression) {
-    var targetExpr = trimmed(targetExpression || "null") || "null";
-    var fieldExpr = trimmed(fieldExpression || "''") || "''";
-    var fallbackExpr = fallbackExpression == null ? "''" : String(fallbackExpression);
-    var literalField = null;
-    if ((fieldExpr.charAt(0) === "'" && fieldExpr.charAt(fieldExpr.length - 1) === "'") ||
-      (fieldExpr.charAt(0) === "\"" && fieldExpr.charAt(fieldExpr.length - 1) === "\"")) {
-      literalField = fieldExpr.substring(1, fieldExpr.length - 1);
-      if (fieldExpr.charAt(0) === "'") {
-        literalField = literalField.replace(/\\'/g, "'");
-      } else {
-        literalField = literalField.replace(/\\"/g, "\"");
-      }
-    }
-    if (literalField != null) {
-      return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
-        targetExpr + "?.[" + scriptLiteral(literalField.toUpperCase()) + "] ?? " +
-        targetExpr + "?.[" + scriptLiteral(literalField.toLowerCase()) + "] ?? " +
-        fallbackExpr + ")";
-    }
-    return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
-      targetExpr + "?.[(('' + (" + fieldExpr + " || '')).toUpperCase())] ?? " +
-      targetExpr + "?.[(('' + (" + fieldExpr + " || '')).toLowerCase())] ?? " +
-      fallbackExpr + ")";
+    return C8O.crudUiState.dynamicFieldAccessExpression(crudUiStateContext(), targetExpression, fieldExpression, fallbackExpression);
   }
 
   function dashboardHeaderComponentTree(componentName, projectName, entities) {
