@@ -853,6 +853,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function treeNodeOutputSchema() {
     return openObjectSchema({
       qname: { type: "string" },
+      canonicalQName: { type: "string" },
+      legacyQName: { type: "string" },
       name: { type: "string" },
       className: { type: "string" },
       depth: { type: "number" },
@@ -872,6 +874,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function databaseobjectTreeGetOutputSchema() {
     return closedObjectSchema({
       rootQName: { type: "string" },
+      rootCanonicalQName: { type: "string" },
+      rootLegacyQName: { type: "string" },
       view: { type: "string" },
       startOffset: { type: "number" },
       returnedNodes: { type: "number" },
@@ -887,6 +891,29 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       forest: {
         type: "array",
         items: treeNodeOutputSchema()
+      }
+    });
+  }
+
+  function databaseobjectSearchOutputSchema() {
+    return closedObjectSchema({
+      scanned: { type: "number" },
+      returned: { type: "number" },
+      hasMore: { type: "boolean" },
+      nextCursor: { type: "string" },
+      matches: {
+        type: "array",
+        items: openObjectSchema({
+          qname: { type: "string" },
+          canonicalQName: { type: "string" },
+          legacyQName: { type: "string" },
+          name: { type: "string" },
+          className: { type: "string" },
+          priority: { type: "string" },
+          context: { type: "string" },
+          type: { type: "string" },
+          comment: { type: "string" }
+        })
       }
     });
   }
@@ -1360,6 +1387,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_databaseobject_tree_get") {
       return databaseobjectTreeGetOutputSchema();
+    }
+    if (seq === "tools_databaseobject_search") {
+      return databaseobjectSearchOutputSchema();
     }
     if (seq === "tools_log_view") {
       return logViewOutputSchema();

@@ -96,6 +96,11 @@ Lock these decisions before the first mutation:
 - whether the task requires only `project-save` or also `project-reload`
 - whether the task truly needs rollback/reload proof; `project-reload` is not a freshness step for `requestable-execute`
 
+### QName forms
+- Tool inputs accept both the historical flat QName and the canonical prefixed QName.
+- When a tool returns both `canonicalQName` and `legacyQName`, prefer copying `canonicalQName` into follow-up tool calls.
+- Treat `legacyQName` as a compatibility alias for older traces and human-readable reports.
+
 ### Guide escalation example
 Correct escalation for a multi-track feature:
 1. Start here and inspect the project.

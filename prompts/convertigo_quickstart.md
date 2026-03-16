@@ -94,6 +94,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 ## Practical rules
 - Start from a recipe whenever the task matches a known Convertigo pattern.
 - Use `project-list`, `project-list-symbols`, `databaseobject-tree-get`, and `databaseobject-search` before asking configuration questions the runtime may already answer.
+- Inputs accept both flat legacy QNames and canonical prefixed QNames. When a tool returns both `canonicalQName` and `legacyQName`, prefer `canonicalQName` for the next MCP call.
 - Use `resources/templates/list` only to pick a template-bearing guide quickly; read the actual content through `resources/read`.
 - When the task is a standard CRUD path, capture the deterministic `spec` inputs early: project, driver family, connector name, facade prefix, entities, seed choice, visible entry page, and UI variant.
 - Use the exact project name requested by the user when it is technically valid. Do not append prefixes, suffixes, or dates unless the user explicitly asked for them.

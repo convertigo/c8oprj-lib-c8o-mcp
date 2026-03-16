@@ -216,6 +216,32 @@ comment: |
           - SmartType: 
             - ↑mode: PLAIN
             - →→: forest
+  ↓rootCanonicalQName [steps.JsonFieldStep-1773656553617]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rootCanonicalQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeRootCanonicalQName || ""
+  ↓rootLegacyQName [steps.JsonFieldStep-1773656553627]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rootLegacyQName
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: treeRootLegacyQName || ""
 ↓target [variables.RequestableVariable-1772627661816]: 
   comment: Existing QName. Case-sensitive.
   description: Existing QName. Case-sensitive.
