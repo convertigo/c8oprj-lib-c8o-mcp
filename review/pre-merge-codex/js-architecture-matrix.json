@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof helpers.",
     "currentSize": {
-      "linesApprox": 4076,
-      "functionsApprox": 122
+      "linesApprox": 3558,
+      "functionsApprox": 118
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
