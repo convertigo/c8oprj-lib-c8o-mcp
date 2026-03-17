@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof helpers.",
+    "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof/refresh helpers.",
     "currentSize": {
-      "linesApprox": 3215,
-      "functionsApprox": 114
+      "linesApprox": 2885,
+      "functionsApprox": 102
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -26,7 +26,8 @@
       "js/crud_ui_crm.js",
       "js/crud_ui_crm_actions.js",
       "js/crud_proof.js",
-      "js/crud_viewer.js"
+      "js/crud_viewer.js",
+      "js/crud_ui_refresh.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
   },
@@ -198,6 +199,19 @@
       "js/crud_viewer.js"
     ],
     "boundaryRule": "Viewer probing and bundle inspection only; keep CRUD mutation, builder orchestration, and UI assembly elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_refresh.js",
+    "classification": "public product",
+    "currentRole": "Generated Ionic source cleanup and Studio/mobile-builder refresh helpers used by NGX CRUD kit finalization.",
+    "problems": [
+      "Must stay focused on generated-source hygiene and refresh triggering, without absorbing viewer proof or CRUD orchestration."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_refresh.js"
+    ],
+    "boundaryRule": "Generated-source cleanup and builder/studio refresh only; keep viewer proof, CRUD orchestration, and UI assembly elsewhere."
   },
   {
     "surface": "js/crud_runtime.js",
