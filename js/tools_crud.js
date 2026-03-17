@@ -13,6 +13,7 @@ include("js/crud_ui_pages.js");
 include("js/crud_ui_actions.js");
 include("js/crud_ui_dashboard.js");
 include("js/crud_ui_crm.js");
+include("js/crud_ui_crm_actions.js");
 include("js/crud_proof.js");
 
 if (typeof C8O === "undefined") {
@@ -874,6 +875,20 @@ C8O.crud = C8O.crud || {};
       controlEventNode: controlEventNode,
       controlVariableNode: controlVariableNode,
       customAsyncActionNode: customAsyncActionNode
+    };
+  }
+
+  function crudUiCrmActionsContext() {
+    return {
+      trimmed: trimmed,
+      scriptLiteral: scriptLiteral,
+      crmActionQName: crmActionQName,
+      actionStackNode: actionStackNode,
+      callSequenceActionNode: callSequenceActionNode,
+      setGlobalActionNode: setGlobalActionNode,
+      stackVariableNode: stackVariableNode,
+      dynamicInvokeNode: dynamicInvokeNode,
+      controlVariableNode: controlVariableNode
     };
   }
 
@@ -2417,103 +2432,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildCrmActionStacksTree(projectName, facadePrefix, stage) {
-    var listCompaniesQName = trimmed(projectName) + "." + trimmed(facadePrefix) + "_list_companies";
-    var listContactsQName = trimmed(projectName) + "." + trimmed(facadePrefix) + "_list_contacts";
-    var listCompanyContactsQName = trimmed(projectName) + "." + trimmed(facadePrefix) + "_list_company_contacts";
-    var refreshCompaniesQName = crmActionQName(projectName, "crm_refresh_companies");
-    var refreshContactsQName = crmActionQName(projectName, "crm_refresh_contacts");
-    var refreshCompanyContactsQName = crmActionQName(projectName, "crm_refresh_company_contacts");
-    var selectCompanyQName = crmActionQName(projectName, "crm_select_company");
-    var bootstrapQName = crmActionQName(projectName, "crm_bootstrap_dashboard");
-    return {
-      qnames: [
-        refreshCompaniesQName,
-        refreshContactsQName,
-        refreshCompanyContactsQName,
-        selectCompanyQName,
-        bootstrapQName,
-        crmActionQName(projectName, "crm_retry_dashboard")
-      ],
-      tree: {
-        children: [
-          actionStackNode(
-            "crm_refresh_companies",
-            [],
-            [
-              callSequenceActionNode("CallCompanies", listCompaniesQName, [], { noLoading: true, cacheTtl: 3000 }),
-              setGlobalActionNode("SetCompanies", "crmCompanies", "parent.out?.sql_output ?? []"),
-              setGlobalActionNode("SetCompanyCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { companies: Number(parent.out?.sql_output?.length ?? 0) })"),
-              setGlobalActionNode("SetCompanyStatus", "crmStatus", "parent.out?.status ?? 'ok'"),
-              setGlobalActionNode("SetCompanyError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load companies') : ''"),
-              setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmSelectedCompany && (parent.out?.sql_output || []).some((item) => String(item?.ID ?? item?.id) === String(this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id))) ? this.global?.crmSelectedCompany : ((parent.out?.sql_output || [])[0] ?? null)")
-            ],
-            "CRM companies refresh action."
-          ),
-          actionStackNode(
-            "crm_refresh_contacts",
-            [],
-            [
-              callSequenceActionNode("CallContacts", listContactsQName, [], { noLoading: true, cacheTtl: 3000 }),
-              setGlobalActionNode("SetContacts", "crmContacts", "parent.out?.sql_output ?? []"),
-              setGlobalActionNode("SetContactCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { contacts: Number(parent.out?.sql_output?.length ?? 0) })"),
-              setGlobalActionNode("SetContactsStatus", "crmStatus", "(this.global?.crmError ? 'error' : (parent.out?.status ?? 'ok'))"),
-              setGlobalActionNode("SetContactsError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load contacts') : (this.global?.crmError || '')")
-            ],
-            "CRM contacts refresh action."
-          ),
-          actionStackNode(
-            "crm_refresh_company_contacts",
-            [stackVariableNode("company_id", "0")],
-            [
-              callSequenceActionNode("CallCompanyContacts", listCompanyContactsQName, [
-                controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
-              ], { noLoading: true, cacheTtl: 3000 }),
-              setGlobalActionNode("SetCompanyContacts", "crmCompanyContacts", "parent.out?.sql_output ?? []"),
-              setGlobalActionNode("SetCompanyContactsStatus", "crmStatus", "(this.global?.crmError ? 'error' : (parent.out?.status ?? 'ok'))"),
-              setGlobalActionNode("SetCompanyContactsError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load company contacts') : (this.global?.crmError || '')")
-            ],
-            "CRM selected-company contacts refresh action."
-          ),
-          actionStackNode(
-            "crm_select_company",
-            [stackVariableNode("company_id", "0")],
-            [
-              setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmCompanies || []).find((item) => String(item?.ID ?? item?.id) === String(vars.company_id ?? '')) || null"),
-              dynamicInvokeNode("InvokeRefreshCompanyContacts", refreshCompanyContactsQName, [
-                controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
-              ])
-            ],
-            "CRM company selection action."
-          ),
-          actionStackNode(
-            "crm_bootstrap_dashboard",
-            [],
-            [
-              setGlobalActionNode("SetBuildStage", "crmBuildStage", scriptLiteral(trimmed(stage || "bootstrap"))),
-              setGlobalActionNode("SetLoading", "crmLoading", "true"),
-              setGlobalActionNode("ResetError", "crmError", "''"),
-              setGlobalActionNode("SetBootstrapStatus", "crmStatus", "'loading'"),
-              dynamicInvokeNode("InvokeRefreshCompanies", refreshCompaniesQName, []),
-              dynamicInvokeNode("InvokeRefreshContacts", refreshContactsQName, []),
-              dynamicInvokeNode("InvokeRefreshCompanyContacts", refreshCompanyContactsQName, [
-                controlVariableNode("company_id", "Number(this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
-              ]),
-              setGlobalActionNode("ClearLoading", "crmLoading", "false"),
-              setGlobalActionNode("FinalizeStatus", "crmStatus", "this.global?.crmError ? 'error' : 'ok'")
-            ],
-            "CRM dashboard bootstrap action."
-          ),
-          actionStackNode(
-            "crm_retry_dashboard",
-            [],
-            [
-              dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
-            ],
-            "CRM retry action."
-          )
-        ]
-      }
-    };
+    return C8O.crudUiCrmActions.buildCrmActionStacksTree(crudUiCrmActionsContext(), projectName, facadePrefix, stage);
   }
 
   function buildCrmMasterDetailPageShellTree(projectName, stage) {
