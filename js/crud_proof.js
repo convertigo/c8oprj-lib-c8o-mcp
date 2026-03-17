@@ -223,13 +223,13 @@ C8O.crudProof = C8O.crudProof || {};
     }
     var arrayLike = toArrayLike(ctx, source);
     if (arrayLike) {
-      return ctx.dedupeStrings(arrayLike);
+      return dedupeStrings(ctx, arrayLike);
     }
     if (ctx.toJsonSafe) {
       source = ctx.toJsonSafe(source, { maxDepth: 4 });
       arrayLike = toArrayLike(ctx, source);
       if (arrayLike) {
-        return ctx.dedupeStrings(arrayLike);
+        return dedupeStrings(ctx, arrayLike);
       }
     }
     if (typeof source === "string") {
@@ -237,18 +237,18 @@ C8O.crudProof = C8O.crudProof || {};
     }
     arrayLike = toArrayLike(ctx, source);
     if (arrayLike) {
-      return ctx.dedupeStrings(arrayLike);
+      return dedupeStrings(ctx, arrayLike);
     }
     if (Array.isArray(source)) {
-      return ctx.dedupeStrings(source);
+      return dedupeStrings(ctx, source);
     }
     if (source && typeof source === "object") {
       if (Array.isArray(source.requestables)) {
-        return ctx.dedupeStrings(source.requestables);
+        return dedupeStrings(ctx, source.requestables);
       }
       arrayLike = toArrayLike(ctx, source.requestables);
       if (arrayLike) {
-        return ctx.dedupeStrings(arrayLike);
+        return dedupeStrings(ctx, arrayLike);
       }
       if (typeof source.requestables === "string") {
         return normalizeProofRequestablesInput(ctx, source.requestables);
@@ -259,9 +259,24 @@ C8O.crudProof = C8O.crudProof || {};
       return [];
     }
     if (text.indexOf(",") !== -1) {
-      return ctx.dedupeStrings(text.split(","));
+      return dedupeStrings(ctx, text.split(","));
     }
     return [text];
+  }
+
+  function dedupeStrings(ctx, values) {
+    var seen = {};
+    var deduped = [];
+    var items = ensureArray(ctx, values);
+    for (var i = 0; i < items.length; i++) {
+      var current = trimmed(ctx, items[i]);
+      if (!current.length || seen[current]) {
+        continue;
+      }
+      seen[current] = true;
+      deduped.push(current);
+    }
+    return deduped;
   }
 
   function resolveProofRequestableQName(ctx, requestable, projectName, connectorName) {
@@ -299,13 +314,463 @@ C8O.crudProof = C8O.crudProof || {};
     return check;
   }
 
+  function pushMissing(ctx, result, value) {
+    if (!result.missing) {
+      result.missing = [];
+    }
+    if (trimmed(ctx, value).length) {
+      result.missing.push(String(value));
+    }
+  }
+
+  function buildCrudStatus(ctx, spec, connector, result) {
+    var project = ctx.findProjectByName(spec.project);
+    var crm = ctx.crmRelationContext(spec);
+    var status = {
+      status: "ok",
+      project: spec.project,
+      driverFamily: spec.database.driver.id,
+      connectorQname: connector && connector.getFullQName ? String(connector.getFullQName()) : "",
+      transactions: {
+        present: [],
+        missing: []
+      },
+      sequences: {
+        present: [],
+        missing: []
+      },
+      ui: {
+        starterDominant: null,
+        visibleShellPresent: false,
+        liveBindingPresent: false,
+        statefulActionsPresent: false,
+        pageBootstrapPresent: false,
+        workInProgressVisible: null,
+        expectedGlobals: ctx.statefulUiGlobals(spec.ui.variant),
+        targetQName: ctx.findPageContentQName(spec.project, spec.ui.entryPage)
+      },
+      crm: {
+        enabled: !!crm,
+        relationRequestable: crm ? (spec.project + "." + spec.facade.prefix + "_list_company_contacts") : ""
+      },
+      missing: [],
+      warnings: []
+    };
+
+    var expectedTransactions = ["init_schema"];
+    for (var i = 0; i < spec.entities.length; i++) {
+      expectedTransactions.push(ctx.txName(spec.entities[i], "list"));
+      expectedTransactions.push(ctx.txName(spec.entities[i], "count"));
+      expectedTransactions.push(ctx.txName(spec.entities[i], "read"));
+      expectedTransactions.push(ctx.txName(spec.entities[i], "create"));
+      expectedTransactions.push(ctx.txName(spec.entities[i], "update"));
+      expectedTransactions.push(ctx.txName(spec.entities[i], "delete"));
+    }
+    if (!spec.entities.length && connector && connector.getTransactionsList) {
+      try {
+        var txList = connector.getTransactionsList();
+        for (var txIndex = 0; txIndex < txList.size(); txIndex++) {
+          var txNameValue = trimmed(ctx, txList.get(txIndex).getName());
+          if (txNameValue.length && expectedTransactions.indexOf(txNameValue) === -1) {
+            expectedTransactions.push(txNameValue);
+          }
+        }
+      } catch (_ignoreTxList) {}
+    }
+
+    for (var j = 0; j < expectedTransactions.length; j++) {
+      var txQName = spec.project + "." + spec.database.connector + "." + expectedTransactions[j];
+      if (ctx.resolveQName(txQName, { optional: true })) {
+        status.transactions.present.push(txQName);
+      } else {
+        status.transactions.missing.push(txQName);
+        status.missing.push(txQName);
+      }
+    }
+    if (!crm && ctx.resolveQName(spec.project + "." + spec.database.connector + ".list_contacts", { optional: true }) && ctx.resolveQName(spec.project + "." + spec.database.connector + ".list_companies", { optional: true })) {
+      crm = { inferred: true };
+      status.crm.enabled = true;
+      status.crm.relationRequestable = spec.project + "." + spec.facade.prefix + "_list_company_contacts";
+    }
+    if (status.crm.enabled) {
+      var relationTxQName = spec.project + "." + spec.database.connector + ".list_company_contacts";
+      if (ctx.resolveQName(relationTxQName, { optional: true })) {
+        status.transactions.present.push(relationTxQName);
+      } else {
+        status.transactions.missing.push(relationTxQName);
+        status.missing.push(relationTxQName);
+      }
+    }
+
+    if (ctx.toBoolean(result.sequence, true)) {
+      for (var k = 0; k < spec.entities.length; k++) {
+        var entity = spec.entities[k];
+        var verbs = ["list", "count", "read", "create", "update", "delete"];
+        for (var v = 0; v < verbs.length; v++) {
+          var seqName = spec.facade.prefix + "_" + ctx.txName(entity, verbs[v]);
+          var seqQName = spec.project + "." + seqName;
+          if (ctx.resolveQName(seqQName, { optional: true })) {
+            status.sequences.present.push(seqQName);
+          } else {
+            status.sequences.missing.push(seqQName);
+            status.missing.push(seqQName);
+          }
+        }
+      }
+      if (!spec.entities.length && project && project.getSequencesList) {
+        try {
+          var sequences = project.getSequencesList();
+          var sequencePrefix = spec.project + ".sq:" + spec.facade.prefix + "_";
+          for (var seqIndex = 0; seqIndex < sequences.size(); seqIndex++) {
+            var sequence = sequences.get(seqIndex);
+            var seqQNameAny = sequence.getFullQName ? String(sequence.getFullQName()) : "";
+            if (seqQNameAny.indexOf(sequencePrefix) === 0) {
+              status.sequences.present.push(seqQNameAny);
+            }
+          }
+        } catch (_ignoreSequencesList) {}
+      }
+      if (status.crm.enabled) {
+        var relationSeqQName = spec.project + "." + spec.facade.prefix + "_list_company_contacts";
+        if (ctx.resolveQName(relationSeqQName, { optional: true })) {
+          status.sequences.present.push(relationSeqQName);
+        } else {
+          status.sequences.missing.push(relationSeqQName);
+          status.missing.push(relationSeqQName);
+        }
+      }
+    }
+
+    try {
+      var uiTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
+        target: status.ui.targetQName,
+        childrenDepth: 5,
+        properties: "none",
+        limit: 320
+      });
+      var uiAudit = ctx.auditUiTreePayload(uiTree);
+      status.ui.starterDominant = uiAudit.starterDominant;
+      status.ui.visibleShellPresent = uiAudit.visibleShellPresent;
+      status.ui.liveBindingPresent = uiAudit.liveBindingPresent;
+    } catch (uiError) {
+      ctx.addWarning(status, "Unable to inspect UI target: " + String(uiError));
+    }
+
+    try {
+      var bootstrapStackQName = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
+        ? ctx.crmActionQName(spec.project, "crm_bootstrap_dashboard")
+        : ctx.dashboardActionQName(spec.project, "crud_bootstrap_dashboard");
+      var retryStackQName = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
+        ? ctx.crmActionQName(spec.project, "crm_retry_dashboard")
+        : ctx.dashboardActionQName(spec.project, "crud_retry_dashboard");
+      status.ui.statefulActionsPresent = !!(ctx.resolveQName(bootstrapStackQName, { optional: true }) && ctx.resolveQName(retryStackQName, { optional: true }));
+    } catch (uiActionError) {
+      ctx.addWarning(status, "Unable to inspect UI shared actions: " + String(uiActionError));
+    }
+
+    try {
+      var pageTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
+        target: ctx.pageQName(spec.project, spec.ui.entryPage),
+        childrenDepth: 2,
+        properties: "all",
+        limit: 180
+      });
+      var pageNames = ctx.collectTreeNames(pageTree && pageTree.tree, []);
+      var pageScriptContent = "";
+      if (pageTree && pageTree.tree && pageTree.tree.properties && pageTree.tree.properties.scriptContent != null) {
+        pageScriptContent = String(pageTree.tree.properties.scriptContent);
+      }
+      var hasPageEventBootstrap = pageNames.indexOf("PageEvent") !== -1 && pageNames.indexOf("InvokeBootstrapDashboard") !== -1;
+      var hasScriptBootstrap = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
+        ? /bootstrapCrmDashboardState|crmBuildStage/.test(pageScriptContent)
+        : /bootstrapCrudDashboardState|crudBuildStage/.test(pageScriptContent);
+      status.ui.pageBootstrapPresent = hasPageEventBootstrap || hasScriptBootstrap;
+    } catch (pageInspectError) {
+      ctx.addWarning(status, "Unable to inspect UI page bootstrap hook: " + String(pageInspectError));
+    }
+
+    if (status.missing.length) {
+      status.status = "partial";
+    }
+    return status;
+  }
+
+  function inspectCrudStatus(ctx, options) {
+    var projectName = trimmed(ctx, options.project);
+    if (!projectName.length) {
+      throw new Error("project is required");
+    }
+    var project = ctx.findProjectByName(projectName);
+    if (!project) {
+      return {
+        status: "not_found",
+        project: projectName,
+        connectorQname: "",
+        driverFamily: "",
+        missing: [projectName],
+        warnings: []
+      };
+    }
+    var facadePrefix = trimmed(ctx, options.facadePrefix || "crud");
+    var fakeSpec = {
+      project: projectName,
+      starter: "ngx",
+      facade: {
+        prefix: facadePrefix,
+        publicListSequence: ""
+      },
+      seed: {
+        enabled: true,
+        profile: trimmed(ctx, options.profile || (facadePrefix.toLowerCase() === "crm" ? "crm" : "realistic")),
+        rowsPerEntity: trimmed(ctx, options.profile || "").toLowerCase() === "crm" || facadePrefix.toLowerCase() === "crm" ? 20 : 2
+      },
+      ui: {
+        entryPage: trimmed(ctx, options.entryPage || "Page"),
+        variant: trimmed(ctx, options.variant || (facadePrefix.toLowerCase() === "crm" ? "master-detail" : "entity-pages"))
+      },
+      database: ctx.normalizeDatabaseSpec({
+        project: projectName,
+        database: {
+          mode: options.mode || "hsqldb",
+          connector: options.connector || "appdb"
+        }
+      }, {}),
+      entities: []
+    };
+    var connectorName = trimmed(ctx, options.connector || "");
+    var connector = ctx.findSqlConnectorInProject(project, connectorName);
+    if (!connectorName.length && connector && connector.getName) {
+      connectorName = String(connector.getName());
+    }
+    if (!connector && !connectorName.length) {
+      connectorName = fakeSpec.database.connector;
+    }
+    var status = buildCrudStatus(ctx, fakeSpec, connector, {
+      sequence: true,
+      warnings: []
+    });
+    if (!connector) {
+      status.status = "partial";
+      status.missing.push(projectName + "." + connectorName);
+    } else {
+      status.driverFamily = ctx.inferDriverFamilyFromConnector(connector);
+    }
+    return status;
+  }
+
+  function refreshBuilderProbe(ctx, result, currentProbe) {
+    try {
+      return ctx.callInternalSequence("tools_mobile_builder_open", {
+        project: result.project,
+        timeoutSec: 20,
+        logsLimit: 30,
+        forceRestart: false
+      });
+    } catch (builderProbeRetryError) {
+      ctx.addWarning(result, "Unable to refresh the mobile builder probe from crud-proof: " + String(builderProbeRetryError));
+      return currentProbe;
+    }
+  }
+
+  function crudStatus(ctx, options) {
+    return inspectCrudStatus(ctx, options || {});
+  }
+
+  function crudProof(ctx, options) {
+    var opts = options || {};
+    var result = inspectCrudStatus(ctx, opts);
+    result.entryPage = trimmed(ctx, opts.entryPage || "Page");
+    result.expectUiShell = ctx.toBoolean(opts.expectUiShell, false);
+    result.viewerUrl = trimmed(ctx, opts.viewerUrl || "");
+    result.requestables = [];
+    result.checks = [];
+
+    if (result.status === "not_found") {
+      result.checks.push(proofCheck(ctx, "project", false, "Project was not found.", result.project));
+      return ctx.toJsonSafe ? ctx.toJsonSafe(result, { warnings: ctx.ensureWarnings(result), path: "$" }) : result;
+    }
+
+    result.checks.push(proofCheck(ctx, "transactions", !(result.transactions && result.transactions.missing && result.transactions.missing.length), (result.transactions && result.transactions.missing && result.transactions.missing.length) ? "Missing SQL transactions remain." : "", result.connectorQname));
+    result.checks.push(proofCheck(ctx, "sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing public CRUD sequences remain." : "", result.project));
+
+    var requestables = normalizeProofRequestablesInput(ctx, opts.proofRequestables);
+    var connectorName = "";
+    if (result.connectorQname && result.connectorQname.indexOf(".") !== -1) {
+      connectorName = String(result.connectorQname).split(".").slice(1).join(".");
+    } else {
+      connectorName = trimmed(ctx, opts.connector || "");
+    }
+    for (var i = 0; i < requestables.length; i++) {
+      var qname = resolveProofRequestableQName(ctx, requestables[i], result.project, connectorName);
+      if (!qname.length) {
+        continue;
+      }
+      var proof = ctx.proofRequestable(qname, {}, result);
+      result.requestables.push(proof);
+      result.checks.push(proofCheck(ctx, "requestable:" + ctx.normalizedIdentifier(qname), proof.ok === true, proof.ok === true ? "" : (proof.message || "Runtime proof failed."), qname));
+      if (proof.ok !== true) {
+        pushMissing(ctx, result, qname);
+      }
+    }
+
+    if (result.crm && result.crm.enabled) {
+      var companiesRequestable = result.project + "." + trimmed(ctx, opts.facadePrefix || "crud") + "_list_companies";
+      var companyListPayload = ctx.requestablePayload(companiesRequestable, {}, result);
+      var companyListProof = ctx.summarizeRequestableProof(companyListPayload, companiesRequestable, result);
+      result.requestables.push(companyListProof);
+      result.checks.push(proofCheck(ctx, "requestable:" + ctx.normalizedIdentifier(companiesRequestable), companyListProof.ok === true, companyListProof.ok ? "" : (companyListProof.message || "Company list proof failed."), companiesRequestable));
+      var firstCompanyRow = ctx.firstSqlOutputRow(companyListPayload);
+      var firstCompanyId = ctx.extractRowField(firstCompanyRow, ["ID", "id"]);
+      var relationRequestable = result.crm.relationRequestable;
+      if (firstCompanyId == null || firstCompanyId === "") {
+        result.checks.push(proofCheck(ctx, "crm-company-selection", false, "No company row was available to prove the company->contacts relation.", companiesRequestable));
+        pushMissing(ctx, result, relationRequestable);
+      } else {
+        var relationPayload = ctx.requestablePayload(relationRequestable, { company_id: String(firstCompanyId) }, result);
+        var relationProof = ctx.summarizeRequestableProof(relationPayload, relationRequestable, result);
+        result.requestables.push(relationProof);
+        result.checks.push(proofCheck(ctx, "crm-company-contacts", relationProof.ok === true, relationProof.ok ? "" : (relationProof.message || "Company contacts relation proof failed."), relationRequestable));
+        if (relationProof.ok !== true) {
+          pushMissing(ctx, result, relationRequestable);
+        }
+      }
+    }
+
+    if (result.expectUiShell) {
+      var shellVisible = result.ui && result.ui.visibleShellPresent === true;
+      var starterReplaced = result.ui && result.ui.starterDominant === false;
+      var liveBinding = result.ui && result.ui.liveBindingPresent === true;
+      var statefulActions = result.ui && result.ui.statefulActionsPresent === true;
+      var pageBootstrap = result.ui && result.ui.pageBootstrapPresent === true;
+      var builderProbe = null;
+      try {
+        builderProbe = ctx.callInternalSequence("tools_mobile_builder_open", {
+          project: result.project,
+          timeoutSec: 20,
+          logsLimit: 30,
+          forceRestart: false
+        });
+        result.ui.builderProbe = builderProbe || {};
+        if (!result.viewerUrl.length) {
+          result.viewerUrl = trimmed(ctx, (builderProbe && (builderProbe.viewerHomeUrl || builderProbe.viewerBaseUrl || builderProbe.viewerUrl)) || "");
+        }
+      } catch (builderProbeError) {
+        ctx.addWarning(result, "Unable to probe the mobile builder from crud-proof: " + String(builderProbeError));
+        result.ui.builderProbe = {
+          status: "error",
+          message: String(builderProbeError),
+          compileErrors: []
+        };
+      }
+      var builderProbeAttempts = 0;
+      while (builderProbeAttempts < 8) {
+        var currentProbe = result.ui.builderProbe || {};
+        var currentReady = currentProbe.status === "ready";
+        var currentBodyText = trimmed(ctx, currentProbe.browser && currentProbe.browser.bodyTextSample);
+        var currentWorkInProgressVisible = currentReady && /work in progress/i.test(currentBodyText);
+        if ((currentReady && !currentWorkInProgressVisible) || (currentProbe.status !== "compile_error" && currentProbe.status !== "building")) {
+          break;
+        }
+        builderProbeAttempts += 1;
+        try {
+          java.lang.Thread.sleep(1500);
+        } catch (_ignoreBuilderProbeSleep) {}
+        result.ui.builderProbe = refreshBuilderProbe(ctx, result, currentProbe) || currentProbe;
+      }
+      var builderReady = !!(result.ui.builderProbe && result.ui.builderProbe.status === "ready");
+      var builderCompileError = !!(result.ui.builderProbe && result.ui.builderProbe.status === "compile_error");
+      var builderBodyText = trimmed(ctx, result.ui && result.ui.builderProbe && result.ui.builderProbe.browser && result.ui.builderProbe.browser.bodyTextSample);
+      var workInProgressVisible = /work in progress/i.test(builderBodyText);
+      result.ui.workInProgressVisible = builderReady ? workInProgressVisible : null;
+      result.checks.push(proofCheck(ctx, "ui-visible-shell", shellVisible, shellVisible ? "" : "Visible CRUD shell is not present on the entry page.", result.ui && result.ui.targetQName));
+      result.checks.push(proofCheck(ctx, "ui-starter-replaced", starterReplaced, starterReplaced ? "" : "Starter content is still dominant on the entry page.", result.ui && result.ui.targetQName));
+      result.checks.push(proofCheck(ctx, "ui-live-binding", liveBinding, liveBinding ? "" : "Live state bindings are missing from the entry page.", result.ui && result.ui.targetQName));
+      result.checks.push(proofCheck(ctx, "ui-stateful-actions", statefulActions, statefulActions ? "" : "Shared action stacks are missing for the UI state flow.", result.project));
+      result.checks.push(proofCheck(ctx, "ui-page-bootstrap", pageBootstrap, pageBootstrap ? "" : "Entry page does not bootstrap the stateful UI flow.", result.project + ".Application.NgxApp." + result.entryPage));
+      result.checks.push(proofCheck(
+        ctx,
+        "ui-mobile-builder",
+        builderReady,
+        builderReady
+          ? ""
+          : (
+            builderCompileError
+              ? (
+                result.ui.builderProbe && result.ui.builderProbe.message
+                  ? result.ui.builderProbe.message
+                  : "Mobile builder compile failed."
+              )
+              : "Mobile builder did not reach the ready state."
+          ),
+        result.project
+      ));
+      result.checks.push(proofCheck(
+        ctx,
+        "ui-work-in-progress-hidden",
+        !builderReady || !workInProgressVisible,
+        !builderReady || !workInProgressVisible
+          ? ""
+          : "Work in progress marker is still visible in the live viewer after finalization.",
+        result.viewerUrl || result.project
+      ));
+      if (result.viewerUrl.length && builderReady) {
+        result.ui.viewerProbe = ctx.probeViewer(
+          result.viewerUrl,
+          result.project,
+          trimmed(ctx, opts.facadePrefix || "crud"),
+          result.crm && result.crm.enabled === true,
+          result.sequences && result.sequences.present ? result.sequences.present : [],
+          ctx.ensureWarnings(result)
+        );
+        result.checks.push(proofCheck(
+          ctx,
+          "ui-viewer-probe",
+          result.ui.viewerProbe && result.ui.viewerProbe.ok === true,
+          result.ui.viewerProbe && result.ui.viewerProbe.ok === true ? "" : (result.ui.viewerProbe && result.ui.viewerProbe.message ? result.ui.viewerProbe.message : "Viewer proof failed."),
+          result.viewerUrl
+        ));
+      }
+      if (builderCompileError) {
+        var compileErrors = ensureArray(ctx, result.ui.builderProbe && result.ui.builderProbe.compileErrors);
+        if (compileErrors.length) {
+          ctx.addWarning(result, "Mobile builder compile errors: " + trimmed(ctx, (compileErrors[0].message || "") + " " + (compileErrors[0].extra || "")));
+        }
+      }
+      if (!shellVisible || !starterReplaced || !liveBinding || !statefulActions || !pageBootstrap) {
+        pushMissing(ctx, result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
+      }
+      if (!builderReady) {
+        pushMissing(ctx, result, result.project);
+      }
+      if (result.viewerUrl.length && !(result.ui && result.ui.viewerProbe && result.ui.viewerProbe.ok === true)) {
+        pushMissing(ctx, result, result.viewerUrl);
+      }
+    }
+
+    if (result.transactions && result.transactions.missing) {
+      result.missing = result.missing.concat(result.transactions.missing);
+    }
+    if (result.sequences && result.sequences.missing) {
+      result.missing = result.missing.concat(result.sequences.missing);
+    }
+    result.missing = dedupeStrings(ctx, result.missing);
+    result.status = result.missing.length ? "partial" : "success";
+    return ctx.toJsonSafe ? ctx.toJsonSafe(result, { warnings: ctx.ensureWarnings(result), path: "$" }) : result;
+  }
+
   C8O.crudProof.summarizeRequestableProof = summarizeRequestableProof;
   C8O.crudProof.requestablePayload = requestablePayload;
   C8O.crudProof.proofRequestable = proofRequestable;
   C8O.crudProof.firstSqlOutputRow = firstSqlOutputRow;
   C8O.crudProof.collectSqlOutputRows = collectSqlOutputRows;
   C8O.crudProof.extractRowField = extractRowField;
+  C8O.crudProof.dedupeStrings = dedupeStrings;
   C8O.crudProof.normalizeProofRequestablesInput = normalizeProofRequestablesInput;
   C8O.crudProof.resolveProofRequestableQName = resolveProofRequestableQName;
   C8O.crudProof.proofCheck = proofCheck;
+  C8O.crudProof.pushMissing = pushMissing;
+  C8O.crudProof.buildCrudStatus = buildCrudStatus;
+  C8O.crudProof.inspectCrudStatus = inspectCrudStatus;
+  C8O.crudProof.crudStatus = crudStatus;
+  C8O.crudProof.crudProof = crudProof;
 })();
