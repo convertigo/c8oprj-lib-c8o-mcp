@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns the public CRUD tool facade and thin orchestration glue, delegating spec/seed/runtime/backend/ui/proof/viewer helpers to domain modules.",
     "currentSize": {
-      "linesApprox": 1693,
-      "functionsApprox": 60
+      "linesApprox": 1609,
+      "functionsApprox": 56
     },
     "problems": [
       "Still mixes public tool wrappers, shared helper glue, and some remaining cross-domain utility code.",
@@ -15,6 +15,7 @@
     "decision": "split",
     "targetModules": [
       "js/crud_spec.js",
+      "js/crud_naming.js",
       "js/crud_seed.js",
       "js/crud_backend.js",
       "js/crud_ui_nodes.js",
@@ -33,6 +34,19 @@
       "js/crud_ui_audit.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
+  },
+  {
+    "surface": "js/crud_naming.js",
+    "classification": "public product",
+    "currentRole": "Shared CRUD naming and semantic-token helpers for pluralization, entity naming normalization, humanized labels, and semantic field/entity matching.",
+    "problems": [
+      "Should remain a pure naming/semantic utility layer and avoid absorbing CRUD orchestration, SQL rendering, or UI assembly."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_naming.js"
+    ],
+    "boundaryRule": "Naming and semantic-token helpers only; keep spec normalization side effects, SQL generation, and UI assembly outside this file."
   },
   {
     "surface": "js/crud_seed.js",

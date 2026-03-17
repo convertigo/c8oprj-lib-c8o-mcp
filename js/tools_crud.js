@@ -2,6 +2,7 @@ include("js/util.js");
 include("js/databaseobject.js");
 include("js/databaseobject_batch.js");
 include("js/marketplace.js");
+include("js/crud_naming.js");
 include("js/crud_seed.js");
 include("js/crud_spec.js");
 include("js/crud_runtime.js");
@@ -114,137 +115,43 @@ C8O.crud = C8O.crud || {};
   }
 
   function ucfirst(value) {
-    var text = trimmed(value);
-    if (!text.length) {
-      return "";
-    }
-    return text.substring(0, 1).toUpperCase() + text.substring(1);
+    return C8O.crudNaming.ucfirst(namingContext(), value);
   }
 
   function pascalize(value) {
-    var text = trimmed(value);
-    if (!text.length) {
-      return "";
-    }
-    var parts = String(text).split(/[^A-Za-z0-9]+/);
-    var out = [];
-    for (var i = 0; i < parts.length; i++) {
-      var part = trimmed(parts[i]);
-      if (!part.length) {
-        continue;
-      }
-      out.push(ucfirst(part));
-    }
-    return out.join("");
+    return C8O.crudNaming.pascalize(namingContext(), value);
   }
 
   function singularize(name) {
-    var text = trimmed(name);
-    if (!text.length) {
-      return text;
-    }
-    if (/ies$/i.test(text)) {
-      return text.substring(0, text.length - 3) + "y";
-    }
-    if (/ses$/i.test(text)) {
-      return text.substring(0, text.length - 2);
-    }
-    if (/s$/i.test(text) && text.length > 1) {
-      return text.substring(0, text.length - 1);
-    }
-    return text;
+    return C8O.crudNaming.singularize(namingContext(), name);
   }
 
   function pluralize(name) {
-    var text = trimmed(name);
-    if (!text.length) {
-      return text;
-    }
-    if (/y$/i.test(text)) {
-      return text.substring(0, text.length - 1) + "ies";
-    }
-    if (/s$/i.test(text)) {
-      return text;
-    }
-    return text + "s";
+    return C8O.crudNaming.pluralize(namingContext(), name);
   }
 
   function semanticToken(value) {
-    var text = trimmed(value);
-    if (!text.length) {
-      return "";
-    }
-    try {
-      var Normalizer = Packages.java.text.Normalizer;
-      var Form = Packages.java.text.Normalizer.Form;
-      text = String(Normalizer.normalize(text, Form.NFD));
-    } catch (_ignoreNormalizer) {}
-    text = text
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^A-Za-z0-9]+/g, "")
-      .toLowerCase();
-    return text;
+    return C8O.crudNaming.semanticToken(namingContext(), value);
   }
 
   function semanticFieldToken(field) {
-    var parts = [];
-    if (field) {
-      parts.push(field.column);
-      parts.push(field.name);
-      parts.push(field.label);
-    }
-    return semanticToken(parts.join(" "));
+    return C8O.crudNaming.semanticFieldToken(namingContext(), field);
   }
 
   function semanticEntityToken(entity) {
-    var parts = [];
-    if (entity) {
-      parts.push(entity.name);
-      parts.push(entity.singular);
-      parts.push(entity.label);
-      parts.push(entity.displayLabel);
-      parts.push(entity.routeSegment);
-    }
-    return semanticToken(parts.join(" "));
+    return C8O.crudNaming.semanticEntityToken(namingContext(), entity);
   }
 
   function tokenMatches(token, patterns) {
-    var text = semanticToken(token);
-    var values = ensureArray(patterns);
-    for (var i = 0; i < values.length; i++) {
-      var pattern = semanticToken(values[i]);
-      if (pattern.length && text.indexOf(pattern) !== -1) {
-        return true;
-      }
-    }
-    return false;
+    return C8O.crudNaming.tokenMatches(namingContext(), token, patterns);
   }
 
   function humanizeIdentifier(value) {
-    var text = trimmed(value).replace(/[_\-]+/g, " ");
-    if (!text.length) {
-      return "";
-    }
-    return text.replace(/\b([a-z])/g, function (_all, char) {
-      return String(char).toUpperCase();
-    });
+    return C8O.crudNaming.humanizeIdentifier(namingContext(), value);
   }
 
   function normalizeEntityNames(rawEntity, fallbackName) {
-    var raw = rawEntity || {};
-    var baseName = optionalNormalizedIdentifier(raw.name || raw.entity || fallbackName || "") || "unnamed";
-    var explicitPlural = optionalNormalizedIdentifier(raw.plural || "");
-    var explicitSingular = optionalNormalizedIdentifier(raw.singular || "");
-    var pluralName = explicitPlural || (explicitSingular.length ? pluralize(explicitSingular) : pluralize(baseName));
-    var singularName = explicitSingular || singularize(pluralName);
-    var routeSegment = normalizedIdentifier(raw.routeSegment || pluralName).replace(/_/g, "-").toLowerCase();
-    var displayLabel = trimmed(raw.displayLabel || raw.label || humanizeIdentifier(pluralName));
-    return {
-      name: pluralName,
-      singular: singularName,
-      routeSegment: routeSegment,
-      displayLabel: displayLabel
-    };
+    return C8O.crudNaming.normalizeEntityNames(namingContext(), rawEntity, fallbackName);
   }
 
   function escapeSqlString(value) {
@@ -300,6 +207,15 @@ C8O.crud = C8O.crud || {};
   function optionalNormalizedIdentifier(name) {
     var text = trimmed(name);
     return text.length ? normalizedIdentifier(text) : "";
+  }
+
+  function namingContext() {
+    return {
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      normalizedIdentifier: normalizedIdentifier,
+      optionalNormalizedIdentifier: optionalNormalizedIdentifier
+    };
   }
 
   function crudSpecContext() {
