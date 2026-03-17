@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns top-level CRUD orchestration and NGX CRUD kit assembly, and delegates spec/seed/runtime/backend/proof/refresh helpers with UI kit orchestration still local.",
+    "currentRole": "Owns top-level CRUD orchestration and NGX CRUD kit assembly, and delegates spec/seed/runtime/backend/proof/refresh/audit helpers with UI kit orchestration still local.",
     "currentSize": {
-      "linesApprox": 2353,
-      "functionsApprox": 84
+      "linesApprox": 2221,
+      "functionsApprox": 78
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -27,7 +27,8 @@
       "js/crud_ui_crm_actions.js",
       "js/crud_proof.js",
       "js/crud_viewer.js",
-      "js/crud_ui_refresh.js"
+      "js/crud_ui_refresh.js",
+      "js/crud_ui_audit.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
   },
@@ -212,6 +213,19 @@
       "js/crud_ui_refresh.js"
     ],
     "boundaryRule": "Generated-source cleanup and builder/studio refresh only; keep viewer proof, CRUD orchestration, and UI assembly elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_audit.js",
+    "classification": "public product",
+    "currentRole": "UI tree audit and shared-reference collection helpers used by CRUD proof and NGX kit runtime evidence.",
+    "problems": [
+      "Must stay focused on tree inspection and shared-ref collection, without absorbing UI mutation or viewer proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_audit.js"
+    ],
+    "boundaryRule": "UI tree auditing and shared-ref collection only; keep mutation, proof orchestration, and viewer probing elsewhere."
   },
   {
     "surface": "js/crud_runtime.js",

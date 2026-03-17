@@ -15,6 +15,7 @@ include("js/crud_ui_dashboard.js");
 include("js/crud_ui_crm.js");
 include("js/crud_ui_crm_actions.js");
 include("js/crud_ui_refresh.js");
+include("js/crud_ui_audit.js");
 include("js/crud_proof.js");
 include("js/crud_viewer.js");
 
@@ -1825,145 +1826,12 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUi.actionStackNode(crudUiContext(), name, variables, children, comment);
   }
 
-  function dashboardStatCardTree(componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "Deterministic CRUD dashboard stat card."
-      },
-      children: [
-        compVariableNode("Title", "'Title'"),
-        compVariableNode("Value", "'0'"),
-        compVariableNode("Caption", "''"),
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "DashboardCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "DashboardHeader",
-              children: [
-                {
-                  className: "ngx.components.UIDynamicElement#CardTitle",
-                  name: "DashboardTitleSlot",
-                  children: [plainTextNode("TitleText", "Title")]
-                }
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "DashboardContent",
-              children: [
-                plainTextNode("ValueText", "0"),
-                plainTextNode("CaptionText", "")
-              ]
-            }
-          ]
-        }
-      ]
-    };
-  }
-
-  function crudPageHeaderTree(componentName, projectName, entities) {
-    var defaultTitle = ucfirst(projectName) + " Live Dashboard";
-    var defaultSubtitle = entities.map(function (entity) {
-      return entity.label;
-    }).join(" and ");
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "Deterministic CRUD page header shared shell."
-      },
-      children: [
-        compVariableNode("Title", scriptLiteral(defaultTitle)),
-        compVariableNode("Subtitle", scriptLiteral(defaultSubtitle)),
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "CrudPageHeaderCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "CrudPageHeaderHeader",
-              children: [
-                {
-                  className: "ngx.components.UIDynamicElement#CardTitle",
-                  name: "CrudPageHeaderTitleSlot",
-                  children: [plainTextNode("TitleText", defaultTitle)]
-                }
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "CrudPageHeaderContent",
-              children: [plainTextNode("SubtitleText", defaultSubtitle)]
-            }
-          ]
-        }
-      ]
-    };
-  }
-
-  function stateComponentTree(componentName, comment, variableSpecs, shellName, lines, includeRetryButton) {
-    var children = [];
-    for (var i = 0; i < variableSpecs.length; i++) {
-      children.push(compVariableNode(variableSpecs[i].name, variableSpecs[i].defaultValue, variableSpecs[i].comment));
-    }
-    var contentChildren = [];
-    for (var line = 0; line < lines.length; line++) {
-      contentChildren.push(plainTextNode(lines[line].nodeName, lines[line].defaultText));
-    }
-    if (includeRetryButton) {
-      contentChildren.push({
-        className: "ngx.components.UIDynamicElement#Button",
-        name: "RetryButton",
-        children: [plainTextNode("RetryText", "Retry")]
-      });
-    }
-    children.push({
-      className: "ngx.components.UIDynamicElement#Card",
-      name: shellName,
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#CardContent",
-          name: shellName + "Content",
-          children: contentChildren
-        }
-      ]
-    });
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: comment
-      },
-      children: children
-    };
-  }
-
   function auditUiTreePayload(uiTree) {
-    var serialized = JSON.stringify(uiTree || {});
-    return {
-      starterDominant: serialized.indexOf("WelcomeCard") !== -1,
-      visibleShellPresent: /FeatureShell|CrudDashboardGrid|CrudEntityPageGrid|CrmMasterDetailGrid|UseCrudPageHeader|UseWorkInProgressCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseContactTable|UseCompanyCard|UseCompanyTable|ListPanel|DetailCard|EditForm/.test(serialized),
-      liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared|UIUseVariable|UIControlEvent/.test(serialized)
-    };
+    return C8O.crudUiAudit.auditUiTreePayload(uiTree);
   }
 
   function collectSharedRefs(node, refs) {
-    refs = refs || [];
-    if (!node || typeof node !== "object") {
-      return refs;
-    }
-    if (node.properties && node.properties.sharedcomponent) {
-      refs.push(String(node.properties.sharedcomponent));
-    }
-    var children = ensureArray(node.children);
-    for (var i = 0; i < children.length; i++) {
-      collectSharedRefs(children[i], refs);
-    }
-    return refs;
+    return C8O.crudUiAudit.collectSharedRefs(node, refs);
   }
 
   function upsertNgxCrudKit(options) {
