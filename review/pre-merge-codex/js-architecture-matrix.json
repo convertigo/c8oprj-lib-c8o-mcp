@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof helpers.",
     "currentSize": {
-      "linesApprox": 4750,
-      "functionsApprox": 134
+      "linesApprox": 4157,
+      "functionsApprox": 123
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -23,6 +23,7 @@
       "js/crud_ui_pages.js",
       "js/crud_ui_actions.js",
       "js/crud_ui_dashboard.js",
+      "js/crud_ui_crm.js",
       "js/crud_proof.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
@@ -143,6 +144,19 @@
       "js/crud_ui_dashboard.js"
     ],
     "boundaryRule": "Legacy dashboard script/action assembly only; keep shared components, page shells, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_crm.js",
+    "classification": "public product",
+    "currentRole": "CRM master-detail shared components, page shell, and page-load builders bound to CRM global state.",
+    "problems": [
+      "Must stay focused on CRM visual assembly and avoid absorbing CRM action stacks, backend relation scaffolding, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_crm.js"
+    ],
+    "boundaryRule": "CRM visual shell and shared component assembly only; keep CRM actions and proof logic elsewhere."
   },
   {
     "surface": "js/crud_proof.js",

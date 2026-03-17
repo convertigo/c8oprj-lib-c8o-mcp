@@ -12,6 +12,7 @@ include("js/crud_ui_shared.js");
 include("js/crud_ui_pages.js");
 include("js/crud_ui_actions.js");
 include("js/crud_ui_dashboard.js");
+include("js/crud_ui_crm.js");
 include("js/crud_proof.js");
 
 if (typeof C8O === "undefined") {
@@ -847,6 +848,31 @@ C8O.crud = C8O.crud || {};
       dashboardActionQName: dashboardActionQName,
       actionStackNode: actionStackNode,
       dynamicInvokeNode: dynamicInvokeNode,
+      customAsyncActionNode: customAsyncActionNode
+    };
+  }
+
+  function crudUiCrmContext() {
+    return {
+      trimmed: trimmed,
+      ucfirst: ucfirst,
+      plainTextNode: plainTextNode,
+      scriptTextNode: scriptTextNode,
+      textElementNode: textElementNode,
+      ifDirectiveNode: ifDirectiveNode,
+      buildUseSharedNode: buildUseSharedNode,
+      sharedComponentQName: sharedComponentQName,
+      buildStatefulBootstrapRow: buildStatefulBootstrapRow,
+      pageQName: pageQName,
+      pageEventNode: pageEventNode,
+      dynamicInvokeNode: dynamicInvokeNode,
+      crmActionQName: crmActionQName,
+      sourceDirectiveNode: sourceDirectiveNode,
+      globalSourceValue: globalSourceValue,
+      smartTextNode: smartTextNode,
+      iterationSourceValue: iterationSourceValue,
+      controlEventNode: controlEventNode,
+      controlVariableNode: controlVariableNode,
       customAsyncActionNode: customAsyncActionNode
     };
   }
@@ -2355,478 +2381,39 @@ C8O.crud = C8O.crud || {};
   }
 
   function crmHeaderComponentTree(componentName, projectName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM live-state header."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "HeaderCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "HeaderCardHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "HeaderTitle",
-                  plainTextNode("HeaderTitleText", ucfirst(projectName) + " CRM")
-                ),
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  "HeaderSubtitle",
-                  scriptTextNode("HeaderSubtitleText", "(this.global?.crmStatus === 'ok') ? 'Companies, contacts, and relations are live.' : (this.global?.crmLoading ? 'Loading CRM facade...' : (this.global?.crmError || 'Preparing CRM facade state.'))")
-                )
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.crmHeaderComponentTree(crudUiCrmContext(), componentName, projectName);
   }
 
   function crmWorkInProgressCardTree(componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "Temporary CRM bootstrap card."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "WorkInProgressCard",
-          properties: {
-            IonColor: {
-              mode: "PLAIN",
-              value: "warning"
-            }
-          },
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "WorkInProgressHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "WorkInProgressTitle",
-                  plainTextNode("WorkInProgressTitleText", "Work in progress")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "WorkInProgressContent",
-              children: [
-                scriptTextNode("WorkInProgressText", "'Bootstrap stage visible. Current build stage: ' + (this.global?.crmBuildStage ?? 'bootstrap')"),
-                plainTextNode("WorkInProgressHint", "The shell is already alive while live CRM actions finish wiring data.")
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.crmWorkInProgressCardTree(crudUiCrmContext(), componentName);
   }
 
   function crmLoadingStateTree(componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM loading state bound to global state."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "LoadingCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "LoadingContent",
-              children: [
-                scriptTextNode("LoadingText", "this.global?.crmLoading ? 'Loading companies, contacts, and company contacts...' : 'Loading idle.'")
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.crmLoadingStateTree(crudUiCrmContext(), componentName);
   }
 
   function crmErrorRetryStateTree(componentName, projectName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM error state with retry action."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "ErrorCard",
-          properties: {
-            IonColor: {
-              mode: "PLAIN",
-              value: "warning"
-            }
-          },
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "ErrorHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "ErrorTitle",
-                  plainTextNode("ErrorTitleText", "Retry live CRM facade")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "ErrorContent",
-              children: [
-                scriptTextNode("ErrorText", "this.global?.crmError || 'Retry if one CRM sequence fails.'"),
-                {
-                  className: "ngx.components.UIDynamicElement#Button",
-                  name: "RetryButton",
-                  properties: {
-                    IonColor: {
-                      mode: "PLAIN",
-                      value: "primary"
-                    }
-                  },
-                  children: [
-                    plainTextNode("RetryText", "Retry"),
-                    controlEventNode("Event", [
-                      customAsyncActionNode(
-                        "RetryDashboard",
-                        [
-                          "try {",
-                          "  if (typeof window !== 'undefined' && window.location && typeof window.location.reload === 'function') {",
-                          "    window.location.reload();",
-                          "  }",
-                          "} finally {",
-                          "  return;",
-                          "}"
-                        ].join("\n"),
-                        "Reload the current page to rerun the CRM bootstrap action."
-                      )
-                    ])
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.crmErrorRetryStateTree(crudUiCrmContext(), componentName, projectName);
   }
 
   function companyTableTreeGlobal(projectName, componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM companies master list bound to global state."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "CompanyListCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "CompanyListHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "CompanyListTitle",
-                  plainTextNode("CompanyListTitleText", "Companies")
-                ),
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  "CompanyListSubtitle",
-                  scriptTextNode("CompanyListSubtitleText", "'Loaded ' + ((this.global?.crmCompanies || []).length) + ' companies'")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "CompanyListContent",
-              children: [
-                ifDirectiveNode(
-                  "CompanyListEmpty",
-                  "(this.global?.crmCompanies || []).length === 0",
-                  [
-                    textElementNode(
-                      "ngx.components.UIDynamicElement#Paragraph",
-                      "CompanyListEmptyParagraph",
-                      plainTextNode("CompanyListEmptyText", "No companies loaded yet.")
-                    )
-                  ]
-                ),
-                {
-                  className: "ngx.components.UIDynamicElement#List",
-                  name: "CompanyList",
-                  children: [
-                    sourceDirectiveNode(
-                      "CompanyLoop",
-                      "company",
-                      globalSourceValue(projectName, "?.crmCompanies"),
-                      [
-                        {
-                          className: "ngx.components.UIDynamicElement#ListItem",
-                          name: "CompanyItem",
-                          properties: {
-                            Button: {
-                              mode: "PLAIN",
-                              value: "true"
-                            },
-                            Detail: {
-                              mode: "PLAIN",
-                              value: "false"
-                            }
-                          },
-                          children: [
-                            {
-                              className: "ngx.components.UIDynamicElement#Label",
-                              name: "CompanyLabel",
-                              children: [
-                                textElementNode(
-                                  "ngx.components.UIDynamicElement#Heading2",
-                                  "CompanyHeading",
-                                  smartTextNode("CompanyHeadingText", iterationSourceValue(projectName, "company?.NAME ?? company?.name"))
-                                ),
-                                textElementNode(
-                                  "ngx.components.UIDynamicElement#Paragraph",
-                                  "CompanyParagraph",
-                                  smartTextNode("CompanyParagraphText", iterationSourceValue(projectName, "(company?.INDUSTRY ?? company?.industry ?? '') + ' - ' + (company?.CITY ?? company?.city ?? '')"))
-                                )
-                              ]
-                            },
-                            textElementNode(
-                              "ngx.components.UIDynamicElement#Note",
-                              "CompanyCountNote",
-                              smartTextNode("CompanyCountNoteText", iterationSourceValue(projectName, "'' + (company?.CONTACT_COUNT ?? company?.contact_count ?? 0) + ' contacts'"))
-                            ),
-                            controlEventNode("Event", [
-                              dynamicInvokeNode("InvokeSelectCompany", crmActionQName(projectName, "crm_select_company"), [
-                                controlVariableNode("company_id", iterationSourceValue(projectName, "company?.ID ?? company?.id"))
-                              ])
-                            ])
-                          ]
-                        }
-                      ],
-                      "idx"
-                    )
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.companyTableTreeGlobal(crudUiCrmContext(), projectName, componentName);
   }
 
   function companyCardTreeGlobal(componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM selected company detail bound to global state."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "SelectedCompanyCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "SelectedCompanyHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "SelectedCompanyTitle",
-                  plainTextNode("SelectedCompanyTitleText", "Selected company")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "SelectedCompanyContent",
-              children: [
-                scriptTextNode("SelectedCompanyName", "this.global?.crmSelectedCompany?.NAME ?? this.global?.crmSelectedCompany?.name ?? 'No company selected'"),
-                scriptTextNode("SelectedCompanyIndustry", "(this.global?.crmSelectedCompany?.INDUSTRY ?? this.global?.crmSelectedCompany?.industry ?? 'No industry yet')"),
-                scriptTextNode("SelectedCompanyCity", "(this.global?.crmSelectedCompany?.CITY ?? this.global?.crmSelectedCompany?.city ?? 'No city yet')"),
-                scriptTextNode("SelectedCompanyCount", "'Contacts in company: ' + (this.global?.crmSelectedCompany?.CONTACT_COUNT ?? this.global?.crmSelectedCompany?.contact_count ?? (this.global?.crmCompanyContacts || []).length ?? 0)")
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.companyCardTreeGlobal(crudUiCrmContext(), componentName);
   }
 
   function contactTableTreeGlobal(projectName, componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM company contacts detail bound to global state."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "CompanyContactsCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "CompanyContactsHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "CompanyContactsTitle",
-                  plainTextNode("CompanyContactsTitleText", "Contacts for selected company")
-                ),
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  "CompanyContactsSubtitle",
-                  scriptTextNode("CompanyContactsSubtitleText", "'Selected: ' + (this.global?.crmSelectedCompany?.NAME ?? this.global?.crmSelectedCompany?.name ?? 'none')")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "CompanyContactsContent",
-              children: [
-                ifDirectiveNode(
-                  "CompanyContactsEmpty",
-                  "(this.global?.crmCompanyContacts || []).length === 0",
-                  [
-                    textElementNode(
-                      "ngx.components.UIDynamicElement#Paragraph",
-                      "CompanyContactsEmptyParagraph",
-                      plainTextNode("CompanyContactsEmptyText", "No contacts linked to the selected company yet.")
-                    )
-                  ]
-                ),
-                {
-                  className: "ngx.components.UIDynamicElement#List",
-                  name: "CompanyContactsList",
-                  children: [
-                    sourceDirectiveNode(
-                      "CompanyContactsLoop",
-                      "contact",
-                      globalSourceValue(projectName, "?.crmCompanyContacts"),
-                      [
-                        {
-                          className: "ngx.components.UIDynamicElement#ListItem",
-                          name: "CompanyContactItem",
-                          properties: {
-                            Detail: {
-                              mode: "PLAIN",
-                              value: "false"
-                            }
-                          },
-                          children: [
-                            {
-                              className: "ngx.components.UIDynamicElement#Label",
-                              name: "CompanyContactLabel",
-                              children: [
-                                textElementNode(
-                                  "ngx.components.UIDynamicElement#Heading2",
-                                  "CompanyContactHeading",
-                                  smartTextNode("CompanyContactHeadingText", iterationSourceValue(projectName, "(contact?.FIRSTNAME ?? contact?.firstname ?? '') + ' ' + (contact?.LASTNAME ?? contact?.lastname ?? '')"))
-                                ),
-                                textElementNode(
-                                  "ngx.components.UIDynamicElement#Paragraph",
-                                  "CompanyContactParagraph",
-                                  smartTextNode("CompanyContactParagraphText", iterationSourceValue(projectName, "contact?.EMAIL ?? contact?.email ?? 'No email'"))
-                                )
-                              ]
-                            }
-                          ]
-                        }
-                      ],
-                      "idx"
-                    )
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.contactTableTreeGlobal(crudUiCrmContext(), projectName, componentName);
   }
 
   function contactCardTreeGlobal(projectName, componentName) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: componentName,
-      properties: {
-        comment: "CRM all contacts overview bound to global state."
-      },
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: "ContactsOverviewCard",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: "ContactsOverviewHeader",
-              children: [
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  "ContactsOverviewTitle",
-                  plainTextNode("ContactsOverviewTitleText", "Contacts overview")
-                ),
-                textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  "ContactsOverviewSubtitle",
-                  scriptTextNode("ContactsOverviewSubtitleText", "'Loaded ' + ((this.global?.crmContacts || []).length) + ' contacts'")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: "ContactsOverviewContent",
-              children: [
-                scriptTextNode("ContactsOverviewLead", "(this.global?.crmContacts || [])[0] ? (((this.global?.crmContacts || [])[0]?.FIRSTNAME ?? (this.global?.crmContacts || [])[0]?.firstname ?? '') + ' ' + ((this.global?.crmContacts || [])[0]?.LASTNAME ?? (this.global?.crmContacts || [])[0]?.lastname ?? '')) : 'No contact loaded yet'"),
-                scriptTextNode("ContactsOverviewCompany", "(this.global?.crmContacts || [])[0] ? ('Company: ' + (((this.global?.crmContacts || [])[0]?.COMPANY_NAME ?? (this.global?.crmContacts || [])[0]?.company_name ?? 'n/a'))) : 'Awaiting company relation preview'"),
-                scriptTextNode("ContactsOverviewStatus", "'Counts => companies: ' + ((this.global?.crmCounts || {}).companies ?? 0) + ', contacts: ' + ((this.global?.crmCounts || {}).contacts ?? 0)")
-              ]
-            }
-          ]
-        }
-      ]
-    };
+    return C8O.crudUiCrm.contactCardTreeGlobal(crudUiCrmContext(), projectName, componentName);
   }
 
   function buildCrmSharedComponentsTree(projectName, stage) {
-    var components = [
-      crmHeaderComponentTree("CrudPageHeader", projectName),
-      crmLoadingStateTree("CrudLoadingState"),
-      crmErrorRetryStateTree("CrudErrorRetryState", projectName),
-      companyTableTreeGlobal(projectName, "CompanyTable"),
-      companyCardTreeGlobal("CompanyCard"),
-      contactTableTreeGlobal(projectName, "ContactTable"),
-      contactCardTreeGlobal(projectName, "ContactCard")
-    ];
-    if (trimmed(stage).toLowerCase() !== "final") {
-      components.push(crmWorkInProgressCardTree("WorkInProgressCard"));
-    }
-    return {
-      qnames: components.map(function (component) { return sharedComponentQName(projectName, component.name); }),
-      tree: {
-        children: components
-      }
-    };
+    return C8O.crudUiCrm.buildCrmSharedComponentsTree(crudUiCrmContext(), projectName, stage);
   }
 
   function buildCrmActionStacksTree(projectName, facadePrefix, stage) {
@@ -2929,192 +2516,12 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function countCardNode(name, title, valueExpression, caption) {
-    return {
-      className: "ngx.components.UIDynamicElement#Card",
-      name: name,
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#CardHeader",
-          name: name + "Header",
-          children: [
-            textElementNode(
-              "ngx.components.UIDynamicElement#CardTitle",
-              name + "Title",
-              plainTextNode(name + "TitleText", title)
-            )
-          ]
-        },
-        {
-          className: "ngx.components.UIDynamicElement#CardContent",
-          name: name + "Content",
-          children: [
-            scriptTextNode(name + "ValueText", valueExpression),
-            plainTextNode(name + "CaptionText", caption)
-          ]
-        }
-      ]
-    };
-  }
-
   function buildCrmMasterDetailPageShellTree(projectName, stage) {
-    var pageTitle = ucfirst(projectName) + " CRM";
-    var headerUse = buildUseSharedNode(sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", []);
-    var children = [
-      {
-        className: "ngx.components.UIDynamicElement#Grid",
-        name: "CrmMasterDetailGrid",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridRow",
-            name: "HeaderRow",
-            children: [
-              {
-                className: "ngx.components.UIDynamicElement#GridCol",
-                name: "HeaderCol",
-                children: [headerUse]
-              }
-            ]
-          }
-        ]
-      }
-    ];
-
-    children[0].children.push(buildStatefulBootstrapRow(projectName, "this.global?.crmBuildStage"));
-
-    children[0].children.push(
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "CountsRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "CompaniesCountCol",
-            children: [
-              countCardNode("CompaniesCountCard", "Companies", "'' + ((this.global?.crmCounts || {}).companies ?? 0)", "Loaded from public facade")
-            ]
-          },
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "ContactsCountCol",
-            children: [
-              countCardNode("ContactsCountCard", "Contacts", "'' + ((this.global?.crmCounts || {}).contacts ?? 0)", "Loaded from public facade")
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "MasterDetailRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "CompaniesListCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "CompanyTable"), "UseCompanyTable", [])
-            ]
-          },
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "CompanyDetailCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "CompanyCard"), "UseCompanyCard", [])
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "ContactsRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "CompanyContactsCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "ContactTable"), "UseContactTable", [])
-            ]
-          },
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "ContactsOverviewCol",
-            children: [
-              buildUseSharedNode(sharedComponentQName(projectName, "ContactCard"), "UseContactCard", [])
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "LoadingRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "LoadingCol",
-            children: [
-              ifDirectiveNode(
-                "LoadingVisible",
-                "this.global?.crmLoading === true",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
-              )
-            ]
-          }
-        ]
-      },
-      {
-        className: "ngx.components.UIDynamicElement#GridRow",
-        name: "ErrorRow",
-        children: [
-          {
-            className: "ngx.components.UIDynamicElement#GridCol",
-            name: "ErrorCol",
-            children: [
-              ifDirectiveNode(
-                "ErrorVisible",
-                "!!this.global?.crmError",
-                [buildUseSharedNode(sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
-              )
-            ]
-          }
-        ]
-      }
-    );
-
-    return {
-      className: "ngx.components.UIDynamicElement#Content",
-      name: "Content",
-      properties: {
-        Padding: {
-          mode: "PLAIN",
-          value: "ion-padding"
-        }
-      },
-      children: children
-    };
+    return C8O.crudUiCrm.buildCrmMasterDetailPageShellTree(crudUiCrmContext(), projectName, stage);
   }
 
   function buildCrmPageLoadTree(projectName, entryPage, stage) {
-    return {
-      qname: pageQName(projectName, entryPage),
-      legacyQNames: [
-        pageQName(projectName, entryPage) + ".PageEvent",
-        pageQName(projectName, entryPage) + ".LoadCrudFacadeOnEnter"
-      ],
-      tree: {
-        properties: {
-          scriptContent: ""
-        },
-        children: [
-          pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              dynamicInvokeNode("InvokeBootstrapDashboard", crmActionQName(projectName, "crm_bootstrap_dashboard"), [])
-            ],
-            "Bootstrap CRM global state on page load."
-          )
-        ]
-      }
-    };
+    return C8O.crudUiCrm.buildCrmPageLoadTree(crudUiCrmContext(), projectName, entryPage, stage);
   }
 
   function ifDirectiveNode(name, expression, children) {
