@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns top-level CRUD orchestration, NGX CRUD kit assembly, CRUD status/proof, and delegates spec/seed/runtime/backend/UI shared/proof helpers.",
     "currentSize": {
-      "linesApprox": 3558,
-      "functionsApprox": 118
+      "linesApprox": 3215,
+      "functionsApprox": 114
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -25,7 +25,8 @@
       "js/crud_ui_dashboard.js",
       "js/crud_ui_crm.js",
       "js/crud_ui_crm_actions.js",
-      "js/crud_proof.js"
+      "js/crud_proof.js",
+      "js/crud_viewer.js"
     ],
     "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
   },
@@ -184,6 +185,19 @@
       "js/crud_proof.js"
     ],
     "boundaryRule": "Runtime proof helpers only; keep CRUD mutation and page assembly outside this file."
+  },
+  {
+    "surface": "js/crud_viewer.js",
+    "classification": "public product",
+    "currentRole": "Viewer proof helpers for dev/prod URL normalization, live bundle inspection, and expected marker validation.",
+    "problems": [
+      "Must stay focused on viewer probing and avoid absorbing CRUD orchestration, builder control, or UI mutation logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_viewer.js"
+    ],
+    "boundaryRule": "Viewer probing and bundle inspection only; keep CRUD mutation, builder orchestration, and UI assembly elsewhere."
   },
   {
     "surface": "js/crud_runtime.js",
