@@ -2,10 +2,10 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns top-level CRUD orchestration and NGX CRUD kit assembly, and delegates spec/seed/runtime/backend/UI/proof/refresh helpers.",
+    "currentRole": "Owns top-level CRUD orchestration and NGX CRUD kit assembly, and delegates spec/seed/runtime/backend/proof/refresh helpers with UI kit orchestration still local.",
     "currentSize": {
-      "linesApprox": 2475,
-      "functionsApprox": 90
+      "linesApprox": 2353,
+      "functionsApprox": 84
     },
     "problems": [
       "Combines backend, UI, proof, and data generation concerns in one file.",
@@ -60,7 +60,7 @@
   {
     "surface": "js/crud_backend.js",
     "classification": "public product",
-    "currentRole": "SQL CRUD rendering and backend scaffolding helpers for connectors, transactions, requestable variables, and public facade sequences.",
+    "currentRole": "SQL CRUD rendering and backend orchestration helpers for connectors, transactions, requestable variables, public facade sequences, and top-level CRUD backend upsert flow.",
     "problems": [
       "Must stay focused on backend SQL and requestable scaffolding, without absorbing seed heuristics, UI assembly, or viewer proof logic."
     ],

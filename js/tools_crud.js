@@ -323,10 +323,14 @@ C8O.crud = C8O.crud || {};
 
   function crudBackendContext() {
     return {
+      SqlTransaction: SqlTransaction,
       trimmed: trimmed,
+      toBoolean: toBoolean,
       ensureArray: ensureArray,
       pluralize: pluralize,
       normalizedIdentifier: normalizedIdentifier,
+      normalizeSpec: normalizeSpec,
+      ensureProject: ensureProject,
       crmRelationContext: crmRelationContext,
       buildSeedSql: buildSeedSql,
       ensureChild: ensureChild,
@@ -335,7 +339,16 @@ C8O.crud = C8O.crud || {};
       applyUpdates: applyUpdates,
       connectorProperties: connectorProperties,
       priorityOf: priorityOf,
-      ucfirst: ucfirst
+      ucfirst: ucfirst,
+      connectorRequestableQName: connectorRequestableQName,
+      saveProject: function (project, warnings) {
+        return C8O.dbo.saveProject(project, warnings || []);
+      },
+      summarizeSaveResult: summarizeSaveResult,
+      refreshStudioProjectTree: refreshStudioProjectTree,
+      proofRequestable: proofRequestable,
+      upsertNgxCrudKit: upsertNgxCrudKit,
+      addWarning: addWarning
     };
   }
 
@@ -2306,142 +2319,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function upsertCrud(options) {
-    var result = {
-      status: "success",
-      project: "",
-      driverFamily: "",
-      connectorQname: "",
-      primaryTargets: {
-        sql: "",
-        flow: [],
-        ui: []
-      },
-      created: [],
-      updated: [],
-      runtimeEvidence: {},
-      warnings: [],
-      sequence: toBoolean(options.sequence, true),
-      uiEnabled: toBoolean(options.ui, false)
-    };
-
-    var spec = normalizeSpec(options.spec);
-    result.project = spec.project;
-    result.driverFamily = spec.database.driver.id;
-    var project = ensureProject(spec, result);
-    var connector = ensureConnector(project, spec, result);
-    result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);
-    result.primaryTargets.sql = result.connectorQname;
-
-    ensureSqlTransaction(connector, "BeginTransaction", "BEGIN;", SqlTransaction.AUTOCOMMIT_OFF, result);
-    ensureSqlTransaction(connector, "CommitTransaction", "COMMIT;", SqlTransaction.AUTOCOMMIT_OFF, result);
-    ensureSqlTransaction(connector, "RollbackTransaction", "ROLLBACK;", SqlTransaction.AUTOCOMMIT_OFF, result);
-    ensureSqlTransaction(connector, "init_schema", buildInitSql(spec), SqlTransaction.AUTOCOMMIT_OFF, result);
-
-    var crm = crmRelationContext(spec);
-    for (var i = 0; i < spec.entities.length; i++) {
-      var entity = spec.entities[i];
-      var listTx = ensureSqlTransaction(connector, txName(entity, "list"), buildCrudSql(spec, entity, "list"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var countTx = ensureSqlTransaction(connector, txName(entity, "count"), buildCrudSql(spec, entity, "count"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var readTx = ensureSqlTransaction(connector, txName(entity, "read"), buildCrudSql(spec, entity, "read"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var createTx = ensureSqlTransaction(connector, txName(entity, "create"), buildCrudSql(spec, entity, "create"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var updateTx = ensureSqlTransaction(connector, txName(entity, "update"), buildCrudSql(spec, entity, "update"), SqlTransaction.AUTOCOMMIT_EACH, result);
-      var deleteTx = ensureSqlTransaction(connector, txName(entity, "delete"), buildCrudSql(spec, entity, "delete"), SqlTransaction.AUTOCOMMIT_EACH, result);
-
-      if (result.sequence) {
-        var listVars = collectTransactionVariables(listTx);
-        var countVars = collectTransactionVariables(countTx);
-        var readVars = collectTransactionVariables(readTx);
-        var createVars = collectTransactionVariables(createTx);
-        var updateVars = collectTransactionVariables(updateTx);
-        var deleteVars = collectTransactionVariables(deleteTx);
-        var publicNames = [
-          spec.facade.prefix + "_" + txName(entity, "list"),
-          spec.facade.prefix + "_" + txName(entity, "count"),
-          spec.facade.prefix + "_" + txName(entity, "read"),
-          spec.facade.prefix + "_" + txName(entity, "create"),
-          spec.facade.prefix + "_" + txName(entity, "update"),
-          spec.facade.prefix + "_" + txName(entity, "delete")
-        ];
-        var publicSources = [
-          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "list")),
-          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "count")),
-          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "read")),
-          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "create")),
-          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "update")),
-          connectorRequestableQName(spec.project, spec.database.connector, txName(entity, "delete"))
-        ];
-        var publicVars = [listVars, countVars, readVars, createVars, updateVars, deleteVars];
-        for (var p = 0; p < publicNames.length; p++) {
-          var seq = ensurePublicSequence(project, publicNames[p], publicSources[p], publicVars[p], result);
-          result.primaryTargets.flow.push(seq.getFullQName ? String(seq.getFullQName()) : (spec.project + "." + publicNames[p]));
-        }
-      }
-    }
-
-    if (crm) {
-      var companyContactsTx = ensureSqlTransaction(connector, "list_company_contacts", buildCrmCompanyContactsSql(spec), SqlTransaction.AUTOCOMMIT_EACH, result);
-      if (result.sequence) {
-        var companyContactsVars = collectTransactionVariables(companyContactsTx);
-        var companyContactsSeq = ensurePublicSequence(
-          project,
-          spec.facade.prefix + "_list_company_contacts",
-          connectorRequestableQName(spec.project, spec.database.connector, "list_company_contacts"),
-          companyContactsVars,
-          result
-        );
-        result.primaryTargets.flow.push(companyContactsSeq.getFullQName ? String(companyContactsSeq.getFullQName()) : (spec.project + "." + spec.facade.prefix + "_list_company_contacts"));
-      }
-    }
-
-    var saveResult = C8O.dbo.saveProject(project, []);
-    result.runtimeEvidence.projectSave = summarizeSaveResult(saveResult, result);
-    result.runtimeEvidence.studioRefresh = refreshStudioProjectTree(project, result, "studioRefresh");
-    result.runtimeEvidence.init_schema = proofRequestable(spec.project + "." + spec.database.connector + ".init_schema", {}, result);
-    for (var e = 0; e < spec.entities.length; e++) {
-      var currentEntity = spec.entities[e];
-      result.runtimeEvidence[txName(currentEntity, "list")] = proofRequestable(spec.project + "." + spec.database.connector + "." + txName(currentEntity, "list"), {}, result);
-      result.runtimeEvidence[txName(currentEntity, "count")] = proofRequestable(spec.project + "." + spec.database.connector + "." + txName(currentEntity, "count"), {}, result);
-    }
-    if (crm) {
-      result.runtimeEvidence.list_company_contacts = {
-        requestable: spec.project + "." + spec.database.connector + ".list_company_contacts",
-        status: "pending",
-        ok: true,
-        message: "Relation facade created. Runtime relation proof happens in crud-proof."
-      };
-    }
-
-    if (result.uiEnabled) {
-      var uiResult = upsertNgxCrudKit({
-        project: spec.project,
-        entities: spec.entities,
-        variant: spec.ui.variant,
-        stage: "bootstrap",
-        facadePrefix: spec.facade.prefix,
-        entryPage: spec.ui.entryPage,
-        runtimeEvidence: result.runtimeEvidence
-      });
-      result.runtimeEvidence.ui = {
-        status: uiResult.status,
-        pageTargets: uiResult.pageTargets || [],
-        shellVisible: uiResult.runtimeEvidence ? uiResult.runtimeEvidence.shellVisible === true : false,
-        starterDominant: uiResult.runtimeEvidence ? uiResult.runtimeEvidence.starterDominant === true : null
-      };
-      result.primaryTargets.ui = uiResult.pageTargets || [];
-      if (uiResult.status !== "success") {
-        result.status = "partial";
-      }
-      if (uiResult.runtimeEvidence && uiResult.runtimeEvidence.projectSave) {
-        result.runtimeEvidence.uiProjectSave = uiResult.runtimeEvidence.projectSave;
-      }
-      if (uiResult.warnings && uiResult.warnings.length) {
-        for (var w = 0; w < uiResult.warnings.length; w++) {
-          addWarning(result, uiResult.warnings[w]);
-        }
-      }
-    }
-
-    result.status = result.warnings.length ? "partial" : "success";
+    var result = C8O.crudBackend.upsertCrud(crudBackendContext(), options || {});
     return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(result, { warnings: ensureWarnings(result), path: "$" }) : result;
   }
 

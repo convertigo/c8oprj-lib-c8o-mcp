@@ -316,4 +316,145 @@ C8O.crudBackend = C8O.crudBackend || {};
     }, result);
     return sequence;
   };
+
+  C8O.crudBackend.upsertCrud = function (ctx, options) {
+    var result = {
+      status: "success",
+      project: "",
+      driverFamily: "",
+      connectorQname: "",
+      primaryTargets: {
+        sql: "",
+        flow: [],
+        ui: []
+      },
+      created: [],
+      updated: [],
+      runtimeEvidence: {},
+      warnings: [],
+      sequence: ctx.toBoolean(options.sequence, true),
+      uiEnabled: ctx.toBoolean(options.ui, false)
+    };
+
+    var spec = ctx.normalizeSpec(options.spec);
+    result.project = spec.project;
+    result.driverFamily = spec.database.driver.id;
+    var project = ctx.ensureProject(spec, result);
+    var connector = C8O.crudBackend.ensureConnector(ctx, project, spec, result);
+    result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);
+    result.primaryTargets.sql = result.connectorQname;
+
+    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "BeginTransaction", "BEGIN;", ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
+    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "CommitTransaction", "COMMIT;", ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
+    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "RollbackTransaction", "ROLLBACK;", ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
+    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "init_schema", C8O.crudBackend.buildInitSql(ctx, spec), ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
+
+    var crm = ctx.crmRelationContext(spec);
+    for (var i = 0; i < spec.entities.length; i++) {
+      var entity = spec.entities[i];
+      var listTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "list"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "list"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var countTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "count"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "count"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var readTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "read"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "read"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var createTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "create"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "create"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var updateTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "update"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "update"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var deleteTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "delete"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "delete"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+
+      if (result.sequence) {
+        var listVars = C8O.crudBackend.collectTransactionVariables(ctx, listTx);
+        var countVars = C8O.crudBackend.collectTransactionVariables(ctx, countTx);
+        var readVars = C8O.crudBackend.collectTransactionVariables(ctx, readTx);
+        var createVars = C8O.crudBackend.collectTransactionVariables(ctx, createTx);
+        var updateVars = C8O.crudBackend.collectTransactionVariables(ctx, updateTx);
+        var deleteVars = C8O.crudBackend.collectTransactionVariables(ctx, deleteTx);
+        var publicNames = [
+          spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "list"),
+          spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "count"),
+          spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "read"),
+          spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "create"),
+          spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "update"),
+          spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "delete")
+        ];
+        var publicSources = [
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "list")),
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "count")),
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "read")),
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "create")),
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "update")),
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "delete"))
+        ];
+        var publicVars = [listVars, countVars, readVars, createVars, updateVars, deleteVars];
+        for (var p = 0; p < publicNames.length; p++) {
+          var seq = C8O.crudBackend.ensurePublicSequence(ctx, project, publicNames[p], publicSources[p], publicVars[p], result);
+          result.primaryTargets.flow.push(seq.getFullQName ? String(seq.getFullQName()) : (spec.project + "." + publicNames[p]));
+        }
+      }
+    }
+
+    if (crm) {
+      var companyContactsTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, "list_company_contacts", C8O.crudBackend.buildCrmCompanyContactsSql(ctx, spec), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      if (result.sequence) {
+        var companyContactsVars = C8O.crudBackend.collectTransactionVariables(ctx, companyContactsTx);
+        var companyContactsSeq = C8O.crudBackend.ensurePublicSequence(
+          ctx,
+          project,
+          spec.facade.prefix + "_list_company_contacts",
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, "list_company_contacts"),
+          companyContactsVars,
+          result
+        );
+        result.primaryTargets.flow.push(companyContactsSeq.getFullQName ? String(companyContactsSeq.getFullQName()) : (spec.project + "." + spec.facade.prefix + "_list_company_contacts"));
+      }
+    }
+
+    var saveResult = ctx.saveProject(project, []);
+    result.runtimeEvidence.projectSave = ctx.summarizeSaveResult(saveResult, result);
+    result.runtimeEvidence.studioRefresh = ctx.refreshStudioProjectTree(project, result, "studioRefresh");
+    result.runtimeEvidence.init_schema = ctx.proofRequestable(spec.project + "." + spec.database.connector + ".init_schema", {}, result);
+    for (var e = 0; e < spec.entities.length; e++) {
+      var currentEntity = spec.entities[e];
+      result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "list")] = ctx.proofRequestable(spec.project + "." + spec.database.connector + "." + C8O.crudBackend.txName(ctx, currentEntity, "list"), {}, result);
+      result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "count")] = ctx.proofRequestable(spec.project + "." + spec.database.connector + "." + C8O.crudBackend.txName(ctx, currentEntity, "count"), {}, result);
+    }
+    if (crm) {
+      result.runtimeEvidence.list_company_contacts = {
+        requestable: spec.project + "." + spec.database.connector + ".list_company_contacts",
+        status: "pending",
+        ok: true,
+        message: "Relation facade created. Runtime relation proof happens in crud-proof."
+      };
+    }
+
+    if (result.uiEnabled) {
+      var uiResult = ctx.upsertNgxCrudKit({
+        project: spec.project,
+        entities: spec.entities,
+        variant: spec.ui.variant,
+        stage: "bootstrap",
+        facadePrefix: spec.facade.prefix,
+        entryPage: spec.ui.entryPage,
+        runtimeEvidence: result.runtimeEvidence
+      });
+      result.runtimeEvidence.ui = {
+        status: uiResult.status,
+        pageTargets: uiResult.pageTargets || [],
+        shellVisible: uiResult.runtimeEvidence ? uiResult.runtimeEvidence.shellVisible === true : false,
+        starterDominant: uiResult.runtimeEvidence ? uiResult.runtimeEvidence.starterDominant === true : null
+      };
+      result.primaryTargets.ui = uiResult.pageTargets || [];
+      if (uiResult.status !== "success") {
+        result.status = "partial";
+      }
+      if (uiResult.runtimeEvidence && uiResult.runtimeEvidence.projectSave) {
+        result.runtimeEvidence.uiProjectSave = uiResult.runtimeEvidence.projectSave;
+      }
+      if (uiResult.warnings && uiResult.warnings.length) {
+        for (var w = 0; w < uiResult.warnings.length; w++) {
+          ctx.addWarning(result, uiResult.warnings[w]);
+        }
+      }
+    }
+
+    result.status = result.warnings.length ? "partial" : "success";
+    return result;
+  };
 })();
