@@ -2,15 +2,15 @@
   {
     "surface": "js/tools_crud.js",
     "classification": "public product",
-    "currentRole": "Owns top-level CRUD orchestration and NGX CRUD kit assembly, and delegates spec/seed/runtime/backend/proof/refresh/audit helpers with UI kit orchestration still local.",
+    "currentRole": "Owns the public CRUD tool facade and thin orchestration glue, delegating spec/seed/runtime/backend/ui/proof/viewer helpers to domain modules.",
     "currentSize": {
-      "linesApprox": 2221,
-      "functionsApprox": 78
+      "linesApprox": 1788,
+      "functionsApprox": 66
     },
     "problems": [
-      "Combines backend, UI, proof, and data generation concerns in one file.",
-      "Hard to review safely because small changes can affect unrelated fast-path layers.",
-      "Public rail evolution is blocked by local complexity rather than domain decisions."
+      "Still mixes public tool wrappers, shared helper glue, and some remaining cross-domain utility code.",
+      "The file is much safer than before, but it is not yet the tiny facade target implied by the redesign.",
+      "Remaining growth should be blocked so future feature work lands in domain modules first."
     ],
     "decision": "split",
     "targetModules": [
@@ -25,6 +25,7 @@
       "js/crud_ui_dashboard.js",
       "js/crud_ui_crm.js",
       "js/crud_ui_crm_actions.js",
+      "js/crud_ui_kit.js",
       "js/crud_proof.js",
       "js/crud_viewer.js",
       "js/crud_ui_refresh.js",
@@ -226,6 +227,20 @@
       "js/crud_ui_audit.js"
     ],
     "boundaryRule": "UI tree auditing and shared-ref collection only; keep mutation, proof orchestration, and viewer probing elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_kit.js",
+    "classification": "public product",
+    "currentRole": "NGX CRUD kit orchestration helpers for UI entity normalization/hydration, variant-aware tree assembly, batch apply, runtime evidence, and final project refresh flow.",
+    "problems": [
+      "Owns a large orchestration slice and should resist absorbing shared component, page-builder, or proof logic already extracted elsewhere.",
+      "Needs careful boundaries because it sits at the join between UI assembly, batch mutation, and save/refresh side effects."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_kit.js"
+    ],
+    "boundaryRule": "UI kit orchestration only; keep pure builders in js/crud_ui_* modules, backend work in js/crud_backend.js, and proof/viewer logic outside this file."
   },
   {
     "surface": "js/crud_runtime.js",

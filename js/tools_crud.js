@@ -16,6 +16,7 @@ include("js/crud_ui_crm.js");
 include("js/crud_ui_crm_actions.js");
 include("js/crud_ui_refresh.js");
 include("js/crud_ui_audit.js");
+include("js/crud_ui_kit.js");
 include("js/crud_proof.js");
 include("js/crud_viewer.js");
 
@@ -431,6 +432,73 @@ C8O.crud = C8O.crud || {};
       ensureArray: ensureArray,
       normalizedIdentifier: normalizedIdentifier,
       addWarning: addWarning
+    };
+  }
+
+  function crudUiKitContext() {
+    return {
+      trimmed: trimmed,
+      clone: clone,
+      ensureArray: ensureArray,
+      toBoolean: toBoolean,
+      normalizeEntityNames: normalizeEntityNames,
+      normalizedIdentifier: normalizedIdentifier,
+      facadeSequenceQName: facadeSequenceQName,
+      requestablePayload: requestablePayload,
+      collectSqlOutputRows: collectSqlOutputRows,
+      nowMillis: nowMillis,
+      setDuration: setDuration,
+      addWarning: addWarning,
+      countTreeNodes: countTreeNodes,
+      findProjectByName: findProjectByName,
+      pageQName: pageQName,
+      findPageContentQName: findPageContentQName,
+      ngxAppQName: ngxAppQName,
+      entityPageContentQName: entityPageContentQName,
+      entityRoutePath: entityRoutePath,
+      sharedComponentQName: sharedComponentQName,
+      resolveQName: function (qname, options) {
+        return C8O.dbo.resolve(qname, options || {});
+      },
+      buildCrmSharedComponentsTree: buildCrmSharedComponentsTree,
+      buildEntityPagesSharedComponentsTree: buildEntityPagesSharedComponentsTree,
+      buildDashboardSharedComponentsTree: buildDashboardSharedComponentsTree,
+      buildCrmActionStacksTree: buildCrmActionStacksTree,
+      buildEntityPagesActionStacksTree: buildEntityPagesActionStacksTree,
+      buildDashboardActionStacksTree: buildDashboardActionStacksTree,
+      buildCrmMasterDetailPageShellTree: buildCrmMasterDetailPageShellTree,
+      buildEntityPagesLandingShellTree: buildEntityPagesLandingShellTree,
+      buildDashboardPageShellTree: buildDashboardPageShellTree,
+      buildCrmPageLoadTree: buildCrmPageLoadTree,
+      buildEntityPagesLandingLoadTree: buildEntityPagesLandingLoadTree,
+      buildDashboardPageLoadTree: buildDashboardPageLoadTree,
+      buildEntityPageRootTree: buildEntityPageRootTree,
+      buildEntityPageShellTree: buildEntityPageShellTree,
+      appendEntityPageRows: appendEntityPageRows,
+      buildEntityPageLoadTree: buildEntityPageLoadTree,
+      everyQNameExists: everyQNameExists,
+      statefulUiGlobals: statefulUiGlobals,
+      collectManagedCrudCleanupQNames: collectManagedCrudCleanupQNames,
+      statefulBootstrapStageQName: statefulBootstrapStageQName,
+      scriptLiteral: scriptLiteral,
+      batchApply: function (options) {
+        return C8O.dbo.batchApply(options);
+      },
+      summarizeTreeApplyResult: summarizeTreeApplyResult,
+      operationSummary: operationSummary,
+      firstBatchErrorMessage: firstBatchErrorMessage,
+      collectBatchWarnings: collectBatchWarnings,
+      callInternalSequence: callInternalSequence,
+      auditUiTreePayload: auditUiTreePayload,
+      summarizeSaveResult: summarizeSaveResult,
+      saveProject: function (project, warnings) {
+        return C8O.dbo.saveProject(project, warnings || []);
+      },
+      cleanupGeneratedIonicSources: cleanupGeneratedIonicSources,
+      triggerUiSourceRefreshTargets: triggerUiSourceRefreshTargets,
+      refreshStudioProjectTree: refreshStudioProjectTree,
+      normalizeStatus: normalizeStatus,
+      collectSharedRefs: collectSharedRefs
     };
   }
 
@@ -1114,172 +1182,15 @@ C8O.crud = C8O.crud || {};
   }
 
   function normalizeUiEntities(rawEntities) {
-    var entries = ensureArray(rawEntities);
-    var normalized = [];
-    for (var i = 0; i < entries.length; i++) {
-      var raw = entries[i] || {};
-      var naming = normalizeEntityNames(raw, "entity_" + (i + 1));
-      var entityName = naming.name;
-      var fields = [];
-      var rawFields = ensureArray(raw.fields);
-      for (var fieldIndex = 0; fieldIndex < rawFields.length; fieldIndex++) {
-        var rawField = rawFields[fieldIndex] || {};
-        var rawFieldName = trimmed(rawField.name || rawField.column || "");
-        if (!rawFieldName.length) {
-          continue;
-        }
-        fields.push({
-          name: rawFieldName,
-          column: normalizedIdentifier(rawField.column || rawFieldName),
-          label: trimmed(rawField.label || rawFieldName),
-          type: trimmed(rawField.type || "VARCHAR(255)"),
-          primary: toBoolean(rawField.primary, false),
-          unique: toBoolean(rawField.unique, false),
-          required: rawField.required == null ? false : toBoolean(rawField.required, false),
-          references: rawField.references && typeof rawField.references === "object" ? clone(rawField.references) : null
-        });
-      }
-      var primaryField = null;
-      for (var primaryIndex = 0; primaryIndex < fields.length; primaryIndex++) {
-        if (fields[primaryIndex].primary) {
-          primaryField = fields[primaryIndex];
-          break;
-        }
-      }
-      if (!primaryField && fields.length) {
-        primaryField = fields[0];
-      }
-      normalized.push({
-        name: entityName,
-        singular: naming.singular,
-        label: naming.displayLabel,
-        displayLabel: naming.displayLabel,
-        routeSegment: naming.routeSegment,
-        fields: fields,
-        primaryField: primaryField
-      });
-    }
-    if (!normalized.length) {
-      normalized.push({
-        name: "contacts",
-        singular: "contact",
-        label: "Contacts",
-        fields: [
-          { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true },
-          { name: "FirstName", column: "firstname", label: "FirstName", type: "VARCHAR(128)", primary: false, unique: false, required: false },
-          { name: "LastName", column: "lastname", label: "LastName", type: "VARCHAR(128)", primary: false, unique: false, required: false },
-          { name: "Email", column: "email", label: "Email", type: "VARCHAR(255)", primary: false, unique: true, required: false }
-        ],
-        primaryField: { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true }
-      });
-      normalized.push({
-        name: "companies",
-        singular: "company",
-        label: "Companies",
-        fields: [
-          { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true },
-          { name: "Name", column: "name", label: "Name", type: "VARCHAR(255)", primary: false, unique: true, required: false },
-          { name: "Industry", column: "industry", label: "Industry", type: "VARCHAR(128)", primary: false, unique: false, required: false },
-          { name: "City", column: "city", label: "City", type: "VARCHAR(128)", primary: false, unique: false, required: false }
-        ],
-        primaryField: { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true }
-      });
-    }
-    return normalized;
-  }
-
-  function fieldLabelFromKey(rawKey) {
-    var text = trimmed(rawKey);
-    if (!text.length) {
-      return "Field";
-    }
-    return text
-      .replace(/_/g, " ")
-      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-      .replace(/\s+/g, " ")
-      .replace(/^\w/, function (char) { return char.toUpperCase(); });
-  }
-
-  function needsUiFieldHydration(entity) {
-    var fields = ensureArray(entity && entity.fields);
-    if (!fields.length) {
-      return true;
-    }
-    for (var i = 0; i < fields.length; i++) {
-      if (!fields[i].primary) {
-        return false;
-      }
-    }
-    return true;
+    return C8O.crudUiKit.normalizeUiEntities(crudUiKitContext(), rawEntities);
   }
 
   function hydrateUiEntityFromFacade(projectName, facadePrefix, entity, result) {
-    if (!entity || !needsUiFieldHydration(entity)) {
-      return entity;
-    }
-    var requestable = facadeSequenceQName(projectName, facadePrefix, entity, "list");
-    var payload = requestablePayload(requestable, {}, result);
-    var rows = collectSqlOutputRows(payload);
-    var firstRow = rows.length && rows[0] && typeof rows[0] === "object" ? rows[0] : null;
-    if (!firstRow) {
-      return entity;
-    }
-    var existingByColumn = {};
-    var existingFields = ensureArray(entity.fields);
-    for (var index = 0; index < existingFields.length; index++) {
-      var existingField = existingFields[index];
-      existingByColumn[normalizedIdentifier(existingField && existingField.column)] = existingField;
-    }
-    var hydratedFields = [];
-    var rowKeys = Object.keys(firstRow);
-    for (var keyIndex = 0; keyIndex < rowKeys.length; keyIndex++) {
-      var rawKey = trimmed(rowKeys[keyIndex]);
-      if (!rawKey.length) {
-        continue;
-      }
-      var column = normalizedIdentifier(rawKey);
-      var current = existingByColumn[column] || null;
-      hydratedFields.push({
-        name: current && trimmed(current.name).length ? current.name : rawKey,
-        column: column,
-        label: current && trimmed(current.label).length ? current.label : fieldLabelFromKey(rawKey),
-        type: current && trimmed(current.type).length ? current.type : "VARCHAR(255)",
-        primary: current ? toBoolean(current.primary, false) : column === "id",
-        unique: current ? toBoolean(current.unique, false) : false,
-        required: current ? toBoolean(current.required, false) : false,
-        references: current && current.references ? clone(current.references) : null
-      });
-    }
-    if (!hydratedFields.length) {
-      return entity;
-    }
-    var primaryField = null;
-    for (var hydratedIndex = 0; hydratedIndex < hydratedFields.length; hydratedIndex++) {
-      if (hydratedFields[hydratedIndex].primary) {
-        primaryField = hydratedFields[hydratedIndex];
-        break;
-      }
-    }
-    if (!primaryField) {
-      primaryField = hydratedFields[0];
-      primaryField.primary = true;
-    }
-    return {
-      name: entity.name,
-      singular: entity.singular,
-      label: entity.label,
-      fields: hydratedFields,
-      primaryField: primaryField
-    };
+    return C8O.crudUiKit.hydrateUiEntityFromFacade(crudUiKitContext(), projectName, facadePrefix, entity, result);
   }
 
   function hydrateUiEntitiesFromFacade(projectName, facadePrefix, entities, result) {
-    var hydrated = [];
-    var list = ensureArray(entities);
-    for (var i = 0; i < list.length; i++) {
-      hydrated.push(hydrateUiEntityFromFacade(projectName, facadePrefix, list[i], result));
-    }
-    return hydrated;
+    return C8O.crudUiKit.hydrateUiEntitiesFromFacade(crudUiKitContext(), projectName, facadePrefix, entities, result);
   }
 
   function scriptLiteral(value) {
@@ -1835,351 +1746,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function upsertNgxCrudKit(options) {
-    var startedAt = nowMillis();
-    var result = {
-      status: "success",
-      project: "",
-      sharedComponents: [],
-      pageTargets: [],
-      runtimeEvidence: {},
-      warnings: []
-    };
-    var projectName = trimmed(options.project);
-    if (!projectName.length) {
-      throw new Error("project is required");
-    }
-    result.project = projectName;
-    var project = findProjectByName(projectName);
-    if (!project) {
-      throw new Error("Project " + projectName + " is not loaded");
-    }
-    var entities = hydrateUiEntitiesFromFacade(projectName, trimmed(options.facadePrefix || "crud"), normalizeUiEntities(options.entities), result);
-    var entryPage = trimmed(options.entryPage || "Page");
-    var facadePrefix = trimmed(options.facadePrefix || "crud");
-    var variant = trimmed(options.variant || "entity-pages").toLowerCase() || "entity-pages";
-    var stage = trimmed(options.stage || "final").toLowerCase() || "final";
-    var isMasterDetail = variant === "master-detail";
-    var isEntityPages = variant === "entity-pages";
-    var pageQNameValue = pageQName(projectName, entryPage);
-    var contentQName = findPageContentQName(projectName, entryPage);
-    var ngxApp = C8O.dbo.resolve(ngxAppQName(projectName), { optional: true });
-    var pageDbo = C8O.dbo.resolve(pageQNameValue, { optional: true });
-    var contentDbo = C8O.dbo.resolve(contentQName, { optional: true });
-    if (!ngxApp) {
-      throw new Error("NGX application root not found for " + projectName);
-    }
-    if (!contentDbo) {
-      throw new Error("Entry page content not found for " + projectName + ": " + contentQName);
-    }
-    var timings = {};
-    result.runtimeEvidence.timings = timings;
-    result.runtimeEvidence.variant = variant;
-    result.runtimeEvidence.stage = stage;
-    result.runtimeEvidence.mutationCounts = {
-      created: 0,
-      updated: 0
-    };
-    var sharedBuildStartedAt = nowMillis();
-    var sharedComponents = isMasterDetail
-      ? buildCrmSharedComponentsTree(projectName, stage)
-      : (isEntityPages ? buildEntityPagesSharedComponentsTree(projectName, entities, stage) : buildDashboardSharedComponentsTree(projectName, entities, stage));
-    var sharedActions = isMasterDetail
-      ? buildCrmActionStacksTree(projectName, facadePrefix, stage)
-      : (isEntityPages ? buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
-    var reuseExistingSharedActions = stage === "final" && everyQNameExists(sharedActions.qnames);
-    var sharedActionChildren = reuseExistingSharedActions ? [] : ensureArray(sharedActions.tree.children);
-    setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
-    result.runtimeEvidence.sharedComponentsRequested = ensureArray(sharedComponents.tree.children).length;
-    result.runtimeEvidence.sharedComponentTreeNodeCount = countTreeNodes(sharedComponents.tree);
-    result.runtimeEvidence.sharedActionsRequested = ensureArray(sharedActions.tree.children).length;
-    result.runtimeEvidence.sharedActionTreeNodeCount = countTreeNodes(sharedActions.tree);
-    result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
-    result.runtimeEvidence.uiGlobals = statefulUiGlobals(variant);
-    result.runtimeEvidence.workInProgressMode = "stateful-visibility";
-    var pageShellStartedAt = nowMillis();
-    var pageShellTree = isMasterDetail
-      ? buildCrmMasterDetailPageShellTree(projectName, stage)
-      : (isEntityPages ? buildEntityPagesLandingShellTree(projectName, entities, stage) : buildDashboardPageShellTree(projectName, entities, stage));
-    setDuration(timings, "buildPageShellTreeMs", pageShellStartedAt);
-    result.runtimeEvidence.pageShellTreeNodeCount = countTreeNodes(pageShellTree);
-    var pageLoadStartedAt = nowMillis();
-    var pageLoadTree = isMasterDetail
-      ? buildCrmPageLoadTree(projectName, entryPage, stage)
-      : (isEntityPages ? buildEntityPagesLandingLoadTree(projectName, entryPage) : buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage));
-    setDuration(timings, "buildPageLoadTreeMs", pageLoadStartedAt);
-    result.runtimeEvidence.pageLoadTreeNodeCount = countTreeNodes(pageLoadTree.tree);
-    var entityPageRoots = [];
-    var entityPageShells = [];
-    var entityPageLoads = [];
-    if (isEntityPages) {
-      for (var entityIndex = 0; entityIndex < entities.length; entityIndex++) {
-        var currentEntity = entities[entityIndex];
-        entityPageRoots.push(buildEntityPageRootTree(currentEntity));
-        var entityShellTree = buildEntityPageShellTree(projectName, currentEntity, stage);
-        appendEntityPageRows(projectName, currentEntity, entityShellTree, stage);
-        entityPageShells.push({
-          entity: currentEntity.name,
-          qname: entityPageContentQName(projectName, currentEntity),
-          tree: entityShellTree
-        });
-        entityPageLoads.push({
-          entity: currentEntity.name,
-          tree: buildEntityPageLoadTree(projectName, currentEntity)
-        });
-      }
-    }
-    result.runtimeEvidence.pageNames = [entryPage].concat(entityPageRoots.map(function (pageTree) {
-      return pageTree.name;
-    }));
-    result.runtimeEvidence.pageRoutes = ["/home"].concat(entityPageRoots.map(function (pageTree, index) {
-      return entityRoutePath(entities[index]);
-    }));
-    result.runtimeEvidence.entityPages = entityPageRoots.map(function (pageTree, index) {
-      return {
-        entity: entities[index].name,
-        pageName: pageTree.name,
-        route: entityRoutePath(entities[index]),
-        contentQName: entityPageShells[index] ? entityPageShells[index].qname : "",
-        sharedRefs: entityPageShells[index] ? collectSharedRefs(entityPageShells[index].tree, []) : []
-      };
-    });
-    var expectedManagedCrudQNames = [pageQName(projectName, entryPage)]
-      .concat(sharedComponents.qnames || [])
-      .concat(sharedActions.qnames || [])
-      .concat(entityPageLoads.map(function (item) { return item.tree.qname; }));
-    var cleanupQNames = collectManagedCrudCleanupQNames(ngxApp, expectedManagedCrudQNames);
-    result.runtimeEvidence.cleanupTargets = cleanupQNames;
-    var batchApplyStartedAt = nowMillis();
-    var pageMutationOperations = [
-      {
-        type: "upsertTree",
-        opId: "entry_page_load",
-        qname: pageQName(projectName, entryPage),
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          properties: pageLoadTree.tree.properties || {},
-          children: ensureArray(pageLoadTree.tree.children)
-        }
-      }
-    ];
-    var legacyPageLoadQNames = ensureArray(pageLoadTree.legacyQNames);
-    for (var legacyIndex = 0; legacyIndex < legacyPageLoadQNames.length; legacyIndex++) {
-      var legacyQName = trimmed(legacyPageLoadQNames[legacyIndex]);
-      if (!legacyQName.length) {
-        continue;
-      }
-      if (!C8O.dbo.resolve(legacyQName, { optional: true })) {
-        continue;
-      }
-      pageMutationOperations.unshift({
-        type: "delete",
-        opId: "delete_" + normalizedIdentifier(legacyQName),
-        qname: legacyQName
-      });
-    }
-    var cleanupOperations = cleanupQNames.map(function (qname) {
-      return {
-        type: "delete",
-        opId: "cleanup_" + normalizedIdentifier(qname),
-        qname: qname
-      };
-    });
-    var batchOperations = cleanupOperations.concat([
-      {
-        type: "upsertTree",
-        opId: "shared_components",
-        qname: ngxAppQName(projectName),
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: ensureArray(sharedComponents.tree.children).concat(sharedActionChildren).concat(entityPageRoots)
-        }
-      },
-      {
-        type: "upsertTree",
-        opId: "entry_page",
-        qname: contentQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: true,
-          reorder: false
-        },
-        patch: {
-          properties: pageShellTree.properties || {},
-          children: ensureArray(pageShellTree.children)
-        }
-      }
-    ]).concat(pageMutationOperations);
-    for (var pageIndex = 0; pageIndex < entityPageShells.length; pageIndex++) {
-      batchOperations.push(
-        {
-          type: "upsertTree",
-          opId: "entity_page_" + normalizedIdentifier(entityPageShells[pageIndex].entity),
-          qname: entityPageShells[pageIndex].qname,
-          strategy: {
-            replaceOnClassMismatch: true,
-            pruneMissing: true,
-            reorder: false
-          },
-          patch: {
-            properties: entityPageShells[pageIndex].tree.properties || {},
-            children: ensureArray(entityPageShells[pageIndex].tree.children)
-          }
-        },
-        {
-          type: "upsertTree",
-          opId: "entity_page_load_" + normalizedIdentifier(entityPageLoads[pageIndex].entity),
-          qname: entityPageLoads[pageIndex].tree.qname,
-          strategy: {
-            replaceOnClassMismatch: true,
-            pruneMissing: false,
-            reorder: false
-          },
-          patch: {
-            properties: entityPageLoads[pageIndex].tree.tree.properties || {},
-            children: ensureArray(entityPageLoads[pageIndex].tree.tree.children)
-          }
-        }
-      );
-    }
-    if (reuseExistingSharedActions) {
-      var buildStageQName = statefulBootstrapStageQName(projectName, variant);
-      if (C8O.dbo.resolve(buildStageQName, { optional: true })) {
-        batchOperations.push({
-          type: "setProperties",
-          opId: "stateful_build_stage",
-          qname: buildStageQName,
-          properties: {
-            Value: {
-              mode: "SCRIPT",
-              value: scriptLiteral(stage)
-            }
-          }
-        });
-      } else {
-        addWarning(result, "Unable to reuse stateful actions: build stage node not found for " + buildStageQName);
-      }
-    }
-    var batchApplyResult = C8O.dbo.batchApply({
-      target: ngxAppQName(projectName),
-      strict: true,
-      onError: "stop",
-      autoSave: false,
-      triggerMobileBuilder: false,
-      operations: batchOperations
-    });
-    setDuration(timings, "batchTreeApplyMs", batchApplyStartedAt);
-    collectBatchWarnings(batchApplyResult, result, "batchApply");
-    if (!batchApplyResult || batchApplyResult.status === "failed" || (batchApplyResult.errors && batchApplyResult.errors.length)) {
-      throw new Error(firstBatchErrorMessage(batchApplyResult));
-    }
-    result.sharedComponents = sharedComponents.qnames.slice();
-    result.runtimeEvidence.batchApply = summarizeTreeApplyResult(batchApplyResult, ngxAppQName(projectName), result);
-    result.runtimeEvidence.sharedComponentsApply = operationSummary(batchApplyResult, "shared_components", ngxAppQName(projectName));
-    result.runtimeEvidence.treeApply = operationSummary(batchApplyResult, "entry_page", contentQName);
-    result.runtimeEvidence.pageLoadApply = operationSummary(batchApplyResult, "entry_page_load", pageQName(projectName, entryPage));
-    result.runtimeEvidence.sharedActions = sharedActions.qnames.slice();
-    timings.applySharedComponentsMs = timings.batchTreeApplyMs;
-    timings.applyPagePropertiesMs = 0;
-    timings.prunePageChildrenMs = 0;
-    timings.applyPageChildrenMs = 0;
-    var batchSummary = batchApplyResult.summary || {};
-    result.runtimeEvidence.mutationCounts.created = Number(batchSummary.created || 0);
-    result.runtimeEvidence.mutationCounts.updated = Number(batchSummary.updatedProperties || 0);
-    result.runtimeEvidence.mutationCounts.deleted = Number(batchSummary.deleted || 0);
-    result.runtimeEvidence.mutationCounts.replaced = Number(batchSummary.replaced || 0);
-    var sharedBindingsStartedAt = nowMillis();
-    var sharedBindingOperations = [];
-    if (sharedBindingOperations.length) {
-      var sharedBindingsBatch = C8O.dbo.batchApply({
-        target: ngxAppQName(projectName),
-        strict: true,
-        onError: "stop",
-        autoSave: false,
-        triggerMobileBuilder: false,
-        operations: sharedBindingOperations
-      });
-      collectBatchWarnings(sharedBindingsBatch, result, "sharedBindings");
-      if (!sharedBindingsBatch || sharedBindingsBatch.status === "failed" || (sharedBindingsBatch.errors && sharedBindingsBatch.errors.length)) {
-        throw new Error(firstBatchErrorMessage(sharedBindingsBatch));
-      }
-      result.runtimeEvidence.sharedBindingsApply = summarizeTreeApplyResult(sharedBindingsBatch, ngxAppQName(projectName), result);
-      var bindingsSummary = sharedBindingsBatch.summary || {};
-      result.runtimeEvidence.mutationCounts.updated += Number(bindingsSummary.updatedProperties || 0);
-    } else {
-      result.runtimeEvidence.sharedBindingsApply = {
-        status: "skipped",
-        target: ngxAppQName(projectName)
-      };
-    }
-    setDuration(timings, "configureSharedBindingsMs", sharedBindingsStartedAt);
-    result.pageTargets.push(contentQName);
-    for (var targetIndex = 0; targetIndex < entityPageShells.length; targetIndex++) {
-      result.pageTargets.push(entityPageShells[targetIndex].qname);
-    }
-    result.runtimeEvidence.entryPage = entryPage;
-    result.runtimeEvidence.facadePrefix = facadePrefix;
-    result.runtimeEvidence.pageSharedRefs = collectSharedRefs(pageShellTree, []);
-    result.runtimeEvidence.workInProgressSharedRefPresent = result.runtimeEvidence.pageSharedRefs.indexOf(sharedComponentQName(projectName, "WorkInProgressCard")) !== -1;
-    try {
-      var uiAuditStartedAt = nowMillis();
-      var uiTree = callInternalSequence("tools_databaseobject_tree_get", {
-        target: contentQName,
-        childrenDepth: 5,
-        properties: "none",
-        limit: 320
-      });
-      setDuration(timings, "uiAuditTreeGetMs", uiAuditStartedAt);
-      var uiAudit = auditUiTreePayload(uiTree);
-      result.runtimeEvidence.shellVisible = uiAudit.visibleShellPresent;
-      result.runtimeEvidence.starterDominant = uiAudit.starterDominant;
-      result.runtimeEvidence.liveBindingPresent = uiAudit.liveBindingPresent;
-    } catch (uiInspectError) {
-      result.status = "partial";
-      addWarning(result, "Unable to inspect NGX shell after apply: " + String(uiInspectError));
-    }
-    try {
-      var projectSaveStartedAt = nowMillis();
-      result.runtimeEvidence.projectSave = summarizeSaveResult(C8O.dbo.saveProject(project, []), result);
-      setDuration(timings, "projectSaveMs", projectSaveStartedAt);
-      var generatedSourcesCleanupStartedAt = nowMillis();
-      result.runtimeEvidence.generatedSourcesCleanup = cleanupGeneratedIonicSources(projectName, ngxApp);
-      setDuration(timings, "generatedSourcesCleanupMs", generatedSourcesCleanupStartedAt);
-      result.runtimeEvidence.generatedSourcesPurge = {
-        skipped: true,
-        reason: "Managed source purge disabled to avoid transient live-viewer compile failures during watched regeneration.",
-        pageDirsPurged: [],
-        componentDirsPurged: [],
-        deletedCount: 0
-      };
-      timings.generatedSourcesPurgeMs = 0;
-      var mobileBuilderStartedAt = nowMillis();
-      var refreshTargets = [pageQName(projectName, entryPage)].concat(sharedComponents.qnames || []);
-      for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {
-        refreshTargets.push(entityPageLoads[refreshIndex].tree.qname);
-      }
-      result.runtimeEvidence.mobileBuilder = triggerUiSourceRefreshTargets(
-        refreshTargets,
-        result,
-        "$.runtimeEvidence.mobileBuilder"
-      );
-      setDuration(timings, "mobileBuilderMs", mobileBuilderStartedAt);
-      var studioRefreshStartedAt = nowMillis();
-      result.runtimeEvidence.studioRefresh = refreshStudioProjectTree(project, result, "studioRefresh");
-      setDuration(timings, "studioRefreshMs", studioRefreshStartedAt);
-    } catch (saveUiError) {
-      result.status = "partial";
-      addWarning(result, "Unable to save project after NGX CRUD kit apply: " + String(saveUiError));
-    }
-    result.runtimeEvidence.totalDurationMs = setDuration(timings, "totalMs", startedAt);
-    return result;
+    return C8O.crudUiKit.upsertNgxCrudKit(crudUiKitContext(), options || {});
   }
 
   function buildCrudStatus(spec, connector, result) {
