@@ -4,8 +4,8 @@
     "classification": "public product",
     "currentRole": "Owns the public CRUD tool facade and thin orchestration glue, delegating spec/seed/runtime/backend/ui/proof/viewer helpers to domain modules.",
     "currentSize": {
-      "linesApprox": 1788,
-      "functionsApprox": 66
+      "linesApprox": 1693,
+      "functionsApprox": 60
     },
     "problems": [
       "Still mixes public tool wrappers, shared helper glue, and some remaining cross-domain utility code.",
@@ -19,6 +19,7 @@
       "js/crud_backend.js",
       "js/crud_ui_nodes.js",
       "js/crud_ui_state.js",
+      "js/crud_ui_meta.js",
       "js/crud_ui_shared.js",
       "js/crud_ui_pages.js",
       "js/crud_ui_actions.js",
@@ -241,6 +242,19 @@
       "js/crud_ui_kit.js"
     ],
     "boundaryRule": "UI kit orchestration only; keep pure builders in js/crud_ui_* modules, backend work in js/crud_backend.js, and proof/viewer logic outside this file."
+  },
+  {
+    "surface": "js/crud_ui_meta.js",
+    "classification": "public product",
+    "currentRole": "Reusable CRUD UI metadata helpers for app/page/shared QNames, entity routes/page names, preview field ranking, and entity UI config derivation.",
+    "problems": [
+      "Should stay limited to derived UI metadata and naming helpers, without absorbing shared component assembly, batch mutation, or viewer/proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_meta.js"
+    ],
+    "boundaryRule": "Entity/page/UI metadata only; keep node builders, page assembly, action orchestration, and UI mutation outside this file."
   },
   {
     "surface": "js/crud_runtime.js",

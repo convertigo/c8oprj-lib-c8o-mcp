@@ -8,6 +8,7 @@ include("js/crud_runtime.js");
 include("js/crud_backend.js");
 include("js/crud_ui_nodes.js");
 include("js/crud_ui_state.js");
+include("js/crud_ui_meta.js");
 include("js/crud_ui_shared.js");
 include("js/crud_ui_pages.js");
 include("js/crud_ui_actions.js");
@@ -378,6 +379,20 @@ C8O.crud = C8O.crud || {};
       scriptLiteral: function (value) {
         return scriptLiteral(value);
       }
+    };
+  }
+
+  function crudUiMetaContext() {
+    return {
+      trimmed: trimmed,
+      clone: clone,
+      ensureArray: ensureArray,
+      pascalize: pascalize,
+      pluralize: pluralize,
+      normalizedIdentifier: normalizedIdentifier,
+      semanticFieldToken: semanticFieldToken,
+      tokenMatches: tokenMatches,
+      facadeSequenceQName: facadeSequenceQName
     };
   }
 
@@ -1077,108 +1092,55 @@ C8O.crud = C8O.crud || {};
   }
 
   function applicationQName(projectName) {
-    return trimmed(projectName) + ".Application";
+    return C8O.crudUiMeta.applicationQName(crudUiMetaContext(), projectName);
   }
 
   function ngxAppQName(projectName) {
-    return applicationQName(projectName) + ".NgxApp";
+    return C8O.crudUiMeta.ngxAppQName(crudUiMetaContext(), projectName);
   }
 
   function pageQName(projectName, entryPage) {
-    return ngxAppQName(projectName) + "." + trimmed(entryPage || "Page");
+    return C8O.crudUiMeta.pageQName(crudUiMetaContext(), projectName, entryPage);
   }
 
   function findPageContentQName(projectName, entryPage) {
-    return pageQName(projectName, entryPage) + ".Content";
+    return C8O.crudUiMeta.findPageContentQName(crudUiMetaContext(), projectName, entryPage);
   }
 
   function sharedComponentQName(projectName, componentName) {
-    return ngxAppQName(projectName) + "." + trimmed(componentName);
+    return C8O.crudUiMeta.sharedComponentQName(crudUiMetaContext(), projectName, componentName);
   }
 
   function entityPageName(entity) {
-    return pascalize(entity && entity.name) + "Page";
+    return C8O.crudUiMeta.entityPageName(crudUiMetaContext(), entity);
   }
 
   function entityPageQName(projectName, entity) {
-    return pageQName(projectName, entityPageName(entity));
+    return C8O.crudUiMeta.entityPageQName(crudUiMetaContext(), projectName, entity);
   }
 
   function entityPageContentQName(projectName, entity) {
-    return findPageContentQName(projectName, entityPageName(entity));
+    return C8O.crudUiMeta.entityPageContentQName(crudUiMetaContext(), projectName, entity);
   }
 
   function entityRouteSegment(entity) {
-    var configured = trimmed(entity && entity.routeSegment);
-    if (configured.length) {
-      return normalizedIdentifier(configured).replace(/_/g, "-").toLowerCase();
-    }
-    return normalizedIdentifier(entity && entity.name).replace(/_/g, "-").toLowerCase();
+    return C8O.crudUiMeta.entityRouteSegment(crudUiMetaContext(), entity);
   }
 
   function entityRoutePath(entity) {
-    return "/" + entityRouteSegment(entity);
+    return C8O.crudUiMeta.entityRoutePath(crudUiMetaContext(), entity);
   }
 
   function firstNonPrimaryField(entity) {
-    var preview = schemaPreviewFields(entity, 1, false);
-    return preview.length ? preview[0] : (entity && entity.primaryField ? entity.primaryField : null);
+    return C8O.crudUiMeta.firstNonPrimaryField(crudUiMetaContext(), entity);
   }
 
   function secondPreviewField(entity) {
-    var preview = schemaPreviewFields(entity, 2, false);
-    return preview.length > 1 ? preview[1] : (preview[0] || entity.primaryField || null);
+    return C8O.crudUiMeta.secondPreviewField(crudUiMetaContext(), entity);
   }
 
   function entityUiConfig(projectName, facadePrefix, entity) {
-    var editableFields = ensureArray(entity && entity.fields).filter(function (field) {
-      return field && field.primary !== true;
-    });
-    var relationFields = editableFields.filter(function (field) {
-      return field && field.references;
-    });
-    var uniqueFields = editableFields.filter(function (field) {
-      return field && field.unique === true;
-    }).map(function (field) {
-      return field.column;
-    });
-    return {
-      key: entity.name,
-      singular: entity.singular,
-      label: entity.label,
-      pageName: entityPageName(entity),
-      routeSegment: entityRouteSegment(entity),
-      routePath: entityRoutePath(entity),
-      primaryColumn: (entity.primaryField && entity.primaryField.column) || "id",
-      primaryLabel: (entity.primaryField && entity.primaryField.label) || "Id",
-      previewPrimaryColumn: ((firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id",
-      previewSecondaryColumn: ((secondPreviewField(entity) || firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id",
-      listRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "list"),
-      readRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "read"),
-      createRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "create"),
-      updateRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "update"),
-      deleteRequestable: facadeSequenceQName(projectName, facadePrefix, entity, "delete"),
-      editableFields: editableFields.map(function (field) {
-        return {
-          name: field.name,
-          column: field.column,
-          label: field.label,
-          type: field.type,
-          required: field.required === true,
-          unique: field.unique === true,
-          references: field.references ? clone(field.references) : null
-        };
-      }),
-      relationFields: relationFields.map(function (field) {
-        return {
-          column: field.column,
-          label: field.label,
-          entity: pluralize(normalizedIdentifier(field.references.entity)),
-          targetField: normalizedIdentifier(field.references.field || "id")
-        };
-      }),
-      uniqueFields: uniqueFields
-    };
+    return C8O.crudUiMeta.entityUiConfig(crudUiMetaContext(), projectName, facadePrefix, entity);
   }
 
   function normalizeUiEntities(rawEntities) {
@@ -1277,64 +1239,7 @@ C8O.crud = C8O.crud || {};
   }
 
   function schemaPreviewFields(entity, limit, includePrimary) {
-    var fields = ensureArray(entity && entity.fields);
-    var ranked = [];
-    function fieldPriority(field) {
-      var token = semanticFieldToken(field);
-      if (!token.length) {
-        return 900;
-      }
-      if (field.primary) {
-        return includePrimary ? 800 : 1000;
-      }
-      if (field.references || /(^|_)(id|.*_id)$/.test(normalizedIdentifier(field && (field.column || field.name)))) {
-        return 300;
-      }
-      var preferred = [
-        ["nomcommun", "commonname", "name", "nom", "title", "titre"],
-        ["nomscientifique", "scientificname", "firstname", "prenom", "lastname", "surname"],
-        ["email", "phone", "telephone"],
-        ["city", "ville", "region", "country", "pays"],
-        ["industry", "secteur", "category", "categorie", "habitat", "usage"],
-        ["comment", "note", "description", "vote", "status", "statut"]
-      ];
-      for (var p = 0; p < preferred.length; p++) {
-        if (tokenMatches(token, preferred[p])) {
-          return p;
-        }
-      }
-      if (field.unique === true) {
-        return 120;
-      }
-      return 180;
-    }
-    for (var i = 0; i < fields.length; i++) {
-      if (!includePrimary && fields[i].primary) {
-        continue;
-      }
-      ranked.push({
-        field: fields[i],
-        order: i,
-        priority: fieldPriority(fields[i])
-      });
-    }
-    ranked.sort(function (left, right) {
-      if (left.priority !== right.priority) {
-        return left.priority - right.priority;
-      }
-      return left.order - right.order;
-    });
-    var preview = [];
-    for (var index = 0; index < ranked.length; index++) {
-      preview.push(ranked[index].field);
-      if (limit > 0 && preview.length >= limit) {
-        break;
-      }
-    }
-    if (!preview.length && includePrimary && entity && entity.primaryField) {
-      preview.push(entity.primaryField);
-    }
-    return preview;
+    return C8O.crudUiMeta.schemaPreviewFields(crudUiMetaContext(), entity, limit, includePrimary);
   }
 
   function schemaFieldHint(field) {
