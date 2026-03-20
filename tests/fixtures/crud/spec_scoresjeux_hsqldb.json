@@ -15,6 +15,38 @@
     "prefix": "score",
     "publicListSequence": "score_list"
   },
+  "relations": [
+    {
+      "name": "session_game",
+      "type": "many-to-one",
+      "fromEntity": "sessions",
+      "fromField": "game_id",
+      "toEntity": "games",
+      "toField": "id",
+      "required": true,
+      "label": "Game"
+    },
+    {
+      "name": "score_player",
+      "type": "many-to-one",
+      "fromEntity": "scores",
+      "fromField": "player_id",
+      "toEntity": "players",
+      "toField": "id",
+      "required": true,
+      "label": "Player"
+    },
+    {
+      "name": "score_session",
+      "type": "many-to-one",
+      "fromEntity": "scores",
+      "fromField": "session_id",
+      "toEntity": "sessions",
+      "toField": "id",
+      "required": true,
+      "label": "Session"
+    }
+  ],
   "entities": [
     {
       "name": "players",
@@ -61,12 +93,20 @@
         { "name": "ScheduledDay", "column": "scheduled_day", "type": "VARCHAR(64)" }
       ],
       "ui": {
-        "listFields": ["venue", "scheduled_day"],
+        "listFields": ["venue", "game_id"],
         "detailFields": ["venue", "scheduled_day", "game_id"],
         "formFields": ["venue", "scheduled_day", "game_id"],
         "fieldLabels": {
           "game_id": "Game",
           "scheduled_day": "Scheduled day"
+        },
+        "relationFields": {
+          "game_id": {
+            "control": "select",
+            "optionLabelField": "title",
+            "optionValueField": "id",
+            "placeholder": "Select game"
+          }
         }
       }
     },
@@ -81,14 +121,28 @@
         { "name": "Badge", "type": "VARCHAR(128)" }
       ],
       "ui": {
-        "listFields": ["points", "badge"],
+        "listFields": ["player_id", "session_id", "points"],
         "detailFields": ["points", "badge", "player_id", "session_id"],
         "formFields": ["points", "badge", "player_id", "session_id"],
         "fieldLabels": {
           "player_id": "Player",
           "session_id": "Session"
         },
-        "actionLabel": "Save score"
+        "actionLabel": "Save score",
+        "relationFields": {
+          "player_id": {
+            "control": "select",
+            "optionLabelField": "display_name",
+            "optionValueField": "id",
+            "placeholder": "Select player"
+          },
+          "session_id": {
+            "control": "autocomplete",
+            "optionLabelField": "venue",
+            "optionValueField": "id",
+            "placeholder": "Search session"
+          }
+        }
       }
     }
   ],

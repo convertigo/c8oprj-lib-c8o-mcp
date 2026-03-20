@@ -66,9 +66,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
-  function placeholderMap(ctx, projectName, entity, targetComponentName) {
+  function placeholderMap(ctx, projectName, entity, entities, targetComponentName) {
     var currentEntity = entity || {};
-    var uiConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", currentEntity) : null;
+    var uiConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", currentEntity, entities) : null;
     var label = trimmed(ctx, currentEntity.label || currentEntity.displayLabel || currentEntity.name || "Entity");
     var singular = trimmed(ctx, currentEntity.singular || "entity");
     var plural = trimmed(ctx, currentEntity.name || currentEntity.plural || ctx.pluralize(singular));
@@ -245,7 +245,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     for (var i = 0; i < resolvedFields.length; i++) {
       var field = resolvedFields[i] || {};
       var fieldLabel = trimmed(ctx, field.label || field.name || field.column || "Field");
-      var fieldColumn = trimmed(ctx, field.column || field.name || "id");
+      var fieldColumn = trimmed(ctx, field.displayColumn || field.column || field.name || "id");
       var textName = listTargetName + "ListField" + (i + 1) + "Text";
       var valueExpression = ctx.iterationSourceValue(
         TOKENS.PROJECT_NAME,
@@ -281,7 +281,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     for (var i = 0; i < resolvedFields.length; i++) {
       var field = resolvedFields[i] || {};
       var fieldLabel = trimmed(ctx, field.label || field.name || field.column || "Field");
-      var fieldColumn = trimmed(ctx, field.column || field.name || "id");
+      var fieldColumn = trimmed(ctx, field.displayColumn || field.column || field.name || "id");
       children.push(
         ctx.textElementNode(
           "ngx.components.UIDynamicElement#Paragraph",
@@ -332,9 +332,13 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       };
       if (relation) {
         var relatedEntity = typeof ctx.findEntityByName === "function" ? ctx.findEntityByName(entities, relation.entity) : null;
-        var relatedConfig = relatedEntity && typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", relatedEntity) : null;
+        var relatedConfig = relatedEntity && typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", relatedEntity, entities) : null;
+        fieldConfig.control = trimmed(ctx, relation.control || "select") || "select";
         fieldConfig.relatedEntityKeyExpression = ctx.scriptLiteral(trimmed(ctx, relation.entity || ""));
-        fieldConfig.relatedLabelFieldExpression = ctx.scriptLiteral(trimmed(ctx, (relatedConfig && relatedConfig.previewPrimaryColumn) || relation.targetField || "id"));
+        fieldConfig.controlExpression = ctx.scriptLiteral(trimmed(ctx, relation.control || "select") || "select");
+        fieldConfig.relatedLabelFieldExpression = ctx.scriptLiteral(trimmed(ctx, relation.optionLabelField || (relatedConfig && relatedConfig.previewPrimaryColumn) || relation.targetField || "id"));
+        fieldConfig.relatedValueFieldExpression = ctx.scriptLiteral(trimmed(ctx, relation.optionValueField || relation.targetField || "id"));
+        fieldConfig.placeholderExpression = ctx.scriptLiteral(trimmed(ctx, relation.placeholder || ("Select " + (field.label || field.name || field.column || "value"))));
       }
       children.push(formFieldItemNode(ctx, i, fieldConfig));
     }
@@ -782,12 +786,152 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     ].join("\n");
   }
 
+  function buildRelationSearchKeyExpression(ctx, fieldNameExpression) {
+    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
+    return "((" + coalescedStringExpression(ctx, "this.EntityKey", "") + ") + '::' + (" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + "))";
+  }
+
+  function relationRowsExpression(ctx, relatedEntityKeyExpression) {
+    var crudGlobal = ctx.crudGlobalExpression();
+    return "(((" + crudGlobal + ").crudRows || {})[" + coalescedStringExpression(ctx, relatedEntityKeyExpression, "related") + "] || [])";
+  }
+
+  function relationRowsScriptExpression(ctx, relatedEntityKeyExpression) {
+    return "((((page.global || {})).crudRows || {})[" + coalescedStringExpression(ctx, relatedEntityKeyExpression, "related") + "] || [])";
+  }
+
+  function relationOptionLabelExpression(ctx, optionExpression, relatedLabelFieldExpression) {
+    return ctx.dynamicFieldAccessExpression(optionExpression, relatedLabelFieldExpression, ctx.scriptLiteral("Option"));
+  }
+
+  function relationOptionValueExpression(ctx, optionExpression, relatedValueFieldExpression) {
+    return ctx.dynamicFieldAccessExpression(optionExpression, relatedValueFieldExpression, ctx.scriptLiteral(""));
+  }
+
+  function currentRelationLabelExpression(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
+    var rowsExpression = relationRowsScriptExpression(ctx, relatedEntityKeyExpression);
+    var draftValueExpression = ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''");
+    var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
+    var optionValueExpression = relationOptionValueExpression(ctx, "option", relatedValueFieldExpression);
+    return [
+      "(function(){",
+      "  var rows = " + rowsExpression + ";",
+      "  var currentValue = " + draftValueExpression + ";",
+      "  if (currentValue == null || String(currentValue) === '') {",
+      "    return '';",
+      "  }",
+      "  for (var idx = 0; idx < rows.length; idx++) {",
+      "    var option = rows[idx];",
+      "    if (String(" + optionValueExpression + ") === String(currentValue)) {",
+      "      return String(" + optionLabelExpression + ");",
+      "    }",
+      "  }",
+      "  return String(currentValue);",
+      "})()"
+    ].join("\n");
+  }
+
+  function relationDraftLabelExpression(ctx, fieldNameExpression) {
+    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
+    var labelFieldExpression = "((" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ") + '__label')";
+    return ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), labelFieldExpression, "''");
+  }
+
+  function buildRelationSearchUpdateScript(ctx, fieldNameExpression) {
+    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
+    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, resolvedFieldNameExpression);
+    return [
+      "page.global = page.global || {};",
+      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
+      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
+      "var searchKey = " + searchKeyExpression + ";",
+      "var searches = Object.assign({}, page.global.crudRelationSearch || {});",
+      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
+      "var draft = Object.assign({}, drafts[key] || {});",
+      "var value = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '');",
+      "searches[searchKey] = value == null ? '' : String(value);",
+      "if (searches[searchKey] === '') {",
+      "  draft[fieldName] = '';",
+      "  draft[fieldName + '__label'] = '';",
+      "  drafts[key] = draft;",
+      "  page.global.crudDrafts = drafts;",
+      "}",
+      "page.global.crudRelationSearch = searches;",
+      "page.ref.markForCheck();",
+      "return searches[searchKey];"
+    ].join("\n");
+  }
+
+  function buildRelationSelectionScript(ctx, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
+    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
+    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, resolvedFieldNameExpression);
+    var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
+    var optionValueExpression = relationOptionValueExpression(ctx, "option", relatedValueFieldExpression);
+    return [
+      "page.global = page.global || {};",
+      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
+      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
+      "var searchKey = " + searchKeyExpression + ";",
+      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
+      "var draft = Object.assign({}, drafts[key] || {});",
+      "var searches = Object.assign({}, page.global.crudRelationSearch || {});",
+      "var selectedValue = String(" + optionValueExpression + " ?? '');",
+      "var selectedLabel = String(" + optionLabelExpression + " ?? selectedValue);",
+      "draft[fieldName] = selectedValue;",
+      "draft[fieldName + '__label'] = selectedLabel;",
+      "drafts[key] = draft;",
+      "searches[searchKey] = selectedLabel;",
+      "page.global.crudDrafts = drafts;",
+      "page.global.crudRelationSearch = searches;",
+      "page.ref.markForCheck();",
+      "return draft;"
+    ].join("\n");
+  }
+
+  function buildRelationValueSelectionScript(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
+    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
+    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, resolvedFieldNameExpression);
+    var rowsExpression = relationRowsScriptExpression(ctx, relatedEntityKeyExpression);
+    var optionLabelExpression = relationOptionLabelExpression(ctx, "row", relatedLabelFieldExpression);
+    var optionValueExpression = relationOptionValueExpression(ctx, "row", relatedValueFieldExpression);
+    return [
+      "page.global = page.global || {};",
+      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
+      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
+      "var searchKey = " + searchKeyExpression + ";",
+      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
+      "var draft = Object.assign({}, drafts[key] || {});",
+      "var searches = Object.assign({}, page.global.crudRelationSearch || {});",
+      "var rows = " + rowsExpression + ";",
+      "var selectedValueRaw = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '');",
+      "var selectedValue = selectedValueRaw == null ? '' : String(selectedValueRaw);",
+      "var selectedLabel = selectedValue;",
+      "for (var idx = 0; idx < rows.length; idx++) {",
+      "  var row = rows[idx];",
+      "  if (String(" + optionValueExpression + " ?? '') === selectedValue) {",
+      "    selectedLabel = String(" + optionLabelExpression + " ?? selectedValue);",
+      "    break;",
+      "  }",
+      "}",
+      "draft[fieldName] = selectedValue;",
+      "draft[fieldName + '__label'] = selectedLabel;",
+      "drafts[key] = draft;",
+      "searches[searchKey] = selectedLabel;",
+      "page.global.crudDrafts = drafts;",
+      "page.global.crudRelationSearch = searches;",
+      "page.ref.markForCheck();",
+      "return draft;"
+    ].join("\n");
+  }
+
   function relationSelectNode(ctx, config) {
     var currentConfig = config || {};
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
     var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
     var relatedEntityKeyExpression = currentConfig.relatedEntityKeyExpression || "this.RelatedEntityKey";
     var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
+    var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
+    var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
     var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UIDynamicElement#Select",
@@ -803,7 +947,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         },
         Placeholder: {
           mode: "SCRIPT",
-          value: "'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value")
+          value: placeholderExpression
         },
         Interface: {
           mode: "PLAIN",
@@ -827,22 +971,164 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               properties: {
                 Value: {
                   mode: "SCRIPT",
-                  value: "String(option?.ID ?? option?.id ?? '')"
+                  value: "String(" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + " ?? '')"
                 }
               },
               children: [
-                ctx.smartTextNode("OptionText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, ctx.dynamicFieldAccessExpression("option", coalescedStringExpression(ctx, relatedLabelFieldExpression, "id"), ctx.scriptLiteral("Option"))))
+                ctx.smartTextNode("OptionText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression)))
               ]
             }
           ],
           "idx"
         ),
         ctx.controlEventNode("ChangeEvent", [
-          ctx.customAsyncActionNode("StoreRelation", buildDraftFieldUpdateScript(ctx, fieldNameExpression), "Store selected relation value into CRUD draft state.")
+          ctx.customAsyncActionNode(
+            "StoreRelation",
+            buildRelationValueSelectionScript(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression),
+            "Store selected relation value and label into CRUD draft state."
+          )
         ], {
           attrName: "(ionChange)",
           eventName: "ionChange"
         })
+      ]
+    };
+  }
+
+  function relationAutocompleteNode(ctx, config) {
+    var currentConfig = config || {};
+    var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
+    var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
+    var relatedEntityKeyExpression = currentConfig.relatedEntityKeyExpression || "this.RelatedEntityKey";
+    var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
+    var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
+    var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
+    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, fieldNameExpression);
+    var searchExpression = ctx.crudRelationSearchExpression(searchKeyExpression);
+    var rowsExpression = relationRowsExpression(ctx, relatedEntityKeyExpression);
+    var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
+    var visibleValueExpression = "((" + searchExpression + ") || (" + relationDraftLabelExpression(ctx, fieldNameExpression) + ") || (" + ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''") + "))";
+    var optionMatchesExpression = "(String(" + optionLabelExpression + " || '').toLowerCase().indexOf(String(" + searchExpression + " || '').toLowerCase()) !== -1)";
+    return {
+      className: "ngx.components.UIDynamicElement#DivTag",
+      name: "RelationAutocomplete",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Input",
+          name: "RelationAutocompleteInput",
+          properties: {
+            Label: {
+              mode: "SCRIPT",
+              value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
+            },
+            LabelPlacement: {
+              mode: "PLAIN",
+              value: "stacked"
+            },
+            Placeholder: {
+              mode: "SCRIPT",
+              value: placeholderExpression
+            },
+            Value: {
+              mode: "SCRIPT",
+              value: visibleValueExpression
+            }
+          },
+          children: [
+            ctx.controlEventNode("InputEvent", [
+              ctx.customAsyncActionNode("StoreRelationSearch", buildRelationSearchUpdateScript(ctx, fieldNameExpression), "Store relation autocomplete search text into CRUD global state.")
+            ], {
+              attrName: "(ionInput)",
+              eventName: "ionInput"
+            })
+          ]
+        },
+        ctx.ifDirectiveNode(
+          "RelationAutocompleteVisible",
+          "((" + rowsExpression + ").length > 0)",
+          [
+            {
+              className: "ngx.components.UIDynamicElement#Select",
+              name: "RelationAutocompleteSelect",
+              properties: {
+                Label: {
+                  mode: "SCRIPT",
+                  value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
+                },
+                LabelPlacement: {
+                  mode: "PLAIN",
+                  value: "stacked"
+                },
+                Placeholder: {
+                  mode: "SCRIPT",
+                  value: placeholderExpression
+                },
+                Interface: {
+                  mode: "PLAIN",
+                  value: "popover"
+                },
+                Value: {
+                  mode: "SCRIPT",
+                  value: ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''")
+                }
+              },
+              children: [
+                ctx.iterationDirectiveNode(
+                  "RelationAutocompleteLoop",
+                  TOKENS.PROJECT_NAME,
+                  "option",
+                  rowsExpression,
+                  [
+                    ctx.ifDirectiveNode(
+                      "RelationAutocompleteMatch",
+                      optionMatchesExpression,
+                      [
+                        {
+                          className: "ngx.components.UIDynamicElement#SelectOption",
+                          name: "RelationAutocompleteItem",
+                          properties: {
+                            Value: {
+                              mode: "SCRIPT",
+                              value: "'' + (" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + " ?? '')"
+                            }
+                          },
+                          children: [
+                            ctx.smartTextNode("AutocompleteOptionText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, optionLabelExpression))
+                          ]
+                        }
+                      ]
+                    )
+                  ],
+                  "idx"
+                ),
+                ctx.controlEventNode("ChangeEvent", [
+                  ctx.customAsyncActionNode(
+                    "StoreRelationSelection",
+                    buildRelationValueSelectionScript(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression),
+                    "Store the selected relation autocomplete option into CRUD draft state."
+                  )
+                ], {
+                  attrName: "(ionChange)",
+                  eventName: "ionChange"
+                })
+              ]
+            }
+          ]
+        ),
+        ctx.ifDirectiveNode(
+          "RelationAutocompleteSelection",
+          "!!" + ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''"),
+          [
+            ctx.textElementNode(
+              "ngx.components.UIDynamicElement#Paragraph",
+              "RelationAutocompleteSelectedText",
+              ctx.scriptTextNode(
+                "RelationAutocompleteSelectedValue",
+                ctx.scriptLiteral("Selected: ") + " + (" + relationDraftLabelExpression(ctx, fieldNameExpression) + " || String(" + ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''") + "))"
+              )
+            )
+          ]
+        )
       ]
     };
   }
@@ -894,7 +1180,11 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       className: "ngx.components.UIDynamicElement#FormItem",
       name: "Field" + (index + 1) + "Item",
       children: [
-        currentConfig.relation ? relationSelectNode(ctx, currentConfig) : textInputNode(ctx, currentConfig)
+        currentConfig.relation
+          ? ((trimmed(ctx, currentConfig.control || "select") === "autocomplete")
+            ? relationAutocompleteNode(ctx, currentConfig)
+            : relationSelectNode(ctx, currentConfig))
+          : textInputNode(ctx, currentConfig)
       ]
     };
     return item;
@@ -1431,9 +1721,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     }
     for (var entityIndex = 0; entityIndex < entities.length; entityIndex++) {
       var entity = entities[entityIndex];
-      var entityConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", entity) : null;
+      var entityConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", entity, entities) : null;
       var entityPrefix = ctx.pascalize(entity.name);
-      var replacements = placeholderMap(ctx, projectName, entity);
+      var replacements = placeholderMap(ctx, projectName, entity, entities);
       var listTargetName = entityPrefix + "ListPanel";
       replacements[templateComponentName("EntityListPanel")] = listTargetName;
       var listSourceQName = ctx.sharedComponentQName(sourceProject, names.entityListPanel);
@@ -1444,7 +1734,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         listTargetName
       );
       var detailTargetName = entityPrefix + "DetailCard";
-      var detailReplacements = placeholderMap(ctx, projectName, entity);
+      var detailReplacements = placeholderMap(ctx, projectName, entity, entities);
       detailReplacements[templateComponentName("EntityDetailCard")] = detailTargetName;
       var detailSourceQName = ctx.sharedComponentQName(sourceProject, names.entityDetailCard);
       var detailTree = cloneTemplateTree(
@@ -1454,7 +1744,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         detailTargetName
       );
       var formTargetName = entityPrefix + "EditForm";
-      var formReplacements = placeholderMap(ctx, projectName, entity);
+      var formReplacements = placeholderMap(ctx, projectName, entity, entities);
       formReplacements[templateComponentName("EntityEditForm")] = formTargetName;
       var formSourceQName = ctx.sharedComponentQName(sourceProject, names.entityEditForm);
       var formTree = cloneTemplateTree(

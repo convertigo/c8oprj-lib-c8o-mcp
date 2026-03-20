@@ -154,6 +154,18 @@ C8O.crudProof = C8O.crudProof || {};
     return null;
   }
 
+  function rowHasField(_ctx, row, candidates) {
+    if (!row || typeof row !== "object") {
+      return false;
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      if (row[candidates[i]] !== undefined) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function parseLooseJson(ctx, value) {
     var candidate = value;
     for (var depth = 0; depth < 3; depth++) {
@@ -323,6 +335,203 @@ C8O.crudProof = C8O.crudProof || {};
     }
   }
 
+  function singularize(ctx, value) {
+    var text = trimmed(ctx, value).toLowerCase();
+    if (!text.length) {
+      return "";
+    }
+    if (/ies$/.test(text) && text.length > 3) {
+      return text.substring(0, text.length - 3) + "y";
+    }
+    if (/ses$/.test(text) && text.length > 3) {
+      return text.substring(0, text.length - 2);
+    }
+    if (/s$/.test(text) && text.length > 1) {
+      return text.substring(0, text.length - 1);
+    }
+    return text;
+  }
+
+  function relationListName(ctx, relation) {
+    var childPlural = ctx.pluralize ? ctx.pluralize(ctx.normalizedIdentifier(relation && relation.fromEntity || "")) : ctx.normalizedIdentifier(relation && relation.fromEntity || "");
+    var parentSingular = singularize(ctx, relation && relation.toEntity || "");
+    return "list_" + childPlural + "_by_" + parentSingular;
+  }
+
+  function relationRequestableQName(ctx, projectName, facadePrefix, relation) {
+    return projectName + "." + facadePrefix + "_" + relationListName(ctx, relation);
+  }
+
+  function parseRelationDescriptorFromSequenceName(ctx, sequenceName, projectName, facadePrefix) {
+    var text = trimmed(ctx, sequenceName);
+    var prefix = trimmed(ctx, facadePrefix) + "_";
+    if (!text.length || text.indexOf(prefix) !== 0) {
+      return null;
+    }
+    var raw = text.substring(prefix.length);
+    var match = /^list_(.+)_by_(.+)$/.exec(raw);
+    if (!match) {
+      return null;
+    }
+    return {
+      inferred: true,
+      type: "many-to-one",
+      fromEntity: trimmed(ctx, match[1]),
+      toEntity: trimmed(ctx, match[2]),
+      txName: raw,
+      requestableQName: projectName + "." + text
+    };
+  }
+
+  function findSequenceByName(ctx, project, name) {
+    if (!project || !project.getSequencesList || !trimmed(ctx, name).length) {
+      return null;
+    }
+    try {
+      var sequences = project.getSequencesList();
+      for (var i = 0; i < sequences.size(); i++) {
+        var sequence = sequences.get(i);
+        if (trimmed(ctx, sequence && sequence.getName ? sequence.getName() : "") === trimmed(ctx, name)) {
+          return sequence;
+        }
+      }
+    } catch (_ignoreFindSequence) {}
+    return null;
+  }
+
+  function discoverProjectRelationDescriptors(ctx, project, projectName, facadePrefix) {
+    var descriptors = [];
+    var seen = {};
+    if (!project || !project.getSequencesList) {
+      return descriptors;
+    }
+    try {
+      var sequences = project.getSequencesList();
+      for (var i = 0; i < sequences.size(); i++) {
+        var sequence = sequences.get(i);
+        var descriptor = parseRelationDescriptorFromSequenceName(ctx, sequence && sequence.getName ? sequence.getName() : "", projectName, facadePrefix);
+        if (!descriptor) {
+          continue;
+        }
+        if (seen[descriptor.requestableQName]) {
+          continue;
+        }
+        seen[descriptor.requestableQName] = true;
+        descriptors.push(descriptor);
+      }
+    } catch (_ignoreDiscoverRelations) {}
+    return descriptors;
+  }
+
+  function requestableVariableNames(ctx, requestableQName, result) {
+    try {
+      var tree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
+        target: requestableQName,
+        childrenDepth: 2,
+        properties: "none",
+        limit: 200
+      });
+      var names = [];
+      function visit(node) {
+        if (!node || typeof node !== "object") {
+          return;
+        }
+        var className = trimmed(ctx, node.className);
+        if (className.indexOf("variables.RequestableVariable") !== -1) {
+          var variableName = trimmed(ctx, node.name);
+          if (variableName.length && names.indexOf(variableName) === -1) {
+            names.push(variableName);
+          }
+        }
+        var children = node.children || [];
+        for (var i = 0; i < children.length; i++) {
+          visit(children[i]);
+        }
+      }
+      visit(tree && tree.tree);
+      return names;
+    } catch (variableError) {
+      ctx.addWarning(result, "Unable to inspect requestable variables for " + requestableQName + ": " + String(variableError));
+      return [];
+    }
+  }
+
+  function findParentListRequestableQName(ctx, project, projectName, facadePrefix, parentSingular) {
+    var expectedPlural = ctx.pluralize ? ctx.pluralize(parentSingular) : (parentSingular + "s");
+    var candidates = [];
+    if (trimmed(ctx, expectedPlural).length) {
+      candidates.push(trimmed(ctx, expectedPlural));
+    }
+    candidates.push(trimmed(ctx, parentSingular));
+    if (project && project.getSequencesList) {
+      try {
+        var sequences = project.getSequencesList();
+        for (var i = 0; i < sequences.size(); i++) {
+          var sequence = sequences.get(i);
+          var sequenceName = trimmed(ctx, sequence && sequence.getName ? sequence.getName() : "");
+          var prefix = trimmed(ctx, facadePrefix) + "_list_";
+          if (sequenceName.indexOf(prefix) !== 0 || sequenceName.indexOf("_by_") !== -1) {
+            continue;
+          }
+          var entityName = sequenceName.substring(prefix.length);
+          if (candidates.indexOf(entityName) !== -1 || singularize(ctx, entityName) === singularize(ctx, parentSingular)) {
+            return projectName + "." + sequenceName;
+          }
+        }
+      } catch (_ignoreParentRequestable) {}
+    }
+    return projectName + "." + facadePrefix + "_list_" + expectedPlural;
+  }
+
+  function relationDescriptors(ctx, spec, project, facadePrefix) {
+    var explicit = ctx.ensureArray(spec && spec.relations);
+    var seen = {};
+    var descriptors = [];
+    for (var i = 0; i < explicit.length; i++) {
+      var relation = explicit[i];
+      if (!relation || relation.type !== "many-to-one") {
+        continue;
+      }
+      var requestableQName = relationRequestableQName(ctx, spec.project, facadePrefix, relation);
+      seen[requestableQName] = true;
+      descriptors.push({
+        name: relation.name,
+        type: relation.type,
+        fromEntity: relation.fromEntity,
+        fromField: relation.fromField,
+        toEntity: relation.toEntity,
+        toField: relation.toField,
+        labelAlias: relation.labelAlias || (trimmed(ctx, relation.fromField) + "__label"),
+        requestableQName: requestableQName,
+        parentListRequestableQName: spec.project + "." + facadePrefix + "_list_" + (ctx.pluralize ? ctx.pluralize(relation.toEntity) : relation.toEntity),
+        relationVariableName: relation.fromField
+      });
+    }
+    var discovered = discoverProjectRelationDescriptors(ctx, project, spec.project, facadePrefix);
+    for (var j = 0; j < discovered.length; j++) {
+      var discoveredDescriptor = discovered[j];
+      if (seen[discoveredDescriptor.requestableQName]) {
+        continue;
+      }
+      discoveredDescriptor.parentListRequestableQName = findParentListRequestableQName(ctx, project, spec.project, facadePrefix, discoveredDescriptor.toEntity);
+      descriptors.push(discoveredDescriptor);
+      seen[discoveredDescriptor.requestableQName] = true;
+    }
+    return descriptors;
+  }
+
+  function relationProofResult(ctx, descriptor, proof, labelPresent) {
+    return {
+      requestable: descriptor.requestableQName,
+      parentRequestable: descriptor.parentListRequestableQName,
+      variable: descriptor.relationVariableName,
+      labelAlias: descriptor.labelAlias,
+      status: proof.status,
+      ok: proof.ok === true,
+      labelPresent: labelPresent === true
+    };
+  }
+
   function buildCrudStatus(ctx, spec, connector, result) {
     var project = ctx.findProjectByName(spec.project);
     var crm = ctx.crmRelationContext(spec);
@@ -353,9 +562,15 @@ C8O.crudProof = C8O.crudProof || {};
         enabled: !!crm,
         relationRequestable: crm ? (spec.project + "." + spec.facade.prefix + "_list_company_contacts") : ""
       },
+      relations: {
+        present: [],
+        missing: [],
+        proofs: []
+      },
       missing: [],
       warnings: []
     };
+    var relationDescriptorsOut = relationDescriptors(ctx, spec, project, spec.facade.prefix);
 
     var expectedTransactions = ["init_schema"];
     for (var i = 0; i < spec.entities.length; i++) {
@@ -365,6 +580,19 @@ C8O.crudProof = C8O.crudProof || {};
       expectedTransactions.push(ctx.txName(spec.entities[i], "create"));
       expectedTransactions.push(ctx.txName(spec.entities[i], "update"));
       expectedTransactions.push(ctx.txName(spec.entities[i], "delete"));
+    }
+    for (var relationIndex = 0; relationIndex < relationDescriptorsOut.length; relationIndex++) {
+      var relationDescriptor = relationDescriptorsOut[relationIndex];
+      if (!relationDescriptor || !trimmed(ctx, relationDescriptor.requestableQName).length) {
+        continue;
+      }
+      if (crm && relationDescriptor.requestableQName === status.crm.relationRequestable) {
+        continue;
+      }
+      var relationTxName = trimmed(ctx, relationDescriptor.requestableQName.split(".").pop()).replace(trimmed(ctx, spec.facade.prefix) + "_", "");
+      if (relationTxName.length && expectedTransactions.indexOf(relationTxName) === -1) {
+        expectedTransactions.push(relationTxName);
+      }
     }
     if (!spec.entities.length && connector && connector.getTransactionsList) {
       try {
@@ -417,6 +645,20 @@ C8O.crudProof = C8O.crudProof || {};
           }
         }
       }
+      for (var relationSeqIndex = 0; relationSeqIndex < relationDescriptorsOut.length; relationSeqIndex++) {
+        var relationRequestableQNameValue = trimmed(ctx, relationDescriptorsOut[relationSeqIndex] && relationDescriptorsOut[relationSeqIndex].requestableQName);
+        if (!relationRequestableQNameValue.length || relationRequestableQNameValue === status.crm.relationRequestable) {
+          continue;
+        }
+        if (ctx.resolveQName(relationRequestableQNameValue, { optional: true })) {
+          status.sequences.present.push(relationRequestableQNameValue);
+          status.relations.present.push(relationRequestableQNameValue);
+        } else {
+          status.sequences.missing.push(relationRequestableQNameValue);
+          status.relations.missing.push(relationRequestableQNameValue);
+          status.missing.push(relationRequestableQNameValue);
+        }
+      }
       if (!spec.entities.length && project && project.getSequencesList) {
         try {
           var sequences = project.getSequencesList();
@@ -434,8 +676,14 @@ C8O.crudProof = C8O.crudProof || {};
         var relationSeqQName = spec.project + "." + spec.facade.prefix + "_list_company_contacts";
         if (ctx.resolveQName(relationSeqQName, { optional: true })) {
           status.sequences.present.push(relationSeqQName);
+          if (status.relations.present.indexOf(relationSeqQName) === -1) {
+            status.relations.present.push(relationSeqQName);
+          }
         } else {
           status.sequences.missing.push(relationSeqQName);
+          if (status.relations.missing.indexOf(relationSeqQName) === -1) {
+            status.relations.missing.push(relationSeqQName);
+          }
           status.missing.push(relationSeqQName);
         }
       }
@@ -592,6 +840,7 @@ C8O.crudProof = C8O.crudProof || {};
 
     result.checks.push(proofCheck(ctx, "transactions", !(result.transactions && result.transactions.missing && result.transactions.missing.length), (result.transactions && result.transactions.missing && result.transactions.missing.length) ? "Missing SQL transactions remain." : "", result.connectorQname));
     result.checks.push(proofCheck(ctx, "sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing public CRUD sequences remain." : "", result.project));
+    result.checks.push(proofCheck(ctx, "relations", !(result.relations && result.relations.missing && result.relations.missing.length), (result.relations && result.relations.missing && result.relations.missing.length) ? "Missing relation CRUD requestables remain." : "", result.project));
 
     var requestables = normalizeProofRequestablesInput(ctx, opts.proofRequestables);
     var connectorName = "";
@@ -610,6 +859,76 @@ C8O.crudProof = C8O.crudProof || {};
       result.checks.push(proofCheck(ctx, "requestable:" + ctx.normalizedIdentifier(qname), proof.ok === true, proof.ok === true ? "" : (proof.message || "Runtime proof failed."), qname));
       if (proof.ok !== true) {
         pushMissing(ctx, result, qname);
+      }
+    }
+
+    if (!(result.crm && result.crm.enabled)) {
+      var project = ctx.findProjectByName(result.project);
+      var relationDescriptorsForProof = relationDescriptors(ctx, {
+        project: result.project,
+        facade: {
+          prefix: trimmed(ctx, opts.facadePrefix || "crud")
+        },
+        relations: []
+      }, project, trimmed(ctx, opts.facadePrefix || "crud"));
+      for (var relationProofIndex = 0; relationProofIndex < relationDescriptorsForProof.length; relationProofIndex++) {
+        var relationDescriptorValue = relationDescriptorsForProof[relationProofIndex];
+        if (!relationDescriptorValue || !trimmed(ctx, relationDescriptorValue.requestableQName).length) {
+          continue;
+        }
+        if (!ctx.resolveQName(relationDescriptorValue.requestableQName, { optional: true })) {
+          continue;
+        }
+        var relationVariableNames = requestableVariableNames(ctx, relationDescriptorValue.requestableQName, result);
+        var relationVariableName = trimmed(ctx, relationDescriptorValue.relationVariableName || relationVariableNames[0] || "");
+        if (!relationVariableName.length && relationVariableNames.length) {
+          relationVariableName = trimmed(ctx, relationVariableNames[0]);
+        }
+        if (!relationVariableName.length) {
+          ctx.addWarning(result, "Unable to infer the input variable for relation proof " + relationDescriptorValue.requestableQName + ".");
+          continue;
+        }
+        relationDescriptorValue.relationVariableName = relationVariableName;
+        var parentListQName = trimmed(ctx, relationDescriptorValue.parentListRequestableQName);
+        if (!parentListQName.length) {
+          parentListQName = findParentListRequestableQName(ctx, project, result.project, trimmed(ctx, opts.facadePrefix || "crud"), relationDescriptorValue.toEntity);
+        }
+        var parentPayload = ctx.requestablePayload(parentListQName, {}, result);
+        var parentProof = ctx.summarizeRequestableProof(parentPayload, parentListQName, result);
+        result.requestables.push(parentProof);
+        result.checks.push(proofCheck(ctx, "requestable:" + ctx.normalizedIdentifier(parentListQName), parentProof.ok === true, parentProof.ok ? "" : (parentProof.message || "Parent list proof failed."), parentListQName));
+        var parentRow = ctx.firstSqlOutputRow(parentPayload);
+        var parentId = ctx.extractRowField(parentRow, [
+          String((relationDescriptorValue.toField || "")).toUpperCase(),
+          String(relationDescriptorValue.toField || "").toLowerCase(),
+          "ID",
+          "id"
+        ]);
+        if (parentId == null || parentId === "") {
+          result.checks.push(proofCheck(ctx, "relation:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName), false, "No parent row was available to prove the relation facade.", relationDescriptorValue.requestableQName));
+          pushMissing(ctx, result, relationDescriptorValue.requestableQName);
+          continue;
+        }
+        var relationPayload = ctx.requestablePayload(relationDescriptorValue.requestableQName, (function () {
+          var vars = {};
+          vars[relationVariableName] = String(parentId);
+          return vars;
+        })(), result);
+        var relationProof = ctx.summarizeRequestableProof(relationPayload, relationDescriptorValue.requestableQName, result);
+        var relationRow = ctx.firstSqlOutputRow(relationPayload);
+        var labelAlias = trimmed(ctx, relationDescriptorValue.labelAlias || (relationVariableName + "__label"));
+        var labelPresent = !!(labelAlias.length && rowHasField(ctx, relationRow, [
+          labelAlias,
+          String(labelAlias).toUpperCase(),
+          String(labelAlias).toLowerCase()
+        ]));
+        result.requestables.push(relationProof);
+        result.relations.proofs.push(relationProofResult(ctx, relationDescriptorValue, relationProof, labelPresent));
+        result.checks.push(proofCheck(ctx, "relation:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName), relationProof.ok === true, relationProof.ok ? "" : (relationProof.message || "Relation requestable proof failed."), relationDescriptorValue.requestableQName));
+        result.checks.push(proofCheck(ctx, "relation-label:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName), labelPresent || relationProof.itemCount === 0, (labelPresent || relationProof.itemCount === 0) ? "" : ("Relation label alias `" + labelAlias + "` is missing from the relation payload."), relationDescriptorValue.requestableQName));
+        if (relationProof.ok !== true || !(labelPresent || relationProof.itemCount === 0)) {
+          pushMissing(ctx, result, relationDescriptorValue.requestableQName);
+        }
       }
     }
 
@@ -651,9 +970,7 @@ C8O.crudProof = C8O.crudProof || {};
           forceRestart: false
         });
         result.ui.builderProbe = builderProbe || {};
-        if (!result.viewerUrl.length) {
-          result.viewerUrl = trimmed(ctx, (builderProbe && (builderProbe.viewerHomeUrl || builderProbe.viewerBaseUrl || builderProbe.viewerUrl)) || "");
-        }
+        result.viewerUrl = trimmed(ctx, (builderProbe && (builderProbe.viewerHomeUrl || builderProbe.viewerBaseUrl || builderProbe.viewerUrl)) || result.viewerUrl);
       } catch (builderProbeError) {
         ctx.addWarning(result, "Unable to probe the mobile builder from crud-proof: " + String(builderProbeError));
         result.ui.builderProbe = {
@@ -676,6 +993,7 @@ C8O.crudProof = C8O.crudProof || {};
           java.lang.Thread.sleep(1500);
         } catch (_ignoreBuilderProbeSleep) {}
         result.ui.builderProbe = refreshBuilderProbe(ctx, result, currentProbe) || currentProbe;
+        result.viewerUrl = trimmed(ctx, ((result.ui.builderProbe || {}).viewerHomeUrl || (result.ui.builderProbe || {}).viewerBaseUrl || (result.ui.builderProbe || {}).viewerUrl) || result.viewerUrl);
       }
       var builderReady = !!(result.ui.builderProbe && result.ui.builderProbe.status === "ready");
       var builderCompileError = !!(result.ui.builderProbe && result.ui.builderProbe.status === "compile_error");
@@ -764,6 +1082,7 @@ C8O.crudProof = C8O.crudProof || {};
   C8O.crudProof.firstSqlOutputRow = firstSqlOutputRow;
   C8O.crudProof.collectSqlOutputRows = collectSqlOutputRows;
   C8O.crudProof.extractRowField = extractRowField;
+  C8O.crudProof.rowHasField = rowHasField;
   C8O.crudProof.dedupeStrings = dedupeStrings;
   C8O.crudProof.normalizeProofRequestablesInput = normalizeProofRequestablesInput;
   C8O.crudProof.resolveProofRequestableQName = resolveProofRequestableQName;

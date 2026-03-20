@@ -37,6 +37,7 @@ C8O.crudUiState = C8O.crudUiState || {};
       "crudSamples",
       "crudSelected",
       "crudDrafts",
+      "crudRelationSearch",
       "crudModes",
       "crudEntityStatus",
       "crudEntityErrors"
@@ -160,6 +161,12 @@ C8O.crudUiState = C8O.crudUiState || {};
     return "((((" + globalExpr + ").crudDrafts || {})[" + keyExpr + "]) || {})";
   }
 
+  function crudRelationSearchExpression(ctx, searchKeyExpression) {
+    var keyExpr = trimmed(ctx, searchKeyExpression || "''") || "''";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudRelationSearch || {})[" + keyExpr + "]) || '')";
+  }
+
   function crudModeExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
     var globalExpr = crudGlobalExpression(ctx);
@@ -219,6 +226,7 @@ C8O.crudUiState = C8O.crudUiState || {};
   C8O.crudUiState.dashboardSampleExpression = dashboardSampleExpression;
   C8O.crudUiState.crudSelectedExpression = crudSelectedExpression;
   C8O.crudUiState.crudDraftExpression = crudDraftExpression;
+  C8O.crudUiState.crudRelationSearchExpression = crudRelationSearchExpression;
   C8O.crudUiState.crudModeExpression = crudModeExpression;
   C8O.crudUiState.crudEntityStatusExpression = crudEntityStatusExpression;
   C8O.crudUiState.crudEntityErrorExpression = crudEntityErrorExpression;

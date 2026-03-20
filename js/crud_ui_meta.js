@@ -128,21 +128,47 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
   function resolvedFieldLookup(ctx, entity) {
     var lookup = {};
     var fields = ctx.ensureArray(entity && entity.fields);
+    function keysFor(value) {
+      var primary = ctx.normalizedIdentifier(value || "");
+      if (!primary.length) {
+        return [];
+      }
+      var keys = [primary];
+      var compact = primary.replace(/_/g, "");
+      if (compact.length && compact !== primary) {
+        keys.push(compact);
+      }
+      return keys;
+    }
     for (var i = 0; i < fields.length; i++) {
       var field = fields[i];
       if (!field) {
         continue;
       }
-      var byColumn = ctx.normalizedIdentifier(field.column);
-      var byName = ctx.normalizedIdentifier(field.name);
-      if (byColumn.length && !lookup[byColumn]) {
-        lookup[byColumn] = field;
-      }
-      if (byName.length && !lookup[byName]) {
-        lookup[byName] = field;
+      var aliases = keysFor(field.column).concat(keysFor(field.name));
+      for (var aliasIndex = 0; aliasIndex < aliases.length; aliasIndex++) {
+        var alias = aliases[aliasIndex];
+        if (alias.length && !lookup[alias]) {
+          lookup[alias] = field;
+        }
       }
     }
     return lookup;
+  }
+
+  function lookupByAliases(ctx, lookup, value) {
+    var primary = ctx.normalizedIdentifier(value || "");
+    if (!primary.length) {
+      return null;
+    }
+    if (lookup[primary]) {
+      return lookup[primary];
+    }
+    var compact = primary.replace(/_/g, "");
+    if (compact.length && lookup[compact]) {
+      return lookup[compact];
+    }
+    return null;
   }
 
   function inferFieldLabel(ctx, field) {
@@ -161,6 +187,11 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       .replace(/^\w/, function (char) { return char.toUpperCase(); });
   }
 
+  function relationDisplayColumn(ctx, field) {
+    var column = ctx.normalizedIdentifier(field && (field.column || field.name));
+    return column.length ? (column + "__label") : "__label";
+  }
+
   function normalizeUiOverrideBlock(ctx, entity) {
     var rawUi = entity && entity.ui && typeof entity.ui === "object" ? entity.ui : {};
     var labels = {};
@@ -173,6 +204,10 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
         continue;
       }
       labels[key] = value;
+      var compactKey = key.replace(/_/g, "");
+      if (compactKey.length) {
+        labels[compactKey] = value;
+      }
     }
     function normalizeRefs(value) {
       var entries = ctx.ensureArray(value);
@@ -188,12 +223,110 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       }
       return refs;
     }
+    var relationFields = {};
+    var rawRelationFields = rawUi.relationFields && typeof rawUi.relationFields === "object" ? rawUi.relationFields : {};
+    var relationKeys = Object.keys(rawRelationFields);
+    for (var relationIndex = 0; relationIndex < relationKeys.length; relationIndex++) {
+      var relationFieldKey = ctx.normalizedIdentifier(relationKeys[relationIndex]);
+      if (!relationFieldKey.length) {
+        continue;
+      }
+      var rawRelationConfig = rawRelationFields[relationKeys[relationIndex]];
+      if (!rawRelationConfig || typeof rawRelationConfig !== "object") {
+        continue;
+      }
+      var control = ctx.trimmed(rawRelationConfig.control || "").toLowerCase();
+      if (control !== "autocomplete" && control !== "select") {
+        control = "";
+      }
+      relationFields[relationFieldKey] = {
+        control: control,
+        optionLabelField: ctx.normalizedIdentifier(rawRelationConfig.optionLabelField || ""),
+        optionValueField: ctx.normalizedIdentifier(rawRelationConfig.optionValueField || ""),
+        placeholder: ctx.trimmed(rawRelationConfig.placeholder || "")
+      };
+      var compactRelationFieldKey = relationFieldKey.replace(/_/g, "");
+      if (compactRelationFieldKey.length) {
+        relationFields[compactRelationFieldKey] = relationFields[relationFieldKey];
+      }
+    }
     return {
       listFields: normalizeRefs(rawUi.listFields),
       detailFields: normalizeRefs(rawUi.detailFields),
       formFields: normalizeRefs(rawUi.formFields),
       fieldLabels: labels,
-      actionLabel: ctx.trimmed(rawUi.actionLabel || "")
+      actionLabel: ctx.trimmed(rawUi.actionLabel || ""),
+      relationFields: relationFields
+    };
+  }
+
+  function preferredRelationLabelField(ctx, targetEntity) {
+    if (!targetEntity) {
+      return null;
+    }
+    if (typeof ctx.preferredRelationLabelField === "function") {
+      return ctx.preferredRelationLabelField(targetEntity);
+    }
+    var preview = C8O.crudUiMeta.schemaPreviewFields(ctx, targetEntity, 1, false);
+    return preview.length ? preview[0] : (targetEntity.primaryField || null);
+  }
+
+  function findRelatedEntity(ctx, entities, references) {
+    if (!references || !references.entity || typeof ctx.findEntityByName !== "function") {
+      return null;
+    }
+    return ctx.findEntityByName(entities, references.entity);
+  }
+
+  function buildRelationConfig(ctx, entities, field, override, label) {
+    if (!field || !field.references) {
+      return null;
+    }
+    var relatedEntity = findRelatedEntity(ctx, entities, field.references);
+    var preferredLabelField = preferredRelationLabelField(ctx, relatedEntity);
+    var optionLabelField = ctx.normalizedIdentifier(
+      (override && override.optionLabelField) ||
+      (preferredLabelField && (preferredLabelField.column || preferredLabelField.name)) ||
+      (field.references && field.references.field) ||
+      "id"
+    );
+    var optionValueField = ctx.normalizedIdentifier(
+      (override && override.optionValueField) ||
+      (field.references && field.references.field) ||
+      "id"
+    );
+    var control = ctx.trimmed(override && override.control || "").toLowerCase();
+    if (control !== "autocomplete" && control !== "select") {
+      control = "select";
+    }
+    return {
+      control: control,
+      column: field.column,
+      label: label,
+      entity: ctx.pluralize(ctx.normalizedIdentifier(field.references.entity)),
+      targetField: ctx.normalizedIdentifier(field.references.field || "id"),
+      optionLabelField: optionLabelField,
+      optionValueField: optionValueField,
+      placeholder: ctx.trimmed(override && override.placeholder || ("Select " + label)),
+      displayColumn: relationDisplayColumn(ctx, field)
+    };
+  }
+
+  function buildConfiguredField(ctx, entities, field, fieldLabels, relationOverrides) {
+    var normalizedKey = ctx.normalizedIdentifier(field && (field.column || field.name));
+    var compactKey = normalizedKey.replace(/_/g, "");
+    var label = fieldLabels[normalizedKey] || fieldLabels[compactKey] || inferFieldLabel(ctx, field);
+    var relation = buildRelationConfig(ctx, entities, field, relationOverrides[normalizedKey] || relationOverrides[compactKey], label);
+    return {
+      name: field.name,
+      column: field.column,
+      displayColumn: relation ? relation.displayColumn : field.column,
+      label: label,
+      type: field.type,
+      required: field.required === true,
+      unique: field.unique === true,
+      references: field.references ? ctx.clone(field.references) : null,
+      relation: relation
     };
   }
 
@@ -205,7 +338,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     var seen = {};
     for (var i = 0; i < refs.length; i++) {
       var token = ctx.normalizedIdentifier(refs[i]);
-      var field = lookup[token];
+      var field = lookupByAliases(ctx, lookup, token);
       if (!field || seen[field.column]) {
         continue;
       }
@@ -233,7 +366,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     return resolved;
   }
 
-  C8O.crudUiMeta.entityUiConfig = function (ctx, projectName, facadePrefix, entity) {
+  C8O.crudUiMeta.entityUiConfig = function (ctx, projectName, facadePrefix, entity, entities) {
     var overrideUi = normalizeUiOverrideBlock(ctx, entity);
     var editableFields = ctx.ensureArray(entity && entity.fields).filter(function (field) {
       return field && field.primary !== true;
@@ -259,11 +392,22 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     var relationFields = editableFields.filter(function (field) {
       return field && field.references;
     });
+    var mappedListFields = listFields.map(function (field) {
+      return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {});
+    });
+    var mappedDetailFields = detailFields.map(function (field) {
+      return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {});
+    });
+    var mappedEditableFields = formFields.map(function (field) {
+      return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {});
+    });
     var uniqueFields = formFields.filter(function (field) {
       return field && field.unique === true;
     }).map(function (field) {
       return field.column;
     });
+    var previewPrimary = mappedListFields[0] || mappedDetailFields[0] || buildConfiguredField(ctx, entities, C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}, fieldLabels, overrideUi.relationFields || {});
+    var previewSecondary = mappedListFields[1] || mappedDetailFields[1] || mappedListFields[0] || mappedDetailFields[0] || buildConfiguredField(ctx, entities, C8O.crudUiMeta.secondPreviewField(ctx, entity) || C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}, fieldLabels, overrideUi.relationFields || {});
     return {
       key: entity.name,
       singular: entity.singular,
@@ -273,47 +417,17 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       routePath: C8O.crudUiMeta.entityRoutePath(ctx, entity),
       primaryColumn: (entity.primaryField && entity.primaryField.column) || "id",
       primaryLabel: (entity.primaryField && entity.primaryField.label) || "Id",
-      previewPrimaryColumn: ((listFields[0] || detailFields[0] || C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}).column) || "id",
-      previewSecondaryColumn: ((listFields[1] || detailFields[1] || listFields[0] || detailFields[0] || C8O.crudUiMeta.secondPreviewField(ctx, entity) || C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}).column) || "id",
+      previewPrimaryColumn: (previewPrimary && (previewPrimary.displayColumn || previewPrimary.column)) || "id",
+      previewSecondaryColumn: (previewSecondary && (previewSecondary.displayColumn || previewSecondary.column)) || "id",
       listRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "list"),
       readRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "read"),
       createRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "create"),
       updateRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "update"),
       deleteRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "delete"),
       actionLabel: overrideUi.actionLabel.length ? overrideUi.actionLabel : ("Save " + entity.singular),
-      listFields: listFields.map(function (field) {
-        return {
-          name: field.name,
-          column: field.column,
-          label: fieldLabels[ctx.normalizedIdentifier(field.column || field.name)] || inferFieldLabel(ctx, field),
-          type: field.type,
-          required: field.required === true,
-          unique: field.unique === true,
-          references: field.references ? ctx.clone(field.references) : null
-        };
-      }),
-      detailFields: detailFields.map(function (field) {
-        return {
-          name: field.name,
-          column: field.column,
-          label: fieldLabels[ctx.normalizedIdentifier(field.column || field.name)] || inferFieldLabel(ctx, field),
-          type: field.type,
-          required: field.required === true,
-          unique: field.unique === true,
-          references: field.references ? ctx.clone(field.references) : null
-        };
-      }),
-      editableFields: formFields.map(function (field) {
-        return {
-          name: field.name,
-          column: field.column,
-          label: fieldLabels[ctx.normalizedIdentifier(field.column || field.name)] || inferFieldLabel(ctx, field),
-          type: field.type,
-          required: field.required === true,
-          unique: field.unique === true,
-          references: field.references ? ctx.clone(field.references) : null
-        };
-      }),
+      listFields: mappedListFields,
+      detailFields: mappedDetailFields,
+      editableFields: mappedEditableFields,
       relationFields: relationFields.filter(function (field) {
         var allowed = false;
         for (var i = 0; i < formFields.length; i++) {
@@ -324,12 +438,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
         }
         return allowed;
       }).map(function (field) {
-        return {
-          column: field.column,
-          label: fieldLabels[ctx.normalizedIdentifier(field.column || field.name)] || inferFieldLabel(ctx, field),
-          entity: ctx.pluralize(ctx.normalizedIdentifier(field.references.entity)),
-          targetField: ctx.normalizedIdentifier(field.references.field || "id")
-        };
+        return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {}).relation;
       }),
       fieldLabels: fieldLabels,
       uniqueFields: uniqueFields

@@ -191,6 +191,9 @@ C8O.crudViewer = C8O.crudViewer || {};
         basename = basename.split(":").pop();
       }
       if (basename.indexOf(prefix + "_list_") === 0) {
+        if (new RegExp("^" + prefix + "_list_.+_by_.+$").test(basename)) {
+          continue;
+        }
         markers.push(basename);
       }
     }

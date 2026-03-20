@@ -1,0 +1,77 @@
+{
+  "project": "EmployeesCompanies",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "employees_companies",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "hr",
+    "publicListSequence": "hr_list"
+  },
+  "relations": [
+    {
+      "name": "employee_company",
+      "type": "many-to-one",
+      "fromEntity": "employees",
+      "fromField": "company_id",
+      "toEntity": "companies",
+      "toField": "id",
+      "required": true,
+      "label": "Company"
+    }
+  ],
+  "entities": [
+    {
+      "name": "companies",
+      "label": "Companies",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "City", "type": "VARCHAR(128)" },
+        { "name": "Industry", "type": "VARCHAR(128)" }
+      ],
+      "ui": {
+        "listFields": ["name", "city"],
+        "detailFields": ["name", "city", "industry"],
+        "formFields": ["name", "city", "industry"]
+      }
+    },
+    {
+      "name": "employees",
+      "label": "Employees",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "column": "first_name", "type": "VARCHAR(128)" },
+        { "name": "LastName", "column": "last_name", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Title", "type": "VARCHAR(128)" },
+        { "name": "CompanyId", "column": "company_id", "type": "INT", "required": true }
+      ],
+      "ui": {
+        "listFields": ["first_name", "last_name", "company_id"],
+        "detailFields": ["first_name", "last_name", "title", "email", "company_id"],
+        "formFields": ["first_name", "last_name", "title", "email", "company_id"],
+        "fieldLabels": {
+          "first_name": "First name",
+          "last_name": "Last name",
+          "company_id": "Company"
+        }
+      }
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 6
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "entity-pages"
+  }
+}

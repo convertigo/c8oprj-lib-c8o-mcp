@@ -19,9 +19,22 @@ C8O.crudUiActions = C8O.crudUiActions || {};
     return draft;
   }
 
+  function relationSearchResetLines(configVarName) {
+    var cfg = String(configVarName || "config");
+    return [
+      "var relationSearch = Object.assign({}, page.global.crudRelationSearch || {});",
+      "var relationFields = Array.isArray(" + cfg + ".relationFields) ? " + cfg + ".relationFields : [];",
+      "for (var relationIndex = 0; relationIndex < relationFields.length; relationIndex++) {",
+      "  var relationField = relationFields[relationIndex] || {};",
+      "  delete relationSearch[String(" + cfg + ".key || '') + '::' + String(relationField['column'] || '')];",
+      "}",
+      "page.global.crudRelationSearch = relationSearch;"
+    ];
+  }
+
   function buildEntityPagesBootstrapActionScript(ctx, projectName, facadePrefix, entities, stage) {
     var configs = entities.map(function (entity) {
-      var config = ctx.entityUiConfig(projectName, facadePrefix, entity);
+      var config = ctx.entityUiConfig(projectName, facadePrefix, entity, entities);
       config.defaultDraft = entityPagesDefaultDraft(ctx, config);
       return config;
     });
@@ -40,6 +53,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.global.crudSamples = {};",
       "page.global.crudSelected = {};",
       "page.global.crudDrafts = {};",
+      "page.global.crudRelationSearch = {};",
       "page.global.crudModes = {};",
       "page.global.crudEntityStatus = {};",
       "page.global.crudEntityErrors = {};",
@@ -129,6 +143,12 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { [key]: rows[0] || null });",
       "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
       "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: draft });",
+      relationSearchResetLines("config")[0],
+      relationSearchResetLines("config")[1],
+      relationSearchResetLines("config")[2],
+      relationSearchResetLines("config")[3],
+      relationSearchResetLines("config")[4],
+      relationSearchResetLines("config")[5],
       "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: mode });",
       "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: rows.length ? 'ready' : 'empty' });",
       "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
@@ -210,6 +230,12 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "var selected = rows.find(function(row) { return String(row?.ID ?? row?.id ?? '') === rowId; }) || null;",
       "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
       "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(selected || config.defaultDraft || {}) });",
+      relationSearchResetLines("config")[0],
+      relationSearchResetLines("config")[1],
+      relationSearchResetLines("config")[2],
+      relationSearchResetLines("config")[3],
+      relationSearchResetLines("config")[4],
+      relationSearchResetLines("config")[5],
       "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: selected ? 'update' : 'create' });",
       "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'ready' });",
       "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
@@ -226,6 +252,12 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "var config = " + JSON.stringify(cfg) + ";",
       "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [config.key]: null });",
       "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [config.key]: JSON.parse(JSON.stringify(config.defaultDraft || {})) });",
+      relationSearchResetLines("config")[0],
+      relationSearchResetLines("config")[1],
+      relationSearchResetLines("config")[2],
+      relationSearchResetLines("config")[3],
+      relationSearchResetLines("config")[4],
+      relationSearchResetLines("config")[5],
       "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [config.key]: 'create' });",
       "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [config.key]: 'editing' });",
       "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [config.key]: '' });",
@@ -244,6 +276,12 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "var selected = ((page.global?.crudSelected || {})[config.key]) || null;",
       "var draft = cloneRecord(selected || config.defaultDraft || {});",
       "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [config.key]: draft });",
+      relationSearchResetLines("config")[0],
+      relationSearchResetLines("config")[1],
+      relationSearchResetLines("config")[2],
+      relationSearchResetLines("config")[3],
+      relationSearchResetLines("config")[4],
+      relationSearchResetLines("config")[5],
       "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [config.key]: selected ? 'update' : 'create' });",
       "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [config.key]: selected ? 'ready' : 'editing' });",
       "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [config.key]: '' });",
@@ -310,6 +348,12 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { [key]: rows[0] || null });",
       "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: nextSelected });",
       "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(nextSelected || config.defaultDraft || {}) });",
+      relationSearchResetLines("config")[0],
+      relationSearchResetLines("config")[1],
+      relationSearchResetLines("config")[2],
+      relationSearchResetLines("config")[3],
+      relationSearchResetLines("config")[4],
+      relationSearchResetLines("config")[5],
       "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: nextSelected ? 'update' : 'create' });",
       "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'saved' });",
       "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
@@ -368,6 +412,12 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "  page.global.crudSamples = Object.assign({}, page.global.crudSamples || {}, { [key]: rows[0] || null });",
       "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: nextSelected });",
       "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(nextSelected || config.defaultDraft || {}) });",
+      relationSearchResetLines("config")[0],
+      relationSearchResetLines("config")[1],
+      relationSearchResetLines("config")[2],
+      relationSearchResetLines("config")[3],
+      relationSearchResetLines("config")[4],
+      relationSearchResetLines("config")[5],
       "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: nextSelected ? 'update' : 'create' });",
       "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'deleted' });",
       "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
@@ -392,7 +442,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
     var qnames = [];
     var children = [];
     var configs = entities.map(function (entity) {
-      return ctx.entityUiConfig(projectName, facadePrefix, entity);
+      return ctx.entityUiConfig(projectName, facadePrefix, entity, entities);
     });
     var bootstrapQName = ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard");
     qnames.push(bootstrapQName, ctx.dashboardActionQName(projectName, "crud_retry_dashboard"));

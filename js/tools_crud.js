@@ -253,6 +253,8 @@ C8O.crud = C8O.crud || {};
       pluralize: pluralize,
       normalizedIdentifier: normalizedIdentifier,
       normalizeSpec: normalizeSpec,
+      findEntityByName: findEntityByName,
+      preferredRelationLabelField: preferredRelationLabelField,
       ensureProject: ensureProject,
       crmRelationContext: crmRelationContext,
       buildSeedSql: buildSeedSql,
@@ -294,6 +296,7 @@ C8O.crud = C8O.crud || {};
       dashboardActionQName: dashboardActionQName,
       pageQName: pageQName,
       sharedComponentQName: sharedComponentQName,
+      crudRelationSearchExpression: crudRelationSearchExpression,
       ifDirectiveNode: ifDirectiveNode,
       buildUseSharedNode: buildUseSharedNode,
       scriptLiteral: function (value) {
@@ -312,6 +315,8 @@ C8O.crud = C8O.crud || {};
       normalizedIdentifier: normalizedIdentifier,
       semanticFieldToken: semanticFieldToken,
       tokenMatches: tokenMatches,
+      findEntityByName: findEntityByName,
+      preferredRelationLabelField: preferredRelationLabelField,
       facadeSequenceQName: facadeSequenceQName
     };
   }
@@ -319,6 +324,7 @@ C8O.crud = C8O.crud || {};
   function crudProofContext() {
     return {
       trimmed: trimmed,
+      pluralize: pluralize,
       ensureArray: ensureArray,
       ensureWarnings: ensureWarnings,
       addWarning: addWarning,
@@ -472,6 +478,7 @@ C8O.crud = C8O.crud || {};
       crudEntityStatusExpression: crudEntityStatusExpression,
       crudEntityErrorExpression: crudEntityErrorExpression,
       crudDraftExpression: crudDraftExpression,
+      crudRelationSearchExpression: crudRelationSearchExpression,
       dashboardActionQName: dashboardActionQName,
       entityPagesButtonNode: entityPagesButtonNode,
       buildUseSharedNode: buildUseSharedNode,
@@ -707,6 +714,10 @@ C8O.crud = C8O.crud || {};
     return C8O.crudSpec.applyCrmDefaults(crudSpecContext(), spec);
   }
 
+  function preferredRelationLabelField(entity) {
+    return C8O.crudSpec.preferredRelationLabelField(crudSpecContext(), entity);
+  }
+
 	  function findProjectByName(projectName) {
 	    return C8O.crudRuntime.findProjectByName(crudRuntimeContext(), projectName);
 	  }
@@ -780,6 +791,7 @@ C8O.crud = C8O.crud || {};
       trimmed: trimmed,
       ensureArray: ensureArray,
       ucfirst: ucfirst,
+      pluralize: pluralize,
       semanticToken: semanticToken,
       semanticFieldToken: semanticFieldToken,
       semanticEntityToken: semanticEntityToken,
@@ -1141,8 +1153,8 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiMeta.secondPreviewField(crudUiMetaContext(), entity);
   }
 
-  function entityUiConfig(projectName, facadePrefix, entity) {
-    return C8O.crudUiMeta.entityUiConfig(crudUiMetaContext(), projectName, facadePrefix, entity);
+  function entityUiConfig(projectName, facadePrefix, entity, entities) {
+    return C8O.crudUiMeta.entityUiConfig(crudUiMetaContext(), projectName, facadePrefix, entity, entities);
   }
 
   function normalizeUiEntities(rawEntities) {
@@ -1392,6 +1404,10 @@ C8O.crud = C8O.crud || {};
 
   function crudDraftExpression(entityKeyExpression) {
     return C8O.crudUiState.crudDraftExpression(crudUiStateContext(), entityKeyExpression);
+  }
+
+  function crudRelationSearchExpression(searchKeyExpression) {
+    return C8O.crudUiState.crudRelationSearchExpression(crudUiStateContext(), searchKeyExpression);
   }
 
   function crudModeExpression(entityKeyExpression) {

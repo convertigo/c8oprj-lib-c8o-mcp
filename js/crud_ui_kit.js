@@ -141,6 +141,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       if (!rawKey.length) {
         continue;
       }
+      if (/__label$/i.test(rawKey)) {
+        continue;
+      }
       var column = ctx.normalizedIdentifier(rawKey);
       var current = existingByColumn[column] || null;
       hydratedFields.push({
@@ -258,6 +261,61 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return summary;
   }
 
+  function appShellImportPatchLines() {
+    return [
+      "import { IonHeader, IonIcon, IonItem, IonLabel, IonList, IonMenu, IonRouterLink } from '@ionic/angular/standalone';",
+      "import { RouterLink } from '@angular/router';"
+    ];
+  }
+
+  function currentAppComponentScriptContent(ctx, projectName) {
+    try {
+      var payload = ctx.callInternalSequence("tools_databaseobject_tree_get", {
+        target: ctx.ngxAppQName(projectName),
+        childrenDepth: 0,
+        properties: "all",
+        limit: 1
+      });
+      return ctx.trimmed(payload && payload.tree && payload.tree.properties && payload.tree.properties.componentScriptContent || "");
+    } catch (_ignoreAppComponentScriptContent) {
+      return "";
+    }
+  }
+
+  function mergeAppImportBlock(scriptContent, lines) {
+    var text = String(scriptContent || "");
+    var importLines = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = String(lines[i] || "");
+      if (!line.length || text.indexOf(line) !== -1) {
+        continue;
+      }
+      importLines.push(line);
+    }
+    if (!importLines.length) {
+      return {
+        changed: false,
+        value: text
+      };
+    }
+    var beginMarker = "/*Begin_c8o_AppImport*/";
+    var endMarker = "/*End_c8o_AppImport*/";
+    var blockPattern = /\/\*Begin_c8o_AppImport\*\/[\s\S]*?\/\*End_c8o_AppImport\*\//;
+    var normalizedInsert = beginMarker + "\n" + importLines.join("\n") + "\n" + endMarker;
+    if (blockPattern.test(text)) {
+      return {
+        changed: true,
+        value: text.replace(blockPattern, function (block) {
+          return block.replace(endMarker, importLines.join("\n") + "\n" + endMarker);
+        })
+      };
+    }
+    return {
+      changed: true,
+      value: normalizedInsert + (text.length ? ("\n" + text) : "")
+    };
+  }
+
   C8O.crudUiKit.upsertNgxCrudKit = function (ctx, options) {
     var startedAt = ctx.nowMillis();
     var result = {
@@ -314,7 +372,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var sharedActions = isMasterDetail
       ? ctx.buildCrmActionStacksTree(projectName, facadePrefix, stage)
       : (isEntityPages ? ctx.buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
+    var reuseExistingSharedComponents = stage === "final" && ctx.everyQNameExists(sharedComponents.qnames);
     var reuseExistingSharedActions = stage === "final" && ctx.everyQNameExists(sharedActions.qnames);
+    var sharedComponentChildren = reuseExistingSharedComponents ? [] : ctx.ensureArray(sharedComponents.tree.children);
     var sharedActionChildren = reuseExistingSharedActions ? [] : ctx.ensureArray(sharedActions.tree.children);
     ctx.setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
     result.runtimeEvidence.sharedComponentsRequested = ctx.ensureArray(sharedComponents.tree.children).length;
@@ -324,6 +384,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.templateSourceQNames = ctx.ensureArray(sharedComponents.templateSourceQNames);
     result.runtimeEvidence.sharedActionsRequested = ctx.ensureArray(sharedActions.tree.children).length;
     result.runtimeEvidence.sharedActionTreeNodeCount = ctx.countTreeNodes(sharedActions.tree);
+    result.runtimeEvidence.sharedComponentsReused = reuseExistingSharedComponents;
     result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
     result.runtimeEvidence.uiGlobals = ctx.statefulUiGlobals(variant);
     result.runtimeEvidence.workInProgressMode = "stateful-visibility";
@@ -419,6 +480,22 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         qname: qname
       };
     });
+    var appImportPatch = {
+      status: "skipped",
+      changed: false,
+      target: ctx.ngxAppQName(projectName)
+    };
+    var mergedAppScript = null;
+    if (isEntityPages) {
+      mergedAppScript = mergeAppImportBlock(currentAppComponentScriptContent(ctx, projectName), appShellImportPatchLines());
+      if (mergedAppScript.changed) {
+        appImportPatch = {
+          status: "pending",
+          changed: true,
+          target: ctx.ngxAppQName(projectName)
+        };
+      }
+    }
     var batchOperations = cleanupOperations.concat([
       {
         type: "upsertTree",
@@ -430,9 +507,17 @@ C8O.crudUiKit = C8O.crudUiKit || {};
           reorder: false
         },
         patch: {
-          children: ctx.ensureArray(sharedComponents.tree.children).concat(sharedActionChildren).concat(entityPageRoots)
+          children: sharedComponentChildren.concat(sharedActionChildren).concat(entityPageRoots)
         }
       },
+      appImportPatch.changed ? {
+        type: "setProperties",
+        opId: "app_component_imports",
+        qname: ctx.ngxAppQName(projectName),
+        properties: {
+          componentScriptContent: mergedAppScript.value
+        }
+      } : null,
       {
         type: "upsertTree",
         opId: "entry_page",
@@ -447,7 +532,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
           children: ctx.ensureArray(pageShellTree.children)
         }
       }
-    ]).concat(pageMutationOperations);
+    ].filter(function (item) { return !!item; })).concat(pageMutationOperations);
     for (var pageIndex = 0; pageIndex < entityPageShells.length; pageIndex++) {
       batchOperations.push(
         {
@@ -519,6 +604,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.sharedComponents = sharedComponents.qnames.slice();
     result.runtimeEvidence.batchApply = ctx.summarizeTreeApplyResult(batchApplyResult, ctx.ngxAppQName(projectName), result);
     result.runtimeEvidence.sharedComponentsApply = ctx.operationSummary(batchApplyResult, "shared_components", ctx.ngxAppQName(projectName));
+    result.runtimeEvidence.appComponentImports = appImportPatch.changed
+      ? ctx.operationSummary(batchApplyResult, "app_component_imports", ctx.ngxAppQName(projectName))
+      : appImportPatch;
     result.runtimeEvidence.treeApply = ctx.operationSummary(batchApplyResult, "entry_page", contentQName);
     result.runtimeEvidence.pageLoadApply = ctx.operationSummary(batchApplyResult, "entry_page_load", ctx.pageQName(projectName, entryPage));
     result.runtimeEvidence.sharedActions = sharedActions.qnames.slice();
@@ -607,7 +695,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       );
       ctx.setDuration(timings, "pageTouchRefreshMs", pageTouchStartedAt);
       var mobileBuilderStartedAt = ctx.nowMillis();
-      var refreshTargets = [ctx.pageQName(projectName, entryPage)].concat(sharedComponents.qnames || []);
+      var refreshTargets = [ctx.pageQName(projectName, entryPage)].concat(reuseExistingSharedComponents ? [] : (sharedComponents.qnames || []));
       for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {
         refreshTargets.push(entityPageLoads[refreshIndex].tree.qname);
       }

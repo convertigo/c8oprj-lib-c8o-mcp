@@ -84,6 +84,13 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     if (!merged.length) {
       return false;
     }
+    if (
+      (merged.indexOf("npm warn tar") !== -1 || merged.indexOf("tar_entry_error") !== -1) &&
+      merged.indexOf("enoent") !== -1 &&
+      merged.indexOf("node_modules/") !== -1
+    ) {
+      return false;
+    }
     if (merged.indexOf("failed to compile") !== -1) {
       return true;
     }

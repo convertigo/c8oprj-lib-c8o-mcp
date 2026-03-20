@@ -237,7 +237,7 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
     if (!info) {
       return "";
     }
-    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` may be overwritten or break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel hints instead.";
+    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` may be overwritten or break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel/ui.relationFields hints instead.";
   }
 
   function collectManagedCrudCleanupQNames(ctx, ngxApp, expectedQNames) {

@@ -247,6 +247,13 @@ def is_seed_enabled(spec):
     return bool(seed.get("enabled"))
 
 
+def has_explicit_relations(spec):
+    if not isinstance(spec, dict):
+        return False
+    relations = spec.get("relations")
+    return isinstance(relations, list) and any(isinstance(item, dict) for item in relations)
+
+
 def first_event(events, predicate):
     for event in events:
         if predicate(event):
@@ -389,6 +396,8 @@ def check_call_order(events):
     upsert_spec = read_nested_spec((workflow["upsertCrud"]["args"] or {}).get("spec"))
     if not is_seed_enabled(upsert_spec):
         raise RuntimeError("Fresh session did not pass seeded demo data in the initial upsert-crud spec.")
+    if not has_explicit_relations(upsert_spec):
+        raise RuntimeError("Fresh session did not pass explicit relations[] in the initial upsert-crud spec.")
 
     post_green_mutation = first_event(
         events,

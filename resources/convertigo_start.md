@@ -59,11 +59,13 @@ Read this first for any MCP session that touches a Convertigo project.
 15. For a new CRUD UI project, make the app visible immediately: `marketplace-import` with the exact project name -> `mobile-builder-open` -> `upsert-crud` -> backend proof -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` probe -> `upsert-ngx-crud-kit stage=final` -> final proof with `viewerUrl`.
 16. For a low-detail CRUD request, stop after the first green scaffold plus seeded demo data. Do not start a second refinement pass on layout, labels, or field-level UX unless the user explicitly asked for it.
 17. Once the CRUD fast path is selected, do not call `rag-query` unless the built-in guides and tools no longer answer the task.
-18. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
-19. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
-20. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
-21. Save with `project-save`.
-22. Read a specialized handbook only when the recipe leaves open questions.
+18. When a CRUD domain obviously contains relations, declare them explicitly in `spec.relations[]`; use `field.references` only as the compatibility layer for simple FK fields.
+19. For generic CRUD UI relation controls, prefer `ui.relationFields` over direct edits on CRUD-kit-managed pages or shared components.
+20. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
+21. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
+22. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
+23. Save with `project-save`.
+24. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 

@@ -98,8 +98,10 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - Inputs accept both flat legacy QNames and canonical prefixed QNames. Public outputs use the canonical `qname`; prefer copying that value into the next MCP call.
 - Use `resources/templates/list` only to pick a template-bearing guide quickly; read the actual content through `resources/read`.
 - When the task is a standard CRUD path, capture the deterministic `spec` inputs early: project, driver family, connector name, facade prefix, entities, seed choice, visible entry page, and UI variant.
+- When the task is a standard CRUD path and relations are obvious, capture them explicitly in `spec.relations[]`. Treat `field.references` as the compatibility layer, not the preferred authoring surface.
 - Use the exact project name requested by the user when it is technically valid. Do not append prefixes, suffixes, or dates unless the user explicitly asked for them.
 - For the generic CRUD UI, prefer `ui.variant=entity-pages`. Treat `dashboard` as a legacy single-page fallback.
+- For generic CRUD UI relation controls, prefer `ui.relationFields` over patching generated CRUD-kit components.
 - When the task is a standard CRUD path, prefer `convertigo-crud-fastpath` and the direct order documented there: `marketplace-import` -> `mobile-builder-open` -> `upsert-crud` -> backend `crud-proof` -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final `crud-proof(viewerUrl)`.
 - When the task is a low-detail CRUD path, stop after that first green proof plus seeded demo data unless the user explicitly asked for custom screens, custom layout, or field-level UX tailoring.
 - Once the fast path has been selected, do not call `rag-query` unless the built-in guides and CRUD tools still leave a blocking gap.

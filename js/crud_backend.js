@@ -5,6 +5,89 @@ if (typeof C8O === "undefined") {
 C8O.crudBackend = C8O.crudBackend || {};
 
 (function () {
+  function relationLabelAlias(ctx, relation) {
+    return ctx.normalizedIdentifier(relation && relation.fromField || "") + "__label";
+  }
+
+  function relationsForEntity(ctx, spec, entity) {
+    var entries = ctx.ensureArray(spec && spec.relations);
+    var matches = [];
+    for (var i = 0; i < entries.length; i++) {
+      var relation = entries[i];
+      if (!relation || relation.type !== "many-to-one") {
+        continue;
+      }
+      if (ctx.pluralize(ctx.normalizedIdentifier(relation.fromEntity)) !== entity.name) {
+        continue;
+      }
+      matches.push(relation);
+    }
+    return matches;
+  }
+
+  function relationTargetEntity(ctx, spec, relation) {
+    return typeof ctx.findEntityByName === "function"
+      ? ctx.findEntityByName(spec && spec.entities, relation && relation.toEntity)
+      : null;
+  }
+
+  function relationListName(ctx, spec, relation) {
+    var child = typeof ctx.findEntityByName === "function"
+      ? ctx.findEntityByName(spec && spec.entities, relation && relation.fromEntity)
+      : null;
+    var parent = relationTargetEntity(ctx, spec, relation);
+    var childPlural = child && child.name ? child.name : ctx.pluralize(ctx.normalizedIdentifier(relation && relation.fromEntity || ""));
+    var parentSingular = parent && parent.singular ? parent.singular : ctx.normalizedIdentifier(relation && relation.toEntity || "parent");
+    return "list_" + childPlural + "_by_" + parentSingular;
+  }
+
+  function buildJoinedSelectSql(ctx, spec, entity, options) {
+    var currentOptions = options || {};
+    var baseAlias = currentOptions.baseAlias || "base";
+    var columns = C8O.crudBackend.listColumns(ctx, entity);
+    var relations = relationsForEntity(ctx, spec, entity);
+    var selectSegments = [];
+    for (var columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+      selectSegments.push(baseAlias + "." + columns[columnIndex]);
+    }
+    var joinLines = [];
+    for (var relationIndex = 0; relationIndex < relations.length; relationIndex++) {
+      var relation = relations[relationIndex];
+      var targetEntity = relationTargetEntity(ctx, spec, relation);
+      if (!targetEntity) {
+        continue;
+      }
+      var joinAlias = "rel_" + (relationIndex + 1);
+      var labelField = ctx.normalizedIdentifier((relation.ui && relation.ui.optionLabelField) || "");
+      if ((!labelField.length || labelField === "unnamed") && typeof ctx.preferredRelationLabelField === "function") {
+        var preferredLabelField = ctx.preferredRelationLabelField(targetEntity);
+        labelField = ctx.normalizedIdentifier(preferredLabelField && (preferredLabelField.column || preferredLabelField.name) || "");
+      }
+      if (!labelField.length || labelField === "unnamed") {
+        labelField = ctx.normalizedIdentifier(relation.toField || "id");
+      }
+      joinLines.push("LEFT JOIN " + targetEntity.name + " " + joinAlias + " ON " + baseAlias + "." + relation.fromField + " = " + joinAlias + "." + relation.toField);
+      selectSegments.push(joinAlias + "." + labelField + " AS " + relationLabelAlias(ctx, relation));
+    }
+    var lines = [
+      "SELECT " + selectSegments.join(", "),
+      "FROM " + entity.name + " " + baseAlias
+    ];
+    for (var joinIndex = 0; joinIndex < joinLines.length; joinIndex++) {
+      lines.push(joinLines[joinIndex]);
+    }
+    var whereSegments = ctx.ensureArray(currentOptions.whereSegments);
+    for (var whereIndex = 0; whereIndex < whereSegments.length; whereIndex++) {
+      if (ctx.trimmed(whereSegments[whereIndex]).length) {
+        lines.push(whereSegments[whereIndex]);
+      }
+    }
+    if (ctx.trimmed(currentOptions.orderBy).length) {
+      lines.push("ORDER BY " + currentOptions.orderBy);
+    }
+    return lines.join("\n");
+  }
+
   C8O.crudBackend.mapSqlType = function (ctx, field, driver) {
     var raw = ctx.trimmed(field.type || "").toUpperCase();
     if (!raw.length) {
@@ -159,6 +242,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       if (crm && entity.name === crm.contacts.name) {
         return [
           "SELECT c." + columns.join(", c."),
+          ", co.name AS " + relationLabelAlias(ctx, { fromField: crm.relationField.column }),
           ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
           "FROM " + entity.name + " c",
           "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
@@ -173,13 +257,19 @@ C8O.crudBackend = C8O.crudBackend || {};
           "ORDER BY co." + pk + " ASC"
         ].join("\n");
       }
-      return "SELECT " + columns.join(", ") + "\nFROM " + entity.name + "\nORDER BY " + pk + " ASC";
+      return buildJoinedSelectSql(ctx, spec, entity, {
+        baseAlias: "base",
+        orderBy: "base." + pk + " ASC"
+      });
     }
     if (verb === "count") {
       return "SELECT COUNT(*) AS total\nFROM " + entity.name;
     }
     if (verb === "read") {
-      return "SELECT " + columns.join(", ") + "\nFROM " + entity.name + "\nWHERE " + pk + " = {" + pk + "}";
+      return buildJoinedSelectSql(ctx, spec, entity, {
+        baseAlias: "base",
+        whereSegments: ["WHERE base." + pk + " = {" + pk + "}"]
+      });
     }
     if (verb === "create") {
       return "INSERT INTO " + entity.name + " (" + nonPkFields.map(function (field) { return field.column; }).join(", ") + ")\nVALUES (" + nonPkFields.map(function (field) { return "{" + field.column + "}"; }).join(", ") + ")";
@@ -201,6 +291,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     var contactColumns = C8O.crudBackend.listColumns(ctx, crm.contacts);
     return [
       "SELECT c." + contactColumns.join(", c."),
+      ", co.name AS " + relationLabelAlias(ctx, { fromField: crm.relationField.column }),
       ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
       "FROM " + crm.contacts.name + " c",
       "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
@@ -406,6 +497,40 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
     }
 
+    var relations = ctx.ensureArray(spec && spec.relations);
+    for (var relationIndex = 0; relationIndex < relations.length; relationIndex++) {
+      var relation = relations[relationIndex];
+      if (!relation || relation.type !== "many-to-one") {
+        continue;
+      }
+      if (crm && relation.fromEntity === crm.contacts.name && relation.toEntity === crm.companies.name && relation.fromField === crm.relationField.column) {
+        continue;
+      }
+      var relatedEntity = ctx.findEntityByName(spec.entities, relation.fromEntity);
+      if (!relatedEntity) {
+        continue;
+      }
+      var relationTxName = relationListName(ctx, spec, relation);
+      var relationSql = buildJoinedSelectSql(ctx, spec, relatedEntity, {
+        baseAlias: "base",
+        whereSegments: ["WHERE base." + relation.fromField + " = {" + relation.fromField + "}"],
+        orderBy: "base." + relatedEntity.primaryField.column + " ASC"
+      });
+      var relationTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, relationTxName, relationSql, ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      if (result.sequence) {
+        var relationVars = C8O.crudBackend.collectTransactionVariables(ctx, relationTx);
+        var relationSeq = C8O.crudBackend.ensurePublicSequence(
+          ctx,
+          project,
+          spec.facade.prefix + "_" + relationTxName,
+          ctx.connectorRequestableQName(spec.project, spec.database.connector, relationTxName),
+          relationVars,
+          result
+        );
+        result.primaryTargets.flow.push(relationSeq.getFullQName ? String(relationSeq.getFullQName()) : (spec.project + "." + spec.facade.prefix + "_" + relationTxName));
+      }
+    }
+
     var saveResult = ctx.saveProject(project, []);
     result.runtimeEvidence.projectSave = ctx.summarizeSaveResult(saveResult, result);
     result.runtimeEvidence.studioRefresh = ctx.refreshStudioProjectTree(project, result, "studioRefresh");
@@ -422,6 +547,15 @@ C8O.crudBackend = C8O.crudBackend || {};
         ok: true,
         message: "Relation facade created. Runtime relation proof happens in crud-proof."
       };
+    }
+    if (relations.length) {
+      result.runtimeEvidence.relations = relations.map(function (relation) {
+        return {
+          name: relation.name,
+          type: relation.type,
+          requestable: spec.project + "." + spec.facade.prefix + "_" + relationListName(ctx, spec, relation)
+        };
+      });
     }
 
     if (result.uiEnabled) {
@@ -457,4 +591,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     result.status = result.warnings.length ? "partial" : "success";
     return result;
   };
+
+  C8O.crudBackend.relationsForEntity = relationsForEntity;
+  C8O.crudBackend.relationListName = relationListName;
 })();

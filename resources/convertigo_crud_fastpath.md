@@ -51,7 +51,8 @@ Default assumptions for the fast path:
 - treat `dashboard` as a legacy single-page fallback
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 - for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
-- for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, and `ui.actionLabel` over direct edits on generated CRUD-kit shared components
+- when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
+- for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` over direct edits on generated CRUD-kit shared components
 
 ## Deterministic rail
 1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
@@ -85,10 +86,16 @@ For the default `Contact` / `Company` fast path:
 - `count_companies`
 - `list_company_contacts`
 
+For a generic many-to-one relation such as `employees.company_id -> companies.id`:
+- declare the relation in `spec.relations[]`
+- optionally configure the UI through `entities[].ui.relationFields.company_id`
+- expect the backend to expose `company_id__label` in `list_employees` / `read_employee`
+- expect a derived public facade such as `list_employees_by_company`
+
 ## Anti-patterns
 - Do not route a standard CRUD task through planner/specialist handoffs first.
 - Do not let the agent rediscover CRUD scaffolding manually when `upsert-crud` already fits.
 - Do not accept a run where the starter body is still dominant on the visible page.
 - Do not use RAG before the built-in CRUD tools and guides are exhausted.
 - Do not continue mutating the generated CRUD UI after the first green proof unless the user explicitly asked for more than the generic scaffold.
-- Do not patch CRUD-kit-managed shared components directly when entity-level UI hints can express the needed visible fields.
+- Do not patch CRUD-kit-managed shared components directly when `spec.relations[]`, `field.references`, `ui.listFields`, `ui.detailFields`, `ui.formFields`, or `ui.relationFields` can express the needed CRUD behavior.

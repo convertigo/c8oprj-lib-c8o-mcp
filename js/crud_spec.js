@@ -175,6 +175,19 @@ C8O.crudSpec = C8O.crudSpec || {};
     };
   };
 
+  function normalizedLookupKeys(ctx, value) {
+    var primary = ctx.normalizedIdentifier(value || "");
+    if (!primary.length) {
+      return [];
+    }
+    var keys = [primary];
+    var compact = primary.replace(/_/g, "");
+    if (compact.length && compact !== primary) {
+      keys.push(compact);
+    }
+    return keys;
+  }
+
   C8O.crudSpec.normalizeEntityUi = function (ctx, rawUi) {
     var source = rawUi && typeof rawUi === "object" ? rawUi : {};
 
@@ -197,12 +210,43 @@ C8O.crudSpec = C8O.crudSpec || {};
     var rawFieldLabels = source.fieldLabels && typeof source.fieldLabels === "object" ? source.fieldLabels : {};
     var rawFieldLabelKeys = Object.keys(rawFieldLabels);
     for (var index = 0; index < rawFieldLabelKeys.length; index++) {
-      var rawKey = ctx.normalizedIdentifier(rawFieldLabelKeys[index]);
+      var rawKeys = normalizedLookupKeys(ctx, rawFieldLabelKeys[index]);
       var rawValue = ctx.trimmed(rawFieldLabels[rawFieldLabelKeys[index]]);
-      if (!rawKey.length || !rawValue.length) {
+      if (!rawKeys.length || !rawValue.length) {
         continue;
       }
-      fieldLabels[rawKey] = rawValue;
+      for (var rawKeyIndex = 0; rawKeyIndex < rawKeys.length; rawKeyIndex++) {
+        fieldLabels[rawKeys[rawKeyIndex]] = rawValue;
+      }
+    }
+
+    var relationFields = {};
+    var rawRelationFields = source.relationFields && typeof source.relationFields === "object" ? source.relationFields : {};
+    var relationFieldKeys = Object.keys(rawRelationFields);
+    for (var relationIndex = 0; relationIndex < relationFieldKeys.length; relationIndex++) {
+      var relationKeys = normalizedLookupKeys(ctx, relationFieldKeys[relationIndex]);
+      if (!relationKeys.length) {
+        continue;
+      }
+      var rawRelation = rawRelationFields[relationFieldKeys[relationIndex]];
+      if (!rawRelation || typeof rawRelation !== "object") {
+        continue;
+      }
+      var control = ctx.trimmed(rawRelation.control || "").toLowerCase();
+      if (control !== "autocomplete" && control !== "select") {
+        control = "";
+      }
+      var optionLabelField = ctx.normalizedIdentifier(rawRelation.optionLabelField || "");
+      var optionValueField = ctx.normalizedIdentifier(rawRelation.optionValueField || "");
+      var placeholder = ctx.trimmed(rawRelation.placeholder || "");
+      for (var relationKeyIndex = 0; relationKeyIndex < relationKeys.length; relationKeyIndex++) {
+        relationFields[relationKeys[relationKeyIndex]] = {
+          control: control,
+          optionLabelField: optionLabelField,
+          optionValueField: optionValueField,
+          placeholder: placeholder
+        };
+      }
     }
 
     return {
@@ -210,7 +254,8 @@ C8O.crudSpec = C8O.crudSpec || {};
       detailFields: normalizeFieldRefs(source.detailFields),
       formFields: normalizeFieldRefs(source.formFields),
       fieldLabels: fieldLabels,
-      actionLabel: ctx.trimmed(source.actionLabel || "")
+      actionLabel: ctx.trimmed(source.actionLabel || ""),
+      relationFields: relationFields
     };
   };
 
@@ -277,6 +322,265 @@ C8O.crudSpec = C8O.crudSpec || {};
     return null;
   };
 
+  function relationMapKey(ctx, fromEntityName, fromFieldName) {
+    return ctx.pluralize(ctx.normalizedIdentifier(fromEntityName || "")) + "::" + ctx.normalizedIdentifier(fromFieldName || "");
+  }
+
+  function relationLabelAlias(ctx, fromFieldName) {
+    var column = ctx.normalizedIdentifier(fromFieldName || "");
+    return column.length ? (column + "__label") : "__label";
+  }
+
+  function normalizeFieldReference(ctx, rawReference) {
+    if (!rawReference || typeof rawReference !== "object") {
+      return null;
+    }
+    var targetEntity = ctx.pluralize(ctx.normalizedIdentifier(rawReference.entity || ""));
+    if (!targetEntity.length) {
+      return null;
+    }
+    return {
+      entity: targetEntity,
+      field: ctx.normalizedIdentifier(rawReference.field || "id")
+    };
+  }
+
+  function entityRelationUiConfig(ctx, entity, fieldColumn) {
+    var relationFields = entity && entity.ui && entity.ui.relationFields && typeof entity.ui.relationFields === "object"
+      ? entity.ui.relationFields
+      : {};
+    var keys = normalizedLookupKeys(ctx, fieldColumn || "");
+    for (var i = 0; i < keys.length; i++) {
+      if (relationFields[keys[i]]) {
+        return ctx.clone(relationFields[keys[i]]);
+      }
+    }
+    return {};
+  }
+
+  function preferredRelationLabelField(ctx, entity) {
+    if (!entity) {
+      return null;
+    }
+    var preferred = [
+      ["displayname", "display_name", "name", "nom", "nomcommun", "commonname", "title", "titre"],
+      ["firstname", "prenom", "lastname", "surname", "nomscientifique", "scientificname"],
+      ["email", "city", "ville", "industry", "secteur", "category", "categorie", "venue", "badge"]
+    ];
+    for (var p = 0; p < preferred.length; p++) {
+      for (var i = 0; i < preferred[p].length; i++) {
+        var expected = ctx.normalizedIdentifier(preferred[p][i]);
+        var preferredField = C8O.crudSpec.findField(ctx, entity, function (field) {
+          if (!field || field.primary === true) {
+            return false;
+          }
+          var token = ctx.normalizedIdentifier(field.column || field.name);
+          return token === expected;
+        });
+        if (preferredField) {
+          return preferredField;
+        }
+      }
+    }
+    var uniqueField = C8O.crudSpec.findField(ctx, entity, function (field) {
+      return field && !field.primary && !field.references && field.unique === true;
+    });
+    if (uniqueField) {
+      return uniqueField;
+    }
+    var semanticField = C8O.crudSpec.findField(ctx, entity, function (field) {
+      return field && !field.primary && !field.references;
+    });
+    if (semanticField) {
+      return semanticField;
+    }
+    return entity.primaryField || null;
+  }
+
+  function normalizeRelationDefinition(ctx, spec, rawRelation) {
+    if (!rawRelation || typeof rawRelation !== "object") {
+      return null;
+    }
+    var rawType = ctx.trimmed(rawRelation.type || "many-to-one").toLowerCase();
+    var source = {
+      name: ctx.trimmed(rawRelation.name || ""),
+      type: rawType,
+      required: rawRelation.required == null ? null : ctx.toBoolean(rawRelation.required, false),
+      label: ctx.trimmed(rawRelation.label || "")
+    };
+    if (rawType === "one-to-many") {
+      source.fromEntity = ctx.pluralize(ctx.normalizedIdentifier(rawRelation.toEntity || ""));
+      source.fromField = ctx.normalizedIdentifier(rawRelation.toField || "");
+      source.toEntity = ctx.pluralize(ctx.normalizedIdentifier(rawRelation.fromEntity || ""));
+      source.toField = ctx.normalizedIdentifier(rawRelation.fromField || "id");
+      source.inputType = "one-to-many";
+    } else {
+      source.fromEntity = ctx.pluralize(ctx.normalizedIdentifier(rawRelation.fromEntity || ""));
+      source.fromField = ctx.normalizedIdentifier(rawRelation.fromField || "");
+      source.toEntity = ctx.pluralize(ctx.normalizedIdentifier(rawRelation.toEntity || ""));
+      source.toField = ctx.normalizedIdentifier(rawRelation.toField || "id");
+      source.inputType = "many-to-one";
+      source.type = "many-to-one";
+    }
+    if (!source.fromEntity.length || !source.fromField.length || !source.toEntity.length || !source.toField.length) {
+      throw new Error("Invalid relation definition: fromEntity/fromField/toEntity/toField are required");
+    }
+    var fromEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, source.fromEntity);
+    var toEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, source.toEntity);
+    if (!fromEntity) {
+      throw new Error("Unknown relation fromEntity: " + source.fromEntity);
+    }
+    if (!toEntity) {
+      throw new Error("Unknown relation toEntity: " + source.toEntity);
+    }
+    var targetField = C8O.crudSpec.findField(ctx, toEntity, function (field) {
+      return ctx.normalizedIdentifier(field && (field.column || field.name)) === source.toField;
+    });
+    if (!targetField) {
+      throw new Error("Unknown relation toField `" + source.toField + "` on entity " + toEntity.name);
+    }
+    if (!source.label.length) {
+      source.label = ctx.trimmed(toEntity.singular || toEntity.displayLabel || toEntity.label || toEntity.name);
+    }
+    if (!source.name.length) {
+      source.name = ctx.normalizedIdentifier(fromEntity.singular + "_" + toEntity.singular);
+    }
+    source.toFieldType = ctx.trimmed(targetField.type || "INT");
+    return source;
+  }
+
+  function ensureRelationField(ctx, spec, relation) {
+    var fromEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, relation.fromEntity);
+    var toEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, relation.toEntity);
+    if (!fromEntity || !toEntity) {
+      return null;
+    }
+    var targetField = C8O.crudSpec.findField(ctx, toEntity, function (field) {
+      return ctx.normalizedIdentifier(field && (field.column || field.name)) === relation.toField;
+    }) || toEntity.primaryField;
+    var field = C8O.crudSpec.findField(ctx, fromEntity, function (candidate) {
+      return ctx.normalizedIdentifier(candidate && (candidate.column || candidate.name)) === relation.fromField;
+    });
+    if (!field) {
+      field = {
+        name: relation.fromField,
+        column: relation.fromField,
+        type: targetField && ctx.trimmed(targetField.type).length ? targetField.type : "INT",
+        label: relation.label || relation.fromField,
+        primary: false,
+        unique: false,
+        required: relation.required === true,
+        references: null
+      };
+      fromEntity.fields.push(field);
+    }
+    field.references = {
+      entity: toEntity.name,
+      field: targetField ? targetField.column : relation.toField
+    };
+    if (relation.required != null) {
+      field.required = relation.required === true;
+    }
+    if (!ctx.trimmed(field.label).length && ctx.trimmed(relation.label).length) {
+      field.label = relation.label;
+    }
+    if (!fromEntity.primaryField && field.primary) {
+      fromEntity.primaryField = field;
+    }
+    relation.fromField = field.column;
+    relation.toField = targetField ? targetField.column : relation.toField;
+    relation.labelAlias = relationLabelAlias(ctx, relation.fromField);
+    relation.ui = relation.ui || {};
+    var relationUi = entityRelationUiConfig(ctx, fromEntity, relation.fromField);
+    var labelField = ctx.normalizedIdentifier(relationUi.optionLabelField || "");
+    if (!labelField.length) {
+      var preferred = preferredRelationLabelField(ctx, toEntity);
+      labelField = ctx.normalizedIdentifier(preferred && (preferred.column || preferred.name) || relation.toField);
+    }
+    relation.ui.control = ctx.trimmed(relationUi.control || "").toLowerCase();
+    if (relation.ui.control !== "autocomplete" && relation.ui.control !== "select") {
+      relation.ui.control = "select";
+    }
+    relation.ui.optionLabelField = labelField || relation.toField;
+    relation.ui.optionValueField = ctx.normalizedIdentifier(relationUi.optionValueField || relation.toField || "id");
+    relation.ui.placeholder = ctx.trimmed(relationUi.placeholder || ("Select " + (relation.label || fromEntity.singular || "value")));
+    return relation;
+  }
+
+  C8O.crudSpec.normalizeRelations = function (ctx, spec, rawRelations) {
+    var entries = [];
+    var explicit = ctx.ensureArray(rawRelations);
+    var relationMap = {};
+    var priorities = {};
+
+    function upsertRelation(relation, priority) {
+      if (!relation) {
+        return;
+      }
+      var key = relationMapKey(ctx, relation.fromEntity, relation.fromField);
+      var currentPriority = priorities.hasOwnProperty(key) ? priorities[key] : -1;
+      if (priority < currentPriority) {
+        return;
+      }
+      relationMap[key] = relation;
+      priorities[key] = priority;
+    }
+
+    for (var entityIndex = 0; entityIndex < spec.entities.length; entityIndex++) {
+      var entity = spec.entities[entityIndex];
+      var fields = ctx.ensureArray(entity && entity.fields);
+      for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+        var field = fields[fieldIndex];
+        var normalizedReference = normalizeFieldReference(ctx, field && field.references);
+        if (!normalizedReference) {
+          continue;
+        }
+        upsertRelation({
+          name: ctx.normalizedIdentifier(entity.singular + "_" + normalizedReference.entity),
+          type: "many-to-one",
+          inputType: "many-to-one",
+          fromEntity: entity.name,
+          fromField: field.column,
+          toEntity: normalizedReference.entity,
+          toField: normalizedReference.field,
+          required: field.required === true,
+          label: ctx.trimmed(field.label || ""),
+          ui: {}
+        }, 1);
+      }
+    }
+
+    for (var explicitIndex = 0; explicitIndex < explicit.length; explicitIndex++) {
+      upsertRelation(normalizeRelationDefinition(ctx, spec, explicit[explicitIndex]), 2);
+    }
+
+    var crm = C8O.crudSpec.findEntityByName(ctx, spec.entities, "contacts") && C8O.crudSpec.findEntityByName(ctx, spec.entities, "companies");
+    if (crm) {
+      upsertRelation({
+        name: "contact_company",
+        type: "many-to-one",
+        inputType: "many-to-one",
+        fromEntity: "contacts",
+        fromField: "company_id",
+        toEntity: "companies",
+        toField: "id",
+        required: true,
+        label: "Company",
+        ui: {}
+      }, 0);
+    }
+
+    var relationKeys = Object.keys(relationMap);
+    relationKeys.sort();
+    for (var relationIndex = 0; relationIndex < relationKeys.length; relationIndex++) {
+      var applied = ensureRelationField(ctx, spec, relationMap[relationKeys[relationIndex]]);
+      if (applied) {
+        entries.push(applied);
+      }
+    }
+    return entries;
+  };
+
   C8O.crudSpec.applyCrmDefaults = function (ctx, spec) {
     var contacts = C8O.crudSpec.findEntityByName(ctx, spec.entities, "contacts");
     var companies = C8O.crudSpec.findEntityByName(ctx, spec.entities, "companies");
@@ -287,36 +591,6 @@ C8O.crudSpec = C8O.crudSpec || {};
     if (!isCrm) {
       return spec;
     }
-
-    var companyRelationField = C8O.crudSpec.findField(ctx, contacts, function (field) {
-      var column = ctx.normalizedIdentifier(field && field.column);
-      return column === "company_id" || column === "companyid" || ctx.normalizedIdentifier(field && field.name) === "companyid";
-    });
-    if (!companyRelationField) {
-      companyRelationField = {
-        name: "CompanyId",
-        column: "company_id",
-        type: "INT",
-        label: "Company",
-        primary: false,
-        unique: false,
-        required: true,
-        references: {
-          entity: companies.name,
-          field: companies.primaryField ? companies.primaryField.column : "id"
-        }
-      };
-      contacts.fields.push(companyRelationField);
-    } else if (!companyRelationField.references) {
-      companyRelationField.references = {
-        entity: companies.name,
-        field: companies.primaryField ? companies.primaryField.column : "id"
-      };
-      if (companyRelationField.required == null) {
-        companyRelationField.required = true;
-      }
-    }
-
     if (ctx.trimmed(spec.ui.variant).toLowerCase() === "dashboard" || ctx.trimmed(spec.ui.variant).toLowerCase() === "entity-pages" || !ctx.trimmed(spec.ui.variant).length) {
       spec.ui.variant = "master-detail";
     }
@@ -365,7 +639,8 @@ C8O.crudSpec = C8O.crudSpec || {};
       facade: spec.facade && typeof spec.facade === "object" ? ctx.clone(spec.facade) : {},
       seed: spec.seed && typeof spec.seed === "object" ? ctx.clone(spec.seed) : {},
       ui: spec.ui && typeof spec.ui === "object" ? ctx.clone(spec.ui) : {},
-      entities: []
+      entities: [],
+      relations: []
     };
     if (!result.project.length) {
       throw new Error("spec.project is required");
@@ -386,9 +661,15 @@ C8O.crudSpec = C8O.crudSpec || {};
     result.ui.entryPage = ctx.trimmed(result.ui.entryPage || "Page");
     result.ui.variant = ctx.trimmed(result.ui.variant || "entity-pages");
     C8O.crudSpec.applyCrmDefaults(ctx, result);
+    result.relations = C8O.crudSpec.normalizeRelations(ctx, result, spec.relations);
     if (isNaN(result.seed.rowsPerEntity) || result.seed.rowsPerEntity <= 0) {
       result.seed.rowsPerEntity = result.seed.profile === "crm" ? 20 : 2;
     }
     return result;
   };
+
+  C8O.crudSpec.relationMapKey = relationMapKey;
+  C8O.crudSpec.relationLabelAlias = relationLabelAlias;
+  C8O.crudSpec.entityRelationUiConfig = entityRelationUiConfig;
+  C8O.crudSpec.preferredRelationLabelField = preferredRelationLabelField;
 })();

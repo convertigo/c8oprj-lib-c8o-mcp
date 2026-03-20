@@ -5,6 +5,23 @@ if (typeof C8O === "undefined") {
 C8O.crudSeed = C8O.crudSeed || {};
 
 (function () {
+  function relationForField(ctx, spec, entity, field) {
+    var relations = ctx.ensureArray(spec && spec.relations);
+    var entityName = ctx.pluralize(ctx.normalizedIdentifier(entity && entity.name));
+    var fieldColumn = ctx.normalizedIdentifier(field && (field.column || field.name));
+    for (var i = 0; i < relations.length; i++) {
+      var relation = relations[i];
+      if (!relation || relation.type !== "many-to-one") {
+        continue;
+      }
+      if (ctx.pluralize(ctx.normalizedIdentifier(relation.fromEntity)) === entityName &&
+        ctx.normalizedIdentifier(relation.fromField) === fieldColumn) {
+        return relation;
+      }
+    }
+    return null;
+  }
+
   function normalizedFieldType(ctx, fieldValue) {
     return ctx.trimmed(fieldValue && fieldValue.type).toUpperCase().replace(/\(.*\)/, "");
   }
@@ -228,7 +245,14 @@ C8O.crudSeed = C8O.crudSeed || {};
     }
     if (field.references && field.references.entity) {
       var targetEntity = ctx.findEntityByName(spec.entities, field.references.entity);
-      var lookupField = C8O.crudSeed.pickSeedLookupField(ctx, targetEntity);
+      var relation = relationForField(ctx, spec, entity, field);
+      var lookupField = null;
+      if (relation && relation.ui && relation.ui.optionLabelField) {
+        lookupField = ctx.findField(targetEntity, function (candidate) {
+          return ctx.normalizedIdentifier(candidate && (candidate.column || candidate.name)) === ctx.normalizedIdentifier(relation.ui.optionLabelField);
+        });
+      }
+      lookupField = lookupField || C8O.crudSeed.pickSeedLookupField(ctx, targetEntity);
       if (targetEntity && lookupField) {
         var targetValue = C8O.crudSeed.sampleValueForField(ctx, targetEntity, lookupField, rowIndex % Math.max(1, spec.seed.rowsPerEntity));
         return "(SELECT " + targetEntity.primaryField.column + " FROM " + targetEntity.name + " WHERE " + lookupField.column + " = " + seedLiteral(ctx, spec, targetValue, lookupField) + ")";
@@ -261,4 +285,6 @@ C8O.crudSeed = C8O.crudSeed || {};
     }
     return "INSERT INTO " + entity.name + " (" + fields.map(function (item) { return item.column; }).join(", ") + ") VALUES\n" + values.join(",\n") + ";";
   };
+
+  C8O.crudSeed.relationForField = relationForField;
 })();

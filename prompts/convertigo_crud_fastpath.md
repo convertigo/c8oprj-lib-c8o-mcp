@@ -39,7 +39,8 @@ Collect or confirm:
   - landing page on `Page`
   - one generated entity page per CRUD entity
   - `seed.profile=realistic`
-  - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, and `ui.actionLabel` when the user explicitly asks for better visible fields without a custom redesign
+  - declare obvious many-to-one relations in `spec.relations[]`
+  - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` when the user explicitly asks for better visible fields without a custom redesign
 - for the CRM demo profile, prefer:
   - `ui.variant=master-detail`
   - `seed.profile=crm`
@@ -66,7 +67,7 @@ If some fields are missing, ask only for the missing CRUD spec items.
 13. Save with `project-save` when the target project was mutated and save proof is still needed.
 14. If the final proof is green and the request was low-detail, stop there.
 15. Do not call planner, critic, or maintainer prompts from this flow.
-16. Prefer entity-level UI hints over direct edits on CRUD-kit-managed shared components.
+16. Prefer `spec.relations[]`, `field.references`, and entity-level UI hints (`ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, `ui.relationFields`) over direct edits on CRUD-kit-managed shared components.
 
 ## UI variant policy
 - `entity-pages` is the recommended generic CRUD UI.
