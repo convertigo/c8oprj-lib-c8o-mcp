@@ -46,6 +46,19 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     };
   }
 
+  function finalizeCrudBuildStageNode(ctx, name) {
+    return ctx.customAsyncActionNode(
+      name,
+      [
+        "page.global = page.global || {};",
+        "page.global.crudBuildStage = 'final';",
+        "page.ref.markForCheck();",
+        "return { status: 'ok', crudBuildStage: page.global.crudBuildStage };"
+      ].join("\n"),
+      "Mark CRUD build stage as final after bootstrap."
+    );
+  }
+
   function landingRouteCardNode(ctx, entity) {
     var componentPrefix = ctx.pascalize(entity.name);
     return {
@@ -228,7 +241,17 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     };
   }
 
-  function buildDashboardPageLoadTree(ctx, projectName, entryPage, _facadePrefix, _entities, _stage) {
+  function buildDashboardPageLoadTree(ctx, projectName, entryPage, _facadePrefix, _entities, stage) {
+    var children = [
+      ctx.pageEventNode(
+        "PageEvent",
+        "onWillLoad",
+        [
+          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+        ].concat(ctx.trimmed(stage || "").toLowerCase() === "final" ? [finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage")] : []),
+        "Bootstrap CRUD global state on page load."
+      )
+    ];
     return {
       qname: ctx.pageQName(projectName, entryPage),
       legacyQNames: [
@@ -239,16 +262,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
         properties: {
           scriptContent: ctx.buildDashboardPageScriptContent(projectName, _facadePrefix, _entities, _stage)
         },
-        children: [
-          ctx.pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-            ],
-            "Bootstrap CRUD global state on page load."
-          )
-        ]
+        children: children
       }
     };
   }
@@ -502,7 +516,17 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     };
   }
 
-  function buildEntityPagesLandingLoadTree(ctx, projectName, entryPage) {
+  function buildEntityPagesLandingLoadTree(ctx, projectName, entryPage, stage) {
+    var children = [
+      ctx.pageEventNode(
+        "PageEvent",
+        "onWillLoad",
+        [
+          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+        ].concat(ctx.trimmed(stage || "").toLowerCase() === "final" ? [finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage")] : []),
+        "Bootstrap CRUD entity-pages state on landing load."
+      )
+    ];
     return {
       qname: ctx.pageQName(projectName, entryPage),
       legacyQNames: [
@@ -513,21 +537,23 @@ C8O.crudUiPages = C8O.crudUiPages || {};
         properties: {
           scriptContent: blankPageScriptContent()
         },
-        children: [
-          ctx.pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-            ],
-            "Bootstrap CRUD entity-pages state on landing load."
-          )
-        ]
+        children: children
       }
     };
   }
 
-  function buildEntityPageLoadTree(ctx, projectName, entity) {
+  function buildEntityPageLoadTree(ctx, projectName, entity, stage) {
+    var children = [
+      ctx.pageEventNode(
+        "PageEvent",
+        "onWillLoad",
+        [
+          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
+          ctx.dynamicInvokeNode("InvokeBootstrap" + ctx.pascalize(entity.name) + "Page", ctx.dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
+        ].concat(ctx.trimmed(stage || "").toLowerCase() === "final" ? [finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage")] : []),
+        "Bootstrap CRUD entity page state on page load."
+      )
+    ];
     return {
       qname: ctx.entityPageQName(projectName, entity),
       legacyQNames: [
@@ -537,17 +563,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
         properties: {
           scriptContent: blankPageScriptContent()
         },
-        children: [
-          ctx.pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
-              ctx.dynamicInvokeNode("InvokeBootstrap" + ctx.pascalize(entity.name) + "Page", ctx.dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
-            ],
-            "Bootstrap CRUD entity page state on page load."
-          )
-        ]
+        children: children
       }
     };
   }

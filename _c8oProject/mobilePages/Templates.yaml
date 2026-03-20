@@ -1,0 +1,245 @@
+scriptContent: 
+  - xmlizable: 
+    - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
+    - com.twinsoft.convertigo.beans.common.FormatedContent: 
+      →: |
+        /*Begin_c8o_PageImport*/
+        /*End_c8o_PageImport*/
+        /*Begin_c8o_PageDeclaration*/
+        /*End_c8o_PageDeclaration*/
+        /*Begin_c8o_PageConstructor*/
+        /*End_c8o_PageConstructor*/
+        /*Begin_c8o_PageFunction*/
+        /*End_c8o_PageFunction*/
+        
+segment: templates
+title: CRUD Templates
+↓PageEvent [ngx.components.UIPageEvent-1773937966331]: 
+  comment: Seed preview global state for the template gallery.
+  viewEvent: onWillLoad
+  ↓SeedTemplatePreview [ngx.components.UICustomAsyncAction-1773937967857]: 
+    actionValue: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
+        - com.twinsoft.convertigo.beans.common.FormatedContent: 
+          →: |
+            'page.global = Object.assign({}, page.global || {}, {
+              crudBuildStage: ''bootstrap'',
+              crudLoading: false,
+              crudError: ''Preview retry state for maintainers.'',
+              crudStatus: ''ok'',
+              crudRows: {
+                templateitems: [
+                  { ID: 1, name: ''Oak specimen'', city: ''Lyon'' },
+                  { ID: 2, name: ''River reed'', city: ''Nantes'' },
+                  { ID: 3, name: ''Granite fern'', city: ''Annecy'' }
+                ]
+              },
+              crudCounts: { templateitems: 3 },
+              crudSamples: { templateitems: { ID: 1, name: ''Oak specimen'', city: ''Lyon'' } },
+              crudSelected: { templateitems: { ID: 1, name: ''Oak specimen'', city: ''Lyon'' } },
+              crudDrafts: { templateitems: { name: ''Oak specimen'', city: ''Lyon'' } },
+              crudModes: { templateitems: ''update'' },
+              crudEntityStatus: { templateitems: ''ready'' },
+              crudEntityErrors: { templateitems: '''' }
+            });
+            page.ref.markForCheck();
+            return page.global;'
+    comment: Seed maintainers-only preview state for CRUD templates.
+↓Header [ngx.components.UIDynamicElement-1773937967859]: 
+  beanData: '{"ionBean":"Header"}'
+  tagName: ion-header
+  ↓ToolBar [ngx.components.UIDynamicElement-1773937967861]: 
+    beanData: '{"ionBean":"ToolBar"}'
+    tagName: ion-toolbar
+    ↓BarTitle [ngx.components.UIDynamicElement-1773937967863]: 
+      beanData: '{"ionBean":"BarTitle"}'
+      tagName: ion-title
+      ↓Text [ngx.components.UIText-1773937967865]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: plain:CRUD Templates
+↓Content [ngx.components.UIDynamicElement-1773937967867]: 
+  beanData: '{"ionBean":"Content"}'
+  tagName: ion-content
+  ↓TemplatesGrid [ngx.components.UIDynamicElement-1773937967869]: 
+    beanData: '{"ionBean":"Grid"}'
+    tagName: ion-grid
+    ↓HeaderRow [ngx.components.UIDynamicElement-1773937967871]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓HeaderCol [ngx.components.UIDynamicElement-1773937967873]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplCrudPageHeader [ngx.components.UIUseShared-1773937967875]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
+          ↓Title [ngx.components.UIUseVariable-1773937970629]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'CRUD template gallery'
+          ↓Subtitle [ngx.components.UIUseVariable-1773937970631]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Real shared components stored inside ConvertigoMCP.'
+    ↓InfoRow [ngx.components.UIDynamicElement-1773937970633]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓InfoCol [ngx.components.UIDynamicElement-1773937970635]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplWorkInProgressCard [ngx.components.UIUseShared-1773937970637]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
+    ↓StateRow [ngx.components.UIDynamicElement-1773937970639]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓StatCol [ngx.components.UIDynamicElement-1773937970641]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplDashboardStatCard [ngx.components.UIUseShared-1773937970643]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplDashboardStatCard
+          ↓Title [ngx.components.UIUseVariable-1773937970645]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Template items'
+          ↓EntityKey [ngx.components.UIUseVariable-1773937970647]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'templateitems'
+          ↓Caption [ngx.components.UIUseVariable-1773937970649]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Preview data in page.global'
+      ↓LoadingCol [ngx.components.UIDynamicElement-1773937970651]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplCrudLoadingState [ngx.components.UIUseShared-1773937970653]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
+      ↓ErrorCol [ngx.components.UIDynamicElement-1773937970655]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplCrudErrorRetryState [ngx.components.UIUseShared-1773937970657]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
+    ↓EntityRow [ngx.components.UIDynamicElement-1773937970659]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓ListCol [ngx.components.UIDynamicElement-1773937970661]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplEntityListPanel [ngx.components.UIUseShared-1773937970663]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityListPanel
+          ↓Title [ngx.components.UIUseVariable-1773937970665]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Template items'
+          ↓EntityKey [ngx.components.UIUseVariable-1773937970667]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'templateitems'
+          ↓PrimaryField [ngx.components.UIUseVariable-1773937970669]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'name'
+          ↓SecondaryField [ngx.components.UIUseVariable-1773937970671]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'city'
+          ↓ActionLabel [ngx.components.UIUseVariable-1773937970673]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Create preview item'
+      ↓DetailCol [ngx.components.UIDynamicElement-1773937970675]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplEntityDetailCard [ngx.components.UIUseShared-1773937970677]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
+          ↓Title [ngx.components.UIUseVariable-1773937970679]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Template item detail'
+          ↓EntityKey [ngx.components.UIUseVariable-1773937970681]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'templateitems'
+          ↓PrimaryField [ngx.components.UIUseVariable-1773937970683]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'name'
+          ↓SecondaryField [ngx.components.UIUseVariable-1773937970685]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'city'
+      ↓FormCol [ngx.components.UIDynamicElement-1773937970687]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplEntityEditForm [ngx.components.UIUseShared-1773937970689]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityEditForm
+          ↓EntityKey [ngx.components.UIUseVariable-1773937970691]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'templateitems'
+          ↓PrimaryField [ngx.components.UIUseVariable-1773937970693]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'name'
+          ↓PrimaryFieldLabel [ngx.components.UIUseVariable-1773937970695]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Specimen name'
+          ↓PrimaryFieldRequired [ngx.components.UIUseVariable-1773937970697]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'true'
+          ↓SecondaryField [ngx.components.UIUseVariable-1773937970699]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'city'
+          ↓SecondaryFieldLabel [ngx.components.UIUseVariable-1773937970701]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'City'
+          ↓SecondaryFieldRequired [ngx.components.UIUseVariable-1773937970703]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'false'
+          ↓ActionLabel [ngx.components.UIUseVariable-1773937970705]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Save preview item'
+          ↓CreateTitle [ngx.components.UIUseVariable-1773937970707]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Create preview item'
+          ↓EditTitle [ngx.components.UIUseVariable-1773937970709]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Edit preview item'
+          ↓DeleteLabel [ngx.components.UIUseVariable-1773937970711]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Delete preview item'

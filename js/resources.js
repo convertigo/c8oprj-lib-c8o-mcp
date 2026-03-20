@@ -18,8 +18,10 @@ var C8O_RESOURCES_BUILTIN = [
       "- Runtime proof uses `requestable-execute`, `crud-status`, `crud-proof`, and `log-view` when execution feedback is not enough.",
       "- New UI projects start from `marketplace-import` and `mobile-builder-open` so the live viewer is visible early.",
       "- For a standard SQL CRUD + starter NGX UI task, the current recommended public rail is `marketplace-import` -> `mobile-builder-open` -> `upsert-crud` -> backend `crud-proof` -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final `crud-proof(viewerUrl)` -> `project-save`.",
+      "- For a low-detail CRUD request, stop after that first green end-to-end scaffold plus seeded demo data. Do not improvise a second UX/layout pass unless the user asked for it.",
       "- In the live dev viewer, prefer `viewerHomeUrl` or `viewerBaseUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.",
-      "- Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. Fix the Convertigo source objects or the MCP generator instead."
+      "- Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. Fix the Convertigo source objects or the MCP generator instead.",
+      "- Once the CRUD fast path is selected, do not fall back to `rag-query` unless the built-in guides and CRUD tools no longer answer the task."
     ].join("\n")
   },
   {
@@ -35,9 +37,11 @@ var C8O_RESOURCES_BUILTIN = [
       "2. Read `convertigo://capabilities`, then `convertigo://recipes/quickstart`, then `convertigo://resources/convertigo-start` before the first broad mutation.",
       "3. Decide whether the task really fits the deterministic CRUD fast path. For standard SQL CRUD + starter NGX UI, prefer `convertigo-crud-fastpath`; existing-project edits or non-CRUD work stay exploratory.",
       "4. For a new UI project, keep the exact requested project name, call `marketplace-import`, then `mobile-builder-open` immediately so the viewer is visible before the rest of the scaffolding.",
-      "5. Use `databaseobject-tree-get` and `databaseobject-search` to inspect live state, `palette-list` and `palette-describe` to confirm legal creations, and `databaseobject-tree-apply` or `batch-call` for mutations.",
-      "6. Validate runtime behavior with `requestable-execute` or `crud-proof`, then persist with `project-save`.",
-      "7. If `mobile-builder-open` reports `compile_error`, fix the Convertigo source objects or MCP generator path. Do not repair generated runtime artifacts."
+      "5. For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second UX refinement pass unless the user explicitly asked for it.",
+      "6. Once the fast path is chosen, do not call `rag-query` unless the built-in guides and tools are exhausted.",
+      "7. Use `databaseobject-tree-get` and `databaseobject-search` to inspect live state, `palette-list` and `palette-describe` to confirm legal creations, and `databaseobject-tree-apply` or `batch-call` for mutations.",
+      "8. Validate runtime behavior with `requestable-execute` or `crud-proof`, then persist with `project-save`.",
+      "9. If `mobile-builder-open` reports `compile_error`, fix the Convertigo source objects or MCP generator path. Do not repair generated runtime artifacts."
     ].join("\n")
   }
 ];

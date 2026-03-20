@@ -77,6 +77,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         label: naming.displayLabel,
         displayLabel: naming.displayLabel,
         routeSegment: naming.routeSegment,
+        ui: ctx.normalizeEntityUi ? ctx.normalizeEntityUi(raw.ui) : (raw.ui && typeof raw.ui === "object" ? ctx.clone(raw.ui) : {}),
         fields: fields,
         primaryField: primaryField
       });
@@ -88,6 +89,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         label: "Contacts",
         displayLabel: "Contacts",
         routeSegment: "contacts",
+        ui: {},
         fields: [
           { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true },
           { name: "FirstName", column: "firstname", label: "FirstName", type: "VARCHAR(128)", primary: false, unique: false, required: false },
@@ -102,6 +104,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         label: "Companies",
         displayLabel: "Companies",
         routeSegment: "companies",
+        ui: {},
         fields: [
           { name: "Id", column: "id", label: "Id", type: "INT", primary: true, unique: true, required: true },
           { name: "Name", column: "name", label: "Name", type: "VARCHAR(255)", primary: false, unique: true, required: false },
@@ -171,6 +174,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       label: entity.label,
       displayLabel: entity.displayLabel,
       routeSegment: entity.routeSegment,
+      ui: entity.ui && typeof entity.ui === "object" ? ctx.clone(entity.ui) : {},
       fields: hydratedFields,
       primaryField: primaryField
     };
@@ -184,6 +188,75 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     }
     return hydrated;
   };
+
+  function safeCommentText(ctx, dbo, fallback) {
+    try {
+      if (dbo && typeof dbo.getComment === "function") {
+        var text = ctx.trimmed(dbo.getComment());
+        if (text.length) {
+          return text;
+        }
+      }
+    } catch (_ignoreComment) {}
+    return ctx.trimmed(fallback || "Deterministic CRUD page refresh touch.");
+  }
+
+  function touchManagedCrudPages(ctx, projectName, pageQNames, result) {
+    var unique = {};
+    var qnames = [];
+    var operations = [];
+    var entries = ctx.ensureArray(pageQNames);
+    for (var i = 0; i < entries.length; i++) {
+      var qname = ctx.trimmed(entries[i]);
+      if (!qname.length || unique[qname]) {
+        continue;
+      }
+      unique[qname] = true;
+      var dbo = ctx.resolveQName(qname, { optional: true });
+      if (!dbo) {
+        ctx.addWarning(result, "Unable to touch CRUD page source: page not found for " + qname);
+        continue;
+      }
+      qnames.push(qname);
+      operations.push({
+        type: "setProperties",
+        opId: "touch_" + ctx.normalizedIdentifier(qname),
+        qname: qname,
+        properties: {
+          comment: safeCommentText(ctx, dbo, "Deterministic CRUD page refresh touch.")
+        }
+      });
+    }
+    if (!operations.length) {
+      return {
+        status: "skipped",
+        target: ctx.pageQName(projectName, "Page"),
+        touchedQNames: []
+      };
+    }
+    var batchResult = ctx.batchApply({
+      target: qnames[0],
+      strict: true,
+      onError: "stop",
+      autoSave: true,
+      triggerMobileBuilder: true,
+      operations: operations
+    });
+    ctx.collectBatchWarnings(batchResult, result, "pageTouchRefresh");
+    if (!batchResult || batchResult.status === "failed" || (batchResult.errors && batchResult.errors.length)) {
+      throw new Error(ctx.firstBatchErrorMessage(batchResult));
+    }
+    var summary = ctx.summarizeTreeApplyResult(batchResult, qnames[0], result);
+    summary.touchedQNames = qnames;
+    var stats = summary.summary || {};
+    if ((summary.status === "success" || summary.status === "partial") &&
+      Number(stats.failedOps || 0) === 0 &&
+      Number(stats.notRunOps || 0) === 0 &&
+      Number(stats.successfulOps || 0) === Number(qnames.length)) {
+      summary.status = "ok";
+    }
+    return summary;
+  }
 
   C8O.crudUiKit.upsertNgxCrudKit = function (ctx, options) {
     var startedAt = ctx.nowMillis();
@@ -246,6 +319,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     ctx.setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
     result.runtimeEvidence.sharedComponentsRequested = ctx.ensureArray(sharedComponents.tree.children).length;
     result.runtimeEvidence.sharedComponentTreeNodeCount = ctx.countTreeNodes(sharedComponents.tree);
+    result.runtimeEvidence.templateDriven = sharedComponents.templateDriven === true;
+    result.runtimeEvidence.templateSourceProject = ctx.trimmed(sharedComponents.templateSourceProject || "");
+    result.runtimeEvidence.templateSourceQNames = ctx.ensureArray(sharedComponents.templateSourceQNames);
     result.runtimeEvidence.sharedActionsRequested = ctx.ensureArray(sharedActions.tree.children).length;
     result.runtimeEvidence.sharedActionTreeNodeCount = ctx.countTreeNodes(sharedActions.tree);
     result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
@@ -260,7 +336,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var pageLoadStartedAt = ctx.nowMillis();
     var pageLoadTree = isMasterDetail
       ? ctx.buildCrmPageLoadTree(projectName, entryPage, stage)
-      : (isEntityPages ? ctx.buildEntityPagesLandingLoadTree(projectName, entryPage) : ctx.buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage));
+      : (isEntityPages ? ctx.buildEntityPagesLandingLoadTree(projectName, entryPage, stage) : ctx.buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage));
     ctx.setDuration(timings, "buildPageLoadTreeMs", pageLoadStartedAt);
     result.runtimeEvidence.pageLoadTreeNodeCount = ctx.countTreeNodes(pageLoadTree.tree);
     var entityPageRoots = [];
@@ -279,7 +355,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         });
         entityPageLoads.push({
           entity: currentEntity.name,
-          tree: ctx.buildEntityPageLoadTree(projectName, currentEntity)
+          tree: ctx.buildEntityPageLoadTree(projectName, currentEntity, stage)
         });
       }
     }
@@ -404,7 +480,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         }
       );
     }
-    if (reuseExistingSharedActions) {
+    if (reuseExistingSharedActions && isMasterDetail) {
       var buildStageQName = ctx.statefulBootstrapStageQName(projectName, variant);
       if (ctx.resolveQName(buildStageQName, { optional: true })) {
         batchOperations.push({
@@ -421,6 +497,11 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       } else {
         ctx.addWarning(result, "Unable to reuse stateful actions: build stage node not found for " + buildStageQName);
       }
+    } else if (reuseExistingSharedActions) {
+      result.runtimeEvidence.statefulBuildStageReuse = {
+        status: "page-load-finalizer",
+        target: ctx.pageQName(projectName, entryPage)
+      };
     }
     var batchApplyResult = ctx.batchApply({
       target: ctx.ngxAppQName(projectName),
@@ -515,6 +596,16 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         deletedCount: 0
       };
       timings.generatedSourcesPurgeMs = 0;
+      var pageTouchStartedAt = ctx.nowMillis();
+      result.runtimeEvidence.pageTouchRefresh = touchManagedCrudPages(
+        ctx,
+        projectName,
+        [ctx.pageQName(projectName, entryPage)].concat(entityPageLoads.map(function (item) {
+          return item.tree.qname;
+        })),
+        result
+      );
+      ctx.setDuration(timings, "pageTouchRefreshMs", pageTouchStartedAt);
       var mobileBuilderStartedAt = ctx.nowMillis();
       var refreshTargets = [ctx.pageQName(projectName, entryPage)].concat(sharedComponents.qnames || []);
       for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {

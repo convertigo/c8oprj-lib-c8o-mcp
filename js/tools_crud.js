@@ -18,6 +18,7 @@ include("js/crud_ui_crm.js");
 include("js/crud_ui_crm_actions.js");
 include("js/crud_ui_refresh.js");
 include("js/crud_ui_audit.js");
+include("js/crud_ui_templates.js");
 include("js/crud_ui_kit.js");
 include("js/crud_proof.js");
 include("js/crud_viewer.js");
@@ -104,6 +105,9 @@ C8O.crud = C8O.crud || {};
   }
 
   function ensureWarnings(target) {
+    if (target == null || typeof target !== "object") {
+      return [];
+    }
     if (!target.warnings) {
       target.warnings = [];
     }
@@ -373,6 +377,7 @@ C8O.crud = C8O.crud || {};
       ensureArray: ensureArray,
       toBoolean: toBoolean,
       normalizeEntityNames: normalizeEntityNames,
+      normalizeEntityUi: normalizeEntityUi,
       normalizedIdentifier: normalizedIdentifier,
       facadeSequenceQName: facadeSequenceQName,
       requestablePayload: requestablePayload,
@@ -433,6 +438,80 @@ C8O.crud = C8O.crud || {};
     };
   }
 
+  function crudUiTemplatesContext() {
+    return {
+      trimmed: trimmed,
+      ensureArray: ensureArray,
+      clone: clone,
+      toBoolean: toBoolean,
+      normalizedIdentifier: normalizedIdentifier,
+      pluralize: pluralize,
+      ucfirst: ucfirst,
+      pascalize: pascalize,
+      scriptLiteral: scriptLiteral,
+      compVariableNode: compVariableNode,
+      useVariableNode: useVariableNode,
+      scriptTextNode: scriptTextNode,
+      smartTextNode: smartTextNode,
+      plainTextNode: plainTextNode,
+      textElementNode: textElementNode,
+      ifDirectiveNode: ifDirectiveNode,
+      pageEventNode: pageEventNode,
+      iterationDirectiveNode: iterationDirectiveNode,
+      iterationSourceValue: iterationSourceValue,
+      controlEventNode: controlEventNode,
+      dynamicInvokeNode: dynamicInvokeNode,
+      controlVariableNode: controlVariableNode,
+      customAsyncActionNode: customAsyncActionNode,
+      crudGlobalExpression: crudGlobalExpression,
+      dashboardCountExpression: dashboardCountExpression,
+      dashboardRowsExpression: dashboardRowsExpression,
+      dynamicFieldAccessExpression: dynamicFieldAccessExpression,
+      crudSelectedExpression: crudSelectedExpression,
+      crudModeExpression: crudModeExpression,
+      crudEntityStatusExpression: crudEntityStatusExpression,
+      crudEntityErrorExpression: crudEntityErrorExpression,
+      crudDraftExpression: crudDraftExpression,
+      dashboardActionQName: dashboardActionQName,
+      entityPagesButtonNode: entityPagesButtonNode,
+      buildUseSharedNode: buildUseSharedNode,
+      sharedComponentQName: sharedComponentQName,
+      pageQName: pageQName,
+      ngxAppQName: ngxAppQName,
+      entityUiConfig: entityUiConfig,
+      findEntityByName: findEntityByName,
+      firstNonPrimaryField: firstNonPrimaryField,
+      secondPreviewField: secondPreviewField,
+      blankPageScriptContent: blankPageScriptContent,
+      findProjectByName: findProjectByName,
+      resolveQName: function (qname, options) {
+        return C8O.dbo.resolve(qname, options || {});
+      },
+      safeName: function (dbo) {
+        return C8O.dbo.safeName(dbo);
+      },
+      getDirectChildren: function (dbo) {
+        return C8O.dbo.getDirectChildren(dbo);
+      },
+      logicalClassNameForDbo: function (dbo) {
+        return C8O.dbo.logicalClassNameForDbo(dbo);
+      },
+      getCanonicalPropertiesMap: function (dbo, mode, options) {
+        return C8O.dbo.getCanonicalPropertiesMap(dbo, mode, options || {});
+      },
+      batchApply: function (options) {
+        return C8O.dbo.batchApply(options);
+      },
+      operationSummary: operationSummary,
+      collectBatchWarnings: collectBatchWarnings,
+      saveProject: function (project, warnings) {
+        return C8O.dbo.saveProject(project, warnings || []);
+      },
+      summarizeSaveResult: summarizeSaveResult,
+      refreshStudioProjectTree: refreshStudioProjectTree
+    };
+  }
+
   function crudUiSharedContext() {
     return {
       trimmed: trimmed,
@@ -478,6 +557,7 @@ C8O.crud = C8O.crud || {};
   function crudUiPagesContext() {
     return {
       ensureArray: ensureArray,
+      trimmed: trimmed,
       ucfirst: ucfirst,
       pascalize: pascalize,
       scriptLiteral: scriptLiteral,
@@ -505,6 +585,7 @@ C8O.crud = C8O.crud || {};
       sharedComponentQName: sharedComponentQName,
       dashboardActionQName: dashboardActionQName,
       entityPagesButtonNode: entityPagesButtonNode,
+      customAsyncActionNode: customAsyncActionNode,
       buildDashboardPageScriptContent: buildDashboardPageScriptContent
     };
   }
@@ -596,6 +677,10 @@ C8O.crud = C8O.crud || {};
 
   function normalizeField(field, entityName, index, result) {
     return C8O.crudSpec.normalizeField(crudSpecContext(), field, entityName, index, result);
+  }
+
+  function normalizeEntityUi(rawUi) {
+    return C8O.crudSpec.normalizeEntityUi(crudSpecContext(), rawUi);
   }
 
   function normalizeEntity(rawEntity, result) {
@@ -985,6 +1070,7 @@ C8O.crud = C8O.crud || {};
     for (var i = 0; i < warnings.length; i++) {
       addWarning(result, (label.length ? label + ": " : "") + String(warnings[i]));
     }
+    return warnings.slice(0);
   }
 
   function operationSummary(batchResult, opId, target) {
@@ -1284,6 +1370,10 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiState.buildStatefulBootstrapRow(crudUiStateContext(), projectName, globalStageExpression);
   }
 
+  function crudGlobalExpression() {
+    return C8O.crudUiState.crudGlobalExpression(crudUiStateContext());
+  }
+
   function dashboardRowsExpression(entityKeyExpression) {
     return C8O.crudUiState.dashboardRowsExpression(crudUiStateContext(), entityKeyExpression);
   }
@@ -1403,7 +1493,18 @@ C8O.crud = C8O.crud || {};
   }
 
   function buildEntityPagesSharedComponentsTree(projectName, entities, stage) {
-    return C8O.crudUiShared.buildEntityPagesSharedComponentsTree(crudUiSharedContext(), projectName, entities, stage);
+    var fromTemplates = C8O.crudUiTemplates.buildEntityPagesSharedComponentsTree(crudUiTemplatesContext(), projectName, entities, stage);
+    if (fromTemplates && fromTemplates.tree && ensureArray(fromTemplates.tree.children).length) {
+      fromTemplates.templateDriven = true;
+      return fromTemplates;
+    }
+    var legacyTree = C8O.crudUiShared.buildEntityPagesSharedComponentsTree(crudUiSharedContext(), projectName, entities, stage);
+    if (legacyTree && typeof legacyTree === "object") {
+      legacyTree.templateDriven = false;
+      legacyTree.templateSourceProject = "";
+      legacyTree.templateSourceQNames = [];
+    }
+    return legacyTree;
   }
 
   function buildEntityPagesBootstrapActionScript(projectName, facadePrefix, entities, stage) {
@@ -1462,12 +1563,12 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiPages.buildEntityPageRootTree(crudUiPagesContext(), entity);
   }
 
-  function buildEntityPagesLandingLoadTree(projectName, entryPage) {
-    return C8O.crudUiPages.buildEntityPagesLandingLoadTree(crudUiPagesContext(), projectName, entryPage);
+  function buildEntityPagesLandingLoadTree(projectName, entryPage, stage) {
+    return C8O.crudUiPages.buildEntityPagesLandingLoadTree(crudUiPagesContext(), projectName, entryPage, stage);
   }
 
-  function buildEntityPageLoadTree(projectName, entity) {
-    return C8O.crudUiPages.buildEntityPageLoadTree(crudUiPagesContext(), projectName, entity);
+  function buildEntityPageLoadTree(projectName, entity, stage) {
+    return C8O.crudUiPages.buildEntityPageLoadTree(crudUiPagesContext(), projectName, entity, stage);
   }
 
   function crmActionQName(projectName, actionName) {
@@ -1570,6 +1671,10 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiKit.upsertNgxCrudKit(crudUiKitContext(), options || {});
   }
 
+  function refreshUiTemplates(options) {
+    return C8O.crudUiTemplates.refreshUiTemplates(crudUiTemplatesContext(), options || {});
+  }
+
   function buildCrudStatus(spec, connector, result) {
     return C8O.crudProof.buildCrudStatus(crudProofContext(), spec, connector, result);
   }
@@ -1604,6 +1709,10 @@ C8O.crud = C8O.crud || {};
   };
   C8O.crud.upsertNgxCrudKit = function (options) {
     var result = upsertNgxCrudKit(options || {});
+    return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(result, { warnings: ensureWarnings(result), path: "$" }) : result;
+  };
+  C8O.crud.refreshUiTemplates = function (options) {
+    var result = refreshUiTemplates(options || {});
     return C8O.util.toJsonSafe ? C8O.util.toJsonSafe(result, { warnings: ensureWarnings(result), path: "$" }) : result;
   };
 })();

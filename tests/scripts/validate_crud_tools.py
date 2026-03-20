@@ -14,6 +14,8 @@ DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 PROTOCOL_VERSION = "2025-06-18"
 TEST_PROJECT_PATTERNS = (
     re.compile(r"^CrudSmoke"),
+    re.compile(r"^GroupOutingsPoll"),
+    re.compile(r"^ScoresJeux"),
     re.compile(r"^FreshSessionFastpath_"),
     re.compile(r"^Fastpath"),
 )
@@ -171,7 +173,7 @@ def project_exists(url, project_name):
 
 def list_test_projects(url):
     names = []
-    for filter_text in ("CrudSmoke", "FreshSessionFastpath", "Fastpath"):
+    for filter_text in ("CrudSmoke", "GroupOutingsPoll", "ScoresJeux", "FreshSessionFastpath", "Fastpath"):
         for project in list_projects(url, filter_text):
             name = str(project.get("name") or "")
             if name and any(pattern.search(name) for pattern in TEST_PROJECT_PATTERNS) and name not in names:
@@ -240,6 +242,83 @@ def row_value(row, *keys):
         if isinstance(row, dict) and key in row and row[key] not in (None, ""):
             return row[key]
     return None
+
+
+def entity_component_qname(project, entity, suffix):
+    plural = pascalize_name(entity.get("plural") or entity["name"])
+    return f"{project}.Application.NgxApp.{plural}{suffix}"
+
+
+def validate_entity_ui_overrides(url, project, entity, artifact):
+    ui = entity.get("ui") or {}
+    if not ui:
+        return
+    component_targets = [
+        ("ListPanel", entity_component_qname(project, entity, "ListPanel")),
+        ("DetailCard", entity_component_qname(project, entity, "DetailCard")),
+        ("EditForm", entity_component_qname(project, entity, "EditForm")),
+    ]
+    for component_kind, qname in component_targets:
+        tree_result = call_tool(
+            url,
+            "databaseobject-tree-get",
+            {
+                "target": qname,
+                "childrenDepth": 5,
+                "properties": "changed",
+                "limit": 400,
+            },
+            timeout=120,
+        )
+        artifact["steps"].append({"tool": "databaseobject-tree-get", "target": qname, "result": tree_result})
+        serialized = serialize_tree(tree_result.get("tree"))
+        if component_kind == "ListPanel":
+            for field_name in ui.get("listFields") or []:
+                assert_true(field_name.lower() in serialized.lower(), f"ListPanel missing ui.listFields field {field_name} in {qname}")
+        elif component_kind == "DetailCard":
+            for field_name in ui.get("detailFields") or []:
+                assert_true(field_name.lower() in serialized.lower(), f"DetailCard missing ui.detailFields field {field_name} in {qname}")
+            for label in (ui.get("fieldLabels") or {}).values():
+                if str(label).strip():
+                    assert_true(str(label) in serialized, f"DetailCard missing ui.fieldLabels label {label} in {qname}")
+        elif component_kind == "EditForm":
+            expected_form_items = len(ui.get("formFields") or [])
+            if expected_form_items:
+                classnames = flatten_tree_classnames(tree_result.get("tree"))
+                form_item_count = sum(1 for class_name in classnames if class_name == "ngx.components.UIDynamicElement#FormItem")
+                assert_true(form_item_count == expected_form_items, f"Unexpected edit form item count for {qname}: {form_item_count} != {expected_form_items}")
+            for field_name in ui.get("formFields") or []:
+                assert_true(field_name.lower() in serialized.lower(), f"EditForm missing ui.formFields field {field_name} in {qname}")
+            for label in (ui.get("fieldLabels") or {}).values():
+                if str(label).strip():
+                    assert_true(str(label) in serialized, f"EditForm missing ui.fieldLabels label {label} in {qname}")
+            if str(ui.get("actionLabel") or "").strip():
+                assert_true(str(ui["actionLabel"]) in serialized, f"EditForm missing ui.actionLabel in {qname}")
+
+
+def validate_managed_warning(url, project, entity, artifact):
+    target_qname = entity_component_qname(project, entity, "EditForm")
+    warning_result = call_tool(
+        url,
+        "databaseobject-tree-apply",
+        {
+            "target": target_qname,
+            "at": "self",
+            "mode": "merge",
+            "tree": {
+                "properties": {
+                    "comment": "Managed by upsert-ngx-crud-kit (entity-pages template clone) warning probe."
+                }
+            }
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-apply-managed-warning", "target": target_qname, "result": warning_result})
+    warnings = warning_result.get("warnings") or []
+    assert_true(
+        any("Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel hints instead." in str(item) for item in warnings),
+        f"Managed CRUD warning not returned for {target_qname}: {warnings}",
+    )
 
 
 def validate_runtime(url, spec, artifact_dir):
@@ -351,7 +430,7 @@ def validate_runtime(url, spec, artifact_dir):
             "facadePrefix": facade_prefix,
             "entryPage": entry_page,
         },
-        timeout=180,
+        timeout=240,
     )
     artifact["steps"].append({"tool": "upsert-ngx-crud-kit-bootstrap", "result": bootstrap_ui_result})
     assert_true(bootstrap_ui_result.get("status") == "success", f"upsert-ngx-crud-kit bootstrap did not succeed for {project}")
@@ -386,7 +465,7 @@ def validate_runtime(url, spec, artifact_dir):
             "facadePrefix": facade_prefix,
             "entryPage": entry_page,
         },
-        timeout=180,
+        timeout=420,
     )
     artifact["steps"].append({"tool": "upsert-ngx-crud-kit-final", "result": final_ui_result})
     assert_true(final_ui_result.get("status") == "success", f"upsert-ngx-crud-kit final did not succeed for {project}")
@@ -395,13 +474,29 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true((final_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected final UI globals for {project}: {final_runtime.get('uiGlobals')}")
     assert_true(final_runtime.get("workInProgressMode") == "stateful-visibility", f"Unexpected final workInProgressMode for {project}: {final_runtime.get('workInProgressMode')}")
     assert_true(bool(final_runtime.get("workInProgressSharedRefPresent")), f"Final shell no longer tracks WorkInProgressCard statefully for {project}")
+    page_touch_refresh = final_runtime.get("pageTouchRefresh") or {}
+    assert_true(page_touch_refresh.get("status") == "ok", f"UI source touch refresh failed for {project}: {page_touch_refresh}")
     if variant == "entity-pages":
+        assert_true(final_runtime.get("templateDriven") is True, f"Entity-pages UI did not use source templates for {project}")
+        assert_true(str(final_runtime.get("templateSourceProject") or "") == "ConvertigoMCP", f"Unexpected template source project for {project}: {final_runtime.get('templateSourceProject')}")
+        template_sources = set(final_runtime.get("templateSourceQNames") or [])
+        assert_true(bool(template_sources), f"Entity-pages UI did not report template source qnames for {project}")
+        assert_true(
+            "ConvertigoMCP.Application.NgxApp.TplCrudPageHeader" in template_sources and
+            "ConvertigoMCP.Application.NgxApp.TplEntityListPanel" in template_sources and
+            "ConvertigoMCP.Application.NgxApp.TplEntityDetailCard" in template_sources and
+            "ConvertigoMCP.Application.NgxApp.TplEntityEditForm" in template_sources,
+            f"Entity-pages UI did not report the expected template sources for {project}: {sorted(template_sources)}",
+        )
         expected_page_names = [entry_page] + [f"{pascalize_name(entity.get('plural') or entity['name'])}Page" for entity in entities]
         expected_page_routes = ["/home"] + [f"/{str(entity.get('routeSegment') or entity.get('plural') or entity['name']).lower()}" for entity in entities]
         assert_true((final_runtime.get("pageNames") or []) == expected_page_names, f"Unexpected pageNames for {project}: {final_runtime.get('pageNames')}")
         assert_true((final_runtime.get("pageRoutes") or []) == expected_page_routes, f"Unexpected pageRoutes for {project}: {final_runtime.get('pageRoutes')}")
         entity_pages = final_runtime.get("entityPages") or []
         assert_true(len(entity_pages) == len(entities), f"Unexpected entityPages count for {project}: {len(entity_pages)}")
+        touched_qnames = page_touch_refresh.get("touchedQNames") or []
+        assert_true(len(touched_qnames) == len(entities) + 1, f"Unexpected pageTouchRefresh targets for {project}: {touched_qnames}")
+        assert_true(f"{project}.Application.NgxApp.Page" in touched_qnames, f"pageTouchRefresh did not include the entry page for {project}: {touched_qnames}")
     mobile_builder_final = call_tool(url, "mobile-builder-open", {"project": project, "timeoutSec": 120, "logsLimit": 60, "forceRestart": True}, timeout=180)
     artifact["steps"].append({"tool": "mobile-builder-open-final", "result": mobile_builder_final})
     assert_true(mobile_builder_final.get("status") == "ready", f"Final mobile builder refresh did not become ready for {project}: {mobile_builder_final.get('message')}")
@@ -601,6 +696,11 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true("InvokeBootstrapDashboard" in page_names, f"Entry page does not invoke the bootstrap dashboard action in {project}")
     print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
 
+    for entity in entities:
+        validate_entity_ui_overrides(url, project, entity, artifact)
+    if variant == "entity-pages" and entities:
+        validate_managed_warning(url, project, entities[0], artifact)
+
     artifact_path = artifact_dir / f"{project}.json"
     artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     print(f"[crud-validate] completed project={project} artifact={artifact_path}", flush=True)
@@ -643,6 +743,11 @@ def main():
 
     poll_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.json", "")
     artifact_path, summary = validate_runtime(args.mcp_url, poll_spec, artifact_dir)
+    results["artifacts"].append(str(artifact_path))
+    results["scenarios"].append(summary)
+
+    scores_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_scoresjeux_hsqldb.json", "")
+    artifact_path, summary = validate_runtime(args.mcp_url, scores_spec, artifact_dir)
     results["artifacts"].append(str(artifact_path))
     results["scenarios"].append(summary)
 

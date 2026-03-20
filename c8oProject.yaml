@@ -1,12 +1,13 @@
-↑convertigo: 8.0.0.m006
+↑convertigo: 8.4.0.m006
 ↓ConvertigoMCP [core.Project]: 
   comment: Mashup Sequencer project
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.17
+  version: 0.0.18
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
+  ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
   ↓_refreshMaintainerDocs [sequences.GenericSequence]: 🗏 sequences/_refreshMaintainerDocs.yaml
   ↓_setupCodex [sequences.GenericSequence]: 🗏 sequences/_setupCodex.yaml
   ↓internal_call [sequences.GenericSequence-1753965105243]: 🗏 sequences/internal_call.yaml
@@ -55,4 +56,12 @@
   ↓tools_requestable_stub_set [sequences.GenericSequence]: 🗏 sequences/tools_requestable_stub_set.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
   ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml
+  ↓project [references.ProjectSchemaReference]: 
+    projectName: mobilebuilder_tpl_8_3_0_ngx=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/mobilebuilder_tpl_8_3_0_ngx.zip
+  ↓project1 [references.ProjectSchemaReference]: 
+    projectName: mobilebuilder_tpl_8_4_0_ngx=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/mobilebuilder_tpl_8_4_0_ngx.zip
+  ↓project2 [references.ProjectSchemaReference]: 
+    projectName: __PROJECT_NAME__
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
+  ↓Application [core.MobileApplication-1773933153815]: 
+    ↓NgxApp [ngx.components.ApplicationComponent-1773933165318]: 🗏 mobileNgxApp.yaml

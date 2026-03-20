@@ -1,0 +1,35 @@
+comment: Template source for the CRUD error/retry card.
+↓TplCrudErrorRetryStateCard [ngx.components.UIDynamicElement-1773937957605]: 
+  beanData: '{"ionBean":"Card","IonColor":"plain:warning"}'
+  tagName: ion-card
+  ↓TplCrudErrorRetryStateHeader [ngx.components.UIDynamicElement-1773937957607]: 
+    beanData: '{"ionBean":"CardHeader"}'
+    tagName: ion-card-header
+    ↓TplCrudErrorRetryStateTitle [ngx.components.UIDynamicElement-1773937957609]: 
+      beanData: '{"ionBean":"CardTitle"}'
+      tagName: ion-card-title
+      ↓TplCrudErrorRetryStateTitleText [ngx.components.UIText-1773937957611]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: plain:Retry CRUD state
+  ↓TplCrudErrorRetryStateContent [ngx.components.UIDynamicElement-1773937957613]: 
+    beanData: '{"ionBean":"CardContent"}'
+    tagName: ion-card-content
+    ↓TplCrudErrorRetryStateText [ngx.components.UIText-1773937957615]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: script:((($any(this).pageOwner || $any(this).owner || this).global || {})).crudError || 'Retry if one facade call fails.'
+    ↓RetryButton [ngx.components.UIDynamicElement-1773937957617]: 
+      beanData: '{"ionBean":"Button","IonColor":"plain:primary"}'
+      tagName: ion-button
+      ↓RetryButtonText [ngx.components.UIText-1773937957619]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: plain:Retry
+      ↓Event [ngx.components.UIControlEvent-1773937957621]: 
+        ↓InvokeRetryDashboard [ngx.components.UIDynamicInvoke-1773937959171]: 
+          beanData: '{"ionBean":"InvokeAction"}'
+          stack: __PROJECT_NAME__.Application.NgxApp.crud_retry_dashboard

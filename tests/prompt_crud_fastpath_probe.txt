@@ -80,6 +80,7 @@ Required workflow:
 10. Run `upsert-ngx-crud-kit` with `stage=final`.
 11. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
 12. Save the project if a mutation occurred and a final save is still needed.
+13. Stop after the first successful final `crud-proof` plus seeded demo data. Do not start a second refinement pass.
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.

@@ -23,6 +23,7 @@ Read `convertigo://resources/convertigo-crud-practical-cases` only when the curr
 - Refuse tasks that fall outside the standard SQL CRUD + starter NGX path.
 - Do not call `rag-query` before you have read `convertigo://resources/convertigo-start` and the fast-path recipe.
 - Stay MCP-only: never patch `_private/ionic`, `DisplayObjects`, `dist`, or run manual `npm` builds to repair generated frontend artifacts.
+- For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second refinement pass unless the user explicitly asked for custom screens, layout, or field-level UX.
 
 ## Required spec
 Collect or confirm:
@@ -38,6 +39,7 @@ Collect or confirm:
   - landing page on `Page`
   - one generated entity page per CRUD entity
   - `seed.profile=realistic`
+  - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, and `ui.actionLabel` when the user explicitly asks for better visible fields without a custom redesign
 - for the CRM demo profile, prefer:
   - `ui.variant=master-detail`
   - `seed.profile=crm`
@@ -62,7 +64,9 @@ If some fields are missing, ask only for the missing CRUD spec items.
 11. Run `upsert-ngx-crud-kit` with `stage=final`.
 12. Run `crud-proof` with `expectUiShell=true` and pass the live `viewerUrl` from `mobile-builder-open`.
 13. Save with `project-save` when the target project was mutated and save proof is still needed.
-14. Do not call planner, critic, or maintainer prompts from this flow.
+14. If the final proof is green and the request was low-detail, stop there.
+15. Do not call planner, critic, or maintainer prompts from this flow.
+16. Prefer entity-level UI hints over direct edits on CRUD-kit-managed shared components.
 
 ## UI variant policy
 - `entity-pages` is the recommended generic CRUD UI.

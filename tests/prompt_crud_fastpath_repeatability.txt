@@ -2,6 +2,7 @@ This is a mono-agent CRUD fast-path repeatability run.
 
 - Benchmark policy: the runner already injected `convertigo-crud-fastpath`.
 - Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Once the CRUD fast path is selected, do not call `rag-query`.
 - Mutate only `__TARGET_PROJECT__`.
 - Use the exact project name `__TARGET_PROJECT__`.
 
@@ -32,6 +33,7 @@ Required workflow:
 10. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
 11. If the final UI proof fails, stop with `RESULT: FAIL`.
 12. Save the project if a mutation occurred and a final save is still needed.
+13. Stop after the first successful final `crud-proof`. Do not start a second refinement pass.
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.

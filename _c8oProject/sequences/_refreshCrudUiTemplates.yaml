@@ -1,0 +1,40 @@
+accessibility: Private
+comment: |
+  Refresh internal CRUD UI templates in the ConvertigoMCP NGX app
+  Creates or updates the maintainer-only Templates page and the shared component templates used as the visual source of truth for CRUD UI generation.
+↓IncludeHelpers [steps.SimpleStep-1773935187465]: 
+  comment: Load deterministic CRUD helpers including the template refresh helper.
+  expression: include("js/tools_crud.js");
+↓Init [steps.SimpleStep-1773935187467]: 
+  comment: Create or update the maintainer-only CRUD UI templates.
+  expression: |
+    'crudUiTemplatesResult = C8O.crud.refreshUiTemplates({
+      project: project,
+      pageName: pageName,
+      force: C8O.util.toBoolean(force, false)
+    });'
+↓result [steps.JsonToXmlStep-1773935187469]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: crudUiTemplatesResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1773935187474]: 
+  comment: Optional target project. Defaults to ConvertigoMCP.
+  description: Optional target project. Defaults to ConvertigoMCP.
+  value: ConvertigoMCP
+↓pageName [variables.RequestableVariable-1773935187480]: 
+  comment: Templates page name. Defaults to Templates.
+  description: Templates page name. Defaults to Templates.
+  value: Templates
+↓force [variables.RequestableVariable-1773935187482]: 
+  comment: Set true to recreate the managed template objects even when they already exist.
+  description: Set true to recreate the managed template objects even when they already exist.
+  value: false

@@ -1,0 +1,52 @@
+comment: Template source for the CRUD entity detail card.
+↓Title [ngx.components.UICompVariable-1773937963551]: 
+  value: '''__DISPLAY_LABEL__ detail'''
+↓EntityKey [ngx.components.UICompVariable-1773937963553]: 
+  value: '''__ENTITY_KEY__'''
+↓PrimaryField [ngx.components.UICompVariable-1773937963555]: 
+  value: '''__PRIMARY_FIELD__'''
+↓SecondaryField [ngx.components.UICompVariable-1773937963557]: 
+  value: '''__SECONDARY_FIELD__'''
+↓TplEntityDetailCardRoot [ngx.components.UIDynamicElement-1773937963559]: 
+  beanData: '{"ionBean":"Card"}'
+  tagName: ion-card
+  ↓TplEntityDetailCardHeader [ngx.components.UIDynamicElement-1773937963561]: 
+    beanData: '{"ionBean":"CardHeader"}'
+    tagName: ion-card-header
+    ↓TplEntityDetailCardTitleSlot [ngx.components.UIDynamicElement-1773937963563]: 
+      beanData: '{"ionBean":"CardTitle"}'
+      tagName: ion-card-title
+      ↓TitleText [ngx.components.UIText-1773937963565]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__ detail'
+  ↓TplEntityDetailCardContent [ngx.components.UIDynamicElement-1773937963567]: 
+    beanData: '{"ionBean":"CardContent"}'
+    tagName: ion-card-content
+    ↓PrimaryText [ngx.components.UIText-1773937963569]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: script:((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)?.[this.PrimaryField] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)?.[(('' + (this.PrimaryField || '')).toUpperCase())] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)?.[(('' + (this.PrimaryField || '')).toLowerCase())] ?? 'No record selected')
+    ↓SecondaryText [ngx.components.UIText-1773937963571]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: script:((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)?.[this.SecondaryField] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)?.[(('' + (this.SecondaryField || '')).toUpperCase())] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)?.[(('' + (this.SecondaryField || '')).toLowerCase())] ?? 'No secondary value')
+    ↓StatusText [ngx.components.UIText-1773937963573]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: 'script:''Mode: '' + ((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudModes || {})[this.EntityKey]) || ''update'')) + '' | Status: '' + ((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudEntityStatus || {})[this.EntityKey]) || ''idle''))'
+    ↓TplEntityDetailCardErrorVisible [ngx.components.UIControlDirective-1773937963575]: 
+      directiveExpression: '!!(((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudEntityErrors || {})[this.EntityKey]) || '''')'
+      directiveName: If
+      ↓TplEntityDetailCardErrorText [ngx.components.UIDynamicElement-1773937963577]: 
+        beanData: '{"ionBean":"Paragraph"}'
+        tagName: p
+        ↓ErrorTextValue [ngx.components.UIText-1773937963579]: 
+          textValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: script:(((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudEntityErrors || {})[this.EntityKey]) || '')

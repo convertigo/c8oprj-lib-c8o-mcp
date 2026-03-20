@@ -50,6 +50,8 @@ Default assumptions for the fast path:
 - if no explicit seed profile is provided, use `seed.profile=realistic`
 - treat `dashboard` as a legacy single-page fallback
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
+- for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
+- for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, and `ui.actionLabel` over direct edits on generated CRUD-kit shared components
 
 ## Deterministic rail
 1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
@@ -61,6 +63,7 @@ Default assumptions for the fast path:
 7. Call `upsert-ngx-crud-kit` again with `stage=final`.
 8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
 9. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
+10. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
 
 ## Proof contract
 `crud-proof` is sufficient when all of these hold:
@@ -87,3 +90,5 @@ For the default `Contact` / `Company` fast path:
 - Do not let the agent rediscover CRUD scaffolding manually when `upsert-crud` already fits.
 - Do not accept a run where the starter body is still dominant on the visible page.
 - Do not use RAG before the built-in CRUD tools and guides are exhausted.
+- Do not continue mutating the generated CRUD UI after the first green proof unless the user explicitly asked for more than the generic scaffold.
+- Do not patch CRUD-kit-managed shared components directly when entity-level UI hints can express the needed visible fields.

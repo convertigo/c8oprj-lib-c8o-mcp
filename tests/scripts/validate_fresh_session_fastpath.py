@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from datetime import datetime
 import json
 import re
 import time
@@ -22,6 +23,18 @@ DEFAULT_SPEC_PATH = ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.jso
 DEFAULT_OUTPUT_DIR = ROOT / "tests" / "reports" / "fresh-session-fastpath" / time.strftime("%Y%m%d_%H%M%S")
 TOOL_CALL_RE = re.compile(r"^tool ([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\((.*)\)$")
 SESSION_ID_RE = re.compile(r"^session id:\s*([a-z0-9-]+)\s*$", re.IGNORECASE)
+POST_GREEN_MUTATING_TOOLS = {
+    "marketplace-import",
+    "upsert-crud",
+    "upsert-ngx-crud-kit",
+    "databaseobject-tree-apply",
+    "batch-call",
+    "requestable-execute",
+    "project-delete",
+    "project-reload",
+    "project-js-set",
+    "requestable-stub-set",
+}
 
 
 def parse_args():
@@ -148,6 +161,40 @@ def load_session_trace(trace_path):
     return events
 
 
+def parse_trace_timestamp(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def parse_trace_tool_calls(trace_events):
+    results = []
+    for event in trace_events:
+        payload = event.get("payload") or {}
+        if event.get("type") != "response_item" or payload.get("type") != "function_call":
+            continue
+        name = str(payload.get("name") or "")
+        args = payload.get("arguments")
+        try:
+            parsed_args = json.loads(args) if args else {}
+        except Exception:
+            parsed_args = {"_raw": args}
+        results.append(
+            {
+                "timestamp": parse_trace_timestamp(event.get("timestamp")),
+                "name": name,
+                "args": parsed_args,
+            }
+        )
+    return results
+
+
 def inspect_session_trace(trace_events, workspace_path):
     workspace = str(Path(workspace_path).resolve())
     violations = []
@@ -176,6 +223,28 @@ def inspect_session_trace(trace_events, workspace_path):
             if "_private/ionic" in patch_text or "DisplayObjects" in patch_text:
                 violations.append("Forbidden patch on generated frontend artifacts detected in session trace.")
     return violations
+
+
+def read_nested_spec(raw_spec):
+    current = raw_spec
+    for _ in range(3):
+        if isinstance(current, str):
+            try:
+                current = json.loads(current)
+                continue
+            except Exception:
+                return None
+        break
+    return current if isinstance(current, dict) else None
+
+
+def is_seed_enabled(spec):
+    if not isinstance(spec, dict):
+        return False
+    seed = spec.get("seed")
+    if not isinstance(seed, dict):
+        return False
+    return bool(seed.get("enabled"))
 
 
 def first_event(events, predicate):
@@ -291,6 +360,13 @@ def check_call_order(events):
     if rag_before_discovery:
         raise RuntimeError("Fresh session called rag-query before completing the fast-path guide read sequence.")
 
+    rag_after_fastpath = first_event(
+        events,
+        lambda event: event["server"] == "convertigo" and event["name"] == "rag-query" and event["line"] > discovery["fastPathGuide"]["line"],
+    )
+    if rag_after_fastpath:
+        raise RuntimeError("Fresh session called rag-query after the CRUD fast path had already been selected.")
+
     project_list_before_guides = first_event(
         events,
         lambda event: event["server"] == "convertigo" and event["name"] == "project-list" and event["line"] < discovery["fastPathGuide"]["line"],
@@ -310,10 +386,44 @@ def check_call_order(events):
     if not str(final_args.get("viewerUrl") or "").strip():
         raise RuntimeError("Final crud-proof did not receive viewerUrl from mobile-builder-open.")
 
+    upsert_spec = read_nested_spec((workflow["upsertCrud"]["args"] or {}).get("spec"))
+    if not is_seed_enabled(upsert_spec):
+        raise RuntimeError("Fresh session did not pass seeded demo data in the initial upsert-crud spec.")
+
+    post_green_mutation = first_event(
+        events,
+        lambda event: event["line"] > workflow["finalProof"]["line"]
+        and event["server"] == "convertigo"
+        and event["name"] in POST_GREEN_MUTATING_TOOLS,
+    )
+    if post_green_mutation:
+        raise RuntimeError(
+            "Fresh session kept mutating the project after the first green final crud-proof: %s."
+            % event_label(post_green_mutation)
+        )
+
     return {
         "discovery": {key: {"label": event_label(value), "line": value["line"] if value else None} for key, value in discovery.items()},
         "workflow": {key: {"label": event_label(value), "line": value["line"]} for key, value in workflow.items()},
     }
+
+
+def compute_time_to_first_green(trace_events):
+    tool_calls = parse_trace_tool_calls(trace_events)
+    if not tool_calls:
+        return None
+    start_time = None
+    first_green_time = None
+    for event in tool_calls:
+        if start_time is None and event.get("timestamp") is not None:
+            start_time = event["timestamp"]
+        name = str(event.get("name") or "")
+        if name in ("mcp__convertigo__crud-proof", "mcp__convertigo__crud_proof") and bool((event["args"] or {}).get("expectUiShell")):
+            first_green_time = event.get("timestamp")
+            break
+    if not start_time or not first_green_time:
+        return None
+    return int((first_green_time - start_time).total_seconds() * 1000)
 
 
 def write_summary(output_dir, record):
@@ -329,6 +439,7 @@ def write_summary(output_dir, record):
         f"- Finished: `{record['finishedAt']}`",
         f"- Target project: `{record['targetProject']}`",
         f"- Status: `{record['status']}`",
+        f"- Time to first green: `{record.get('timeToFirstGreenMs', '-')}`",
         f"- Failure cause: `{record.get('failureCause') or '-'}`",
         f"- Report: `{record.get('reportPath') or '-'}`",
         f"- Raw log: `{record.get('logPath') or '-'}`",
@@ -419,6 +530,9 @@ def main():
         trace_violations = inspect_session_trace(load_session_trace(session_trace), workspace_dir)
         if trace_violations:
             raise RuntimeError("; ".join(trace_violations))
+        time_to_first_green = compute_time_to_first_green(load_session_trace(session_trace))
+        if time_to_first_green is not None:
+            record["timeToFirstGreenMs"] = time_to_first_green
         record["status"] = "PASS"
     except Exception as exc:
         message = str(exc)

@@ -1,79 +1,112 @@
+
+
+
 # ConvertigoMCP
 
-Convertigo MCP project for AI-assisted fullstack Convertigo development.
+Mashup Sequencer project
 
-The recommended public path is now a mono-agent MCP flow for deterministic SQL CRUD + starter NGX UI work.
-Use the MCP directly, prefer the dedicated CRUD fast path, and keep multi-agent / benchmark / maintainer flows as internal lab surfaces until the mono-agent rail is proven stable.
 
-For an exported structural snapshot, see [documentation](./project.md). `project.md` is generated and non-canonical; prefer the live MCP catalog plus the tracked guides under `resources/` and `prompts/`.
+For more technical informations : [documentation](./project.md)
 
-## Local Onboarding
+- [Installation](#installation)
+- [Rest Web Service](#rest-web-service)
+    - [Mappings](#mappings)
+        - [/mcp](#mcp)
+            - [Operations](#operations)
+                - [Get](#get)
+                - [Post](#post)
+        - [/mcp/](#mcp-1)
+            - [Operations](#operations-1)
+                - [Get](#get-1)
+                - [Post](#post-1)
+- [Mobile Application](#mobile-application)
+    - [Pages](#pages)
+        - [Home](#home)
 
-1. Import the project in Convertigo Studio.
-2. Run the private sequence `_setupCodex` once from Studio.
-3. Restart Codex so the generated `convertigo-generalist` skill is loaded and `~/.codex/config.toml` contains the local `convertigo` MCP server entry.
-
-`_setupCodex` is a Studio-local helper. It is not part of the public MCP tool surface.
-
-## Maintainer Docs
-
-When the live MCP catalog changes, run the private sequence `_refreshMaintainerDocs` from Studio to regenerate `AGENT.md` and `TOOLS.md` from the current MCP contract.
-
-`_refreshMaintainerDocs` is a Studio-local helper. It is not part of the public MCP tool surface.
-
-## Recommended Flow
-
-1. Start from the CRUD fast path prompt and guide:
-   - `convertigo-crud-fastpath`
-   - `convertigo://resources/convertigo-crud-fastpath`
-   - on a fresh session, call `resources/list` first and `prompts/list` when the caller surface exposes it
-2. Provide one explicit CRUD spec:
-   - project, using the exact requested name without invented prefixes or date suffixes
-   - SQL driver family
-   - connector name
-   - facade prefix
-   - entities
-   - visible entry page
-3. Execute the deterministic rail:
-   - `marketplace-import` with the exact requested project name
-   - `mobile-builder-open`
-   - use `viewerHomeUrl` or `viewerBaseUrl` for the live dev app; reserve `DisplayObjects/mobile/home` for production builds
-   - `upsert-crud`
-   - backend `crud-proof`
-   - `upsert-ngx-crud-kit stage=bootstrap`
-   - `mobile-builder-open` again to surface `compile_error` if the live app does not compile
-   - `upsert-ngx-crud-kit stage=final`
-   - final `crud-proof` with the returned `viewerUrl`
-   - `project-save`
-4. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. They are diagnostic only; fix the Convertigo source objects or the MCP generator instead.
-
-## Internal Lab Surfaces
-
-These remain available for observability and experiments, but are not the recommended product path during the mono-agent recovery cycle:
-
-- benchmark campaigns under `tests/`
-- feedback triage under `feedback/`
-- maintainer / critic improvement loops
-- multi-agent wrapper experiments in companion repositories
 
 ## Installation
 
-1. In Convertigo Studio, import the project from Git.
-2. Use the project remote URL:
+1. In your Convertigo Studio click on ![](https://github.com/convertigo/convertigo/blob/develop/eclipse-plugin-studio/icons/studio/project_import.gif?raw=true "Import a project in treeview") to import a project in the treeview
+2. In the import wizard
 
-   ```
-   ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
-   ```
+   ![](https://github.com/convertigo/convertigo/blob/develop/eclipse-plugin-studio/tomcat/webapps/convertigo/templates/ftl/project_import_wzd.png?raw=true "Import Project")
+   
+   paste the text below into the `Project remote URL` field:
+   <table>
+     <tr><td>Usage</td><td>Click the copy button at the end of the line</td></tr>
+     <tr><td>To contribute</td><td>
 
-3. Finish the import wizard.
+     ```
+     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
+     ```
+     </td></tr>
+     <tr><td>To simply use</td><td>
+
+     ```
+     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
+     ```
+     </td></tr>
+    </table>
+3. Click the `Finish` button. This will automatically import the __ConvertigoMCP__ project
+
 
 ## Rest Web Service
 
-### `/mcp` and `/mcp/`
+### Mappings
 
-Streamable HTTP entry points for MCP JSON-RPC requests.
+#### /mcp
 
-Parameters:
+##### Operations
 
-- `jsonOnly`
-- `request`: JSON-RPC request body
+###### Get
+
+###### Post
+
+Streamable HTTP entry point for MCP requests
+
+**Parameters**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>jsonOnly</td><td></td>
+</tr>
+<tr>
+<td>request</td><td>JSON-RPC request body</td>
+</tr>
+</table>
+
+#### /mcp/
+
+##### Operations
+
+###### Get
+
+###### Post
+
+Streamable HTTP entry point for MCP requests
+
+**Parameters**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>jsonOnly</td><td></td>
+</tr>
+<tr>
+<td>request</td><td>JSON-RPC request body</td>
+</tr>
+</table>
+
+## Mobile Application
+
+### Pages
+
+#### Home
+
+
+

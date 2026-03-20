@@ -1,0 +1,11 @@
+tplProjectName: mobilebuilder_tpl_8_4_0_ngx
+↓TplCrudPageHeader [ngx.components.UISharedRegularComponent-1773937952057]: 🗏 mobileSharedComponents/TplCrudPageHeader.yaml
+↓TplWorkInProgressCard [ngx.components.UISharedRegularComponent-1773937957579]: 🗏 mobileSharedComponents/TplWorkInProgressCard.yaml
+↓TplCrudLoadingState [ngx.components.UISharedRegularComponent-1773937957595]: 🗏 mobileSharedComponents/TplCrudLoadingState.yaml
+↓TplCrudErrorRetryState [ngx.components.UISharedRegularComponent-1773937957603]: 🗏 mobileSharedComponents/TplCrudErrorRetryState.yaml
+↓TplDashboardStatCard [ngx.components.UISharedRegularComponent-1773937959173]: 🗏 mobileSharedComponents/TplDashboardStatCard.yaml
+↓TplEntityListPanel [ngx.components.UISharedRegularComponent-1773937959195]: 🗏 mobileSharedComponents/TplEntityListPanel.yaml
+↓TplEntityDetailCard [ngx.components.UISharedRegularComponent-1773937963549]: 🗏 mobileSharedComponents/TplEntityDetailCard.yaml
+↓TplEntityEditForm [ngx.components.UISharedRegularComponent-1773937963581]: 🗏 mobileSharedComponents/TplEntityEditForm.yaml
+↓Home [ngx.components.PageComponent-1773933345223]: 🗏 mobilePages/Home.yaml
+↓Templates [ngx.components.PageComponent-1773937963665]: 🗏 mobilePages/Templates.yaml

@@ -188,7 +188,7 @@ C8O.crudSeed = C8O.crudSeed || {};
   };
 
   C8O.crudSeed.pickSeedLookupField = function (ctx, entity) {
-    var preferred = ["name", "nom", "nomcommun", "nomscientifique", "email", "title", "titre", "firstname", "prenom", "city", "ville"];
+    var preferred = ["name", "displayname", "nom", "nomcommun", "nomscientifique", "email", "title", "titre", "firstname", "prenom", "city", "ville", "venue", "scheduledday", "badge"];
     for (var p = 0; p < preferred.length; p++) {
       var preferredField = ctx.findField(entity, function (field) {
         return !field.primary && ctx.semanticFieldToken(field) === ctx.semanticToken(preferred[p]);
@@ -198,15 +198,28 @@ C8O.crudSeed = C8O.crudSeed || {};
       }
     }
     var uniqueField = ctx.findField(entity, function (field) {
-      return !field.primary && field.unique === true;
+      return !field.primary && !field.references && field.unique === true;
     });
     if (uniqueField) {
       return uniqueField;
     }
+    var semanticField = ctx.findField(entity, function (field) {
+      var token = ctx.semanticFieldToken(field);
+      return !field.primary && !field.references && token.length > 0 && token !== "id";
+    });
+    if (semanticField) {
+      return semanticField;
+    }
     var firstField = ctx.findField(entity, function (field) {
+      return !field.primary && !field.references;
+    });
+    if (firstField) {
+      return firstField;
+    }
+    var relationalFallback = ctx.findField(entity, function (field) {
       return !field.primary;
     });
-    return firstField || (entity && entity.primaryField) || null;
+    return relationalFallback || (entity && entity.primaryField) || null;
   };
 
   C8O.crudSeed.renderSeedValue = function (ctx, spec, entity, field, rowIndex) {

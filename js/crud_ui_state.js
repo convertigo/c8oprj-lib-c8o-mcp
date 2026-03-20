@@ -125,45 +125,57 @@ C8O.crudUiState = C8O.crudUiState || {};
     };
   }
 
+  function crudGlobalExpression(_ctx) {
+    return "(($any(this).pageOwner || $any(this).owner || this).global || {})";
+  }
+
   function dashboardRowsExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudRows || {})[" + keyExpr + "]) || [])";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudRows || {})[" + keyExpr + "]) || [])";
   }
 
   function dashboardCountExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
+    var globalExpr = crudGlobalExpression(ctx);
     var rowsExpr = dashboardRowsExpression(ctx, keyExpr);
-    return "((this.global?.crudCounts || {})[" + keyExpr + "] ?? ((" + rowsExpr + ").length ?? 0))";
+    return "(((" + globalExpr + ").crudCounts || {})[" + keyExpr + "] ?? ((" + rowsExpr + ").length ?? 0))";
   }
 
   function dashboardSampleExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudSamples || {})[" + keyExpr + "]) || null)";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudSamples || {})[" + keyExpr + "]) || null)";
   }
 
   function crudSelectedExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudSelected || {})[" + keyExpr + "]) || null)";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudSelected || {})[" + keyExpr + "]) || null)";
   }
 
   function crudDraftExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudDrafts || {})[" + keyExpr + "]) || {})";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudDrafts || {})[" + keyExpr + "]) || {})";
   }
 
   function crudModeExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudModes || {})[" + keyExpr + "]) || 'update')";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudModes || {})[" + keyExpr + "]) || 'update')";
   }
 
   function crudEntityStatusExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudEntityStatus || {})[" + keyExpr + "]) || 'idle')";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudEntityStatus || {})[" + keyExpr + "]) || 'idle')";
   }
 
   function crudEntityErrorExpression(ctx, entityKeyExpression) {
     var keyExpr = trimmed(ctx, entityKeyExpression || "''") || "''";
-    return "(((this.global?.crudEntityErrors || {})[" + keyExpr + "]) || '')";
+    var globalExpr = crudGlobalExpression(ctx);
+    return "((((" + globalExpr + ").crudEntityErrors || {})[" + keyExpr + "]) || '')";
   }
 
   function dynamicFieldAccessExpression(ctx, targetExpression, fieldExpression, fallbackExpression) {
@@ -201,6 +213,7 @@ C8O.crudUiState = C8O.crudUiState || {};
   C8O.crudUiState.statefulBootstrapRowQName = statefulBootstrapRowQName;
   C8O.crudUiState.workInProgressVisibilityExpression = workInProgressVisibilityExpression;
   C8O.crudUiState.buildStatefulBootstrapRow = buildStatefulBootstrapRow;
+  C8O.crudUiState.crudGlobalExpression = crudGlobalExpression;
   C8O.crudUiState.dashboardRowsExpression = dashboardRowsExpression;
   C8O.crudUiState.dashboardCountExpression = dashboardCountExpression;
   C8O.crudUiState.dashboardSampleExpression = dashboardSampleExpression;

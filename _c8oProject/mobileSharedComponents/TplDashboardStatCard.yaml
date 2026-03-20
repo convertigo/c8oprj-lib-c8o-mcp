@@ -1,0 +1,34 @@
+comment: Template source for the CRUD dashboard stat card.
+↓Title [ngx.components.UICompVariable-1773937959175]: 
+  value: '''__DISPLAY_LABEL__'''
+↓EntityKey [ngx.components.UICompVariable-1773937959177]: 
+  value: '''__ENTITY_KEY__'''
+↓Caption [ngx.components.UICompVariable-1773937959179]: 
+  value: '''Loaded from public facade'''
+↓TplDashboardStatCardCard [ngx.components.UIDynamicElement-1773937959181]: 
+  beanData: '{"ionBean":"Card"}'
+  tagName: ion-card
+  ↓TplDashboardStatCardHeader [ngx.components.UIDynamicElement-1773937959183]: 
+    beanData: '{"ionBean":"CardHeader"}'
+    tagName: ion-card-header
+    ↓TplDashboardStatCardTitleSlot [ngx.components.UIDynamicElement-1773937959185]: 
+      beanData: '{"ionBean":"CardTitle"}'
+      tagName: ion-card-title
+      ↓TitleText [ngx.components.UIText-1773937959187]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__'
+  ↓TplDashboardStatCardContent [ngx.components.UIDynamicElement-1773937959189]: 
+    beanData: '{"ionBean":"CardContent"}'
+    tagName: ion-card-content
+    ↓TplDashboardStatCardValue [ngx.components.UIText-1773937959191]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: script:'' + (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudCounts || {})[this.EntityKey] ?? (((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudRows || {})[this.EntityKey]) || [])).length ?? 0)))
+    ↓TplDashboardStatCardCaption [ngx.components.UIText-1773937959193]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: 'script:this.Caption || (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudLoading ? ''Loading public facade...'' : (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudError || ''Loaded from public facade''))'

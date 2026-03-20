@@ -155,9 +155,31 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
     }
   }
 
+  function safeCrudQName(dbo) {
+    if (!dbo) {
+      return "";
+    }
+    try {
+      return String(dbo.getFullQName ? dbo.getFullQName() : dbo.getQName());
+    } catch (_ignoreQName) {
+      return "";
+    }
+  }
+
+  function hasManagedCrudMarker(comment) {
+    var text = String(comment || "");
+    if (!text.length) {
+      return false;
+    }
+    return text.indexOf("Managed by upsert-ngx-crud-kit") === 0
+      || text.indexOf("Deterministic CRUD") === 0
+      || text.indexOf("CRM live-state") === 0
+      || text.indexOf("Temporary dashboard bootstrap card") === 0;
+  }
+
   function isManagedCrudPage(ctx, page) {
     var comment = dboCommentText(ctx, page);
-    return comment.indexOf("Deterministic CRUD entity page") === 0;
+    return comment.indexOf("Deterministic CRUD entity page") === 0 || hasManagedCrudMarker(comment);
   }
 
   function isManagedCrudSharedComponent(ctx, component) {
@@ -165,9 +187,7 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
     if (!comment.length) {
       return false;
     }
-    return comment.indexOf("Deterministic CRUD") === 0
-      || comment.indexOf("CRM live-state") === 0
-      || comment.indexOf("Temporary dashboard bootstrap card") === 0;
+    return hasManagedCrudMarker(comment);
   }
 
   function isManagedCrudSharedAction(ctx, actionStack) {
@@ -181,7 +201,43 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
       return true;
     }
     var comment = dboCommentText(ctx, actionStack);
-    return comment.indexOf("CRUD ") === 0 || comment.indexOf("CRM ") === 0;
+    return comment.indexOf("CRUD ") === 0 || comment.indexOf("CRM ") === 0 || hasManagedCrudMarker(comment);
+  }
+
+  function isManagedCrudDbo(ctx, dbo) {
+    if (!dbo) {
+      return false;
+    }
+    return isManagedCrudPage(ctx, dbo)
+      || isManagedCrudSharedComponent(ctx, dbo)
+      || isManagedCrudSharedAction(ctx, dbo)
+      || hasManagedCrudMarker(dboCommentText(ctx, dbo));
+  }
+
+  function findManagedCrudAncestorInfo(ctx, dbo) {
+    var current = dbo || null;
+    while (current != null) {
+      if (isManagedCrudDbo(ctx, current)) {
+        return {
+          qname: safeCrudQName(current),
+          comment: dboCommentText(ctx, current)
+        };
+      }
+      try {
+        current = current.getParent ? current.getParent() : null;
+      } catch (_ignoreParent) {
+        current = null;
+      }
+    }
+    return null;
+  }
+
+  function managedCrudMutationWarning(ctx, dbo) {
+    var info = findManagedCrudAncestorInfo(ctx, dbo);
+    if (!info) {
+      return "";
+    }
+    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` may be overwritten or break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel hints instead.";
   }
 
   function collectManagedCrudCleanupQNames(ctx, ngxApp, expectedQNames) {
@@ -376,4 +432,6 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
   C8O.crudUiRefresh.collectManagedCrudCleanupQNames = collectManagedCrudCleanupQNames;
   C8O.crudUiRefresh.cleanupGeneratedIonicSources = cleanupGeneratedIonicSources;
   C8O.crudUiRefresh.purgeManagedGeneratedIonicSources = purgeManagedGeneratedIonicSources;
+  C8O.crudUiRefresh.findManagedCrudAncestorInfo = findManagedCrudAncestorInfo;
+  C8O.crudUiRefresh.managedCrudMutationWarning = managedCrudMutationWarning;
 })();

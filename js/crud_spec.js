@@ -175,6 +175,45 @@ C8O.crudSpec = C8O.crudSpec || {};
     };
   };
 
+  C8O.crudSpec.normalizeEntityUi = function (ctx, rawUi) {
+    var source = rawUi && typeof rawUi === "object" ? rawUi : {};
+
+    function normalizeFieldRefs(value) {
+      var entries = ctx.ensureArray(value);
+      var seen = {};
+      var normalized = [];
+      for (var i = 0; i < entries.length; i++) {
+        var token = ctx.normalizedIdentifier(entries[i]);
+        if (!token.length || seen[token]) {
+          continue;
+        }
+        seen[token] = true;
+        normalized.push(token);
+      }
+      return normalized;
+    }
+
+    var fieldLabels = {};
+    var rawFieldLabels = source.fieldLabels && typeof source.fieldLabels === "object" ? source.fieldLabels : {};
+    var rawFieldLabelKeys = Object.keys(rawFieldLabels);
+    for (var index = 0; index < rawFieldLabelKeys.length; index++) {
+      var rawKey = ctx.normalizedIdentifier(rawFieldLabelKeys[index]);
+      var rawValue = ctx.trimmed(rawFieldLabels[rawFieldLabelKeys[index]]);
+      if (!rawKey.length || !rawValue.length) {
+        continue;
+      }
+      fieldLabels[rawKey] = rawValue;
+    }
+
+    return {
+      listFields: normalizeFieldRefs(source.listFields),
+      detailFields: normalizeFieldRefs(source.detailFields),
+      formFields: normalizeFieldRefs(source.formFields),
+      fieldLabels: fieldLabels,
+      actionLabel: ctx.trimmed(source.actionLabel || "")
+    };
+  };
+
   C8O.crudSpec.normalizeEntity = function (ctx, rawEntity) {
     if (!rawEntity || typeof rawEntity !== "object") {
       throw new Error("Each entity must be an object");
@@ -189,6 +228,7 @@ C8O.crudSpec = C8O.crudSpec || {};
       label: naming.displayLabel,
       displayLabel: naming.displayLabel,
       routeSegment: naming.routeSegment,
+      ui: C8O.crudSpec.normalizeEntityUi(ctx, rawEntity.ui),
       fields: [],
       primaryField: null
     };

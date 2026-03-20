@@ -5,6 +5,7 @@ This is a fresh-session mono-agent CRUD fast-path entry probe.
 - Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
 - Do not inspect the empty local workspace before the MCP route decision.
 - Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts.
+- Once the CRUD fast path is selected, do not call `rag-query`.
 - Mutate only `__TARGET_PROJECT__`.
 
 Create or update a CRUD demo project named `__TARGET_PROJECT__` with this explicit spec:
@@ -16,7 +17,9 @@ __CRUD_SPEC_JSON__
 Expected outcome:
 - the project is created or updated through the deterministic CRUD fast path
 - the UI becomes visible early through the mobile viewer
+- seeded demo data is already present in the first green proof
 - the final proof covers backend requestables, visible shell replacement, and viewer proof
+- stop after the first successful final `crud-proof`, except for a final `project-save` if still needed
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly and the final backend + UI proof is green.
