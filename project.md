@@ -318,6 +318,44 @@ Project technical name (optional). Defaults to current context project.
 
 </p></blockquote></details>
 
+<details><summary><b>internal_studio_ngx_sources_sync</b> : Force an NGX application source sync (reset + updateSourceFiles) for a target project/qname</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") internal_studio_ngx_sources_sync
+
+Force an NGX application source sync (reset + updateSourceFiles) for a target project/qname.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Optional project technical name fallback when qname is omitted.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
+</td>
+<td>
+Optional QName inside the target NGX app (used to resolve its application root).
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>internal_studio_refresh</b> : Refreshes the Eclipse Project Explorer for a target database object</summary><blockquote><p>
 
 
@@ -752,6 +790,14 @@ Set false to keep the deletion in memory and skip project export.
 </tr>
 <tr>
 <td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;optimizeMutations
+</td>
+<td>
+Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once.
+</td>
+</tr>
+<tr>
+<td>
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
 </td>
 <td>
@@ -795,6 +841,14 @@ comment
 </td>
 <td>
 Set false to keep the move in memory and skip project export.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;optimizeMutations
+</td>
+<td>
+Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once.
 </td>
 </tr>
 <tr>
@@ -866,6 +920,14 @@ Set false to keep the rename in memory and skip project export.
 </td>
 <td>
 New object name. Use a valid Convertigo identifier for the target class.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;optimizeMutations
+</td>
+<td>
+Set true to defer save and Studio refresh for this mutation so a higher-level batch can finalize once.
 </td>
 </tr>
 <tr>
@@ -1022,293 +1084,6 @@ Set true to treat filter as a Java regular expression.
 
 </p></blockquote></details>
 
-<<<<<<< HEAD
-<details><summary><b>tools_marketplace_import</b> : Imports a marketplace library if needed and ensures the target project references it</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_marketplace_import
-
-Imports a marketplace library if needed and ensures the target project references it.
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;addReference
-</td>
-<td>
-Optional boolean. True ensures target project has a ProjectSchemaReference (default true).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;autoPull
-</td>
-<td>
-Optional boolean to append :autoPull=true in project reference URL (default true).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;branch
-</td>
-<td>
-Optional branch override used for import/reference URL.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;cloneUrl
-</td>
-<td>
-Optional repository clone URL override.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;defaultLibraryTopic
-</td>
-<td>
-Optional boolean. True keeps default "library" topic while resolving entries.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;endpoint
-</td>
-<td>
-Optional marketplace endpoint override (defaults to https://marketplace.convertigo.com/.json).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;forceImport
-</td>
-<td>
-Optional boolean forwarded to referencedProjectManager.importProject(parser, force).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;importIfMissing
-</td>
-<td>
-Optional boolean. True imports the library when absent from workspace (default true).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;lib
-</td>
-<td>
-Alias of library for compatibility.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;library
-</td>
-<td>
-Marketplace library name to import/reference (for example libApexCharts).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
-</td>
-<td>
-Target project technical name. Defaults to current context project.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;q
-</td>
-<td>
-Optional marketplace search text when resolving the library.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;referenceName
-</td>
-<td>
-Optional technical name for the created/updated project reference object.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;refresh
-</td>
-<td>
-Optional boolean. True refreshes Studio tree for target and imported projects (default true).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;save
-</td>
-<td>
-Optional boolean. True exports target project to disk after update (default true).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;technicalName
-</td>
-<td>
-Optional marketplace technical repository name (name_tech).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;topic
-</td>
-<td>
-Optional single marketplace topic filter while resolving library.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;topics
-</td>
-<td>
-Optional topics list as JSON array string or comma-separated values.
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>tools_marketplace_list</b> : Lists marketplace libraries and highlights workspace/reference status for a target project</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_marketplace_list
-
-Lists marketplace libraries and highlights workspace/reference status for a target project.
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
-</td>
-<td>
-Opaque cursor forwarded from MCP _meta.nextCursor (internal).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;defaultLibraryTopic
-</td>
-<td>
-Optional boolean. True keeps the default "library" topic filter when no topic is provided.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;endpoint
-</td>
-<td>
-Optional marketplace endpoint override (defaults to https://marketplace.convertigo.com/.json).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeRaw
-</td>
-<td>
-Optional boolean to include raw marketplace entries (default false).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
-</td>
-<td>
-Maximum number of items returned per call (1-200, default 20).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;maxPages
-</td>
-<td>
-Maximum marketplace pages fetched server-side for one call (default 20).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
-</td>
-<td>
-Optional target project technical name to compute recommendation status.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;q
-</td>
-<td>
-Optional marketplace search text.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;sort
-</td>
-<td>
-Optional marketplace sort value forwarded to marketplace filters.
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;suggestionLimit
-</td>
-<td>
-Maximum number of suggestions returned when project is provided (1-30, default 6).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;topic
-</td>
-<td>
-Optional single marketplace topic (example: library, front-end).
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;topics
-</td>
-<td>
-Optional topics list as JSON array string or comma-separated values.
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>tools_palette_describe</b> : Describes palette entries (properties, creation hints)</summary><blockquote><p>
-=======
 <details><summary><b>tools_databaseobject_tree_apply</b> : Patch a canonical database object tree</summary><blockquote><p>
 
 
@@ -1374,6 +1149,14 @@ Allowed values: merge or replace. replace also removes children missing from the
 </td>
 <td>
 Allowed values: stop or continue. continue keeps later operations running and reports failures.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;optimizeMutations
+</td>
+<td>
+Set true to defer save, Studio refresh, and mobile-builder finalization for this mutation so a higher-level batch can finalize once.
 </td>
 </tr>
 <tr>
@@ -1697,10 +1480,112 @@ Marketplace project name.
 
 </p></blockquote></details>
 
+<details><summary><b>tools_marketplace_import1</b> : Import a marketplace project</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_marketplace_import1
+
+Import a marketplace project
+Imports a marketplace project into the workspace and wires the reference for the target project. Starter templates may require a new local project name.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;importedProjectName
+</td>
+<td>
+New local project name. Required when the marketplace entry is a starter template.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Marketplace project name.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>tools_marketplace_list</b> : Search marketplace libraries</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_marketplace_list
+
+Search marketplace libraries
+Lists marketplace entries and highlights workspace or reference status. Filter with search or topics before scanning many pages.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor from a previous response. Internal pagination token.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;limit
+</td>
+<td>
+Maximum entries returned in the final result page. 1 to 200; default 20.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;maxPages
+</td>
+<td>
+Maximum upstream pages scanned before returning. 1 to 100; default 20.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;search
+</td>
+<td>
+Search text sent to the marketplace catalog.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;topics
+</td>
+<td>
+Optional topic filter. Accepts a single topic, a comma-separated list, or a JSON array string.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_marketplace_list1</b> : Search marketplace libraries</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_marketplace_list1
 
 Search marketplace libraries
 Lists marketplace entries and highlights workspace or reference status. Filter with search or topics before scanning many pages.
@@ -1816,7 +1701,6 @@ Seconds to wait for a live-reload URL. Default 90; max 600.
 </p></blockquote></details>
 
 <details><summary><b>tools_palette_describe</b> : Describe a palette entry</summary><blockquote><p>
->>>>>>> refs/remotes/origin/codex
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_palette_describe
@@ -1920,6 +1804,107 @@ Maximum items returned. Leave empty or 0 for no limit.
 </td>
 <td>
 Parent QName. Append :FolderType only when you need a specific logical folder view.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_delete</b> : Delete a project from the workspace</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_delete
+
+Delete a project from the workspace
+Removes one project by technical name and deletes its files. Benchmark cleanup should use this instead of databaseobject-delete on the project root.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;deleteCar
+</td>
+<td>
+Delete the exported .car archive when present. Default true.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Project technical name. Omit only when the current context project is unambiguous.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_execute</b> : Launch project mobile builder in Studio (Execute / build-serve), optionally wait for initial build completion</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_execute
+
+Launch project mobile builder in Studio (Execute / build-serve), optionally wait for initial build completion.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;collectLogs
+</td>
+<td>
+Capture npm/build output from Studio engine logs and return summary/excerpts.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;launch
+</td>
+<td>
+Set to false to skip launch and only fetch/analyze current build logs.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Target project name. Defaults to current context project when omitted.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;timeoutSec
+</td>
+<td>
+Maximum wait time in seconds when waitInitialBuild=true (1..3600).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;waitInitialBuild
+</td>
+<td>
+Set to true to wait for initial build completion (best effort) after launching builder.
 </td>
 </tr>
 </table>
@@ -2152,6 +2137,125 @@ Question sent to the Convertigo knowledge base.
 
 </p></blockquote></details>
 
+<details><summary><b>tools_report_create</b> : Create a field feedback report</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_report_create
+
+Create a field feedback report
+Writes one structured field-feedback report under feedback/inbox/YYYY/MM/. Available only when off resolves to suggest or benchmark.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;area
+</td>
+<td>
+Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;evidence
+</td>
+<td>
+Optional concrete evidence such as an error snippet or failure symptom.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;model
+</td>
+<td>
+Optional model identifier.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Optional project name involved in the run.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;provider
+</td>
+<td>
+Optional model provider name.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;rolePrompt
+</td>
+<td>
+Optional prompt name or role that encountered the issue.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;runId
+</td>
+<td>
+Optional run identifier for traceability.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;runMode
+</td>
+<td>
+Optional run mode such as poc, suggest, benchmark, or campaign.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;severity
+</td>
+<td>
+Feedback severity. Allowed values: low, medium, high.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;subjectId
+</td>
+<td>
+Short stable identifier of the subject being reported.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;suggestion
+</td>
+<td>
+Optional suggested improvement for the MCP, guides, or prompts.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;summary
+</td>
+<td>
+Short reusable summary of the MCP, doc, or prompt friction.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>tools_requestable_execute</b> : Run a sequence or transaction</summary><blockquote><p>
 
 
@@ -2201,6 +2305,92 @@ Target requestable as <project>[.<connector>].<requestable>.
 </td>
 <td>
 Request variables as an object or a JSON string. Non-string values are serialized before execution.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_requestable_stub_get</b> : Read a requestable stub</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_requestable_stub_get
+
+Read a requestable stub
+Loads the XML stub file for a sequence or transaction using the same default filename logic as the Convertigo engine.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;stubFilename
+</td>
+<td>
+Stub filename relative to stubs/. Omit to use the requestable default such as sequence_default.xml or connector.transaction_default.xml.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;targetRequestable
+</td>
+<td>
+Target requestable as <project>[.<connector>].<requestable>.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_requestable_stub_set</b> : Write a requestable stub</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_requestable_stub_set
+
+Write a requestable stub
+Creates or replaces the XML stub file for a sequence or transaction using the same default filename logic as the Convertigo engine.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;content
+</td>
+<td>
+Full XML stub content. The root element must be <document>.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;stubFilename
+</td>
+<td>
+Stub filename relative to stubs/. Omit to use the requestable default such as sequence_default.xml or connector.transaction_default.xml.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;targetRequestable
+</td>
+<td>
+Target requestable as <project>[.<connector>].<requestable>.
 </td>
 </tr>
 </table>
@@ -2344,6 +2534,85 @@ Optional MCP HTTP timeout in seconds.
 </td>
 <td>
 Set to true to run synchronously and wait for script completion.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_yaml_lint</b> : YAML Lint</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_yaml_lint
+
+YAML Lint
+Lint Convertigo YAML dialect files (c8oProject.yaml and _c8oProject/*.yaml).
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;checkExternalRefs
+</td>
+<td>
+Set to true to validate 🗏 referenced file existence.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;checkReferenceGraph
+</td>
+<td>
+Set to true to validate YAML reachability from c8oProject.yaml.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;maxOutputChars
+</td>
+<td>
+Maximum output characters returned in result.output (0 = unlimited).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;paths
+</td>
+<td>
+Optional files/directories filter (JSON array string, array value, or comma/newline separated list).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;projectRoot
+</td>
+<td>
+Absolute path to Convertigo project root containing c8oProject.yaml.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;python
+</td>
+<td>
+Python executable path/name. Defaults to python3.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;strict
+</td>
+<td>
+Set to true to treat warnings as errors.
 </td>
 </tr>
 </table>
