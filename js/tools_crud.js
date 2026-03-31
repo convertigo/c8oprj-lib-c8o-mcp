@@ -1,5 +1,6 @@
 include("js/util.js");
 include("js/databaseobject.js");
+include("js/databaseobject_ops.js");
 include("js/databaseobject_batch.js");
 include("js/marketplace.js");
 include("js/crud_naming.js");
@@ -252,9 +253,12 @@ C8O.crud = C8O.crud || {};
       ensureArray: ensureArray,
       pluralize: pluralize,
       normalizedIdentifier: normalizedIdentifier,
+      humanizeIdentifier: humanizeIdentifier,
       normalizeSpec: normalizeSpec,
       findEntityByName: findEntityByName,
+      findField: findField,
       preferredRelationLabelField: preferredRelationLabelField,
+      sampleValueForField: sampleValueForField,
       ensureProject: ensureProject,
       crmRelationContext: crmRelationContext,
       buildSeedSql: buildSeedSql,
@@ -266,6 +270,9 @@ C8O.crud = C8O.crud || {};
       priorityOf: priorityOf,
       ucfirst: ucfirst,
       connectorRequestableQName: connectorRequestableQName,
+      requestablePayload: requestablePayload,
+      summarizeRequestableProof: summarizeRequestableProof,
+      collectSqlOutputRows: collectSqlOutputRows,
       saveProject: function (project, warnings) {
         return C8O.dbo.saveProject(project, warnings || []);
       },
@@ -997,12 +1004,12 @@ C8O.crud = C8O.crud || {};
     return C8O.crudProof.summarizeRequestableProof(crudProofContext(), payload, requestable, result);
   }
 
-  function requestablePayload(requestable, variables, result) {
-    return C8O.crudProof.requestablePayload(crudProofContext(), requestable, variables, result);
+  function requestablePayload(requestable, variables, result, options) {
+    return C8O.crudProof.requestablePayload(crudProofContext(), requestable, variables, result, options);
   }
 
-  function proofRequestable(requestable, variables, result) {
-    return C8O.crudProof.proofRequestable(crudProofContext(), requestable, variables, result);
+  function proofRequestable(requestable, variables, result, options) {
+    return C8O.crudProof.proofRequestable(crudProofContext(), requestable, variables, result, options);
   }
 
   function firstSqlOutputRow(payload) {

@@ -35,6 +35,7 @@ Use this prompt for facade sequences, helper sequences, response shaping, and ba
 10. Use `resources/templates/list` only when the planner or recipe already identified a template-bearing fast path; read the actual template via `resources/read`.
 11. Use `crud-status` after deterministic CRUD generation to verify the real connector and facade targets before reporting closure.
 12. When the task is a standard CRUD facade on a fresh starter NGX project, follow the direct order from `convertigo-crud-practical-cases` instead of inventing an intermediate proof flow.
+13. In facade wrappers, keep `CallTransaction` or `CallSequence` internal (`output=false`) and make the explicit shaping step (`XMLCopyStep`, JSON steps, or equivalent) own the public output (`output=true`).
 
 ## Stop and handoff rules
 - Do not redefine the public contract without an explicit planner decision.

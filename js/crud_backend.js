@@ -5,6 +5,420 @@ if (typeof C8O === "undefined") {
 C8O.crudBackend = C8O.crudBackend || {};
 
 (function () {
+  function safeComment(dbo, text) {
+    if (!dbo || typeof dbo.setComment !== "function") {
+      return;
+    }
+    try {
+      dbo.setComment(String(text || ""));
+    } catch (_ignoreComment) {}
+  }
+
+  function safeDescription(dbo, text) {
+    if (!dbo || typeof dbo.setDescription !== "function") {
+      return;
+    }
+    try {
+      dbo.setDescription(String(text || ""));
+    } catch (_ignoreDescription) {}
+  }
+
+  function fieldLabel(ctx, field) {
+    var raw = ctx.trimmed(field && (field.label || field.name || field.column) || "");
+    if (raw.length) {
+      return raw;
+    }
+    return ctx.humanizeIdentifier ? ctx.humanizeIdentifier(field && (field.column || field.name) || "") : String(field && (field.column || field.name) || "");
+  }
+
+  function entityLabel(ctx, entity) {
+    var raw = ctx.trimmed(entity && (entity.displayLabel || entity.label || entity.name) || "");
+    if (raw.length) {
+      return raw;
+    }
+    return ctx.humanizeIdentifier ? ctx.humanizeIdentifier(entity && entity.name || "") : String(entity && entity.name || "");
+  }
+
+  function txComment(ctx, spec, options) {
+    var current = options || {};
+    if (current.kind === "connector") {
+      return spec.database.driver.technology + " CRUD data source for " + spec.project + ".";
+    }
+    if (current.kind === "init") {
+      var labels = [];
+      for (var i = 0; i < spec.entities.length; i++) {
+        labels.push(entityLabel(ctx, spec.entities[i]));
+      }
+      return "Create or update the SQL schema for " + labels.join(", ") + " and seed demo rows.";
+    }
+    if (current.kind === "relation" && current.relation && current.entity) {
+      return "List " + entityLabel(ctx, current.entity) + " rows filtered by " + current.relation.fromField + ".";
+    }
+    if (current.kind !== "crud" || !current.entity) {
+      return "";
+    }
+    var label = entityLabel(ctx, current.entity);
+    switch (current.verb) {
+      case "list":
+        return "List " + label + " rows.";
+      case "count":
+        return "Count " + label + " rows.";
+      case "read":
+        return "Read one " + current.entity.singular + " row by primary key.";
+      case "create":
+        return "Create one " + current.entity.singular + " row.";
+      case "update":
+        return "Update one " + current.entity.singular + " row by primary key.";
+      case "delete":
+        return "Delete one " + current.entity.singular + " row by primary key.";
+      default:
+        return "";
+    }
+  }
+
+  function sequenceComment(ctx, options) {
+    var current = options || {};
+    if (current.kind === "relation" && current.relation && current.entity) {
+      return "Facade exposing the relation list for " + entityLabel(ctx, current.entity) + " by " + current.relation.fromField + ".";
+    }
+    if (current.kind !== "crud" || !current.entity) {
+      return "";
+    }
+    var label = entityLabel(ctx, current.entity);
+    switch (current.verb) {
+      case "list":
+        return "Facade listing " + label + ".";
+      case "count":
+        return "Facade counting " + label + ".";
+      case "read":
+        return "Facade reading one " + current.entity.singular + " by primary key.";
+      case "create":
+        return "Facade creating one " + current.entity.singular + ".";
+      case "update":
+        return "Facade updating one " + current.entity.singular + ".";
+      case "delete":
+        return "Facade deleting one " + current.entity.singular + ".";
+      default:
+        return "";
+    }
+  }
+
+  function findEntityField(ctx, entity, fieldName) {
+    return ctx.findField(entity, function (field) {
+      return ctx.normalizedIdentifier(field && (field.column || field.name)) === ctx.normalizedIdentifier(fieldName || "");
+    });
+  }
+
+  function findRelationForField(ctx, spec, entity, fieldName) {
+    var relations = ctx.ensureArray(spec && spec.relations);
+    var entityName = entity && entity.name ? entity.name : "";
+    var normalizedFieldName = ctx.normalizedIdentifier(fieldName || "");
+    for (var i = 0; i < relations.length; i++) {
+      var relation = relations[i];
+      if (!relation || relation.type !== "many-to-one") {
+        continue;
+      }
+      if (ctx.pluralize(ctx.normalizedIdentifier(relation.fromEntity || "")) !== entityName) {
+        continue;
+      }
+      if (ctx.normalizedIdentifier(relation.fromField || "") !== normalizedFieldName) {
+        continue;
+      }
+      return relation;
+    }
+    return null;
+  }
+
+  function fieldVariableDescription(ctx, spec, entity, fieldName) {
+    var field = findEntityField(ctx, entity, fieldName);
+    if (!field) {
+      if (ctx.normalizedIdentifier(fieldName || "") === ctx.normalizedIdentifier(entity && entity.primaryField && entity.primaryField.column || "id")) {
+        return entity && entity.singular ? (entity.singular + " primary key.") : (String(fieldName || "id") + " primary key.");
+      }
+      return "Input `" + String(fieldName || "") + "`.";
+    }
+    if (field.primary === true) {
+      return entity.singular + " primary key.";
+    }
+    var relation = findRelationForField(ctx, spec, entity, field.column);
+    if (relation) {
+      return fieldLabel(ctx, field) + " foreign key referencing " + relation.toEntity + "." + relation.toField + ".";
+    }
+    return fieldLabel(ctx, field) + " for " + entity.singular + ".";
+  }
+
+  function requestableVariableDescription(ctx, spec, options, variableName) {
+    var current = options || {};
+    if (current.kind === "relation" && current.entity) {
+      return fieldVariableDescription(ctx, spec, current.entity, variableName);
+    }
+    if (current.kind === "crud" && current.entity) {
+      return fieldVariableDescription(ctx, spec, current.entity, variableName);
+    }
+    return "Input `" + String(variableName || "") + "`.";
+  }
+
+  function stepVariableDescription(ctx, spec, options, variableName) {
+    return "Forward " + requestableVariableDescription(ctx, spec, options, variableName);
+  }
+
+  function normalizeVariableEntries(variableEntries) {
+    var entries = [];
+    for (var i = 0; i < variableEntries.length; i++) {
+      var raw = variableEntries[i];
+      if (raw == null) {
+        continue;
+      }
+      if (typeof raw === "string") {
+        entries.push({ name: String(raw) });
+        continue;
+      }
+      if (typeof raw === "object" && raw.name) {
+        entries.push(raw);
+      }
+    }
+    return entries;
+  }
+
+  function rowFieldValue(ctx, row, fieldName) {
+    if (!row || typeof row !== "object") {
+      return null;
+    }
+    var candidates = [];
+    var normalized = ctx.normalizedIdentifier(fieldName || "");
+    if (normalized.length) {
+      candidates.push(normalized);
+      candidates.push(normalized.toUpperCase());
+      candidates.push(normalized.toLowerCase());
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      if (row[candidates[i]] !== undefined && row[candidates[i]] !== null && row[candidates[i]] !== "") {
+        return row[candidates[i]];
+      }
+    }
+    return null;
+  }
+
+  function lastRow(rows) {
+    return Array.isArray(rows) && rows.length ? rows[rows.length - 1] : null;
+  }
+
+  function pickDefaultTransaction(ctx, connector, spec) {
+    if (!connector) {
+      return null;
+    }
+    if (spec && spec.entities && spec.entities.length) {
+      var firstListName = C8O.crudBackend.txName(ctx, spec.entities[0], "list");
+      var firstList = ctx.findChild(connector, firstListName, "transactions.SqlTransaction");
+      if (firstList) {
+        return firstList;
+      }
+    }
+    return ctx.findChild(connector, "init_schema", "transactions.SqlTransaction");
+  }
+
+  function ensureDefaultTransaction(connector, tx, result) {
+    if (!connector || !tx) {
+      return;
+    }
+    try {
+      connector.setDefaultTransaction(tx);
+      if (result && result.updated) {
+        result.updated.push(tx.getFullQName ? String(tx.getFullQName()) : String(tx.getName()));
+      }
+    } catch (_ignoreDefaultTx) {
+      try {
+        tx.setByDefault();
+        if (result && result.updated) {
+          result.updated.push(tx.getFullQName ? String(tx.getFullQName()) : String(tx.getName()));
+        }
+      } catch (_ignoreDefaultTxFallback) {}
+    }
+  }
+
+  function removeChild(parent, child, result) {
+    if (!parent || !child || typeof parent.remove !== "function") {
+      return false;
+    }
+    try {
+      parent.remove(child);
+      try {
+        parent.hasChanged = true;
+      } catch (_ignoreParentChanged) {}
+      try {
+        var project = parent.getProject ? parent.getProject() : null;
+        if (project) {
+          project.hasChanged = true;
+        }
+      } catch (_ignoreProjectChanged) {}
+      if (result && result.updated) {
+        result.updated.push(child.getFullQName ? String(child.getFullQName()) : String(child.getName()));
+      }
+      return true;
+    } catch (_ignoreRemoveChild) {
+      return false;
+    }
+  }
+
+  function prunePlaceholderVoidConnector(ctx, project, connectorName, result) {
+    if (!project) {
+      return;
+    }
+    var voidConnector = ctx.findChild(project, "void", "connectors.SqlConnector");
+    if (!voidConnector) {
+      return;
+    }
+    if (ctx.trimmed(connectorName) === "void") {
+      return;
+    }
+    removeChild(project, voidConnector, result);
+  }
+
+  function pruneObsoleteTransactions(ctx, connector, result) {
+    var names = ["BeginTransaction", "CommitTransaction", "RollbackTransaction"];
+    for (var i = 0; i < names.length; i++) {
+      var tx = ctx.findChild(connector, names[i], "transactions.SqlTransaction");
+      if (tx) {
+        removeChild(connector, tx, result);
+      }
+    }
+  }
+
+  function createSampleVariables(ctx, spec, entity, rowIndex, cachedRows) {
+    var variables = {};
+    var fields = ctx.ensureArray(entity && entity.fields);
+    var rowsByEntity = cachedRows || {};
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field || field.primary === true) {
+        continue;
+      }
+      if (field.references && field.references.entity) {
+        var relatedRows = rowsByEntity[field.references.entity] || [];
+        var relatedRow = relatedRows[0] || null;
+        var relatedId = rowFieldValue(ctx, relatedRow, field.references.field || "id");
+        if (relatedId == null) {
+          continue;
+        }
+        variables[field.column] = String(relatedId);
+        continue;
+      }
+      var sampleValue = ctx.sampleValueForField(entity, field, rowIndex);
+      if (sampleValue == null) {
+        continue;
+      }
+      variables[field.column] = String(sampleValue);
+    }
+    return variables;
+  }
+
+  function summarizeSchemaLearning(ctx, requestable, payload, result, bucket) {
+    var summary = ctx.summarizeRequestableProof(payload, requestable, result);
+    if (bucket && bucket.push) {
+      bucket.push({
+        requestable: requestable,
+        status: summary.status,
+        ok: summary.ok === true
+      });
+    }
+    return summary;
+  }
+
+  function learnRequestableSchema(ctx, requestable, variables, result, bucket) {
+    var payload = ctx.requestablePayload(requestable, variables || {}, result, { recordSchema: true });
+    return {
+      payload: payload,
+      summary: summarizeSchemaLearning(ctx, requestable, payload, result, bucket)
+    };
+  }
+
+  function learnEntitySchemas(ctx, spec, entity, result, cachedRows, bucket) {
+    var project = spec.project;
+    var connector = spec.database.connector;
+    var listName = C8O.crudBackend.txName(ctx, entity, "list");
+    var countName = C8O.crudBackend.txName(ctx, entity, "count");
+    var readName = C8O.crudBackend.txName(ctx, entity, "read");
+    var createName = C8O.crudBackend.txName(ctx, entity, "create");
+    var updateName = C8O.crudBackend.txName(ctx, entity, "update");
+    var deleteName = C8O.crudBackend.txName(ctx, entity, "delete");
+    var listQName = project + "." + connector + "." + listName;
+    var countQName = project + "." + connector + "." + countName;
+    var readQName = project + "." + connector + "." + readName;
+    var createQName = project + "." + connector + "." + createName;
+    var updateQName = project + "." + connector + "." + updateName;
+    var deleteQName = project + "." + connector + "." + deleteName;
+
+    var listLearning = learnRequestableSchema(ctx, listQName, {}, result, bucket);
+    var countLearning = learnRequestableSchema(ctx, countQName, {}, result, bucket);
+    var rows = ctx.collectSqlOutputRows(listLearning.payload || {});
+    cachedRows[entity.name] = rows;
+    var firstExistingRow = rows[0] || null;
+    var firstExistingId = rowFieldValue(ctx, firstExistingRow, entity.primaryField.column);
+    if (firstExistingId != null) {
+      learnRequestableSchema(ctx, readQName, (function () {
+        var args = {};
+        args[entity.primaryField.column] = String(firstExistingId);
+        return args;
+      })(), result, bucket);
+    }
+
+    var sampleIndex = Math.max(5, Number(spec.seed && spec.seed.rowsPerEntity || 0)) + 50;
+    var createVars = createSampleVariables(ctx, spec, entity, sampleIndex, cachedRows);
+    if (Object.keys(createVars).length) {
+      learnRequestableSchema(ctx, createQName, createVars, result, bucket);
+      var afterCreateRows = ctx.collectSqlOutputRows(ctx.requestablePayload(listQName, {}, result, {}) || {});
+      cachedRows[entity.name] = afterCreateRows;
+      var createdRow = lastRow(afterCreateRows);
+      var createdId = rowFieldValue(ctx, createdRow, entity.primaryField.column);
+      if (createdId != null) {
+        var updateVars = {};
+        var createKeys = Object.keys(createVars);
+        for (var keyIndex = 0; keyIndex < createKeys.length; keyIndex++) {
+          updateVars[createKeys[keyIndex]] = createVars[createKeys[keyIndex]];
+        }
+        updateVars[entity.primaryField.column] = String(createdId);
+        learnRequestableSchema(ctx, updateQName, updateVars, result, bucket);
+        learnRequestableSchema(ctx, deleteQName, (function () {
+          var args = {};
+          args[entity.primaryField.column] = String(createdId);
+          return args;
+        })(), result, bucket);
+      } else {
+        ctx.addWarning(result, "Unable to infer created `" + entity.name + "` id to learn update/delete schemas.");
+      }
+    }
+    return {
+      list: listLearning.summary,
+      count: countLearning.summary
+    };
+  }
+
+  function learnRelationSchemas(ctx, spec, cachedRows, result, bucket) {
+    var relations = ctx.ensureArray(spec && spec.relations);
+    for (var relationIndex = 0; relationIndex < relations.length; relationIndex++) {
+      var relation = relations[relationIndex];
+      if (!relation || relation.type !== "many-to-one") {
+        continue;
+      }
+      var parentEntity = relationTargetEntity(ctx, spec, relation);
+      if (!parentEntity) {
+        continue;
+      }
+      var parentRows = cachedRows[parentEntity.name] || [];
+      var parentRow = parentRows[0] || null;
+      var parentId = rowFieldValue(ctx, parentRow, relation.toField);
+      if (parentId == null) {
+        continue;
+      }
+      var requestable = spec.project + "." + spec.database.connector + "." + relationListName(ctx, spec, relation);
+      learnRequestableSchema(ctx, requestable, (function () {
+        var args = {};
+        args[relation.fromField] = String(parentId);
+        return args;
+      })(), result, bucket);
+    }
+  }
+
   function relationLabelAlias(ctx, relation) {
     return ctx.normalizedIdentifier(relation && relation.fromField || "") + "__label";
   }
@@ -303,6 +717,7 @@ C8O.crudBackend = C8O.crudBackend || {};
   C8O.crudBackend.ensureConnector = function (ctx, project, spec, result) {
     var connector = ctx.ensureChild(project, "connectors.SqlConnector", spec.database.connector, result);
     ctx.applyUpdates(connector, ctx.connectorProperties(spec), result);
+    safeComment(connector, txComment(ctx, spec, { kind: "connector" }));
     try {
       project.setDefaultConnector(connector);
     } catch (_ignoreDefaultConnector) {}
@@ -338,14 +753,22 @@ C8O.crudBackend = C8O.crudBackend || {};
     return null;
   };
 
-  C8O.crudBackend.ensureSqlTransaction = function (ctx, connector, name, sqlQuery, autoCommit, result) {
+  C8O.crudBackend.ensureSqlTransaction = function (ctx, connector, name, sqlQuery, autoCommit, result, options) {
     var tx = ctx.ensureChild(connector, "transactions.SqlTransaction", name, result);
-    try {
-      tx.setComment("Deterministic CRUD transaction " + name);
-    } catch (_ignoreTxComment) {}
+    var currentOptions = options || {};
+    safeComment(tx, currentOptions.comment || "");
     tx.setSqlQuery(String(sqlQuery || ""));
     tx.setAutoCommit(autoCommit);
     tx.initializeQueries(true);
+    var variableEntries = normalizeVariableEntries(ctx.ensureArray(currentOptions.variableEntries));
+    for (var i = 0; i < variableEntries.length; i++) {
+      var variable = ctx.findChild(tx, variableEntries[i].name, "variables.RequestableVariable");
+      if (!variable) {
+        continue;
+      }
+      safeDescription(variable, variableEntries[i].description || "");
+      safeComment(variable, variableEntries[i].comment || "");
+    }
     result.updated.push(tx.getFullQName ? String(tx.getFullQName()) : name);
     return tx;
   };
@@ -362,45 +785,46 @@ C8O.crudBackend = C8O.crudBackend || {};
     return names;
   };
 
-  C8O.crudBackend.ensureRequestableVariables = function (ctx, container, variableNames, result) {
-    for (var i = 0; i < variableNames.length; i++) {
-      var name = String(variableNames[i]);
+  C8O.crudBackend.ensureRequestableVariables = function (ctx, container, variableEntries, result) {
+    var normalizedEntries = normalizeVariableEntries(ctx.ensureArray(variableEntries));
+    for (var i = 0; i < normalizedEntries.length; i++) {
+      var name = String(normalizedEntries[i].name);
       var variable = ctx.findChild(container, name, "variables.RequestableVariable");
       if (!variable) {
         variable = ctx.createChild(container, "variables.RequestableVariable", name);
         result.created.push(variable.getFullQName ? String(variable.getFullQName()) : name);
       }
-      try {
-        variable.setDescription("Deterministic CRUD variable " + name);
-      } catch (_ignoreRequestableVariableDescription) {}
+      safeDescription(variable, normalizedEntries[i].description || "");
+      safeComment(variable, normalizedEntries[i].comment || "");
     }
   };
 
-  C8O.crudBackend.ensureStepVariables = function (ctx, step, variableNames, result) {
-    for (var i = 0; i < variableNames.length; i++) {
-      var name = String(variableNames[i]);
+  C8O.crudBackend.ensureStepVariables = function (ctx, step, variableEntries, result) {
+    var normalizedEntries = normalizeVariableEntries(ctx.ensureArray(variableEntries));
+    for (var i = 0; i < normalizedEntries.length; i++) {
+      var name = String(normalizedEntries[i].name);
       var variable = ctx.findChild(step, name, "variables.StepVariable");
       if (!variable) {
         variable = ctx.createChild(step, "variables.StepVariable", name);
         result.created.push(variable.getFullQName ? String(variable.getFullQName()) : name);
       }
-      try {
-        variable.setDescription("Forward request variable " + name);
-      } catch (_ignoreStepVariableDescription) {}
+      safeDescription(variable, normalizedEntries[i].description || "");
+      safeComment(variable, normalizedEntries[i].comment || "");
     }
   };
 
-  C8O.crudBackend.ensurePublicSequence = function (ctx, project, sequenceName, sourceTransaction, variableNames, result) {
+  C8O.crudBackend.ensurePublicSequence = function (ctx, project, sequenceName, sourceTransaction, variableEntries, result, options) {
     var sequence = ctx.ensureChild(project, "sequences.GenericSequence", sequenceName, result);
-    try {
-      sequence.setComment("Deterministic CRUD facade " + sequenceName);
-    } catch (_ignoreSequenceComment) {}
-    C8O.crudBackend.ensureRequestableVariables(ctx, sequence, variableNames, result);
+    var currentOptions = options || {};
+    safeComment(sequence, currentOptions.comment || "");
+    var normalizedEntries = normalizeVariableEntries(ctx.ensureArray(variableEntries));
+    C8O.crudBackend.ensureRequestableVariables(ctx, sequence, normalizedEntries, result);
     var txStep = ctx.ensureChild(sequence, "steps.TransactionStep", "Call" + ctx.ucfirst(sequenceName), result);
     txStep.setSourceTransaction(sourceTransaction);
-    txStep.setOutput(true);
-    C8O.crudBackend.ensureStepVariables(ctx, txStep, variableNames, result);
+    txStep.setOutput(false);
+    C8O.crudBackend.ensureStepVariables(ctx, txStep, normalizedEntries, result);
     var copyStep = ctx.ensureChild(sequence, "steps.XMLCopyStep", "CopyPayload", result);
+    copyStep.setOutput(true);
     var sourcePriority = ctx.priorityOf(txStep);
     ctx.applyUpdates(copyStep, {
       sourceDefinition: [sourcePriority, "./document/*"]
@@ -420,6 +844,7 @@ C8O.crudBackend = C8O.crudBackend || {};
         ui: []
       },
       created: [],
+      deleted: [],
       updated: [],
       runtimeEvidence: {},
       warnings: [],
@@ -435,28 +860,87 @@ C8O.crudBackend = C8O.crudBackend || {};
     result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);
     result.primaryTargets.sql = result.connectorQname;
 
-    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "BeginTransaction", "BEGIN;", ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
-    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "CommitTransaction", "COMMIT;", ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
-    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "RollbackTransaction", "ROLLBACK;", ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
-    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "init_schema", C8O.crudBackend.buildInitSql(ctx, spec), ctx.SqlTransaction.AUTOCOMMIT_OFF, result);
+    pruneObsoleteTransactions(ctx, connector, result);
+    C8O.crudBackend.ensureSqlTransaction(ctx, connector, "init_schema", C8O.crudBackend.buildInitSql(ctx, spec), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+      kind: "init",
+      comment: txComment(ctx, spec, { kind: "init" }),
+      variableEntries: []
+    });
 
     var crm = ctx.crmRelationContext(spec);
+    var defaultTransaction = null;
     for (var i = 0; i < spec.entities.length; i++) {
       var entity = spec.entities[i];
-      var listTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "list"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "list"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
-      var countTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "count"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "count"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
-      var readTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "read"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "read"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
-      var createTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "create"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "create"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
-      var updateTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "update"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "update"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
-      var deleteTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "delete"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "delete"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var listVarsEntries = [];
+      var countVarsEntries = [];
+      var readVarsEntries = [{ name: entity.primaryField.column, description: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column), comment: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column) }];
+      var createVarsEntries = [];
+      var updateVarsEntries = [];
+      var deleteVarsEntries = [{ name: entity.primaryField.column, description: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column), comment: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column) }];
+      for (var fieldIndex = 0; fieldIndex < entity.fields.length; fieldIndex++) {
+        var entityField = entity.fields[fieldIndex];
+        if (!entityField || entityField.primary === true) {
+          continue;
+        }
+        var entityFieldDoc = fieldVariableDescription(ctx, spec, entity, entityField.column);
+        createVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc });
+        updateVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc });
+      }
+      updateVarsEntries.push({ name: entity.primaryField.column, description: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column), comment: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column) });
+
+      var listTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "list"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "list"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "crud",
+        verb: "list",
+        entity: entity,
+        comment: txComment(ctx, spec, { kind: "crud", verb: "list", entity: entity }),
+        variableEntries: listVarsEntries
+      });
+      var countTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "count"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "count"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "crud",
+        verb: "count",
+        entity: entity,
+        comment: txComment(ctx, spec, { kind: "crud", verb: "count", entity: entity }),
+        variableEntries: countVarsEntries
+      });
+      var readTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "read"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "read"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "crud",
+        verb: "read",
+        entity: entity,
+        comment: txComment(ctx, spec, { kind: "crud", verb: "read", entity: entity }),
+        variableEntries: readVarsEntries
+      });
+      var createTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "create"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "create"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "crud",
+        verb: "create",
+        entity: entity,
+        comment: txComment(ctx, spec, { kind: "crud", verb: "create", entity: entity }),
+        variableEntries: createVarsEntries
+      });
+      var updateTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "update"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "update"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "crud",
+        verb: "update",
+        entity: entity,
+        comment: txComment(ctx, spec, { kind: "crud", verb: "update", entity: entity }),
+        variableEntries: updateVarsEntries
+      });
+      var deleteTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, C8O.crudBackend.txName(ctx, entity, "delete"), C8O.crudBackend.buildCrudSql(ctx, spec, entity, "delete"), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "crud",
+        verb: "delete",
+        entity: entity,
+        comment: txComment(ctx, spec, { kind: "crud", verb: "delete", entity: entity }),
+        variableEntries: deleteVarsEntries
+      });
+      if (!defaultTransaction) {
+        defaultTransaction = listTx;
+      }
 
       if (result.sequence) {
-        var listVars = C8O.crudBackend.collectTransactionVariables(ctx, listTx);
-        var countVars = C8O.crudBackend.collectTransactionVariables(ctx, countTx);
-        var readVars = C8O.crudBackend.collectTransactionVariables(ctx, readTx);
-        var createVars = C8O.crudBackend.collectTransactionVariables(ctx, createTx);
-        var updateVars = C8O.crudBackend.collectTransactionVariables(ctx, updateTx);
-        var deleteVars = C8O.crudBackend.collectTransactionVariables(ctx, deleteTx);
+        var listVars = listVarsEntries;
+        var countVars = countVarsEntries;
+        var readVars = readVarsEntries;
+        var createVars = createVarsEntries;
+        var updateVars = updateVarsEntries;
+        var deleteVars = deleteVarsEntries;
         var publicNames = [
           spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "list"),
           spec.facade.prefix + "_" + C8O.crudBackend.txName(ctx, entity, "count"),
@@ -474,8 +958,11 @@ C8O.crudBackend = C8O.crudBackend || {};
           ctx.connectorRequestableQName(spec.project, spec.database.connector, C8O.crudBackend.txName(ctx, entity, "delete"))
         ];
         var publicVars = [listVars, countVars, readVars, createVars, updateVars, deleteVars];
+        var publicVerbs = ["list", "count", "read", "create", "update", "delete"];
         for (var p = 0; p < publicNames.length; p++) {
-          var seq = C8O.crudBackend.ensurePublicSequence(ctx, project, publicNames[p], publicSources[p], publicVars[p], result);
+          var seq = C8O.crudBackend.ensurePublicSequence(ctx, project, publicNames[p], publicSources[p], publicVars[p], result, {
+            comment: sequenceComment(ctx, { kind: "crud", verb: publicVerbs[p], entity: entity })
+          });
           result.primaryTargets.flow.push(seq.getFullQName ? String(seq.getFullQName()) : (spec.project + "." + publicNames[p]));
         }
       }
@@ -516,30 +1003,58 @@ C8O.crudBackend = C8O.crudBackend || {};
         whereSegments: ["WHERE base." + relation.fromField + " = {" + relation.fromField + "}"],
         orderBy: "base." + relatedEntity.primaryField.column + " ASC"
       });
-      var relationTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, relationTxName, relationSql, ctx.SqlTransaction.AUTOCOMMIT_EACH, result);
+      var relationFieldDoc = fieldVariableDescription(ctx, spec, relatedEntity, relation.fromField);
+      var relationTx = C8O.crudBackend.ensureSqlTransaction(ctx, connector, relationTxName, relationSql, ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
+        kind: "relation",
+        relation: relation,
+        entity: relatedEntity,
+        comment: txComment(ctx, spec, { kind: "relation", relation: relation, entity: relatedEntity }),
+        variableEntries: [{ name: relation.fromField, description: relationFieldDoc, comment: relationFieldDoc }]
+      });
       if (result.sequence) {
-        var relationVars = C8O.crudBackend.collectTransactionVariables(ctx, relationTx);
+        var relationVars = [{ name: relation.fromField, description: relationFieldDoc, comment: relationFieldDoc }];
         var relationSeq = C8O.crudBackend.ensurePublicSequence(
           ctx,
           project,
           spec.facade.prefix + "_" + relationTxName,
           ctx.connectorRequestableQName(spec.project, spec.database.connector, relationTxName),
           relationVars,
-          result
+          result,
+          {
+            comment: sequenceComment(ctx, { kind: "relation", relation: relation, entity: relatedEntity })
+          }
         );
         result.primaryTargets.flow.push(relationSeq.getFullQName ? String(relationSeq.getFullQName()) : (spec.project + "." + spec.facade.prefix + "_" + relationTxName));
       }
     }
 
+    defaultTransaction = defaultTransaction || pickDefaultTransaction(ctx, connector, spec);
+    ensureDefaultTransaction(connector, defaultTransaction, result);
+    prunePlaceholderVoidConnector(ctx, project, spec.database.connector, result);
+
     var saveResult = ctx.saveProject(project, []);
     result.runtimeEvidence.projectSave = ctx.summarizeSaveResult(saveResult, result);
     result.runtimeEvidence.studioRefresh = ctx.refreshStudioProjectTree(project, result, "studioRefresh");
-    result.runtimeEvidence.init_schema = ctx.proofRequestable(spec.project + "." + spec.database.connector + ".init_schema", {}, result);
+    var learnedSchemas = [];
+    result.runtimeEvidence.init_schema = summarizeSchemaLearning(
+      ctx,
+      spec.project + "." + spec.database.connector + ".init_schema",
+      ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, { recordSchema: true }),
+      result,
+      learnedSchemas
+    );
+    var cachedRows = {};
     for (var e = 0; e < spec.entities.length; e++) {
       var currentEntity = spec.entities[e];
-      result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "list")] = ctx.proofRequestable(spec.project + "." + spec.database.connector + "." + C8O.crudBackend.txName(ctx, currentEntity, "list"), {}, result);
-      result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "count")] = ctx.proofRequestable(spec.project + "." + spec.database.connector + "." + C8O.crudBackend.txName(ctx, currentEntity, "count"), {}, result);
+      var entityLearn = learnEntitySchemas(ctx, spec, currentEntity, result, cachedRows, learnedSchemas);
+      result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "list")] = entityLearn.list;
+      result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "count")] = entityLearn.count;
     }
+    learnRelationSchemas(ctx, spec, cachedRows, result, learnedSchemas);
+    if (spec.entities.length) {
+      ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, {});
+    }
+    result.runtimeEvidence.schemaLearning = learnedSchemas;
     if (crm) {
       result.runtimeEvidence.list_company_contacts = {
         requestable: spec.project + "." + spec.database.connector + ".list_company_contacts",

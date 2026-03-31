@@ -104,6 +104,26 @@ Good practice:
 - call source-specific requestables behind a facade
 - map their output back into the stable public response
 - validate the facade, not only the inner call
+- when a facade sequence wraps a `CallTransaction`, keep the `TransactionStep` as an internal source (`output=false`) and make the shaping step such as `XMLCopyStep` or JSON steps own the public payload (`output=true`)
+
+### Output semantics on facade helpers
+`output` controls what leaves the sequence result tree. It does **not** control whether another step can source the data.
+
+Correct mental model:
+- `output=true`: the step contributes directly to the public sequence result
+- `output=false`: the step stays internal, but later steps can still source it normally
+
+Canonical CRUD facade wrapper:
+- `CallTransaction.output=false`
+- `XMLCopyStep.output=true`
+
+Why this is the right way:
+- raw connector output stays internal
+- the facade chooses deliberately what becomes visible
+- source picker still works because internal steps remain valid producers
+
+Common trap:
+- leaving `CallTransaction.output=true` and then adding an `XMLCopyStep`, which leaks both the raw transaction subtree and the copied payload into the public contract
 
 Common trap:
 - exposing a raw `CallTransaction` result directly because it “already works”

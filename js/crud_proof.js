@@ -96,12 +96,20 @@ C8O.crudProof = C8O.crudProof || {};
     return summary;
   }
 
-  function requestablePayload(ctx, requestable, variables, result) {
+  function requestablePayload(ctx, requestable, variables, result, options) {
+    var extra = options && typeof options === "object" ? options : {};
     try {
-      return ctx.callInternalSequence("tools_requestable_execute", {
+      var args = {
         requestable: requestable,
         variables: variables || {}
-      });
+      };
+      if (extra.recordSchema === true) {
+        args.recordSchema = true;
+      }
+      if (extra.includeLogs === true) {
+        args.includeLogs = true;
+      }
+      return ctx.callInternalSequence("tools_requestable_execute", args);
     } catch (proofError) {
       ctx.addWarning(result, "Unable to execute proof for " + requestable + ": " + String(proofError));
       return {
@@ -111,8 +119,8 @@ C8O.crudProof = C8O.crudProof || {};
     }
   }
 
-  function proofRequestable(ctx, requestable, variables, result) {
-    var payload = requestablePayload(ctx, requestable, variables, result);
+  function proofRequestable(ctx, requestable, variables, result, options) {
+    var payload = requestablePayload(ctx, requestable, variables, result, options);
     return summarizeRequestableProof(ctx, payload, requestable, result);
   }
 

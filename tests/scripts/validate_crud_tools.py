@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 ROOT = Path("/Users/nicolas/git/c8oprj-c8o-mcp")
 DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
 PROTOCOL_VERSION = "2025-06-18"
+RUNTIME_BASE = Path("/Users/nicolas/dev/convertigo")
 TEST_PROJECT_PATTERNS = (
     re.compile(r"^CrudSmoke"),
     re.compile(r"^GroupOutingsPoll"),
@@ -163,6 +164,26 @@ def cleanup_project(url, project):
         call_tool(url, "project-delete", {"project": project})
     except Exception:
         pass
+
+
+def find_runtime_project_dir(project):
+    candidates = []
+    if RUNTIME_BASE.exists():
+        for runtime_dir in sorted(RUNTIME_BASE.glob("runtime-*")):
+            candidate = runtime_dir / project
+            if candidate.exists():
+                candidates.append(candidate)
+    if not candidates:
+        raise RuntimeError(f"Unable to locate runtime project directory for {project}")
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    return candidates[0]
+
+
+def read_runtime_text(project, relative_path):
+    runtime_dir = find_runtime_project_dir(project)
+    path = runtime_dir / relative_path
+    assert_true(path.exists(), f"Missing runtime file for {project}: {path}")
+    return path.read_text(encoding="utf-8"), path
 
 
 def expected_ui_globals(variant):
@@ -485,6 +506,144 @@ def validate_managed_warning(url, project, entity, artifact):
     )
 
 
+def tx_requestable_name(entity, verb):
+    return f"{verb}_{entity_name(entity)}" if verb in ("list", "count") else f"{verb}_{entity_singular(entity)}"
+
+
+def validate_backend_generation(url, spec, artifact):
+    project = spec["project"]
+    connector = spec["database"]["connector"]
+    facade_prefix = spec["facade"]["prefix"]
+    entities = spec["entities"]
+    first_entity = entities[0]
+    first_entity_plural = entity_name(first_entity)
+    first_entity_singular = entity_singular(first_entity)
+
+    appdb_text, appdb_path = read_runtime_text(project, Path("_c8oProject") / "connectors" / f"{connector}.yaml")
+    artifact["steps"].append({"tool": "runtime-file", "path": str(appdb_path)})
+    assert_true("Deterministic CRUD" not in appdb_text, f"Backend connector YAML still contains deterministic boilerplate comments in {appdb_path}")
+    assert_true("↑default: true" in appdb_text, f"Connector {connector} is not marked default in {appdb_path}")
+    default_tx_pattern = re.compile(
+        rf"↓{re.escape('list_' + first_entity_plural)} \[transactions\.SqlTransaction\]:\s*\n(?:  .*\n)*?  ↑default: true\b",
+        re.MULTILINE,
+    )
+    assert_true(default_tx_pattern.search(appdb_text) is not None, f"Default transaction not set to list_{first_entity_plural} in {appdb_path}")
+    assert_true("BeginTransaction" not in appdb_text and "CommitTransaction" not in appdb_text and "RollbackTransaction" not in appdb_text, f"Obsolete transaction control requestables still present in {appdb_path}")
+    assert_true(not (find_runtime_project_dir(project) / "_c8oProject" / "connectors" / "void.yaml").exists(), f"Placeholder void connector still present for {project}")
+
+    init_tree = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": f"{project}.cn:{connector}.tr:init_schema",
+            "childrenDepth": 0,
+            "properties": "all",
+            "limit": 20,
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.cn:{connector}.tr:init_schema", "result": init_tree})
+    init_props = ((init_tree or {}).get("tree") or {}).get("properties") or {}
+    assert_true(int(init_props.get("autoCommit") or -1) == 1, f"init_schema is not AUTOCOMMIT_EACH for {project}: {init_props}")
+
+    create_sequence_name = f"{facade_prefix}_create_{first_entity_singular}"
+    sequence_tree = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": f"{project}.sq:{create_sequence_name}",
+            "childrenDepth": 3,
+            "properties": "changed",
+            "limit": 200,
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.sq:{create_sequence_name}", "result": sequence_tree})
+    sequence_node = (sequence_tree or {}).get("tree") or {}
+    assert_true("Deterministic CRUD" not in json.dumps(sequence_node, ensure_ascii=True), f"Sequence {create_sequence_name} still contains deterministic boilerplate comments for {project}")
+    tx_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.TransactionStep"), None)
+    copy_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.XMLCopyStep"), None)
+    assert_true(tx_step is not None and copy_step is not None, f"Missing facade steps in {project}.sq:{create_sequence_name}")
+
+    tx_step_all = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": tx_step["qname"],
+            "childrenDepth": 1,
+            "properties": "all",
+            "limit": 80,
+        },
+        timeout=120,
+    )
+    copy_step_all = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": copy_step["qname"],
+            "childrenDepth": 0,
+            "properties": "all",
+            "limit": 20,
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": tx_step["qname"], "result": tx_step_all})
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": copy_step["qname"], "result": copy_step_all})
+    assert_true((((tx_step_all or {}).get("tree") or {}).get("properties") or {}).get("output") is False, f"TransactionStep must stay output=false for {project}.sq:{create_sequence_name}")
+    assert_true((((copy_step_all or {}).get("tree") or {}).get("properties") or {}).get("output") is True, f"XMLCopyStep must stay output=true for {project}.sq:{create_sequence_name}")
+
+    variable_nodes = [child for child in sequence_node.get("children") or [] if child.get("className") == "variables.RequestableVariable"]
+    assert_true(bool(variable_nodes), f"Sequence {create_sequence_name} does not expose request variables in {project}")
+    for variable in variable_nodes:
+        props = variable.get("properties") or {}
+        assert_true(str(props.get("comment") or "").strip() != "", f"Missing sequence variable comment for {project}: {variable.get('qname')}")
+        assert_true(str(props.get("description") or "").strip() != "", f"Missing sequence variable description for {project}: {variable.get('qname')}")
+        assert_true("Deterministic CRUD" not in str(props.get("comment") or ""), f"Boilerplate sequence variable comment still present for {project}: {variable.get('qname')}")
+    for variable in (tx_step.get("children") or []):
+        props = variable.get("properties") or {}
+        assert_true(str(props.get("comment") or "").strip() != "", f"Missing step variable comment for {project}: {variable.get('qname')}")
+        assert_true(str(props.get("description") or "").strip() != "", f"Missing step variable description for {project}: {variable.get('qname')}")
+
+    list_schema = call_tool(
+        url,
+        "databaseobject-schema",
+        {
+            "qname": f"{project}.cn:{connector}.tr:{tx_requestable_name(first_entity, 'list')}",
+            "type": "xml",
+        },
+        timeout=120,
+    )
+    create_schema = call_tool(
+        url,
+        "databaseobject-schema",
+        {
+            "qname": f"{project}.cn:{connector}.tr:{tx_requestable_name(first_entity, 'create')}",
+            "type": "xml",
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-schema", "qname": f"{project}.cn:{connector}.tr:{tx_requestable_name(first_entity, 'list')}", "result": list_schema})
+    artifact["steps"].append({"tool": "databaseobject-schema", "qname": f"{project}.cn:{connector}.tr:{tx_requestable_name(first_entity, 'create')}", "result": create_schema})
+    assert_true("<sql_output" in str((list_schema or {}).get("response") or ""), f"List transaction schema was not learned for {project}")
+    assert_true("<sql_output" in str((create_schema or {}).get("response") or ""), f"Create transaction schema was not learned for {project}")
+
+    relations = extract_relations(spec)
+    if relations:
+        relation = relations[0]
+        child_entity = find_entity(spec, relation["fromEntity"])
+        relation_schema = call_tool(
+            url,
+            "databaseobject-schema",
+            {
+                "qname": f"{project}.cn:{connector}.tr:{tx_requestable_name(child_entity, 'list')}",
+                "type": "xml",
+            },
+            timeout=120,
+        )
+        artifact["steps"].append({"tool": "databaseobject-schema", "qname": f"{project}.cn:{connector}.tr:{tx_requestable_name(child_entity, 'list')}", "result": relation_schema})
+        assert_true(relation["labelAlias"].upper() in str((relation_schema or {}).get("response") or "").upper(), f"Relation label alias schema missing for {project}: {relation['labelAlias']}")
+
+
 def validate_runtime(url, spec, artifact_dir):
     project = spec["project"]
     connector = spec["database"]["connector"]
@@ -563,6 +722,8 @@ def validate_runtime(url, spec, artifact_dir):
             assert_true(relation_check is not None and relation_check.get("ok") is True, f"crud-proof relation check missing or failing for {project}: {relation_qname}")
             assert_true(relation_label_check is not None and relation_label_check.get("ok") is True, f"crud-proof relation label check missing or failing for {project}: {relation_qname}")
     print(f"[crud-validate] backend crud-proof ok project={project}", flush=True)
+    validate_backend_generation(url, spec, artifact)
+    print(f"[crud-validate] backend generation conventions ok project={project}", flush=True)
 
     public_requestables = [f"{project}.{facade_prefix}_list_{entity['name']}" for entity in entities]
     list_results = {}
