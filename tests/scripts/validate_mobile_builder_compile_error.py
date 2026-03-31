@@ -7,7 +7,7 @@ from pathlib import Path
 from validate_crud_tools import DEFAULT_MCP_URL, call_tool, cleanup_project, project_exists, wait_for_mcp_ready
 
 
-ROOT = Path("/Users/nicolas/git/c8oprj-c8o-mcp")
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = ROOT / "tests" / "reports" / "mobile-builder-compile-error" / time.strftime("%Y%m%d_%H%M%S")
 
 

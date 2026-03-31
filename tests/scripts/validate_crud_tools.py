@@ -9,10 +9,11 @@ import time
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-ROOT = Path("/Users/nicolas/git/c8oprj-c8o-mcp")
-DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_MCP_URL = os.environ.get("CONVERTIGO_MCP_URL", "http://localhost:18080/convertigo/api/mcp")
 PROTOCOL_VERSION = "2025-06-18"
-RUNTIME_BASE = Path("/Users/nicolas/dev/convertigo")
+DEFAULT_RUNTIME_BASE = Path(os.environ.get("CONVERTIGO_RUNTIME_BASE", str(Path.home() / "dev" / "convertigo")))
+RUNTIME_BASE = DEFAULT_RUNTIME_BASE
 TEST_PROJECT_PATTERNS = (
     re.compile(r"^CrudSmoke"),
     re.compile(r"^GroupOutingsPoll"),
@@ -1133,12 +1134,15 @@ def scenario_with_suffix(spec_path, suffix):
 
 
 def main():
+    global RUNTIME_BASE
     parser = argparse.ArgumentParser()
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL)
     parser.add_argument("--artifacts-dir", default=str(ROOT / "tests" / "reports" / "crud-validation" / time.strftime("%Y%m%d_%H%M%S")))
+    parser.add_argument("--runtime-base", default=str(DEFAULT_RUNTIME_BASE))
     parser.add_argument("--skip-postgresql", action="store_true")
     parser.add_argument("--skip-mariadb", action="store_true")
     args = parser.parse_args()
+    RUNTIME_BASE = Path(args.runtime_base).expanduser().resolve()
 
     artifact_dir = Path(args.artifacts_dir)
     artifact_dir.mkdir(parents=True, exist_ok=True)

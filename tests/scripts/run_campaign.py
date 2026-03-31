@@ -17,7 +17,7 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 
 PROTOCOL_VERSION = "2025-06-18"
-DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
+DEFAULT_MCP_URL = os.environ.get("CONVERTIGO_MCP_URL", "http://localhost:18080/convertigo/api/mcp")
 DEFAULT_ADMIN_USER = os.environ.get("CONVERTIGO_ADMIN_USER", "admin")
 DEFAULT_ADMIN_PASSWORD = os.environ.get("CONVERTIGO_ADMIN_PASSWORD", "admin")
 DEFAULT_RUNTIME_PROJECT = os.environ.get("CONVERTIGO_RUNTIME_PROJECT", "ConvertigoMCP")

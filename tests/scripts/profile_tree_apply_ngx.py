@@ -14,7 +14,7 @@ from validate_crud_tools import (
     wait_for_mcp_ready,
 )
 
-ROOT = Path("/Users/nicolas/git/c8oprj-c8o-mcp")
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SPEC = ROOT / "tests/fixtures/crud/spec_hsqldb.json"
 DEFAULT_ARTIFACT_DIR = ROOT / "tests/reports/tree_apply_perf"
 

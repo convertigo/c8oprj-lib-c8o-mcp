@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
+DEFAULT_MCP_URL = os.environ.get("CONVERTIGO_MCP_URL", "http://localhost:18080/convertigo/api/mcp")
 ROLE_PROMPT_NAME = "convertigo-critic"
 ALLOWED_DISPOSITIONS = [
     "OPEN",
@@ -26,6 +26,14 @@ TARGET_REPOS = {"c8oprj-c8o-mcp", "codex-cli-multiagent", "unknown"}
 
 def repo_root():
     return Path(__file__).resolve().parents[2]
+
+
+def optional_codex_multiagent_root():
+    env_value = os.environ.get("CODEX_MULTIAGENT_ROOT", "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+    sibling = repo_root().parent / "codex-cli-multiagent"
+    return sibling if sibling.exists() else None
 
 
 def parse_args():
@@ -226,13 +234,14 @@ def derive_evidence_paths(root, report_path, report):
         or "synced-prompts" in subject_id
         or "codex-cli-multiagent" in source_project
     ):
-        external_root = Path("/Users/nicolas/git/codex-cli-multiagent")
-        candidates.extend(
-            [
-                external_root / "AGENTS.md",
-                external_root / "learn.md",
-            ]
-        )
+        external_root = optional_codex_multiagent_root()
+        if external_root:
+            candidates.extend(
+                [
+                    external_root / "AGENTS.md",
+                    external_root / "learn.md",
+                ]
+            )
 
     for candidate in candidates:
         resolved = existing_path(str(candidate))
