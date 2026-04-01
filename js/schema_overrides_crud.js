@@ -19,7 +19,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
           description: "Structured CRUD specification including project, database, facade, entities, optional relations, seed, and UI options. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
           additionalProperties: true
         },
-        sequence: h().booleanFlagSchema(true, "Set true to create or update public CRUD sequences in addition to SQL transactions."),
+        sequence: h().booleanFlagSchema(true, "Set true to create or update CRUD facade sequences in addition to SQL transactions. Generated CRUD facades are hidden requestables that require an authenticated context; auth_login/auth_logout skeleton sequences are also created."),
         ui: h().booleanFlagSchema(false, "Set true to also assemble the deterministic NGX CRUD kit on the visible entry page. For CRM fast-path UI, run upsert-ngx-crud-kit explicitly with stage=bootstrap then stage=final.")
       },
       required: ["spec"],
@@ -33,7 +33,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
-        facadePrefix: { type: "string", description: "Optional public CRUD sequence prefix. Defaults to crud." },
+        facadePrefix: { type: "string", description: "Optional CRUD facade sequence prefix. Defaults to crud." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
         mode: {
           type: "string",
@@ -54,7 +54,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
-        facadePrefix: { type: "string", description: "Optional public CRUD sequence prefix. Defaults to crud." },
+        facadePrefix: { type: "string", description: "Optional CRUD facade sequence prefix. Defaults to crud." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
         mode: {
           type: "string",
@@ -98,7 +98,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
           enum: ["bootstrap", "final"],
           description: "UI assembly stage. bootstrap shows a visible work-in-progress shell early so the mobile builder can open against a real shell; final removes the bootstrap marker after proof."
         },
-        facadePrefix: { type: "string", description: "Public CRUD facade prefix used for shell labels and future wiring." },
+        facadePrefix: { type: "string", description: "CRUD facade prefix used for shell labels and future wiring." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
         runtimeEvidence: {
           description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",
@@ -135,11 +135,26 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
           items: h().openObjectSchema({})
         }
       }),
+      auth: h().openObjectSchema({
+        loginRequestable: { type: "string" },
+        logoutRequestable: { type: "string" },
+        loginPresent: { type: "boolean" },
+        logoutPresent: { type: "boolean" },
+        loginHidden: { type: "boolean" },
+        loginAuthenticatedContextRequired: { type: "boolean" },
+        logoutHidden: { type: "boolean" },
+        logoutAuthenticatedContextRequired: { type: "boolean" },
+        facadeHiddenAuthenticatedPresent: h().stringArraySchema(),
+        insecureFacadeSequences: h().stringArraySchema()
+      }),
       ui: h().openObjectSchema({
         starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
         visibleShellPresent: { type: "boolean" },
         liveBindingPresent: { type: "boolean" },
+        statefulActionsPresent: { type: "boolean" },
+        pageBootstrapPresent: { type: "boolean" },
         targetQName: { type: "string" },
+        authBootstrapPresent: { type: "boolean" },
         viewerProbe: h().openObjectSchema({
           attempted: { type: "boolean" },
           ok: { type: "boolean" },
@@ -205,12 +220,27 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
           items: h().openObjectSchema({})
         }
       }),
+      auth: h().openObjectSchema({
+        loginRequestable: { type: "string" },
+        logoutRequestable: { type: "string" },
+        loginPresent: { type: "boolean" },
+        logoutPresent: { type: "boolean" },
+        loginHidden: { type: "boolean" },
+        loginAuthenticatedContextRequired: { type: "boolean" },
+        logoutHidden: { type: "boolean" },
+        logoutAuthenticatedContextRequired: { type: "boolean" },
+        facadeHiddenAuthenticatedPresent: h().stringArraySchema(),
+        insecureFacadeSequences: h().stringArraySchema()
+      }),
       ui: h().openObjectSchema({
         starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
         visibleShellPresent: { type: "boolean" },
         liveBindingPresent: { type: "boolean" },
+        statefulActionsPresent: { type: "boolean" },
+        pageBootstrapPresent: { type: "boolean" },
         workInProgressVisible: { oneOf: [{ type: "boolean" }, { type: "null" }] },
         targetQName: { type: "string" },
+        authBootstrapPresent: { type: "boolean" },
         builderProbe: h().openObjectSchema({
           status: { type: "string" },
           message: { type: "string" },

@@ -128,6 +128,9 @@ C8O.crudUi = C8O.crudUi || {};
     if (extra.timeout != null) {
       properties.timeout = String(extra.timeout);
     }
+    if (trimmed(ctx, extra.comment).length) {
+      properties.comment = String(extra.comment);
+    }
     return {
       className: "ngx.components.UIDynamicAction#CallSequenceAction",
       name: name,

@@ -562,6 +562,9 @@ def validate_backend_generation(url, spec, artifact):
     artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.sq:{create_sequence_name}", "result": sequence_tree})
     sequence_node = (sequence_tree or {}).get("tree") or {}
     assert_true("Deterministic CRUD" not in json.dumps(sequence_node, ensure_ascii=True), f"Sequence {create_sequence_name} still contains deterministic boilerplate comments for {project}")
+    sequence_props = sequence_node.get("properties") or {}
+    assert_true(str(sequence_props.get("accessibility") or "") == "Hidden", f"CRUD facade sequence must stay hidden for {project}.sq:{create_sequence_name}")
+    assert_true(sequence_props.get("authenticatedContextRequired") is True, f"CRUD facade sequence must require an authenticated context for {project}.sq:{create_sequence_name}")
     tx_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.TransactionStep"), None)
     copy_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.XMLCopyStep"), None)
     assert_true(tx_step is not None and copy_step is not None, f"Missing facade steps in {project}.sq:{create_sequence_name}")
@@ -604,6 +607,43 @@ def validate_backend_generation(url, spec, artifact):
         props = variable.get("properties") or {}
         assert_true(str(props.get("comment") or "").strip() != "", f"Missing step variable comment for {project}: {variable.get('qname')}")
         assert_true(str(props.get("description") or "").strip() != "", f"Missing step variable description for {project}: {variable.get('qname')}")
+
+    login_tree = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": f"{project}.sq:auth_login",
+            "childrenDepth": 2,
+            "properties": "all",
+            "limit": 120,
+        },
+        timeout=120,
+    )
+    logout_tree = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": f"{project}.sq:auth_logout",
+            "childrenDepth": 2,
+            "properties": "all",
+            "limit": 120,
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.sq:auth_login", "result": login_tree})
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.sq:auth_logout", "result": logout_tree})
+    login_node = (login_tree or {}).get("tree") or {}
+    logout_node = (logout_tree or {}).get("tree") or {}
+    login_props = login_node.get("properties") or {}
+    logout_props = logout_node.get("properties") or {}
+    assert_true(str(login_props.get("accessibility") or "") == "Hidden", f"auth_login must stay hidden for {project}")
+    assert_true(login_props.get("authenticatedContextRequired") is False, f"auth_login must not require an authenticated context for {project}")
+    assert_true(str(logout_props.get("accessibility") or "") == "Hidden", f"auth_logout must stay hidden for {project}")
+    assert_true(logout_props.get("authenticatedContextRequired") is False, f"auth_logout must not require an authenticated context for {project}")
+    login_var_names = sorted(child.get("name") for child in (login_node.get("children") or []) if child.get("className") == "variables.RequestableVariable")
+    assert_true(login_var_names == ["password", "username"], f"auth_login must expose username/password for {project}: {login_var_names}")
+    logout_step_names = [child.get("name") for child in (logout_node.get("children") or [])]
+    assert_true("RemoveAuthenticatedUser" in logout_step_names, f"auth_logout must remove the authenticated user for {project}")
 
     list_schema = call_tool(
         url,
@@ -726,14 +766,14 @@ def validate_runtime(url, spec, artifact_dir):
     validate_backend_generation(url, spec, artifact)
     print(f"[crud-validate] backend generation conventions ok project={project}", flush=True)
 
-    public_requestables = [f"{project}.{facade_prefix}_list_{entity['name']}" for entity in entities]
+    list_requestables = [f"{project}.{connector}.list_{entity['name']}" for entity in entities]
     list_results = {}
-    for requestable in public_requestables:
-        public_result = call_tool(url, "requestable-execute", {"requestable": requestable, "variables": "{}"}, timeout=120)
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": requestable, "result": public_result})
-        assert_true("error" not in public_result, f"Public facade requestable failed for {project}: {requestable}")
-        list_results[requestable.split(f"{facade_prefix}_list_", 1)[-1]] = public_result
-    print(f"[crud-validate] public facade requestables ok project={project}", flush=True)
+    for requestable in list_requestables:
+        list_result = call_tool(url, "requestable-execute", {"requestable": requestable, "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": requestable, "result": list_result})
+        assert_true("error" not in list_result, f"Backend transaction requestable failed for {project}: {requestable}")
+        list_results[requestable.split(f"{connector}.list_", 1)[-1]] = list_result
+    print(f"[crud-validate] backend transaction requestables ok project={project}", flush=True)
     for relation in ([] if is_crm else relations):
         child_entity = find_entity(spec, relation["fromEntity"])
         parent_entity = find_entity(spec, relation["toEntity"])
@@ -744,7 +784,7 @@ def validate_runtime(url, spec, artifact_dir):
         assert_true(row_has_key(child_first_row, relation["labelAlias"]), f"Child list facade missing relation label alias {relation['labelAlias']} in {project}")
         child_id = row_value(child_first_row, primary_column(child_entity).upper(), primary_column(child_entity).lower(), "ID", "id")
         assert_true(child_id is not None, f"Unable to extract child id for relation read proof in {project}: {relation}")
-        read_requestable = f"{project}.{facade_prefix}_read_{entity_singular(child_entity)}"
+        read_requestable = f"{project}.{connector}.read_{entity_singular(child_entity)}"
         read_result = call_tool(
             url,
             "requestable-execute",
@@ -754,16 +794,16 @@ def validate_runtime(url, spec, artifact_dir):
             },
             timeout=120,
         )
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": read_requestable, "result": read_result})
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": read_requestable, "result": read_result})
         read_row = first_row(read_result or {})
         assert_true(row_has_key(read_row, relation["labelAlias"]), f"Read facade missing relation label alias {relation['labelAlias']} in {project}")
-        parent_requestable = f"{project}.{facade_prefix}_list_{entity_name(parent_entity)}"
+        parent_requestable = f"{project}.{connector}.list_{entity_name(parent_entity)}"
         parent_result = call_tool(url, "requestable-execute", {"requestable": parent_requestable, "variables": "{}"}, timeout=120)
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": parent_requestable, "result": parent_result})
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": parent_requestable, "result": parent_result})
         parent_row = first_row(parent_result or {})
         parent_id = row_value(parent_row, primary_column(parent_entity).upper(), primary_column(parent_entity).lower(), "ID", "id")
         assert_true(parent_id is not None, f"Unable to extract parent id for relation proof in {project}: {relation}")
-        relation_requestable = f"{project}.{facade_prefix}_{relation_requestable_name(relation)}"
+        relation_requestable = f"{project}.{connector}.{relation_requestable_name(relation)}"
         relation_result = call_tool(
             url,
             "requestable-execute",
@@ -773,16 +813,16 @@ def validate_runtime(url, spec, artifact_dir):
             },
             timeout=120,
         )
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": relation_requestable, "result": relation_result})
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": relation_requestable, "result": relation_result})
         relation_rows = sql_output_rows(relation_result or {})
-        assert_true(isinstance(relation_rows, list), f"Relation facade failed for {project}: {relation_requestable}")
+        assert_true(isinstance(relation_rows, list), f"Relation transaction failed for {project}: {relation_requestable}")
         if relation_rows:
-            assert_true(row_has_key(relation_rows[0], relation["labelAlias"]), f"Relation facade missing relation label alias {relation['labelAlias']} in {project}")
+            assert_true(row_has_key(relation_rows[0], relation["labelAlias"]), f"Relation transaction missing relation label alias {relation['labelAlias']} in {project}")
     if relations and not is_crm:
-        print(f"[crud-validate] public relation facades ok project={project}", flush=True)
+        print(f"[crud-validate] relation transactions ok project={project}", flush=True)
     if is_crm:
-        company_list_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{facade_prefix}_list_companies", "variables": "{}"}, timeout=120)
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": f"{project}.{facade_prefix}_list_companies", "result": company_list_result})
+        company_list_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{connector}.list_companies", "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": f"{project}.{connector}.list_companies", "result": company_list_result})
         company_row = first_row(company_list_result or {})
         company_id = row_value(company_row, "ID", "id")
         assert_true(company_id is not None, f"Unable to extract a company id for relation proof in {project}")
@@ -790,18 +830,18 @@ def validate_runtime(url, spec, artifact_dir):
             url,
             "requestable-execute",
             {
-                "requestable": f"{project}.{facade_prefix}_list_company_contacts",
+                "requestable": f"{project}.{connector}.list_company_contacts",
                 "variables": {"company_id": str(company_id)},
             },
             timeout=120,
         )
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": f"{project}.{facade_prefix}_list_company_contacts", "result": relation_result})
-        assert_true("error" not in relation_result, f"Public relation facade failed for {project}")
-        print(f"[crud-validate] public relation facade ok project={project}", flush=True)
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": f"{project}.{connector}.list_company_contacts", "result": relation_result})
+        assert_true("error" not in relation_result, f"CRM relation transaction failed for {project}")
+        print(f"[crud-validate] crm relation transaction ok project={project}", flush=True)
 
     for entity in entities:
-        count_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{facade_prefix}_count_{entity['name']}", "variables": "{}"}, timeout=120)
-        artifact["steps"].append({"tool": "requestable-execute-public", "requestable": f"{project}.{facade_prefix}_count_{entity['name']}", "result": count_result})
+        count_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{connector}.count_{entity['name']}", "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": f"{project}.{connector}.count_{entity['name']}", "result": count_result})
         total = row_value(first_row(count_result), "TOTAL", "total")
         assert_true(int(total) == spec["seed"]["rowsPerEntity"], f"Unexpected seed count for {project}.{entity['name']}: {total}")
     print(f"[crud-validate] seed counts ok project={project}", flush=True)
@@ -923,6 +963,7 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(ui.get("liveBindingPresent") is True, f"Live UI bindings missing for {project}")
     assert_true(ui.get("statefulActionsPresent") is True, f"Shared UI actions missing for {project}")
     assert_true(ui.get("pageBootstrapPresent") is True, f"Entry page bootstrap missing for {project}")
+    assert_true(ui.get("authBootstrapPresent") is True, f"Entry page auth bootstrap missing for {project}")
     builder_probe = ui.get("builderProbe") or {}
     viewer_probe = ui.get("viewerProbe") or {}
     assert_true(builder_probe.get("status") == "ready", f"Builder probe failed for {project}: {builder_probe.get('message')}")
@@ -936,6 +977,9 @@ def validate_runtime(url, spec, artifact_dir):
         if key:
             checks[key] = item
     assert_true((checks.get("ui-work-in-progress-hidden") or {}).get("ok") is True, f"ui-work-in-progress-hidden proof failed for {project}")
+    assert_true((checks.get("ui-auth-bootstrap") or {}).get("ok") is True, f"ui-auth-bootstrap proof failed for {project}")
+    assert_true((checks.get("facade-hidden-authenticated") or {}).get("ok") is True, f"facade-hidden-authenticated proof failed for {project}")
+    assert_true((checks.get("auth-sequences") or {}).get("ok") is True, f"auth-sequences proof failed for {project}")
     assert_true(viewer_probe.get("ok") is True, f"Viewer probe failed for {project}: {viewer_probe.get('message')}")
     if is_crm:
         assert_true((final_proof.get("crm") or {}).get("enabled") is True, f"CRM proof metadata missing for {project}")

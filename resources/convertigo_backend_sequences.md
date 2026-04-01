@@ -190,6 +190,7 @@ Do not use script for:
 - hidden contract definition
 - large mutable shared state
 - custom `context.*` business storage
+- broad defensive wrappers when the standard error bubble already expresses the failure correctly
 
 Safe scoping rules:
 - keep temporary values local to the step when possible
@@ -203,6 +204,22 @@ Common trap:
 Minimum validation proof:
 - one execution path with representative variables
 - no hidden runtime dependence on custom `context.*` fields
+
+### Best-case first, trust the error bubble
+Default backend generation should assume the nominal path works:
+- wire the happy-path requestables cleanly
+- keep helper steps internal
+- let standard Convertigo execution errors surface unless a special UX contract really needs interception
+
+Prefer this:
+- one clear call path
+- one explicit shaping step
+- one validation proof
+
+Avoid this by default:
+- nested `try/catch` wrappers
+- manual fallback branches for routine failures
+- duplicating Convertigo's standard runtime error reporting in each sequence
 
 ## SmartType and source picker: the real rules
 
@@ -510,3 +527,7 @@ Fix:
 - `requestable-execute` proves the nominal path.
 - `requestable-execute` proves at least one empty/error or alternate path.
 - The final public contract remains stable after orchestration changes.
+For generated CRUD projects, apply that split with Convertigo accessibility:
+- facade sequences consumed by the app are typically `Hidden`
+- internal helpers stay `Private`
+- only intentionally public HTTP endpoints should be `Public`

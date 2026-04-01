@@ -16,7 +16,7 @@ This fast path is the recommended public path for the current mono-agent recover
 In scope:
 - starter NGX project or existing starter-derived project
 - SQL CRUD scaffold
-- public facade sequences
+- hidden CRUD facade sequences plus the generated auth skeleton
 - visible CRUD shell on the real entry page
 - deterministic proof of backend and UI state
 
@@ -53,6 +53,8 @@ Default assumptions for the fast path:
 - for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
 - when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
 - for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` over direct edits on generated CRUD-kit shared components
+- generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences meant for later auth customization
+- prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
 
 ## Deterministic rail
 1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
@@ -90,7 +92,7 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - declare the relation in `spec.relations[]`
 - optionally configure the UI through `entities[].ui.relationFields.company_id`
 - expect the backend to expose `company_id__label` in `list_employees` / `read_employee`
-- expect a derived public facade such as `list_employees_by_company`
+- expect a derived CRUD facade such as `list_employees_by_company`
 
 ## Anti-patterns
 - Do not route a standard CRUD task through planner/specialist handoffs first.
@@ -99,3 +101,4 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - Do not use RAG before the built-in CRUD tools and guides are exhausted.
 - Do not continue mutating the generated CRUD UI after the first green proof unless the user explicitly asked for more than the generic scaffold.
 - Do not patch CRUD-kit-managed shared components directly when `spec.relations[]`, `field.references`, `ui.listFields`, `ui.detailFields`, `ui.formFields`, or `ui.relationFields` can express the needed CRUD behavior.
+- Do not expose generated CRUD facades as public requestables; keep the hidden/authenticated contract and customize the generated auth skeleton instead.

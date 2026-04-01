@@ -319,6 +319,31 @@ C8O.crudProof = C8O.crudProof || {};
     return projectName + "." + text;
   }
 
+  function connectorNameFromResult(ctx, result, fallback) {
+    var explicit = trimmed(ctx, fallback);
+    if (explicit.length) {
+      return explicit.replace(/^cn:/, "");
+    }
+    var connectorQName = trimmed(ctx, result && result.connectorQname);
+    var match = /\.cn:([^\.]+)$/.exec(connectorQName);
+    return match ? trimmed(ctx, match[1]) : "";
+  }
+
+  function facadeSequenceToTransactionRequestableQName(ctx, facadeRequestableQName, projectName, facadePrefix, connectorName) {
+    var requestable = trimmed(ctx, facadeRequestableQName);
+    var connector = trimmed(ctx, connectorName);
+    if (!requestable.length || !connector.length) {
+      return "";
+    }
+    var sequenceName = requestable.split(".").pop();
+    var prefix = trimmed(ctx, facadePrefix) + "_";
+    var transactionName = sequenceName.indexOf(prefix) === 0 ? sequenceName.substring(prefix.length) : sequenceName;
+    if (!transactionName.length) {
+      return "";
+    }
+    return projectName + "." + connector + "." + transactionName;
+  }
+
   function proofCheck(ctx, id, ok, message, target) {
     var check = {
       id: trimmed(ctx, id),
@@ -464,6 +489,48 @@ C8O.crudProof = C8O.crudProof || {};
     }
   }
 
+  function requestableSecurity(ctx, requestableQName, result) {
+    if (!trimmed(ctx, requestableQName).length) {
+      return {
+        qname: "",
+        present: false,
+        accessibility: "",
+        authenticatedContextRequired: false
+      };
+    }
+    if (!ctx.resolveQName(requestableQName, { optional: true })) {
+      return {
+        qname: requestableQName,
+        present: false,
+        accessibility: "",
+        authenticatedContextRequired: false
+      };
+    }
+    try {
+      var tree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
+        target: requestableQName,
+        childrenDepth: 0,
+        properties: "all",
+        limit: 1
+      });
+      var props = tree && tree.tree && tree.tree.properties ? tree.tree.properties : {};
+      return {
+        qname: requestableQName,
+        present: true,
+        accessibility: trimmed(ctx, props.accessibility),
+        authenticatedContextRequired: props && props.authenticatedContextRequired === true
+      };
+    } catch (securityError) {
+      ctx.addWarning(result, "Unable to inspect requestable security for " + requestableQName + ": " + String(securityError));
+      return {
+        qname: requestableQName,
+        present: true,
+        accessibility: "",
+        authenticatedContextRequired: false
+      };
+    }
+  }
+
   function findParentListRequestableQName(ctx, project, projectName, facadePrefix, parentSingular) {
     var expectedPlural = ctx.pluralize ? ctx.pluralize(parentSingular) : (parentSingular + "s");
     var candidates = [];
@@ -562,9 +629,22 @@ C8O.crudProof = C8O.crudProof || {};
         liveBindingPresent: false,
         statefulActionsPresent: false,
         pageBootstrapPresent: false,
+        authBootstrapPresent: false,
         workInProgressVisible: null,
         expectedGlobals: ctx.statefulUiGlobals(spec.ui.variant),
         targetQName: ctx.findPageContentQName(spec.project, spec.ui.entryPage)
+      },
+      auth: {
+        loginRequestable: spec.project + ".auth_login",
+        logoutRequestable: spec.project + ".auth_logout",
+        loginPresent: false,
+        logoutPresent: false,
+        loginHidden: false,
+        loginAuthenticatedContextRequired: false,
+        logoutHidden: false,
+        logoutAuthenticatedContextRequired: false,
+        facadeHiddenAuthenticatedPresent: [],
+        insecureFacadeSequences: []
       },
       crm: {
         enabled: !!crm,
@@ -639,12 +719,14 @@ C8O.crudProof = C8O.crudProof || {};
     }
 
     if (ctx.toBoolean(result.sequence, true)) {
+      var facadeSequenceQNames = [];
       for (var k = 0; k < spec.entities.length; k++) {
         var entity = spec.entities[k];
         var verbs = ["list", "count", "read", "create", "update", "delete"];
         for (var v = 0; v < verbs.length; v++) {
           var seqName = spec.facade.prefix + "_" + ctx.txName(entity, verbs[v]);
           var seqQName = spec.project + "." + seqName;
+          facadeSequenceQNames.push(seqQName);
           if (ctx.resolveQName(seqQName, { optional: true })) {
             status.sequences.present.push(seqQName);
           } else {
@@ -661,6 +743,7 @@ C8O.crudProof = C8O.crudProof || {};
         if (ctx.resolveQName(relationRequestableQNameValue, { optional: true })) {
           status.sequences.present.push(relationRequestableQNameValue);
           status.relations.present.push(relationRequestableQNameValue);
+          facadeSequenceQNames.push(relationRequestableQNameValue);
         } else {
           status.sequences.missing.push(relationRequestableQNameValue);
           status.relations.missing.push(relationRequestableQNameValue);
@@ -684,6 +767,7 @@ C8O.crudProof = C8O.crudProof || {};
         var relationSeqQName = spec.project + "." + spec.facade.prefix + "_list_company_contacts";
         if (ctx.resolveQName(relationSeqQName, { optional: true })) {
           status.sequences.present.push(relationSeqQName);
+          facadeSequenceQNames.push(relationSeqQName);
           if (status.relations.present.indexOf(relationSeqQName) === -1) {
             status.relations.present.push(relationSeqQName);
           }
@@ -693,6 +777,46 @@ C8O.crudProof = C8O.crudProof || {};
             status.relations.missing.push(relationSeqQName);
           }
           status.missing.push(relationSeqQName);
+        }
+      }
+
+      var loginSecurity = requestableSecurity(ctx, status.auth.loginRequestable, status);
+      status.auth.loginPresent = loginSecurity.present === true;
+      status.auth.loginHidden = loginSecurity.accessibility === "Hidden";
+      status.auth.loginAuthenticatedContextRequired = loginSecurity.authenticatedContextRequired === true;
+      if (!loginSecurity.present) {
+        status.sequences.missing.push(status.auth.loginRequestable);
+        status.missing.push(status.auth.loginRequestable);
+      } else {
+        status.sequences.present.push(status.auth.loginRequestable);
+        if (!status.auth.loginHidden || status.auth.loginAuthenticatedContextRequired) {
+          status.missing.push(status.auth.loginRequestable);
+        }
+      }
+
+      var logoutSecurity = requestableSecurity(ctx, status.auth.logoutRequestable, status);
+      status.auth.logoutPresent = logoutSecurity.present === true;
+      status.auth.logoutHidden = logoutSecurity.accessibility === "Hidden";
+      status.auth.logoutAuthenticatedContextRequired = logoutSecurity.authenticatedContextRequired === true;
+      if (!logoutSecurity.present) {
+        status.sequences.missing.push(status.auth.logoutRequestable);
+        status.missing.push(status.auth.logoutRequestable);
+      } else {
+        status.sequences.present.push(status.auth.logoutRequestable);
+        if (!status.auth.logoutHidden || status.auth.logoutAuthenticatedContextRequired) {
+          status.missing.push(status.auth.logoutRequestable);
+        }
+      }
+
+      facadeSequenceQNames = dedupeStrings(ctx, facadeSequenceQNames);
+      for (var securedIndex = 0; securedIndex < facadeSequenceQNames.length; securedIndex++) {
+        var securedQName = facadeSequenceQNames[securedIndex];
+        var securedSecurity = requestableSecurity(ctx, securedQName, status);
+        if (securedSecurity.present && securedSecurity.accessibility === "Hidden" && securedSecurity.authenticatedContextRequired === true) {
+          status.auth.facadeHiddenAuthenticatedPresent.push(securedQName);
+        } else {
+          status.auth.insecureFacadeSequences.push(securedQName);
+          status.missing.push(securedQName);
         }
       }
     }
@@ -737,10 +861,12 @@ C8O.crudProof = C8O.crudProof || {};
         pageScriptContent = String(pageTree.tree.properties.scriptContent);
       }
       var hasPageEventBootstrap = pageNames.indexOf("PageEvent") !== -1 && pageNames.indexOf("InvokeBootstrapDashboard") !== -1;
+      var hasAuthBootstrap = pageNames.indexOf("InvokeCrudAuthLogin") !== -1;
       var hasScriptBootstrap = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
         ? /bootstrapCrmDashboardState|crmBuildStage/.test(pageScriptContent)
         : /bootstrapCrudDashboardState|crudBuildStage/.test(pageScriptContent);
       status.ui.pageBootstrapPresent = hasPageEventBootstrap || hasScriptBootstrap;
+      status.ui.authBootstrapPresent = hasAuthBootstrap;
     } catch (pageInspectError) {
       ctx.addWarning(status, "Unable to inspect UI page bootstrap hook: " + String(pageInspectError));
     }
@@ -847,16 +973,27 @@ C8O.crudProof = C8O.crudProof || {};
     }
 
     result.checks.push(proofCheck(ctx, "transactions", !(result.transactions && result.transactions.missing && result.transactions.missing.length), (result.transactions && result.transactions.missing && result.transactions.missing.length) ? "Missing SQL transactions remain." : "", result.connectorQname));
-    result.checks.push(proofCheck(ctx, "sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing public CRUD sequences remain." : "", result.project));
+    result.checks.push(proofCheck(ctx, "sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing CRUD facade or auth sequences remain." : "", result.project));
     result.checks.push(proofCheck(ctx, "relations", !(result.relations && result.relations.missing && result.relations.missing.length), (result.relations && result.relations.missing && result.relations.missing.length) ? "Missing relation CRUD requestables remain." : "", result.project));
+    result.checks.push(proofCheck(
+      ctx,
+      "facade-hidden-authenticated",
+      !!(result.auth && result.auth.insecureFacadeSequences && !result.auth.insecureFacadeSequences.length),
+      !!(result.auth && result.auth.insecureFacadeSequences && !result.auth.insecureFacadeSequences.length) ? "" : "CRUD facade sequences must be hidden and require an authenticated context.",
+      result.project
+    ));
+    result.checks.push(proofCheck(
+      ctx,
+      "auth-sequences",
+      !!(result.auth && result.auth.loginPresent && result.auth.logoutPresent && result.auth.loginHidden && !result.auth.loginAuthenticatedContextRequired && result.auth.logoutHidden && !result.auth.logoutAuthenticatedContextRequired),
+      !!(result.auth && result.auth.loginPresent && result.auth.logoutPresent && result.auth.loginHidden && !result.auth.loginAuthenticatedContextRequired && result.auth.logoutHidden && !result.auth.logoutAuthenticatedContextRequired)
+        ? ""
+        : "Generated auth_login/auth_logout skeleton sequences are missing or expose the wrong visibility/auth settings.",
+      result.project
+    ));
 
     var requestables = normalizeProofRequestablesInput(ctx, opts.proofRequestables);
-    var connectorName = "";
-    if (result.connectorQname && result.connectorQname.indexOf(".") !== -1) {
-      connectorName = String(result.connectorQname).split(".").slice(1).join(".");
-    } else {
-      connectorName = trimmed(ctx, opts.connector || "");
-    }
+    var connectorName = connectorNameFromResult(ctx, result, opts.connector || "");
     for (var i = 0; i < requestables.length; i++) {
       var qname = resolveProofRequestableQName(ctx, requestables[i], result.project, connectorName);
       if (!qname.length) {
@@ -901,8 +1038,10 @@ C8O.crudProof = C8O.crudProof || {};
         if (!parentListQName.length) {
           parentListQName = findParentListRequestableQName(ctx, project, result.project, trimmed(ctx, opts.facadePrefix || "crud"), relationDescriptorValue.toEntity);
         }
-        var parentPayload = ctx.requestablePayload(parentListQName, {}, result);
-        var parentProof = ctx.summarizeRequestableProof(parentPayload, parentListQName, result);
+        var parentTxQName = facadeSequenceToTransactionRequestableQName(ctx, parentListQName, result.project, trimmed(ctx, opts.facadePrefix || "crud"), connectorName);
+        var relationTxQName = facadeSequenceToTransactionRequestableQName(ctx, relationDescriptorValue.requestableQName, result.project, trimmed(ctx, opts.facadePrefix || "crud"), connectorName);
+        var parentPayload = ctx.requestablePayload(parentTxQName || parentListQName, {}, result);
+        var parentProof = ctx.summarizeRequestableProof(parentPayload, parentTxQName || parentListQName, result);
         result.requestables.push(parentProof);
         result.checks.push(proofCheck(ctx, "requestable:" + ctx.normalizedIdentifier(parentListQName), parentProof.ok === true, parentProof.ok ? "" : (parentProof.message || "Parent list proof failed."), parentListQName));
         var parentRow = ctx.firstSqlOutputRow(parentPayload);
@@ -917,12 +1056,12 @@ C8O.crudProof = C8O.crudProof || {};
           pushMissing(ctx, result, relationDescriptorValue.requestableQName);
           continue;
         }
-        var relationPayload = ctx.requestablePayload(relationDescriptorValue.requestableQName, (function () {
+        var relationPayload = ctx.requestablePayload(relationTxQName || relationDescriptorValue.requestableQName, (function () {
           var vars = {};
           vars[relationVariableName] = String(parentId);
           return vars;
         })(), result);
-        var relationProof = ctx.summarizeRequestableProof(relationPayload, relationDescriptorValue.requestableQName, result);
+        var relationProof = ctx.summarizeRequestableProof(relationPayload, relationTxQName || relationDescriptorValue.requestableQName, result);
         var relationRow = ctx.firstSqlOutputRow(relationPayload);
         var labelAlias = trimmed(ctx, relationDescriptorValue.labelAlias || (relationVariableName + "__label"));
         var labelPresent = !!(labelAlias.length && rowHasField(ctx, relationRow, [
@@ -942,8 +1081,9 @@ C8O.crudProof = C8O.crudProof || {};
 
     if (result.crm && result.crm.enabled) {
       var companiesRequestable = result.project + "." + trimmed(ctx, opts.facadePrefix || "crud") + "_list_companies";
-      var companyListPayload = ctx.requestablePayload(companiesRequestable, {}, result);
-      var companyListProof = ctx.summarizeRequestableProof(companyListPayload, companiesRequestable, result);
+      var companiesTxRequestable = facadeSequenceToTransactionRequestableQName(ctx, companiesRequestable, result.project, trimmed(ctx, opts.facadePrefix || "crud"), connectorName);
+      var companyListPayload = ctx.requestablePayload(companiesTxRequestable || companiesRequestable, {}, result);
+      var companyListProof = ctx.summarizeRequestableProof(companyListPayload, companiesTxRequestable || companiesRequestable, result);
       result.requestables.push(companyListProof);
       result.checks.push(proofCheck(ctx, "requestable:" + ctx.normalizedIdentifier(companiesRequestable), companyListProof.ok === true, companyListProof.ok ? "" : (companyListProof.message || "Company list proof failed."), companiesRequestable));
       var firstCompanyRow = ctx.firstSqlOutputRow(companyListPayload);
@@ -953,8 +1093,9 @@ C8O.crudProof = C8O.crudProof || {};
         result.checks.push(proofCheck(ctx, "crm-company-selection", false, "No company row was available to prove the company->contacts relation.", companiesRequestable));
         pushMissing(ctx, result, relationRequestable);
       } else {
-        var relationPayload = ctx.requestablePayload(relationRequestable, { company_id: String(firstCompanyId) }, result);
-        var relationProof = ctx.summarizeRequestableProof(relationPayload, relationRequestable, result);
+        var relationTxRequestable = facadeSequenceToTransactionRequestableQName(ctx, relationRequestable, result.project, trimmed(ctx, opts.facadePrefix || "crud"), connectorName);
+        var relationPayload = ctx.requestablePayload(relationTxRequestable || relationRequestable, { company_id: String(firstCompanyId) }, result);
+        var relationProof = ctx.summarizeRequestableProof(relationPayload, relationTxRequestable || relationRequestable, result);
         result.requestables.push(relationProof);
         result.checks.push(proofCheck(ctx, "crm-company-contacts", relationProof.ok === true, relationProof.ok ? "" : (relationProof.message || "Company contacts relation proof failed."), relationRequestable));
         if (relationProof.ok !== true) {
@@ -969,6 +1110,7 @@ C8O.crudProof = C8O.crudProof || {};
       var liveBinding = result.ui && result.ui.liveBindingPresent === true;
       var statefulActions = result.ui && result.ui.statefulActionsPresent === true;
       var pageBootstrap = result.ui && result.ui.pageBootstrapPresent === true;
+      var authBootstrap = result.ui && result.ui.authBootstrapPresent === true;
       var builderProbe = null;
       try {
         builderProbe = ctx.callInternalSequence("tools_mobile_builder_open", {
@@ -1039,6 +1181,13 @@ C8O.crudProof = C8O.crudProof || {};
           : "Work in progress marker is still visible in the live viewer after finalization.",
         result.viewerUrl || result.project
       ));
+      result.checks.push(proofCheck(
+        ctx,
+        "ui-auth-bootstrap",
+        authBootstrap,
+        authBootstrap ? "" : "The visible entry page does not establish the generated authenticated context before CRUD bootstrap.",
+        result.project
+      ));
       if (result.viewerUrl.length && builderReady) {
         result.ui.viewerProbe = ctx.probeViewer(
           result.viewerUrl,
@@ -1062,7 +1211,7 @@ C8O.crudProof = C8O.crudProof || {};
           ctx.addWarning(result, "Mobile builder compile errors: " + trimmed(ctx, (compileErrors[0].message || "") + " " + (compileErrors[0].extra || "")));
         }
       }
-      if (!shellVisible || !starterReplaced || !liveBinding || !statefulActions || !pageBootstrap) {
+      if (!shellVisible || !starterReplaced || !liveBinding || !statefulActions || !pageBootstrap || !authBootstrap) {
         pushMissing(ctx, result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
       }
       if (!builderReady) {

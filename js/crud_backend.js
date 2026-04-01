@@ -23,6 +23,21 @@ C8O.crudBackend = C8O.crudBackend || {};
     } catch (_ignoreDescription) {}
   }
 
+  function applySequenceSecurity(ctx, requestable, accessibility, authenticatedContextRequired, result) {
+    if (!ctx || !requestable || typeof ctx.applyUpdates !== "function") {
+      return;
+    }
+    var updates = {};
+    var accessText = ctx.trimmed(accessibility || "");
+    if (accessText.length) {
+      updates.accessibility = accessText.charAt(0).toUpperCase() + accessText.substring(1).toLowerCase();
+    }
+    if (authenticatedContextRequired != null) {
+      updates.authenticatedContextRequired = authenticatedContextRequired === true;
+    }
+    ctx.applyUpdates(requestable, updates, result);
+  }
+
   function fieldLabel(ctx, field) {
     var raw = ctx.trimmed(field && (field.label || field.name || field.column) || "");
     if (raw.length) {
@@ -103,6 +118,27 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
+  function authSequenceComment(kind) {
+    if (kind === "login") {
+      return "Authentication skeleton. Marks the current session as authenticated with the provided username.";
+    }
+    if (kind === "logout") {
+      return "Authentication skeleton. Clears the current session authenticated user.";
+    }
+    return "";
+  }
+
+  function authVariableDescription(name) {
+    var key = String(name || "");
+    if (key === "username") {
+      return "Skeleton username used to flag the HTTP session as authenticated.";
+    }
+    if (key === "password") {
+      return "Skeleton password placeholder. No credential check is performed in the generated scaffold.";
+    }
+    return "Authentication input `" + key + "`.";
+  }
+
   function findEntityField(ctx, entity, fieldName) {
     return ctx.findField(entity, function (field) {
       return ctx.normalizedIdentifier(field && (field.column || field.name)) === ctx.normalizedIdentifier(fieldName || "");
@@ -160,6 +196,10 @@ C8O.crudBackend = C8O.crudBackend || {};
 
   function stepVariableDescription(ctx, spec, options, variableName) {
     return "Forward " + requestableVariableDescription(ctx, spec, options, variableName);
+  }
+
+  function authSequenceQName(projectName, sequenceName) {
+    return String(projectName || "") + ".sq:" + String(sequenceName || "");
   }
 
   function normalizeVariableEntries(variableEntries) {
@@ -507,6 +547,9 @@ C8O.crudBackend = C8O.crudBackend || {};
     if (!raw.length) {
       raw = "VARCHAR(255)";
     }
+    if (raw === "STRING") {
+      raw = "VARCHAR(255)";
+    }
     if (raw === "TEXT") {
       return driver.textType;
     }
@@ -816,6 +859,7 @@ C8O.crudBackend = C8O.crudBackend || {};
   C8O.crudBackend.ensurePublicSequence = function (ctx, project, sequenceName, sourceTransaction, variableEntries, result, options) {
     var sequence = ctx.ensureChild(project, "sequences.GenericSequence", sequenceName, result);
     var currentOptions = options || {};
+    applySequenceSecurity(ctx, sequence, currentOptions.accessibility || "Hidden", currentOptions.authenticatedContextRequired == null ? true : currentOptions.authenticatedContextRequired, result);
     safeComment(sequence, currentOptions.comment || "");
     var normalizedEntries = normalizeVariableEntries(ctx.ensureArray(variableEntries));
     C8O.crudBackend.ensureRequestableVariables(ctx, sequence, normalizedEntries, result);
@@ -829,6 +873,57 @@ C8O.crudBackend = C8O.crudBackend || {};
     ctx.applyUpdates(copyStep, {
       sourceDefinition: [sourcePriority, "./document/*"]
     }, result);
+    return sequence;
+  };
+
+  C8O.crudBackend.ensureAuthLoginSequence = function (ctx, project, result) {
+    var sequence = ctx.ensureChild(project, "sequences.GenericSequence", "auth_login", result);
+    applySequenceSecurity(ctx, sequence, "Hidden", false, result);
+    safeComment(sequence, authSequenceComment("login"));
+    C8O.crudBackend.ensureRequestableVariables(ctx, sequence, [
+      {
+        name: "username",
+        description: authVariableDescription("username"),
+        comment: authVariableDescription("username")
+      },
+      {
+        name: "password",
+        description: authVariableDescription("password"),
+        comment: authVariableDescription("password")
+      }
+    ], result);
+    var setStep = ctx.ensureChild(sequence, "steps.SetAuthenticatedUserStep", "SetAuthenticatedUser", result);
+    ctx.applyUpdates(setStep, {
+      output: false,
+      userid: {
+        mode: "JS",
+        value: "username"
+      }
+    }, result);
+    safeComment(setStep, "Store the provided username as the current authenticated user.");
+    var currentUserStep = ctx.ensureChild(sequence, "steps.GetAuthenticatedUserStep", "AuthenticatedUser", result);
+    ctx.applyUpdates(currentUserStep, {
+      output: true
+    }, result);
+    safeComment(currentUserStep, "Expose the current authenticated user after the login skeleton runs.");
+    return sequence;
+  };
+
+  C8O.crudBackend.ensureAuthLogoutSequence = function (ctx, project, result) {
+    var sequence = ctx.ensureChild(project, "sequences.GenericSequence", "auth_logout", result);
+    applySequenceSecurity(ctx, sequence, "Hidden", false, result);
+    safeComment(sequence, authSequenceComment("logout"));
+    var removeStep = ctx.ensureChild(sequence, "steps.SimpleStep", "RemoveAuthenticatedUser", result);
+    ctx.applyUpdates(removeStep, {
+      output: false,
+      expression: "context.removeAuthenticatedUser();"
+    }, result);
+    safeComment(removeStep, "Clear the current authenticated user for this HTTP session.");
+    var currentUserStep = ctx.ensureChild(sequence, "steps.GetAuthenticatedUserStep", "AuthenticatedUser", result);
+    ctx.applyUpdates(currentUserStep, {
+      output: true
+    }, result);
+    safeComment(currentUserStep, "Expose the current authenticated user after the logout skeleton runs.");
     return sequence;
   };
 
@@ -866,6 +961,17 @@ C8O.crudBackend = C8O.crudBackend || {};
       comment: txComment(ctx, spec, { kind: "init" }),
       variableEntries: []
     });
+
+    if (result.sequence) {
+      var authLoginSequence = C8O.crudBackend.ensureAuthLoginSequence(ctx, project, result);
+      var authLogoutSequence = C8O.crudBackend.ensureAuthLogoutSequence(ctx, project, result);
+      result.primaryTargets.flow.push(authLoginSequence.getFullQName ? String(authLoginSequence.getFullQName()) : authSequenceQName(spec.project, "auth_login"));
+      result.primaryTargets.flow.push(authLogoutSequence.getFullQName ? String(authLogoutSequence.getFullQName()) : authSequenceQName(spec.project, "auth_logout"));
+      result.runtimeEvidence.auth = {
+        loginRequestable: authLoginSequence.getFullQName ? String(authLoginSequence.getFullQName()) : authSequenceQName(spec.project, "auth_login"),
+        logoutRequestable: authLogoutSequence.getFullQName ? String(authLogoutSequence.getFullQName()) : authSequenceQName(spec.project, "auth_logout")
+      };
+    }
 
     var crm = ctx.crmRelationContext(spec);
     var defaultTransaction = null;

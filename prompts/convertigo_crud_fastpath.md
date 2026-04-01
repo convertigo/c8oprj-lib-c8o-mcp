@@ -24,6 +24,7 @@ Read `convertigo://resources/convertigo-crud-practical-cases` only when the curr
 - Do not call `rag-query` before you have read `convertigo://resources/convertigo-start` and the fast-path recipe.
 - Stay MCP-only: never patch `_private/ionic`, `DisplayObjects`, `dist`, or run manual `npm` builds to repair generated frontend artifacts.
 - For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second refinement pass unless the user explicitly asked for custom screens, layout, or field-level UX.
+- Prefer best-case-first generated code. Let the standard error bubble surface normal failures unless the user explicitly asked for custom UX around them.
 
 ## Required spec
 Collect or confirm:
@@ -39,6 +40,8 @@ Collect or confirm:
   - landing page on `Page`
   - one generated entity page per CRUD entity
   - `seed.profile=realistic`
+  - generated CRUD facades stay `hidden` with `authenticated context required=true`
+  - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`
   - declare obvious many-to-one relations in `spec.relations[]`
   - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` when the user explicitly asks for better visible fields without a custom redesign
 - for the CRM demo profile, prefer:
@@ -68,6 +71,7 @@ If some fields are missing, ask only for the missing CRUD spec items.
 14. If the final proof is green and the request was low-detail, stop there.
 15. Do not call planner, critic, or maintainer prompts from this flow.
 16. Prefer `spec.relations[]`, `field.references`, and entity-level UI hints (`ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, `ui.relationFields`) over direct edits on CRUD-kit-managed shared components.
+17. Do not make generated CRUD facades public just to get the demo running; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
 
 ## UI variant policy
 - `entity-pages` is the recommended generic CRUD UI.

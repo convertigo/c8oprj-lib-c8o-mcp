@@ -59,6 +59,34 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     );
   }
 
+  function loginSequenceActionNode(ctx, projectName, name) {
+    return ctx.callSequenceActionNode(
+      name || "InvokeCrudAuthLogin",
+      projectName + ".auth_login",
+      [
+        ctx.controlVariableNode("username", ctx.scriptLiteral("demo"), "Best-case demo user for the generated auth skeleton."),
+        ctx.controlVariableNode("password", ctx.scriptLiteral("demo"), "Best-case demo password for the generated auth skeleton.")
+      ],
+      {
+        noLoading: true,
+        comment: "Establish the generated authenticated context before CRUD facade calls."
+      }
+    );
+  }
+
+  function loginBootstrapChainNode(ctx, projectName, name, childActions) {
+    var loginNode = loginSequenceActionNode(ctx, projectName, name);
+    var children = ctx.ensureArray(loginNode.children);
+    var tail = ctx.ensureArray(childActions);
+    for (var i = 0; i < tail.length; i++) {
+      if (tail[i]) {
+        children.push(tail[i]);
+      }
+    }
+    loginNode.children = children;
+    return loginNode;
+  }
+
   function landingRouteCardNode(ctx, entity) {
     var componentPrefix = ctx.pascalize(entity.name);
     return {
@@ -242,13 +270,19 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   }
 
   function buildDashboardPageLoadTree(ctx, projectName, entryPage, _facadePrefix, _entities, stage) {
+    var chainedActions = [
+      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+    ];
+    if (ctx.trimmed(stage || "").toLowerCase() === "final") {
+      chainedActions.push(finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage"));
+    }
     var children = [
       ctx.pageEventNode(
         "PageEvent",
         "onWillLoad",
         [
-          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-        ].concat(ctx.trimmed(stage || "").toLowerCase() === "final" ? [finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage")] : []),
+          loginBootstrapChainNode(ctx, projectName, "InvokeCrudAuthLogin", chainedActions)
+        ],
         "Bootstrap CRUD global state on page load."
       )
     ];
@@ -517,13 +551,19 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   }
 
   function buildEntityPagesLandingLoadTree(ctx, projectName, entryPage, stage) {
+    var chainedActions = [
+      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+    ];
+    if (ctx.trimmed(stage || "").toLowerCase() === "final") {
+      chainedActions.push(finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage"));
+    }
     var children = [
       ctx.pageEventNode(
         "PageEvent",
         "onWillLoad",
         [
-          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-        ].concat(ctx.trimmed(stage || "").toLowerCase() === "final" ? [finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage")] : []),
+          loginBootstrapChainNode(ctx, projectName, "InvokeCrudAuthLogin", chainedActions)
+        ],
         "Bootstrap CRUD entity-pages state on landing load."
       )
     ];
@@ -543,14 +583,20 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   }
 
   function buildEntityPageLoadTree(ctx, projectName, entity, stage) {
+    var chainedActions = [
+      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
+      ctx.dynamicInvokeNode("InvokeBootstrap" + ctx.pascalize(entity.name) + "Page", ctx.dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
+    ];
+    if (ctx.trimmed(stage || "").toLowerCase() === "final") {
+      chainedActions.push(finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage"));
+    }
     var children = [
       ctx.pageEventNode(
         "PageEvent",
         "onWillLoad",
         [
-          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
-          ctx.dynamicInvokeNode("InvokeBootstrap" + ctx.pascalize(entity.name) + "Page", ctx.dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
-        ].concat(ctx.trimmed(stage || "").toLowerCase() === "final" ? [finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage")] : []),
+          loginBootstrapChainNode(ctx, projectName, "InvokeCrudAuthLogin", chainedActions)
+        ],
         "Bootstrap CRUD entity page state on page load."
       )
     ];

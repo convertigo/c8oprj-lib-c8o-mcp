@@ -163,14 +163,16 @@ C8O.crudSpec = C8O.crudSpec || {};
     if (!rawName.length) {
       throw new Error("Field #" + index + " for entity " + entityName + " is missing name");
     }
+    var isPrimary = ctx.toBoolean(rawField.primary, false) || ctx.toBoolean(rawField.primaryKey, false);
     return {
       name: rawName,
       column: ctx.normalizedIdentifier(rawField.column || rawName),
       type: ctx.trimmed(rawField.type || "VARCHAR(255)"),
       label: ctx.trimmed(rawField.label || rawName),
-      primary: ctx.toBoolean(rawField.primary, false),
-      unique: ctx.toBoolean(rawField.unique, false),
-      required: rawField.required == null ? false : ctx.toBoolean(rawField.required, false),
+      primary: isPrimary,
+      generated: ctx.toBoolean(rawField.generated, false),
+      unique: isPrimary ? true : ctx.toBoolean(rawField.unique, false),
+      required: rawField.required == null ? isPrimary : ctx.toBoolean(rawField.required, false),
       references: rawField.references && typeof rawField.references === "object" ? ctx.clone(rawField.references) : null
     };
   };
@@ -292,6 +294,7 @@ C8O.crudSpec = C8O.crudSpec || {};
         type: "INT",
         label: "Id",
         primary: true,
+        generated: true,
         unique: true,
         required: true,
         references: null
@@ -468,6 +471,7 @@ C8O.crudSpec = C8O.crudSpec || {};
         type: targetField && ctx.trimmed(targetField.type).length ? targetField.type : "INT",
         label: relation.label || relation.fromField,
         primary: false,
+        generated: false,
         unique: false,
         required: relation.required === true,
         references: null

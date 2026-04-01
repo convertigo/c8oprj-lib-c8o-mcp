@@ -575,6 +575,8 @@ C8O.crud = C8O.crud || {};
       ucfirst: ucfirst,
       pascalize: pascalize,
       scriptLiteral: scriptLiteral,
+      controlVariableNode: controlVariableNode,
+      callSequenceActionNode: callSequenceActionNode,
       plainTextNode: plainTextNode,
       scriptTextNode: scriptTextNode,
       textElementNode: textElementNode,
@@ -642,6 +644,7 @@ C8O.crud = C8O.crud || {};
     return {
       trimmed: trimmed,
       ucfirst: ucfirst,
+      scriptLiteral: scriptLiteral,
       plainTextNode: plainTextNode,
       scriptTextNode: scriptTextNode,
       textElementNode: textElementNode,
@@ -658,6 +661,7 @@ C8O.crud = C8O.crud || {};
       smartTextNode: smartTextNode,
       iterationSourceValue: iterationSourceValue,
       controlEventNode: controlEventNode,
+      callSequenceActionNode: callSequenceActionNode,
       controlVariableNode: controlVariableNode,
       customAsyncActionNode: customAsyncActionNode
     };

@@ -61,11 +61,13 @@ Read this first for any MCP session that touches a Convertigo project.
 17. Once the CRUD fast path is selected, do not call `rag-query` unless the built-in guides and tools no longer answer the task.
 18. When a CRUD domain obviously contains relations, declare them explicitly in `spec.relations[]`; use `field.references` only as the compatibility layer for simple FK fields.
 19. For generic CRUD UI relation controls, prefer `ui.relationFields` over direct edits on CRUD-kit-managed pages or shared components.
-20. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
-21. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
-22. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
-23. Save with `project-save`.
-24. Read a specialized handbook only when the recipe leaves open questions.
+20. Generated CRUD facade sequences are hidden requestables with `authenticated context required=true`; use the generated `auth_login(username,password)` skeleton before the first CRUD call instead of exposing those facades publicly.
+21. Prefer best-case-first code. Let the standard error bubble handle normal failures unless there is a clear UX reason to intercept them.
+22. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
+23. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
+24. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
+25. Save with `project-save`.
+26. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 
@@ -136,6 +138,7 @@ Correct escalation for a multi-track feature:
 - Do not use the removed CRUD-era flow (`children`, `create`, `properties-get/set`).
 - Do not guess QNames, class names, or NGX palette entries.
 - Do not start with RAG when tool metadata and tracked guides already answer the question.
+- Do not generate defensive wrappers or catch-all error handling by default. Convertigo already surfaces standard execution failures; intercept only the cases where the UX truly needs it.
 - Do not validate only the tree shape when runtime behavior matters.
 - Do not read every handbook by default. Read the smallest recipe and handbook set that matches the task.
 

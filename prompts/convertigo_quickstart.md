@@ -43,6 +43,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - The user does not need to know whether `upsert-crud` is the right path. Evaluate that yourself before mutating anything.
 - For the UI part of that fast path, assume a shared-component-first shell: the tool will create entity-specific `UISharedRegularComponent` objects in the target app and the visible page will mostly assemble them through `UIUseShared`.
 - For a low-detail CRUD brief, the target is the first green scaffold plus demo data, not a second UX refinement pass.
+- Prefer best-case-first generated code. Trust the standard Convertigo/runtime error bubble for normal failures instead of inventing defensive wrappers by default.
 
 ## Mandatory workflow
 1. Read the built-ins, the start guide, the big-picture guide, and the bootstrap decision matrix.
@@ -99,6 +100,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - Use `resources/templates/list` only to pick a template-bearing guide quickly; read the actual content through `resources/read`.
 - When the task is a standard CRUD path, capture the deterministic `spec` inputs early: project, driver family, connector name, facade prefix, entities, seed choice, visible entry page, and UI variant.
 - When the task is a standard CRUD path and relations are obvious, capture them explicitly in `spec.relations[]`. Treat `field.references` as the compatibility layer, not the preferred authoring surface.
+- When the task is a standard CRUD path, remember that generated CRUD facades are hidden requestables with `authenticated context required=true`; the generated `auth_login(username,password)` skeleton is the intended entry point before the UI starts calling those facades.
 - Use the exact project name requested by the user when it is technically valid. Do not append prefixes, suffixes, or dates unless the user explicitly asked for them.
 - For the generic CRUD UI, prefer `ui.variant=entity-pages`. Treat `dashboard` as a legacy single-page fallback.
 - For generic CRUD UI relation controls, prefer `ui.relationFields` over patching generated CRUD-kit components.
