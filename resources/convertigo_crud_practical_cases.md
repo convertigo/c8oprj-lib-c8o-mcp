@@ -71,7 +71,7 @@ Always validate on a fresh disposable project instead of a project already pollu
     "rowsPerEntity": 2
   },
   "ui": {
-    "entryPage": "Page",
+    "entryPage": "Home",
     "variant": "entity-pages"
   }
 }

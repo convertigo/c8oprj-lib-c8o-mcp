@@ -53,7 +53,7 @@ Default assumptions for the fast path:
 - for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
 - when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
 - for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` over direct edits on generated CRUD-kit shared components
-- generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences meant for later auth customization
+- generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences, and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
 - prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
 
 ## Deterministic rail

@@ -34,7 +34,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
         facadePrefix: { type: "string", description: "Optional CRUD facade sequence prefix. Defaults to crud." },
-        entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
+        entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
         mode: {
           type: "string",
           enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
@@ -55,7 +55,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
         facadePrefix: { type: "string", description: "Optional CRUD facade sequence prefix. Defaults to crud." },
-        entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
+        entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
         mode: {
           type: "string",
           enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
@@ -99,7 +99,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
           description: "UI assembly stage. bootstrap shows a visible work-in-progress shell early so the mobile builder can open against a real shell; final removes the bootstrap marker after proof."
         },
         facadePrefix: { type: "string", description: "CRUD facade prefix used for shell labels and future wiring." },
-        entryPage: { type: "string", description: "Visible entry page name. Defaults to Page." },
+        entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
         runtimeEvidence: {
           description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",
           oneOf: [

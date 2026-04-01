@@ -689,7 +689,7 @@ def validate_runtime(url, spec, artifact_dir):
     project = spec["project"]
     connector = spec["database"]["connector"]
     facade_prefix = spec["facade"]["prefix"]
-    entry_page = spec["ui"].get("entryPage", "Page")
+    entry_page = spec["ui"].get("entryPage", "Home")
     variant = spec["ui"].get("variant", "entity-pages")
     entities = spec["entities"]
     relations = extract_relations(spec)
@@ -914,15 +914,16 @@ def validate_runtime(url, spec, artifact_dir):
             "ConvertigoMCP.Application.NgxApp.TplEntityEditForm" in template_sources,
             f"Entity-pages UI did not report the expected template sources for {project}: {sorted(template_sources)}",
         )
-        expected_page_names = [entry_page] + [f"{pascalize_name(entity.get('plural') or entity['name'])}Page" for entity in entities]
-        expected_page_routes = ["/home"] + [f"/{str(entity.get('routeSegment') or entity.get('plural') or entity['name']).lower()}" for entity in entities]
+        expected_page_names = ["Login", entry_page] + [f"{pascalize_name(entity.get('plural') or entity['name'])}Page" for entity in entities]
+        expected_page_routes = ["/login", "/home"] + [f"/{str(entity.get('routeSegment') or entity.get('plural') or entity['name']).lower()}" for entity in entities]
         assert_true((final_runtime.get("pageNames") or []) == expected_page_names, f"Unexpected pageNames for {project}: {final_runtime.get('pageNames')}")
         assert_true((final_runtime.get("pageRoutes") or []) == expected_page_routes, f"Unexpected pageRoutes for {project}: {final_runtime.get('pageRoutes')}")
         entity_pages = final_runtime.get("entityPages") or []
         assert_true(len(entity_pages) == len(entities), f"Unexpected entityPages count for {project}: {len(entity_pages)}")
         touched_qnames = page_touch_refresh.get("touchedQNames") or []
-        assert_true(len(touched_qnames) == len(entities) + 1, f"Unexpected pageTouchRefresh targets for {project}: {touched_qnames}")
-        assert_true(f"{project}.Application.NgxApp.Page" in touched_qnames, f"pageTouchRefresh did not include the entry page for {project}: {touched_qnames}")
+        assert_true(len(touched_qnames) == len(entities) + 2, f"Unexpected pageTouchRefresh targets for {project}: {touched_qnames}")
+        assert_true(f"{project}.Application.NgxApp.Login" in touched_qnames, f"pageTouchRefresh did not include the login page for {project}: {touched_qnames}")
+        assert_true(f"{project}.Application.NgxApp.{entry_page}" in touched_qnames, f"pageTouchRefresh did not include the entry page for {project}: {touched_qnames}")
     mobile_builder_final = wait_mobile_builder_ready(url, project, artifact, "mobile-builder-open-final", timeout_sec=120, overall_timeout=180, force_restart=True)
     assert_true(mobile_builder_final.get("status") == "ready", f"Final mobile builder refresh did not become ready for {project}: {mobile_builder_final.get('message')}")
     assert_true(not (mobile_builder_final.get("compileErrors") or []), f"Final mobile builder refresh exposed compile errors for {project}")
@@ -963,7 +964,9 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(ui.get("liveBindingPresent") is True, f"Live UI bindings missing for {project}")
     assert_true(ui.get("statefulActionsPresent") is True, f"Shared UI actions missing for {project}")
     assert_true(ui.get("pageBootstrapPresent") is True, f"Entry page bootstrap missing for {project}")
-    assert_true(ui.get("authBootstrapPresent") is True, f"Entry page auth bootstrap missing for {project}")
+    assert_true(ui.get("sessionBootstrapPresent") is True, f"Session bootstrap page missing for {project}")
+    assert_true(ui.get("authBootstrapPresent") is True, f"Session auth bootstrap missing for {project}")
+    assert_true(ui.get("sessionRootRedirectPresent") is True, f"Session root redirect missing for {project}")
     builder_probe = ui.get("builderProbe") or {}
     viewer_probe = ui.get("viewerProbe") or {}
     assert_true(builder_probe.get("status") == "ready", f"Builder probe failed for {project}: {builder_probe.get('message')}")
@@ -1024,6 +1027,7 @@ def validate_runtime(url, spec, artifact_dir):
         "CrudPageHeader",
         "CrudLoadingState",
         "CrudErrorRetryState",
+        "Login",
     }
     if is_crm:
         expected_components.update({
@@ -1050,7 +1054,6 @@ def validate_runtime(url, spec, artifact_dir):
                 f"{plural}DetailCard",
                 f"{plural}EditForm",
                 f"crud_refresh_{plural_name}",
-                f"crud_open_{plural_name}_page",
                 f"crud_bootstrap_{plural_name}_page",
                 f"crud_select_{singular_name}",
                 f"crud_new_{singular_name}",
@@ -1134,18 +1137,35 @@ def validate_runtime(url, spec, artifact_dir):
         url,
         "databaseobject-tree-get",
         {
-            "target": f"{project}.Application.NgxApp.Page",
+            "target": f"{project}.Application.NgxApp.{entry_page}",
             "childrenDepth": 2,
             "properties": "changed",
             "limit": 120,
         },
         timeout=120,
     )
-    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.Page", "result": page_tree})
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.{entry_page}", "result": page_tree})
     page_names = set(flatten_tree_names(page_tree.get("tree")))
     assert_true("PageEvent" in page_names, f"Entry page bootstrap event missing in {project}")
     assert_true("InvokeBootstrapDashboard" in page_names, f"Entry page does not invoke the bootstrap dashboard action in {project}")
     print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
+
+    session_tree = call_tool(
+        url,
+        "databaseobject-tree-get",
+        {
+            "target": f"{project}.Application.NgxApp.Login",
+            "childrenDepth": 3,
+            "properties": "changed",
+            "limit": 140,
+        },
+        timeout=120,
+    )
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.Login", "result": session_tree})
+    session_names = set(flatten_tree_names(session_tree.get("tree")))
+    assert_true("InvokeCrudAuthLogin" in session_names, f"Login page does not invoke auth_login in {project}")
+    assert_true("OpenCrudLanding" in session_names, f"Login page does not redirect to the CRUD home page in {project}")
+    print(f"[crud-validate] login bootstrap present project={project}", flush=True)
 
     for entity in entities:
         validate_entity_ui_overrides(url, project, entity, artifact)

@@ -89,7 +89,7 @@ def main():
             args.mcp_url,
             "databaseobject-tree-apply",
             {
-                "target": f"{project}.Application.NgxApp.Page",
+                "target": f"{project}.Application.NgxApp.Home",
                 "at": "self",
                 "mode": "merge",
                 "tree": {

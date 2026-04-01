@@ -662,7 +662,7 @@ C8O.crudSpec = C8O.crudSpec || {};
     result.seed.enabled = result.seed.enabled == null ? true : ctx.toBoolean(result.seed.enabled, true);
     result.seed.profile = ctx.trimmed(result.seed.profile || "");
     result.seed.rowsPerEntity = parseInt(result.seed.rowsPerEntity, 10);
-    result.ui.entryPage = ctx.trimmed(result.ui.entryPage || "Page");
+    result.ui.entryPage = ctx.trimmed(result.ui.entryPage || "Home");
     result.ui.variant = ctx.trimmed(result.ui.variant || "entity-pages");
     C8O.crudSpec.applyCrmDefaults(ctx, result);
     result.relations = C8O.crudSpec.normalizeRelations(ctx, result, spec.relations);

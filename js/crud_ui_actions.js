@@ -59,14 +59,22 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.global.crudEntityErrors = {};",
       "page.ref.markForCheck();",
       "try {",
+      "  var extractTotal = function(result) {",
+      "    var rows = extractRows(result);",
+      "    var first = Array.isArray(rows) && rows.length ? (rows[0] || {}) : {};",
+      "    var total = first?.TOTAL ?? first?.total ?? first?.COUNT ?? first?.count ?? 0;",
+      "    var numeric = Number(total);",
+      "    return Number.isFinite(numeric) ? numeric : 0;",
+      "  };",
       "  var results = await Promise.all(configs.map(async function(config) {",
       "    try {",
-      "      var result = " + ctx.actionCallFromExpressionSnippet("config.listRequestable", "{}", 3000, 5000, true) + ";",
-      "      return { config: config, rows: extractRows(result), status: statusOf(result), error: statusOf(result) === 'ok' ? '' : (result?.error || ('Unable to load ' + String(config.label || config.key).toLowerCase())) };",
+      "      var requestable = String(config.countRequestable || config.listRequestable || '');",
+      "      var result = " + ctx.actionCallFromExpressionSnippet("requestable", "{}", 3000, 5000, true) + ";",
+      "      return { config: config, total: extractTotal(result), status: statusOf(result), error: statusOf(result) === 'ok' ? '' : (result?.error || ('Unable to load ' + String(config.label || config.key).toLowerCase())) };",
       "    } catch (e) {",
       "      var message = (e && e.message) ? e.message : ('' + e);",
       "      page.c8o.log.debug('[MB] crud_bootstrap_dashboard failed for ' + String((config && config.key) || 'entity'), e);",
-      "      return { config: config, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()) };",
+      "      return { config: config, total: 0, status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()) };",
       "    }",
       "  }));",
       "  var rowsByKey = {};",
@@ -81,15 +89,14 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "  for (var i = 0; i < results.length; i++) {",
       "    var item = results[i];",
       "    var key = item.config.key;",
-      "    var rows = Array.isArray(item.rows) ? item.rows : [];",
-      "    var selected = rows[0] || null;",
-      "    rowsByKey[key] = rows;",
-      "    countsByKey[key] = rows.length;",
-      "    samplesByKey[key] = rows[0] || null;",
-      "    selectedByKey[key] = selected;",
-      "    draftsByKey[key] = cloneRecord(selected || item.config.defaultDraft || {});",
-      "    modesByKey[key] = selected ? 'update' : 'create';",
-      "    statusByKey[key] = item.status === 'ok' ? (rows.length ? 'ready' : 'empty') : 'error';",
+      "    var total = Number(item.total || 0);",
+      "    rowsByKey[key] = [];",
+      "    countsByKey[key] = total;",
+      "    samplesByKey[key] = null;",
+      "    selectedByKey[key] = null;",
+      "    draftsByKey[key] = cloneRecord(item.config.defaultDraft || {});",
+      "    modesByKey[key] = 'create';",
+      "    statusByKey[key] = item.status === 'ok' ? (total > 0 ? 'ready' : 'empty') : 'error';",
       "    errorsByKey[key] = item.status === 'ok' ? '' : (item.error || ('Unable to load ' + String(item.config.label || key).toLowerCase()));",
       "    if (!firstError && errorsByKey[key]) {",
       "      firstError = errorsByKey[key];",
@@ -199,21 +206,65 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "var config = " + JSON.stringify(cfg) + ";",
       "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
       "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
       "var key = config.key;",
-      "var rows = ((page.global?.crudRows || {})[key]) || [];",
-      "var previousSelected = ((page.global?.crudSelected || {})[key]) || null;",
-      "var previousSelectedId = normalizeId(previousSelected);",
-      "var selected = rows.find(function(row) { return normalizeId(row) === previousSelectedId; }) || rows[0] || null;",
-      "var mode = ((page.global?.crudModes || {})[key]) || (selected ? 'update' : 'create');",
-      "var existingDraft = cloneRecord(((page.global?.crudDrafts || {})[key]) || {});",
-      "var draft = mode === 'create' ? Object.assign({}, config.defaultDraft || {}, existingDraft || {}) : cloneRecord(selected || config.defaultDraft || {});",
-      "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
-      "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: draft });",
-      "page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: mode });",
-      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: rows.length ? 'ready' : 'empty' });",
-      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: ((page.global?.crudEntityErrors || {})[key]) || '' });",
+      "page.global.crudBuildStage = page.global.crudBuildStage || 'final';",
+      "page.global.crudLoading = true;",
+      "page.global.crudError = '';",
+      "page.global.crudStatus = 'loading';",
+      "page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: 'loading' });",
+      "page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
       "page.ref.markForCheck();",
-      "return { status: 'ok', rows: rows.length, mode: mode };"
+      "var requests = [{ key: key, requestable: config.listRequestable, relation: false }];",
+      "var relationFields = Array.isArray(config.relationFields) ? config.relationFields : [];",
+      "for (var relationIndex = 0; relationIndex < relationFields.length; relationIndex++) {",
+      "  var relationField = relationFields[relationIndex] || {};",
+      "  var relationKey = String(relationField.entity || '');",
+      "  var relationRequestable = String(relationField.listRequestable || '');",
+      "  if (!relationKey || !relationRequestable) {",
+      "    continue;",
+      "  }",
+      "  if (!requests.some(function(item) { return item.key === relationKey; })) {",
+      "    requests.push({ key: relationKey, requestable: relationRequestable, relation: true });",
+      "  }",
+      "}",
+      "try {",
+      "  var results = await Promise.all(requests.map(async function(request) {",
+      "    var result = await page['call'].apply(page, [request.requestable, {__localCache_priority: null, __localCache_ttl: 3000}, null, 5000, true]);",
+      "    return { request: request, rows: extractRows(result) };",
+      "  }));",
+      "  var rowsByKey = Object.assign({}, page.global.crudRows || {});",
+      "  var countsByKey = Object.assign({}, page.global.crudCounts || {});",
+      "  var samplesByKey = Object.assign({}, page.global.crudSamples || {});",
+      "  for (var resultIndex = 0; resultIndex < results.length; resultIndex++) {",
+      "    var item = results[resultIndex];",
+      "    rowsByKey[item.request.key] = item.rows;",
+      "    countsByKey[item.request.key] = item.rows.length;",
+      "    samplesByKey[item.request.key] = item.rows[0] || null;",
+      "  }",
+      "  var rows = rowsByKey[key] || [];",
+      "  var previousSelected = ((page.global?.crudSelected || {})[key]) || null;",
+      "  var previousSelectedId = normalizeId(previousSelected);",
+      "  var selected = rows.find(function(row) { return normalizeId(row) === previousSelectedId; }) || rows[0] || null;",
+      "  var mode = ((page.global?.crudModes || {})[key]) || (selected ? 'update' : 'create');",
+      "  var existingDraft = cloneRecord(((page.global?.crudDrafts || {})[key]) || {});",
+      "  var draft = mode === 'create' ? Object.assign({}, config.defaultDraft || {}, existingDraft || {}) : cloneRecord(selected || config.defaultDraft || {});",
+      "  page.global.crudRows = rowsByKey;",
+      "  page.global.crudCounts = countsByKey;",
+      "  page.global.crudSamples = samplesByKey;",
+      "  page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
+      "  page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: draft });",
+      "  page.global.crudModes = Object.assign({}, page.global.crudModes || {}, { [key]: mode });",
+      "  page.global.crudEntityStatus = Object.assign({}, page.global.crudEntityStatus || {}, { [key]: rows.length ? 'ready' : 'empty' });",
+      "  page.global.crudEntityErrors = Object.assign({}, page.global.crudEntityErrors || {}, { [key]: '' });",
+      "  page.global.crudError = '';",
+      "  page.global.crudStatus = 'ok';",
+      "  page.ref.markForCheck();",
+      "  return { status: 'ok', rows: rows.length, mode: mode };",
+      "} finally {",
+      "  page.global.crudLoading = false;",
+      "  page.ref.markForCheck();",
+      "}"
     ].join("\n");
   }
 
@@ -477,7 +528,6 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       var saveName = "crud_save_" + config.singular;
       var deleteName = "crud_delete_" + config.singular;
       var cancelName = "crud_cancel_" + config.singular;
-      var openName = "crud_open_" + config.key + "_page";
       qnames.push(
         ctx.dashboardActionQName(projectName, refreshName),
         ctx.dashboardActionQName(projectName, bootstrapPageName),
@@ -485,8 +535,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
         ctx.dashboardActionQName(projectName, newName),
         ctx.dashboardActionQName(projectName, saveName),
         ctx.dashboardActionQName(projectName, deleteName),
-        ctx.dashboardActionQName(projectName, cancelName),
-        ctx.dashboardActionQName(projectName, openName)
+        ctx.dashboardActionQName(projectName, cancelName)
       );
       children.push(
         ctx.actionStackNode(
@@ -572,18 +621,6 @@ C8O.crudUiActions = C8O.crudUiActions || {};
             )
           ],
           "CRUD cancel action for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          openName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "Open" + ctx.pascalize(config.key) + "Page",
-              buildEntityPagesOpenPageScript(ctx, config),
-              "Navigate to the " + config.label + " page."
-            )
-          ],
-          "CRUD navigation action for " + config.label + "."
         )
       );
     }
@@ -598,7 +635,6 @@ C8O.crudUiActions = C8O.crudUiActions || {};
   C8O.crudUiActions.entityPagesDefaultDraft = entityPagesDefaultDraft;
   C8O.crudUiActions.buildEntityPagesBootstrapActionScript = buildEntityPagesBootstrapActionScript;
   C8O.crudUiActions.buildEntityPagesRefreshActionScript = buildEntityPagesRefreshActionScript;
-  C8O.crudUiActions.buildEntityPagesOpenPageScript = buildEntityPagesOpenPageScript;
   C8O.crudUiActions.buildEntityPagesBootstrapPageScript = buildEntityPagesBootstrapPageScript;
   C8O.crudUiActions.buildEntityPagesSelectActionScript = buildEntityPagesSelectActionScript;
   C8O.crudUiActions.buildEntityPagesNewActionScript = buildEntityPagesNewActionScript;

@@ -861,14 +861,27 @@ C8O.crudProof = C8O.crudProof || {};
         pageScriptContent = String(pageTree.tree.properties.scriptContent);
       }
       var hasPageEventBootstrap = pageNames.indexOf("PageEvent") !== -1 && pageNames.indexOf("InvokeBootstrapDashboard") !== -1;
-      var hasAuthBootstrap = pageNames.indexOf("InvokeCrudAuthLogin") !== -1;
       var hasScriptBootstrap = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
         ? /bootstrapCrmDashboardState|crmBuildStage/.test(pageScriptContent)
         : /bootstrapCrudDashboardState|crudBuildStage/.test(pageScriptContent);
       status.ui.pageBootstrapPresent = hasPageEventBootstrap || hasScriptBootstrap;
-      status.ui.authBootstrapPresent = hasAuthBootstrap;
     } catch (pageInspectError) {
       ctx.addWarning(status, "Unable to inspect UI page bootstrap hook: " + String(pageInspectError));
+    }
+
+    try {
+      var sessionBootstrapTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
+        target: ctx.sessionBootstrapPageQName(spec.project),
+        childrenDepth: 3,
+        properties: "all",
+        limit: 180
+      });
+      var sessionNames = ctx.collectTreeNames(sessionBootstrapTree && sessionBootstrapTree.tree, []);
+      status.ui.sessionBootstrapPresent = sessionNames.indexOf("PageEvent") !== -1;
+      status.ui.authBootstrapPresent = sessionNames.indexOf("InvokeCrudAuthLogin") !== -1;
+      status.ui.sessionRootRedirectPresent = sessionNames.indexOf("OpenCrudLanding") !== -1;
+    } catch (sessionBootstrapError) {
+      ctx.addWarning(status, "Unable to inspect session bootstrap page: " + String(sessionBootstrapError));
     }
 
     if (status.missing.length) {
@@ -907,7 +920,7 @@ C8O.crudProof = C8O.crudProof || {};
         rowsPerEntity: trimmed(ctx, options.profile || "").toLowerCase() === "crm" || facadePrefix.toLowerCase() === "crm" ? 20 : 2
       },
       ui: {
-        entryPage: trimmed(ctx, options.entryPage || "Page"),
+        entryPage: trimmed(ctx, options.entryPage || "Home"),
         variant: trimmed(ctx, options.variant || (facadePrefix.toLowerCase() === "crm" ? "master-detail" : "entity-pages"))
       },
       database: ctx.normalizeDatabaseSpec({
@@ -961,7 +974,7 @@ C8O.crudProof = C8O.crudProof || {};
   function crudProof(ctx, options) {
     var opts = options || {};
     var result = inspectCrudStatus(ctx, opts);
-    result.entryPage = trimmed(ctx, opts.entryPage || "Page");
+    result.entryPage = trimmed(ctx, opts.entryPage || "Home");
     result.expectUiShell = ctx.toBoolean(opts.expectUiShell, false);
     result.viewerUrl = trimmed(ctx, opts.viewerUrl || "");
     result.requestables = [];
@@ -1111,6 +1124,8 @@ C8O.crudProof = C8O.crudProof || {};
       var statefulActions = result.ui && result.ui.statefulActionsPresent === true;
       var pageBootstrap = result.ui && result.ui.pageBootstrapPresent === true;
       var authBootstrap = result.ui && result.ui.authBootstrapPresent === true;
+      var sessionBootstrap = result.ui && result.ui.sessionBootstrapPresent === true;
+      var sessionRootRedirect = result.ui && result.ui.sessionRootRedirectPresent === true;
       var builderProbe = null;
       try {
         builderProbe = ctx.callInternalSequence("tools_mobile_builder_open", {
@@ -1184,8 +1199,10 @@ C8O.crudProof = C8O.crudProof || {};
       result.checks.push(proofCheck(
         ctx,
         "ui-auth-bootstrap",
-        authBootstrap,
-        authBootstrap ? "" : "The visible entry page does not establish the generated authenticated context before CRUD bootstrap.",
+        authBootstrap && sessionBootstrap && sessionRootRedirect,
+        authBootstrap && sessionBootstrap && sessionRootRedirect
+          ? ""
+          : "The generated Login page is missing the auth_login call and root-page redirect to the visible CRUD home page.",
         result.project
       ));
       if (result.viewerUrl.length && builderReady) {

@@ -280,7 +280,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       "- For a new UI project, validate the name, run `marketplace-import` with that exact name, open the viewer immediately with `mobile-builder-open`, then continue with `upsert-crud` and the staged UI kit.",
       "- For a low-detail CRUD prompt, stop after the first green scaffold + demo data: starter import, viewer open, `upsert-crud`, backend proof, `upsert-ngx-crud-kit` bootstrap/final, final UI proof, optional `project-save`, then return.",
       "- When relations are obvious, declare them explicitly in `spec.relations[]` instead of relying only on flat FK fields. Prefer entity UI hints such as `ui.relationFields` over direct edits on generated CRUD-kit components.",
-      "- Generated CRUD facade sequences are hidden requestables that require an authenticated context. Use the generated `auth_login(username,password)` skeleton first; it establishes the authenticated user without real credential checks until the app is customized.",
+      "- Generated CRUD facade sequences are hidden requestables that require an authenticated context. The generated UI now initializes that session once through a `Login` page that calls `auth_login(username,password)` and then redirects to the visible home page; the business pages should only bootstrap the CRUD data they need.",
       "- Do not start a second refinement pass on screens, layout, labels, or field-level UX unless the user explicitly asked for it.",
       "- Once the CRUD fast path is chosen, do not call `rag-query` unless the built-in guides and CRUD tools are no longer sufficient.",
       "- Prefer best-case-first generated code. Trust the standard error bubble for normal failures instead of adding defensive wrappers by default.",

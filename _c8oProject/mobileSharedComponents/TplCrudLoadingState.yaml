@@ -1,11 +1,11 @@
 comment: Template source for the CRUD loading state card.
-↓TplCrudLoadingStateCard [ngx.components.UIDynamicElement-1773937957597]: 
+↓TplCrudLoadingStateCard [ngx.components.UIDynamicElement-1775063144395]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓TplCrudLoadingStateContent [ngx.components.UIDynamicElement-1773937957599]: 
+  ↓TplCrudLoadingStateContent [ngx.components.UIDynamicElement-1775063144397]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplCrudLoadingStateText [ngx.components.UIText-1773937957601]: 
+    ↓TplCrudLoadingStateText [ngx.components.UIText-1775063144399]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType

@@ -139,6 +139,27 @@ C8O.crudUi = C8O.crudUi || {};
     };
   }
 
+  function rootPageActionNode(ctx, name, pageQName, dataExpression, comment) {
+    var properties = {
+      page: {
+        mode: "PLAIN",
+        value: trimmed(ctx, pageQName)
+      },
+      data: {
+        mode: "PLAIN",
+        value: dataExpression == null ? "not set" : String(dataExpression)
+      }
+    };
+    if (trimmed(ctx, comment).length) {
+      properties.comment = String(comment);
+    }
+    return {
+      className: "ngx.components.UIDynamicAction#RootPageAction",
+      name: name || "RootPage",
+      properties: properties
+    };
+  }
+
   function customAsyncActionNode(ctx, name, actionValue, comment) {
     var properties = {
       actionValue: actionValue || "return;"
@@ -435,6 +456,7 @@ C8O.crudUi = C8O.crudUi || {};
   C8O.crudUi.controlVariableNode = controlVariableNode;
   C8O.crudUi.pageEventNode = pageEventNode;
   C8O.crudUi.callSequenceActionNode = callSequenceActionNode;
+  C8O.crudUi.rootPageActionNode = rootPageActionNode;
   C8O.crudUi.customAsyncActionNode = customAsyncActionNode;
   C8O.crudUi.smartTextNode = smartTextNode;
   C8O.crudUi.plainTextNode = plainTextNode;

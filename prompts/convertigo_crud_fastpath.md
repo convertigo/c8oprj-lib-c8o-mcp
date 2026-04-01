@@ -41,7 +41,7 @@ Collect or confirm:
   - one generated entity page per CRUD entity
   - `seed.profile=realistic`
   - generated CRUD facades stay `hidden` with `authenticated context required=true`
-  - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`
+  - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`, with a `Login` root page that authenticates once before the visible CRUD home page opens
   - declare obvious many-to-one relations in `spec.relations[]`
   - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` when the user explicitly asks for better visible fields without a custom redesign
 - for the CRM demo profile, prefer:

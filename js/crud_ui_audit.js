@@ -21,7 +21,7 @@ C8O.crudUiAudit = C8O.crudUiAudit || {};
     var serialized = JSON.stringify(uiTree || {});
     return {
       starterDominant: serialized.indexOf("WelcomeCard") !== -1,
-      visibleShellPresent: /FeatureShell|CrudDashboardGrid|CrudEntityPageGrid|CrmMasterDetailGrid|UseCrudPageHeader|UseWorkInProgressCard|UseCrudLoadingState|UseCrudErrorRetryState|UseContactCard|UseContactTable|UseCompanyCard|UseCompanyTable|ListPanel|DetailCard|EditForm/.test(serialized),
+      visibleShellPresent: /FeatureShell|CrudDashboardGrid|CrudEntityPageGrid|CrmMasterDetailGrid|UseCrudPageHeader|UseTplCrudPageHeader|CrudPageHeader|DashboardStatCard|MetricsRow|RouteRow|UseWorkInProgressCard|UseCrudLoadingState|UseTplCrudLoadingState|UseCrudErrorRetryState|UseTplCrudErrorRetryState|UseContactCard|UseContactTable|UseCompanyCard|UseCompanyTable|ListPanel|DetailCard|EditForm/.test(serialized),
       liveBindingPresent: /UIDynamicAction|UIDynamicInvoke|UIActionStack|UIControlDirective|UIControlVariable|UIUseShared|UIUseVariable|UIControlEvent/.test(serialized)
     };
   }

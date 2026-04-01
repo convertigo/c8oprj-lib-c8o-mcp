@@ -645,21 +645,6 @@ C8O.crudUiCrm = C8O.crudUiCrm || {};
   }
 
   function buildCrmPageLoadTree(ctx, projectName, entryPage, _stage) {
-    var loginNode = ctx.callSequenceActionNode(
-      "InvokeCrudAuthLogin",
-      projectName + ".auth_login",
-      [
-        ctx.controlVariableNode("username", ctx.scriptLiteral("demo"), "Best-case demo user for the generated auth skeleton."),
-        ctx.controlVariableNode("password", ctx.scriptLiteral("demo"), "Best-case demo password for the generated auth skeleton.")
-      ],
-      {
-        noLoading: true,
-        comment: "Establish the generated authenticated context before CRM facade calls."
-      }
-    );
-    loginNode.children = ctx.ensureArray(loginNode.children).concat([
-      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.crmActionQName(projectName, "crm_bootstrap_dashboard"), [])
-    ]);
     return {
       qname: ctx.pageQName(projectName, entryPage),
       legacyQNames: [
@@ -675,7 +660,7 @@ C8O.crudUiCrm = C8O.crudUiCrm || {};
             "PageEvent",
             "onWillLoad",
             [
-              loginNode
+              ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.crmActionQName(projectName, "crm_bootstrap_dashboard"), [])
             ],
             "Bootstrap CRM global state on page load."
           )

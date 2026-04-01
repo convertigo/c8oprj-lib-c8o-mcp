@@ -14,6 +14,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   var TEMPLATE_PAGE = "Templates";
   var TOKENS = {
     PROJECT_NAME: "__PROJECT_NAME__",
+    ENTRY_ROUTE: "__ENTRY_ROUTE__",
     ENTITY_SINGULAR: "__ENTITY_SINGULAR__",
     ENTITY_PLURAL: "__ENTITY_PLURAL__",
     ENTITY_KEY: "__ENTITY_KEY__",
@@ -49,12 +50,19 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return "Tpl" + String(componentName || "");
   }
 
+  function templatePageComponentName(pageName) {
+    return "Tpl" + String(pageName || "");
+  }
+
   function canonicalPageQName(ctx, projectName, pageName) {
     return ctx.ngxAppQName(projectName) + ".pg:" + trimmed(ctx, pageName || templatePageName(ctx));
   }
 
   function sourceTemplateNames() {
     return {
+      loginPage: templatePageComponentName("Login"),
+      homePage: templatePageComponentName("Home"),
+      entityPage: templatePageComponentName("EntityPage"),
       pageHeader: templateComponentName("CrudPageHeader"),
       workInProgress: templateComponentName("WorkInProgressCard"),
       loadingState: templateComponentName("CrudLoadingState"),
@@ -202,6 +210,57 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     tree.properties = tree.properties || {};
     tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages template clone) for " + String(componentName || tree.name || "component") + ". Direct edits may be overwritten; prefer entity.ui hints.";
     return tree;
+  }
+
+  function markManagedPageClone(tree, pageName) {
+    if (!tree || typeof tree !== "object") {
+      return tree;
+    }
+    tree.properties = tree.properties || {};
+    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages page template clone) for " + String(pageName || tree.name || "page") + ". Direct edits may be overwritten; prefer template sources and entity.ui hints.";
+    return tree;
+  }
+
+  function pageTemplateQName(ctx, projectName, pageName) {
+    return canonicalPageQName(ctx, projectName, templatePageComponentName(pageName));
+  }
+
+  function directChildByName(ctx, tree, expectedName) {
+    var children = ensureArray(ctx, tree && tree.children);
+    var target = trimmed(ctx, expectedName);
+    for (var i = 0; i < children.length; i++) {
+      if (trimmed(ctx, children[i] && children[i].name) === target) {
+        return children[i];
+      }
+    }
+    return null;
+  }
+
+  function removeDirectChildByName(ctx, tree, expectedName) {
+    var children = ensureArray(ctx, tree && tree.children);
+    var target = trimmed(ctx, expectedName);
+    var kept = [];
+    for (var i = 0; i < children.length; i++) {
+      if (trimmed(ctx, children[i] && children[i].name) !== target) {
+        kept.push(children[i]);
+      }
+    }
+    tree.children = kept;
+    return tree;
+  }
+
+  function buildCommonPageSharedReplacements(ctx, projectName) {
+    var sourceProject = sourceProjectName(ctx);
+    var names = sourceTemplateNames();
+    var replacements = {};
+    replacements[ctx.sharedComponentQName(sourceProject, names.pageHeader)] = ctx.sharedComponentQName(projectName, "CrudPageHeader");
+    replacements[ctx.sharedComponentQName(sourceProject, names.workInProgress)] = ctx.sharedComponentQName(projectName, "WorkInProgressCard");
+    replacements[ctx.sharedComponentQName(sourceProject, names.loadingState)] = ctx.sharedComponentQName(projectName, "CrudLoadingState");
+    replacements[ctx.sharedComponentQName(sourceProject, names.errorRetry)] = ctx.sharedComponentQName(projectName, "CrudErrorRetryState");
+    replacements[ctx.sharedComponentQName(sourceProject, names.dashboardStat)] = ctx.sharedComponentQName(projectName, "DashboardStatCard");
+    replacements[TOKENS.PROJECT_NAME] = projectName;
+    replacements[TOKENS.ENTRY_ROUTE] = "/home";
+    return replacements;
   }
 
   function clonedFieldList(config, key) {
@@ -1588,6 +1647,371 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
+  function templateLoginPageRootTree(ctx) {
+    return {
+      className: "ngx.components.PageComponent#PageComponent",
+      name: templatePageComponentName("Login"),
+      properties: {
+        comment: "Template source for the generated login/session bootstrap page.",
+        icon: "log-in",
+        inAutoMenu: false,
+        preloadPriority: "high",
+        segment: "tpl-login",
+        title: "Template Login",
+        isRoot: false
+      },
+      children: [
+        entityPagesHeaderTree(ctx, "Template Login"),
+        {
+          className: "ngx.components.UIDynamicElement#Content",
+          name: "Content",
+          properties: {
+            Padding: {
+              mode: "PLAIN",
+              value: "ion-padding"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#Grid",
+              name: "Grid",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "Row",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "Col",
+                      children: [
+                        {
+                          className: "ngx.components.UIDynamicElement#Card",
+                          name: "Card",
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#CardHeader",
+                              name: "Header",
+                              children: [
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#CardTitle",
+                                  "Title",
+                                  ctx.plainTextNode("TitleText", "Opening the app")
+                                ),
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#CardSubTitle",
+                                  "Subtitle",
+                                  ctx.plainTextNode("SubtitleText", "Authenticating the demo session before opening the CRUD home page.")
+                                )
+                              ]
+                            },
+                            {
+                              className: "ngx.components.UIDynamicElement#CardContent",
+                              name: "CardContent",
+                              children: [
+                                {
+                                  className: "ngx.components.UIDynamicElement#Spinner",
+                                  name: "Spinner"
+                                },
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  "Hint",
+                                  ctx.plainTextNode("HintText", "Please wait. The session is initialized once, then the pages call only the CRUD facades they need.")
+                                )
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function entityPagesHeaderTree(ctx, titleText) {
+    return {
+      className: "ngx.components.UIDynamicElement#Header",
+      name: "Header",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#ToolBar",
+          name: "ToolBar",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#BarTitle",
+              name: "BarTitle",
+              children: [
+                ctx.plainTextNode("Text", titleText)
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function templateHomePageRootTree(ctx, projectName) {
+    var sourceProject = projectName || sourceProjectName(ctx);
+    var names = sourceTemplateNames();
+    return {
+      className: "ngx.components.PageComponent#PageComponent",
+      name: templatePageComponentName("Home"),
+      properties: {
+        comment: "Template source for the generated CRUD home page.",
+        icon: "home",
+        inAutoMenu: false,
+        preloadPriority: "high",
+        segment: "tpl-home",
+        title: "Template Home",
+        isRoot: false,
+        scriptContent: ctx.blankPageScriptContent()
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Content",
+          name: "Content",
+          properties: {
+            Padding: {
+              mode: "PLAIN",
+              value: "ion-padding"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#Grid",
+              name: "Grid",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "HeaderRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "HeaderCol",
+                      children: [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "UseTplCrudPageHeader", [
+                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.PROJECT_NAME + " CRUD home")),
+                          ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Open an entity page to edit live facade data."))
+                        ])
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "BootstrapRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "BootstrapCol",
+                      children: [
+                        ctx.ifDirectiveNode(
+                          "BootstrapVisible",
+                          "((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'",
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "UseTplWorkInProgressCard", [])]
+                        )
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "RouteRow",
+                  children: []
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "LoadingRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "LoadingCol",
+                      children: [
+                        ctx.ifDirectiveNode(
+                          "LoadingVisible",
+                          "this.global?.crudLoading === true",
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "UseTplCrudLoadingState", [])]
+                        )
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "ErrorRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "ErrorCol",
+                      children: [
+                        ctx.ifDirectiveNode(
+                          "ErrorVisible",
+                          "!!this.global?.crudError",
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "UseTplCrudErrorRetryState", [])]
+                        )
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function templateEntityPageRootTree(ctx, projectName) {
+    var sourceProject = projectName || sourceProjectName(ctx);
+    var names = sourceTemplateNames();
+    return {
+      className: "ngx.components.PageComponent#PageComponent",
+      name: templatePageComponentName("EntityPage"),
+      properties: {
+        comment: "Template source for generated CRUD entity pages.",
+        icon: "list",
+        inAutoMenu: false,
+        preloadPriority: "low",
+        segment: "tpl-entity",
+        title: "__DISPLAY_LABEL__",
+        isRoot: false,
+        scriptContent: ctx.blankPageScriptContent()
+      },
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Content",
+          name: "Content",
+          properties: {
+            Padding: {
+              mode: "PLAIN",
+              value: "ion-padding"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#Grid",
+              name: "Grid",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "PageHeaderRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "PageHeaderCol",
+                      children: [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "UseTplCrudPageHeader", [
+                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " workspace")),
+                          ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select, edit, create, then return to the home page if needed."))
+                        ]),
+                        ctx.entityPagesButtonNode("BackToHome", "Back to home", { routerPath: TOKENS.ENTRY_ROUTE, routerDirection: "back", fill: "outline" }, [])
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "BootstrapRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "BootstrapCol",
+                      children: [
+                        ctx.ifDirectiveNode(
+                          "BootstrapVisible",
+                          "((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'",
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "UseTplWorkInProgressCard", [])]
+                        )
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "ListRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "ListCol",
+                      children: [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityListPanel), "UseTplEntityListPanel", [])
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "DetailRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "DetailCol",
+                      children: [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityDetailCard), "UseTplEntityDetailCard", [])
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "FormRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "FormCol",
+                      children: [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityEditForm), "UseTplEntityEditForm", [])
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "LoadingRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "LoadingCol",
+                      children: [
+                        ctx.ifDirectiveNode(
+                          "LoadingVisible",
+                          "this.global?.crudLoading === true || " + ctx.crudEntityStatusExpression(ctx.scriptLiteral(TOKENS.ENTITY_KEY)) + " === 'loading'",
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "UseTplCrudLoadingState", [])]
+                        )
+                      ]
+                    }
+                  ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "ErrorRow",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "ErrorCol",
+                      children: [
+                        ctx.ifDirectiveNode(
+                          "ErrorVisible",
+                          "!!this.global?.crudError || !!" + ctx.crudEntityErrorExpression(ctx.scriptLiteral(TOKENS.ENTITY_KEY)),
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "UseTplCrudErrorRetryState", [])]
+                        )
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   function buildRefreshOperations(ctx, sourceProject, pageName, force) {
     var names = sourceTemplateNames();
     var operations = [];
@@ -1603,6 +2027,12 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     }
     var pageQName = canonicalPageQName(ctx, sourceProject, pageName);
     var pageExists = ctx.resolveQName(pageQName, { optional: true }) != null;
+    var loginPageQName = pageTemplateQName(ctx, sourceProject, "Login");
+    var homeTemplateQName = pageTemplateQName(ctx, sourceProject, "Home");
+    var entityTemplateQName = pageTemplateQName(ctx, sourceProject, "EntityPage");
+    var loginPageExists = ctx.resolveQName(loginPageQName, { optional: true }) != null;
+    var homeTemplateExists = ctx.resolveQName(homeTemplateQName, { optional: true }) != null;
+    var entityTemplateExists = ctx.resolveQName(entityTemplateQName, { optional: true }) != null;
     if (componentChildren.length) {
       operations.push({
         type: "upsertTree",
@@ -1633,6 +2063,54 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         }
       });
     }
+    if (force || !loginPageExists) {
+      operations.push({
+        type: "upsertTree",
+        qname: sourceNgxAppQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          children: [
+            templateLoginPageRootTree(ctx)
+          ]
+        }
+      });
+    }
+    if (force || !homeTemplateExists) {
+      operations.push({
+        type: "upsertTree",
+        qname: sourceNgxAppQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          children: [
+            templateHomePageRootTree(ctx, sourceProject)
+          ]
+        }
+      });
+    }
+    if (force || !entityTemplateExists) {
+      operations.push({
+        type: "upsertTree",
+        qname: sourceNgxAppQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          children: [
+            templateEntityPageRootTree(ctx, sourceProject)
+          ]
+        }
+      });
+    }
     if (force || !pageExists) {
       operations.push({
         type: "upsertTree",
@@ -1643,6 +2121,42 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           reorder: false
         },
         patch: templatesPagePatchTree(ctx, sourceProject, pageName).tree
+      });
+    }
+    if (force || !loginPageExists) {
+      operations.push({
+        type: "upsertTree",
+        qname: loginPageQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: true,
+          reorder: false
+        },
+        patch: templateLoginPageRootTree(ctx)
+      });
+    }
+    if (force || !homeTemplateExists) {
+      operations.push({
+        type: "upsertTree",
+        qname: homeTemplateQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: true,
+          reorder: false
+        },
+        patch: templateHomePageRootTree(ctx, sourceProject)
+      });
+    }
+    if (force || !entityTemplateExists) {
+      operations.push({
+        type: "upsertTree",
+        qname: entityTemplateQName,
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: true,
+          reorder: false
+        },
+        patch: templateEntityPageRootTree(ctx, sourceProject)
       });
     }
     var homePageQName = canonicalPageQName(ctx, sourceProject, "Home");
@@ -1683,6 +2197,143 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       { source: names.errorRetry, target: "CrudErrorRetryState" },
       { source: names.dashboardStat, target: "DashboardStatCard" }
     ];
+  }
+
+  function landingRouteCardNode(ctx, entity) {
+    var componentPrefix = ctx.pascalize(entity.name);
+    return {
+      className: "ngx.components.UIDynamicElement#GridCol",
+      name: componentPrefix + "RouteCol",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: componentPrefix + "RouteCard",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: componentPrefix + "RouteHeader",
+              children: [
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  componentPrefix + "RouteTitle",
+                  ctx.plainTextNode(componentPrefix + "RouteTitleText", entity.label)
+                ),
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  componentPrefix + "RouteSubtitle",
+                  ctx.scriptTextNode("RouteSubtitleText", "'Rows: ' + (" + ctx.dashboardCountExpression(ctx.scriptLiteral(entity.name)) + ")")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: componentPrefix + "RouteContent",
+              children: [
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#Paragraph",
+                  componentPrefix + "RouteHint",
+                  ctx.plainTextNode("RouteHintText", "Open the " + entity.label.toLowerCase() + " workspace to browse and edit live facade data.")
+                ),
+                ctx.entityPagesButtonNode("OpenPageButton", "Open " + entity.label, { routerPath: ctx.entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function clonePageTemplateTree(ctx, sourceQName, replacements, targetName, pageName) {
+    var tree = cloneTemplateTree(ctx, sourceQName, replacements || {}, targetName);
+    if (!tree) {
+      return null;
+    }
+    return markManagedPageClone(tree, pageName || targetName || tree.name);
+  }
+
+  function buildEntityPagesPageBundle(ctx, projectName, entryPage, entities, stage) {
+    var sourceProject = sourceProjectName(ctx);
+    var names = sourceTemplateNames();
+    var warnings = [];
+    var templateSourceQNames = [];
+    var loginSourceQName = pageTemplateQName(ctx, sourceProject, "Login");
+    var homeSourceQName = pageTemplateQName(ctx, sourceProject, "Home");
+    var entitySourceQName = pageTemplateQName(ctx, sourceProject, "EntityPage");
+    var commonHomeReplacements = buildCommonPageSharedReplacements(ctx, projectName);
+    var homeRoute = "/" + trimmed(ctx, entryPage || "Home").toLowerCase();
+    commonHomeReplacements[TOKENS.ENTRY_ROUTE] = homeRoute;
+    var loginTree = clonePageTemplateTree(ctx, loginSourceQName, commonHomeReplacements, ctx.trimmed(entryPage ? "Login" : "Login"), "Login");
+    var homeTree = clonePageTemplateTree(ctx, homeSourceQName, commonHomeReplacements, trimmed(ctx, entryPage || "Home"), trimmed(ctx, entryPage || "Home"));
+    if (!loginTree || !homeTree) {
+      warnings.push("Missing page template sources for Login or Home.");
+      return null;
+    }
+    loginTree.properties = loginTree.properties || {};
+    loginTree.properties.segment = "login";
+    loginTree.properties.title = "Login";
+    loginTree.properties.icon = "log-in";
+    loginTree.properties.preloadPriority = "high";
+    loginTree.properties.inAutoMenu = false;
+    loginTree.properties.isRoot = false;
+    homeTree.properties = homeTree.properties || {};
+    homeTree.properties.segment = "home";
+    homeTree.properties.title = trimmed(ctx, entryPage || "Home");
+    homeTree.properties.icon = "home";
+    homeTree.properties.preloadPriority = "high";
+    homeTree.properties.inAutoMenu = true;
+    var homeGrid = directChildByName(ctx, directChildByName(ctx, homeTree, "Content"), "Grid");
+    var routeRow = directChildByName(ctx, homeGrid, "RouteRow");
+    if (routeRow) {
+      routeRow.children = entities.map(function (entity) {
+        return landingRouteCardNode(ctx, entity);
+      });
+    }
+    if (trimmed(ctx, stage).toLowerCase() === "final" && homeGrid) {
+      removeDirectChildByName(ctx, homeGrid, "BootstrapRow");
+    }
+    var entityTrees = [];
+    for (var i = 0; i < entities.length; i++) {
+      var entity = entities[i];
+      var entityPrefix = ctx.pascalize(entity.name);
+      var replacements = buildCommonPageSharedReplacements(ctx, projectName);
+      replacements[TOKENS.ENTRY_ROUTE] = homeRoute;
+      replacements[TOKENS.DISPLAY_LABEL] = trimmed(ctx, entity.label || entity.name);
+      replacements[TOKENS.ENTITY_SINGULAR] = trimmed(ctx, entity.singular || "entity");
+      replacements[TOKENS.ENTITY_PLURAL] = trimmed(ctx, entity.name || entity.plural || ctx.pluralize(entity.singular || "entity"));
+      replacements[TOKENS.ENTITY_KEY] = trimmed(ctx, entity.name || entity.plural || "entities");
+      replacements[TOKENS.ROUTE_SEGMENT] = trimmed(ctx, entity.routeSegment || ctx.entityRouteSegment(entity));
+      replacements[ctx.sharedComponentQName(sourceProject, names.entityListPanel)] = ctx.sharedComponentQName(projectName, entityPrefix + "ListPanel");
+      replacements[ctx.sharedComponentQName(sourceProject, names.entityDetailCard)] = ctx.sharedComponentQName(projectName, entityPrefix + "DetailCard");
+      replacements[ctx.sharedComponentQName(sourceProject, names.entityEditForm)] = ctx.sharedComponentQName(projectName, entityPrefix + "EditForm");
+      var entityTree = clonePageTemplateTree(ctx, entitySourceQName, replacements, ctx.entityPageName(entity), ctx.entityPageName(entity));
+      if (!entityTree) {
+        warnings.push("Missing page template source for entity page.");
+        return null;
+      }
+      entityTree.properties = entityTree.properties || {};
+      entityTree.properties.segment = ctx.entityRouteSegment(entity);
+      entityTree.properties.title = entity.label;
+      entityTree.properties.icon = "list";
+      entityTree.properties.preloadPriority = "low";
+      entityTree.properties.inAutoMenu = true;
+      if (trimmed(ctx, stage).toLowerCase() === "final") {
+        var entityGrid = directChildByName(ctx, directChildByName(ctx, entityTree, "Content"), "Grid");
+        if (entityGrid) {
+          removeDirectChildByName(ctx, entityGrid, "BootstrapRow");
+        }
+      }
+      entityTrees.push(entityTree);
+    }
+    templateSourceQNames.push(loginSourceQName, homeSourceQName, entitySourceQName);
+    return {
+      templateDriven: true,
+      templateSourceProject: sourceProject,
+      templateSourceQNames: templateSourceQNames,
+      warnings: warnings,
+      loginPageTree: loginTree,
+      homePageTree: homeTree,
+      entityPageTrees: entityTrees
+    };
   }
 
   function buildEntityPagesSharedComponentsTree(ctx, projectName, entities, stage) {
@@ -1783,6 +2434,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
 
   C8O.crudUiTemplates.sourceProjectName = sourceProjectName;
   C8O.crudUiTemplates.templatePageName = templatePageName;
+  C8O.crudUiTemplates.buildEntityPagesPageBundle = buildEntityPagesPageBundle;
   C8O.crudUiTemplates.refreshUiTemplates = function (ctx, options) {
     var currentOptions = options || {};
     var projectName = trimmed(ctx, currentOptions.project || sourceProjectName(ctx)) || sourceProjectName(ctx);

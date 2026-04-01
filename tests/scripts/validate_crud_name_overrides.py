@@ -69,7 +69,7 @@ def main():
                 "variant": "entity-pages",
                 "stage": "bootstrap",
                 "facadePrefix": "crud",
-                "entryPage": "Page",
+                "entryPage": "Home",
             },
             timeout=180,
         )
@@ -85,7 +85,7 @@ def main():
                 "variant": "entity-pages",
                 "stage": "final",
                 "facadePrefix": "crud",
-                "entryPage": "Page",
+                "entryPage": "Home",
             },
             timeout=180,
         )
@@ -93,8 +93,8 @@ def main():
         assert_true(final_ui.get("status") == "success", f"Final UI failed for {args.project}")
 
         runtime = final_ui.get("runtimeEvidence") or {}
-        assert_true(runtime.get("pageRoutes") == ["/home", "/animaux"], f"Unexpected pageRoutes: {runtime.get('pageRoutes')}")
-        assert_true(runtime.get("pageNames") == ["Page", "AnimauxPage"], f"Unexpected pageNames: {runtime.get('pageNames')}")
+        assert_true(runtime.get("pageRoutes") == ["/login", "/home", "/animaux"], f"Unexpected pageRoutes: {runtime.get('pageRoutes')}")
+        assert_true(runtime.get("pageNames") == ["Login", "Home", "AnimauxPage"], f"Unexpected pageNames: {runtime.get('pageNames')}")
 
         ngx_tree = call_tool(
             args.mcp_url,
@@ -109,7 +109,7 @@ def main():
         )
         artifact["steps"].append({"tool": "databaseobject-tree-get", "result": ngx_tree})
         serialized = json.dumps(ngx_tree, ensure_ascii=False)
-        for token in ("AnimauxListPanel", "AnimauxDetailCard", "AnimauxEditForm", "crud_refresh_animaux", "crud_select_animal", "crud_open_animaux_page"):
+        for token in ("Login", "AnimauxListPanel", "AnimauxDetailCard", "AnimauxEditForm", "crud_refresh_animaux", "crud_select_animal"):
             assert_true(token in serialized, f"Missing override token {token} in generated tree.")
 
         artifact["status"] = "PASS"

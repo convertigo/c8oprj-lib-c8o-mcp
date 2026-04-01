@@ -35,6 +35,17 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return true;
   }
 
+  function directChildByName(ctx, tree, expectedName) {
+    var children = ctx.ensureArray(tree && tree.children);
+    var target = ctx.trimmed(expectedName);
+    for (var i = 0; i < children.length; i++) {
+      if (ctx.trimmed(children[i] && children[i].name) === target) {
+        return children[i];
+      }
+    }
+    return null;
+  }
+
   C8O.crudUiKit.normalizeUiEntities = function (ctx, rawEntities) {
     var entries = ctx.ensureArray(rawEntities);
     var normalized = [];
@@ -204,6 +215,100 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return ctx.trimmed(fallback || "Deterministic CRUD page refresh touch.");
   }
 
+  function setPageRootFlagValue(pageDbo, enabled) {
+    var value = !!enabled;
+    var updated = false;
+    var booleanObject = java.lang.Boolean.valueOf(value);
+    var methodNames = ["setRoot", "setIsRoot"];
+    for (var methodIndex = 0; methodIndex < methodNames.length && !updated; methodIndex++) {
+      try {
+        var methodName = methodNames[methodIndex];
+        if (pageDbo && typeof pageDbo[methodName] === "function") {
+          pageDbo[methodName](booleanObject);
+          updated = true;
+        }
+      } catch (_ignoreSetter) {}
+    }
+    if (!updated) {
+      try {
+        pageDbo.isRoot = value;
+        updated = true;
+      } catch (_ignoreFieldAssign) {}
+    }
+    if (!updated) {
+      try {
+        var field = pageDbo.getClass().getField("isRoot");
+        field.setBoolean(pageDbo, value);
+        updated = true;
+      } catch (_ignoreFieldReflect) {}
+    }
+    if (!updated) {
+      try {
+        var declaredField = pageDbo.getClass().getDeclaredField("isRoot");
+        declaredField.setAccessible(true);
+        declaredField.setBoolean(pageDbo, value);
+        updated = true;
+      } catch (_ignoreDeclaredField) {}
+    }
+    if (updated) {
+      try {
+        pageDbo.hasChanged = true;
+      } catch (_ignorePageDirty) {}
+      try {
+        var project = pageDbo.getProject ? pageDbo.getProject() : null;
+        if (project) {
+          project.hasChanged = true;
+        }
+      } catch (_ignoreProjectDirty) {}
+    }
+    return updated;
+  }
+
+  function applyPageRootSelection(ctx, projectName, entryPage, result) {
+    var loginQName = ctx.sessionBootstrapPageQName(projectName);
+    var homeQName = ctx.pageQName(projectName, entryPage);
+    var loginPage = ctx.resolveQName(loginQName, { optional: true });
+    var homePage = ctx.resolveQName(homeQName, { optional: true });
+    if (!loginPage) {
+      ctx.addWarning(result, "Unable to set root page: login page not found for " + loginQName);
+      return {
+        status: "missing-login",
+        target: loginQName
+      };
+    }
+    if (!homePage) {
+      ctx.addWarning(result, "Unable to set root page: entry page not found for " + homeQName);
+      return {
+        status: "missing-entry",
+        target: homeQName
+      };
+    }
+    var loginUpdated = setPageRootFlagValue(loginPage, true);
+    var homeUpdated = setPageRootFlagValue(homePage, false);
+    if (!loginUpdated || !homeUpdated) {
+      if (!loginUpdated) {
+        ctx.addWarning(result, "Unable to set Login as root page for " + projectName + ".");
+      }
+      if (!homeUpdated) {
+        ctx.addWarning(result, "Unable to clear root flag on " + entryPage + " for " + projectName + ".");
+      }
+      return {
+        status: "partial",
+        loginPage: loginQName,
+        entryPage: homeQName,
+        loginUpdated: loginUpdated,
+        entryUpdated: homeUpdated
+      };
+    }
+    return {
+      status: "ok",
+      loginPage: loginQName,
+      entryPage: homeQName,
+      loginUpdated: true,
+      entryUpdated: true
+    };
+  }
+
   function touchManagedCrudPages(ctx, projectName, pageQNames, result) {
     var unique = {};
     var qnames = [];
@@ -233,7 +338,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     if (!operations.length) {
       return {
         status: "skipped",
-        target: ctx.pageQName(projectName, "Page"),
+        target: ctx.pageQName(projectName, "Home"),
         touchedQNames: []
       };
     }
@@ -259,6 +364,31 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       summary.status = "ok";
     }
     return summary;
+  }
+
+  function ensureEntryPage(ctx, projectName, entryPage, result) {
+    var requestedName = ctx.trimmed(entryPage || "Home") || "Home";
+    var requestedContentQName = ctx.findPageContentQName(projectName, requestedName);
+    if (ctx.resolveQName(requestedContentQName, { optional: true })) {
+      return requestedName;
+    }
+    if (requestedName === "Home") {
+      var legacyPageQName = ctx.pageQName(projectName, "Page");
+      var legacyContentQName = ctx.findPageContentQName(projectName, "Page");
+      if (ctx.resolveQName(legacyContentQName, { optional: true })) {
+        var renameResult = ctx.renameObject({
+          qname: legacyPageQName,
+          name: requestedName,
+          update: "update_local"
+        });
+        if (!renameResult || renameResult.renamed !== true) {
+          throw new Error("Unable to rename starter entry page Page to Home for " + projectName);
+        }
+        ctx.addWarning(result, "Renamed starter entry page Page to Home for " + projectName + ".");
+        return requestedName;
+      }
+    }
+    return requestedName;
   }
 
   function appShellImportPatchLines() {
@@ -343,7 +473,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       C8O.crudUiKit.normalizeUiEntities(ctx, options.entities),
       result
     );
-    var entryPage = ctx.trimmed(options.entryPage || "Page");
+    var entryPage = ensureEntryPage(ctx, projectName, options.entryPage || "Home", result);
     var variant = ctx.trimmed(options.variant || "entity-pages").toLowerCase() || "entity-pages";
     var stage = ctx.trimmed(options.stage || "final").toLowerCase() || "final";
     var isMasterDetail = variant === "master-detail";
@@ -373,7 +503,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       ? ctx.buildCrmActionStacksTree(projectName, facadePrefix, stage)
       : (isEntityPages ? ctx.buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
     var reuseExistingSharedComponents = stage === "final" && ctx.everyQNameExists(sharedComponents.qnames);
-    var reuseExistingSharedActions = stage === "final" && ctx.everyQNameExists(sharedActions.qnames);
+    var reuseExistingSharedActions = !isEntityPages && stage === "final" && ctx.everyQNameExists(sharedActions.qnames);
     var sharedComponentChildren = reuseExistingSharedComponents ? [] : ctx.ensureArray(sharedComponents.tree.children);
     var sharedActionChildren = reuseExistingSharedActions ? [] : ctx.ensureArray(sharedActions.tree.children);
     ctx.setDuration(timings, "buildSharedComponentsMs", sharedBuildStartedAt);
@@ -388,10 +518,21 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
     result.runtimeEvidence.uiGlobals = ctx.statefulUiGlobals(variant);
     result.runtimeEvidence.workInProgressMode = "stateful-visibility";
+    var pageTemplates = isEntityPages ? ctx.buildEntityPagesPageBundle(projectName, entryPage, entities, stage) : null;
+    if (pageTemplates && pageTemplates.warnings && pageTemplates.warnings.length) {
+      for (var pageTemplateWarningIndex = 0; pageTemplateWarningIndex < pageTemplates.warnings.length; pageTemplateWarningIndex++) {
+        ctx.addWarning(result, pageTemplates.warnings[pageTemplateWarningIndex]);
+      }
+    }
+    result.runtimeEvidence.pageTemplateDriven = !!(pageTemplates && pageTemplates.templateDriven === true);
+    result.runtimeEvidence.pageTemplateSourceProject = ctx.trimmed(pageTemplates && pageTemplates.templateSourceProject);
+    result.runtimeEvidence.pageTemplateSourceQNames = ctx.ensureArray(pageTemplates && pageTemplates.templateSourceQNames);
     var pageShellStartedAt = ctx.nowMillis();
     var pageShellTree = isMasterDetail
       ? ctx.buildCrmMasterDetailPageShellTree(projectName, stage)
-      : (isEntityPages ? ctx.buildEntityPagesLandingShellTree(projectName, entities, stage) : ctx.buildDashboardPageShellTree(projectName, entities, stage));
+      : (isEntityPages && pageTemplates && pageTemplates.homePageTree
+          ? pageTemplates.homePageTree
+          : (isEntityPages ? ctx.buildEntityPagesLandingShellTree(projectName, entities, stage) : ctx.buildDashboardPageShellTree(projectName, entities, stage)));
     ctx.setDuration(timings, "buildPageShellTreeMs", pageShellStartedAt);
     result.runtimeEvidence.pageShellTreeNodeCount = ctx.countTreeNodes(pageShellTree);
     var pageLoadStartedAt = ctx.nowMillis();
@@ -400,15 +541,24 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       : (isEntityPages ? ctx.buildEntityPagesLandingLoadTree(projectName, entryPage, stage) : ctx.buildDashboardPageLoadTree(projectName, entryPage, facadePrefix, entities, stage));
     ctx.setDuration(timings, "buildPageLoadTreeMs", pageLoadStartedAt);
     result.runtimeEvidence.pageLoadTreeNodeCount = ctx.countTreeNodes(pageLoadTree.tree);
+    var sessionBootstrapPageRoot = (pageTemplates && pageTemplates.loginPageTree) || ctx.buildSessionBootstrapPageRootTree(projectName, entryPage);
+    var sessionBootstrapPageLoad = ctx.buildSessionBootstrapPageLoadTree(projectName, entryPage);
     var entityPageRoots = [];
     var entityPageShells = [];
     var entityPageLoads = [];
     if (isEntityPages) {
       for (var entityIndex = 0; entityIndex < entities.length; entityIndex++) {
         var currentEntity = entities[entityIndex];
-        entityPageRoots.push(ctx.buildEntityPageRootTree(currentEntity));
-        var entityShellTree = ctx.buildEntityPageShellTree(projectName, currentEntity, stage);
-        ctx.appendEntityPageRows(projectName, currentEntity, entityShellTree, stage);
+        var entityRootTree = pageTemplates && pageTemplates.entityPageTrees && pageTemplates.entityPageTrees[entityIndex]
+          ? pageTemplates.entityPageTrees[entityIndex]
+          : ctx.buildEntityPageRootTree(currentEntity);
+        entityPageRoots.push(entityRootTree);
+        var entityShellTree = pageTemplates && pageTemplates.entityPageTrees && pageTemplates.entityPageTrees[entityIndex]
+          ? directChildByName(ctx, entityRootTree, "Content")
+          : ctx.buildEntityPageShellTree(projectName, currentEntity, stage);
+        if (!(pageTemplates && pageTemplates.entityPageTrees && pageTemplates.entityPageTrees[entityIndex])) {
+          ctx.appendEntityPageRows(projectName, currentEntity, entityShellTree, stage);
+        }
         entityPageShells.push({
           entity: currentEntity.name,
           qname: ctx.entityPageContentQName(projectName, currentEntity),
@@ -420,10 +570,11 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         });
       }
     }
-    result.runtimeEvidence.pageNames = [entryPage].concat(entityPageRoots.map(function (pageTree) {
+    result.runtimeEvidence.sessionBootstrapPage = ctx.sessionBootstrapPageQName(projectName);
+    result.runtimeEvidence.pageNames = [String(ctx.sessionBootstrapPageQName(projectName)).split(".").pop(), entryPage].concat(entityPageRoots.map(function (pageTree) {
       return pageTree.name;
     }));
-    result.runtimeEvidence.pageRoutes = ["/home"].concat(entityPageRoots.map(function (_pageTree, index) {
+    result.runtimeEvidence.pageRoutes = ["/login", "/home"].concat(entityPageRoots.map(function (_pageTree, index) {
       return ctx.entityRoutePath(entities[index]);
     }));
     result.runtimeEvidence.entityPages = entityPageRoots.map(function (pageTree, index) {
@@ -435,7 +586,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         sharedRefs: entityPageShells[index] ? ctx.collectSharedRefs(entityPageShells[index].tree, []) : []
       };
     });
-    var expectedManagedCrudQNames = [ctx.pageQName(projectName, entryPage)]
+    var expectedManagedCrudQNames = [ctx.sessionBootstrapPageQName(projectName), ctx.pageQName(projectName, entryPage)]
       .concat(sharedComponents.qnames || [])
       .concat(sharedActions.qnames || [])
       .concat(entityPageLoads.map(function (item) { return item.tree.qname; }));
@@ -443,6 +594,20 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.cleanupTargets = cleanupQNames;
     var batchApplyStartedAt = ctx.nowMillis();
     var pageMutationOperations = [
+      {
+        type: "upsertTree",
+        opId: "session_bootstrap_page_load",
+        qname: ctx.sessionBootstrapPageQName(projectName),
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          properties: sessionBootstrapPageLoad.tree.properties || {},
+          children: ctx.ensureArray(sessionBootstrapPageLoad.tree.children)
+        }
+      },
       {
         type: "upsertTree",
         opId: "entry_page_load",
@@ -458,28 +623,34 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         }
       }
     ];
-    var legacyPageLoadQNames = ctx.ensureArray(pageLoadTree.legacyQNames);
-    for (var legacyIndex = 0; legacyIndex < legacyPageLoadQNames.length; legacyIndex++) {
-      var legacyQName = ctx.trimmed(legacyPageLoadQNames[legacyIndex]);
-      if (!legacyQName.length) {
-        continue;
+    if (!(isEntityPages && pageTemplates && pageTemplates.homePageTree)) {
+      var legacyPageLoadQNames = ctx.ensureArray(pageLoadTree.legacyQNames);
+      for (var legacyIndex = 0; legacyIndex < legacyPageLoadQNames.length; legacyIndex++) {
+        var legacyQName = ctx.trimmed(legacyPageLoadQNames[legacyIndex]);
+        if (!legacyQName.length) {
+          continue;
+        }
+        if (!ctx.resolveQName(legacyQName, { optional: true })) {
+          continue;
+        }
+        pageMutationOperations.unshift({
+          type: "delete",
+          opId: "delete_" + ctx.normalizedIdentifier(legacyQName),
+          qname: legacyQName
+        });
       }
-      if (!ctx.resolveQName(legacyQName, { optional: true })) {
-        continue;
-      }
-      pageMutationOperations.unshift({
-        type: "delete",
-        opId: "delete_" + ctx.normalizedIdentifier(legacyQName),
-        qname: legacyQName
-      });
     }
-    var cleanupOperations = cleanupQNames.map(function (qname) {
-      return {
-        type: "delete",
-        opId: "cleanup_" + ctx.normalizedIdentifier(qname),
-        qname: qname
-      };
-    });
+    var cleanupOperations = cleanupQNames
+      .filter(function (qname) {
+        return !!ctx.resolveQName(qname, { optional: true });
+      })
+      .map(function (qname) {
+        return {
+          type: "delete",
+          opId: "cleanup_" + ctx.normalizedIdentifier(qname),
+          qname: qname
+        };
+      });
     var appImportPatch = {
       status: "skipped",
       changed: false,
@@ -507,7 +678,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
           reorder: false
         },
         patch: {
-          children: sharedComponentChildren.concat(sharedActionChildren).concat(entityPageRoots)
+          children: sharedComponentChildren.concat(sharedActionChildren).concat([sessionBootstrapPageRoot]).concat(entityPageRoots)
         }
       },
       appImportPatch.changed ? {
@@ -521,21 +692,33 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       {
         type: "upsertTree",
         opId: "entry_page",
-        qname: contentQName,
+        qname: (isEntityPages && pageTemplates && pageTemplates.homePageTree) ? ctx.pageQName(projectName, entryPage) : contentQName,
         strategy: {
           replaceOnClassMismatch: true,
           pruneMissing: true,
           reorder: false
         },
-        patch: {
-          properties: pageShellTree.properties || {},
-          children: ctx.ensureArray(pageShellTree.children)
-        }
+        patch: (isEntityPages && pageTemplates && pageTemplates.homePageTree)
+          ? pageShellTree
+          : {
+              properties: pageShellTree.properties || {},
+              children: ctx.ensureArray(pageShellTree.children)
+            }
       }
     ].filter(function (item) { return !!item; })).concat(pageMutationOperations);
+    batchOperations.push(
+      {
+        type: "setProperties",
+        opId: "login_page_flags",
+        qname: ctx.sessionBootstrapPageQName(projectName),
+        properties: {
+          inAutoMenu: false
+        }
+      }
+    );
     for (var pageIndex = 0; pageIndex < entityPageShells.length; pageIndex++) {
-      batchOperations.push(
-        {
+      if (!(pageTemplates && pageTemplates.entityPageTrees && pageTemplates.entityPageTrees[pageIndex])) {
+        batchOperations.push({
           type: "upsertTree",
           opId: "entity_page_" + ctx.normalizedIdentifier(entityPageShells[pageIndex].entity),
           qname: entityPageShells[pageIndex].qname,
@@ -548,7 +731,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
             properties: entityPageShells[pageIndex].tree.properties || {},
             children: ctx.ensureArray(entityPageShells[pageIndex].tree.children)
           }
-        },
+        });
+      }
+      batchOperations.push(
         {
           type: "upsertTree",
           opId: "entity_page_load_" + ctx.normalizedIdentifier(entityPageLoads[pageIndex].entity),
@@ -619,6 +804,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.mutationCounts.updated = Number(batchSummary.updatedProperties || 0);
     result.runtimeEvidence.mutationCounts.deleted = Number(batchSummary.deleted || 0);
     result.runtimeEvidence.mutationCounts.replaced = Number(batchSummary.replaced || 0);
+    result.runtimeEvidence.rootPageSelection = applyPageRootSelection(ctx, projectName, entryPage, result);
     var sharedBindingsStartedAt = ctx.nowMillis();
     var sharedBindingOperations = [];
     if (sharedBindingOperations.length) {
@@ -645,6 +831,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     }
     ctx.setDuration(timings, "configureSharedBindingsMs", sharedBindingsStartedAt);
     result.pageTargets.push(contentQName);
+    result.pageTargets.push(ctx.sessionBootstrapContentQName(projectName));
     for (var targetIndex = 0; targetIndex < entityPageShells.length; targetIndex++) {
       result.pageTargets.push(entityPageShells[targetIndex].qname);
     }
@@ -688,14 +875,14 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       result.runtimeEvidence.pageTouchRefresh = touchManagedCrudPages(
         ctx,
         projectName,
-        [ctx.pageQName(projectName, entryPage)].concat(entityPageLoads.map(function (item) {
+        [ctx.sessionBootstrapPageQName(projectName), ctx.pageQName(projectName, entryPage)].concat(entityPageLoads.map(function (item) {
           return item.tree.qname;
         })),
         result
       );
       ctx.setDuration(timings, "pageTouchRefreshMs", pageTouchStartedAt);
       var mobileBuilderStartedAt = ctx.nowMillis();
-      var refreshTargets = [ctx.pageQName(projectName, entryPage)].concat(reuseExistingSharedComponents ? [] : (sharedComponents.qnames || []));
+      var refreshTargets = [ctx.sessionBootstrapPageQName(projectName), ctx.pageQName(projectName, entryPage)].concat(reuseExistingSharedComponents ? [] : (sharedComponents.qnames || []));
       for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {
         refreshTargets.push(entityPageLoads[refreshIndex].tree.qname);
       }

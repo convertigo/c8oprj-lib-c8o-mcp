@@ -19,7 +19,19 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
   };
 
   C8O.crudUiMeta.pageQName = function (ctx, projectName, entryPage) {
-    return C8O.crudUiMeta.ngxAppQName(ctx, projectName) + "." + ctx.trimmed(entryPage || "Page");
+    return C8O.crudUiMeta.ngxAppQName(ctx, projectName) + "." + ctx.trimmed(entryPage || "Home");
+  };
+
+  C8O.crudUiMeta.sessionBootstrapPageName = function (_ctx) {
+    return "Login";
+  };
+
+  C8O.crudUiMeta.sessionBootstrapPageQName = function (ctx, projectName) {
+    return C8O.crudUiMeta.pageQName(ctx, projectName, C8O.crudUiMeta.sessionBootstrapPageName(ctx));
+  };
+
+  C8O.crudUiMeta.sessionBootstrapContentQName = function (ctx, projectName) {
+    return C8O.crudUiMeta.findPageContentQName(ctx, projectName, C8O.crudUiMeta.sessionBootstrapPageName(ctx));
   };
 
   C8O.crudUiMeta.findPageContentQName = function (ctx, projectName, entryPage) {
@@ -408,6 +420,23 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     });
     var previewPrimary = mappedListFields[0] || mappedDetailFields[0] || buildConfiguredField(ctx, entities, C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}, fieldLabels, overrideUi.relationFields || {});
     var previewSecondary = mappedListFields[1] || mappedDetailFields[1] || mappedListFields[0] || mappedDetailFields[0] || buildConfiguredField(ctx, entities, C8O.crudUiMeta.secondPreviewField(ctx, entity) || C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}, fieldLabels, overrideUi.relationFields || {});
+    var mappedRelationFields = relationFields.filter(function (field) {
+      var allowed = false;
+      for (var i = 0; i < formFields.length; i++) {
+        if (formFields[i] && formFields[i].column === field.column) {
+          allowed = true;
+          break;
+        }
+      }
+      return allowed;
+    }).map(function (field) {
+      var relation = buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {}).relation;
+      if (!relation) {
+        return relation;
+      }
+      relation.listRequestable = ctx.facadeSequenceQName(projectName, facadePrefix, { name: relation.entity }, "list");
+      return relation;
+    });
     return {
       key: entity.name,
       singular: entity.singular,
@@ -420,6 +449,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       previewPrimaryColumn: (previewPrimary && (previewPrimary.displayColumn || previewPrimary.column)) || "id",
       previewSecondaryColumn: (previewSecondary && (previewSecondary.displayColumn || previewSecondary.column)) || "id",
       listRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "list"),
+      countRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "count"),
       readRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "read"),
       createRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "create"),
       updateRequestable: ctx.facadeSequenceQName(projectName, facadePrefix, entity, "update"),
@@ -428,18 +458,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       listFields: mappedListFields,
       detailFields: mappedDetailFields,
       editableFields: mappedEditableFields,
-      relationFields: relationFields.filter(function (field) {
-        var allowed = false;
-        for (var i = 0; i < formFields.length; i++) {
-          if (formFields[i] && formFields[i].column === field.column) {
-            allowed = true;
-            break;
-          }
-        }
-        return allowed;
-      }).map(function (field) {
-        return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {}).relation;
-      }),
+      relationFields: mappedRelationFields,
       fieldLabels: fieldLabels,
       uniqueFields: uniqueFields
     };

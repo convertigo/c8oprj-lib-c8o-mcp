@@ -344,6 +344,7 @@ C8O.crud = C8O.crud || {};
       crmRelationContext: crmRelationContext,
       statefulUiGlobals: statefulUiGlobals,
       findPageContentQName: findPageContentQName,
+      sessionBootstrapPageQName: sessionBootstrapPageQName,
       txName: txName,
       resolveQName: function (qname, options) {
         return C8O.dbo.resolve(qname, options || {});
@@ -401,6 +402,8 @@ C8O.crud = C8O.crud || {};
       countTreeNodes: countTreeNodes,
       findProjectByName: findProjectByName,
       pageQName: pageQName,
+      sessionBootstrapPageQName: sessionBootstrapPageQName,
+      sessionBootstrapContentQName: sessionBootstrapContentQName,
       findPageContentQName: findPageContentQName,
       ngxAppQName: ngxAppQName,
       entityPageContentQName: entityPageContentQName,
@@ -411,6 +414,7 @@ C8O.crud = C8O.crud || {};
       },
       buildCrmSharedComponentsTree: buildCrmSharedComponentsTree,
       buildEntityPagesSharedComponentsTree: buildEntityPagesSharedComponentsTree,
+      buildEntityPagesPageBundle: buildEntityPagesPageBundle,
       buildDashboardSharedComponentsTree: buildDashboardSharedComponentsTree,
       buildCrmActionStacksTree: buildCrmActionStacksTree,
       buildEntityPagesActionStacksTree: buildEntityPagesActionStacksTree,
@@ -421,6 +425,8 @@ C8O.crud = C8O.crud || {};
       buildCrmPageLoadTree: buildCrmPageLoadTree,
       buildEntityPagesLandingLoadTree: buildEntityPagesLandingLoadTree,
       buildDashboardPageLoadTree: buildDashboardPageLoadTree,
+      buildSessionBootstrapPageRootTree: buildSessionBootstrapPageRootTree,
+      buildSessionBootstrapPageLoadTree: buildSessionBootstrapPageLoadTree,
       buildEntityPageRootTree: buildEntityPageRootTree,
       buildEntityPageShellTree: buildEntityPageShellTree,
       appendEntityPageRows: appendEntityPageRows,
@@ -432,6 +438,9 @@ C8O.crud = C8O.crud || {};
       scriptLiteral: scriptLiteral,
       batchApply: function (options) {
         return C8O.dbo.batchApply(options);
+      },
+      renameObject: function (options) {
+        return C8O.dbo.renameObject(options || {});
       },
       summarizeTreeApplyResult: summarizeTreeApplyResult,
       operationSummary: operationSummary,
@@ -478,6 +487,7 @@ C8O.crud = C8O.crud || {};
       customAsyncActionNode: customAsyncActionNode,
       crudGlobalExpression: crudGlobalExpression,
       dashboardCountExpression: dashboardCountExpression,
+      dashboardSampleExpression: dashboardSampleExpression,
       dashboardRowsExpression: dashboardRowsExpression,
       dynamicFieldAccessExpression: dynamicFieldAccessExpression,
       crudSelectedExpression: crudSelectedExpression,
@@ -491,6 +501,9 @@ C8O.crud = C8O.crud || {};
       buildUseSharedNode: buildUseSharedNode,
       sharedComponentQName: sharedComponentQName,
       pageQName: pageQName,
+      entityPageName: entityPageName,
+      entityRouteSegment: entityRouteSegment,
+      entityRoutePath: entityRoutePath,
       ngxAppQName: ngxAppQName,
       entityUiConfig: entityUiConfig,
       findEntityByName: findEntityByName,
@@ -577,6 +590,7 @@ C8O.crud = C8O.crud || {};
       scriptLiteral: scriptLiteral,
       controlVariableNode: controlVariableNode,
       callSequenceActionNode: callSequenceActionNode,
+      rootPageActionNode: rootPageActionNode,
       plainTextNode: plainTextNode,
       scriptTextNode: scriptTextNode,
       textElementNode: textElementNode,
@@ -598,6 +612,8 @@ C8O.crud = C8O.crud || {};
       entityPageName: entityPageName,
       entityPageQName: entityPageQName,
       pageQName: pageQName,
+      sessionBootstrapPageName: sessionBootstrapPageName,
+      sessionBootstrapPageQName: sessionBootstrapPageQName,
       sharedComponentQName: sharedComponentQName,
       dashboardActionQName: dashboardActionQName,
       entityPagesButtonNode: entityPagesButtonNode,
@@ -1128,6 +1144,18 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiMeta.pageQName(crudUiMetaContext(), projectName, entryPage);
   }
 
+  function sessionBootstrapPageName() {
+    return C8O.crudUiMeta.sessionBootstrapPageName(crudUiMetaContext());
+  }
+
+  function sessionBootstrapPageQName(projectName) {
+    return C8O.crudUiMeta.sessionBootstrapPageQName(crudUiMetaContext(), projectName);
+  }
+
+  function sessionBootstrapContentQName(projectName) {
+    return C8O.crudUiMeta.sessionBootstrapContentQName(crudUiMetaContext(), projectName);
+  }
+
   function findPageContentQName(projectName, entryPage) {
     return C8O.crudUiMeta.findPageContentQName(crudUiMetaContext(), projectName, entryPage);
   }
@@ -1198,6 +1226,10 @@ C8O.crud = C8O.crud || {};
 
   function pageEventNode(name, viewEvent, children, comment) {
     return C8O.crudUi.pageEventNode(crudUiContext(), name, viewEvent, children, comment);
+  }
+
+  function rootPageActionNode(name, pageQNameValue, dataExpression, comment) {
+    return C8O.crudUi.rootPageActionNode(crudUiContext(), name, pageQNameValue, dataExpression, comment);
   }
 
   function buildPageScriptContent(projectName, entities, facadePrefix) {
@@ -1478,6 +1510,14 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiPages.buildDashboardPageLoadTree(crudUiPagesContext(), projectName, entryPage, facadePrefix, entities, stage);
   }
 
+  function buildSessionBootstrapPageRootTree(projectName, entryPage) {
+    return C8O.crudUiPages.buildSessionBootstrapPageRootTree(crudUiPagesContext(), projectName, entryPage);
+  }
+
+  function buildSessionBootstrapPageLoadTree(projectName, entryPage) {
+    return C8O.crudUiPages.buildSessionBootstrapPageLoadTree(crudUiPagesContext(), projectName, entryPage);
+  }
+
   function blankPageScriptContent() {
     return C8O.crudUiPages.blankPageScriptContent();
   }
@@ -1534,16 +1574,16 @@ C8O.crud = C8O.crud || {};
     return legacyTree;
   }
 
+  function buildEntityPagesPageBundle(projectName, entryPage, entities, stage) {
+    return C8O.crudUiTemplates.buildEntityPagesPageBundle(crudUiTemplatesContext(), projectName, entryPage, entities, stage);
+  }
+
   function buildEntityPagesBootstrapActionScript(projectName, facadePrefix, entities, stage) {
     return C8O.crudUiActions.buildEntityPagesBootstrapActionScript(crudUiActionsContext(), projectName, facadePrefix, entities, stage);
   }
 
   function buildEntityPagesRefreshActionScript(config) {
     return C8O.crudUiActions.buildEntityPagesRefreshActionScript(crudUiActionsContext(), config);
-  }
-
-  function buildEntityPagesOpenPageScript(config) {
-    return C8O.crudUiActions.buildEntityPagesOpenPageScript(crudUiActionsContext(), config);
   }
 
   function buildEntityPagesBootstrapPageScript(config) {
