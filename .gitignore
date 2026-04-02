@@ -19,3 +19,5 @@
 *.pyc
 /feedback/
 /knowledge/inbox/
+/c8oProject.json
+/_c8oProjectJson/**/*
