@@ -1,0 +1,1156 @@
+accessibility: Private
+authenticatedContextRequired: false
+comment: |
+  Build a palette registry cache
+  Builds a local JSON registry from palette entries and writes it under the generator project js/ directory so agents can reuse templates without repeating palette MCP calls.
+↓IncludeHelpers [steps.SimpleStep-17643010020001]: 
+  comment: Load palette and database object helpers
+  expression: include("js/palette.js"); include("js/databaseobject.js");
+↓BuildRegistry [steps.SimpleStep-17643010020002]: 
+  comment: Collect palette entries, render YAML templates, and persist the registry file
+  expression: |
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var YamlConverter = Packages.com.twinsoft.convertigo.engine.util.YamlConverter;
+    var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+    var File = Packages.java.io.File;
+    var Files = Packages.java.nio.file.Files;
+    var StandardCharsets = Packages.java.nio.charset.StandardCharsets;
+    var StandardOpenOption = Packages.java.nio.file.StandardOpenOption;
+    
+    function toTrimmed(value) {
+      return value == null ? "" : String(value).trim();
+    }
+    
+    function parseOptionBoolean(value, defaultValue) {
+      if (value === null || typeof value === "undefined") {
+        return defaultValue;
+      }
+      var text = String(value).trim();
+      if (!text.length) {
+        return defaultValue;
+      }
+      text = text.toLowerCase();
+      if (text === "true" || text === "1" || text === "yes" || text === "on") {
+        return true;
+      }
+      if (text === "false" || text === "0" || text === "no" || text === "off") {
+        return false;
+      }
+      return defaultValue;
+    }
+    
+    function toIsoString(epochMillis) {
+      try {
+        return String(Packages.java.time.Instant.ofEpochMilli(epochMillis).toString());
+      } catch (_ignoreInstant) {
+        return String(new Packages.java.util.Date(epochMillis));
+      }
+    }
+    
+    function toArrayInput(value) {
+      if (value === null || typeof value === "undefined") {
+        return null;
+      }
+      if (typeof value === "string") {
+        return null;
+      }
+      try {
+        if (value instanceof Packages.java.lang.CharSequence) {
+          return null;
+        }
+      } catch (_ignoreCharSequenceArray) {}
+      if (Array.isArray(value)) {
+        return value;
+      }
+      if (typeof value.length === "number") {
+        var byLength = [];
+        for (var i = 0; i < value.length; i++) {
+          byLength.push(value[i]);
+        }
+        return byLength;
+      }
+      if (typeof value.size === "function" && typeof value.get === "function") {
+        var bySize = [];
+        var size = 0;
+        try {
+          size = value.size();
+        } catch (_ignoreSize) {
+          size = 0;
+        }
+        for (var j = 0; j < size; j++) {
+          bySize.push(value.get(j));
+        }
+        return bySize;
+      }
+      return null;
+    }
+    
+    function parseTargetsInput(value) {
+      var items = [];
+      var text = toTrimmed(value);
+      if (!text.length) {
+        return items;
+      }
+    
+      if (text.charAt(0) === "[") {
+        try {
+          var parsed = JSON.parse(text);
+          var parsedArray = toArrayInput(parsed);
+          if (parsedArray && parsedArray.length) {
+            for (var j = 0; j < parsedArray.length; j++) {
+              var parsedItem = toTrimmed(parsedArray[j]);
+              if (parsedItem.length) {
+                items.push(parsedItem);
+              }
+            }
+            return items;
+          }
+        } catch (_ignoreParse) {}
+      }
+    
+      var split = text.split(/[\n,]+/);
+      for (var k = 0; k < split.length; k++) {
+        var token = toTrimmed(split[k]);
+        if (token.length) {
+          items.push(token);
+        }
+      }
+      return items;
+    }
+    
+    function normalizeJsonValue(value, depth) {
+      if (depth > 8) {
+        return value == null ? null : String(value);
+      }
+      if (value === null || typeof value === "undefined") {
+        return null;
+      }
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        return value;
+      }
+      try {
+        if (value instanceof Packages.java.lang.Boolean) {
+          return value.booleanValue();
+        }
+      } catch (_ignoreBoolean) {}
+      try {
+        if (value instanceof Packages.java.lang.Number) {
+          return Number(value);
+        }
+      } catch (_ignoreNumber) {}
+      try {
+        if (value instanceof Packages.java.lang.CharSequence) {
+          return String(value);
+        }
+      } catch (_ignoreCharSequence) {}
+    
+      var arrayValue = toArrayInput(value);
+      if (arrayValue) {
+        var outArray = [];
+        for (var i = 0; i < arrayValue.length; i++) {
+          outArray.push(normalizeJsonValue(arrayValue[i], depth + 1));
+        }
+        return outArray;
+      }
+    
+      if (Object.prototype.toString.call(value) === "[object Object]") {
+        var outObject = {};
+        var keys = Object.keys(value);
+        for (var j = 0; j < keys.length; j++) {
+          var key = keys[j];
+          outObject[key] = normalizeJsonValue(value[key], depth + 1);
+        }
+        return outObject;
+      }
+    
+      try {
+        return String(value);
+      } catch (_ignoreStringify) {
+        return null;
+      }
+    }
+    
+    function slugify(value) {
+      var text = toTrimmed(value).toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      text = text.replace(/_{2,}/g, "_").replace(/^_+|_+$/g, "");
+      return text.length ? text : "project";
+    }
+    
+    function normalizeFilename(value, fallbackProjectName) {
+      var normalized = toTrimmed(value);
+      if (!normalized.length) {
+        normalized = "cache/palette_registry_" + slugify(fallbackProjectName) + ".json";
+      }
+      normalized = normalized.replace(/\\/g, "/");
+      while (normalized.indexOf("//") >= 0) {
+        normalized = normalized.replace("//", "/");
+      }
+      if (normalized.indexOf("./") === 0) {
+        normalized = normalized.substring(2);
+      }
+      if (normalized.indexOf("js/") === 0) {
+        normalized = normalized.substring(3);
+      }
+      if (normalized.indexOf("/") === 0) {
+        normalized = normalized.substring(1);
+      }
+      return normalized;
+    }
+    
+    function safeProjectName(dbo) {
+      if (!dbo || !dbo.getProject) {
+        return "";
+      }
+      try {
+        var projectObject = dbo.getProject();
+        return projectObject ? String(projectObject.getName() || "") : "";
+      } catch (_ignoreProjectName) {
+        return "";
+      }
+    }
+    
+    function safeQName(dbo) {
+      if (!dbo || !dbo.getQName) {
+        return "";
+      }
+      try {
+        return String(dbo.getQName() || "");
+      } catch (_ignoreQName) {
+        return "";
+      }
+    }
+    
+    function safeClassName(dbo) {
+      if (!dbo || !dbo.getClass) {
+        return "";
+      }
+      try {
+        return String(dbo.getClass().getName() || "");
+      } catch (_ignoreClassName) {
+        return "";
+      }
+    }
+    
+    function safeName(dbo) {
+      if (!dbo || !dbo.getName) {
+        return "";
+      }
+      try {
+        return String(dbo.getName() || "");
+      } catch (_ignoreName) {
+        return "";
+      }
+    }
+    
+    function resolveProjectByName(nameText) {
+      var text = toTrimmed(nameText);
+      if (!text.length) {
+        return null;
+      }
+      var projectObject = null;
+      try {
+        projectObject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(text, false);
+      } catch (_ignoreResolveProject) {
+        projectObject = null;
+      }
+      if (!projectObject) {
+        try {
+          projectObject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(text);
+        } catch (_ignoreResolveProject1) {
+          projectObject = null;
+        }
+      }
+      if (!projectObject) {
+        throw new Error("Project not available: " + text);
+      }
+      return projectObject;
+    }
+    
+    function addTarget(list, seen, dbo) {
+      if (!dbo) {
+        return;
+      }
+      var qname = safeQName(dbo);
+      if (!qname.length || seen[qname]) {
+        return;
+      }
+      seen[qname] = true;
+      list.push(dbo);
+    }
+    
+    function findFirstChildMatching(parentDbo, matcher) {
+      var children = C8O.dbo.getDirectChildren(parentDbo);
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        if (!child) {
+          continue;
+        }
+        if (matcher(safeClassName(child), child)) {
+          return child;
+        }
+      }
+      return null;
+    }
+    
+    function collectDefaultTargets(projectObject) {
+      var list = [];
+      var seen = {};
+      addTarget(list, seen, projectObject);
+    
+      var firstSequence = findFirstChildMatching(projectObject, function (className) {
+        return className.indexOf("com.twinsoft.convertigo.beans.sequences.") === 0;
+      });
+      addTarget(list, seen, firstSequence);
+    
+      var firstConnector = findFirstChildMatching(projectObject, function (className) {
+        return className.indexOf("com.twinsoft.convertigo.beans.connectors.") === 0;
+      });
+      addTarget(list, seen, firstConnector);
+    
+      if (firstConnector) {
+        var firstTransaction = findFirstChildMatching(firstConnector, function (className) {
+          return className.indexOf("com.twinsoft.convertigo.beans.transactions.") === 0;
+        });
+        addTarget(list, seen, firstTransaction);
+      }
+    
+      var appComponent = null;
+      try {
+        if (projectObject && projectObject.getMobileApplication()) {
+          var mobileApplication = projectObject.getMobileApplication();
+          if (mobileApplication && mobileApplication.getApplicationComponent) {
+            appComponent = mobileApplication.getApplicationComponent();
+          }
+        }
+      } catch (_ignoreMobileApp) {
+        appComponent = null;
+      }
+      addTarget(list, seen, appComponent);
+    
+      if (appComponent) {
+        addTarget(list, seen, findFirstChildMatching(appComponent, function (className) {
+          return /\.PageComponent$/.test(className);
+        }));
+        addTarget(list, seen, findFirstChildMatching(appComponent, function (className) {
+          return className.indexOf("UIDynamicMenu") !== -1;
+        }));
+        addTarget(list, seen, findFirstChildMatching(appComponent, function (className) {
+          return /\.UIActionStack$/.test(className);
+        }));
+        addTarget(list, seen, findFirstChildMatching(appComponent, function (className) {
+          return /\.UISharedRegularComponent$/.test(className) || /\.UISharedComponent$/.test(className);
+        }));
+      }
+    
+      return list;
+    }
+    
+    function resolveTargets(targetProjectObject, targetsValue) {
+      var requestedTargets = parseTargetsInput(targetsValue);
+      if (!requestedTargets.length) {
+        return collectDefaultTargets(targetProjectObject);
+      }
+    
+      var dbos = [];
+      var seen = {};
+      for (var i = 0; i < requestedTargets.length; i++) {
+        var qname = requestedTargets[i];
+        var dbo = C8O.dbo.resolve(qname, { messagePrefix: "target" });
+        addTarget(dbos, seen, dbo);
+      }
+      return dbos;
+    }
+    
+    function mapTemplate(template) {
+      if (!template) {
+        return null;
+      }
+      var properties = [];
+      var sourceProperties = toArrayInput(template.properties) || [];
+      for (var i = 0; i < sourceProperties.length; i++) {
+        var entry = sourceProperties[i];
+        if (!entry || !entry.name) {
+          continue;
+        }
+        properties.push({
+          name: String(entry.name),
+          value: normalizeJsonValue(entry.value, 0)
+        });
+      }
+      return {
+        related: toTrimmed(template.related || "<parent QName>") || "<parent QName>",
+        mode: toTrimmed(template.mode || "inside") || "inside",
+        className: toTrimmed(template.className || ""),
+        name: toTrimmed(template.name || ""),
+        properties: properties
+      };
+    }
+    
+    function mapPropertyHints(hints) {
+      var source = toArrayInput(hints) || [];
+      var result = [];
+      for (var i = 0; i < source.length; i++) {
+        var hint = source[i];
+        if (!hint || hint.hidden === true || !hint.name) {
+          continue;
+        }
+        var payload = {
+          name: String(hint.name),
+          displayName: hint.displayName ? String(hint.displayName) : String(hint.name),
+          type: hint.type ? String(hint.type) : "",
+          kind: hint.kind ? String(hint.kind) : "",
+          defaultValue: normalizeJsonValue(hint.defaultValue, 0)
+        };
+        if (hint.scriptable === true) {
+          payload.scriptable = true;
+        }
+        if (hint.readOnly === true) {
+          payload.readOnly = true;
+        }
+        if (hint.nillable === true) {
+          payload.nillable = true;
+        }
+        result.push(payload);
+      }
+      return result;
+    }
+    
+    function sanitizeYamlTemplate(text) {
+      var yaml = text == null ? "" : String(text).replace(/\r\n?/g, "\n").trim();
+      if (!yaml.length) {
+        return "";
+      }
+      yaml = yaml.replace(/\[(.+?)-\d{6,}\]/g, "[$1-<priority>]");
+      return yaml;
+    }
+    
+    function buildYamlTemplate(className, parentDbo, templateMeta) {
+      var response = {
+        yaml: "",
+        warning: "",
+        error: ""
+      };
+      try {
+        var dbo = C8O.dbo.instantiateForCreate(className, parentDbo, {});
+        if (!dbo) {
+          throw new Error("Unable to instantiate class " + className);
+        }
+        try {
+          if (typeof dbo.clone === "function") {
+            dbo = dbo.clone();
+          }
+        } catch (_ignoreClone) {}
+    
+        var updates = {};
+        var properties = templateMeta && templateMeta.properties ? templateMeta.properties : [];
+        for (var i = 0; i < properties.length; i++) {
+          var property = properties[i];
+          if (!property || !property.name) {
+            continue;
+          }
+          updates[property.name] = property.value;
+        }
+        if (templateMeta && templateMeta.name) {
+          updates.name = templateMeta.name;
+        }
+    
+        var applyResult = C8O.dbo.applyPropertyUpdates(dbo, updates);
+        var yamlText = YamlConverter.toYaml(dbo.toXml(XMLUtils.createDom()));
+        response.yaml = sanitizeYamlTemplate(yamlText);
+        if (applyResult && applyResult.errors && applyResult.errors.length) {
+          var warningParts = [];
+          for (var j = 0; j < applyResult.errors.length; j++) {
+            var errorItem = applyResult.errors[j];
+            if (!errorItem) {
+              continue;
+            }
+            var warningText = errorItem.name ? String(errorItem.name) + ": " : "";
+            warningText += errorItem.message ? String(errorItem.message) : String(errorItem);
+            warningParts.push(warningText);
+          }
+          if (warningParts.length) {
+            response.warning = warningParts.join("; ");
+          }
+        }
+      } catch (buildYamlError) {
+        response.error = String(buildYamlError);
+      }
+      return response;
+    }
+    
+    function sortEntries(entries) {
+      entries.sort(function (a, b) {
+        var left = (a.className || "").toLowerCase();
+        var right = (b.className || "").toLowerCase();
+        if (left < right) {
+          return -1;
+        }
+        if (left > right) {
+          return 1;
+        }
+        var leftName = (a.name || "").toLowerCase();
+        var rightName = (b.name || "").toLowerCase();
+        if (leftName < rightName) {
+          return -1;
+        }
+        if (leftName > rightName) {
+          return 1;
+        }
+        return 0;
+      });
+    }
+    
+    function writeRegistryFile(projectObject, relativeFilename, contentText) {
+      var jsDir = new File(projectObject.getDirPath(), "js").getCanonicalFile();
+      var basePath = jsDir.toPath();
+      var targetFile = new File(jsDir, relativeFilename).getCanonicalFile();
+      var targetPath = targetFile.toPath();
+      if (!targetPath.startsWith(basePath)) {
+        throw new Error("Invalid filename: " + relativeFilename);
+      }
+      var parentDir = targetFile.getParentFile();
+      Files.createDirectories(parentDir.toPath());
+      var existed = targetFile.exists();
+      var bytes = new java.lang.String(contentText).getBytes(StandardCharsets.UTF_8);
+      Files.write(
+        targetPath,
+        bytes,
+        StandardOpenOption.CREATE,
+        StandardOpenOption.TRUNCATE_EXISTING,
+        StandardOpenOption.WRITE
+      );
+      return {
+        filename: relativeFilename,
+        path: String(targetFile.getPath()),
+        relativePath: basePath.relativize(targetPath).toString(),
+        created: !existed,
+        bytes: bytes.length
+      };
+    }
+    
+    function buildEntryRecord(targetDbo, rawEntry, pushWarning) {
+      var className = toTrimmed(rawEntry && rawEntry.className);
+      var describeData = null;
+      try {
+        describeData = C8O.palette.describePaletteEntry({
+          className: className,
+          name: rawEntry && rawEntry.name ? String(rawEntry.name) : "",
+          sampleDbo: rawEntry && rawEntry.sampleDbo ? rawEntry.sampleDbo : null,
+          beanInfo: rawEntry && rawEntry.beanInfo ? rawEntry.beanInfo : null,
+          parentDbo: targetDbo
+        });
+      } catch (describeError) {
+        pushWarning("Describe failed for " + className + " under " + safeQName(targetDbo) + ": " + String(describeError));
+      }
+    
+      var templateMeta = mapTemplate(describeData && describeData.creationTemplate ? describeData.creationTemplate : null);
+      var yamlInfo = buildYamlTemplate(className, targetDbo, templateMeta);
+      if (yamlInfo.warning) {
+        pushWarning("YAML template warning for " + className + " under " + safeQName(targetDbo) + ": " + yamlInfo.warning);
+      }
+      if (yamlInfo.error) {
+        pushWarning("YAML template error for " + className + " under " + safeQName(targetDbo) + ": " + yamlInfo.error);
+      }
+    
+      var record = {
+        className: className,
+        name: rawEntry && rawEntry.name ? String(rawEntry.name) : "",
+        shortDescription: rawEntry && rawEntry.shortDescription ? String(rawEntry.shortDescription) : "",
+        group: rawEntry && rawEntry.group ? String(rawEntry.group) : "",
+        category: rawEntry && rawEntry.category ? String(rawEntry.category) : "",
+        nameSuggestion: templateMeta && templateMeta.name ? templateMeta.name : (rawEntry && rawEntry.nameSuggestion ? String(rawEntry.nameSuggestion) : ""),
+        template: templateMeta,
+        propertyHints: mapPropertyHints(describeData && describeData.propertyHints ? describeData.propertyHints : []),
+        yamlTemplate: yamlInfo.yaml
+      };
+      if (yamlInfo.warning) {
+        record.yamlTemplateWarning = yamlInfo.warning;
+      }
+      if (yamlInfo.error) {
+        record.yamlTemplateError = yamlInfo.error;
+      }
+      return record;
+    }
+    
+    function appendUniqueString(list, value) {
+      var text = toTrimmed(value);
+      if (!text.length) {
+        return;
+      }
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i]) === text) {
+          return;
+        }
+      }
+      list.push(text);
+    }
+    
+    function appendUniqueTargetSummary(list, targetInfo, limit) {
+      var qname = toTrimmed(targetInfo && targetInfo.qname);
+      if (!qname.length) {
+        return;
+      }
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i] && list[i].qname || "") === qname) {
+          return;
+        }
+      }
+      if (limit && list.length >= limit) {
+        return;
+      }
+      list.push({
+        project: targetInfo.project,
+        qname: targetInfo.qname,
+        name: targetInfo.name
+      });
+    }
+    
+    function cloneEntryRecord(entry) {
+      return normalizeJsonValue(entry, 0);
+    }
+    
+    function buildEntryMap(entries, targetInfo) {
+      var map = {};
+      for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        if (!entry || !entry.className) {
+          continue;
+        }
+        var cloned = cloneEntryRecord(entry);
+        cloned.seenIn = [{
+          project: targetInfo.project,
+          qname: targetInfo.qname,
+          name: targetInfo.name
+        }];
+        map[cloned.className] = cloned;
+      }
+      return map;
+    }
+    
+    function indexParentEntries(parentsIndex, targetInfo, entries) {
+      var parentClassName = toTrimmed(targetInfo && targetInfo.parentClassName);
+      if (!parentClassName.length) {
+        parentClassName = "<unknown>";
+      }
+      var bucket = parentsIndex[parentClassName];
+      if (!bucket) {
+        bucket = {
+          parentClassName: parentClassName,
+          projects: [],
+          sampleTargets: [],
+          entries: {}
+        };
+        parentsIndex[parentClassName] = bucket;
+      }
+      appendUniqueString(bucket.projects, targetInfo.project);
+      appendUniqueTargetSummary(bucket.sampleTargets, targetInfo, 12);
+    
+      for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        if (!entry || !entry.className) {
+          continue;
+        }
+        var existing = bucket.entries[entry.className];
+        if (!existing) {
+          existing = cloneEntryRecord(entry);
+          existing.seenIn = [];
+          bucket.entries[entry.className] = existing;
+        }
+        appendUniqueTargetSummary(existing.seenIn, targetInfo, 12);
+      }
+    }
+    
+    function finalizeParentIndex(parentsIndex) {
+      var ordered = {};
+      var parentKeys = Object.keys(parentsIndex || {});
+      parentKeys.sort();
+      for (var i = 0; i < parentKeys.length; i++) {
+        var parentKey = parentKeys[i];
+        var bucket = parentsIndex[parentKey];
+        var entryKeys = Object.keys(bucket.entries || {});
+        entryKeys.sort();
+        var orderedEntries = {};
+        for (var j = 0; j < entryKeys.length; j++) {
+          var entryKey = entryKeys[j];
+          orderedEntries[entryKey] = bucket.entries[entryKey];
+        }
+        bucket.entryCount = entryKeys.length;
+        bucket.entries = orderedEntries;
+        ordered[parentKey] = bucket;
+      }
+      return ordered;
+    }
+    
+    function buildOverridesIndex(targetPayloads) {
+      var byProject = {};
+      for (var i = 0; i < targetPayloads.length; i++) {
+        var payload = targetPayloads[i];
+        var projectNameValue = toTrimmed(payload && payload.project);
+        if (!byProject[projectNameValue]) {
+          byProject[projectNameValue] = {};
+        }
+        byProject[projectNameValue][payload.qname] = {
+          project: payload.project,
+          qname: payload.qname,
+          parentClassName: payload.className,
+          name: payload.name,
+          entryCount: payload.entryCount,
+          entries: buildEntryMap(payload.entries || [], {
+            project: payload.project,
+            qname: payload.qname,
+            name: payload.name
+          })
+        };
+      }
+      var orderedProjects = {};
+      var projectKeys = Object.keys(byProject);
+      projectKeys.sort();
+      for (var j = 0; j < projectKeys.length; j++) {
+        var projectKey = projectKeys[j];
+        var projectOverrides = byProject[projectKey];
+        var orderedOverrides = {};
+        var overrideKeys = Object.keys(projectOverrides || {});
+        overrideKeys.sort();
+        for (var k = 0; k < overrideKeys.length; k++) {
+          var overrideKey = overrideKeys[k];
+          orderedOverrides[overrideKey] = projectOverrides[overrideKey];
+        }
+        orderedProjects[projectKey] = orderedOverrides;
+      }
+      return orderedProjects;
+    }
+    
+    function countOverrides(overridesIndex) {
+      var total = 0;
+      var projectKeys = Object.keys(overridesIndex || {});
+      for (var i = 0; i < projectKeys.length; i++) {
+        total += Object.keys(overridesIndex[projectKeys[i]] || {}).length;
+      }
+      return total;
+    }
+    
+    var currentProject = context.project;
+    if (!currentProject) {
+      throw new Error("No project context");
+    }
+    
+    var requestedProject = resolveProjectByName(project);
+    var targetProject = requestedProject || currentProject;
+    var includeBuiltInFlag = parseOptionBoolean(includeBuiltIn, true);
+    var includeSharedFlag = parseOptionBoolean(includeShared, true);
+    var includeContentFlag = parseOptionBoolean(includeContent, false);
+    var targetDbos = resolveTargets(targetProject, targets);
+    if (!targetDbos || !targetDbos.length) {
+      throw new Error("No targets resolved. Provide targets or a loaded project with compatible objects.");
+    }
+    
+    var targetProjectName = safeProjectName(targetDbos[0]) || String(targetProject.getName() || currentProject.getName());
+    var normalizedFilename = normalizeFilename(filename, targetProjectName);
+    var generatedAt = java.lang.System.currentTimeMillis();
+    var warningLimit = 100;
+    var warningCount = 0;
+    var warnings = [];
+    var classNamesSeen = {};
+    var targetSummaries = [];
+    var targetPayloads = [];
+    
+    function pushWarning(message) {
+      warningCount++;
+      if (warnings.length < warningLimit) {
+        warnings.push(String(message));
+      }
+    }
+    
+    for (var ti = 0; ti < targetDbos.length; ti++) {
+      var targetDbo = targetDbos[ti];
+      var targetQName = safeQName(targetDbo);
+      var targetClassName = safeClassName(targetDbo);
+      var targetName = safeName(targetDbo);
+      var targetProjectNameValue = safeProjectName(targetDbo);
+    
+      var listResult = C8O.palette.listEntries({
+        parentDbo: targetDbo,
+        folderType: null,
+        includeBuiltIn: includeBuiltInFlag,
+        includeShared: includeSharedFlag,
+        filterInfo: {
+          hasFilter: false,
+          text: "",
+          raw: ""
+        },
+        limit: 0,
+        startIndex: 0
+      });
+    
+      var categories = toArrayInput(listResult && listResult.categories) || [];
+      var entries = [];
+      for (var ci = 0; ci < categories.length; ci++) {
+        var category = categories[ci];
+        var items = toArrayInput(category && category.items) || [];
+        for (var ii = 0; ii < items.length; ii++) {
+          var entry = buildEntryRecord(targetDbo, items[ii], pushWarning);
+          if (!entry || !entry.className) {
+            continue;
+          }
+          entries.push(entry);
+          classNamesSeen[entry.className] = true;
+        }
+      }
+    
+      sortEntries(entries);
+      targetPayloads.push({
+        project: targetProjectNameValue,
+        qname: targetQName,
+        className: targetClassName,
+        name: targetName,
+        entryCount: entries.length,
+        entries: entries
+      });
+      targetSummaries.push({
+        project: targetProjectNameValue,
+        qname: targetQName,
+        className: targetClassName,
+        name: targetName,
+        entryCount: entries.length
+      });
+    }
+    
+    var totalEntries = 0;
+    for (var tp = 0; tp < targetPayloads.length; tp++) {
+      totalEntries += targetPayloads[tp].entryCount;
+    }
+    
+    var parentsIndex = {};
+    for (var pi = 0; pi < targetPayloads.length; pi++) {
+      var payloadEntry = targetPayloads[pi];
+      indexParentEntries(parentsIndex, {
+        project: payloadEntry.project,
+        qname: payloadEntry.qname,
+        name: payloadEntry.name,
+        parentClassName: payloadEntry.className
+      }, payloadEntry.entries || []);
+    }
+    var parentsDocument = finalizeParentIndex(parentsIndex);
+    var overridesDocument = buildOverridesIndex(targetPayloads);
+    var parentClassCount = Object.keys(parentsDocument).length;
+    var overrideProjectCount = Object.keys(overridesDocument).length;
+    var overrideCount = countOverrides(overridesDocument);
+    
+    var registryDocument = {
+      meta: {
+        schemaVersion: 2,
+        generatedAt: toIsoString(generatedAt),
+        generatorProject: String(currentProject.getName() || ""),
+        targetProject: targetProjectName,
+        includeBuiltIn: includeBuiltInFlag,
+        includeShared: includeSharedFlag,
+        targetCount: targetPayloads.length,
+        entryCount: totalEntries,
+        classCount: Object.keys(classNamesSeen).length,
+        warningCount: warningCount,
+        filename: normalizedFilename,
+        parentClassCount: parentClassCount,
+        overrideProjectCount: overrideProjectCount,
+        overrideCount: overrideCount
+      },
+      targets: targetSummaries,
+      parents: parentsDocument,
+      overrides: overridesDocument
+    };
+    
+    var registryJson = JSON.stringify(registryDocument, null, 2);
+    var fileResult = writeRegistryFile(currentProject, normalizedFilename, registryJson);
+    
+    registryBuildResult = {
+      status: "written",
+      message: fileResult.created ? "Registry file created" : "Registry file updated",
+      generatorProject: String(currentProject.getName() || ""),
+      targetProject: targetProjectName,
+      generatedAt: toIsoString(generatedAt),
+      filename: fileResult.filename,
+      path: fileResult.path,
+      relativePath: fileResult.relativePath,
+      created: fileResult.created,
+      bytes: fileResult.bytes,
+      targetCount: targetSummaries.length,
+      entryCount: totalEntries,
+      classCount: Object.keys(classNamesSeen).length,
+      warningCount: warningCount,
+      includeContent: includeContentFlag,
+      targets: targetSummaries,
+      warnings: warnings
+    };
+    if (includeContentFlag) {
+      registryBuildResult.content = registryJson;
+    }'
+↓result [steps.JsonObjectStep-17643010020003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-17643010020004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.status
+  ↓message [steps.JsonFieldStep-17643010020005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.message
+  ↓generatorProject [steps.JsonFieldStep-17643010020006]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: generatorProject
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.generatorProject
+  ↓targetProject [steps.JsonFieldStep-17643010020007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: targetProject
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.targetProject
+  ↓generatedAt [steps.JsonFieldStep-17643010020008]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: generatedAt
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.generatedAt
+  ↓filename [steps.JsonFieldStep-17643010020009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: filename
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.filename
+  ↓path [steps.JsonFieldStep-17643010020010]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: path
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.path
+  ↓relativePath [steps.JsonFieldStep-17643010020011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: relativePath
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.relativePath
+  ↓created [steps.JsonFieldStep-17643010020012]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: created
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.created
+  ↓bytes [steps.JsonFieldStep-17643010020013]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: bytes
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.bytes
+  ↓targetCount [steps.JsonFieldStep-17643010020014]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: targetCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.targetCount
+  ↓entryCount [steps.JsonFieldStep-17643010020015]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: entryCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.entryCount
+  ↓classCount [steps.JsonFieldStep-17643010020016]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: classCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.classCount
+  ↓warningCount [steps.JsonFieldStep-17643010020017]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warningCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.warningCount
+  ↓includeContent [steps.JsonFieldStep-17643010020018]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: includeContent
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: registryBuildResult.includeContent === true
+  ↓targetsJson [steps.JsonFieldStep-17643010020019]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: targetsJson
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'registryBuildResult ? JSON.stringify(registryBuildResult.targets || []) : "[]"'
+  ↓warningsJson [steps.JsonFieldStep-17643010020020]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warningsJson
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'registryBuildResult ? JSON.stringify(registryBuildResult.warnings || []) : "[]"'
+  ↓IfIncludeContent [steps.IfStep-17643010020021]: 
+    condition: registryBuildResult && registryBuildResult.includeContent === true
+    ↓content [steps.JsonFieldStep-17643010020022]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: content
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: registryBuildResult.content
+↓project [variables.RequestableVariable-17643010020032]: 
+  comment: Optional loaded project name used when targets is empty. Defaults to the current project context.
+  description: Optional loaded project name used when targets is empty. Defaults to the current project context.
+↓targets [variables.RequestableVariable-17643010020033]: 
+  comment: Optional targets list as a JSON array string, array value, or comma/newline separated QNames. When omitted, common targets are derived from the project.
+  description: Optional targets list as a JSON array string, array value, or comma/newline separated QNames. When omitted, common targets are derived from the project.
+↓includeBuiltIn [variables.RequestableVariable-17643010020034]: 
+  comment: Set to true to include built-in palette entries. Default true.
+  description: Set to true to include built-in palette entries. Default true.
+  value: true
+↓includeShared [variables.RequestableVariable-17643010020035]: 
+  comment: Set to true to include shared palette entries. Default true.
+  description: Set to true to include shared palette entries. Default true.
+  value: true
+↓filename [variables.RequestableVariable-17643010020036]: 
+  comment: Path relative to js/. Defaults to cache/palette_registry_<project>.json.
+  description: Path relative to js/. Defaults to cache/palette_registry_<project>.json.
+↓includeContent [variables.RequestableVariable-17643010020037]: 
+  comment: Set to true to include the generated JSON content in the response. Default false.
+  description: Set to true to include the generated JSON content in the response. Default false.
+  value: false

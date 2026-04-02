@@ -1,0 +1,903 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/tools_requestable_execute.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "tools_requestable_execute [sequences.GenericSequence]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "tools_requestable_execute [sequences.GenericSequence]",
+    "name": "tools_requestable_execute",
+    "className": "sequences.GenericSequence"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "Run a sequence or transaction\nExecutes a requestable and returns its payload. Pass variables as an object or JSON string; enable includeLogs only for debugging, and use recordSchema only on transactions."
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "IncludeUtil [steps.SimpleStep-1763053874391]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "IncludeUtil [steps.SimpleStep-1763053874391]",
+        "name": "IncludeUtil",
+        "className": "steps.SimpleStep",
+        "priority": 1763053874391
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Load helper utilities"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "include(\"js\/util.js\");"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Init [steps.SimpleStep-1763053899221]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Init [steps.SimpleStep-1763053899221]",
+        "name": "Init",
+        "className": "steps.SimpleStep",
+        "priority": 1763053899221
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Parse request parameters"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "var errors = [];\nvar startedAt = java.lang.System.currentTimeMillis();\nvar requestText = C8O.util.toTrimmedString(requestable);\nif (!requestText.length) {\n    throw new Error('requestable is required');\n}\nvar parts = requestText.split('.');\nif (parts.length < 2) {\n    throw new Error('requestable must be <project>[.<connector>].<requestable>');\n}\nvar projectName = parts[0];\nvar targetConnector = null;\nvar targetName = null;\nvar isSequence = false;\nif (parts.length == 2) {\n    isSequence = true;\n    targetName = parts[1];\n} else {\n    targetConnector = parts[1];\n    targetName = parts.slice(2).join('.');\n}\nif (!targetName || !targetName.length) {\n    throw new Error('requestable name is missing');\n}\nvar variablesObject = C8O.util.parseObjectInput(variables, {\n    label: 'variables',\n    allowEmpty: true\n});\nvar recordSchemaFlag = false;\ntry {\n    recordSchemaFlag = C8O.util.toBoolean ? C8O.util.toBoolean(recordSchema, false) : (String(recordSchema || '').toLowerCase() === 'true');\n} catch (_ignoreRs) {}\nvar includeLogsFlag = false;\ntry {\n    includeLogsFlag = C8O.util.toBoolean ? C8O.util.toBoolean(includeLogs, false) : (String(includeLogs || '').toLowerCase() === 'true');\n} catch (_ignoreIl) {}\nexecutionPlan = {\n    requestable: requestText,\n    project: projectName,\n    connector: targetConnector,\n    name: targetName,\n    isSequence: isSequence,\n    variables: variablesObject,\n    recordSchema: recordSchemaFlag,\n    includeLogs: includeLogsFlag,\n    startedAt: startedAt\n};"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "ConfigureCalls [steps.SimpleStep-1763055844366]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "ConfigureCalls [steps.SimpleStep-1763055844366]",
+        "name": "ConfigureCalls",
+        "className": "steps.SimpleStep",
+        "priority": 1763055844366
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Configure dynamic call targets and variables"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "C8O.requestable.configureExecutor(executionPlan);"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "CallWrapper [steps.XMLComplexStep-1763056061207]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "CallWrapper [steps.XMLComplexStep-1763056061207]",
+        "name": "CallWrapper",
+        "className": "steps.XMLComplexStep",
+        "priority": 1763056061207
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "nodeName",
+          "children": [{
+            "kind": "text",
+            "text": "CallWrapper"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "output",
+          "children": [{
+            "kind": "text",
+            "text": "false"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "SwitchTarget [steps.IfThenElseStep-1763056222502]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "SwitchTarget [steps.IfThenElseStep-1763056222502]",
+            "name": "SwitchTarget",
+            "className": "steps.IfThenElseStep",
+            "priority": 1763056222502
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "condition",
+              "children": [{
+                "kind": "text",
+                "text": "executionPlan && executionPlan.isSequence === true"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "Then [steps.ThenStep-1763056351508]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "Then [steps.ThenStep-1763056351508]",
+                "name": "Then",
+                "className": "steps.ThenStep",
+                "priority": 1763056351508
+              },
+              "children": [{
+                "kind": "element",
+                "tag": "bean",
+                "attributes": [{
+                  "name": "yaml_key",
+                  "value": "CallSequence [steps.SequenceStep-1763056380581]"
+                }],
+                "bean": {
+                  "selector": "yaml_key",
+                  "raw": "CallSequence [steps.SequenceStep-1763056380581]",
+                  "name": "CallSequence",
+                  "className": "steps.SequenceStep",
+                  "priority": 1763056380581
+                },
+                "children": [{
+                  "kind": "element",
+                  "tag": "sourceSequence",
+                  "children": [{
+                    "kind": "text",
+                    "text": "ConvertigoMCP.internal_call_stub"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "Else [steps.ElseStep-1763056367864]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "Else [steps.ElseStep-1763056367864]",
+                "name": "Else",
+                "className": "steps.ElseStep",
+                "priority": 1763056367864
+              },
+              "children": [{
+                "kind": "element",
+                "tag": "bean",
+                "attributes": [{
+                  "name": "yaml_key",
+                  "value": "CallTransaction [steps.TransactionStep-1763056393878]"
+                }],
+                "bean": {
+                  "selector": "yaml_key",
+                  "raw": "CallTransaction [steps.TransactionStep-1763056393878]",
+                  "name": "CallTransaction",
+                  "className": "steps.TransactionStep",
+                  "priority": 1763056393878
+                },
+                "children": [{
+                  "kind": "element",
+                  "tag": "sourceTransaction",
+                  "children": [{
+                    "kind": "text",
+                    "text": "ConvertigoMCP.void.void"
+                  }]
+                }]
+              }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "CollectExecutionLogs [steps.SimpleStep-1772727101000]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "CollectExecutionLogs [steps.SimpleStep-1772727101000]",
+        "name": "CollectExecutionLogs",
+        "className": "steps.SimpleStep",
+        "priority": 1772727101000
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Optionally capture execution logs for this requestable execution."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "executionLogsPayload = {\n  lines: [],\n  lineCount: 0,\n  hasMore: false,\n  query: {\n    contextId: \"\",\n    requestable: executionPlan ? executionPlan.requestable : \"\",\n    startMillis: executionPlan && executionPlan.startedAt ? executionPlan.startedAt : null,\n    endMillis: java.lang.System.currentTimeMillis(),\n    limit: 120,\n    scanned: 0\n  }\n};\nif (executionPlan && executionPlan.includeLogs === true) {\n  include(\"js\/requestable_logs.js\");\n  var nowTs = java.lang.System.currentTimeMillis();\n  var contextIdValue = \"\";\n  try {\n    contextIdValue = String(context.contextID || context.contextId || \"\");\n  } catch (_ignoreCtxId) {}\n  var collectedLogs = C8O.requestableLogs.collect({\n    contextId: \"\",\n    contextIdPrefix: \"studio_\" + executionPlan.project + \":\",\n    project: executionPlan.project,\n    requestable: executionPlan.name,\n    connector: executionPlan.isSequence ? \"\" : executionPlan.connector,\n    transaction: executionPlan.isSequence ? \"\" : executionPlan.name,\n    startTime: executionPlan.startedAt ? (executionPlan.startedAt - 1000) : (nowTs - 30000),\n    endTime: nowTs + 1000,\n    limit: 120\n  });\n  if (collectedLogs && typeof collectedLogs === \"object\") {\n    executionLogsPayload = collectedLogs;\n  }\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonObjectStep-1763066359376]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonObjectStep-1763066359376]",
+        "name": "result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1763066359376
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "key",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "PLAIN"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "result"
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "CopyPayload [steps.XMLCopyStep-1763057084997]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "CopyPayload [steps.XMLCopyStep-1763057084997]",
+            "name": "CopyPayload",
+            "className": "steps.XMLCopyStep",
+            "priority": 1763057084997
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "sourceDefinition",
+            "children": [{
+              "kind": "element",
+              "tag": "xmlizable",
+              "attributes": [{
+                "name": "classname",
+                "value": "com.twinsoft.convertigo.beans.common.XMLVector"
+              }],
+              "children": [{
+                "kind": "element",
+                "tag": "com.twinsoft.convertigo.beans.common.XMLVector",
+                "children": [
+                  {
+                    "kind": "element",
+                    "tag": "java.lang.String",
+                    "attributes": [{
+                      "name": "value",
+                      "value": "1763056061207"
+                    }]
+                  },
+                  {
+                    "kind": "element",
+                    "tag": "java.lang.String",
+                    "attributes": [{
+                      "name": "value",
+                      "value": ".\/*\/document\/*"
+                    }]
+                  }
+                ]
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "IfIncludeLogs [steps.IfStep-1772727101001]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "IfIncludeLogs [steps.IfStep-1772727101001]",
+            "name": "IfIncludeLogs",
+            "className": "steps.IfStep",
+            "priority": 1772727101001
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "condition",
+              "children": [{
+                "kind": "text",
+                "text": "executionPlan && executionPlan.includeLogs === true"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "logs [steps.JsonToXmlStep-1772727101002]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "logs [steps.JsonToXmlStep-1772727101002]",
+                "name": "logs",
+                "className": "steps.JsonToXmlStep",
+                "priority": 1772727101002
+              },
+              "children": [
+                {
+                  "kind": "element",
+                  "tag": "jsonObject",
+                  "children": [{
+                    "kind": "element",
+                    "tag": "xmlizable",
+                    "attributes": [{
+                      "name": "classname",
+                      "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                    }],
+                    "children": [{
+                      "kind": "element",
+                      "tag": "SmartType",
+                      "attributes": [{
+                        "name": "mode",
+                        "value": "JS"
+                      }],
+                      "children": [{
+                        "kind": "text",
+                        "text": "executionLogsPayload"
+                      }]
+                    }]
+                  }]
+                },
+                {
+                  "kind": "element",
+                  "tag": "key",
+                  "children": [{
+                    "kind": "element",
+                    "tag": "xmlizable",
+                    "attributes": [{
+                      "name": "classname",
+                      "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                    }],
+                    "children": [{
+                      "kind": "element",
+                      "tag": "SmartType",
+                      "attributes": [{
+                        "name": "mode",
+                        "value": "PLAIN"
+                      }],
+                      "children": [{
+                        "kind": "text",
+                        "text": "logs"
+                      }]
+                    }]
+                  }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "jIf [steps.IfStep-1763979594981]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "jIf [steps.IfStep-1763979594981]",
+        "name": "jIf",
+        "className": "steps.IfStep",
+        "priority": 1763979594981
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "condition",
+          "children": [{
+            "kind": "text",
+            "text": "recordSchema == \"true\""
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "response [steps.SourceStep-1763979641976]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "response [steps.SourceStep-1763979641976]",
+            "name": "response",
+            "className": "steps.SourceStep",
+            "priority": 1763979641976
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "sourceDefinition",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.common.XMLVector"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "com.twinsoft.convertigo.beans.common.XMLVector",
+                  "children": [
+                    {
+                      "kind": "element",
+                      "tag": "java.lang.String",
+                      "attributes": [{
+                        "name": "value",
+                        "value": "1763056061207"
+                      }]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "java.lang.String",
+                      "attributes": [{
+                        "name": "value",
+                        "value": ".\/*\/document"
+                      }]
+                    }
+                  ]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "variableName",
+              "children": [{
+                "kind": "text",
+                "text": "response"
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "RecordSchema [steps.SimpleStep-1763979568399]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "RecordSchema [steps.SimpleStep-1763979568399]",
+            "name": "RecordSchema",
+            "className": "steps.SimpleStep",
+            "priority": 1763979568399
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "expression",
+            "children": [{
+              "kind": "text",
+              "text": "if (!C8O.dbo) {\n  include(\"js\/databaseobject.js\");\n}\nvar txQName = executionPlan.project + \".cn:\" + executionPlan.connector + \".tr:\" + executionPlan.name;\nvar txDbo = C8O.dbo.resolve(txQName, { messagePrefix: \"txQName\" });\nvar node = response;\nif (node && typeof node.item === \"function\") {\n  node = node.item(0);\n}\nif (node && node.getNodeType && node.getNodeType() === 9 && node.getDocumentElement) {\n  node = node.getDocumentElement();\n}\nvar newDoc = Packages.com.twinsoft.convertigo.engine.util.XMLUtils.createDom();\nvar imported = newDoc.importNode(node, true);\nnewDoc.appendChild(imported);\nvar xsdTypes = txDbo.generateXsdTypes(newDoc, true);\ntxDbo.writeSchemaToFile(xsdTypes);\nPackages.com.twinsoft.convertigo.engine.Engine.theApp.schemaManager.clearCache(txDbo.getProject().getName());"
+            }]
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "requestable [variables.RequestableVariable-1763053821400]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "requestable [variables.RequestableVariable-1763053821400]",
+        "name": "requestable",
+        "className": "variables.RequestableVariable",
+        "priority": 1763053821400
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Target requestable as <project>[.<connector>].<requestable>."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Target requestable as <project>[.<connector>].<requestable>."
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "variables [variables.RequestableVariable-1763053833825]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "variables [variables.RequestableVariable-1763053833825]",
+        "name": "variables",
+        "className": "variables.RequestableVariable",
+        "priority": 1763053833825
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Request variables as an object or a JSON string. Non-string values are serialized before execution."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Request variables as an object or a JSON string. Non-string values are serialized before execution."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "value",
+          "children": [{
+            "kind": "text",
+            "text": "{}"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "recordSchema [variables.RequestableVariable-1763869930001]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "recordSchema [variables.RequestableVariable-1763869930001]",
+        "name": "recordSchema",
+        "className": "variables.RequestableVariable",
+        "priority": 1763869930001
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Set true on transactions to update the response schema on disk. Ignored for sequences."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Set true on transactions to update the response schema on disk. Ignored for sequences."
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "includeLogs [variables.RequestableVariable-1772727101003]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "includeLogs [variables.RequestableVariable-1772727101003]",
+        "name": "includeLogs",
+        "className": "variables.RequestableVariable",
+        "priority": 1772727101003
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Set true to append execution logs from this call."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Set true to append execution logs from this call."
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "ip [core.TestCase-1763981218508]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "ip [core.TestCase-1763981218508]",
+        "name": "ip",
+        "className": "core.TestCase",
+        "priority": 1763981218508
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "requestable [variables.TestCaseVariable-1763981219651]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "requestable [variables.TestCaseVariable-1763981219651]",
+            "name": "requestable",
+            "className": "variables.TestCaseVariable",
+            "priority": 1763981219651
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "value",
+            "children": [{
+              "kind": "text",
+              "text": "codex_test.http_demo.get_ip"
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "variables [variables.TestCaseVariable-1763981219653]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "variables [variables.TestCaseVariable-1763981219653]",
+            "name": "variables",
+            "className": "variables.TestCaseVariable",
+            "priority": 1763981219653
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "value",
+            "children": [{
+              "kind": "text",
+              "text": "{}"
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "recordSchema [variables.TestCaseVariable-1763981219655]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "recordSchema [variables.TestCaseVariable-1763981219655]",
+            "name": "recordSchema",
+            "className": "variables.TestCaseVariable",
+            "priority": 1763981219655
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "value",
+            "children": [{
+              "kind": "text",
+              "text": "true"
+            }]
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "ip2 [core.TestCase-1763981218508]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "ip2 [core.TestCase-1763981218508]",
+        "name": "ip2",
+        "className": "core.TestCase",
+        "priority": 1763981218508
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "requestable [variables.TestCaseVariable-1763984864161]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "requestable [variables.TestCaseVariable-1763984864161]",
+            "name": "requestable",
+            "className": "variables.TestCaseVariable",
+            "priority": 1763984864161
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "value",
+            "children": [{
+              "kind": "text",
+              "text": "codex_test.http_demo.ip"
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "variables [variables.TestCaseVariable-1763984864164]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "variables [variables.TestCaseVariable-1763984864164]",
+            "name": "variables",
+            "className": "variables.TestCaseVariable",
+            "priority": 1763984864164
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "value",
+            "children": [{
+              "kind": "text",
+              "text": "{}"
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "recordSchema [variables.TestCaseVariable-1763984864167]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "recordSchema [variables.TestCaseVariable-1763984864167]",
+            "name": "recordSchema",
+            "className": "variables.TestCaseVariable",
+            "priority": 1763984864167
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "value",
+            "children": [{
+              "kind": "text",
+              "text": "true"
+            }]
+          }]
+        }
+      ]
+    }
+  ]
+}

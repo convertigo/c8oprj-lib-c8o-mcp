@@ -1,0 +1,358 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "connectors\/rag.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "rag [connectors.HttpConnector]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "rag [connectors.HttpConnector]",
+    "name": "rag",
+    "className": "connectors.HttpConnector"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "https",
+      "children": [{
+        "kind": "text",
+        "text": "true"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "port",
+      "children": [{
+        "kind": "text",
+        "text": "443"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "server",
+      "children": [{
+        "kind": "text",
+        "text": "assistant.convertigo.com"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [
+        {
+          "name": "default",
+          "value": "true"
+        },
+        {
+          "name": "yaml_key",
+          "value": "query_lrag [transactions.JsonHttpTransaction]"
+        }
+      ],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "query_lrag [transactions.JsonHttpTransaction]",
+        "name": "query_lrag",
+        "className": "transactions.JsonHttpTransaction"
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Call the public LRagQuery sequence"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "httpInfo",
+          "children": [{
+            "kind": "text",
+            "text": "true"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "httpParameters",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.common.XMLVector"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "com.twinsoft.convertigo.beans.common.XMLVector",
+              "children": [
+                {
+                  "kind": "element",
+                  "tag": "xmlizable",
+                  "attributes": [{
+                    "name": "classname",
+                    "value": "com.twinsoft.convertigo.beans.common.XMLVector"
+                  }],
+                  "children": [{
+                    "kind": "element",
+                    "tag": "com.twinsoft.convertigo.beans.common.XMLVector",
+                    "children": [
+                      {
+                        "kind": "element",
+                        "tag": "java.lang.String",
+                        "attributes": [{
+                          "name": "value",
+                          "value": "Accept"
+                        }]
+                      },
+                      {
+                        "kind": "element",
+                        "tag": "java.lang.String",
+                        "attributes": [{
+                          "name": "value",
+                          "value": "application\/json"
+                        }]
+                      }
+                    ]
+                  }]
+                },
+                {
+                  "kind": "element",
+                  "tag": "xmlizable",
+                  "attributes": [{
+                    "name": "classname",
+                    "value": "com.twinsoft.convertigo.beans.common.XMLVector"
+                  }],
+                  "children": [{
+                    "kind": "element",
+                    "tag": "com.twinsoft.convertigo.beans.common.XMLVector",
+                    "children": [
+                      {
+                        "kind": "element",
+                        "tag": "java.lang.String",
+                        "attributes": [{
+                          "name": "value",
+                          "value": "Content-Type"
+                        }]
+                      },
+                      {
+                        "kind": "element",
+                        "tag": "java.lang.String",
+                        "attributes": [{
+                          "name": "value",
+                          "value": "application\/x-www-form-urlencoded"
+                        }]
+                      }
+                    ]
+                  }]
+                }
+              ]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "httpVerb",
+          "children": [{
+            "kind": "text",
+            "text": "POST"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "subDir",
+          "children": [{
+            "kind": "text",
+            "text": ".json?__sequence=LRagQuery"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "Question [variables.RequestableHttpVariable-1764181000001]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "Question [variables.RequestableHttpVariable-1764181000001]",
+            "name": "Question",
+            "className": "variables.RequestableHttpVariable",
+            "priority": 1764181000001
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "description",
+              "children": [{
+                "kind": "text",
+                "text": "Question"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpMethod",
+              "children": [{
+                "kind": "text",
+                "text": "POST"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpName",
+              "children": [{
+                "kind": "text",
+                "text": "Question"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "required",
+              "children": [{
+                "kind": "text",
+                "text": "true"
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "stream [variables.RequestableHttpVariable-1764181000002]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "stream [variables.RequestableHttpVariable-1764181000002]",
+            "name": "stream",
+            "className": "variables.RequestableHttpVariable",
+            "priority": 1764181000002
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "description",
+              "children": [{
+                "kind": "text",
+                "text": "stream"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpMethod",
+              "children": [{
+                "kind": "text",
+                "text": "POST"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpName",
+              "children": [{
+                "kind": "text",
+                "text": "stream"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "text",
+                "text": "false"
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "History [variables.RequestableHttpVariable-1764181000003]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "History [variables.RequestableHttpVariable-1764181000003]",
+            "name": "History",
+            "className": "variables.RequestableHttpVariable",
+            "priority": 1764181000003
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "description",
+              "children": [{
+                "kind": "text",
+                "text": "History"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpMethod",
+              "children": [{
+                "kind": "text",
+                "text": "POST"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpName",
+              "children": [{
+                "kind": "text",
+                "text": "History"
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "Prompt [variables.RequestableHttpVariable-1764181000004]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "Prompt [variables.RequestableHttpVariable-1764181000004]",
+            "name": "Prompt",
+            "className": "variables.RequestableHttpVariable",
+            "priority": 1764181000004
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "description",
+              "children": [{
+                "kind": "text",
+                "text": "Prompt"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpMethod",
+              "children": [{
+                "kind": "text",
+                "text": "POST"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "httpName",
+              "children": [{
+                "kind": "text",
+                "text": "Prompt"
+              }]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

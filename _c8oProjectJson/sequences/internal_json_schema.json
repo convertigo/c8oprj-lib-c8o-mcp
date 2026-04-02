@@ -1,0 +1,435 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/internal_json_schema.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "internal_json_schema [sequences.GenericSequence-1761736078534]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "internal_json_schema [sequences.GenericSequence-1761736078534]",
+    "name": "internal_json_schema",
+    "className": "sequences.GenericSequence",
+    "priority": 1761736078534
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "compute jsonschema of a sequence"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "responseExpiryDate",
+      "children": [{
+        "kind": "text",
+        "text": "absolute,600"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Init [steps.SimpleStep-1761913099503]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Init [steps.SimpleStep-1761913099503]",
+        "name": "Init",
+        "className": "steps.SimpleStep",
+        "priority": 1761913099503
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Load schema metadata for request\/response payloads"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "if (!sequence) {\n  throw new Error(\"sequence should be defined\");\n}\nvar Engine = Packages.com.twinsoft.convertigo.engine.Engine;\nvar SchemaMeta = Packages.com.twinsoft.convertigo.engine.enums.SchemaMeta;\nvar XmlSchemaUtils = Packages.com.twinsoft.convertigo.engine.util.XmlSchemaUtils;\nvar XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;\nvar JSONObject = Packages.org.codehaus.jettison.json.JSONObject;\nvar JSONArray = Packages.org.codehaus.jettison.json.JSONArray;\nvar QName = Packages.javax.xml.namespace.QName;\nvar targetProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(\"ConvertigoMCP\");\nif (!targetProject) {\n  throw new Error(\"Project ConvertigoMCP not found\");\n}\nvar requestableObject = targetProject.getSequenceByName(sequence);\nif (!requestableObject) {\n  throw new Error(\"Sequence not found: \" + sequence);\n}\nvar xmlSchema = Engine.theApp.schemaManager.getSchemaForProject(targetProject.getName());\nvar schemaObject = SchemaMeta.getXmlSchemaObject(xmlSchema, requestableObject);\nif (schemaObject == null) {\n  throw new Error(\"No schema metadata for \" + sequence);\n}\nvar collection = SchemaMeta.getCollection(schemaObject);\nif (collection == null) {\n  throw new Error(\"Schema collection missing for \" + sequence);\n}\nvar namespace = xmlSchema.getTargetNamespace();\nvar requestElement = collection.getElementByQName(new QName(namespace, requestableObject.getName()));\nvar responseElementName = requestableObject.getXsdTypePrefix() + requestableObject.getName() + \"Response\";\nvar responseElement = collection.getElementByQName(new QName(namespace, responseElementName));\nvar requestDom = requestElement != null ? XmlSchemaUtils.getDomInstance(requestElement) : null;\nvar responseDom = responseElement != null ? XmlSchemaUtils.getDomInstance(responseElement) : null;\nvar requestJsonString = requestDom != null ? XMLUtils.XmlToJson(requestDom.getDocumentElement(), true, true) : \"{}\";\nvar responseJsonString = responseDom != null ? XMLUtils.XmlToJson(responseDom.getDocumentElement(), true, true) : \"{}\";\nrequestDocument = new JSONObject(requestJsonString);\nresponseDocument = new JSONObject(responseJsonString);\nrequestPayloadName = requestableObject.getName();\nresponsePayloadName = responseElementName;\ntargetRequestable = requestableObject;\nrequestModel = JSON.parse(requestJsonString);\nresponseModel = JSON.parse(responseJsonString);"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Helpers [steps.SimpleStep-1761913099507]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Helpers [steps.SimpleStep-1761913099507]",
+        "name": "Helpers",
+        "className": "steps.SimpleStep",
+        "priority": 1761913099507
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Shared helpers for JSON normalization"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "include(\"js\/schema_common.js\");\n    include(\"js\/schema_overrides.js\");\n\nfunction sampleValueForType(type) {\n  type = String(type || \"string\").toLowerCase();\n  if (type.indexOf(\"bool\") >= 0) { return false; }\n  if (type.indexOf(\"int\") >= 0 || type.indexOf(\"long\") >= 0) { return 0; }\n  if (type.indexOf(\"number\") >= 0 || type.indexOf(\"double\") >= 0 || type.indexOf(\"float\") >= 0) { return 0; }\n  return \"\";\n}\n\nfunction normalizeNode(value) {\n  if (value === null || value === undefined) { return null; }\n  if (Array.isArray(value)) {\n    if (value.length === 0) { return []; }\n    return [ normalizeNode(value[0]) ];\n  }\n  if (typeof value === \"object\") {\n    var result = {};\n    var keys = Object.keys(value);\n    for (var i = 0; i < keys.length; i++) {\n      var key = keys[i];\n      if (key === \"attr\" || key === \"text\") { continue; }\n      var child = value[key];\n      if (child && typeof child === \"object\" && child.attr && child.attr.originalKeyName) {\n        var newKey = child.attr.originalKeyName || key;\n        result[newKey] = sampleValueForType(child.attr.type);\n        continue;\n      }\n      result[key] = normalizeNode(child);\n    }\n    if (result.error && typeof result.error === \"object\" && Object.keys(result.error).length === 0) {\n      delete result.error;\n    }\n    return result;\n  }\n  return value;\n}\n\nfunction buildSchemaNode(value) {\n  return C8O.schemaCommon.jsonSampleToSchema(value);\n}\n\nfunction pruneInternalKeys(value) {\n  if (value === null || value === undefined) { return value; }\n  if (Array.isArray(value)) {\n    if (value.length === 0) { return value; }\n    value[0] = pruneInternalKeys(value[0]);\n    return value;\n  }\n  if (typeof value === \"object\") {\n    var keys = Object.keys(value);\n    for (var i = 0; i < keys.length; i++) {\n      var key = keys[i];\n      if (key && key.charAt && key.charAt(0) === \"_\") {\n        delete value[key];\n        continue;\n      }\n      value[key] = pruneInternalKeys(value[key]);\n    }\n  }\n  return value;\n}\n\nfunction extractPayloadNode(model, key) {\n  if (!model) { return null; }\n  var container = model.document || model;\n  return container ? container[key] : null;\n}"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "BuildModels [steps.SimpleStep-1761913099509]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "BuildModels [steps.SimpleStep-1761913099509]",
+        "name": "BuildModels",
+        "className": "steps.SimpleStep",
+        "priority": 1761913099509
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Compute input\/output schema details"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "var requestSource = extractPayloadNode(requestModel, requestPayloadName);\nif (requestSource == null) { requestSource = {}; }\nvar normalizedRequest = normalizeNode(requestSource);\nnormalizedRequest = pruneInternalKeys(normalizedRequest);\ninputSchemaJson = buildSchemaNode(normalizedRequest);\nif (inputSchemaJson && typeof inputSchemaJson === \"object\") { inputSchemaJson.additionalProperties = false; }\n\nvar sequenceKey = String(sequence || \"\").trim().toLowerCase();\nif (typeof C8O !== \"undefined\" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyInput === \"function\") {\n  inputSchemaJson = C8O.schemaOverrides.applyInput(sequence, inputSchemaJson, targetRequestable);\n}\nif (typeof C8O !== \"undefined\" && C8O.schemaOverrides && typeof C8O.schemaOverrides.decorateInput === \"function\") {\n  inputSchemaJson = C8O.schemaOverrides.decorateInput(sequenceKey, inputSchemaJson, targetRequestable);\n}\n\nvar responseSource = extractPayloadNode(responseModel, responsePayloadName);\nif (responseSource == null) { responseSource = responseModel; }\nif (responseSource && responseSource.response) { responseSource = responseSource.response; }\nif (responseSource && responseSource.result) { responseSource = responseSource.result; }\nvar normalizedResponse = normalizeNode(responseSource);\nschemaJson = buildSchemaNode(normalizedResponse);\nif (typeof C8O !== \"undefined\" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyOutput === \"function\") {\n  schemaJson = C8O.schemaOverrides.applyOutput(sequence, schemaJson, targetRequestable, normalizedResponse);\n}\nif (typeof C8O !== \"undefined\" && C8O.schemaOverrides && typeof C8O.schemaOverrides.decorateOutput === \"function\") {\n  schemaJson = C8O.schemaOverrides.decorateOutput(sequenceKey, schemaJson, targetRequestable, normalizedResponse);\n}\nif (schemaJson && typeof schemaJson === \"object\") {\n  delete schemaJson.required;\n}\nexampleJson = normalizedResponse;"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonObjectStep-1761747759787]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonObjectStep-1761747759787]",
+        "name": "result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1761747759787
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "key",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "PLAIN"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "result"
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "outputSchema [steps.JsonToXmlStep-1761747781996]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "outputSchema [steps.JsonToXmlStep-1761747781996]",
+            "name": "outputSchema",
+            "className": "steps.JsonToXmlStep",
+            "priority": 1761747781996
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "jsonObject",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "schemaJson"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "outputSchema"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "outputSample [steps.JsonToXmlStep-1761747818965]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "outputSample [steps.JsonToXmlStep-1761747818965]",
+            "name": "outputSample",
+            "className": "steps.JsonToXmlStep",
+            "priority": 1761747818965
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "jsonObject",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "exampleJson"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "sample"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "inputSchema [steps.JsonToXmlStep-1761893012177]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "inputSchema [steps.JsonToXmlStep-1761893012177]",
+            "name": "inputSchema",
+            "className": "steps.JsonToXmlStep",
+            "priority": 1761893012177
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "jsonObject",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "inputSchemaJson"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "inputSchema"
+                  }]
+                }]
+              }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "sequence [variables.RequestableVariable-1761736117068]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "sequence [variables.RequestableVariable-1761736117068]",
+        "name": "sequence",
+        "className": "variables.RequestableVariable",
+        "priority": 1761736117068
+      }
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "ListProjects [core.TestCase-1761743595399]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "ListProjects [core.TestCase-1761743595399]",
+        "name": "ListProjects",
+        "className": "core.TestCase",
+        "priority": 1761743595399
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "bean",
+        "attributes": [{
+          "name": "yaml_key",
+          "value": "sequence [variables.TestCaseVariable-1761743595915]"
+        }],
+        "bean": {
+          "selector": "yaml_key",
+          "raw": "sequence [variables.TestCaseVariable-1761743595915]",
+          "name": "sequence",
+          "className": "variables.TestCaseVariable",
+          "priority": 1761743595915
+        },
+        "children": [{
+          "kind": "element",
+          "tag": "value",
+          "children": [{
+            "kind": "text",
+            "text": "Tools_Admin_ListProjects"
+          }]
+        }]
+      }]
+    }
+  ]
+}

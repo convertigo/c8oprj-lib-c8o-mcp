@@ -40,6 +40,7 @@
   ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
+  ↓tools_palette_registry_build [sequences.GenericSequence]: 🗏 sequences/tools_palette_registry_build.yaml
   ↓tools_project_delete [sequences.GenericSequence]: 🗏 sequences/tools_project_delete.yaml
   ↓tools_project_execute [sequences.GenericSequence]: 🗏 sequences/tools_project_execute.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml

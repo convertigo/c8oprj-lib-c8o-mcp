@@ -1,0 +1,2044 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/tools_marketplace_import.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "tools_marketplace_import [sequences.GenericSequence]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "tools_marketplace_import [sequences.GenericSequence]",
+    "name": "tools_marketplace_import",
+    "className": "sequences.GenericSequence"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "Import a marketplace project\nImports a marketplace project into the workspace and wires the reference for the target project. Starter templates may require a new local project name."
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "IncludeHelpers [steps.SimpleStep-1764302001000]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "IncludeHelpers [steps.SimpleStep-1764302001000]",
+        "name": "IncludeHelpers",
+        "className": "steps.SimpleStep",
+        "priority": 1764302001000
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Load shared marketplace helpers"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "include(\"js\/databaseobject.js\");\ninclude(\"js\/marketplace.js\");"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Init [steps.SimpleStep-1764302001001]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Init [steps.SimpleStep-1764302001001]",
+        "name": "Init",
+        "className": "steps.SimpleStep",
+        "priority": 1764302001001
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Import marketplace project with optional starter rename"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "var requestedProject = C8O.marketplace._trim(project);\nif (!requestedProject.length) {\n  throw new Error(\"project is required\");\n}\nvar importedName = C8O.marketplace._trim(importedProjectName);\nvar importErrorMessage = \"\";\ntry {\n  marketplaceImportResult = C8O.marketplace.importLibrary({\n    project: requestedProject,\n    importedProjectName: importedName,\n    save: true,\n    forceImport: false\n  });\n} catch (importError) {\n  importErrorMessage = String(importError);\n  marketplaceImportResult = {\n    status: \"error\",\n    targetProject: \"\",\n    library: requestedProject,\n    technicalName: \"\",\n    cloneUrl: \"\",\n    branch: \"\",\n    projectUrl: \"\",\n    loadedBefore: false,\n    loadedAfter: false,\n    imported: false,\n    importStatus: \"failed\",\n    importMessage: importErrorMessage,\n    addReference: false,\n    referenceAlready: false,\n    referenceAdded: false,\n    referenceUpdated: false,\n    referenceName: \"\",\n    referenceProjectUrl: \"\",\n    saveRequested: false,\n    saved: false,\n    saveMessage: \"\",\n    refresh: false,\n    warnings: [importErrorMessage]\n  };\n}\nmarketplaceImportRefresh = marketplaceImportResult && marketplaceImportResult.refresh === true;\nmarketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.targetProject ? String(marketplaceImportResult.targetProject) : \"\";\nmarketplaceImportLibraryQName = marketplaceImportTargetQName;\nmarketplaceImportLoadedAfter = marketplaceImportResult && marketplaceImportResult.loadedAfter === true;\nmarketplaceImportTimestamp = java.lang.System.currentTimeMillis();"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "IfRefreshProject [steps.IfStep-1764302001002]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "IfRefreshProject [steps.IfStep-1764302001002]",
+        "name": "IfRefreshProject",
+        "className": "steps.IfStep",
+        "priority": 1764302001002
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Refresh target project in Studio tree"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "condition",
+          "children": [{
+            "kind": "text",
+            "text": "marketplaceImportRefresh === true && marketplaceImportTargetQName.length > 0"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "PrepareRefreshTarget [steps.SimpleStep-1764302001003]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "PrepareRefreshTarget [steps.SimpleStep-1764302001003]",
+            "name": "PrepareRefreshTarget",
+            "className": "steps.SimpleStep",
+            "priority": 1764302001003
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "expression",
+            "children": [{
+              "kind": "text",
+              "text": "previousRefreshQNameDefined = typeof qname !== \"undefined\" && qname !== null;\nif (previousRefreshQNameDefined) {\n  previousRefreshQNameValue = qname;\n} else {\n  previousRefreshQNameValue = null;\n}\nqname = marketplaceImportTargetQName;"
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "CallRefreshTarget [steps.SequenceStep-1764302001004]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "CallRefreshTarget [steps.SequenceStep-1764302001004]",
+            "name": "CallRefreshTarget",
+            "className": "steps.SequenceStep",
+            "priority": 1764302001004
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "sourceSequence",
+              "children": [{
+                "kind": "text",
+                "text": "ConvertigoMCP.internal_studio_refresh"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "qname [variables.StepVariable-1764302001005]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "qname [variables.StepVariable-1764302001005]",
+                "name": "qname",
+                "className": "variables.StepVariable",
+                "priority": 1764302001005
+              }
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "CleanupRefreshTarget [steps.SimpleStep-1764302001006]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "CleanupRefreshTarget [steps.SimpleStep-1764302001006]",
+            "name": "CleanupRefreshTarget",
+            "className": "steps.SimpleStep",
+            "priority": 1764302001006
+          },
+          "children": [{
+            "kind": "element",
+            "tag": "expression",
+            "children": [{
+              "kind": "text",
+              "text": "if (previousRefreshQNameDefined) {\n  qname = previousRefreshQNameValue;\n} else {\n  try {\n    delete qname;\n  } catch (_ignoreDeleteQName) {\n    qname = undefined;\n  }\n}"
+            }]
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonObjectStep-1764302001012]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonObjectStep-1764302001012]",
+        "name": "result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1764302001012
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "key",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "PLAIN"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "result"
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "status [steps.JsonFieldStep-1764302001013]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "status [steps.JsonFieldStep-1764302001013]",
+            "name": "status",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001013
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "status"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.status ? marketplaceImportResult.status : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "project [steps.JsonFieldStep-1764302001014]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "project [steps.JsonFieldStep-1764302001014]",
+            "name": "project",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001014
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "project"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.targetProject ? marketplaceImportResult.targetProject : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "library [steps.JsonFieldStep-1764302001015]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "library [steps.JsonFieldStep-1764302001015]",
+            "name": "library",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001015
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "library"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.library ? marketplaceImportResult.library : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "technicalName [steps.JsonFieldStep-1764302001016]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "technicalName [steps.JsonFieldStep-1764302001016]",
+            "name": "technicalName",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001016
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "technicalName"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.technicalName ? marketplaceImportResult.technicalName : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "cloneUrl [steps.JsonFieldStep-1764302001017]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "cloneUrl [steps.JsonFieldStep-1764302001017]",
+            "name": "cloneUrl",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001017
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "cloneUrl"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.cloneUrl ? marketplaceImportResult.cloneUrl : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "branch [steps.JsonFieldStep-1764302001018]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "branch [steps.JsonFieldStep-1764302001018]",
+            "name": "branch",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001018
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "branch"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.branch ? marketplaceImportResult.branch : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "projectUrl [steps.JsonFieldStep-1764302001019]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "projectUrl [steps.JsonFieldStep-1764302001019]",
+            "name": "projectUrl",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001019
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "projectUrl"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.projectUrl ? marketplaceImportResult.projectUrl : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "loadedBefore [steps.JsonFieldStep-1764302001020]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "loadedBefore [steps.JsonFieldStep-1764302001020]",
+            "name": "loadedBefore",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001020
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "loadedBefore"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.loadedBefore === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "loadedAfter [steps.JsonFieldStep-1764302001021]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "loadedAfter [steps.JsonFieldStep-1764302001021]",
+            "name": "loadedAfter",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001021
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "loadedAfter"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.loadedAfter === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "imported [steps.JsonFieldStep-1764302001022]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "imported [steps.JsonFieldStep-1764302001022]",
+            "name": "imported",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001022
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "imported"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.imported === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "importStatus [steps.JsonFieldStep-1764302001023]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "importStatus [steps.JsonFieldStep-1764302001023]",
+            "name": "importStatus",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001023
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "importStatus"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.importStatus ? marketplaceImportResult.importStatus : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "importMessage [steps.JsonFieldStep-1764302001024]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "importMessage [steps.JsonFieldStep-1764302001024]",
+            "name": "importMessage",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001024
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "importMessage"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.importMessage ? marketplaceImportResult.importMessage : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "addReference [steps.JsonFieldStep-1764302001025]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "addReference [steps.JsonFieldStep-1764302001025]",
+            "name": "addReference",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001025
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "addReference"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.addReference === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "referenceAlready [steps.JsonFieldStep-1764302001026]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "referenceAlready [steps.JsonFieldStep-1764302001026]",
+            "name": "referenceAlready",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001026
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "referenceAlready"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.referenceAlready === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "referenceAdded [steps.JsonFieldStep-1764302001027]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "referenceAdded [steps.JsonFieldStep-1764302001027]",
+            "name": "referenceAdded",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001027
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "referenceAdded"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.referenceAdded === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "referenceUpdated [steps.JsonFieldStep-1764302001028]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "referenceUpdated [steps.JsonFieldStep-1764302001028]",
+            "name": "referenceUpdated",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001028
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "referenceUpdated"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.referenceUpdated === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "referenceName [steps.JsonFieldStep-1764302001029]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "referenceName [steps.JsonFieldStep-1764302001029]",
+            "name": "referenceName",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001029
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "referenceName"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.referenceName ? marketplaceImportResult.referenceName : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "referenceProjectUrl [steps.JsonFieldStep-1764302001030]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "referenceProjectUrl [steps.JsonFieldStep-1764302001030]",
+            "name": "referenceProjectUrl",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001030
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "referenceProjectUrl"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.referenceProjectUrl ? marketplaceImportResult.referenceProjectUrl : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "saveRequested [steps.JsonFieldStep-1764302001031]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "saveRequested [steps.JsonFieldStep-1764302001031]",
+            "name": "saveRequested",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001031
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "saveRequested"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.saveRequested === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "saved [steps.JsonFieldStep-1764302001032]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "saved [steps.JsonFieldStep-1764302001032]",
+            "name": "saved",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001032
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "saved"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.saved === true"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "saveMessage [steps.JsonFieldStep-1764302001033]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "saveMessage [steps.JsonFieldStep-1764302001033]",
+            "name": "saveMessage",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001033
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "saveMessage"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.saveMessage ? marketplaceImportResult.saveMessage : \"\""
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "refresh [steps.JsonFieldStep-1764302001034]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "refresh [steps.JsonFieldStep-1764302001034]",
+            "name": "refresh",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001034
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "refresh"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "bool"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportRefresh"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "timestamp [steps.JsonFieldStep-1764302001035]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "timestamp [steps.JsonFieldStep-1764302001035]",
+            "name": "timestamp",
+            "className": "steps.JsonFieldStep",
+            "priority": 1764302001035
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "timestamp"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "type",
+              "children": [{
+                "kind": "text",
+                "text": "number"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "value",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "JS"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportTimestamp"
+                  }]
+                }]
+              }]
+            }
+          ]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "warnings [steps.JsonArrayStep-1764302001036]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "warnings [steps.JsonArrayStep-1764302001036]",
+            "name": "warnings",
+            "className": "steps.JsonArrayStep",
+            "priority": 1764302001036
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "warnings"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "WarningsIterator [steps.SimpleIteratorStep-1764302001037]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "WarningsIterator [steps.SimpleIteratorStep-1764302001037]",
+                "name": "WarningsIterator",
+                "className": "steps.SimpleIteratorStep",
+                "priority": 1764302001037
+              },
+              "children": [
+                {
+                  "kind": "element",
+                  "tag": "expression",
+                  "children": [{
+                    "kind": "text",
+                    "text": "marketplaceImportResult && marketplaceImportResult.warnings ? marketplaceImportResult.warnings : []"
+                  }]
+                },
+                {
+                  "kind": "element",
+                  "tag": "bean",
+                  "attributes": [{
+                    "name": "yaml_key",
+                    "value": "warning [steps.JsonFieldStep-1764302001038]"
+                  }],
+                  "bean": {
+                    "selector": "yaml_key",
+                    "raw": "warning [steps.JsonFieldStep-1764302001038]",
+                    "name": "warning",
+                    "className": "steps.JsonFieldStep",
+                    "priority": 1764302001038
+                  },
+                  "children": [
+                    {
+                      "kind": "element",
+                      "tag": "key",
+                      "children": [{
+                        "kind": "element",
+                        "tag": "xmlizable",
+                        "attributes": [{
+                          "name": "classname",
+                          "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                        }],
+                        "children": [{
+                          "kind": "element",
+                          "tag": "SmartType",
+                          "attributes": [{
+                            "name": "mode",
+                            "value": "PLAIN"
+                          }],
+                          "children": [{
+                            "kind": "text",
+                            "text": "warning"
+                          }]
+                        }]
+                      }]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "value",
+                      "children": [{
+                        "kind": "element",
+                        "tag": "xmlizable",
+                        "attributes": [{
+                          "name": "classname",
+                          "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                        }],
+                        "children": [{
+                          "kind": "element",
+                          "tag": "SmartType",
+                          "attributes": [{
+                            "name": "mode",
+                            "value": "JS"
+                          }],
+                          "children": [{
+                            "kind": "text",
+                            "text": "item"
+                          }]
+                        }]
+                      }]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "project [variables.RequestableVariable-1764302001039]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "project [variables.RequestableVariable-1764302001039]",
+        "name": "project",
+        "className": "variables.RequestableVariable",
+        "priority": 1764302001039
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Marketplace project name."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Marketplace project name."
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "importedProjectName [variables.RequestableVariable-1772793514924]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "importedProjectName [variables.RequestableVariable-1772793514924]",
+        "name": "importedProjectName",
+        "className": "variables.RequestableVariable",
+        "priority": 1772793514924
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "New local project name. Required when the marketplace entry is a starter template."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "New local project name. Required when the marketplace entry is a starter template."
+          }]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/mcp_logging_set_level.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "mcp_logging_set_level [sequences.GenericSequence]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "mcp_logging_set_level [sequences.GenericSequence]",
+    "name": "mcp_logging_set_level",
+    "className": "sequences.GenericSequence"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "Handles MCP logging\/setLevel requests"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Init [steps.SimpleStep-1762963032300]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Init [steps.SimpleStep-1762963032300]",
+        "name": "Init",
+        "className": "steps.SimpleStep",
+        "priority": 1762963032300
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Parse requested level and prepare response"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "var logLevelInfo = { requested: \"\", normalized: \"\", applied: \"\", success: true, message: \"\" };\nvar parsedParams = {};\ntry { if (paramsJson && paramsJson.length) { parsedParams = JSON.parse(paramsJson); } } catch (e) { logLevelInfo.success = false; logLevelInfo.message = \"Invalid params JSON\"; }\nvar requested = \"\";\nif (parsedParams && typeof parsedParams.level === \"string\") { requested = parsedParams.level.trim(); }\nlogLevelInfo.requested = requested;\nvar allowed = { trace: \"TRACE\", debug: \"DEBUG\", info: \"INFO\", warn: \"WARN\", warning: \"WARN\", error: \"ERROR\" };\nvar normalized = \"\";\nif (requested && allowed[requested.toLowerCase()]) { normalized = allowed[requested.toLowerCase()]; } else if (!logLevelInfo.message) { logLevelInfo.message = requested ? \"Unsupported level (accepted: trace, debug, info, warn, error)\" : \"No level provided\"; logLevelInfo.success = false; }\nif (!normalized) { normalized = \"INFO\"; }\nlogLevelInfo.normalized = normalized;\nlogLevelInfo.applied = normalized;\nif (!logLevelInfo.message) { logLevelInfo.message = \"Logging level accepted\"; }"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "setLevel [steps.LogStep-1762186600934]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "setLevel [steps.LogStep-1762186600934]",
+        "name": "setLevel",
+        "className": "steps.LogStep",
+        "priority": 1762186600934
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "expression",
+        "children": [{
+          "kind": "text",
+          "text": "\"McpLoggingSetLevel -> requested=\" + (logLevelInfo ? logLevelInfo.requested : \"\") + \", applied=\" + (logLevelInfo ? logLevelInfo.applied : \"\")"
+        }]
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonObjectStep-1761836840071]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonObjectStep-1761836840071]",
+        "name": "result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1761836840071
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "key",
+        "children": [{
+          "kind": "element",
+          "tag": "xmlizable",
+          "attributes": [{
+            "name": "classname",
+            "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+          }],
+          "children": [{
+            "kind": "element",
+            "tag": "SmartType",
+            "attributes": [{
+              "name": "mode",
+              "value": "PLAIN"
+            }],
+            "children": [{
+              "kind": "text",
+              "text": "result"
+            }]
+          }]
+        }]
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "paramsJson [variables.RequestableVariable-1761836840067]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "paramsJson [variables.RequestableVariable-1761836840067]",
+        "name": "paramsJson",
+        "className": "variables.RequestableVariable",
+        "priority": 1761836840067
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "comment",
+        "children": [{
+          "kind": "text",
+          "text": "Raw params JSON from MCP request"
+        }]
+      }]
+    }
+  ]
+}

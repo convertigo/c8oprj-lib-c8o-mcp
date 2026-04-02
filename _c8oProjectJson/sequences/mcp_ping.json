@@ -1,0 +1,77 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/mcp_ping.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "mcp_ping [sequences.GenericSequence]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "mcp_ping [sequences.GenericSequence]",
+    "name": "mcp_ping",
+    "className": "sequences.GenericSequence"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "Builds the MCP ping response"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonObjectStep-1761755022130]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonObjectStep-1761755022130]",
+        "name": "result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1761755022130
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "key",
+        "children": [{
+          "kind": "element",
+          "tag": "xmlizable",
+          "attributes": [{
+            "name": "classname",
+            "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+          }],
+          "children": [{
+            "kind": "element",
+            "tag": "SmartType",
+            "attributes": [{
+              "name": "mode",
+              "value": "PLAIN"
+            }],
+            "children": [{
+              "kind": "text",
+              "text": "result"
+            }]
+          }]
+        }]
+      }]
+    }
+  ]
+}

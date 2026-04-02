@@ -1,0 +1,300 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/tools_mobile_builder_open.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "tools_mobile_builder_open [sequences.GenericSequence]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "tools_mobile_builder_open [sequences.GenericSequence]",
+    "name": "tools_mobile_builder_open",
+    "className": "sequences.GenericSequence"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "Start or reconnect to the NGX mobile builder\nEnsures the NGX builder is running and returns the detected live-reload URL plus readiness diagnostics. Use forceRestart only when the current builder is stuck or on the wrong state."
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "responseTimeout",
+      "children": [{
+        "kind": "text",
+        "text": "120"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "IncludeHelpers [steps.SimpleStep-1772733052615]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "IncludeHelpers [steps.SimpleStep-1772733052615]",
+        "name": "IncludeHelpers",
+        "className": "steps.SimpleStep",
+        "priority": 1772733052615
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Start builder and collect readiness\/log data."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "include(\"js\/tools_mobile_builder_open.js\");"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonToXmlStep-1772733052767]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonToXmlStep-1772733052767]",
+        "name": "result",
+        "className": "steps.JsonToXmlStep",
+        "priority": 1772733052767
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "jsonObject",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "JS"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "openMobileBuilderResult"
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "key",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "PLAIN"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "result"
+              }]
+            }]
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "project [variables.RequestableVariable-1772733052953]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "project [variables.RequestableVariable-1772733052953]",
+        "name": "project",
+        "className": "variables.RequestableVariable",
+        "priority": 1772733052953
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Existing NGX project name."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Existing NGX project name."
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "timeoutSec [variables.RequestableVariable-1772733053163]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "timeoutSec [variables.RequestableVariable-1772733053163]",
+        "name": "timeoutSec",
+        "className": "variables.RequestableVariable",
+        "priority": 1772733053163
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Seconds to wait for a live-reload URL. Default 90; max 600."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Seconds to wait for a live-reload URL. Default 90; max 600."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "value",
+          "children": [{
+            "kind": "text",
+            "text": "90"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "logsLimit [variables.RequestableVariable-1772733053321]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "logsLimit [variables.RequestableVariable-1772733053321]",
+        "name": "logsLimit",
+        "className": "variables.RequestableVariable",
+        "priority": 1772733053321
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Maximum builder log lines returned for diagnostics. Default 40; max 200."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Maximum builder log lines returned for diagnostics. Default 40; max 200."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "value",
+          "children": [{
+            "kind": "text",
+            "text": "40"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "forceRestart [variables.RequestableVariable-1772733053490]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "forceRestart [variables.RequestableVariable-1772733053490]",
+        "name": "forceRestart",
+        "className": "variables.RequestableVariable",
+        "priority": 1772733053490
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Set true to restart an already running builder before waiting for readiness."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "description",
+          "children": [{
+            "kind": "text",
+            "text": "Set true to restart an already running builder before waiting for readiness."
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "value",
+          "children": [{
+            "kind": "text",
+            "text": "false"
+          }]
+        }
+      ]
+    }
+  ]
+}

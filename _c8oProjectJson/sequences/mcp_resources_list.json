@@ -1,0 +1,1308 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/mcp_resources_list.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "mcp_resources_list [sequences.GenericSequence]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "mcp_resources_list [sequences.GenericSequence]",
+    "name": "mcp_resources_list",
+    "className": "sequences.GenericSequence"
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "comment",
+      "children": [{
+        "kind": "text",
+        "text": "Handles MCP resources\/list requests"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "IncludeResourcesHelper [steps.SimpleStep-1762971662712]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "IncludeResourcesHelper [steps.SimpleStep-1762971662712]",
+        "name": "IncludeResourcesHelper",
+        "className": "steps.SimpleStep",
+        "priority": 1762971662712
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Load resources helper"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "include(\"js\/resources.js\");"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "LoadResources [steps.SimpleStep-1762971672119]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "LoadResources [steps.SimpleStep-1762971672119]",
+        "name": "LoadResources",
+        "className": "steps.SimpleStep",
+        "priority": 1762971672119
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Load resources catalog page"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "expression",
+          "children": [{
+            "kind": "text",
+            "text": "var catalog = c8oLoadResourcesIndex();\nvar pageSize = 25;\nvar cursorText = C8O.util.toTrimmedString(cursor || \"\");\nif (!cursorText.length && typeof _nextCursor !== \"undefined\") {\n  var metaCursor = C8O.util.toTrimmedString(_nextCursor);\n  if (metaCursor.length) {\n    cursorText = metaCursor;\n  }\n}\nvar startIndex = 0;\nif (cursorText.length) {\n  var parsedCursor = parseInt(cursorText, 10);\n  if (!isNaN(parsedCursor) && parsedCursor >= 0) {\n    startIndex = parsedCursor;\n  }\n}\nvar slice = catalog.slice(startIndex, startIndex + pageSize);\nvar nextCursor = \"\";\nvar hasNext = false;\nif (startIndex + slice.length < catalog.length) {\n  nextCursor = String(startIndex + slice.length);\n  hasNext = true;\n}\nresourcesPage = slice;\nresourcesNextCursor = nextCursor;\nresourcesHasNextCursor = hasNext;\nresourcesQuery = {\n  total: catalog.length,\n  startIndex: startIndex,\n  limit: pageSize,\n  returned: slice.length,\n  cursorInput: cursorText\n};"
+          }]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Result [steps.JsonObjectStep-1762971678446]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Result [steps.JsonObjectStep-1762971678446]",
+        "name": "Result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1762971678446
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "comment",
+          "children": [{
+            "kind": "text",
+            "text": "Build MCP resources\/list response"
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "key",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "PLAIN"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "result"
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "Resources [steps.JsonArrayStep-1762971685755]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "Resources [steps.JsonArrayStep-1762971685755]",
+            "name": "Resources",
+            "className": "steps.JsonArrayStep",
+            "priority": 1762971685755
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "key",
+              "children": [{
+                "kind": "element",
+                "tag": "xmlizable",
+                "attributes": [{
+                  "name": "classname",
+                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                }],
+                "children": [{
+                  "kind": "element",
+                  "tag": "SmartType",
+                  "attributes": [{
+                    "name": "mode",
+                    "value": "PLAIN"
+                  }],
+                  "children": [{
+                    "kind": "text",
+                    "text": "resources"
+                  }]
+                }]
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "Iterator [steps.SimpleIteratorStep-1762971691156]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "Iterator [steps.SimpleIteratorStep-1762971691156]",
+                "name": "Iterator",
+                "className": "steps.SimpleIteratorStep",
+                "priority": 1762971691156
+              },
+              "children": [
+                {
+                  "kind": "element",
+                  "tag": "expression",
+                  "children": [{
+                    "kind": "text",
+                    "text": "resourcesPage || []"
+                  }]
+                },
+                {
+                  "kind": "element",
+                  "tag": "bean",
+                  "attributes": [{
+                    "name": "yaml_key",
+                    "value": "Resource [steps.JsonObjectStep-1762971696072]"
+                  }],
+                  "bean": {
+                    "selector": "yaml_key",
+                    "raw": "Resource [steps.JsonObjectStep-1762971696072]",
+                    "name": "Resource",
+                    "className": "steps.JsonObjectStep",
+                    "priority": 1762971696072
+                  },
+                  "children": [
+                    {
+                      "kind": "element",
+                      "tag": "comment",
+                      "children": [{
+                        "kind": "text",
+                        "text": "Single resource entry"
+                      }]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "key",
+                      "children": [{
+                        "kind": "element",
+                        "tag": "xmlizable",
+                        "attributes": [{
+                          "name": "classname",
+                          "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                        }],
+                        "children": [{
+                          "kind": "element",
+                          "tag": "SmartType",
+                          "attributes": [{
+                            "name": "mode",
+                            "value": "PLAIN"
+                          }],
+                          "children": [{
+                            "kind": "text",
+                            "text": "resource"
+                          }]
+                        }]
+                      }]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "bean",
+                      "attributes": [{
+                        "name": "yaml_key",
+                        "value": "Uri [steps.JsonFieldStep-1762971702588]"
+                      }],
+                      "bean": {
+                        "selector": "yaml_key",
+                        "raw": "Uri [steps.JsonFieldStep-1762971702588]",
+                        "name": "Uri",
+                        "className": "steps.JsonFieldStep",
+                        "priority": 1762971702588
+                      },
+                      "children": [
+                        {
+                          "kind": "element",
+                          "tag": "key",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "PLAIN"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "uri"
+                              }]
+                            }]
+                          }]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "value",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "JS"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "item && item.uri || \"\""
+                              }]
+                            }]
+                          }]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "bean",
+                      "attributes": [{
+                        "name": "yaml_key",
+                        "value": "Name [steps.JsonFieldStep-1762971710067]"
+                      }],
+                      "bean": {
+                        "selector": "yaml_key",
+                        "raw": "Name [steps.JsonFieldStep-1762971710067]",
+                        "name": "Name",
+                        "className": "steps.JsonFieldStep",
+                        "priority": 1762971710067
+                      },
+                      "children": [
+                        {
+                          "kind": "element",
+                          "tag": "key",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "PLAIN"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "name"
+                              }]
+                            }]
+                          }]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "value",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "JS"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "item && (item.name || item.title) || \"\""
+                              }]
+                            }]
+                          }]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "bean",
+                      "attributes": [{
+                        "name": "yaml_key",
+                        "value": "Title [steps.JsonFieldStep-1762971716958]"
+                      }],
+                      "bean": {
+                        "selector": "yaml_key",
+                        "raw": "Title [steps.JsonFieldStep-1762971716958]",
+                        "name": "Title",
+                        "className": "steps.JsonFieldStep",
+                        "priority": 1762971716958
+                      },
+                      "children": [
+                        {
+                          "kind": "element",
+                          "tag": "key",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "PLAIN"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "title"
+                              }]
+                            }]
+                          }]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "value",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "JS"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "item && item.title || \"\""
+                              }]
+                            }]
+                          }]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "bean",
+                      "attributes": [{
+                        "name": "yaml_key",
+                        "value": "Description [steps.JsonFieldStep-1762971722737]"
+                      }],
+                      "bean": {
+                        "selector": "yaml_key",
+                        "raw": "Description [steps.JsonFieldStep-1762971722737]",
+                        "name": "Description",
+                        "className": "steps.JsonFieldStep",
+                        "priority": 1762971722737
+                      },
+                      "children": [
+                        {
+                          "kind": "element",
+                          "tag": "key",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "PLAIN"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "description"
+                              }]
+                            }]
+                          }]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "value",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "JS"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "item && item.description || \"\""
+                              }]
+                            }]
+                          }]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "bean",
+                      "attributes": [{
+                        "name": "yaml_key",
+                        "value": "MimeType [steps.JsonFieldStep-1762971728512]"
+                      }],
+                      "bean": {
+                        "selector": "yaml_key",
+                        "raw": "MimeType [steps.JsonFieldStep-1762971728512]",
+                        "name": "MimeType",
+                        "className": "steps.JsonFieldStep",
+                        "priority": 1762971728512
+                      },
+                      "children": [
+                        {
+                          "kind": "element",
+                          "tag": "key",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "PLAIN"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "mimeType"
+                              }]
+                            }]
+                          }]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "value",
+                          "children": [{
+                            "kind": "element",
+                            "tag": "xmlizable",
+                            "attributes": [{
+                              "name": "classname",
+                              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                            }],
+                            "children": [{
+                              "kind": "element",
+                              "tag": "SmartType",
+                              "attributes": [{
+                                "name": "mode",
+                                "value": "JS"
+                              }],
+                              "children": [{
+                                "kind": "text",
+                                "text": "item && item.mimeType || \"text\/plain\""
+                              }]
+                            }]
+                          }]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "element",
+                      "tag": "bean",
+                      "attributes": [{
+                        "name": "yaml_key",
+                        "value": "IfGuideMetadata [steps.IfStep-1772901001001]"
+                      }],
+                      "bean": {
+                        "selector": "yaml_key",
+                        "raw": "IfGuideMetadata [steps.IfStep-1772901001001]",
+                        "name": "IfGuideMetadata",
+                        "className": "steps.IfStep",
+                        "priority": 1772901001001
+                      },
+                      "children": [
+                        {
+                          "kind": "element",
+                          "tag": "condition",
+                          "children": [{
+                            "kind": "text",
+                            "text": "item != null && item.guideId != null && String(item.guideId).length > 0"
+                          }]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "GuideId [steps.JsonFieldStep-1772901001002]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "GuideId [steps.JsonFieldStep-1772901001002]",
+                            "name": "GuideId",
+                            "className": "steps.JsonFieldStep",
+                            "priority": 1772901001002
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "guideId"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "value",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item.guideId"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "Revision [steps.JsonFieldStep-1772901001003]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "Revision [steps.JsonFieldStep-1772901001003]",
+                            "name": "Revision",
+                            "className": "steps.JsonFieldStep",
+                            "priority": 1772901001003
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "revision"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "type",
+                              "children": [{
+                                "kind": "text",
+                                "text": "number"
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "value",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item.revision"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "GuidanceLevel [steps.JsonFieldStep-1772901001004]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "GuidanceLevel [steps.JsonFieldStep-1772901001004]",
+                            "name": "GuidanceLevel",
+                            "className": "steps.JsonFieldStep",
+                            "priority": 1772901001004
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "guidanceLevel"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "value",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item.guidanceLevel || \"\""
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "FallbackToRag [steps.JsonFieldStep-1772901001005]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "FallbackToRag [steps.JsonFieldStep-1772901001005]",
+                            "name": "FallbackToRag",
+                            "className": "steps.JsonFieldStep",
+                            "priority": 1772901001005
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "fallbackToRag"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "type",
+                              "children": [{
+                                "kind": "text",
+                                "text": "bool"
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "value",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item.fallbackToRag === true"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "ScopeTags [steps.JsonToXmlStep-1772901001006]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "ScopeTags [steps.JsonToXmlStep-1772901001006]",
+                            "name": "ScopeTags",
+                            "className": "steps.JsonToXmlStep",
+                            "priority": 1772901001006
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "jsonObject",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item && item.scopeTags ? item.scopeTags : []"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "scopeTags"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "Prerequisites [steps.JsonToXmlStep-1772901001007]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "Prerequisites [steps.JsonToXmlStep-1772901001007]",
+                            "name": "Prerequisites",
+                            "className": "steps.JsonToXmlStep",
+                            "priority": 1772901001007
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "jsonObject",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item && item.prerequisites ? item.prerequisites : []"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "prerequisites"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "RecommendedTools [steps.JsonToXmlStep-1772901001008]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "RecommendedTools [steps.JsonToXmlStep-1772901001008]",
+                            "name": "RecommendedTools",
+                            "className": "steps.JsonToXmlStep",
+                            "priority": 1772901001008
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "jsonObject",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item && item.recommendedTools ? item.recommendedTools : []"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "recommendedTools"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "element",
+                          "tag": "bean",
+                          "attributes": [{
+                            "name": "yaml_key",
+                            "value": "PromptNames [steps.JsonToXmlStep-1773900300001]"
+                          }],
+                          "bean": {
+                            "selector": "yaml_key",
+                            "raw": "PromptNames [steps.JsonToXmlStep-1773900300001]",
+                            "name": "PromptNames",
+                            "className": "steps.JsonToXmlStep",
+                            "priority": 1773900300001
+                          },
+                          "children": [
+                            {
+                              "kind": "element",
+                              "tag": "jsonObject",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "JS"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "item && item.promptNames ? item.promptNames : []"
+                                  }]
+                                }]
+                              }]
+                            },
+                            {
+                              "kind": "element",
+                              "tag": "key",
+                              "children": [{
+                                "kind": "element",
+                                "tag": "xmlizable",
+                                "attributes": [{
+                                  "name": "classname",
+                                  "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                                }],
+                                "children": [{
+                                  "kind": "element",
+                                  "tag": "SmartType",
+                                  "attributes": [{
+                                    "name": "mode",
+                                    "value": "PLAIN"
+                                  }],
+                                  "children": [{
+                                    "kind": "text",
+                                    "text": "promptNames"
+                                  }]
+                                }]
+                              }]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "Meta [steps.JsonObjectStep-1763045447449]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "Meta [steps.JsonObjectStep-1763045447449]",
+        "name": "Meta",
+        "className": "steps.JsonObjectStep",
+        "priority": 1763045447449
+      },
+      "children": [
+        {
+          "kind": "element",
+          "tag": "key",
+          "children": [{
+            "kind": "element",
+            "tag": "xmlizable",
+            "attributes": [{
+              "name": "classname",
+              "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+            }],
+            "children": [{
+              "kind": "element",
+              "tag": "SmartType",
+              "attributes": [{
+                "name": "mode",
+                "value": "PLAIN"
+              }],
+              "children": [{
+                "kind": "text",
+                "text": "meta"
+              }]
+            }]
+          }]
+        },
+        {
+          "kind": "element",
+          "tag": "bean",
+          "attributes": [{
+            "name": "yaml_key",
+            "value": "IfHasCursor [steps.IfStep-1763045455630]"
+          }],
+          "bean": {
+            "selector": "yaml_key",
+            "raw": "IfHasCursor [steps.IfStep-1763045455630]",
+            "name": "IfHasCursor",
+            "className": "steps.IfStep",
+            "priority": 1763045455630
+          },
+          "children": [
+            {
+              "kind": "element",
+              "tag": "condition",
+              "children": [{
+                "kind": "text",
+                "text": "resourcesHasNextCursor === true"
+              }]
+            },
+            {
+              "kind": "element",
+              "tag": "bean",
+              "attributes": [{
+                "name": "yaml_key",
+                "value": "NextCursor [steps.JsonFieldStep-1763045467373]"
+              }],
+              "bean": {
+                "selector": "yaml_key",
+                "raw": "NextCursor [steps.JsonFieldStep-1763045467373]",
+                "name": "NextCursor",
+                "className": "steps.JsonFieldStep",
+                "priority": 1763045467373
+              },
+              "children": [
+                {
+                  "kind": "element",
+                  "tag": "key",
+                  "children": [{
+                    "kind": "element",
+                    "tag": "xmlizable",
+                    "attributes": [{
+                      "name": "classname",
+                      "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                    }],
+                    "children": [{
+                      "kind": "element",
+                      "tag": "SmartType",
+                      "attributes": [{
+                        "name": "mode",
+                        "value": "PLAIN"
+                      }],
+                      "children": [{
+                        "kind": "text",
+                        "text": "nextCursor"
+                      }]
+                    }]
+                  }]
+                },
+                {
+                  "kind": "element",
+                  "tag": "value",
+                  "children": [{
+                    "kind": "element",
+                    "tag": "xmlizable",
+                    "attributes": [{
+                      "name": "classname",
+                      "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+                    }],
+                    "children": [{
+                      "kind": "element",
+                      "tag": "SmartType",
+                      "attributes": [{
+                        "name": "mode",
+                        "value": "PLAIN"
+                      }],
+                      "children": [{
+                        "kind": "text",
+                        "text": "String(resourcesNextCursor)"
+                      }]
+                    }]
+                  }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "cursor [variables.RequestableVariable-1762971739821]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "cursor [variables.RequestableVariable-1762971739821]",
+        "name": "cursor",
+        "className": "variables.RequestableVariable",
+        "priority": 1762971739821
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "comment",
+        "children": [{
+          "kind": "text",
+          "text": "Optional pagination cursor"
+        }]
+      }]
+    }
+  ]
+}

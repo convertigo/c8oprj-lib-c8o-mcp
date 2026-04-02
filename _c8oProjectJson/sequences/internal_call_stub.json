@@ -1,0 +1,109 @@
+{
+  "kind": "element",
+  "tag": "bean",
+  "attributes": [
+    {
+      "name": "yaml_file",
+      "value": "sequences\/internal_call_stub.yaml"
+    },
+    {
+      "name": "yaml_key",
+      "value": "internal_call_stub [sequences.GenericSequence-1761756735550]"
+    }
+  ],
+  "bean": {
+    "selector": "yaml_key",
+    "raw": "internal_call_stub [sequences.GenericSequence-1761756735550]",
+    "name": "internal_call_stub",
+    "className": "sequences.GenericSequence",
+    "priority": 1761756735550
+  },
+  "children": [
+    {
+      "kind": "element",
+      "tag": "accessibility",
+      "children": [{
+        "kind": "text",
+        "text": "Private"
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "result [steps.JsonObjectStep-1761756769234]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "result [steps.JsonObjectStep-1761756769234]",
+        "name": "result",
+        "className": "steps.JsonObjectStep",
+        "priority": 1761756769234
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "key",
+        "children": [{
+          "kind": "element",
+          "tag": "xmlizable",
+          "attributes": [{
+            "name": "classname",
+            "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+          }],
+          "children": [{
+            "kind": "element",
+            "tag": "SmartType",
+            "attributes": [{
+              "name": "mode",
+              "value": "PLAIN"
+            }],
+            "children": [{
+              "kind": "text",
+              "text": "result"
+            }]
+          }]
+        }]
+      }]
+    },
+    {
+      "kind": "element",
+      "tag": "bean",
+      "attributes": [{
+        "name": "yaml_key",
+        "value": "error [steps.JsonObjectStep-1761756773867]"
+      }],
+      "bean": {
+        "selector": "yaml_key",
+        "raw": "error [steps.JsonObjectStep-1761756773867]",
+        "name": "error",
+        "className": "steps.JsonObjectStep",
+        "priority": 1761756773867
+      },
+      "children": [{
+        "kind": "element",
+        "tag": "key",
+        "children": [{
+          "kind": "element",
+          "tag": "xmlizable",
+          "attributes": [{
+            "name": "classname",
+            "value": "com.twinsoft.convertigo.beans.steps.SmartType"
+          }],
+          "children": [{
+            "kind": "element",
+            "tag": "SmartType",
+            "attributes": [{
+              "name": "mode",
+              "value": "PLAIN"
+            }],
+            "children": [{
+              "kind": "text",
+              "text": "error"
+            }]
+          }]
+        }]
+      }]
+    }
+  ]
+}
