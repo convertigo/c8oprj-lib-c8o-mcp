@@ -78,8 +78,8 @@ comment: |
             if (block.has(''comment'')) { comment = comment + '': '' + block.getString(''comment''); }
           }
         } catch(ignore) {}
-        comment = comment.replaceAll(''<.*?>'', '''');
-        if (comment.length() > 200) { comment = comment.substring(0, 197) + ''...''; }
+        comment = String(comment).replace(/<.*?>/g, '''');
+        if (comment.length > 200) { comment = comment.substring(0, 197) + ''...''; }
     
         if (hasFilter) {
           var nameLower = projectName != null ? projectName.toLowerCase() : '''';
