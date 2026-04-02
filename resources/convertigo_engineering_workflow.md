@@ -21,12 +21,14 @@ Read this for any non-trivial task, any multi-step feature, or any run that shou
    - you want one final mutation finalize step
 4. Do not use `batch-call` for exploration. Discovery stays read-only.
 5. Reload only when the task changed structural runtime assets and you need proof that the project reloads cleanly.
+6. Treat `project-reload` as rollback to disk, not as a freshness mechanism for live memory.
+7. Never reload the active MCP server project itself; use `project-save` there because reloading it unloads the endpoint.
 
 ### Validation decision table
 
 | Situation | Minimum proof |
 | --- | --- |
-| Response-shape change in one sequence or transaction | `requestable-execute` only |
+| Response-shape change in one sequence or transaction | `requestable-execute` only (live Studio memory) |
 | Runtime behavior is unclear from the payload alone | `requestable-execute` plus targeted `log-view` |
 | Metadata-only or non-runtime-safe change | focused `databaseobject-tree-get` readback, then `project-save` |
 | Sequence, connector, transaction, or NGX structure changed and reload matters | `project-save`, `project-reload` (use `fromJson=true` when JSON mirrors were edited), then minimal smoke |
@@ -38,6 +40,7 @@ Keep evidence before declaring success:
 - `log-view` output only when execution or transport details matter
 - save after successful checks
 - reload plus smoke only when the task shape requires it
+- if runtime proof is stale after save, treat it as a tooling defect to report, not as a cue to normalize `project-reload`
 
 ### Final answer template
 
@@ -92,6 +95,7 @@ Treat friction as non-blocking when:
 - `project-save`
 - `project-reload`
 - `rag-query`
+- `resources/templates/list` when a fast-path/template guide must be selected before reading it through `resources/read`
 
 ## Anti-patterns / do not do
 - Do not declare success without runtime evidence.
@@ -100,6 +104,8 @@ Treat friction as non-blocking when:
 - Do not silently fall back to direct YAML edits and report success as if MCP handled the task cleanly.
 - Do not let one agent or one patch mix unrelated concerns when a smaller reviewable change is possible.
 - Do not reload automatically after every write. Reload only when it provides useful proof.
+- Do not use `project-reload` just to "refresh" `requestable-execute`. Live memory should already be authoritative.
+- Do not call `project-reload` on the active MCP server project. That operation is forbidden; persist MCP project edits with `project-save`.
 
 ## Completion checks
 - The final result names the changed objects or requestables.

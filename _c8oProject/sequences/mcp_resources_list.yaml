@@ -237,6 +237,58 @@ comment: Handles MCP resources/list requests
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: promptNames
+          ↓TemplateId [steps.JsonFieldStep-1773900300002]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: templateId
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item && item.templateId || ""
+          ↓TemplateKind [steps.JsonFieldStep-1773900300003]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: templateKind
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item && item.templateKind || ""
+          ↓TemplateVariables [steps.JsonToXmlStep-1773900300004]: 
+            jsonObject: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: 'item && item.templateVariables ? item.templateVariables : []'
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: templateVariables
+          ↓CanonicalTargets [steps.JsonToXmlStep-1773900300005]: 
+            jsonObject: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: 'item && item.canonicalTargets ? item.canonicalTargets : []'
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: canonicalTargets
 ↓Meta [steps.JsonObjectStep-1763045447449]: 
   key: 
     - xmlizable: 

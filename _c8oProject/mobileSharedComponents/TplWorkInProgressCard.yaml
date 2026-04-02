@@ -1,0 +1,28 @@
+comment: Template source for the bootstrap work-in-progress card.
+↓TplWorkInProgressCardRoot [ngx.components.UIDynamicElement-1775063144379]: 
+  beanData: '{"ionBean":"Card","IonColor":"plain:warning"}'
+  tagName: ion-card
+  ↓TplWorkInProgressCardHeader [ngx.components.UIDynamicElement-1775063144381]: 
+    beanData: '{"ionBean":"CardHeader"}'
+    tagName: ion-card-header
+    ↓TplWorkInProgressCardTitle [ngx.components.UIDynamicElement-1775063144383]: 
+      beanData: '{"ionBean":"CardTitle"}'
+      tagName: ion-card-title
+      ↓TplWorkInProgressCardTitleText [ngx.components.UIText-1775063144385]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: plain:Work in progress
+  ↓TplWorkInProgressCardContent [ngx.components.UIDynamicElement-1775063144387]: 
+    beanData: '{"ionBean":"CardContent"}'
+    tagName: ion-card-content
+    ↓TplWorkInProgressText [ngx.components.UIText-1775063144389]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: 'script:''Bootstrap stage visible. Current build stage: '' + (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudBuildStage ?? ''bootstrap'')'
+    ↓TplWorkInProgressHint [ngx.components.UIText-1775063144391]: 
+      textValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: plain:The CRUD shell is visible while live shared actions populate global state.

@@ -8,18 +8,18 @@ This is a field-feedback triage review.
 Rules:
 1. Inspect the packet and the cited evidence paths before expanding scope.
 2. Classify every source report exactly once.
-3. Split a source report when it contains distinct issues with different owners, target repos, or next actions.
+3. Do not split source reports into new findings solely for bookkeeping. Keep one source report decision, and consolidate duplicates or closely related evidence into grouped findings.
 4. Use `CLOSED_ALREADY_FIXED` only with concrete current-repo evidence.
 5. Route external findings without proposing MCP repo changes for them.
 6. Keep MCP-owned findings actionable and specific.
-7. Do not mutate any repo.
+7. When multiple source reports describe the same subject or defect family, consolidate them under one grouped finding and use `DUPLICATE` only for redundant source reports.
+8. Do not mutate any repo.
 
 Allowed dispositions:
 - `OPEN`
 - `CLOSED_ALREADY_FIXED`
 - `ROUTE_EXTERNAL`
-- `SPLIT_REQUIRED`
-- `DROP_NOISE`
+- `DUPLICATE`
 
 Allowed target repos:
 - `c8oprj-c8o-mcp`

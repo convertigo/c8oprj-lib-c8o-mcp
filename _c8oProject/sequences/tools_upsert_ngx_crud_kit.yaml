@@ -1,0 +1,161 @@
+accessibility: Private
+comment: |
+  Create or update a deterministic NGX CRUD kit
+  Replaces the visible starter entry page content with a deterministic CRUD shell, staged bootstrap/final markers, shared actions, and global UI state. Prefer entity-pages for generic CRUD, keep dashboard only for compatibility, and use master-detail for the CRM rail.
+↓IncludeHelpers [steps.SimpleStep-1773318401001]: 
+  comment: Load deterministic CRUD helpers
+  expression: include("js/tools_crud.js");
+↓Init [steps.SimpleStep-1773318401002]: 
+  comment: Parse entities and apply the visible NGX CRUD shell
+  expression: |
+    'function parseEntitiesInput(value) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      if (value != null && Object.prototype.toString.call(value) === ''[object Object]'') {
+        return value;
+      }
+      var text = C8O.util.toTrimmedString(value);
+      if (!text.length) {
+        return [];
+      }
+      var candidate = text;
+      for (var depth = 0; depth < 3; depth++) {
+        var parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed) || (parsed != null && Object.prototype.toString.call(parsed) === ''[object Object]'')) {
+          return parsed;
+        }
+        if (typeof parsed === ''string'' && C8O.util.toTrimmedString(parsed).length) {
+          candidate = C8O.util.toTrimmedString(parsed);
+          continue;
+        }
+        break;
+      }
+      throw new Error(''entities must be a JSON object or array'');
+    }
+    var parsedEntities = parseEntitiesInput(entities);
+    var parsedRuntimeEvidence = C8O.util.parseObjectInput(runtimeEvidence, {
+      label: ''runtimeEvidence'',
+      allowEmpty: true
+    });
+    crudUiResult = C8O.crud.upsertNgxCrudKit({
+      project: project,
+      entities: parsedEntities,
+      variant: variant,
+      stage: stage,
+      facadePrefix: facadePrefix,
+      entryPage: entryPage,
+      runtimeEvidence: parsedRuntimeEvidence
+    });'
+↓Result [steps.JsonObjectStep-1773318401003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1773318401004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUiResult && crudUiResult.status ? crudUiResult.status : ""'
+  ↓project [steps.JsonFieldStep-1773318401005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUiResult && crudUiResult.project ? crudUiResult.project : ""'
+  ↓sharedComponents [steps.JsonToXmlStep-1773318401006]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUiResult && crudUiResult.sharedComponents ? crudUiResult.sharedComponents : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: sharedComponents
+  ↓pageTargets [steps.JsonToXmlStep-1773318401007]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUiResult && crudUiResult.pageTargets ? crudUiResult.pageTargets : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: pageTargets
+  ↓runtimeEvidence [steps.JsonToXmlStep-1773318401008]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUiResult && crudUiResult.runtimeEvidence ? crudUiResult.runtimeEvidence : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: runtimeEvidence
+  ↓warnings [steps.JsonToXmlStep-1773318401009]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudUiResult && crudUiResult.warnings ? crudUiResult.warnings : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
+↓project [variables.RequestableVariable-1773318401010]: 
+  comment: Existing NGX project technical name.
+  description: Existing NGX project technical name.
+↓entities [variables.RequestableVariable-1773318401011]: 
+  comment: Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections.
+  description: Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections.
+  value: '[]'
+↓variant [variables.RequestableVariable-1773318401012]: 
+  comment: UI variant, for example dashboard, list-form, or master-detail.
+  description: UI variant, for example dashboard, list-form, or master-detail.
+  value: dashboard
+↓facadePrefix [variables.RequestableVariable-1773318401013]: 
+  comment: Public CRUD facade prefix used for shell labels and future wiring.
+  description: Public CRUD facade prefix used for shell labels and future wiring.
+  value: crud
+↓entryPage [variables.RequestableVariable-1773318401014]: 
+  comment: Visible entry page name. Defaults to Page.
+  description: Visible entry page name. Defaults to Page.
+  value: Page
+↓runtimeEvidence [variables.RequestableVariable-1773318401015]: 
+  comment: Optional runtime evidence object or JSON string used to surface live counts in the shell.
+  description: Optional runtime evidence object or JSON string used to surface live counts in the shell.
+  value: '{}'
+↓stage [variables.RequestableVariable-1773470561524]: 
+  comment: UI assembly stage. Use bootstrap for the first visible shell, then final after proof.
+  description: UI assembly stage. Use bootstrap for the first visible shell, then final after proof.
+  value: final

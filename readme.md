@@ -19,6 +19,9 @@ For more technical informations : [documentation](./project.md)
             - [Operations](#operations-1)
                 - [Get](#get-1)
                 - [Post](#post-1)
+- [Mobile Application](#mobile-application)
+    - [Pages](#pages)
+        - [Home](#home)
 
 
 ## Installation
@@ -98,6 +101,12 @@ Streamable HTTP entry point for MCP requests
 <td>request</td><td>JSON-RPC request body</td>
 </tr>
 </table>
+
+## Mobile Application
+
+### Pages
+
+#### Home
 
 
 

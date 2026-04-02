@@ -1,0 +1,38 @@
+{
+  "project": "NameOverrideProbe",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "database": "nameoverrideprobe"
+  },
+  "facade": {
+    "prefix": "crud"
+  },
+  "seed": {
+    "enabled": true,
+    "profile": "realistic",
+    "rowsPerEntity": 6
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "entity-pages"
+  },
+  "entities": [
+    {
+      "name": "animal",
+      "singular": "animal",
+      "plural": "animaux",
+      "routeSegment": "animaux",
+      "displayLabel": "Animaux",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true, "required": true, "unique": true },
+        { "name": "NomCommun", "type": "VARCHAR(128)", "required": true },
+        { "name": "NomScientifique", "type": "VARCHAR(128)", "required": true, "unique": true },
+        { "name": "Famille", "type": "VARCHAR(128)" },
+        { "name": "Habitat", "type": "VARCHAR(128)" },
+        { "name": "Region", "type": "VARCHAR(128)" }
+      ]
+    }
+  ]
+}

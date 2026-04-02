@@ -3,23 +3,32 @@
     "name": "convertigo-quickstart",
     "file": "convertigo_quickstart.md",
     "title": "Convertigo MCP Quickstart",
-    "description": "Role-neutral bootstrap that selects the right guides, recipes, and specialist prompt.",
+    "description": "Bootstrap guide selection and route standard SQL CRUD + starter NGX work to the fast path.",
     "promptId": "convertigo/quickstart",
-    "revision": 1,
+    "revision": 6,
     "roleId": "bootstrap",
-    "scopeTags": ["bootstrap", "guide-selection", "triage", "recipes"],
+    "modelProfile": "balanced",
+    "scopeTags": [
+      "bootstrap",
+      "guide-selection",
+      "triage",
+      "recipes"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
-      "convertigo/engineering-workflow@1"
+      "convertigo/engineering-workflow@1",
+      "convertigo/bootstrap-decision-matrix@1"
     ],
     "recommendedTools": [
       "project-list",
+      "project-list-symbols",
+      "crud-status",
       "databaseobject-tree-get",
-      "databaseobject-tree-apply",
-      "batch-call",
-      "requestable-execute",
-      "project-save"
+      "databaseobject-search",
+      "resources/templates/list",
+      "resources/read",
+      "prompts/list"
     ],
     "handoffTo": [
       "convertigo/planner@1",
@@ -31,35 +40,114 @@
     ],
     "outputContract": [
       "selectedGuides",
-      "nextActions",
+      "chosenRecipe",
+      "decisions",
+      "plannerBrief",
+      "nextRole",
+      "interactiveState",
       "mcpCritique"
     ],
     "mutatesProject": false
   },
   {
+    "name": "convertigo-crud-fastpath",
+    "file": "convertigo_crud_fastpath.md",
+    "title": "Convertigo CRUD Fast Path",
+    "description": "Recommended mono-agent rail for deterministic SQL CRUD plus starter NGX UI work.",
+    "promptId": "convertigo/crud-fastpath",
+    "revision": 1,
+    "roleId": "crud-fastpath",
+    "modelProfile": "balanced",
+    "scopeTags": [
+      "mono-agent",
+      "crud",
+      "sql",
+      "ngx",
+      "fast-path"
+    ],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/crud-fastpath@1",
+      "convertigo/crud-practical-cases@1",
+      "convertigo/validation-and-evidence@1"
+    ],
+    "recommendedTools": [
+      "resources/list",
+      "prompts/list",
+      "marketplace-import",
+      "mobile-builder-open",
+      "upsert-crud",
+      "crud-proof",
+      "upsert-ngx-crud-kit",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/quickstart@1",
+      "convertigo/planner@1"
+    ],
+    "outputContract": [
+      "spec",
+      "actions",
+      "proof",
+      "route",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
     "name": "convertigo-planner",
     "file": "convertigo_planner.md",
     "title": "Convertigo Planner",
-    "description": "Contract-first planner that selects a recipe, creates the minimal facade stub, and splits work for specialists.",
+    "description": "Contract-first planner for non-fast-path Convertigo work.",
     "promptId": "convertigo/planner",
-    "revision": 1,
+    "revision": 10,
     "roleId": "planner",
-    "scopeTags": ["planner", "contract-first", "parallel-delivery", "recipes"],
+    "modelProfile": "high",
+    "scopeTags": [
+      "planner",
+      "contract-first",
+      "parallel-delivery",
+      "recipes"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
-      "convertigo/contract-first-delivery@1",
+      "convertigo/bootstrap-decision-matrix@1",
+      "convertigo/contract-first-delivery@2",
       "convertigo/recipe-starter-extension@1",
       "convertigo/recipe-facade-stub@1",
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
+      "convertigo/fast-path-ngx-entry-shell@4",
+      "convertigo/recipe-ngx-data-page@4",
       "convertigo/backend-sequences@1",
       "convertigo/validation-and-evidence@1"
     ],
+    "fastPathRefs": [
+      "embedded-hsqldb",
+      "postgresql-service",
+      "mariadb-docker",
+      "starter-entry-page-replacement"
+    ],
+    "templateRefs": [
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
+      "convertigo/fast-path-ngx-entry-shell@4"
+    ],
     "recommendedTools": [
       "project-list",
+      "project-list-symbols",
+      "crud-status",
       "databaseobject-search",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
+      "upsert-crud",
+      "upsert-ngx-crud-kit",
+      "resources/templates/list",
+      "resources/read",
       "requestable-execute",
       "project-save"
     ],
@@ -72,10 +160,13 @@
     ],
     "outputContract": [
       "contract",
+      "selectedPattern",
       "stubStatus",
       "workSplit",
       "handoffs",
       "validationPlan",
+      "closureGates",
+      "interactiveState",
       "mcpCritique"
     ],
     "mutatesProject": true
@@ -86,9 +177,14 @@
     "title": "Convertigo Backend Specialist",
     "description": "Sequence specialist for facade requestables, orchestration, and stable response shaping.",
     "promptId": "convertigo/backend",
-    "revision": 1,
+    "revision": 8,
     "roleId": "backend",
-    "scopeTags": ["backend", "sequences", "facades"],
+    "modelProfile": "fast",
+    "scopeTags": [
+      "backend",
+      "sequences",
+      "facades"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -98,9 +194,13 @@
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
+      "crud-status",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "batch-call",
+      "upsert-crud",
+      "resources/templates/list",
+      "resources/read",
       "databaseobject-schema",
       "requestable-execute",
       "project-save"
@@ -112,7 +212,9 @@
       "convertigo/critic@1"
     ],
     "outputContract": [
+      "primaryTarget",
       "changedObjects",
+      "fastPathUsed",
       "runtimeEvidence",
       "openHandoff",
       "mcpCritique"
@@ -125,21 +227,44 @@
     "title": "Convertigo SQL Specialist",
     "description": "SQL connector and transaction specialist working behind an agreed facade contract.",
     "promptId": "convertigo/sql",
-    "revision": 1,
+    "revision": 8,
     "roleId": "sql",
-    "scopeTags": ["integration", "sql", "transactions"],
+    "modelProfile": "fast",
+    "scopeTags": [
+      "integration",
+      "sql",
+      "transactions"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
-      "convertigo/recipe-sql-crud@1",
+      "convertigo/recipe-sql-crud@3",
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3",
       "convertigo/backend-sequences@1",
       "convertigo/integration-sql@1",
       "convertigo/validation-and-evidence@1"
     ],
+    "fastPathRefs": [
+      "embedded-hsqldb",
+      "postgresql-service",
+      "mariadb-docker"
+    ],
+    "templateRefs": [
+      "convertigo/fast-path-sql-hsqldb@4",
+      "convertigo/fast-path-sql-postgresql@1",
+      "convertigo/fast-path-sql-mariadb@3"
+    ],
     "recommendedTools": [
+      "project-list-symbols",
+      "crud-status",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
+      "upsert-crud",
+      "resources/templates/list",
+      "resources/read",
       "databaseobject-schema",
       "requestable-execute",
       "log-view",
@@ -150,7 +275,9 @@
       "convertigo/critic@1"
     ],
     "outputContract": [
+      "primaryTarget",
       "changedObjects",
+      "fastPathUsed",
       "contractCheck",
       "runtimeEvidence",
       "openHandoff",
@@ -164,9 +291,14 @@
     "title": "Convertigo HTTP Specialist",
     "description": "HTTP connector and transaction specialist working behind an agreed facade contract.",
     "promptId": "convertigo/http",
-    "revision": 1,
+    "revision": 6,
     "roleId": "http",
-    "scopeTags": ["integration", "http", "transactions"],
+    "modelProfile": "fast",
+    "scopeTags": [
+      "integration",
+      "http",
+      "transactions"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -177,6 +309,7 @@
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
+      "project-list-symbols",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "databaseobject-schema",
@@ -189,7 +322,9 @@
       "convertigo/critic@1"
     ],
     "outputContract": [
+      "primaryTarget",
       "changedObjects",
+      "fastPathUsed",
       "contractCheck",
       "runtimeEvidence",
       "openHandoff",
@@ -203,22 +338,38 @@
     "title": "Convertigo Frontend NGX Specialist",
     "description": "NGX page and binding specialist working against a stable backend facade contract.",
     "promptId": "convertigo/frontend-ngx",
-    "revision": 1,
+    "revision": 7,
     "roleId": "frontend-ngx",
-    "scopeTags": ["frontend", "ngx", "ui", "bindings"],
+    "modelProfile": "fast",
+    "scopeTags": [
+      "frontend",
+      "ngx",
+      "ui",
+      "bindings"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
-      "convertigo/contract-first-delivery@1",
-      "convertigo/recipe-ngx-data-page@1",
+      "convertigo/contract-first-delivery@2",
+      "convertigo/recipe-ngx-data-page@4",
+      "convertigo/fast-path-ngx-entry-shell@4",
       "convertigo/frontend-ngx@1",
       "convertigo/validation-and-evidence@1"
     ],
+    "fastPathRefs": [
+      "starter-entry-page-replacement"
+    ],
+    "templateRefs": [
+      "convertigo/fast-path-ngx-entry-shell@4"
+    ],
     "recommendedTools": [
+      "crud-status",
+      "upsert-ngx-crud-kit",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
-      "batch-call",
+      "resources/templates/list",
+      "resources/read",
       "palette-list",
       "palette-describe",
       "mobile-builder-open",
@@ -228,8 +379,11 @@
       "convertigo/critic@1"
     ],
     "outputContract": [
+      "primaryTarget",
       "changedObjects",
+      "fastPathUsed",
       "uiStateCoverage",
+      "visibleDataBindingProof",
       "runtimeEvidenceOrSkip",
       "openHandoff",
       "mcpCritique"
@@ -240,11 +394,17 @@
     "name": "convertigo-critic",
     "file": "convertigo_critic.md",
     "title": "Convertigo Critic",
-    "description": "Inspection-only reviewer for guide compliance, evidence quality, and MCP UX gaps.",
+    "description": "Internal lab reviewer for MCP guide compliance, evidence quality, and UX gaps.",
     "promptId": "convertigo/critic",
-    "revision": 1,
+    "revision": 2,
     "roleId": "critic",
-    "scopeTags": ["review", "critic", "evidence", "ux"],
+    "modelProfile": "high",
+    "scopeTags": [
+      "review",
+      "critic",
+      "evidence",
+      "ux"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -274,11 +434,16 @@
     "name": "convertigo-maintainer",
     "file": "convertigo_maintainer.md",
     "title": "Convertigo Maintainer",
-    "description": "Single-cycle maintainer that turns aggregate findings into one committed candidate patch set.",
+    "description": "Internal lab maintainer that turns aggregate findings into one candidate patch set.",
     "promptId": "convertigo/maintainer",
-    "revision": 1,
+    "revision": 2,
     "roleId": "maintainer",
-    "scopeTags": ["maintainer", "improvement-cycle", "candidate"],
+    "modelProfile": "high",
+    "scopeTags": [
+      "maintainer",
+      "improvement-cycle",
+      "candidate"
+    ],
     "guideIds": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",

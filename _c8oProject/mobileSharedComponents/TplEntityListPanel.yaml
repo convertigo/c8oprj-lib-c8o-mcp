@@ -1,0 +1,99 @@
+comment: Template source for the CRUD entity list panel.
+↓Title [ngx.components.UICompVariable-1775063145971]: 
+  value: '''__DISPLAY_LABEL__'''
+↓EntityKey [ngx.components.UICompVariable-1775063145973]: 
+  value: '''__ENTITY_KEY__'''
+↓PrimaryField [ngx.components.UICompVariable-1775063145975]: 
+  value: '''__PRIMARY_FIELD__'''
+↓SecondaryField [ngx.components.UICompVariable-1775063145977]: 
+  value: '''__SECONDARY_FIELD__'''
+↓ActionLabel [ngx.components.UICompVariable-1775063145979]: 
+  value: '''New __ENTITY_SINGULAR__'''
+↓TplEntityListPanelCard [ngx.components.UIDynamicElement-1775063145981]: 
+  beanData: '{"ionBean":"Card"}'
+  tagName: ion-card
+  ↓TplEntityListPanelHeader [ngx.components.UIDynamicElement-1775063145983]: 
+    beanData: '{"ionBean":"CardHeader"}'
+    tagName: ion-card-header
+    ↓TplEntityListPanelTitle [ngx.components.UIDynamicElement-1775063145985]: 
+      beanData: '{"ionBean":"CardTitle"}'
+      tagName: ion-card-title
+      ↓TitleText [ngx.components.UIText-1775063145987]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__'
+    ↓TplEntityListPanelSubtitle [ngx.components.UIDynamicElement-1775063145989]: 
+      beanData: '{"ionBean":"CardSubTitle"}'
+      tagName: ion-card-subtitle
+      ↓SubtitleText [ngx.components.UIText-1775063145991]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:'Loaded ' + (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudCounts || {})[this.EntityKey] ?? (((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudRows || {})[this.EntityKey]) || [])).length ?? 0))) + ' rows'
+  ↓TplEntityListPanelContent [ngx.components.UIDynamicElement-1775063145993]: 
+    beanData: '{"ionBean":"CardContent"}'
+    tagName: ion-card-content
+    ↓NewButton [ngx.components.UIDynamicElement-1775063145995]: 
+      beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
+      tagName: ion-button
+      ↓NewButtonText [ngx.components.UIText-1775063145997]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:this.ActionLabel || 'New __ENTITY_SINGULAR__'
+      ↓Event [ngx.components.UIControlEvent-1775063145999]: 
+        ↓InvokeNew [ngx.components.UIDynamicInvoke-1775063146001]: 
+          beanData: '{"ionBean":"InvokeAction"}'
+          stack: __PROJECT_NAME__.Application.NgxApp.crud_new___ENTITY_SINGULAR__
+    ↓TplEntityListPanelEmpty [ngx.components.UIControlDirective-1775063146003]: 
+      directiveExpression: ((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudCounts || {})[this.EntityKey] ?? (((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudRows || {})[this.EntityKey]) || [])).length ?? 0)) === 0
+      directiveName: If
+      ↓TplEntityListPanelEmptyParagraph [ngx.components.UIDynamicElement-1775063148929]: 
+        beanData: '{"ionBean":"Paragraph"}'
+        tagName: p
+        ↓EmptyText [ngx.components.UIText-1775063148931]: 
+          textValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:No rows available yet.
+    ↓TplEntityListPanelList [ngx.components.UIDynamicElement-1775063148933]: 
+      beanData: '{"ionBean":"List"}'
+      tagName: ion-list
+      ↓TplEntityListPanelLoop [ngx.components.UIControlDirective-1775063148935]: 
+        directiveItemName: row
+        directiveSource: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: source:{"filter":"Iteration","project":"__PROJECT_NAME__","input":"(((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudRows || {})[this.EntityKey]) || [])"}
+        ↓TplEntityListPanelItem [ngx.components.UIDynamicElement-1775063148937]: 
+          beanData: '{"ionBean":"ListItem","Button":"plain:true"}'
+          tagName: ion-item
+          ↓TplEntityListPanelLabel [ngx.components.UIDynamicElement-1775063148939]: 
+            beanData: '{"ionBean":"Label"}'
+            tagName: ion-label
+            ↓TplEntityListPanelHeading [ngx.components.UIDynamicElement-1775063148941]: 
+              beanData: '{"ionBean":"Heading2"}'
+              tagName: h2
+              ↓HeadingText [ngx.components.UIText-1775063148943]: 
+                textValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: source:{"filter":"Iteration","project":"__PROJECT_NAME__","input":"(row?.[this.PrimaryField] ?? row?.[(('' + (this.PrimaryField || '')).toUpperCase())] ?? row?.[(('' + (this.PrimaryField || '')).toLowerCase())] ?? 'No primary value')"}
+            ↓TplEntityListPanelParagraph [ngx.components.UIDynamicElement-1775063148945]: 
+              beanData: '{"ionBean":"Paragraph"}'
+              tagName: p
+              ↓ParagraphText [ngx.components.UIText-1775063148947]: 
+                textValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: source:{"filter":"Iteration","project":"__PROJECT_NAME__","input":"(row?.[this.SecondaryField] ?? row?.[(('' + (this.SecondaryField || '')).toUpperCase())] ?? row?.[(('' + (this.SecondaryField || '')).toLowerCase())] ?? 'No secondary value')"}
+          ↓Event [ngx.components.UIControlEvent-1775063148949]: 
+            ↓InvokeSelect [ngx.components.UIDynamicInvoke-1775063148951]: 
+              beanData: '{"ionBean":"InvokeAction"}'
+              stack: __PROJECT_NAME__.Application.NgxApp.crud_select___ENTITY_SINGULAR__
+              ↓row_id [ngx.components.UIControlVariable-1775063150497]: 
+                varValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: source:{"filter":"Iteration","project":"__PROJECT_NAME__","input":"row?.ID ?? row?.id"}

@@ -35,6 +35,11 @@ Examples from product docs:
 - MariaDB can often substitute for MySQL and avoids some licensing friction
 - JNDI mode removes direct JDBC driver use and has its own environment setup
 
+Fast-path coverage in the current MCP toolchain:
+- `upsert-crud` supports `hsqldb`, `postgresql`, `mariadb`, `mysql`, `sqlserver`, and `oracle`
+- literal template guides are currently strongest for `hsqldb`, `postgresql`, and `mariadb`
+- `mysql`, `sqlserver`, and `oracle` are supported by the deterministic engine first, then enriched with deeper examples when needed
+
 Why this matters:
 - the CRUD pattern may stay the same, but the connector bootstrap details do not
 

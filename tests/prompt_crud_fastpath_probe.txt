@@ -1,0 +1,88 @@
+This is a mono-agent CRUD fast-path probe.
+- Benchmark policy: the runner already injected `convertigo-crud-fastpath`.
+- Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Target project: `__TARGET_PROJECT__`
+- Mutate only `__TARGET_PROJECT__`.
+
+Create or update a standard SQL CRUD + starter NGX project for `__TARGET_PROJECT__` with this explicit HSQLDB spec:
+
+```json
+{
+  "project": "__TARGET_PROJECT__",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "crudexecfastpath",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "crm",
+    "publicListSequence": "crm_list"
+  },
+  "entities": [
+    {
+      "name": "contacts",
+      "label": "Contacts",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "type": "VARCHAR(128)" },
+        { "name": "LastName", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "CompanyId", "column": "company_id", "type": "INT", "required": true, "references": { "entity": "companies", "field": "id" } }
+      ]
+    },
+    {
+      "name": "companies",
+      "label": "Companies",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Industry", "type": "VARCHAR(128)" },
+        { "name": "City", "type": "VARCHAR(128)" }
+      ]
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "profile": "crm",
+    "rowsPerEntity": 20
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "master-detail"
+  }
+}
+```
+
+Required proof requestables:
+- `init_schema`
+- `list_contacts`
+- `count_contacts`
+- `list_companies`
+- `count_companies`
+- `list_company_contacts`
+
+Required workflow:
+1. Stay on the standard CRUD fast path. Do not call planner, critic, maintainer, or specialist prompts.
+2. Use the exact project name `__TARGET_PROJECT__`.
+3. Run `marketplace-import` first for `template_ngxBuilderIonic` with the exact project name above.
+4. Run `mobile-builder-open` immediately and keep the returned live dev `viewerUrl`.
+5. Run `upsert-crud`.
+6. Run `crud-proof` with the proof requestables above.
+7. If backend proof fails, stop with `RESULT: FAIL`.
+8. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
+9. Run `mobile-builder-open` again. If it returns `compile_error`, stop with `RESULT: FAIL` and report the compile errors. Do not patch generated frontend artifacts.
+10. Run `upsert-ngx-crud-kit` with `stage=final`.
+11. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
+12. Save the project if a mutation occurred and a final save is still needed.
+13. Stop after the first successful final `crud-proof` plus seeded demo data. Do not start a second refinement pass.
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.
+- Otherwise `RESULT: FAIL` with the failing step and the most useful tool response snippets.
+- End with one short `MCP critique` item.

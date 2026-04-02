@@ -1,0 +1,27 @@
+comment: Template source for the CRUD page header.
+↓Title [ngx.components.UICompVariable-1775063141437]: 
+  value: '''__DISPLAY_LABEL__'''
+↓Subtitle [ngx.components.UICompVariable-1775063141439]: 
+  value: '''Live CRUD template preview'''
+↓TplCrudPageHeaderCard [ngx.components.UIDynamicElement-1775063141441]: 
+  beanData: '{"ionBean":"Card"}'
+  tagName: ion-card
+  ↓TplCrudPageHeaderHeader [ngx.components.UIDynamicElement-1775063144367]: 
+    beanData: '{"ionBean":"CardHeader"}'
+    tagName: ion-card-header
+    ↓TplCrudPageHeaderTitleSlot [ngx.components.UIDynamicElement-1775063144369]: 
+      beanData: '{"ionBean":"CardTitle"}'
+      tagName: ion-card-title
+      ↓TitleText [ngx.components.UIText-1775063144371]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__'
+    ↓TplCrudPageHeaderSubtitleSlot [ngx.components.UIDynamicElement-1775063144373]: 
+      beanData: '{"ionBean":"CardSubTitle"}'
+      tagName: ion-card-subtitle
+      ↓SubtitleText [ngx.components.UIText-1775063144375]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: 'script:this.Subtitle || (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudStatus === ''ok'' ? ''Public facade data is live.'' : (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudLoading ? ''Loading public facade...'' : (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudError || ''Preparing public facade state.'')))'

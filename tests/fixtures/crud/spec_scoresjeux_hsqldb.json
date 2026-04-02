@@ -1,0 +1,157 @@
+{
+  "project": "ScoresJeux",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "scores_jeux",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "score",
+    "publicListSequence": "score_list"
+  },
+  "relations": [
+    {
+      "name": "session_game",
+      "type": "many-to-one",
+      "fromEntity": "sessions",
+      "fromField": "game_id",
+      "toEntity": "games",
+      "toField": "id",
+      "required": true,
+      "label": "Game"
+    },
+    {
+      "name": "score_player",
+      "type": "many-to-one",
+      "fromEntity": "scores",
+      "fromField": "player_id",
+      "toEntity": "players",
+      "toField": "id",
+      "required": true,
+      "label": "Player"
+    },
+    {
+      "name": "score_session",
+      "type": "many-to-one",
+      "fromEntity": "scores",
+      "fromField": "session_id",
+      "toEntity": "sessions",
+      "toField": "id",
+      "required": true,
+      "label": "Session"
+    }
+  ],
+  "entities": [
+    {
+      "name": "players",
+      "label": "Players",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "DisplayName", "column": "display_name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "City", "type": "VARCHAR(128)" },
+        { "name": "FavoriteGenre", "column": "favorite_genre", "type": "VARCHAR(128)" }
+      ],
+      "ui": {
+        "listFields": ["display_name", "city"],
+        "detailFields": ["display_name", "favorite_genre", "city"],
+        "formFields": ["display_name", "city", "favorite_genre"],
+        "fieldLabels": {
+          "display_name": "Display name",
+          "favorite_genre": "Favorite genre"
+        },
+        "actionLabel": "Save player profile"
+      }
+    },
+    {
+      "name": "games",
+      "label": "Games",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Title", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Genre", "type": "VARCHAR(128)" },
+        { "name": "Platform", "type": "VARCHAR(128)" }
+      ],
+      "ui": {
+        "listFields": ["title", "platform"],
+        "detailFields": ["title", "genre", "platform"],
+        "formFields": ["title", "genre", "platform"]
+      }
+    },
+    {
+      "name": "sessions",
+      "label": "Sessions",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "GameId", "column": "game_id", "type": "INT", "required": true, "references": { "entity": "games", "field": "id" } },
+        { "name": "Venue", "type": "VARCHAR(128)" },
+        { "name": "ScheduledDay", "column": "scheduled_day", "type": "VARCHAR(64)" }
+      ],
+      "ui": {
+        "listFields": ["venue", "game_id"],
+        "detailFields": ["venue", "scheduled_day", "game_id"],
+        "formFields": ["venue", "scheduled_day", "game_id"],
+        "fieldLabels": {
+          "game_id": "Game",
+          "scheduled_day": "Scheduled day"
+        },
+        "relationFields": {
+          "game_id": {
+            "control": "select",
+            "optionLabelField": "title",
+            "optionValueField": "id",
+            "placeholder": "Select game"
+          }
+        }
+      }
+    },
+    {
+      "name": "scores",
+      "label": "Scores",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "PlayerId", "column": "player_id", "type": "INT", "required": true, "references": { "entity": "players", "field": "id" } },
+        { "name": "SessionId", "column": "session_id", "type": "INT", "required": true, "references": { "entity": "sessions", "field": "id" } },
+        { "name": "Points", "type": "INT", "required": true },
+        { "name": "Badge", "type": "VARCHAR(128)" }
+      ],
+      "ui": {
+        "listFields": ["player_id", "session_id", "points"],
+        "detailFields": ["points", "badge", "player_id", "session_id"],
+        "formFields": ["points", "badge", "player_id", "session_id"],
+        "fieldLabels": {
+          "player_id": "Player",
+          "session_id": "Session"
+        },
+        "actionLabel": "Save score",
+        "relationFields": {
+          "player_id": {
+            "control": "select",
+            "optionLabelField": "display_name",
+            "optionValueField": "id",
+            "placeholder": "Select player"
+          },
+          "session_id": {
+            "control": "autocomplete",
+            "optionLabelField": "venue",
+            "optionValueField": "id",
+            "placeholder": "Search session"
+          }
+        }
+      }
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 6
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "entity-pages"
+  }
+}

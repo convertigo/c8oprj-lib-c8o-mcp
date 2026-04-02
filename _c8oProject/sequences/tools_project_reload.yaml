@@ -11,7 +11,7 @@ comment: |
     'var providedName = C8O.util.toTrimmedString(project);
     var fromJsonFlag = C8O.util.toBoolean(fromJson, false) === true;
     if (!providedName.length && context && context.project) {
-      providedName = String(context.project.getName());
+      providedName = currentProjectName;
     }
     
     var errorEntries = [];

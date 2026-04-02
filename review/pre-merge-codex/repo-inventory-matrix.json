@@ -1,0 +1,122 @@
+[
+  {
+    "surface": "_c8oProject/",
+    "classification": "public product",
+    "decision": "keep",
+    "rationale": "Canonical Convertigo source for public MCP sequences, router, and internal runtime support."
+  },
+  {
+    "surface": "js/",
+    "classification": "public product",
+    "decision": "keep-and-redesign",
+    "rationale": "Owns the Rhino implementation of public MCP behavior."
+  },
+  {
+    "surface": "resources/",
+    "classification": "public product",
+    "decision": "keep-and-tighten",
+    "rationale": "Public guide surface served by MCP. Must stay aligned with live behavior."
+  },
+  {
+    "surface": "prompts/",
+    "classification": "public product",
+    "decision": "keep-and-tighten",
+    "rationale": "Public prompt surface served by MCP."
+  },
+  {
+    "surface": "readme.md",
+    "classification": "public product",
+    "decision": "keep-minimal",
+    "rationale": "Short repo entry point. Should defer to live MCP catalog for detailed usage."
+  },
+  {
+    "surface": "AGENT.md",
+    "classification": "maintainer",
+    "decision": "keep-generated",
+    "rationale": "Useful maintainer brief, now generated from the live MCP catalog through _refreshMaintainerDocs."
+  },
+  {
+    "surface": "knowledge/",
+    "classification": "maintainer",
+    "decision": "keep",
+    "rationale": "Editor-first knowledge workflow and templates used by maintainers, not by product users."
+  },
+  {
+    "surface": "tests/",
+    "classification": "internal lab",
+    "decision": "keep-with-explicit-subsets",
+    "rationale": "Contains valuable repeatability and validation scripts, but the whole folder is not a product onboarding surface."
+  },
+  {
+    "surface": "review/",
+    "classification": "internal lab",
+    "decision": "keep-and-archive-history-explicitly",
+    "rationale": "Useful audit history and scorecards, but not public product documentation."
+  },
+  {
+    "surface": "TOOLS.md",
+    "classification": "maintainer/public companion",
+    "decision": "keep-short-generated",
+    "rationale": "Generated live-catalog companion for maintainers and reviewers; keep it short and never hand-maintain it."
+  },
+  {
+    "surface": "REVIEW-ROADMAP.md",
+    "classification": "maintainer",
+    "decision": "keep",
+    "rationale": "Still useful as strategy/history, but should not be read as product contract."
+  },
+  {
+    "surface": "project.md",
+    "classification": "historical/generated",
+    "decision": "de-emphasize-or-retire",
+    "rationale": "Generated project export; includes internal details and lags behind the curated MCP surface."
+  },
+  {
+    "surface": "readme.ftl",
+    "classification": "historical/generated-source",
+    "decision": "delete-candidate",
+    "rationale": "Only useful if generated README export is still part of the maintained workflow."
+  },
+  {
+    "surface": "sample.sh",
+    "classification": "historical/manual-debug",
+    "decision": "delete-now",
+    "rationale": "Legacy manual curl helper; not part of the reviewed MCP workflow and removed in this cleanup."
+  },
+  {
+    "surface": "js/custom.js",
+    "classification": "historical/generated",
+    "decision": "keep-for-now",
+    "rationale": "Legacy Convertigo web asset still referenced by the historical index.html surface."
+  },
+  {
+    "surface": "index.html",
+    "classification": "historical/generated",
+    "decision": "keep-for-now",
+    "rationale": "Historical Convertigo web asset kept for compatibility with legacy project exports."
+  },
+  {
+    "surface": "css/",
+    "classification": "historical/generated",
+    "decision": "keep-for-now",
+    "rationale": "Companion legacy web asset surface kept together with index.html for historical Convertigo compatibility."
+  },
+  {
+    "surface": "work/",
+    "classification": "internal scratch",
+    "decision": "delete-now",
+    "rationale": "One-off scratch surface removed in this cleanup."
+  },
+  {
+    "surface": "ConvertigoMCP.xsd",
+    "classification": "historical/generated-metadata",
+    "decision": "keep-for-now",
+    "rationale": "Likely engine-exported metadata; not public product truth but may still be expected by Convertigo tooling."
+  },
+  {
+    "surface": "c8oProject.yaml",
+    "classification": "public product",
+    "decision": "keep",
+    "rationale": "Canonical exported project manifest."
+  }
+]

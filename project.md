@@ -158,6 +158,92 @@ comment
 <details><summary><span style="color:DarkGoldenRod"><i>Sequences</i></span></summary><blockquote><p>
 
 
+<details><summary><b>_refreshMaintainerDocs</b> : Refresh generated maintainer docs from the live MCP catalog</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") _refreshMaintainerDocs
+
+Refresh generated maintainer docs from the live MCP catalog
+Generates AGENT.md and TOOLS.md from repo templates filled with live MCP facts captured through the internal MCP sequences.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;docsRoot
+</td>
+<td>
+Optional output root. Defaults to the ConvertigoMCP project root.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;dryRun
+</td>
+<td>
+Set true to render the generated files without writing them.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>_setupCodex</b> : Setup local Codex onboarding for this MCP project</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") _setupCodex
+
+Setup local Codex onboarding for this MCP project
+Generates or updates the local convertigo-generalist skill under ~/.codex/skills and minimally patches ~/.codex/config.toml to register the convertigo MCP server.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;codexHome
+</td>
+<td>
+Optional Codex home directory. Defaults to ~/.codex on the local Studio machine.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;dryRun
+</td>
+<td>
+Set true to preview the generated skill and config patch without writing files.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;mcpUrl
+</td>
+<td>
+Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>internal_call</b> : used for internal call</summary><blockquote><p>
 
 
@@ -644,6 +730,44 @@ Resource URI to read
 
 </p></blockquote></details>
 
+<details><summary><b>mcp_resources_templates_list</b> : Handles MCP resources/templates/list requests</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") mcp_resources_templates_list
+
+Handles MCP resources/templates/list requests
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;_nextCursor
+</td>
+<td>
+Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;cursor
+</td>
+<td>
+Optional pagination cursor
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>mcp_tools_list</b> : Handles MCP tools/list calls</summary><blockquote><p>
 
 
@@ -755,6 +879,188 @@ Default true. Defers refresh, save, and mobile-builder finalization until the ba
 </td>
 <td>
 Zero-based call index to resume from after a previous partial run.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_crud_proof</b> : Prove deterministic CRUD state</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_crud_proof
+
+Prove deterministic CRUD state
+Combines CRUD status, requestable execution summaries, UI shell checks, and mobile builder readiness diagnostics for the mono-agent fast path.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;connector
+</td>
+<td>
+Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;entryPage
+</td>
+<td>
+Visible entry page name. Defaults to Page.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;expectUiShell
+</td>
+<td>
+Set true to require visible shell evidence, mobile builder readiness, and starter replacement on the entry page.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;facadePrefix
+</td>
+<td>
+Optional public CRUD sequence prefix. Defaults to crud.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;mode
+</td>
+<td>
+Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;profile
+</td>
+<td>
+Optional CRUD profile hint, for example crm.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Existing project technical name.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;proofRequestables
+</td>
+<td>
+Requestables to execute as proof. Accepts a JSON array string, an array-like object, or a comma-separated string.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;variant
+</td>
+<td>
+Optional UI variant hint used when checking visible CRUD shell coverage.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;viewerUrl
+</td>
+<td>
+Optional viewer URL returned by mobile-builder-open. In dev this should be the live viewer root or home URL, not a DisplayObjects/mobile production path. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle and builder state.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_crud_status</b> : Inspect deterministic CRUD status</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_crud_status
+
+Inspect deterministic CRUD status
+Returns the current CRUD scaffold status for a project, connector, facade prefix, and visible UI target.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;connector
+</td>
+<td>
+Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;entryPage
+</td>
+<td>
+Visible entry page name. Defaults to Page.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;facadePrefix
+</td>
+<td>
+Optional public CRUD sequence prefix. Defaults to crud.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;mode
+</td>
+<td>
+Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;profile
+</td>
+<td>
+Optional CRUD profile hint, for example crm.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Existing project technical name.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;variant
+</td>
+<td>
+Optional UI variant hint used when checking visible CRUD shell coverage.
 </td>
 </tr>
 </table>
@@ -1651,7 +1957,7 @@ Optional topic filter. Accepts a single topic, a comma-separated list, or a JSON
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_mobile_builder_open
 
 Start or reconnect to the NGX mobile builder
-Ensures the NGX builder is running and returns the detected live-reload URL plus readiness diagnostics. Use forceRestart only when the current builder is stuck or on the wrong state.
+Ensures the NGX builder is running and returns readiness diagnostics plus viewerBaseUrl, viewerHomeUrl, viewerUrl, and structured compileErrors. Use viewerHomeUrl or viewerBaseUrl for the live dev app; reserve DisplayObjects/mobile/home for production builds. If the live app fails to compile, this tool should return compile_error quickly instead of waiting for a blind timeout. Use forceRestart only when the current builder is stuck or on the wrong state.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -1693,7 +1999,7 @@ Existing NGX project name.
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;timeoutSec
 </td>
 <td>
-Seconds to wait for a live-reload URL. Default 90; max 600.
+Seconds to wait for readiness or compile_error. Default 90; max 600.
 </td>
 </tr>
 </table>
@@ -2022,6 +2328,61 @@ Case-insensitive filter on project name and comment.
 </td>
 <td>
 Maximum projects returned per call. 1 to 100; default 10.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_project_list_symbols</b> : List project and global symbols</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_project_list_symbols
+
+List project and global symbols
+Returns symbol references, project defaults, and global symbol visibility for one project or all loaded projects.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;filter
+</td>
+<td>
+Optional case-insensitive filter on symbol name.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;includeValues
+</td>
+<td>
+Set true to include full symbol values. Default false masks values in previews.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Optional project technical name. Omit to scan all loaded projects.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;scope
+</td>
+<td>
+Optional symbol scope. Defaults to project when project is provided, otherwise all.
 </td>
 </tr>
 </table>
@@ -2616,6 +2977,145 @@ Set to true to treat warnings as errors.
 </td>
 </tr>
 </table>
+<details><summary><b>tools_upsert_crud</b> : Create or update deterministic CRUD scaffolding</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_upsert_crud
+
+Create or update deterministic CRUD scaffolding
+Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;sequence
+</td>
+<td>
+Set true to create or update public CRUD sequences in addition to SQL transactions.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;spec
+</td>
+<td>
+Structured CRUD specification including project, database, facade, entities, seed, and UI options. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;ui
+</td>
+<td>
+Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>tools_upsert_ngx_crud_kit</b> : Create or update a deterministic NGX CRUD kit</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_upsert_ngx_crud_kit
+
+Create or update a deterministic NGX CRUD kit
+Replaces the visible starter entry page content with a deterministic CRUD shell, staged bootstrap/final markers, shared actions, and global UI state. Prefer entity-pages for generic CRUD, keep dashboard only for compatibility, and use master-detail for the CRM rail.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;entities
+</td>
+<td>
+Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;entryPage
+</td>
+<td>
+Visible entry page name. Defaults to Page.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;facadePrefix
+</td>
+<td>
+Public CRUD facade prefix used for shell labels and future wiring.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
+</td>
+<td>
+Existing NGX project technical name.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;runtimeEvidence
+</td>
+<td>
+Optional runtime evidence object or JSON string used to surface live counts in the shell.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;stage
+</td>
+<td>
+UI assembly stage. Use bootstrap for the first visible shell, then final after proof.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;variant
+</td>
+<td>
+UI variant, for example dashboard, list-form, or master-detail.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+</p></blockquote></details>
+
+<details><summary><span style="color:DarkGoldenRod"><i>Mobile Application</i></span></summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/core/images/mobileapplication_color_16x16.png?raw=true "MobileApplication") Application
+
+
+
+<details><summary><span style="color:DarkGoldenRod"><i>Pages</i></span></summary><blockquote><p>
+
+
+### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/ngx/components/images/pagecomponent_color_16x16.png?raw=true "PageComponent") Home
+
 
 </p></blockquote></details>
 </p></blockquote></details>

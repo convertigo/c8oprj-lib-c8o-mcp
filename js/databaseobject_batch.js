@@ -19,6 +19,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
   include("js/databaseobject.js");
 }
 include("js/databaseobject_ops.js");
+include("js/crud_ui_refresh.js");
 
 (function () {
   if (typeof C8O === "undefined") {
@@ -474,6 +475,27 @@ include("js/databaseobject_ops.js");
     ctx.summary[kind] = (ctx.summary[kind] || 0) + 1;
   }
 
+  function pushReportWarning(report, message) {
+    var text = asTrimmed(message);
+    if (!text.length) {
+      return;
+    }
+    report.warnings = Array.isArray(report.warnings) ? report.warnings : [];
+    if (report.warnings.indexOf(text) < 0) {
+      report.warnings.push(text);
+    }
+  }
+
+  function warnIfManagedCrudTarget(ctx, dbo, report) {
+    if (!dbo || !C8O.crudUiRefresh || typeof C8O.crudUiRefresh.managedCrudMutationWarning !== "function") {
+      return;
+    }
+    var warning = C8O.crudUiRefresh.managedCrudMutationWarning({
+      trimmed: asTrimmed
+    }, dbo);
+    pushReportWarning(report, warning);
+  }
+
   function registerRef(ctx, refId, dbo) {
     var id = asTrimmed(refId);
     if (!id.length || !dbo) {
@@ -581,7 +603,7 @@ include("js/databaseobject_ops.js");
     return result;
   }
 
-  function getChildMapByName(parentDbo, warnings, parentQName) {
+  function getChildMapByName(parentDbo, warnings, parentQName, ctx) {
     var map = {};
     var duplicates = {};
     var children = getDirectChildren(parentDbo);
@@ -821,7 +843,7 @@ include("js/databaseobject_ops.js");
       return;
     }
 
-    var runtimeChildMap = getChildMapByName(parentDbo, report.warnings, parentQName);
+    var runtimeChildMap = getChildMapByName(parentDbo, report.warnings, parentQName, ctx);
     var desiredNames = [];
     var desiredNameSet = {};
 
@@ -959,6 +981,7 @@ include("js/databaseobject_ops.js");
     var name = asTrimmed(resolveRefsInValue(ctx, op.name));
     var children = parseChildrenInput(op.children, "create.children", []);
     var createCtx = resolveCreateContext(relatedDbo, mode);
+    warnIfManagedCrudTarget(ctx, createCtx.parent, report);
 
     if (!className.length) {
       throw makeOpError("validation_error", "create operation requires className", "validate", "", relatedQName);
@@ -1036,6 +1059,7 @@ include("js/databaseobject_ops.js");
       throw makeOpError("validation_error", "setProperties operation requires qname (or global target)", "validate", "", "");
     }
     var dbo = C8O.dbo.resolve(qname, { messagePrefix: "qname" });
+    warnIfManagedCrudTarget(ctx, dbo, report);
     applyProperties(ctx, dbo, op.properties, qname, report);
   }
 
@@ -1059,6 +1083,7 @@ include("js/databaseobject_ops.js");
 
     var strategy = normalizeStrategy(op.strategy, ctx.strategy);
     var root = C8O.dbo.resolve(qname, { messagePrefix: "qname" });
+    warnIfManagedCrudTarget(ctx, root, report);
 
     if (patch.id !== undefined) {
       registerRef(ctx, patch.id, root);

@@ -84,7 +84,7 @@ var startOffset = parseIntBounded(_nextCursor, 0, 0, 1000000000);
 var includePropertiesFlag = propertiesMode !== "none";
 
 var root = C8O.dbo.resolve(targetQName, { messagePrefix: "target" });
-var rootQName = C8O.dbo.safeQName(root);
+var rootQName = C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(root) : C8O.dbo.safeQName(root);
 
 var subtreeCountCache = {};
 function countSubtreeNodes(dbo) {
@@ -107,7 +107,7 @@ function countSubtreeNodes(dbo) {
 function buildNodeMeta(dbo, depth) {
   var children = C8O.dbo.getDirectChildren(dbo);
   var meta = {
-    qname: C8O.dbo.safeQName(dbo),
+    qname: C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(dbo) : C8O.dbo.safeQName(dbo),
     name: C8O.dbo.safeName(dbo),
     className: C8O.dbo.logicalClassNameForDbo(dbo),
     depth: depth,

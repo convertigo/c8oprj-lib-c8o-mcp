@@ -1,0 +1,27 @@
+accessibility: Private
+comment: |
+  Refresh generated maintainer docs from the live MCP catalog
+  Generates AGENT.md and TOOLS.md from repo templates filled with live MCP facts captured through the internal MCP sequences.
+↓IncludeHelpers [steps.SimpleStep-1773672208714]: 
+  comment: Load the maintainer docs refresh helper.
+  expression: include("js/maintainer_docs.js");
+↓result [steps.JsonToXmlStep-1773672208721]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: refreshMaintainerDocsResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓docsRoot [variables.RequestableVariable-1773672208737]: 
+  comment: Optional output root. Defaults to the ConvertigoMCP project root.
+  description: Optional output root. Defaults to the ConvertigoMCP project root.
+↓dryRun [variables.RequestableVariable-1773672208751]: 
+  comment: Set true to render the generated files without writing them.
+  description: Set true to render the generated files without writing them.
+  value: false

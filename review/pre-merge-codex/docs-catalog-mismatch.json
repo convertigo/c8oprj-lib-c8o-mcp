@@ -1,0 +1,18 @@
+[
+  {
+    "source": "project.md",
+    "reference": "project.md",
+    "severity": "safe-follow-up",
+    "issue": "The generated project export still exists at repo root and can still be mistaken for maintained documentation even though readme.md now de-emphasizes it.",
+    "impact": "Adds a parallel doc surface with lower trust than the curated MCP catalog.",
+    "action": "Keep it clearly non-canonical or retire it from the main branch if Convertigo tooling does not require it."
+  },
+  {
+    "source": "TOOLS.md",
+    "reference": "TOOLS.md",
+    "severity": "safe-follow-up",
+    "issue": "TOOLS.md is now generated from the live catalog, but it still duplicates public tool/resource/prompt data that already exists in MCP.",
+    "impact": "Generated duplication is safer than drift, but it is still an extra companion surface to maintain.",
+    "action": "Keep it short and generated only; avoid reintroducing manual sections or long workflow prose."
+  }
+]

@@ -1,0 +1,530 @@
+[
+  {
+    "surface": "js/tools_crud.js",
+    "classification": "public product",
+    "currentRole": "Owns the public CRUD tool facade and thin orchestration glue, delegating spec/seed/runtime/backend/ui/proof/viewer helpers to domain modules.",
+    "currentSize": {
+      "linesApprox": 1609,
+      "functionsApprox": 56
+    },
+    "problems": [
+      "Still mixes public tool wrappers, shared helper glue, and some remaining cross-domain utility code.",
+      "The file is much safer than before, but it is not yet the tiny facade target implied by the redesign.",
+      "Remaining growth should be blocked so future feature work lands in domain modules first."
+    ],
+    "decision": "split",
+    "targetModules": [
+      "js/crud_spec.js",
+      "js/crud_naming.js",
+      "js/crud_seed.js",
+      "js/crud_backend.js",
+      "js/crud_ui_nodes.js",
+      "js/crud_ui_state.js",
+      "js/crud_ui_meta.js",
+      "js/crud_ui_shared.js",
+      "js/crud_ui_pages.js",
+      "js/crud_ui_actions.js",
+      "js/crud_ui_dashboard.js",
+      "js/crud_ui_crm.js",
+      "js/crud_ui_crm_actions.js",
+      "js/crud_ui_kit.js",
+      "js/crud_proof.js",
+      "js/crud_viewer.js",
+      "js/crud_ui_refresh.js",
+      "js/crud_ui_audit.js"
+    ],
+    "boundaryRule": "Keep js/tools_crud.js as a thin orchestration facade only."
+  },
+  {
+    "surface": "js/crud_naming.js",
+    "classification": "public product",
+    "currentRole": "Shared CRUD naming and semantic-token helpers for pluralization, entity naming normalization, humanized labels, and semantic field/entity matching.",
+    "problems": [
+      "Should remain a pure naming/semantic utility layer and avoid absorbing CRUD orchestration, SQL rendering, or UI assembly."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_naming.js"
+    ],
+    "boundaryRule": "Naming and semantic-token helpers only; keep spec normalization side effects, SQL generation, and UI assembly outside this file."
+  },
+  {
+    "surface": "js/crud_seed.js",
+    "classification": "public product",
+    "currentRole": "Realistic demo-data generation helpers used by CRUD SQL seed rendering.",
+    "problems": [
+      "Should stay limited to sample value generation and seed SQL helpers, without absorbing broader CRUD orchestration."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_seed.js"
+    ],
+    "boundaryRule": "Seed generation only; keep requestable/UI/proof logic out of this file."
+  },
+  {
+    "surface": "js/crud_spec.js",
+    "classification": "public product",
+    "currentRole": "CRUD spec normalization helpers for drivers, entities, naming, and CRM defaults.",
+    "problems": [
+      "Should remain focused on spec normalization and not absorb SQL rendering, UI generation, or requestable proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_spec.js"
+    ],
+    "boundaryRule": "Spec parsing and normalization only; keep orchestration and side effects in js/tools_crud.js."
+  },
+  {
+    "surface": "js/crud_backend.js",
+    "classification": "public product",
+    "currentRole": "SQL CRUD rendering and backend orchestration helpers for connectors, transactions, requestable variables, public facade sequences, and top-level CRUD backend upsert flow.",
+    "problems": [
+      "Must stay focused on backend SQL and requestable scaffolding, without absorbing seed heuristics, UI assembly, or viewer proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_backend.js"
+    ],
+    "boundaryRule": "Backend CRUD SQL and requestable scaffolding only; keep orchestration, UI, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_nodes.js",
+    "classification": "public product",
+    "currentRole": "Pure NGX node-builder helpers for shared variables, smart values, directives, actions, and shared-component usage.",
+    "problems": [
+      "Must remain a pure builder layer and avoid absorbing page-specific CRUD layouts or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_nodes.js"
+    ],
+    "boundaryRule": "Pure UI node/value builders only; keep page assembly and CRUD orchestration elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_state.js",
+    "classification": "public product",
+    "currentRole": "State/global-expression helpers for CRUD and CRM UI variants, including bootstrap markers and global access expressions.",
+    "problems": [
+      "Must remain focused on state expression composition and avoid absorbing page layout or action orchestration."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_state.js"
+    ],
+    "boundaryRule": "Global state names, QNames, and expression helpers only; keep page assembly and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_shared.js",
+    "classification": "public product",
+    "currentRole": "Shared component builders for dashboard and entity-pages CRUD variants, including list/detail/form shells bound to global state.",
+    "problems": [
+      "Must remain limited to shared component assembly and avoid absorbing page shell, action stack, or proof orchestration."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_shared.js"
+    ],
+    "boundaryRule": "Shared component assembly only; keep page shells, actions, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_pages.js",
+    "classification": "public product",
+    "currentRole": "Page-shell and page-load builders for dashboard and entity-pages variants, including landing navigation shells and per-entity page roots.",
+    "problems": [
+      "Must stay focused on page/root assembly and avoid absorbing shared component definitions, action scripts, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_pages.js"
+    ],
+    "boundaryRule": "Page and route shell assembly only; keep shared components, state expressions, and action orchestration elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_actions.js",
+    "classification": "public product",
+    "currentRole": "State-mutating action-script and action-stack builders for the entity-pages CRUD variant, including bootstrap, refresh, navigation, save, and delete flows.",
+    "problems": [
+      "Must stay focused on action script assembly and avoid absorbing shared component, page shell, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_actions.js"
+    ],
+    "boundaryRule": "Entity-pages action script and action-stack assembly only; keep page shells, state expressions, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_dashboard.js",
+    "classification": "public product",
+    "currentRole": "Dashboard-variant action scripts and page-script builders for the legacy single-page CRUD UI.",
+    "problems": [
+      "Must stay focused on dashboard bootstrap/refresh/page-script logic and avoid absorbing entity-pages actions, shared component definitions, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_dashboard.js"
+    ],
+    "boundaryRule": "Legacy dashboard script/action assembly only; keep shared components, page shells, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_crm.js",
+    "classification": "public product",
+    "currentRole": "CRM master-detail shared components, page shell, and page-load builders bound to CRM global state.",
+    "problems": [
+      "Must stay focused on CRM visual assembly and avoid absorbing CRM action stacks, backend relation scaffolding, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_crm.js"
+    ],
+    "boundaryRule": "CRM visual shell and shared component assembly only; keep CRM actions and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_crm_actions.js",
+    "classification": "public product",
+    "currentRole": "CRM master-detail action-stack builders for refresh, selection, bootstrap, and retry flows bound to CRM global state.",
+    "problems": [
+      "Must stay focused on CRM action stacks and avoid absorbing CRM visual shell, backend relation scaffolding, or proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_crm_actions.js"
+    ],
+    "boundaryRule": "CRM action-stack assembly only; keep CRM shared components, page shells, and proof logic elsewhere."
+  },
+  {
+    "surface": "js/crud_proof.js",
+    "classification": "public product",
+    "currentRole": "CRUD status/proof orchestration and helper functions for requestable execution summaries, sql_output extraction, UI proof, and proof-requestable normalization.",
+    "problems": [
+      "Should stay focused on status/proof and runtime inspection helpers and avoid absorbing UI page assembly or CRUD mutation logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_proof.js"
+    ],
+    "boundaryRule": "CRUD status/proof and runtime inspection only; keep CRUD mutation and page assembly outside this file."
+  },
+  {
+    "surface": "js/crud_viewer.js",
+    "classification": "public product",
+    "currentRole": "Viewer proof helpers for dev/prod URL normalization, live bundle inspection, and expected marker validation.",
+    "problems": [
+      "Must stay focused on viewer probing and avoid absorbing CRUD orchestration, builder control, or UI mutation logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_viewer.js"
+    ],
+    "boundaryRule": "Viewer probing and bundle inspection only; keep CRUD mutation, builder orchestration, and UI assembly elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_refresh.js",
+    "classification": "public product",
+    "currentRole": "Generated Ionic source cleanup and Studio/mobile-builder refresh helpers used by NGX CRUD kit finalization.",
+    "problems": [
+      "Must stay focused on generated-source hygiene and refresh triggering, without absorbing viewer proof or CRUD orchestration."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_refresh.js"
+    ],
+    "boundaryRule": "Generated-source cleanup and builder/studio refresh only; keep viewer proof, CRUD orchestration, and UI assembly elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_audit.js",
+    "classification": "public product",
+    "currentRole": "UI tree audit and shared-reference collection helpers used by CRUD proof and NGX kit runtime evidence.",
+    "problems": [
+      "Must stay focused on tree inspection and shared-ref collection, without absorbing UI mutation or viewer proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_audit.js"
+    ],
+    "boundaryRule": "UI tree auditing and shared-ref collection only; keep mutation, proof orchestration, and viewer probing elsewhere."
+  },
+  {
+    "surface": "js/crud_ui_kit.js",
+    "classification": "public product",
+    "currentRole": "NGX CRUD kit orchestration helpers for UI entity normalization/hydration, variant-aware tree assembly, batch apply, runtime evidence, and final project refresh flow.",
+    "problems": [
+      "Owns a large orchestration slice and should resist absorbing shared component, page-builder, or proof logic already extracted elsewhere.",
+      "Needs careful boundaries because it sits at the join between UI assembly, batch mutation, and save/refresh side effects."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_kit.js"
+    ],
+    "boundaryRule": "UI kit orchestration only; keep pure builders in js/crud_ui_* modules, backend work in js/crud_backend.js, and proof/viewer logic outside this file."
+  },
+  {
+    "surface": "js/crud_ui_meta.js",
+    "classification": "public product",
+    "currentRole": "Reusable CRUD UI metadata helpers for app/page/shared QNames, entity routes/page names, preview field ranking, and entity UI config derivation.",
+    "problems": [
+      "Should stay limited to derived UI metadata and naming helpers, without absorbing shared component assembly, batch mutation, or viewer/proof logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_ui_meta.js"
+    ],
+    "boundaryRule": "Entity/page/UI metadata only; keep node builders, page assembly, action orchestration, and UI mutation outside this file."
+  },
+  {
+    "surface": "js/crud_runtime.js",
+    "classification": "public product",
+    "currentRole": "CRUD runtime helpers for project resolution/import, child creation, connector setup support, and timing/tree utility functions.",
+    "problems": [
+      "Should stay focused on CRUD runtime scaffolding helpers and not absorb proof or UI shell assembly logic."
+    ],
+    "decision": "keep-and-grow-by-domain",
+    "targetModules": [
+      "js/crud_runtime.js"
+    ],
+    "boundaryRule": "Project/runtime helper logic only; keep requestable proof and UI assembly elsewhere."
+  },
+  {
+    "surface": "js/databaseobject.js",
+    "classification": "public product",
+    "currentRole": "Compatibility facade that assembles DatabaseObject helpers for resolution, property handling, NGX creation logic, save/runtime invalidation, and Studio refresh.",
+    "currentSize": {
+      "linesApprox": 3050
+    },
+    "problems": [
+      "Mixes core object operations with NGX-specific creation and project save/version logic.",
+      "Acts as a catch-all shared module."
+    ],
+    "decision": "split",
+    "targetModules": [
+      "js/databaseobject_core.js",
+      "js/databaseobject_properties.js",
+      "js/databaseobject_ngx.js",
+      "js/databaseobject_persist.js",
+      "js/databaseobject_studio.js"
+    ],
+    "boundaryRule": "Keep js/databaseobject.js as a compatibility facade that assembles focused helpers."
+  },
+  {
+    "surface": "js/databaseobject_persist.js",
+    "classification": "public product",
+    "currentRole": "Project save/version bump orchestration, runtime invalidation, mobile builder refresh, and mutation finalization helpers.",
+    "problems": [
+      "Still mixes save/version policy with mobile builder refresh finalization.",
+      "Should not absorb generic property mutation logic beyond save-related orchestration."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/databaseobject_persist.js"
+    ],
+    "boundaryRule": "Own persistence/finalization helpers only; keep core DatabaseObject traversal elsewhere."
+  },
+  {
+    "surface": "js/databaseobject_studio.js",
+    "classification": "public product",
+    "currentRole": "Studio-only tree refresh, project tree cleanup, and project reload helpers.",
+    "problems": [
+      "Must remain Studio-scoped and avoid absorbing generic project lifecycle logic."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/databaseobject_studio.js"
+    ],
+    "boundaryRule": "Studio/Eclipse interaction only; no general save or batch behavior belongs here."
+  },
+  {
+    "surface": "js/databaseobject_batch.js",
+    "classification": "public product",
+    "currentRole": "Batch mutation execution, partial failure handling, deferred save/refresh/mobile-builder finalization.",
+    "currentSize": {
+      "linesApprox": 1510
+    },
+    "problems": [
+      "Boundary with databaseobject.js and tools_batch_call.js is not explicit enough.",
+      "Finalization concerns can still creep upward into tools."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/databaseobject_batch.js"
+    ],
+    "boundaryRule": "Own batching only; no CRUD or viewer-specific behavior belongs here."
+  },
+  {
+    "surface": "js/schema_overrides.js",
+    "classification": "public product",
+    "currentRole": "Top-level registry that owns shared schema helper functions and delegates family-scoped overrides.",
+    "currentSize": {
+      "linesApprox": 1300,
+      "functionsApprox": 63
+    },
+    "problems": [
+      "Single-file schema registry is getting too large to audit against the live catalog.",
+      "Tool family ownership is not visible."
+    ],
+    "decision": "split",
+    "targetModules": [
+      "js/schema_overrides_core.js",
+      "js/schema_overrides_databaseobject.js",
+      "js/schema_overrides_project.js",
+      "js/schema_overrides_crud.js",
+      "js/schema_overrides_runtime.js"
+    ],
+    "boundaryRule": "Keep one top-level registry that imports family-scoped fragments."
+  },
+  {
+    "surface": "js/schema_overrides_crud.js",
+    "classification": "public product",
+    "currentRole": "CRUD-specific input/output schema overrides delegated from the top-level schema registry.",
+    "problems": [
+      "Must stay limited to CRUD family schema definitions and avoid reintroducing generic helper logic."
+    ],
+    "decision": "keep-and-grow-by-family",
+    "targetModules": [
+      "js/schema_overrides_crud.js"
+    ],
+    "boundaryRule": "CRUD-only schema overrides; shared primitives remain in js/schema_overrides.js or future common fragments."
+  },
+  {
+    "surface": "js/tools_mobile_builder_open.js",
+    "classification": "public product",
+    "currentRole": "Starts or reconnects to the mobile builder, parses logs, determines viewer readiness, and surfaces compile errors and browser probe state.",
+    "currentSize": {
+      "linesApprox": 1014
+    },
+    "problems": [
+      "Lifecycle control, log parsing, readiness policy, and browser probing are bundled together.",
+      "Hard to reason about timeouts and compile status changes."
+    ],
+    "decision": "split",
+    "targetModules": [
+      "js/mobile_builder_common.js",
+      "js/mobile_builder_lifecycle.js",
+      "js/mobile_builder_logs.js",
+      "js/mobile_builder_probe.js"
+    ],
+    "boundaryRule": "Tool file should orchestrate, not own log grammar or browser probe internals."
+  },
+  {
+    "surface": "js/mobile_builder_common.js",
+    "classification": "public product",
+    "currentRole": "Shared helper layer for mobile builder log parsing, compile-error detection, URL normalization, and readiness heuristics.",
+    "problems": [
+      "Should remain pure helper logic and must not absorb Studio UI lifecycle or WsBuilder calls."
+    ],
+    "decision": "keep-and-tighten",
+    "targetModules": [
+      "js/mobile_builder_common.js"
+    ],
+    "boundaryRule": "Pure parsing and readiness helpers only; keep Studio/open-editor orchestration in tools_mobile_builder_open.js or a dedicated lifecycle module."
+  },
+  {
+    "surface": "js/resources.js",
+    "classification": "public product",
+    "currentRole": "Loads resource catalog and serves built-in resources.",
+    "problems": [
+      "Still owns built-in resource policy plus the public resource-specific helpers.",
+      "Should stay focused on resource policy rather than accreting more generic catalog logic."
+    ],
+    "decision": "keep-with-shared-loader",
+    "targetModules": [
+      "js/catalog_loader.js",
+      "js/resources.js"
+    ],
+    "boundaryRule": "Keep resources.js focused on resource policy; shared file/index loading is now extracted into catalog_loader.js."
+  },
+  {
+    "surface": "js/prompts.js",
+    "classification": "public product",
+    "currentRole": "Loads prompt catalog and prompt files.",
+    "problems": [
+      "Should remain a thin prompt-specific facade and not regrow generic catalog-loading code."
+    ],
+    "decision": "keep-on-shared-loader",
+    "targetModules": [
+      "js/catalog_loader.js",
+      "js/prompts.js"
+    ],
+    "boundaryRule": "Reuse the shared catalog_loader.js helper for prompt index and file resolution."
+  },
+  {
+    "surface": "js/util.js",
+    "classification": "public product",
+    "currentRole": "Low-level shared helpers for strings, booleans, filesystem/project paths, and git-aware version bump logic.",
+    "problems": [
+      "Risk of becoming another catch-all as domain helpers accumulate."
+    ],
+    "decision": "keep-and-freeze-scope",
+    "targetModules": [
+      "js/util.js"
+    ],
+    "boundaryRule": "Only generic helpers; no CRUD, viewer, or tool-specific behavior."
+  },
+  {
+    "surface": "js/tools_batch_call.js",
+    "classification": "public product",
+    "currentRole": "High-level orchestration wrapper above batch execution.",
+    "problems": [
+      "Responsibility overlap with databaseobject_batch.js must stay explicit."
+    ],
+    "decision": "keep",
+    "targetModules": [
+      "js/tools_batch_call.js"
+    ],
+    "boundaryRule": "Own tool-level payload orchestration only; delegate batch mechanics downward."
+  },
+  {
+    "surface": "js/marketplace.js",
+    "classification": "public product",
+    "currentRole": "Marketplace listing/import helpers and starter metadata handling.",
+    "problems": [],
+    "decision": "keep",
+    "targetModules": [
+      "js/marketplace.js"
+    ],
+    "boundaryRule": "Marketplace-specific only."
+  },
+  {
+    "surface": "js/palette.js and js/tools_palette_describe.js",
+    "classification": "public product",
+    "currentRole": "Palette catalog and per-entry detail helpers.",
+    "problems": [],
+    "decision": "keep",
+    "targetModules": [
+      "js/palette.js",
+      "js/tools_palette_describe.js"
+    ],
+    "boundaryRule": "Palette metadata only."
+  },
+  {
+    "surface": "js/custom.js",
+    "classification": "historical/generated",
+    "currentRole": "Legacy web asset script.",
+    "problems": [
+      "Not part of the MCP product path."
+    ],
+    "decision": "retire-candidate",
+    "targetModules": []
+  },
+  {
+    "surface": "js/reporting.js",
+    "classification": "internal lab",
+    "currentRole": "Feedback/report helper include.",
+    "problems": [
+      "Very small wrapper surface that may not need a dedicated file long-term."
+    ],
+    "decision": "keep-for-now",
+    "targetModules": [
+      "js/reporting.js"
+    ]
+  },
+  {
+    "surface": "js/requestable_stub.js and js/requestable_logs.js",
+    "classification": "public product",
+    "currentRole": "Requestable stub and log helpers.",
+    "problems": [],
+    "decision": "keep",
+    "targetModules": [
+      "js/requestable_stub.js",
+      "js/requestable_logs.js"
+    ]
+  }
+]

@@ -13,20 +13,27 @@ from jsonschema import Draft202012Validator
 
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_MCP_URL = "http://localhost:18080/convertigo/api/mcp"
+DEFAULT_MCP_URL = os.environ.get("CONVERTIGO_MCP_URL", "http://localhost:18080/convertigo/api/mcp")
 ROLE_PROMPT_NAME = "convertigo-critic"
 ALLOWED_DISPOSITIONS = [
     "OPEN",
     "CLOSED_ALREADY_FIXED",
     "ROUTE_EXTERNAL",
-    "SPLIT_REQUIRED",
-    "DROP_NOISE",
+    "DUPLICATE",
 ]
 TARGET_REPOS = {"c8oprj-c8o-mcp", "codex-cli-multiagent", "unknown"}
 
 
 def repo_root():
     return Path(__file__).resolve().parents[2]
+
+
+def optional_codex_multiagent_root():
+    env_value = os.environ.get("CODEX_MULTIAGENT_ROOT", "").strip()
+    if env_value:
+        return Path(env_value).expanduser().resolve()
+    sibling = repo_root().parent / "codex-cli-multiagent"
+    return sibling if sibling.exists() else None
 
 
 def parse_args():
@@ -227,13 +234,14 @@ def derive_evidence_paths(root, report_path, report):
         or "synced-prompts" in subject_id
         or "codex-cli-multiagent" in source_project
     ):
-        external_root = Path("/Users/nicolas/git/codex-cli-multiagent")
-        candidates.extend(
-            [
-                external_root / "AGENTS.md",
-                external_root / "learn.md",
-            ]
-        )
+        external_root = optional_codex_multiagent_root()
+        if external_root:
+            candidates.extend(
+                [
+                    external_root / "AGENTS.md",
+                    external_root / "learn.md",
+                ]
+            )
 
     for candidate in candidates:
         resolved = existing_path(str(candidate))
@@ -387,6 +395,41 @@ def build_consolidation(batch_id, packet, critic_report):
         raise RuntimeError("Grouped Findings must be a JSON array.")
 
     packet_by_id = {item["reportId"]: item for item in packet["sourceReports"]}
+
+    def normalize_disposition(value):
+        mapping = {
+            "SPLIT_REQUIRED": "OPEN",
+            "DROP_NOISE": "DUPLICATE",
+        }
+        return mapping.get(value, value)
+
+    def normalize_group_status(value):
+        mapping = {
+            "ROUTED": "ROUTE_EXTERNAL",
+            "WATCH": "OPEN",
+            "DROPPED": "DUPLICATE",
+        }
+        return mapping.get(value, value)
+
+    seen_subjects = {}
+    for decision in report_decisions:
+        decision["disposition"] = normalize_disposition(decision.get("disposition"))
+        packet_item = packet_by_id.get(decision.get("reportId"))
+        subject_id = (((packet_item or {}).get("finding") or {}).get("subjectId") or "").strip()
+        if subject_id and decision["disposition"] != "CLOSED_ALREADY_FIXED":
+            if subject_id in seen_subjects:
+                anchor_report_id = seen_subjects[subject_id]
+                decision["disposition"] = "DUPLICATE"
+                note = decision.get("notes") or ""
+                duplicate_note = f"Duplicate source report for subjectId {subject_id}; consolidated under {anchor_report_id}."
+                decision["notes"] = duplicate_note if not note else duplicate_note + " " + note
+                decision["splitFindingIds"] = []
+            else:
+                seen_subjects[subject_id] = decision.get("reportId")
+
+    for finding in grouped_findings:
+        finding["status"] = normalize_group_status(finding.get("status"))
+
     resolved_parser_reports = find_resolved_parser_reports(repo_root())
     if resolved_parser_reports:
         for decision in report_decisions:
@@ -456,7 +499,7 @@ def consolidation_markdown(consolidation):
     if consolidation["groupedFindings"]:
         for item in consolidation["groupedFindings"]:
             lines.append(
-                f"- `{item['findingId']}` `{item['targetRepo']}` `{item['recommendedOwner']}` `{item['nextAction']}`: {item['symptom']}"
+                f"- `{item['findingId']}` `{item['status']}` `{item['targetRepo']}` `{item['recommendedOwner']}` `{item['nextAction']}`: {item['symptom']}"
             )
     else:
         lines.append("- none")

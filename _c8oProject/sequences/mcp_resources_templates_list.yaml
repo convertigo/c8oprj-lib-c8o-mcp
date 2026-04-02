@@ -1,0 +1,202 @@
+accessibility: Private
+comment: Handles MCP resources/templates/list requests
+↓IncludeResourcesHelper [steps.SimpleStep-1764249000001]: 
+  comment: Load resources helper
+  expression: include("js/resources.js");
+↓LoadTemplates [steps.SimpleStep-1764249000002]: 
+  comment: Load template resources catalog page
+  expression: |
+    'var catalog = c8oListTemplateResources();
+    var pageSize = 25;
+    var cursorText = C8O.util.toTrimmedString(cursor || "");
+    if (!cursorText.length && typeof _nextCursor !== "undefined") {
+      var metaCursor = C8O.util.toTrimmedString(_nextCursor);
+      if (metaCursor.length) {
+        cursorText = metaCursor;
+      }
+    }
+    var startIndex = 0;
+    if (cursorText.length) {
+      var parsedCursor = parseInt(cursorText, 10);
+      if (!isNaN(parsedCursor) && parsedCursor >= 0) {
+        startIndex = parsedCursor;
+      }
+    }
+    var slice = catalog.slice(startIndex, startIndex + pageSize);
+    var nextCursor = "";
+    var hasNext = false;
+    if (startIndex + slice.length < catalog.length) {
+      nextCursor = String(startIndex + slice.length);
+      hasNext = true;
+    }
+    resourceTemplatesPage = slice;
+    resourceTemplatesNextCursor = nextCursor;
+    resourceTemplatesHasNextCursor = hasNext;'
+↓Result [steps.JsonObjectStep-1764249000003]: 
+  comment: Build MCP resources/templates/list response
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓Templates [steps.JsonArrayStep-1764249000004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: resourceTemplates
+    ↓Iterator [steps.SimpleIteratorStep-1764249000005]: 
+      expression: resourceTemplatesPage || []
+      ↓Template [steps.JsonObjectStep-1764249000006]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: resourceTemplate
+        ↓UriTemplate [steps.JsonFieldStep-1764249000007]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: uriTemplate
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.uri || ""
+        ↓Uri [steps.JsonFieldStep-1764249000008]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: uri
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.uri || ""
+        ↓Name [steps.JsonFieldStep-1764249000009]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && (item.name || item.title) || ""
+        ↓Title [steps.JsonFieldStep-1764249000010]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: title
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.title || ""
+        ↓Description [steps.JsonFieldStep-1764249000011]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: description
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.description || ""
+        ↓MimeType [steps.JsonFieldStep-1764249000012]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: mimeType
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.mimeType || "text/plain"
+        ↓TemplateId [steps.JsonFieldStep-1764249000013]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: templateId
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.templateId || ""
+        ↓GuideId [steps.JsonFieldStep-1764249000014]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: guideId
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: item && item.guideId || ""
+        ↓Revision [steps.JsonFieldStep-1764249000015]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: revision
+          type: number
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.revision != null ? item.revision : 0'
+  ↓Meta [steps.JsonObjectStep-1764249000016]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: meta
+    ↓IfHasCursor [steps.IfStep-1764249000017]: 
+      condition: resourceTemplatesHasNextCursor === true
+      ↓NextCursor [steps.JsonFieldStep-1764249000018]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: nextCursor
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: String(resourceTemplatesNextCursor)
+↓cursor [variables.RequestableVariable-1764249000019]: 
+  comment: Optional pagination cursor
+↓_nextCursor [variables.RequestableVariable-1764249000020]: 
+  comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).

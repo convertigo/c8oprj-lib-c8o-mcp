@@ -15,8 +15,11 @@ C8O.project.resolveProjectDirectory = function (options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
   var projectInstance = null;
+  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "ConvertigoMCP";
   if (opts.project) {
     projectInstance = opts.project;
+  } else if (opts.projectName) {
+    projectInstance = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName));
   } else if (context && context.requestedObject && context.requestedObject.getProject) {
     try {
       projectInstance = context.requestedObject.getProject();
@@ -24,7 +27,6 @@ C8O.project.resolveProjectDirectory = function (options) {
       projectInstance = null;
     }
   }
-  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "ConvertigoMCP";
   if (!projectInstance) {
     projectInstance = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName));
   }
@@ -54,6 +56,200 @@ C8O.project.resolveProjectDirectory = function (options) {
     throw new Error("Project directory is not available for '" + projectName + "'");
   }
   return dirFile;
+};
+
+C8O.project._readProcessStream = function (stream) {
+  if (!stream) {
+    return "";
+  }
+  var Scanner = Packages.java.util.Scanner;
+  var scanner = null;
+  try {
+    scanner = new Scanner(stream, "UTF-8").useDelimiter("\\A");
+    return scanner.hasNext() ? String(scanner.next()) : "";
+  } finally {
+    if (scanner && scanner.close) {
+      try {
+        scanner.close();
+      } catch (_ignoreScannerClose) {}
+    }
+  }
+};
+
+C8O.project._runCommand = function (args, cwd) {
+  var ArrayList = Packages.java.util.ArrayList;
+  var File = Packages.java.io.File;
+  var ProcessBuilder = Packages.java.lang.ProcessBuilder;
+  var command = new ArrayList();
+  var items = args || [];
+  for (var i = 0; i < items.length; i++) {
+    command.add(String(items[i]));
+  }
+  var builder = new ProcessBuilder(command);
+  if (cwd) {
+    builder.directory(cwd instanceof File ? cwd : new File(String(cwd)));
+  }
+  var process = builder.start();
+  var stdout = C8O.project._readProcessStream(process.getInputStream());
+  var stderr = C8O.project._readProcessStream(process.getErrorStream());
+  var exitCode = process.waitFor();
+  return {
+    exitCode: Number(exitCode || 0),
+    stdout: C8O.util.toTrimmedString(stdout),
+    stderr: C8O.util.toTrimmedString(stderr)
+  };
+};
+
+C8O.project.bumpRightmostVersionSegment = function (versionText) {
+  var version = C8O.util.toTrimmedString(versionText);
+  if (!version.length) {
+    return "";
+  }
+  var parts = version.split(".");
+  if (!parts.length) {
+    return "";
+  }
+  var lastIndex = parts.length - 1;
+  if (!/^\d+$/.test(parts[lastIndex])) {
+    return "";
+  }
+  var nextValue = parseInt(parts[lastIndex], 10) + 1;
+  parts[lastIndex] = String(nextValue);
+  return parts.join(".");
+};
+
+C8O.project.readHeadProjectVersion = function (projectDir) {
+  var root = C8O.util.toTrimmedString(projectDir);
+  if (!root.length) {
+    return {
+      gitRoot: "",
+      headVersion: "",
+      tracked: false,
+      reason: "missing-project-dir"
+    };
+  }
+  try {
+    var gitRootResult = C8O.project._runCommand(["git", "-C", root, "rev-parse", "--show-toplevel"], root);
+    if (gitRootResult.exitCode !== 0 || !gitRootResult.stdout.length) {
+      return {
+        gitRoot: "",
+        headVersion: "",
+        tracked: false,
+        reason: "not-git"
+      };
+    }
+    var gitRoot = gitRootResult.stdout;
+    var trackedResult = C8O.project._runCommand(["git", "-C", gitRoot, "ls-files", "--error-unmatch", "c8oProject.yaml"], gitRoot);
+    if (trackedResult.exitCode !== 0) {
+      return {
+        gitRoot: gitRoot,
+        headVersion: "",
+        tracked: false,
+        reason: "project-file-not-tracked"
+      };
+    }
+    var headResult = C8O.project._runCommand(["git", "-C", gitRoot, "show", "HEAD:c8oProject.yaml"], gitRoot);
+    if (headResult.exitCode !== 0 || !headResult.stdout.length) {
+      return {
+        gitRoot: gitRoot,
+        headVersion: "",
+        tracked: false,
+        reason: "head-project-file-unavailable"
+      };
+    }
+    var match = /(?:^|\n)\s*version:\s*([^\n#]+)/.exec(headResult.stdout);
+    return {
+      gitRoot: gitRoot,
+      headVersion: match && match[1] ? C8O.util.toTrimmedString(match[1]) : "",
+      tracked: true,
+      reason: ""
+    };
+  } catch (commandError) {
+    return {
+      gitRoot: "",
+      headVersion: "",
+      tracked: false,
+      reason: String(commandError)
+    };
+  }
+};
+
+C8O.project.checkUpdateProjectVersion = function (projectInstance) {
+  var result = {
+    checked: false,
+    bumped: false,
+    dirty: false,
+    previousVersion: "",
+    version: "",
+    headVersion: "",
+    gitRoot: "",
+    reason: "",
+    message: ""
+  };
+  if (!projectInstance) {
+    result.reason = "missing-project";
+    return result;
+  }
+  try {
+    result.previousVersion = C8O.util.toTrimmedString(projectInstance.getVersion ? projectInstance.getVersion() : "");
+    result.version = result.previousVersion;
+  } catch (_ignoreCurrentVersion) {}
+  try {
+    result.dirty = projectInstance.hasChanged === true;
+  } catch (_ignoreDirtyFlag) {
+    result.dirty = false;
+  }
+  if (!result.dirty) {
+    result.reason = "project-clean";
+    return result;
+  }
+  var projectDir = null;
+  try {
+    projectDir = C8O.project.resolveProjectDirectory({ project: projectInstance, projectName: String(projectInstance.getName()) });
+  } catch (resolveError) {
+    result.reason = String(resolveError);
+    return result;
+  }
+  var gitInfo = C8O.project.readHeadProjectVersion(String(projectDir));
+  result.checked = true;
+  result.gitRoot = C8O.util.toTrimmedString(gitInfo.gitRoot);
+  result.headVersion = C8O.util.toTrimmedString(gitInfo.headVersion);
+  if (!gitInfo.tracked) {
+    result.reason = gitInfo.reason || "not-tracked";
+    return result;
+  }
+  if (!result.previousVersion.length) {
+    result.reason = "missing-project-version";
+    return result;
+  }
+  if (!result.headVersion.length) {
+    result.reason = "missing-head-version";
+    return result;
+  }
+  if (result.previousVersion !== result.headVersion) {
+    result.reason = "version-already-diverged";
+    return result;
+  }
+  var nextVersion = C8O.project.bumpRightmostVersionSegment(result.previousVersion);
+  if (!nextVersion.length || nextVersion === result.previousVersion) {
+    result.reason = "unsupported-version-format";
+    return result;
+  }
+  try {
+    if (typeof projectInstance.setVersion === "function") {
+      projectInstance.setVersion(nextVersion);
+    } else {
+      result.reason = "setVersion-unavailable";
+      return result;
+    }
+    result.bumped = true;
+    result.version = nextVersion;
+    result.message = "Project version auto-bumped from " + result.previousVersion + " to " + nextVersion + " before save.";
+    return result;
+  } catch (bumpError) {
+    result.reason = String(bumpError);
+    return result;
+  }
 };
 
 /**
@@ -136,6 +332,7 @@ C8O.util.parseObjectInput = function (value, options) {
     label = "value";
   }
   var allowEmpty = opts.allowEmpty !== false;
+  var allowArray = opts.allowArray === true;
   var maxDepth = 3;
 
   function objectFromJavaMap(mapValue) {
@@ -173,6 +370,9 @@ C8O.util.parseObjectInput = function (value, options) {
     if (tag === "[object Object]") {
       return value;
     }
+    if (allowArray && tag === "[object Array]") {
+      return value;
+    }
   }
 
   var text = C8O.util.toTrimmedString(value);
@@ -195,6 +395,9 @@ C8O.util.parseObjectInput = function (value, options) {
     if (C8O.util.isPlainObject(parsed)) {
       return parsed;
     }
+    if (allowArray && Array.isArray(parsed)) {
+      return parsed;
+    }
     if (typeof parsed === "string") {
       var nested = C8O.util.toTrimmedString(parsed);
       if (nested.length) {
@@ -206,7 +409,7 @@ C8O.util.parseObjectInput = function (value, options) {
     break;
   }
 
-  throw new Error(label + " must be a JSON object");
+  throw new Error(label + (allowArray ? " must be a JSON object or array" : " must be a JSON object"));
 };
 
 /**
@@ -227,6 +430,133 @@ C8O.util.previewValue = function (value) {
     }
   }
   return String(value);
+};
+
+/**
+ * Recursively converts Rhino/Java values into JSON-safe plain JS values.
+ */
+C8O.util.toJsonSafe = function (value, options) {
+  var opts = options || {};
+  var warnings = opts.warnings && opts.warnings.push ? opts.warnings : null;
+  var path = C8O.util.toTrimmedString(opts.path || "$");
+  var maxDepth = opts.maxDepth == null ? 12 : opts.maxDepth;
+  var seen = opts._seen || [];
+
+  function addWarning(message) {
+    if (warnings) {
+      warnings.push(path + ": " + message);
+    }
+  }
+
+  function convert(current, currentPath, depth) {
+    var localOpts = {
+      warnings: warnings,
+      maxDepth: maxDepth,
+      _seen: seen
+    };
+    localOpts.path = currentPath;
+    return C8O.util.toJsonSafe(current, localOpts);
+  }
+
+  try {
+    var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
+    if (value instanceof NativeJavaObject) {
+      value = value.unwrap();
+    }
+  } catch (_ignoreNativeJavaObject) {}
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (maxDepth <= 0) {
+    addWarning("max depth reached during JSON-safe conversion");
+    return C8O.util.previewValue(value);
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  try {
+    if (value instanceof Packages.java.lang.Number) {
+      return Number(value);
+    }
+  } catch (_ignoreJavaNumber) {}
+  try {
+    if (value instanceof Packages.java.lang.Boolean) {
+      return Boolean(value.booleanValue());
+    }
+  } catch (_ignoreJavaBoolean) {}
+  try {
+    if (value instanceof Packages.java.lang.CharSequence) {
+      return String(value);
+    }
+  } catch (_ignoreJavaCharSequence) {}
+
+  if (Array.isArray(value)) {
+    var jsArray = [];
+    for (var i = 0; i < value.length; i++) {
+      jsArray.push(convert(value[i], path + "[" + i + "]", maxDepth - 1));
+    }
+    return jsArray;
+  }
+
+  try {
+    if (value instanceof Packages.java.util.Map) {
+      var mapped = {};
+      var mapIterator = value.entrySet().iterator();
+      while (mapIterator.hasNext()) {
+        var mapEntry = mapIterator.next();
+        var mapKey = String(mapEntry.getKey());
+        mapped[mapKey] = convert(mapEntry.getValue(), path + "." + mapKey, maxDepth - 1);
+      }
+      return mapped;
+    }
+  } catch (_ignoreJavaMap) {}
+
+  try {
+    if (value instanceof Packages.java.util.Collection) {
+      var coll = [];
+      var collIterator = value.iterator();
+      var index = 0;
+      while (collIterator.hasNext()) {
+        coll.push(convert(collIterator.next(), path + "[" + index + "]", maxDepth - 1));
+        index++;
+      }
+      return coll;
+    }
+  } catch (_ignoreJavaCollection) {}
+
+  if (typeof value === "object") {
+    for (var si = 0; si < seen.length; si++) {
+      if (seen[si] === value) {
+        addWarning("circular reference replaced with preview string");
+        return C8O.util.previewValue(value);
+      }
+    }
+    seen.push(value);
+    try {
+      var tag = "";
+      try {
+        tag = Object.prototype.toString.call(value);
+      } catch (_ignoreTag) {
+        tag = "";
+      }
+      if (tag === "[object Object]") {
+        var plain = {};
+        for (var key in value) {
+          if (Object.prototype.hasOwnProperty.call(value, key)) {
+            plain[key] = convert(value[key], path + "." + key, maxDepth - 1);
+          }
+        }
+        return plain;
+      }
+    } finally {
+      seen.pop();
+    }
+  }
+
+  addWarning("non-plain value converted to preview string");
+  return C8O.util.previewValue(value);
 };
 
 /**
@@ -383,6 +713,36 @@ C8O.requestable._addVariables = function (step, map) {
   }
 };
 
+C8O.requestable._resetExecutionState = function (executionPlan, seqStep, txStep) {
+  if (!executionPlan || !C8O.dbo) {
+    return;
+  }
+  if (executionPlan.isSequence) {
+    try {
+      var seqQName = executionPlan.project + ".sq:" + executionPlan.name;
+      var seqDbo = C8O.dbo.resolve(seqQName, { optional: true });
+      C8O.dbo._resetIfNeeded(seqStep, []);
+      C8O.dbo._resetIfNeeded(seqDbo, []);
+      if (seqDbo && seqDbo.getProject) {
+        C8O.dbo._resetIfNeeded(seqDbo.getProject(), []);
+      }
+    } catch (_ignoreSeqReset) {}
+    return;
+  }
+  try {
+    var txQName = executionPlan.project + ".cn:" + executionPlan.connector + ".tr:" + executionPlan.name;
+    var txDbo = C8O.dbo.resolve(txQName, { optional: true });
+    C8O.dbo._resetIfNeeded(txStep, []);
+    C8O.dbo._resetIfNeeded(txDbo, []);
+    if (txDbo && txDbo.getConnector) {
+      C8O.dbo._resetIfNeeded(txDbo.getConnector(), []);
+    }
+    if (txDbo && txDbo.getProject) {
+      C8O.dbo._resetIfNeeded(txDbo.getProject(), []);
+    }
+  } catch (_ignoreTxReset) {}
+};
+
 /**
  * Configures the CallSequence/CallTransaction steps inside tools_requestable_execute
  * so that sequences/transactions can be invoked without relying on a separate internal_call.
@@ -409,6 +769,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
     seqStep.setSourceSequence(executionPlan.project + '.' + executionPlan.name);
     C8O.requestable._clearVariables(seqStep);
     C8O.requestable._addVariables(seqStep, executionPlan.variables || {});
+    C8O.requestable._resetExecutionState(executionPlan, seqStep, txStep);
     if (EngineLog) {
       var seqCount = seqStep.getVariables() != null ? seqStep.getVariables().size() : 0;
       EngineLog.debug('[tools_requestable_execute] sequence vars=' + seqCount + ' target=' + executionPlan.project + '.' + executionPlan.name);
@@ -428,6 +789,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
   txStep.setSourceTransaction(executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   C8O.requestable._clearVariables(txStep);
   C8O.requestable._addVariables(txStep, executionPlan.variables || {});
+  C8O.requestable._resetExecutionState(executionPlan, seqStep, txStep);
   if (executionPlan.recordSchema === true) {
     try {
       var txQName = executionPlan.project + '.cn:' + executionPlan.connector + '.tr:' + executionPlan.name;

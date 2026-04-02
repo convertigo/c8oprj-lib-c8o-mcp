@@ -1,0 +1,164 @@
+accessibility: Private
+comment: |
+  Inspect deterministic CRUD status
+  Returns the current CRUD scaffold status for a project, connector, facade prefix, and visible UI target.
+↓IncludeHelpers [steps.SimpleStep-1773318301001]: 
+  comment: Load deterministic CRUD helpers
+  expression: include("js/tools_crud.js");
+↓Init [steps.SimpleStep-1773318301002]: 
+  comment: Inspect the current CRUD status
+  expression: |
+    'crudStatusResult = C8O.crud.crudStatus({
+      project: project,
+      connector: connector,
+      facadePrefix: facadePrefix,
+      mode: mode,
+      profile: profile,
+      variant: variant,
+      entryPage: entryPage
+    });'
+↓Result [steps.JsonObjectStep-1773318301003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1773318301004]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.status ? crudStatusResult.status : ""'
+  ↓project [steps.JsonFieldStep-1773318301005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.project ? crudStatusResult.project : ""'
+  ↓driverFamily [steps.JsonFieldStep-1773318301006]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: driverFamily
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.driverFamily ? crudStatusResult.driverFamily : ""'
+  ↓connectorQname [steps.JsonFieldStep-1773318301007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: connectorQname
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.connectorQname ? crudStatusResult.connectorQname : ""'
+  ↓transactions [steps.JsonToXmlStep-1773318301008]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.transactions ? crudStatusResult.transactions : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: transactions
+  ↓sequences [steps.JsonToXmlStep-1773318301009]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.sequences ? crudStatusResult.sequences : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: sequences
+  ↓ui [steps.JsonToXmlStep-1773318301010]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.ui ? crudStatusResult.ui : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: ui
+  ↓missing [steps.JsonToXmlStep-1773318301011]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.missing ? crudStatusResult.missing : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: missing
+  ↓warnings [steps.JsonToXmlStep-1773318301012]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.warnings ? crudStatusResult.warnings : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
+↓project [variables.RequestableVariable-1773318301013]: 
+  comment: Existing project technical name.
+  description: Existing project technical name.
+↓connector [variables.RequestableVariable-1773318301014]: 
+  comment: Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
+  description: Optional SQL connector name. Defaults to the normalized CRUD connector if omitted.
+↓facadePrefix [variables.RequestableVariable-1773318301015]: 
+  comment: Optional public CRUD sequence prefix. Defaults to crud.
+  description: Optional public CRUD sequence prefix. Defaults to crud.
+↓mode [variables.RequestableVariable-1773318301016]: 
+  comment: Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
+  description: Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
+↓variant [variables.RequestableVariable-1773318301017]: 
+  comment: Optional UI variant hint used when checking visible CRUD shell coverage.
+  description: Optional UI variant hint used when checking visible CRUD shell coverage.
+↓profile [variables.RequestableVariable-1773470574447]: 
+  comment: Optional CRUD profile hint, for example crm.
+  description: Optional CRUD profile hint, for example crm.
+↓entryPage [variables.RequestableVariable-1773672638527]: 
+  comment: Visible entry page name. Defaults to Page.
+  description: Visible entry page name. Defaults to Page.

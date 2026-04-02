@@ -1,0 +1,80 @@
+comment: Template source for the generated CRUD home page.
+icon: home
+inAutoMenu: false
+preloadPriority: high
+scriptContent: 
+  - xmlizable: 
+    - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
+    - com.twinsoft.convertigo.beans.common.FormatedContent: 
+      →: |
+        /*Begin_c8o_PageImport*/
+        /*End_c8o_PageImport*/
+        /*Begin_c8o_PageDeclaration*/
+        /*End_c8o_PageDeclaration*/
+        /*Begin_c8o_PageConstructor*/
+        /*End_c8o_PageConstructor*/
+        /*Begin_c8o_PageFunction*/
+        /*End_c8o_PageFunction*/
+        
+segment: tpl-home
+title: Template Home
+↓Content [ngx.components.UIDynamicElement-1775063158801]: 
+  beanData: '{"ionBean":"Content"}'
+  tagName: ion-content
+  ↓Grid [ngx.components.UIDynamicElement-1775063158803]: 
+    beanData: '{"ionBean":"Grid"}'
+    tagName: ion-grid
+    ↓HeaderRow [ngx.components.UIDynamicElement-1775063158805]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓HeaderCol [ngx.components.UIDynamicElement-1775063158807]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓UseTplCrudPageHeader [ngx.components.UIUseShared-1775063158809]: 
+          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
+          ↓Title [ngx.components.UIUseVariable-1775063158811]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'__PROJECT_NAME__ CRUD home'
+          ↓Subtitle [ngx.components.UIUseVariable-1775063158813]: 
+            varValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: script:'Open an entity page to edit live facade data.'
+    ↓BootstrapRow [ngx.components.UIDynamicElement-1775063158815]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓BootstrapCol [ngx.components.UIDynamicElement-1775063158817]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓BootstrapVisible [ngx.components.UIControlDirective-1775063158819]: 
+          directiveExpression: ((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'
+          directiveName: If
+          ↓UseTplWorkInProgressCard [ngx.components.UIUseShared-1775063158821]: 
+            sharedcomponent: ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
+    ↓RouteRow [ngx.components.UIDynamicElement-1775063158823]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+    ↓LoadingRow [ngx.components.UIDynamicElement-1775063158825]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓LoadingCol [ngx.components.UIDynamicElement-1775063158827]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓LoadingVisible [ngx.components.UIControlDirective-1775063158829]: 
+          directiveExpression: this.global?.crudLoading === true
+          directiveName: If
+          ↓UseTplCrudLoadingState [ngx.components.UIUseShared-1775063158831]: 
+            sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
+    ↓ErrorRow [ngx.components.UIDynamicElement-1775063158833]: 
+      beanData: '{"ionBean":"GridRow"}'
+      tagName: ion-row
+      ↓ErrorCol [ngx.components.UIDynamicElement-1775063158835]: 
+        beanData: '{"ionBean":"GridCol"}'
+        tagName: ion-col
+        ↓ErrorVisible [ngx.components.UIControlDirective-1775063158837]: 
+          directiveExpression: '!!this.global?.crudError'
+          directiveName: If
+          ↓UseTplCrudErrorRetryState [ngx.components.UIUseShared-1775063158839]: 
+            sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState

@@ -1,0 +1,41 @@
+This is a mono-agent CRUD fast-path repeatability run.
+
+- Benchmark policy: the runner already injected `convertigo-crud-fastpath`.
+- Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Once the CRUD fast path is selected, do not call `rag-query`.
+- Mutate only `__TARGET_PROJECT__`.
+- Use the exact project name `__TARGET_PROJECT__`.
+
+Create or update a standard SQL CRUD + starter NGX project for `__TARGET_PROJECT__` with this explicit spec:
+
+```json
+__CRUD_SPEC_JSON__
+```
+
+Required proof requestables:
+- `init_schema`
+- `list_contacts`
+- `count_contacts`
+- `list_companies`
+- `count_companies`
+- `list_company_contacts`
+
+Required workflow:
+1. Stay on the standard CRUD fast path. Do not call planner, critic, maintainer, or specialist prompts.
+2. Run `marketplace-import` first for `template_ngxBuilderIonic` with the exact project name above.
+3. Run `mobile-builder-open` immediately and keep the returned live dev `viewerUrl`.
+4. Run `upsert-crud` with the exact spec above.
+5. Run `crud-proof` with the proof requestables above.
+6. If backend proof fails, stop with `RESULT: FAIL`.
+7. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
+8. Run `mobile-builder-open` again. If it returns `compile_error`, stop with `RESULT: FAIL` and report the compile errors. Do not patch generated frontend artifacts.
+9. Run `upsert-ngx-crud-kit` with `stage=final`.
+10. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
+11. If the final UI proof fails, stop with `RESULT: FAIL`.
+12. Save the project if a mutation occurred and a final save is still needed.
+13. Stop after the first successful final `crud-proof`. Do not start a second refinement pass.
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.
+- Otherwise `RESULT: FAIL` with the failing step and the most useful tool response snippets.
+- End with one short `MCP critique` item.

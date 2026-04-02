@@ -282,6 +282,11 @@ if (methodName === "initialize") {
   callSequence = "mcp_resources_list";
   callVariables = { cursor: listCursor };
   injectMeta(callVariables);
+} else if (methodName === "resources/templates/list") {
+  var templatesCursor = paramsObject && typeof paramsObject.cursor === "string" ? paramsObject.cursor : "";
+  callSequence = "mcp_resources_templates_list";
+  callVariables = { cursor: templatesCursor };
+  injectMeta(callVariables);
 } else if (methodName === "resources/read") {
   var resourceUriRaw = paramsObject && typeof paramsObject.uri === "string" ? paramsObject.uri : "";
   var resourceUri = String(resourceUriRaw || "").trim();

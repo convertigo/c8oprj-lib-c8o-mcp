@@ -293,7 +293,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        project: { type: "string", description: "Existing NGX project name." },
+        project: { type: "string", description: "Existing NGX project name. Use the exact project technical name; do not invent prefixes or date suffixes." },
         timeoutSec: { type: "integer", minimum: 5, maximum: 600, default: 90, description: "Seconds to wait for a live-reload URL. Default 90; max 600." },
         logsLimit: { type: "integer", minimum: 5, maximum: 200, default: 40, description: "Maximum builder log lines returned for diagnostics. Default 40; max 200." },
         forceRestart: {
@@ -481,6 +481,23 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function projectListSymbolsInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Optional project technical name. Omit to scan all loaded projects." },
+        filter: { type: "string", description: "Optional case-insensitive filter on symbol name." },
+        includeValues: booleanFlagSchema(false, "Set true to include full symbol values. Default false masks values in previews."),
+        scope: {
+          type: "string",
+          enum: ["project", "all"],
+          description: "Optional symbol scope. Defaults to project when project is provided, otherwise all."
+        }
+      },
+      additionalProperties: false
+    };
+  }
+
   function projectDeleteInputSchema() {
     return {
       type: "object",
@@ -549,7 +566,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return closedObjectSchema({
       project: { type: "string" },
       saved: { type: "boolean" },
-      message: { type: "string" }
+      message: { type: "string" },
+      versionChecked: { type: "boolean" },
+      versionDirty: { type: "boolean" },
+      versionBumped: { type: "boolean" },
+      previousVersion: { type: "string" },
+      version: { type: "string" },
+      headVersion: { type: "string" },
+      versionReason: { type: "string" },
+      versionMessage: { type: "string" }
     });
   }
 
@@ -787,6 +812,27 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function databaseobjectSearchOutputSchema() {
+    return closedObjectSchema({
+      scanned: { type: "number" },
+      returned: { type: "number" },
+      hasMore: { type: "boolean" },
+      nextCursor: { type: "string" },
+      matches: {
+        type: "array",
+        items: openObjectSchema({
+          qname: { type: "string" },
+          name: { type: "string" },
+          className: { type: "string" },
+          priority: { type: "string" },
+          context: { type: "string" },
+          type: { type: "string" },
+          comment: { type: "string" }
+        })
+      }
+    });
+  }
+
   function logLineSchema() {
     return openObjectSchema({
       index: { type: "number" },
@@ -879,6 +925,26 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function mobileBuilderCompileErrorSchema() {
+    return closedObjectSchema({
+      time: { type: "string" },
+      level: { type: "string" },
+      category: { type: "string" },
+      message: { type: "string" },
+      extra: { type: "string" }
+    });
+  }
+
+  C8O.schemaOverrides._helpers = {
+    booleanFlagSchema: booleanFlagSchema,
+    openObjectSchema: openObjectSchema,
+    closedObjectSchema: closedObjectSchema,
+    stringArraySchema: stringArraySchema,
+    mobileBuilderCompileErrorSchema: mobileBuilderCompileErrorSchema
+  };
+
+  include("js/schema_overrides_crud.js");
+
   function mobileBuilderEditorSchema() {
     return closedObjectSchema({
       requested: { type: "boolean" },
@@ -906,10 +972,25 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       endpoint: { type: "string" },
       baseUrl: { type: "string" },
       viewerUrl: { type: "string" },
+      viewerBaseUrl: { type: "string" },
+      viewerHomeUrl: { type: "string" },
       port: { type: "number" },
       nodeUrl: { type: "string" },
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
+      browser: openObjectSchema({
+        currentUrl: { type: "string" },
+        locationHref: { type: "string" },
+        title: { type: "string" },
+        statusText: { type: "string" },
+        errorText: { type: "string" },
+        bodyTextSample: { type: "string" },
+        progress: { type: "number" }
+      }),
+      compileErrors: {
+        type: "array",
+        items: mobileBuilderCompileErrorSchema()
+      },
       logs: {
         type: "array",
         items: mobileBuilderLogLineSchema()
@@ -1080,8 +1161,17 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_project_list") {
       return projectListInputSchema();
     }
+    if (seq === "tools_project_list_symbols") {
+      return projectListSymbolsInputSchema();
+    }
     if (seq === "tools_project_delete") {
       return projectDeleteInputSchema();
+    }
+    var crudInputOverride = C8O.schemaOverridesCrud && C8O.schemaOverridesCrud.applyInput
+      ? C8O.schemaOverridesCrud.applyInput(seq)
+      : null;
+    if (crudInputOverride) {
+      return crudInputOverride;
     }
 
     if (!inputSchema || typeof inputSchema !== "object" || Array.isArray(inputSchema)) {
@@ -1114,6 +1204,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_databaseobject_tree_get") {
       return databaseobjectTreeGetOutputSchema();
     }
+    if (seq === "tools_databaseobject_search") {
+      return databaseobjectSearchOutputSchema();
+    }
     if (seq === "tools_log_view") {
       return logViewOutputSchema();
     }
@@ -1128,6 +1221,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_delete") {
       return projectDeleteOutputSchema();
+    }
+    var crudOutputOverride = C8O.schemaOverridesCrud && C8O.schemaOverridesCrud.applyOutput
+      ? C8O.schemaOverridesCrud.applyOutput(seq)
+      : null;
+    if (crudOutputOverride) {
+      return crudOutputOverride;
     }
 
     if (!outputSchema || typeof outputSchema !== "object" || Array.isArray(outputSchema)) {

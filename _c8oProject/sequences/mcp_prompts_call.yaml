@@ -102,6 +102,19 @@ comment: Handles MCP prompts/call requests
         - SmartType: 
           - ↑mode: JS
           - →→: promptMeta && promptMeta.roleId || ""
+  ↓ModelProfile [steps.JsonFieldStep-1773900200012]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: modelProfile
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: promptMeta && promptMeta.modelProfile || ""
   ↓ScopeTags [steps.JsonToXmlStep-1773900200004]: 
     jsonObject: 
       - xmlizable: 
@@ -128,6 +141,32 @@ comment: Handles MCP prompts/call requests
         - SmartType: 
           - ↑mode: PLAIN
           - →→: guideIds
+  ↓FastPathRefs [steps.JsonToXmlStep-1773900200010]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.fastPathRefs ? promptMeta.fastPathRefs : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: fastPathRefs
+  ↓TemplateRefs [steps.JsonToXmlStep-1773900200011]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'promptMeta && promptMeta.templateRefs ? promptMeta.templateRefs : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: templateRefs
   ↓RecommendedTools [steps.JsonToXmlStep-1773900200006]: 
     jsonObject: 
       - xmlizable: 

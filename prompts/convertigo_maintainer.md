@@ -2,6 +2,7 @@
 
 ## When to use this prompt
 Use this prompt after a scored benchmark campaign has produced aggregate findings and one improvement cycle wants exactly one candidate commit.
+This is an internal lab prompt during the mono-agent recovery cycle, not part of the recommended public CRUD delivery path.
 
 ## Read these guides first
 - Read the maintainer packet first. It is the primary source of truth for the cycle.

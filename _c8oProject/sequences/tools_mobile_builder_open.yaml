@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Start or reconnect to the NGX mobile builder
-  Ensures the NGX builder is running and returns the detected live-reload URL plus readiness diagnostics. Use forceRestart only when the current builder is stuck or on the wrong state.
+  Ensures the NGX builder is running and returns readiness diagnostics plus viewerBaseUrl, viewerHomeUrl, viewerUrl, and structured compileErrors. Use viewerHomeUrl or viewerBaseUrl for the live dev app; reserve DisplayObjects/mobile/home for production builds. If the live app fails to compile, this tool should return compile_error quickly instead of waiting for a blind timeout. Use forceRestart only when the current builder is stuck or on the wrong state.
 responseTimeout: 120
 ↓IncludeHelpers [steps.SimpleStep-1772733052615]: 
   comment: Start builder and collect readiness/log data.
@@ -23,8 +23,8 @@ responseTimeout: 120
   comment: Existing NGX project name.
   description: Existing NGX project name.
 ↓timeoutSec [variables.RequestableVariable-1772733053163]: 
-  comment: Seconds to wait for a live-reload URL. Default 90; max 600.
-  description: Seconds to wait for a live-reload URL. Default 90; max 600.
+  comment: Seconds to wait for readiness or compile_error. Default 90; max 600.
+  description: Seconds to wait for readiness or compile_error. Default 90; max 600.
   value: 90
 ↓logsLimit [variables.RequestableVariable-1772733053321]: 
   comment: Maximum builder log lines returned for diagnostics. Default 40; max 200.

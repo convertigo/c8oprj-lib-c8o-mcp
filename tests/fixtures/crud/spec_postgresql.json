@@ -1,0 +1,50 @@
+{
+  "project": "CrudSmokePg",
+  "starter": "ngx",
+  "database": {
+    "mode": "postgresql",
+    "connector": "appdb",
+    "technology": "PostgreSQL",
+    "host": "127.0.0.1",
+    "port": 55432,
+    "database": "crudsmoke_pg",
+    "user": "postgres",
+    "password": "postgres"
+  },
+  "facade": {
+    "prefix": "crm",
+    "publicListSequence": "crm_list"
+  },
+  "entities": [
+    {
+      "name": "contacts",
+      "label": "Contacts",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "type": "VARCHAR(128)" },
+        { "name": "LastName", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "CompanyId", "column": "company_id", "type": "INT", "required": true, "references": { "entity": "companies", "field": "id" } }
+      ]
+    },
+    {
+      "name": "companies",
+      "label": "Companies",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Industry", "type": "VARCHAR(128)" },
+        { "name": "City", "type": "VARCHAR(128)" }
+      ]
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "profile": "crm",
+    "rowsPerEntity": 20
+  },
+  "ui": {
+    "entryPage": "Page",
+    "variant": "master-detail"
+  }
+}
