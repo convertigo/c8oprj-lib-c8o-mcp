@@ -62,7 +62,6 @@
   ↓tools_requestable_stub_set [sequences.GenericSequence]: 🗏 sequences/tools_requestable_stub_set.yaml
   ↓tools_yaml_delta_apply [sequences.GenericSequence-1764246901000]: 🗏 sequences/tools_yaml_delta_apply.yaml
   ↓tools_yaml_lint [sequences.GenericSequence]: 🗏 sequences/tools_yaml_lint.yaml
-  ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
   ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml
   ↓project [references.ProjectSchemaReference]: 
