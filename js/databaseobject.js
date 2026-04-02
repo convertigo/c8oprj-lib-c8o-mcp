@@ -2687,9 +2687,17 @@ C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   return result;
 };
 
-C8O.dbo.reloadProject = function (projectOrName, errors) {
+C8O.dbo.reloadProject = function (projectOrName, errors, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var File = Packages.java.io.File;
+  var ConvertigoJsonConverter = Packages.com.twinsoft.convertigo.engine.util.ConvertigoJsonConverter;
   var name = "";
+  var opts = options || {};
+  var fromJson = C8O.util && typeof C8O.util.toBoolean === "function"
+    ? C8O.util.toBoolean(opts.fromJson, false) === true
+    : opts.fromJson === true;
+  var yamlRebuilt = false;
+  var jsonSource = "";
   if (projectOrName != null) {
     if (typeof projectOrName === 'string') {
       name = C8O.util.toTrimmedString(projectOrName);
@@ -2706,15 +2714,38 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
     }
     return { reloaded: false, message: message };
   }
+  if (fromJson) {
+    try {
+      var projectDir = C8O.project && typeof C8O.project.resolveProjectDirectory === "function"
+        ? C8O.project.resolveProjectDirectory({ projectName: name })
+        : new File(String(Engine.projectDir(name)));
+      if (projectDir == null) {
+        throw new Error("Project directory is not available for '" + name + "'");
+      }
+      var rootJson = new File(projectDir, "c8oProject.json");
+      jsonSource = rootJson.getCanonicalPath ? String(rootJson.getCanonicalPath()) : String(rootJson.getAbsolutePath());
+      if (!rootJson.exists()) {
+        throw new Error("Missing Convertigo JSON project file: " + jsonSource);
+      }
+      ConvertigoJsonConverter.writeYamlFromJson(projectDir);
+      yamlRebuilt = true;
+    } catch (jsonError) {
+      var jsonMessage = String(jsonError);
+      if (errors && errors.push) {
+        errors.push({ name: "__json__", message: jsonMessage });
+      }
+      return { reloaded: false, message: jsonMessage, fromJson: true, yamlRebuilt: false, jsonSource: jsonSource };
+    }
+  }
   try {
     Engine.theApp.databaseObjectsManager.getStudioProjects().reloadProject(name);
-    return { reloaded: true, message: "" };
+    return { reloaded: true, message: "", fromJson: fromJson, yamlRebuilt: yamlRebuilt, jsonSource: jsonSource };
   } catch (reloadError) {
     var message = String(reloadError);
     if (errors && errors.push) {
       errors.push({ name: "__reload__", message: message });
     }
-    return { reloaded: false, message: message };
+    return { reloaded: false, message: message, fromJson: fromJson, yamlRebuilt: yamlRebuilt, jsonSource: jsonSource };
   }
 };
 

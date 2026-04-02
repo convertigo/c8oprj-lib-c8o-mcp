@@ -33,7 +33,7 @@ Convertigo sequence stored in `_c8oProject/sequences/tools_<category>_<action>.y
 | `project-execute`            | `tools_project_execute.yaml`                | Launch (or skip launch) a project mobile builder in Studio, wait initial build, and return npm/build log summary/errors from Studio logs. |
 | `project-delete`              | `tools_project_delete.yaml`                 | Delete one loaded project exactly by technical name, including its files and optional `.car` archive cleanup. |
 | `project-save`                | `tools_project_save.yaml`                   | Export a project to disk immediately and report save status/errors. |
-| `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. |
+| `project-reload`              | `tools_project_reload.yaml`                 | Reload a project from disk, discarding unsaved changes in memory. Pass `fromJson=true` to rebuild `c8oProject.yaml` and `_c8oProject/` from `c8oProject.json` and `_c8oProjectJson/` first. |
 | `report-create`              | `tools_report_create.yaml`                  | Write one structured field-feedback report under `feedback/inbox/YYYY/MM/`. Exposed only when `${mcp.report.mode=off}` resolves to `suggest` or `benchmark`. |
 | `rag-query`                   | `tools_rag_query.yaml`                      | Query the Convertigo RAG/knowledge base when usage is uncertain; expect slow responses (typically 30-60 seconds). |
 | `requestable-execute`         | `tools_requestable_execute.yaml`            | Execute a sequence/transaction internally and return its payload for inspection. |

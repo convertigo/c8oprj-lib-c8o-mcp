@@ -71,7 +71,7 @@ Noisy proof:
 - `databaseobject-tree-get`
 - `batch-call`
 - `project-save`
-- `project-reload`
+- `project-reload` (`fromJson=true` when JSON mirrors are the edited surface)
 
 ## Anti-patterns / do not do
 - Do not finish on structural intuition alone.

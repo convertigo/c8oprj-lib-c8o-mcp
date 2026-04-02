@@ -29,7 +29,7 @@ Read this for any non-trivial task, any multi-step feature, or any run that shou
 | Response-shape change in one sequence or transaction | `requestable-execute` only |
 | Runtime behavior is unclear from the payload alone | `requestable-execute` plus targeted `log-view` |
 | Metadata-only or non-runtime-safe change | focused `databaseobject-tree-get` readback, then `project-save` |
-| Sequence, connector, transaction, or NGX structure changed and reload matters | `project-save`, `project-reload`, then minimal smoke |
+| Sequence, connector, transaction, or NGX structure changed and reload matters | `project-save`, `project-reload` (use `fromJson=true` when JSON mirrors were edited), then minimal smoke |
 
 ### Evidence before done
 Keep evidence before declaring success:

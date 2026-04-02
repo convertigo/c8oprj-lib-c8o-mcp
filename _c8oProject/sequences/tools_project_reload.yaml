@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Reload a project from disk
-  Reloads one project and discards unsaved in-memory changes. Use only when you explicitly want disk state to win.
+  Reloads one project and discards unsaved in-memory changes. Pass `fromJson=true` to rebuild YAML descriptors from `c8oProject.json` / `_c8oProjectJson` before reload.
 ↓IncludeHelpers [steps.SimpleStep-1762445690829]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -9,6 +9,7 @@ comment: |
   comment: Resolve project and perform reload
   expression: |
     'var providedName = C8O.util.toTrimmedString(project);
+    var fromJsonFlag = C8O.util.toBoolean(fromJson, false) === true;
     if (!providedName.length && context && context.project) {
       providedName = String(context.project.getName());
     }
@@ -16,18 +17,21 @@ comment: |
     var errorEntries = [];
     var reloadResult;
     if (providedName.length) {
-      reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
+      reloadResult = C8O.dbo.reloadProject(providedName, errorEntries, { fromJson: fromJsonFlag });
     } else {
       var missingMessage = "Project name is required";
       errorEntries.push({ name: "__reload__", message: missingMessage });
-      reloadResult = { reloaded: false, message: missingMessage };
+      reloadResult = { reloaded: false, message: missingMessage, fromJson: fromJsonFlag, yamlRebuilt: false, jsonSource: "" };
     }
     
     var reloadedFlag = reloadResult.reloaded === true;
-    var statusText = reloadedFlag ? "reloaded" : (providedName.length ? "failed" : "missing");
+    var statusText = reloadedFlag ? (fromJsonFlag ? "reloaded_from_json" : "reloaded") : (providedName.length ? "failed" : "missing");
     
     projectReloadRequested = providedName;
+    projectReloadFromJson = fromJsonFlag;
     projectReloadReloaded = reloadedFlag;
+    projectReloadYamlRebuilt = reloadResult.yamlRebuilt === true;
+    projectReloadJsonSource = reloadResult.jsonSource || "";
     projectReloadMessage = reloadResult.message || "";
     projectReloadTimestamp = java.lang.System.currentTimeMillis();
     projectReloadErrors = errorEntries;
@@ -53,6 +57,20 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadRequested
+  ↓fromJson [steps.JsonFieldStep-1774100201001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: fromJson
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadFromJson
   ↓reloaded [steps.JsonFieldStep-1762445799436]: 
     key: 
       - xmlizable: 
@@ -67,6 +85,20 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadReloaded
+  ↓yamlRebuilt [steps.JsonFieldStep-1774100201002]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: yamlRebuilt
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadYamlRebuilt
   ↓status [steps.JsonFieldStep-1762445818609]: 
     key: 
       - xmlizable: 
@@ -93,6 +125,19 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadMessage
+  ↓jsonSource [steps.JsonFieldStep-1774100201003]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: jsonSource
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadJsonSource
   ↓timestamp [steps.JsonFieldStep-1762445853008]: 
     key: 
       - xmlizable: 
@@ -152,3 +197,7 @@ comment: |
 ↓project [variables.RequestableVariable-1762445963717]: 
   comment: Project technical name. Omit only when the current context project is unambiguous.
   description: Project technical name. Omit only when the current context project is unambiguous.
+↓fromJson [variables.RequestableVariable-1774100201004]: 
+  comment: Set true to rebuild c8oProject.yaml and _c8oProject from c8oProject.json and _c8oProjectJson before reload.
+  description: Set true to rebuild c8oProject.yaml and _c8oProject from c8oProject.json and _c8oProjectJson before reload.
+  value: false
