@@ -1,159 +1,152 @@
 comment: Template source for the CRUD entity edit form.
-↓EntityKey [ngx.components.UICompVariable-1775063150533]: 
-  value: '''__ENTITY_KEY__'''
-↓PrimaryField [ngx.components.UICompVariable-1775063150535]: 
-  value: '''__PRIMARY_FIELD__'''
-↓PrimaryFieldLabel [ngx.components.UICompVariable-1775063150537]: 
-  value: '''__PRIMARY_FIELD__'''
-↓PrimaryFieldRequired [ngx.components.UICompVariable-1775063150539]: 
-  value: '''false'''
-↓SecondaryField [ngx.components.UICompVariable-1775063150541]: 
-  value: '''__SECONDARY_FIELD__'''
-↓SecondaryFieldLabel [ngx.components.UICompVariable-1775063150543]: 
-  value: '''__SECONDARY_FIELD__'''
-↓SecondaryFieldRequired [ngx.components.UICompVariable-1775063150545]: 
-  value: '''false'''
-↓ActionLabel [ngx.components.UICompVariable-1775063150547]: 
+↓SelectedId [ngx.components.UICompVariable-1775150040285]: 
+↓Mode [ngx.components.UICompVariable-1775150040287]: 
+  value: '''create'''
+↓RefreshToken [ngx.components.UICompVariable-1775150040289]: 
+↓DraftSeed [ngx.components.UICompVariable-1775150040291]: 
+  value: '{}'
+↓ActionLabel [ngx.components.UICompVariable-1775150040293]: 
   value: '''__ACTION_LABEL__'''
-↓CreateTitle [ngx.components.UICompVariable-1775063150549]: 
+↓CreateTitle [ngx.components.UICompVariable-1775150040295]: 
   value: '''Create __ENTITY_SINGULAR__'''
-↓EditTitle [ngx.components.UICompVariable-1775063150551]: 
+↓EditTitle [ngx.components.UICompVariable-1775150040297]: 
   value: '''Edit __ENTITY_SINGULAR__'''
-↓DeleteLabel [ngx.components.UICompVariable-1775063150553]: 
+↓DeleteLabel [ngx.components.UICompVariable-1775150040299]: 
   value: '''Delete __ENTITY_SINGULAR__'''
-↓TplEntityEditFormRoot [ngx.components.UIDynamicElement-1775063150555]: 
+↓Saved [ngx.components.UICompEvent-1775150040301]: 
+  attrName: Saved
+  comment: Emitted after a successful create or update.
+↓Deleted [ngx.components.UICompEvent-1775150040303]: 
+  attrName: Deleted
+  comment: Emitted after a successful delete.
+↓Cancelled [ngx.components.UICompEvent-1775150040305]: 
+  attrName: Cancelled
+  comment: Emitted when the user cancels form editing.
+↓Load [ngx.components.UISharedComponentEvent-1775150040307]: 
+  comment: Maintain the entity draft in component-local state.
+  componentEvent: onChanges
+  ↓WhenCreateMode [ngx.components.UIDynamicAction-1775150040309]: 
+    beanData: '{"ionBean":"IfAction","condition":"script:this.Mode === ''create'' || !this.SelectedId"}'
+    comment: Initialize the local draft when the page switches to create mode.
+    ↓SetCreateDraft [ngx.components.UIDynamicAction-1775150040311]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:draft",
+         "Value": "script:(function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this)"
+        }'
+  ↓WhenUpdateMode [ngx.components.UIDynamicAction-1775150040313]: 
+    beanData: '{"ionBean":"IfAction","condition":"script:this.Mode !== ''create'' && !!this.SelectedId"}'
+    comment: Reload the local draft when the selected id changes.
+    ↓LoadRow [ngx.components.UIDynamicAction-1775150040315]: 
+      beanData: |
+        '{
+         "ionBean": "CallSequenceAction",
+         "requestable": "plain:__PROJECT_NAME__.__FACADE_PREFIX___read___ENTITY_SINGULAR__",
+         "noLoading": "plain:true"
+        }'
+      comment: Load the selected row into the local draft.
+      ↓id [ngx.components.UIControlVariable-1775150040317]: 
+        varValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:String(this.SelectedId || '')
+      ↓SetUpdateDraft [ngx.components.UIDynamicAction-1775150040319]: 
+        beanData: |
+          '{
+           "ionBean": "SetLocalAction",
+           "Property": "plain:draft",
+           "Value": "script:(function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : (function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this); })()"
+          }'
+↓Card [ngx.components.UIDynamicElement-1775150040321]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓TplEntityEditFormHeader [ngx.components.UIDynamicElement-1775063150557]: 
+  ↓Header [ngx.components.UIDynamicElement-1775150040323]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplEntityEditFormTitle [ngx.components.UIDynamicElement-1775063150559]: 
+    ↓Title [ngx.components.UIDynamicElement-1775150040325]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775063150561]: 
+      ↓TitleText [ngx.components.UIText-1775150040327]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-            - MobileSmartSourceType: 'script:((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudModes || {})[this.EntityKey]) || ''update'') === ''create'' ? (this.CreateTitle || ''Create __ENTITY_SINGULAR__'') : (this.EditTitle || ''Edit __ENTITY_SINGULAR__''))'
-  ↓TplEntityEditFormContent [ngx.components.UIDynamicElement-1775063150563]: 
+            - MobileSmartSourceType: 'script:(this.Mode === ''create'' ? (this.CreateTitle || ''Create __ENTITY_SINGULAR__'') : (this.EditTitle || ''Edit __ENTITY_SINGULAR__''))'
+  ↓Content [ngx.components.UIDynamicElement-1775150040329]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓Field1Item [ngx.components.UIDynamicElement-1775063150565]: 
-      beanData: '{"ionBean":"FormItem"}'
-      tagName: ion-item
-      ↓FieldInput [ngx.components.UIDynamicElement-1775063150567]: 
-        beanData: |
-          '{
-           "ionBean": "Input",
-           "ControlName": "plain:name1775063150567",
-           "Label": "script:((this.PrimaryFieldLabel) || ''Field'')",
-           "LabelPlacement": "plain:stacked",
-           "Placeholder": "script:((this.PrimaryFieldLabel) || ''Field'')",
-           "Required": "script:this.PrimaryFieldRequired === true || this.PrimaryFieldRequired === ''true''",
-           "Value": "script:((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudDrafts || {})[this.EntityKey]) || {})?.[this.PrimaryField] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudDrafts || {})[this.EntityKey]) || {})?.[(('''' + (this.PrimaryField || '''')).toUpperCase())] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudDrafts || {})[this.EntityKey]) || {})?.[(('''' + (this.PrimaryField || '''')).toLowerCase())] ?? '''')"
-          }'
-        tagName: ion-input
-        ↓InputEvent [ngx.components.UIControlEvent-1775063150569]: 
-          attrName: (ionInput)
-          eventName: ionInput
-          ↓StoreField [ngx.components.UICustomAsyncAction-1775063150571]: 
-            actionValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
-                - com.twinsoft.convertigo.beans.common.FormatedContent: 
-                  →: |
-                    'page.global = page.global || {};
-                    var key = this.EntityKey || ''__ENTITY_KEY__'';
-                    var fieldName = ((this.PrimaryField) || '''');
-                    var drafts = Object.assign({}, page.global.crudDrafts || {});
-                    var draft = Object.assign({}, drafts[key] || {});
-                    var value = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '''');
-                    draft[fieldName] = value == null ? '''' : value;
-                    drafts[key] = draft;
-                    page.global.crudDrafts = drafts;
-                    page.ref.markForCheck();
-                    return draft;'
-            comment: Store input value into CRUD draft state.
-    ↓Field2Item [ngx.components.UIDynamicElement-1775063150573]: 
-      beanData: '{"ionBean":"FormItem"}'
-      tagName: ion-item
-      ↓FieldInput [ngx.components.UIDynamicElement-1775063150575]: 
-        beanData: |
-          '{
-           "ionBean": "Input",
-           "ControlName": "plain:name1775063150575",
-           "Label": "script:((this.SecondaryFieldLabel) || ''Field'')",
-           "LabelPlacement": "plain:stacked",
-           "Placeholder": "script:((this.SecondaryFieldLabel) || ''Field'')",
-           "Required": "script:this.SecondaryFieldRequired === true || this.SecondaryFieldRequired === ''true''",
-           "Value": "script:((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudDrafts || {})[this.EntityKey]) || {})?.[this.SecondaryField] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudDrafts || {})[this.EntityKey]) || {})?.[(('''' + (this.SecondaryField || '''')).toUpperCase())] ?? (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudDrafts || {})[this.EntityKey]) || {})?.[(('''' + (this.SecondaryField || '''')).toLowerCase())] ?? '''')"
-          }'
-        tagName: ion-input
-        ↓InputEvent [ngx.components.UIControlEvent-1775063150577]: 
-          attrName: (ionInput)
-          eventName: ionInput
-          ↓StoreField [ngx.components.UICustomAsyncAction-1775063150579]: 
-            actionValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
-                - com.twinsoft.convertigo.beans.common.FormatedContent: 
-                  →: |
-                    'page.global = page.global || {};
-                    var key = this.EntityKey || ''__ENTITY_KEY__'';
-                    var fieldName = ((this.SecondaryField) || '''');
-                    var drafts = Object.assign({}, page.global.crudDrafts || {});
-                    var draft = Object.assign({}, drafts[key] || {});
-                    var value = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '''');
-                    draft[fieldName] = value == null ? '''' : value;
-                    drafts[key] = draft;
-                    page.global.crudDrafts = drafts;
-                    page.ref.markForCheck();
-                    return draft;'
-            comment: Store input value into CRUD draft state.
-    ↓FormStatus [ngx.components.UIText-1775063150581]: 
-      textValue: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-          - MobileSmartSourceType: 'script:''Entity status: '' + ((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudEntityStatus || {})[this.EntityKey]) || ''idle''))'
-    ↓TplEntityEditFormErrorVisible [ngx.components.UIControlDirective-1775063150583]: 
-      directiveExpression: '!!(((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudEntityErrors || {})[this.EntityKey]) || '''')'
+    ↓SaveCreateVisible [ngx.components.UIControlDirective-1775150040331]: 
+      directiveExpression: this.Mode === 'create'
       directiveName: If
-      ↓TplEntityEditFormErrorMessage [ngx.components.UIDynamicElement-1775063150585]: 
-        beanData: '{"ionBean":"Paragraph"}'
-        tagName: p
-        ↓ErrorText [ngx.components.UIText-1775063150587]: 
+      ↓SaveCreate [ngx.components.UIDynamicElement-1775150040333]: 
+        beanData: '{"ionBean":"Button","IonColor":"plain:primary"}'
+        tagName: ion-button
+        ↓SaveCreateText [ngx.components.UIText-1775150040335]: 
           textValue: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-              - MobileSmartSourceType: script:(((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudEntityErrors || {})[this.EntityKey]) || '')
-    ↓SaveButton [ngx.components.UIDynamicElement-1775063150589]: 
-      beanData: '{"ionBean":"Button","IonColor":"plain:primary"}'
-      tagName: ion-button
-      ↓SaveButtonText [ngx.components.UIText-1775063150591]: 
-        textValue: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-            - MobileSmartSourceType: script:this.ActionLabel || '__ACTION_LABEL__'
-      ↓Event [ngx.components.UIControlEvent-1775063150593]: 
-        ↓InvokeSave [ngx.components.UIDynamicInvoke-1775063150595]: 
-          beanData: '{"ionBean":"InvokeAction"}'
-          stack: __PROJECT_NAME__.Application.NgxApp.crud_save___ENTITY_SINGULAR__
-    ↓CancelButton [ngx.components.UIDynamicElement-1775063150597]: 
+              - MobileSmartSourceType: script:this.ActionLabel || '__ACTION_LABEL__'
+        ↓Event [ngx.components.UIControlEvent-1775150040337]: 
+          ↓Create [ngx.components.UIDynamicAction-1775150040339]: 
+            beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___create___ENTITY_SINGULAR__"}'
+            comment: Create a new row from the local draft.
+            ↓EmitSaved [ngx.components.UIDynamicEmit-1775150040341]: 
+              beanData: |
+                '{
+                 "ionBean": "EmitEventAction",
+                 "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Saved",
+                 "data": "script:{ id: String((function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : (this.local?.draft || {}); })()?.id ?? ''''), mode: ''create'' }"
+                }'
+              comment: Notify the page glue that the create succeeded.
+    ↓SaveUpdateVisible [ngx.components.UIControlDirective-1775150040343]: 
+      directiveExpression: this.Mode !== 'create' && !!this.SelectedId
+      directiveName: If
+      ↓SaveUpdate [ngx.components.UIDynamicElement-1775150040345]: 
+        beanData: '{"ionBean":"Button","IonColor":"plain:primary"}'
+        tagName: ion-button
+        ↓SaveUpdateText [ngx.components.UIText-1775150040347]: 
+          textValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: script:this.ActionLabel || '__ACTION_LABEL__'
+        ↓Event [ngx.components.UIControlEvent-1775150040349]: 
+          ↓Update [ngx.components.UIDynamicAction-1775150040351]: 
+            beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___update___ENTITY_SINGULAR__"}'
+            comment: Update the selected row from the local draft.
+            ↓id [ngx.components.UIControlVariable-1775150040353]: 
+              varValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: script:String(this.SelectedId || '')
+            ↓EmitSaved [ngx.components.UIDynamicEmit-1775150040355]: 
+              beanData: |
+                '{
+                 "ionBean": "EmitEventAction",
+                 "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Saved",
+                 "data": "script:{ id: String((function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : { id: this.SelectedId || '''' }; })()?.id ?? ''''), mode: ''update'' }"
+                }'
+              comment: Notify the page glue that the update succeeded.
+    ↓Cancel [ngx.components.UIDynamicElement-1775150040357]: 
       beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
       tagName: ion-button
-      ↓CancelButtonText [ngx.components.UIText-1775063150599]: 
+      ↓CancelText [ngx.components.UIText-1775150040359]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-            - MobileSmartSourceType: plain:Cancel
-      ↓Event [ngx.components.UIControlEvent-1775063150601]: 
-        ↓InvokeCancel [ngx.components.UIDynamicInvoke-1775063150603]: 
-          beanData: '{"ionBean":"InvokeAction"}'
-          stack: __PROJECT_NAME__.Application.NgxApp.crud_cancel___ENTITY_SINGULAR__
-    ↓TplEntityEditFormDeleteVisible [ngx.components.UIControlDirective-1775063150605]: 
-      directiveExpression: '!!(((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudSelected || {})[this.EntityKey]) || null)'
+            - MobileSmartSourceType: script:'Cancel'
+      ↓Event [ngx.components.UIControlEvent-1775150040361]: 
+        ↓EmitCancelled [ngx.components.UIDynamicEmit-1775150040363]: 
+          beanData: |
+            '{
+             "ionBean": "EmitEventAction",
+             "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Cancelled",
+             "data": "script:{ id: this.SelectedId || '''', mode: this.Mode || ''create'' }"
+            }'
+          comment: Notify the page glue that the form was cancelled.
+    ↓DeleteVisible [ngx.components.UIControlDirective-1775150040365]: 
+      directiveExpression: this.Mode !== 'create' && !!this.SelectedId
       directiveName: If
-      ↓DeleteButton [ngx.components.UIDynamicElement-1775063150607]: 
+      ↓Delete [ngx.components.UIDynamicElement-1775150040367]: 
         beanData: |
           '{
            "ionBean": "Button",
@@ -161,12 +154,25 @@ comment: Template source for the CRUD entity edit form.
            "IonFill": "plain:outline"
           }'
         tagName: ion-button
-        ↓DeleteButtonText [ngx.components.UIText-1775063150609]: 
+        ↓DeleteText [ngx.components.UIText-1775150040369]: 
           textValue: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: script:this.DeleteLabel || 'Delete __ENTITY_SINGULAR__'
-        ↓Event [ngx.components.UIControlEvent-1775063150611]: 
-          ↓InvokeDelete [ngx.components.UIDynamicInvoke-1775063150613]: 
-            beanData: '{"ionBean":"InvokeAction"}'
-            stack: __PROJECT_NAME__.Application.NgxApp.crud_delete___ENTITY_SINGULAR__
+        ↓Event [ngx.components.UIControlEvent-1775150040371]: 
+          ↓Delete [ngx.components.UIDynamicAction-1775150040373]: 
+            beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___delete___ENTITY_SINGULAR__"}'
+            comment: Delete the selected row.
+            ↓id [ngx.components.UIControlVariable-1775150040375]: 
+              varValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: script:String(this.SelectedId || '')
+            ↓EmitDeleted [ngx.components.UIDynamicEmit-1775150040377]: 
+              beanData: |
+                '{
+                 "ionBean": "EmitEventAction",
+                 "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Deleted",
+                 "data": "script:{ id: this.SelectedId || '''' }"
+                }'
+              comment: Notify the page glue that the delete succeeded.

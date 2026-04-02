@@ -24,6 +24,16 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     ].join("\n");
   }
 
+  function chainActionNodes(ctx, nodes) {
+    var filtered = ctx.ensureArray(nodes).filter(function (node) {
+      return !!node;
+    });
+    for (var index = 0; index < filtered.length - 1; index++) {
+      filtered[index].children = ctx.ensureArray(filtered[index].children).concat([filtered[index + 1]]);
+    }
+    return filtered.length ? filtered[0] : null;
+  }
+
   function entityPagesHeaderTitleTree(ctx, titleText) {
     return {
       className: "ngx.components.UIDynamicElement#Header",
@@ -44,19 +54,6 @@ C8O.crudUiPages = C8O.crudUiPages || {};
         }
       ]
     };
-  }
-
-  function finalizeCrudBuildStageNode(ctx, name) {
-    return ctx.customAsyncActionNode(
-      name,
-      [
-        "page.global = page.global || {};",
-        "page.global.crudBuildStage = 'final';",
-        "page.ref.markForCheck();",
-        "return { status: 'ok', crudBuildStage: page.global.crudBuildStage };"
-      ].join("\n"),
-      "Mark CRUD build stage as final after bootstrap."
-    );
   }
 
   function loginSequenceActionNode(ctx, projectName, name) {
@@ -85,6 +82,140 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     }
     loginNode.children = children;
     return loginNode;
+  }
+
+  function buildSessionBootstrapPageRootTree(ctx, projectName, entryPage) {
+    var pageName = ctx.sessionBootstrapPageName();
+    var targetQName = ctx.pageQName(projectName, entryPage);
+    return {
+      className: "ngx.components.PageComponent#PageComponent",
+      name: pageName,
+      properties: {
+        comment: "Initialize the generated authenticated session before opening the CRUD home page.",
+        icon: "log-in",
+        inAutoMenu: false,
+        isRoot: true,
+        preloadPriority: "high",
+        segment: "login",
+        title: pageName,
+        scriptContent: blankPageScriptContent()
+      },
+      children: [
+        entityPagesHeaderTitleTree(ctx, pageName),
+        {
+          className: "ngx.components.UIDynamicElement#Content",
+          name: "Content",
+          properties: {
+            Padding: {
+              mode: "PLAIN",
+              value: "ion-padding"
+            }
+          },
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#Grid",
+              name: "Grid",
+              children: [
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "Row",
+                  children: [
+                    {
+                      className: "ngx.components.UIDynamicElement#GridCol",
+                      name: "Col",
+                      children: [
+                        {
+                          className: "ngx.components.UIDynamicElement#Card",
+                          name: "Card",
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#CardHeader",
+                              name: "Header",
+                              children: [
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#CardTitle",
+                                  "Title",
+                                  ctx.plainTextNode("Text", "Preparing session")
+                                )
+                              ]
+                            },
+                            {
+                              className: "ngx.components.UIDynamicElement#CardContent",
+                              name: "Content",
+                              children: [
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  "Hint",
+                                  ctx.plainTextNode("Text", "Signing in with the generated demo user, then opening the CRUD home page.")
+                                )
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        ctx.pageEventNode(
+          "PageEvent",
+          "onWillLoad",
+          [
+            loginBootstrapChainNode(
+              ctx,
+              projectName,
+              "InvokeCrudAuthLogin",
+              [
+                ctx.rootPageActionNode(
+                  "OpenCrudLanding",
+                  targetQName,
+                  "not set",
+                  "Open the generated CRUD home page once the best-case auth session exists."
+                )
+              ]
+            )
+          ],
+          "Initialize the generated auth session and open the landing page."
+        )
+      ]
+    };
+  }
+
+  function buildSessionBootstrapPageLoadTree(ctx, projectName, entryPage) {
+    return {
+      qname: ctx.sessionBootstrapPageQName(projectName),
+      legacyQNames: [],
+      tree: {
+        properties: {
+          scriptContent: blankPageScriptContent()
+        },
+        children: [
+          ctx.pageEventNode(
+            "PageEvent",
+            "onWillLoad",
+            [
+              loginBootstrapChainNode(
+                ctx,
+                projectName,
+                "InvokeCrudAuthLogin",
+                [
+                  ctx.rootPageActionNode(
+                    "OpenCrudLanding",
+                    ctx.pageQName(projectName, entryPage),
+                    "not set",
+                    "Open the generated CRUD home page once the best-case auth session exists."
+                  )
+                ]
+              )
+            ],
+            "Initialize the generated auth session and open the landing page."
+          )
+        ]
+      }
+    };
   }
 
   function landingRouteCardNode(ctx, entity) {
@@ -551,20 +682,17 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   }
 
   function buildEntityPagesLandingLoadTree(ctx, projectName, entryPage, stage) {
-    var chainedActions = [
-      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
-    ];
-    if (ctx.trimmed(stage || "").toLowerCase() === "final") {
-      chainedActions.push(finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage"));
-    }
     var children = [
       ctx.pageEventNode(
         "PageEvent",
         "onWillLoad",
         [
-          loginBootstrapChainNode(ctx, projectName, "InvokeCrudAuthLogin", chainedActions)
+          chainActionNodes(ctx, [
+            ctx.dynamicInvokeNode("InvokeEnsureSession", ctx.dashboardActionQName(projectName, "crud_ensure_session"), []),
+            ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+          ])
         ],
-        "Bootstrap CRUD entity-pages state on landing load."
+        "Load only the landing counts and route cards."
       )
     ];
     return {
@@ -583,21 +711,19 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   }
 
   function buildEntityPageLoadTree(ctx, projectName, entity, stage) {
-    var chainedActions = [
-      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), []),
-      ctx.dynamicInvokeNode("InvokeBootstrap" + ctx.pascalize(entity.name) + "Page", ctx.dashboardActionQName(projectName, "crud_bootstrap_" + entity.name + "_page"), [])
-    ];
-    if (ctx.trimmed(stage || "").toLowerCase() === "final") {
-      chainedActions.push(finalizeCrudBuildStageNode(ctx, "FinalizeCrudBuildStage"));
-    }
     var children = [
       ctx.pageEventNode(
         "PageEvent",
         "onWillLoad",
         [
-          loginBootstrapChainNode(ctx, projectName, "InvokeCrudAuthLogin", chainedActions)
+          chainActionNodes(ctx, [
+            ctx.dynamicInvokeNode("InvokeEnsureSession", ctx.dashboardActionQName(projectName, "crud_ensure_session"), []),
+            ctx.setLocalActionNode("InitSelectedId", "selectedId", "''"),
+            ctx.setLocalActionNode("InitMode", "mode", "'create'"),
+            ctx.setLocalActionNode("InitRefreshToken", "refreshToken", "String(Date.now())")
+          ])
         ],
-        "Bootstrap CRUD entity page state on page load."
+        "Initialize the local page glue state for the generated entity page."
       )
     ];
     return {
@@ -618,6 +744,8 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   C8O.crudUiPages.buildDashboardPageShellTree = buildDashboardPageShellTree;
   C8O.crudUiPages.buildDashboardPageLoadTree = buildDashboardPageLoadTree;
   C8O.crudUiPages.buildEntityPagesLandingShellTree = buildEntityPagesLandingShellTree;
+  C8O.crudUiPages.buildSessionBootstrapPageRootTree = buildSessionBootstrapPageRootTree;
+  C8O.crudUiPages.buildSessionBootstrapPageLoadTree = buildSessionBootstrapPageLoadTree;
   C8O.crudUiPages.buildEntityPageShellTree = buildEntityPageShellTree;
   C8O.crudUiPages.appendEntityPageRows = appendEntityPageRows;
   C8O.crudUiPages.buildEntityPageRootTree = buildEntityPageRootTree;

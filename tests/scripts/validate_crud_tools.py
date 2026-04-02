@@ -275,6 +275,21 @@ def serialize_tree(node):
 
 def sql_output_rows(payload):
     if isinstance(payload, dict):
+        rows = payload.get("rows")
+        if isinstance(rows, list):
+            return rows
+        row = payload.get("row")
+        if isinstance(row, dict):
+            return [row]
+        for key in ("result", "response", "document"):
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                rows = nested.get("rows")
+                if isinstance(rows, list):
+                    return rows
+                row = nested.get("row")
+                if isinstance(row, dict):
+                    return [row]
         rows = payload.get("sql_output")
         if isinstance(rows, list):
             return rows

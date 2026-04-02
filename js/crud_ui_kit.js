@@ -46,6 +46,40 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return null;
   }
 
+  function sqlConnectorNameForProject(ctx, projectName) {
+    var project = ctx.findProjectByName(projectName);
+    if (!project) {
+      return "";
+    }
+    try {
+      var defaultConnector = project.getDefaultConnector ? project.getDefaultConnector() : null;
+      if (defaultConnector && String(defaultConnector.getClass().getName()).indexOf("SqlConnector") !== -1) {
+        return ctx.trimmed(defaultConnector.getName ? defaultConnector.getName() : "");
+      }
+    } catch (_ignoreDefaultConnector) {}
+    try {
+      var connectors = project.getConnectorsList ? project.getConnectorsList() : null;
+      if (connectors) {
+        for (var index = 0; index < connectors.size(); index++) {
+          var connector = connectors.get(index);
+          if (connector && String(connector.getClass().getName()).indexOf("SqlConnector") !== -1) {
+            return ctx.trimmed(connector.getName ? connector.getName() : "");
+          }
+        }
+      }
+    } catch (_ignoreConnectors) {}
+    return "";
+  }
+
+  function fallbackListTransactionRequestable(ctx, projectName, entity) {
+    var connectorName = sqlConnectorNameForProject(ctx, projectName);
+    var entityName = ctx.normalizedIdentifier(entity && entity.name);
+    if (!connectorName.length || !entityName.length) {
+      return "";
+    }
+    return projectName + "." + connectorName + ".list_" + entityName;
+  }
+
   C8O.crudUiKit.normalizeUiEntities = function (ctx, rawEntities) {
     var entries = ctx.ensureArray(rawEntities);
     var normalized = [];
@@ -135,6 +169,13 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var requestable = ctx.facadeSequenceQName(projectName, facadePrefix, entity, "list");
     var payload = ctx.requestablePayload(requestable, {}, result);
     var rows = ctx.collectSqlOutputRows(payload);
+    if (!rows.length) {
+      var fallbackRequestable = fallbackListTransactionRequestable(ctx, projectName, entity);
+      if (fallbackRequestable.length) {
+        payload = ctx.requestablePayload(fallbackRequestable, {}, result);
+        rows = ctx.collectSqlOutputRows(payload);
+      }
+    }
     var firstRow = rows.length && rows[0] && typeof rows[0] === "object" ? rows[0] : null;
     if (!firstRow) {
       return entity;
@@ -309,6 +350,76 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     };
   }
 
+  function menuToolbarQName(ctx, projectName) {
+    return ctx.ngxAppQName(projectName) + ".mn:Menu.Header.ToolBar";
+  }
+
+  function menuBarTitleQName(ctx, projectName) {
+    return menuToolbarQName(ctx, projectName) + ".BarTitle";
+  }
+
+  function safeMenuTitleLabelTree() {
+    return {
+      className: "ngx.components.UIDynamicElement#Label",
+      name: "Label",
+      properties: {
+        comment: "Menu title label",
+        tagName: "ion-label"
+      },
+      children: [
+        {
+          className: "ngx.components.UIText#UIText",
+          name: "Text",
+          properties: {
+            comment: "Translated menu title text",
+            i18n: true,
+            textValue: {
+              mode: "PLAIN",
+              value: "Navigation"
+            }
+          }
+        }
+      ]
+    };
+  }
+
+  function rootMenuTitlePatchPlan(ctx, projectName) {
+    var toolbarQName = menuToolbarQName(ctx, projectName);
+    if (!ctx.resolveQName(toolbarQName, { optional: true })) {
+      return {
+        status: "missing",
+        target: toolbarQName,
+        operations: []
+      };
+    }
+    var operations = [];
+    if (ctx.resolveQName(menuBarTitleQName(ctx, projectName), { optional: true })) {
+      operations.push({
+        type: "delete",
+        opId: "menu_bar_title",
+        qname: menuBarTitleQName(ctx, projectName)
+      });
+    }
+    operations.push({
+      type: "upsertTree",
+      opId: "menu_label",
+      qname: toolbarQName,
+      strategy: {
+        replaceOnClassMismatch: true,
+        pruneMissing: false,
+        reorder: false
+      },
+      patch: {
+        children: [safeMenuTitleLabelTree()]
+      }
+    });
+    return {
+      status: "pending",
+      target: toolbarQName,
+      operations: operations
+    };
+  }
+
   function touchManagedCrudPages(ctx, projectName, pageQNames, result) {
     var unique = {};
     var qnames = [];
@@ -364,6 +475,44 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       summary.status = "ok";
     }
     return summary;
+  }
+
+  function operationGroupSummary(ctx, batchResult, opIds, target) {
+    var operations = batchResult && Array.isArray(batchResult.operations) ? batchResult.operations : [];
+    var wanted = {};
+    var matched = 0;
+    var appliedCount = 0;
+    var failedCount = 0;
+    var partialCount = 0;
+    var unknownCount = 0;
+    for (var i = 0; i < ctx.ensureArray(opIds).length; i++) {
+      wanted[String(opIds[i])] = true;
+    }
+    for (var operationIndex = 0; operationIndex < operations.length; operationIndex++) {
+      var operation = operations[operationIndex] || {};
+      var opId = String(operation.opId || "");
+      if (!wanted[opId]) {
+        continue;
+      }
+      matched += 1;
+      appliedCount += Array.isArray(operation.applied) ? operation.applied.length : 0;
+      var status = ctx.trimmed(operation.status).toLowerCase();
+      if (status === "failed") {
+        failedCount += 1;
+      } else if (status === "partial") {
+        partialCount += 1;
+      } else if (!status.length || status === "unknown") {
+        unknownCount += 1;
+      }
+    }
+    return {
+      status: failedCount > 0 ? "failed" : (partialCount > 0 ? "partial" : (matched === 0 ? "unknown" : "success")),
+      target: target,
+      matchedOps: matched,
+      expectedOps: Object.keys(wanted).length,
+      appliedCount: appliedCount,
+      unknownOps: unknownCount
+    };
   }
 
   function ensureEntryPage(ctx, projectName, entryPage, result) {
@@ -498,7 +647,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var sharedBuildStartedAt = ctx.nowMillis();
     var sharedComponents = isMasterDetail
       ? ctx.buildCrmSharedComponentsTree(projectName, stage)
-      : (isEntityPages ? ctx.buildEntityPagesSharedComponentsTree(projectName, entities, stage) : ctx.buildDashboardSharedComponentsTree(projectName, entities, stage));
+      : (isEntityPages ? ctx.buildEntityPagesSharedComponentsTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardSharedComponentsTree(projectName, entities, stage));
     var sharedActions = isMasterDetail
       ? ctx.buildCrmActionStacksTree(projectName, facadePrefix, stage)
       : (isEntityPages ? ctx.buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
@@ -518,7 +667,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.sharedActionsReused = reuseExistingSharedActions;
     result.runtimeEvidence.uiGlobals = ctx.statefulUiGlobals(variant);
     result.runtimeEvidence.workInProgressMode = "stateful-visibility";
-    var pageTemplates = isEntityPages ? ctx.buildEntityPagesPageBundle(projectName, entryPage, entities, stage) : null;
+    var pageTemplates = isEntityPages ? ctx.buildEntityPagesPageBundle(projectName, entryPage, facadePrefix, entities, stage) : null;
     if (pageTemplates && pageTemplates.warnings && pageTemplates.warnings.length) {
       for (var pageTemplateWarningIndex = 0; pageTemplateWarningIndex < pageTemplates.warnings.length; pageTemplateWarningIndex++) {
         ctx.addWarning(result, pageTemplates.warnings[pageTemplateWarningIndex]);
@@ -651,11 +800,45 @@ C8O.crudUiKit = C8O.crudUiKit || {};
           qname: qname
         };
       });
+    var rootChildOperations = [];
+    var rootChildOpIds = [];
+    function pushRootChildOperation(prefix, childTree) {
+      if (!childTree) {
+        return;
+      }
+      var name = ctx.trimmed(childTree.name || prefix || "child") || "child";
+      var opId = prefix + "_" + ctx.normalizedIdentifier(name);
+      rootChildOpIds.push(opId);
+      rootChildOperations.push({
+        type: "upsertTree",
+        opId: opId,
+        qname: ctx.ngxAppQName(projectName),
+        strategy: {
+          replaceOnClassMismatch: true,
+          pruneMissing: false,
+          reorder: false
+        },
+        patch: {
+          children: [childTree]
+        }
+      });
+    }
+    for (var sharedComponentIndex = 0; sharedComponentIndex < sharedComponentChildren.length; sharedComponentIndex++) {
+      pushRootChildOperation("shared_component", sharedComponentChildren[sharedComponentIndex]);
+    }
+    for (var sharedActionIndex = 0; sharedActionIndex < sharedActionChildren.length; sharedActionIndex++) {
+      pushRootChildOperation("shared_action", sharedActionChildren[sharedActionIndex]);
+    }
+    pushRootChildOperation("page_root", sessionBootstrapPageRoot);
+    for (var rootPageIndex = 0; rootPageIndex < entityPageRoots.length; rootPageIndex++) {
+      pushRootChildOperation("page_root", entityPageRoots[rootPageIndex]);
+    }
     var appImportPatch = {
       status: "skipped",
       changed: false,
       target: ctx.ngxAppQName(projectName)
     };
+    var menuTitlePatch = rootMenuTitlePatchPlan(ctx, projectName);
     var mergedAppScript = null;
     if (isEntityPages) {
       mergedAppScript = mergeAppImportBlock(currentAppComponentScriptContent(ctx, projectName), appShellImportPatchLines());
@@ -667,20 +850,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         };
       }
     }
-    var batchOperations = cleanupOperations.concat([
-      {
-        type: "upsertTree",
-        opId: "shared_components",
-        qname: ctx.ngxAppQName(projectName),
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: sharedComponentChildren.concat(sharedActionChildren).concat([sessionBootstrapPageRoot]).concat(entityPageRoots)
-        }
-      },
+    var batchOperations = cleanupOperations.concat(rootChildOperations).concat(menuTitlePatch.operations || []).concat([
       appImportPatch.changed ? {
         type: "setProperties",
         opId: "app_component_imports",
@@ -788,10 +958,13 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     }
     result.sharedComponents = sharedComponents.qnames.slice();
     result.runtimeEvidence.batchApply = ctx.summarizeTreeApplyResult(batchApplyResult, ctx.ngxAppQName(projectName), result);
-    result.runtimeEvidence.sharedComponentsApply = ctx.operationSummary(batchApplyResult, "shared_components", ctx.ngxAppQName(projectName));
+    result.runtimeEvidence.sharedComponentsApply = operationGroupSummary(ctx, batchApplyResult, rootChildOpIds, ctx.ngxAppQName(projectName));
     result.runtimeEvidence.appComponentImports = appImportPatch.changed
       ? ctx.operationSummary(batchApplyResult, "app_component_imports", ctx.ngxAppQName(projectName))
       : appImportPatch;
+    result.runtimeEvidence.menuTitleNormalization = (menuTitlePatch.operations && menuTitlePatch.operations.length)
+      ? operationGroupSummary(ctx, batchApplyResult, ["menu_bar_title", "menu_label"], menuTitlePatch.target)
+      : menuTitlePatch;
     result.runtimeEvidence.treeApply = ctx.operationSummary(batchApplyResult, "entry_page", contentQName);
     result.runtimeEvidence.pageLoadApply = ctx.operationSummary(batchApplyResult, "entry_page_load", ctx.pageQName(projectName, entryPage));
     result.runtimeEvidence.sharedActions = sharedActions.qnames.slice();

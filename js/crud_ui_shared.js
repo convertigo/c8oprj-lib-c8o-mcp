@@ -490,7 +490,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
                   { color: "primary" },
                   [
                     ctx.controlEventNode("Event", [
-                      ctx.dynamicInvokeNode("InvokeRetryDashboard", ctx.dashboardActionQName(projectName, "crud_retry_dashboard"), [])
+                      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
                     ])
                   ]
                 )

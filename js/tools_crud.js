@@ -265,6 +265,7 @@ C8O.crud = C8O.crud || {};
       ensureChild: ensureChild,
       createChild: createChild,
       findChild: findChild,
+      logicalClassName: logicalClassName,
       applyUpdates: applyUpdates,
       connectorProperties: connectorProperties,
       priorityOf: priorityOf,
@@ -478,12 +479,20 @@ C8O.crud = C8O.crud || {};
       plainTextNode: plainTextNode,
       textElementNode: textElementNode,
       ifDirectiveNode: ifDirectiveNode,
+      ifActionNode: ifActionNode,
       pageEventNode: pageEventNode,
       iterationDirectiveNode: iterationDirectiveNode,
       iterationSourceValue: iterationSourceValue,
+      sourceDirectiveNode: sourceDirectiveNode,
+      localSourceValue: localSourceValue,
       controlEventNode: controlEventNode,
+      sharedComponentEventNode: sharedComponentEventNode,
+      compEventNode: compEventNode,
       dynamicInvokeNode: dynamicInvokeNode,
       controlVariableNode: controlVariableNode,
+      callSequenceActionNode: callSequenceActionNode,
+      setLocalActionNode: setLocalActionNode,
+      emitEventActionNode: emitEventActionNode,
       customAsyncActionNode: customAsyncActionNode,
       crudGlobalExpression: crudGlobalExpression,
       dashboardCountExpression: dashboardCountExpression,
@@ -588,14 +597,17 @@ C8O.crud = C8O.crud || {};
       ucfirst: ucfirst,
       pascalize: pascalize,
       scriptLiteral: scriptLiteral,
+      localSourceValue: localSourceValue,
       controlVariableNode: controlVariableNode,
       callSequenceActionNode: callSequenceActionNode,
       rootPageActionNode: rootPageActionNode,
+      setLocalActionNode: setLocalActionNode,
       plainTextNode: plainTextNode,
       scriptTextNode: scriptTextNode,
       textElementNode: textElementNode,
       ifDirectiveNode: ifDirectiveNode,
       pageEventNode: pageEventNode,
+      controlEventNode: controlEventNode,
       dynamicInvokeNode: dynamicInvokeNode,
       buildUseSharedNode: buildUseSharedNode,
       useVariableNode: useVariableNode,
@@ -636,7 +648,11 @@ C8O.crud = C8O.crud || {};
       actionStackNode: actionStackNode,
       stackVariableNode: stackVariableNode,
       dynamicInvokeNode: dynamicInvokeNode,
-      customAsyncActionNode: customAsyncActionNode
+      customAsyncActionNode: customAsyncActionNode,
+      controlVariableNode: controlVariableNode,
+      callSequenceActionNode: callSequenceActionNode,
+      setGlobalActionNode: setGlobalActionNode,
+      ifActionNode: ifActionNode
     };
   }
 
@@ -1377,8 +1393,8 @@ C8O.crud = C8O.crud || {};
 
   function sqlOutputFieldPath(field, rowIndex) {
     var currentRow = rowIndex == null ? 0 : Number(rowIndex);
-    var outputKey = field && field.column ? String(field.column).toUpperCase() : "";
-    return "?.sql_output?.[" + currentRow + "]" + (outputKey.length ? "?." + outputKey : "");
+    var outputKey = field && field.column ? String(field.column) : "";
+    return "?.rows?.[" + currentRow + "]" + (outputKey.length ? "?." + outputKey : "");
   }
 
   function buildUseSharedNode(sharedQName, name, variables) {
@@ -1475,7 +1491,7 @@ C8O.crud = C8O.crud || {};
 
   function actionRowsExpression(resultVar) {
     var target = trimmed(resultVar || "result");
-    return "Array.isArray(" + target + "?.sql_output) ? " + target + ".sql_output : (Array.isArray(" + target + "?.transaction?.document?.sql_output) ? " + target + ".transaction.document.sql_output : [])";
+    return "Array.isArray(" + target + "?.rows) ? " + target + ".rows : []";
   }
 
   function actionCallSnippet(requestableQName, variablesExpression, cacheTtl, threshold, noLoading) {
@@ -1559,8 +1575,8 @@ C8O.crud = C8O.crud || {};
     };
   }
 
-  function buildEntityPagesSharedComponentsTree(projectName, entities, stage) {
-    var fromTemplates = C8O.crudUiTemplates.buildEntityPagesSharedComponentsTree(crudUiTemplatesContext(), projectName, entities, stage);
+  function buildEntityPagesSharedComponentsTree(projectName, facadePrefix, entities, stage) {
+    var fromTemplates = C8O.crudUiTemplates.buildEntityPagesSharedComponentsTree(crudUiTemplatesContext(), projectName, facadePrefix, entities, stage);
     if (fromTemplates && fromTemplates.tree && ensureArray(fromTemplates.tree.children).length) {
       fromTemplates.templateDriven = true;
       return fromTemplates;
@@ -1574,8 +1590,8 @@ C8O.crud = C8O.crud || {};
     return legacyTree;
   }
 
-  function buildEntityPagesPageBundle(projectName, entryPage, entities, stage) {
-    return C8O.crudUiTemplates.buildEntityPagesPageBundle(crudUiTemplatesContext(), projectName, entryPage, entities, stage);
+  function buildEntityPagesPageBundle(projectName, entryPage, facadePrefix, entities, stage) {
+    return C8O.crudUiTemplates.buildEntityPagesPageBundle(crudUiTemplatesContext(), projectName, entryPage, facadePrefix, entities, stage);
   }
 
   function buildEntityPagesBootstrapActionScript(projectName, facadePrefix, entities, stage) {
@@ -1702,8 +1718,20 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUi.sourceDirectiveNode(crudUiContext(), name, itemName, sourceValue, children, indexName);
   }
 
+  function localSourceValue(projectName, path, options) {
+    return C8O.crudUi.localSourceValue(crudUiContext(), projectName, path, options);
+  }
+
   function controlEventNode(name, children, options) {
     return C8O.crudUi.controlEventNode(crudUiContext(), name, children, options);
+  }
+
+  function sharedComponentEventNode(name, componentEvent, children, comment) {
+    return C8O.crudUi.sharedComponentEventNode(crudUiContext(), name, componentEvent, children, comment);
+  }
+
+  function compEventNode(name, attrName, options) {
+    return C8O.crudUi.compEventNode(crudUiContext(), name, attrName, options);
   }
 
   function stackVariableNode(name, defaultValue) {
@@ -1716,6 +1744,14 @@ C8O.crud = C8O.crud || {};
 
   function setLocalActionNode(name, propertyName, valueExpression) {
     return C8O.crudUi.setLocalActionNode(crudUiContext(), name, propertyName, valueExpression);
+  }
+
+  function ifActionNode(name, conditionExpression, children, options) {
+    return C8O.crudUi.ifActionNode(crudUiContext(), name, conditionExpression, children, options);
+  }
+
+  function emitEventActionNode(name, eventExpression, dataExpression, comment) {
+    return C8O.crudUi.emitEventActionNode(crudUiContext(), name, eventExpression, dataExpression, comment);
   }
 
   function dynamicInvokeNode(name, stackQName, variables) {

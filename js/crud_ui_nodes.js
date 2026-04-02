@@ -298,6 +298,26 @@ C8O.crudUi = C8O.crudUi || {};
     };
   }
 
+  function localSourceValue(ctx, projectName, path, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    return {
+      mode: "SOURCE",
+      value: JSON.stringify({
+        filter: "Local",
+        project: projectName,
+        input: trimmed(ctx, extra.input || ""),
+        model: {
+          data: [{ localObject: "local" }],
+          path: trimmed(ctx, path || ""),
+          prefix: extra.prefix == null ? "" : String(extra.prefix),
+          suffix: extra.suffix == null ? "" : String(extra.suffix),
+          custom: extra.custom == null ? "" : String(extra.custom),
+          useCustom: toBoolean(ctx, extra.useCustom, false)
+        }
+      })
+    };
+  }
+
   function buildUseSharedNode(_ctx, sharedQName, name, variables) {
     return {
       className: "ngx.components.UIUseShared#UIUseShared",
@@ -310,13 +330,18 @@ C8O.crudUi = C8O.crudUi || {};
   }
 
   function ifDirectiveNode(ctx, name, expression, children) {
+    var properties = {
+      directiveName: "If"
+    };
+    if (expression && typeof expression === "object" && expression.mode) {
+      properties.directiveSource = expression;
+    } else {
+      properties.directiveExpression = String(expression || "false");
+    }
     return {
       className: "ngx.components.UIControlDirective#UIControlDirective",
       name: name,
-      properties: {
-        directiveName: "If",
-        directiveExpression: String(expression || "false")
-      },
+      properties: properties,
       children: ensureArray(ctx, children)
     };
   }
@@ -372,6 +397,47 @@ C8O.crudUi = C8O.crudUi || {};
     return node;
   }
 
+  function sharedComponentEventNode(ctx, name, componentEvent, children, comment) {
+    var node = {
+      className: "ngx.components.UISharedComponentEvent#UISharedComponentEvent",
+      name: name,
+      properties: {
+        componentEvent: trimmed(ctx, componentEvent || "onChanges")
+      },
+      children: ensureArray(ctx, children)
+    };
+    if (trimmed(ctx, comment).length) {
+      node.properties.comment = String(comment);
+    }
+    return node;
+  }
+
+  function compEventNode(ctx, name, attrName, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    var properties = {
+      attrName: trimmed(ctx, attrName || name || "event")
+    };
+    if (extra.attrValue && typeof extra.attrValue === "object" && extra.attrValue.mode) {
+      properties.attrValue = extra.attrValue;
+    } else if (trimmed(ctx, extra.attrValue).length) {
+      properties.attrValue = {
+        mode: "PLAIN",
+        value: String(extra.attrValue)
+      };
+    }
+    if (trimmed(ctx, extra.comment).length) {
+      properties.comment = String(extra.comment);
+    }
+    if (trimmed(ctx, extra.throttleTime).length) {
+      properties.throttleTime = String(extra.throttleTime);
+    }
+    return {
+      className: "ngx.components.UICompEvent#UICompEvent",
+      name: name,
+      properties: properties
+    };
+  }
+
   function stackVariableNode(_ctx, name, defaultValue) {
     var node = {
       className: "ngx.components.UIStackVariable#UIStackVariable",
@@ -403,6 +469,15 @@ C8O.crudUi = C8O.crudUi || {};
   }
 
   function setLocalActionNode(_ctx, name, propertyName, valueExpression) {
+    var smartValue = null;
+    if (valueExpression && typeof valueExpression === "object" && valueExpression.mode) {
+      smartValue = valueExpression;
+    } else {
+      smartValue = {
+        mode: "SCRIPT",
+        value: valueExpression || "''"
+      };
+    }
     return {
       className: "ngx.components.UIDynamicAction#SetLocalAction",
       name: name,
@@ -411,12 +486,65 @@ C8O.crudUi = C8O.crudUi || {};
           mode: "PLAIN",
           value: String(propertyName || "")
         },
-        Value: {
+        Value: smartValue
+      }
+    };
+  }
+
+  function ifActionNode(ctx, name, conditionExpression, children, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    var node = {
+      className: "ngx.components.UIDynamicAction#IfAction",
+      name: name,
+      properties: {
+        condition: {
           mode: "SCRIPT",
-          value: valueExpression || "''"
+          value: trimmed(ctx, conditionExpression || "false") || "false"
+        },
+        negate: {
+          mode: "PLAIN",
+          value: toBoolean(ctx, extra.negate, false) ? "true" : "false"
+        }
+      },
+      children: ensureArray(ctx, children)
+    };
+    if (trimmed(ctx, extra.comment).length) {
+      node.properties.comment = String(extra.comment);
+    }
+    return node;
+  }
+
+  function emitEventActionNode(ctx, name, eventExpression, dataExpression, comment) {
+    var normalizedEvent = trimmed(ctx, eventExpression || "");
+    if (normalizedEvent.indexOf("plain:") === 0) {
+      normalizedEvent = normalizedEvent.substring(6);
+    }
+    var normalizedData = trimmed(ctx, dataExpression || "{}") || "{}";
+    if (normalizedData.indexOf("script:") === 0) {
+      normalizedData = normalizedData.substring(7);
+    }
+    var node = {
+      className: "ngx.components.UIDynamicEmit#EmitEventAction",
+      name: name,
+      properties: {
+        async: {
+          mode: "PLAIN",
+          value: "true"
+        },
+        event: {
+          mode: "PLAIN",
+          value: normalizedEvent
+        },
+        data: {
+          mode: "SCRIPT",
+          value: normalizedData
         }
       }
     };
+    if (trimmed(ctx, comment).length) {
+      node.properties.comment = String(comment);
+    }
+    return node;
   }
 
   function dynamicInvokeNode(ctx, name, stackQName, variables) {
@@ -467,15 +595,20 @@ C8O.crudUi = C8O.crudUi || {};
   C8O.crudUi.sharedSourceValue = sharedSourceValue;
   C8O.crudUi.sequenceSourceValue = sequenceSourceValue;
   C8O.crudUi.globalSourceValue = globalSourceValue;
+  C8O.crudUi.localSourceValue = localSourceValue;
   C8O.crudUi.iterationSourceValue = iterationSourceValue;
   C8O.crudUi.buildUseSharedNode = buildUseSharedNode;
   C8O.crudUi.ifDirectiveNode = ifDirectiveNode;
   C8O.crudUi.iterationDirectiveNode = iterationDirectiveNode;
   C8O.crudUi.sourceDirectiveNode = sourceDirectiveNode;
   C8O.crudUi.controlEventNode = controlEventNode;
+  C8O.crudUi.sharedComponentEventNode = sharedComponentEventNode;
+  C8O.crudUi.compEventNode = compEventNode;
   C8O.crudUi.stackVariableNode = stackVariableNode;
   C8O.crudUi.setGlobalActionNode = setGlobalActionNode;
   C8O.crudUi.setLocalActionNode = setLocalActionNode;
+  C8O.crudUi.ifActionNode = ifActionNode;
+  C8O.crudUi.emitEventActionNode = emitEventActionNode;
   C8O.crudUi.dynamicInvokeNode = dynamicInvokeNode;
   C8O.crudUi.actionStackNode = actionStackNode;
 })();

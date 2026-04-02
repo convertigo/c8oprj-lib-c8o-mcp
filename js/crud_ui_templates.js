@@ -74,9 +74,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
-  function placeholderMap(ctx, projectName, entity, entities, targetComponentName) {
+  function placeholderMap(ctx, projectName, facadePrefix, entity, entities, targetComponentName) {
     var currentEntity = entity || {};
-    var uiConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", currentEntity, entities) : null;
+    var resolvedFacadePrefix = trimmed(ctx, facadePrefix || "crud") || "crud";
+    var uiConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, resolvedFacadePrefix, currentEntity, entities) : null;
     var label = trimmed(ctx, currentEntity.label || currentEntity.displayLabel || currentEntity.name || "Entity");
     var singular = trimmed(ctx, currentEntity.singular || "entity");
     var plural = trimmed(ctx, currentEntity.name || currentEntity.plural || ctx.pluralize(singular));
@@ -95,7 +96,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     replacements[TOKENS.PRIMARY_FIELD] = primaryField;
     replacements[TOKENS.SECONDARY_FIELD] = secondaryField;
     replacements[TOKENS.ACTION_LABEL] = actionLabel;
-    replacements[TOKENS.FACADE_PREFIX] = "crud";
+    replacements[TOKENS.FACADE_PREFIX] = resolvedFacadePrefix;
     if (trimmed(ctx, targetComponentName).length) {
       replacements[templateComponentName("EntityListPanel")] = targetComponentName;
       replacements[templateComponentName("EntityDetailCard")] = targetComponentName;
@@ -203,6 +204,21 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return match;
   }
 
+  function findTreeNodeByNameAndClass(node, expectedName, expectedClassName) {
+    var targetName = trimmed({ trimmed: function (value) { return value == null ? "" : String(value).trim(); } }, expectedName);
+    var targetClass = trimmed({ trimmed: function (value) { return value == null ? "" : String(value).trim(); } }, expectedClassName);
+    var match = null;
+    walkTree(node, function (current) {
+      if (match || !current) {
+        return;
+      }
+      if (String(current.name || "") === targetName && String(current.className || "") === targetClass) {
+        match = current;
+      }
+    });
+    return match;
+  }
+
   function markManagedClone(tree, componentName) {
     if (!tree || typeof tree !== "object") {
       return tree;
@@ -295,7 +311,127 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return ctx.dynamicFieldAccessExpression(rowExpression, ctx.scriptLiteral(fieldColumn || ""), ctx.scriptLiteral(fallbackLiteral || ""));
   }
 
-  function buildListItemLabelChildren(ctx, fields, listTargetName) {
+  function isDirectPropertyName(fieldName) {
+    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(String(fieldName || ""));
+  }
+
+  function propertyAccessExpression(baseExpression, fieldName) {
+    var base = String(baseExpression || "row");
+    var field = String(fieldName || "");
+    if (isDirectPropertyName(field)) {
+      return base + "." + field;
+    }
+    return base + "[" + JSON.stringify(field) + "]";
+  }
+
+  function iterationFieldSourceValue(ctx, projectName, fieldName) {
+    return ctx.iterationSourceValue(projectName || TOKENS.PROJECT_NAME, propertyAccessExpression("row", fieldName));
+  }
+
+  function localRowSourceValue(ctx, projectName, fieldName, options) {
+    return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.row." + String(fieldName || ""), options);
+  }
+
+  function localDraftSourceValue(ctx, projectName, fieldName, options) {
+    return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.draft." + String(fieldName || ""), options);
+  }
+
+  function extractRowsFromActionExpression(sourceExpression) {
+    var source = String(sourceExpression || "out");
+    return "(Array.isArray(" + source + "?.rows) ? " + source + ".rows : [])";
+  }
+
+  function firstRowFromActionExpression(sourceExpression, fallbackExpression) {
+    var source = String(sourceExpression || "out");
+    var rowsExpression = extractRowsFromActionExpression(source);
+    var fallback = fallbackExpression == null ? "null" : String(fallbackExpression);
+    return "(function(){ if (" + source + "?.row && typeof " + source + ".row === 'object') { return " + source + ".row; } var rows = " + rowsExpression + "; return rows.length ? rows[0] : " + fallback + "; })()";
+  }
+
+  function localDraftExpression() {
+    return "(this.local?.draft || {})";
+  }
+
+  function localDraftFieldExpression(ctx, fieldExpression, fallbackExpression) {
+    var fallback = fallbackExpression == null ? "''" : String(fallbackExpression);
+    return ctx.dynamicFieldAccessExpression(localDraftExpression(), fieldExpression, fallback);
+  }
+
+  function clonedSeedDraftExpression() {
+    return "(function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this)";
+  }
+
+  function selectedRowIdExpression(rowExpression) {
+    var row = String(rowExpression || "row");
+    return "String(" + row + "?.id ?? '')";
+  }
+
+  function buildLocalDraftUpdateExpression(ctx, fieldNameExpression, valueExpression, labelExpression) {
+    var fieldExpr = coalescedStringExpression(ctx, fieldNameExpression, "");
+    var valueExpr = valueExpression == null ? "''" : String(valueExpression);
+    var parts = [
+      "(function(){",
+      "  var draft = Object.assign({}, this.local?.draft || {});",
+      "  var fieldName = " + fieldExpr + ";",
+      "  var nextValue = " + valueExpr + ";",
+      "  draft[fieldName] = nextValue == null ? '' : nextValue;"
+    ];
+    if (labelExpression) {
+      parts.push("  draft[fieldName + '__label'] = ((" + labelExpression + ") == null ? '' : String(" + labelExpression + "));");
+    }
+    parts.push("  return draft;");
+    parts.push("}).call(this)");
+    return parts.join("\n");
+  }
+
+  function chainActionNodes(ctx, nodes) {
+    var filtered = ensureArray(ctx, nodes).filter(function (node) {
+      return !!node;
+    });
+    for (var index = 0; index < filtered.length - 1; index++) {
+      filtered[index].children = ensureArray(ctx, filtered[index].children).concat([filtered[index + 1]]);
+    }
+    return filtered.length ? filtered[0] : null;
+  }
+
+  function buildDraftSeedExpression(ctx, editableFields) {
+    var entries = [];
+    var fields = ensureArray(ctx, editableFields);
+    for (var index = 0; index < fields.length; index++) {
+      var field = fields[index] || {};
+      var column = trimmed(ctx, field.column || field.name);
+      if (!column.length) {
+        continue;
+      }
+      entries.push(ctx.scriptLiteral(column) + ": ''");
+      if (field.relation) {
+        entries.push(ctx.scriptLiteral(column + "__label") + ": ''");
+      }
+    }
+    return "({" + entries.join(", ") + "})";
+  }
+
+  function buildDraftControlVariables(ctx, projectName, editableFields) {
+    var variables = [];
+    var fields = ensureArray(ctx, editableFields);
+    for (var index = 0; index < fields.length; index++) {
+      var field = fields[index] || {};
+      var column = trimmed(ctx, field.column || field.name);
+      if (!column.length) {
+        continue;
+      }
+      variables.push(
+        ctx.controlVariableNode(
+          column,
+          localDraftSourceValue(ctx, projectName, column),
+          "Forward the local draft field " + column + "."
+        )
+      );
+    }
+    return variables;
+  }
+
+  function buildListItemLabelChildren(ctx, projectName, fields) {
     var resolvedFields = ensureArray(ctx, fields);
     var children = [];
     if (!resolvedFields.length) {
@@ -305,35 +441,46 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       var field = resolvedFields[i] || {};
       var fieldLabel = trimmed(ctx, field.label || field.name || field.column || "Field");
       var fieldColumn = trimmed(ctx, field.displayColumn || field.column || field.name || "id");
-      var textName = listTargetName + "ListField" + (i + 1) + "Text";
-      var valueExpression = ctx.iterationSourceValue(
-        TOKENS.PROJECT_NAME,
-        fieldValueExpression(ctx, "row", fieldColumn, i === 0 ? "No primary value" : "No value")
-      );
+      var textName = "ItemField" + (i + 1) + "Text";
       if (i === 0) {
         children.push(
           ctx.textElementNode(
             "ngx.components.UIDynamicElement#Heading2",
-            listTargetName + "ListField" + (i + 1),
-            ctx.smartTextNode(textName, valueExpression)
+            "Title",
+            ctx.smartTextNode(textName, iterationFieldSourceValue(ctx, projectName, fieldColumn))
           )
         );
       } else {
         children.push(
-          ctx.textElementNode(
-            "ngx.components.UIDynamicElement#Paragraph",
-            listTargetName + "ListField" + (i + 1),
-            ctx.smartTextNode(textName, ctx.iterationSourceValue(TOKENS.PROJECT_NAME, ctx.scriptLiteral(fieldLabel + ": ") + " + (" + fieldValueExpression(ctx, "row", fieldColumn, "No value") + ")"))
-          )
+          {
+            className: "ngx.components.UIDynamicElement#Paragraph",
+            name: "Meta" + i,
+            children: [
+              ctx.plainTextNode(textName + "Prefix", fieldLabel + ": "),
+              ctx.smartTextNode(textName, iterationFieldSourceValue(ctx, projectName, fieldColumn))
+            ]
+          }
         );
       }
     }
     return children;
   }
 
-  function buildDetailContentChildren(ctx, fields, detailTargetName) {
+  function buildDetailContentChildren(ctx, projectName, fields) {
     var resolvedFields = ensureArray(ctx, fields);
-    var children = [];
+    var children = [
+      ctx.ifDirectiveNode(
+        "EmptyVisible",
+        "!this.SelectedId",
+        [
+          ctx.textElementNode(
+            "ngx.components.UIDynamicElement#Paragraph",
+            "Empty",
+            ctx.plainTextNode("EmptyText", "No record selected.")
+          )
+        ]
+      )
+    ];
     if (!resolvedFields.length) {
       resolvedFields = [{ column: "id", label: "Id" }];
     }
@@ -342,33 +489,31 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       var fieldLabel = trimmed(ctx, field.label || field.name || field.column || "Field");
       var fieldColumn = trimmed(ctx, field.displayColumn || field.column || field.name || "id");
       children.push(
-        ctx.textElementNode(
-          "ngx.components.UIDynamicElement#Paragraph",
-          detailTargetName + "DetailField" + (i + 1),
-          ctx.scriptTextNode(
-            detailTargetName + "DetailField" + (i + 1) + "Text",
-            ctx.scriptLiteral(fieldLabel + ": ") + " + (" + fieldValueExpression(ctx, ctx.crudSelectedExpression("this.EntityKey"), fieldColumn, i === 0 ? "No record selected" : "No value") + ")"
-          )
+        ctx.ifDirectiveNode(
+          "FieldVisible" + (i + 1),
+          "!!this.SelectedId",
+          [
+            {
+              className: "ngx.components.UIDynamicElement#Paragraph",
+              name: "Field" + (i + 1),
+              children: [
+                ctx.plainTextNode("Field" + (i + 1) + "Prefix", fieldLabel + ": "),
+                ctx.smartTextNode("Field" + (i + 1) + "Text", localRowSourceValue(ctx, projectName, fieldColumn))
+              ]
+            }
+          ]
         )
       );
     }
-    children.push(
-      ctx.scriptTextNode("StatusText", "'Mode: ' + (" + ctx.crudModeExpression("this.EntityKey") + ") + ' | Status: ' + (" + ctx.crudEntityStatusExpression("this.EntityKey") + ")")
-    );
-    children.push(
-      ctx.ifDirectiveNode(
-        detailTargetName + "ErrorVisible",
-        "!!" + ctx.crudEntityErrorExpression("this.EntityKey"),
-        [
-          ctx.textElementNode(
-            "ngx.components.UIDynamicElement#Paragraph",
-            detailTargetName + "ErrorText",
-            ctx.scriptTextNode("ErrorTextValue", ctx.crudEntityErrorExpression("this.EntityKey"))
-          )
-        ]
-      )
-    );
     return children;
+  }
+
+  function relationOptionsPropertyName(column) {
+    return String(column || "relation").replace(/[^A-Za-z0-9_]/g, "_") + "Options";
+  }
+
+  function relationSearchPropertyName(column) {
+    return String(column || "relation").replace(/[^A-Za-z0-9_]/g, "_") + "Search";
   }
 
   function buildFormFieldChildren(ctx, config, entities, projectName) {
@@ -384,6 +529,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       var field = fields[i] || {};
       var relation = relationLookup[trimmed(ctx, field.column)] || null;
       var fieldConfig = {
+        projectName: projectName,
+        column: trimmed(ctx, field.column || field.name || ""),
         fieldNameExpression: ctx.scriptLiteral(trimmed(ctx, field.column || field.name || "")),
         fieldLabelExpression: ctx.scriptLiteral(trimmed(ctx, field.label || field.name || field.column || "Field")),
         requiredExpression: field.required === true ? "true" : "false",
@@ -398,50 +545,97 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         fieldConfig.relatedLabelFieldExpression = ctx.scriptLiteral(trimmed(ctx, relation.optionLabelField || (relatedConfig && relatedConfig.previewPrimaryColumn) || relation.targetField || "id"));
         fieldConfig.relatedValueFieldExpression = ctx.scriptLiteral(trimmed(ctx, relation.optionValueField || relation.targetField || "id"));
         fieldConfig.placeholderExpression = ctx.scriptLiteral(trimmed(ctx, relation.placeholder || ("Select " + (field.label || field.name || field.column || "value"))));
+        fieldConfig.optionsPropertyName = relationOptionsPropertyName(field.column || field.name || "relation");
+        fieldConfig.searchPropertyName = relationSearchPropertyName(field.column || field.name || "relation");
       }
       children.push(formFieldItemNode(ctx, i, fieldConfig));
     }
     return children;
   }
 
-  function customizeEntityListPanelTree(ctx, tree, targetName, config) {
-    var labelNode = findTreeNodeByName(tree, targetName + "Label");
+  function customizeEntityListPanelTree(ctx, tree, targetName, config, projectName) {
+    var labelNode = findTreeNodeByName(tree, "Label");
     if (labelNode) {
-      labelNode.children = buildListItemLabelChildren(ctx, config && config.listFields, targetName);
+      labelNode.children = buildListItemLabelChildren(ctx, projectName, config && config.listFields);
     }
     return markManagedClone(tree, targetName);
   }
 
-  function customizeEntityDetailCardTree(ctx, tree, targetName, config) {
-    var contentNode = findTreeNodeByName(tree, targetName + "Content");
+  function customizeEntityDetailCardTree(ctx, tree, targetName, config, projectName) {
+    var contentNode = findTreeNodeByName(tree, "Content");
     if (contentNode) {
-      contentNode.children = buildDetailContentChildren(ctx, config && config.detailFields, targetName);
+      contentNode.children = buildDetailContentChildren(ctx, projectName, config && config.detailFields);
     }
     return markManagedClone(tree, targetName);
   }
 
   function customizeEntityEditFormTree(ctx, tree, targetName, config, entities, projectName) {
-    var contentNode = findTreeNodeByName(tree, targetName + "Content");
+    var eventNode = findTreeNodeByName(tree, "Load");
+    var contentNode = findTreeNodeByName(tree, "Content");
+    if (eventNode) {
+      var relationFields = ensureArray(ctx, config && config.relationFields);
+      for (var relationIndex = 0; relationIndex < relationFields.length; relationIndex++) {
+        var relation = relationFields[relationIndex] || {};
+        var relationColumn = trimmed(ctx, relation.column || "");
+        if (!relationColumn.length || !trimmed(ctx, relation.listRequestable).length) {
+          continue;
+        }
+        eventNode.children.push(chainActionNodes(ctx, [
+          ctx.callSequenceActionNode(
+            "Load" + ctx.pascalize(relationColumn) + "Options",
+            relation.listRequestable,
+            [],
+            {
+              noLoading: true,
+              comment: "Load local options for " + relationColumn + "."
+            }
+          ),
+          ctx.setLocalActionNode(
+            "Set" + ctx.pascalize(relationColumn) + "Options",
+            relationOptionsPropertyName(relationColumn),
+            extractRowsFromActionExpression("out")
+          )
+        ]));
+      }
+    }
+    var draftSeedNode = findTreeNodeByName(tree, "DraftSeed");
+    if (draftSeedNode) {
+      draftSeedNode.properties = draftSeedNode.properties || {};
+      draftSeedNode.properties.value = buildDraftSeedExpression(ctx, config && config.editableFields);
+    }
+    var createNode = findTreeNodeByNameAndClass(tree, "Create", "ngx.components.UIDynamicAction#CallSequenceAction");
+    var updateNode = findTreeNodeByNameAndClass(tree, "Update", "ngx.components.UIDynamicAction#CallSequenceAction");
+    var deleteNode = findTreeNodeByNameAndClass(tree, "Delete", "ngx.components.UIDynamicAction#CallSequenceAction");
+    var loadRowNode = findTreeNodeByNameAndClass(tree, "LoadRow", "ngx.components.UIDynamicAction#CallSequenceAction");
+    var editableVariables = buildDraftControlVariables(ctx, projectName, config && config.editableFields);
+    function nonVariableChildren(node) {
+      return ensureArray(ctx, node && node.children).filter(function (child) {
+        return child && child.className !== "ngx.components.UIControlVariable#UIControlVariable";
+      });
+    }
+    if (loadRowNode) {
+      loadRowNode.children = [
+        ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+      ].concat(nonVariableChildren(loadRowNode));
+    }
+    if (createNode) {
+      createNode.children = editableVariables.concat(nonVariableChildren(createNode));
+    }
+    if (updateNode) {
+      updateNode.children = [
+        ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+      ].concat(editableVariables).concat(nonVariableChildren(updateNode));
+    }
+    if (deleteNode) {
+      deleteNode.children = [
+        ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+      ].concat(nonVariableChildren(deleteNode));
+    }
     if (contentNode) {
       var existingChildren = Array.isArray(contentNode.children) ? contentNode.children.slice() : [];
       var formChildren = buildFormFieldChildren(ctx, config, entities, projectName);
-      formChildren.push(
-        ctx.scriptTextNode("FormStatus", "'Entity status: ' + (" + ctx.crudEntityStatusExpression("this.EntityKey") + ")")
-      );
-      formChildren.push(
-        ctx.ifDirectiveNode(
-          targetName + "ErrorVisible",
-          "!!" + ctx.crudEntityErrorExpression("this.EntityKey"),
-          [
-            ctx.textElementNode(
-              "ngx.components.UIDynamicElement#Paragraph",
-              targetName + "ErrorMessage",
-              ctx.scriptTextNode("ErrorText", ctx.crudEntityErrorExpression("this.EntityKey"))
-            )
-          ]
-        )
-      );
-      if (existingChildren.length >= 3) {
+      if (existingChildren.length >= 4) {
+        formChildren.push(existingChildren[existingChildren.length - 4]);
         formChildren.push(existingChildren[existingChildren.length - 3]);
         formChildren.push(existingChildren[existingChildren.length - 2]);
         formChildren.push(existingChildren[existingChildren.length - 1]);
@@ -559,7 +753,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function templateCrudErrorRetryStateTree(ctx) {
-    var retryQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_retry_dashboard");
+    var bootstrapQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_bootstrap_dashboard");
     var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
@@ -600,7 +794,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                   { color: "primary" },
                   [
                     ctx.controlEventNode("Event", [
-                      ctx.dynamicInvokeNode("InvokeRetryDashboard", retryQName, [])
+                      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
                     ])
                   ]
                 )
@@ -653,210 +847,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
-  function templateEntityListPanelTree(ctx) {
-    var singular = TOKENS.ENTITY_SINGULAR;
-    var actionQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_new_" + singular);
-    var selectQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_select_" + singular);
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: templateComponentName("EntityListPanel"),
-      properties: {
-        comment: "Template source for the CRUD entity list panel."
-      },
-      children: [
-        ctx.compVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL)),
-        ctx.compVariableNode("EntityKey", ctx.scriptLiteral(TOKENS.ENTITY_KEY)),
-        ctx.compVariableNode("PrimaryField", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
-        ctx.compVariableNode("SecondaryField", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
-        ctx.compVariableNode("ActionLabel", ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR)),
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: templateComponentName("EntityListPanel") + "Card",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: templateComponentName("EntityListPanel") + "Header",
-              children: [
-                ctx.textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  templateComponentName("EntityListPanel") + "Title",
-                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL))
-                ),
-                ctx.textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  templateComponentName("EntityListPanel") + "Subtitle",
-                  ctx.scriptTextNode("SubtitleText", "'Loaded ' + (" + ctx.dashboardCountExpression("this.EntityKey") + ") + ' rows'")
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: templateComponentName("EntityListPanel") + "Content",
-              children: [
-                scriptLabelButtonNode(
-                  ctx,
-                  "NewButton",
-                  "this.ActionLabel || " + ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR),
-                  { fill: "outline" },
-                  [
-                    ctx.controlEventNode("Event", [
-                      ctx.dynamicInvokeNode("InvokeNew", actionQName, [])
-                    ])
-                  ]
-                ),
-                ctx.ifDirectiveNode(
-                  templateComponentName("EntityListPanel") + "Empty",
-                  ctx.dashboardCountExpression("this.EntityKey") + " === 0",
-                  [
-                    ctx.textElementNode(
-                      "ngx.components.UIDynamicElement#Paragraph",
-                      templateComponentName("EntityListPanel") + "EmptyParagraph",
-                      ctx.plainTextNode("EmptyText", "No rows available yet.")
-                    )
-                  ]
-                ),
-                {
-                  className: "ngx.components.UIDynamicElement#List",
-                  name: templateComponentName("EntityListPanel") + "List",
-                  children: [
-                    ctx.iterationDirectiveNode(
-                      templateComponentName("EntityListPanel") + "Loop",
-                      TOKENS.PROJECT_NAME,
-                      "row",
-                      ctx.dashboardRowsExpression("this.EntityKey"),
-                      [
-                        {
-                          className: "ngx.components.UIDynamicElement#ListItem",
-                          name: templateComponentName("EntityListPanel") + "Item",
-                          properties: {
-                            Button: {
-                              mode: "PLAIN",
-                              value: "true"
-                            },
-                            Detail: {
-                              mode: "PLAIN",
-                              value: "false"
-                            }
-                          },
-                          children: [
-                            {
-                              className: "ngx.components.UIDynamicElement#Label",
-                              name: templateComponentName("EntityListPanel") + "Label",
-                              children: [
-                                ctx.textElementNode(
-                                  "ngx.components.UIDynamicElement#Heading2",
-                                  templateComponentName("EntityListPanel") + "Heading",
-                                  ctx.smartTextNode("HeadingText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, ctx.dynamicFieldAccessExpression("row", "this.PrimaryField", ctx.scriptLiteral("No primary value"))))
-                                ),
-                                ctx.textElementNode(
-                                  "ngx.components.UIDynamicElement#Paragraph",
-                                  templateComponentName("EntityListPanel") + "Paragraph",
-                                  ctx.smartTextNode("ParagraphText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, ctx.dynamicFieldAccessExpression("row", "this.SecondaryField", ctx.scriptLiteral("No secondary value"))))
-                                )
-                              ]
-                            },
-                            ctx.controlEventNode("Event", [
-                              ctx.dynamicInvokeNode("InvokeSelect", selectQName, [
-                                ctx.controlVariableNode("row_id", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, "row?.ID ?? row?.id"))
-                              ])
-                            ])
-                          ]
-                        }
-                      ],
-                      "idx"
-                    )
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    };
-  }
-
-  function templateEntityDetailCardTree(ctx) {
-    return {
-      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
-      name: templateComponentName("EntityDetailCard"),
-      properties: {
-        comment: "Template source for the CRUD entity detail card."
-      },
-      children: [
-        ctx.compVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail")),
-        ctx.compVariableNode("EntityKey", ctx.scriptLiteral(TOKENS.ENTITY_KEY)),
-        ctx.compVariableNode("PrimaryField", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
-        ctx.compVariableNode("SecondaryField", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
-        {
-          className: "ngx.components.UIDynamicElement#Card",
-          name: templateComponentName("EntityDetailCard") + "Root",
-          children: [
-            {
-              className: "ngx.components.UIDynamicElement#CardHeader",
-              name: templateComponentName("EntityDetailCard") + "Header",
-              children: [
-                ctx.textElementNode(
-                  "ngx.components.UIDynamicElement#CardTitle",
-                  templateComponentName("EntityDetailCard") + "TitleSlot",
-                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail"))
-                )
-              ]
-            },
-            {
-              className: "ngx.components.UIDynamicElement#CardContent",
-              name: templateComponentName("EntityDetailCard") + "Content",
-              children: [
-                ctx.scriptTextNode("PrimaryText", ctx.dynamicFieldAccessExpression(ctx.crudSelectedExpression("this.EntityKey"), "this.PrimaryField", ctx.scriptLiteral("No record selected"))),
-                ctx.scriptTextNode("SecondaryText", ctx.dynamicFieldAccessExpression(ctx.crudSelectedExpression("this.EntityKey"), "this.SecondaryField", ctx.scriptLiteral("No secondary value"))),
-                ctx.scriptTextNode("StatusText", "'Mode: ' + (" + ctx.crudModeExpression("this.EntityKey") + ") + ' | Status: ' + (" + ctx.crudEntityStatusExpression("this.EntityKey") + ")"),
-                ctx.ifDirectiveNode(
-                  templateComponentName("EntityDetailCard") + "ErrorVisible",
-                  "!!" + ctx.crudEntityErrorExpression("this.EntityKey"),
-                  [
-                    ctx.textElementNode(
-                      "ngx.components.UIDynamicElement#Paragraph",
-                      templateComponentName("EntityDetailCard") + "ErrorText",
-                      ctx.scriptTextNode("ErrorTextValue", ctx.crudEntityErrorExpression("this.EntityKey"))
-                    )
-                  ]
-                )
-              ]
-            }
-          ]
-        }
-      ]
-    };
-  }
-
-  function buildDraftFieldUpdateScript(ctx, fieldNameExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    return [
-      "page.global = page.global || {};",
-      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
-      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
-      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
-      "var draft = Object.assign({}, drafts[key] || {});",
-      "var value = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '');",
-      "draft[fieldName] = value == null ? '' : value;",
-      "drafts[key] = draft;",
-      "page.global.crudDrafts = drafts;",
-      "page.ref.markForCheck();",
-      "return draft;"
-    ].join("\n");
-  }
-
-  function buildRelationSearchKeyExpression(ctx, fieldNameExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    return "((" + coalescedStringExpression(ctx, "this.EntityKey", "") + ") + '::' + (" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + "))";
-  }
-
-  function relationRowsExpression(ctx, relatedEntityKeyExpression) {
-    var crudGlobal = ctx.crudGlobalExpression();
-    return "(((" + crudGlobal + ").crudRows || {})[" + coalescedStringExpression(ctx, relatedEntityKeyExpression, "related") + "] || [])";
-  }
-
-  function relationRowsScriptExpression(ctx, relatedEntityKeyExpression) {
-    return "((((page.global || {})).crudRows || {})[" + coalescedStringExpression(ctx, relatedEntityKeyExpression, "related") + "] || [])";
+  function componentEventQName(componentName, eventName) {
+    return "plain:" + TOKENS.PROJECT_NAME + ".Application.NgxApp." + componentName + "." + eventName;
   }
 
   function relationOptionLabelExpression(ctx, optionExpression, relatedLabelFieldExpression) {
@@ -867,14 +859,27 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return ctx.dynamicFieldAccessExpression(optionExpression, relatedValueFieldExpression, ctx.scriptLiteral(""));
   }
 
-  function currentRelationLabelExpression(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
-    var rowsExpression = relationRowsScriptExpression(ctx, relatedEntityKeyExpression);
-    var draftValueExpression = ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''");
+  function relationOptionsExpression(propertyName) {
+    return "(this.local?." + String(propertyName || "relationOptions") + " || [])";
+  }
+
+  function relationSearchExpression(propertyName) {
+    return "(this.local?." + String(propertyName || "relationSearch") + " || '')";
+  }
+
+  function relationDraftLabelExpression(ctx, fieldNameExpression) {
+    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
+    var labelFieldExpression = "((" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ") + '__label')";
+    return ctx.dynamicFieldAccessExpression(localDraftExpression(), labelFieldExpression, "''");
+  }
+
+  function currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
+    var draftValueExpression = localDraftFieldExpression(ctx, fieldNameExpression, "''");
     var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
     var optionValueExpression = relationOptionValueExpression(ctx, "option", relatedValueFieldExpression);
     return [
       "(function(){",
-      "  var rows = " + rowsExpression + ";",
+      "  var rows = " + String(optionsExpression || "[]") + ";",
       "  var currentValue = " + draftValueExpression + ";",
       "  if (currentValue == null || String(currentValue) === '') {",
       "    return '';",
@@ -890,108 +895,17 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     ].join("\n");
   }
 
-  function relationDraftLabelExpression(ctx, fieldNameExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    var labelFieldExpression = "((" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ") + '__label')";
-    return ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), labelFieldExpression, "''");
-  }
-
-  function buildRelationSearchUpdateScript(ctx, fieldNameExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, resolvedFieldNameExpression);
-    return [
-      "page.global = page.global || {};",
-      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
-      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
-      "var searchKey = " + searchKeyExpression + ";",
-      "var searches = Object.assign({}, page.global.crudRelationSearch || {});",
-      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
-      "var draft = Object.assign({}, drafts[key] || {});",
-      "var value = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '');",
-      "searches[searchKey] = value == null ? '' : String(value);",
-      "if (searches[searchKey] === '') {",
-      "  draft[fieldName] = '';",
-      "  draft[fieldName + '__label'] = '';",
-      "  drafts[key] = draft;",
-      "  page.global.crudDrafts = drafts;",
-      "}",
-      "page.global.crudRelationSearch = searches;",
-      "page.ref.markForCheck();",
-      "return searches[searchKey];"
-    ].join("\n");
-  }
-
-  function buildRelationSelectionScript(ctx, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, resolvedFieldNameExpression);
-    var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
-    var optionValueExpression = relationOptionValueExpression(ctx, "option", relatedValueFieldExpression);
-    return [
-      "page.global = page.global || {};",
-      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
-      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
-      "var searchKey = " + searchKeyExpression + ";",
-      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
-      "var draft = Object.assign({}, drafts[key] || {});",
-      "var searches = Object.assign({}, page.global.crudRelationSearch || {});",
-      "var selectedValue = String(" + optionValueExpression + " ?? '');",
-      "var selectedLabel = String(" + optionLabelExpression + " ?? selectedValue);",
-      "draft[fieldName] = selectedValue;",
-      "draft[fieldName + '__label'] = selectedLabel;",
-      "drafts[key] = draft;",
-      "searches[searchKey] = selectedLabel;",
-      "page.global.crudDrafts = drafts;",
-      "page.global.crudRelationSearch = searches;",
-      "page.ref.markForCheck();",
-      "return draft;"
-    ].join("\n");
-  }
-
-  function buildRelationValueSelectionScript(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, resolvedFieldNameExpression);
-    var rowsExpression = relationRowsScriptExpression(ctx, relatedEntityKeyExpression);
-    var optionLabelExpression = relationOptionLabelExpression(ctx, "row", relatedLabelFieldExpression);
-    var optionValueExpression = relationOptionValueExpression(ctx, "row", relatedValueFieldExpression);
-    return [
-      "page.global = page.global || {};",
-      "var key = this.EntityKey || " + ctx.scriptLiteral(TOKENS.ENTITY_KEY) + ";",
-      "var fieldName = " + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ";",
-      "var searchKey = " + searchKeyExpression + ";",
-      "var drafts = Object.assign({}, page.global.crudDrafts || {});",
-      "var draft = Object.assign({}, drafts[key] || {});",
-      "var searches = Object.assign({}, page.global.crudRelationSearch || {});",
-      "var rows = " + rowsExpression + ";",
-      "var selectedValueRaw = event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : '');",
-      "var selectedValue = selectedValueRaw == null ? '' : String(selectedValueRaw);",
-      "var selectedLabel = selectedValue;",
-      "for (var idx = 0; idx < rows.length; idx++) {",
-      "  var row = rows[idx];",
-      "  if (String(" + optionValueExpression + " ?? '') === selectedValue) {",
-      "    selectedLabel = String(" + optionLabelExpression + " ?? selectedValue);",
-      "    break;",
-      "  }",
-      "}",
-      "draft[fieldName] = selectedValue;",
-      "draft[fieldName + '__label'] = selectedLabel;",
-      "drafts[key] = draft;",
-      "searches[searchKey] = selectedLabel;",
-      "page.global.crudDrafts = drafts;",
-      "page.global.crudRelationSearch = searches;",
-      "page.ref.markForCheck();",
-      "return draft;"
-    ].join("\n");
-  }
-
   function relationSelectNode(ctx, config) {
     var currentConfig = config || {};
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
     var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
-    var relatedEntityKeyExpression = currentConfig.relatedEntityKeyExpression || "this.RelatedEntityKey";
     var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
     var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
     var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
-    var crudGlobal = ctx.crudGlobalExpression();
+    var optionsExpression = relationOptionsExpression(currentConfig.optionsPropertyName);
+    var selectedValueExpression = "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))";
+    var selectedLabelExpression = currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression)
+      .replace(localDraftFieldExpression(ctx, fieldNameExpression, "''"), "(" + selectedValueExpression + ")");
     return {
       className: "ngx.components.UIDynamicElement#Select",
       name: "RelationSelect",
@@ -1013,20 +927,20 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           value: "popover"
         },
         Value: {
-          mode: "SCRIPT",
-          value: ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''")
+          mode: currentConfig.column ? "SOURCE" : "SCRIPT",
+          value: currentConfig.column ? localDraftSourceValue(ctx, currentConfig.projectName, currentConfig.column).value : localDraftFieldExpression(ctx, fieldNameExpression, "''")
         }
       },
       children: [
         ctx.iterationDirectiveNode(
-          "RelationOptionLoop",
+          "Loop",
           TOKENS.PROJECT_NAME,
           "option",
-          "(((" + crudGlobal + ").crudRows || {})[" + coalescedStringExpression(ctx, relatedEntityKeyExpression, "related") + "] || [])",
+          optionsExpression,
           [
             {
               className: "ngx.components.UIDynamicElement#SelectOption",
-              name: "RelationOption",
+              name: "Option",
               properties: {
                 Value: {
                   mode: "SCRIPT",
@@ -1034,17 +948,17 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 }
               },
               children: [
-                ctx.smartTextNode("OptionText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression)))
+                ctx.smartTextNode("Text", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression)))
               ]
             }
           ],
           "idx"
         ),
-        ctx.controlEventNode("ChangeEvent", [
-          ctx.customAsyncActionNode(
-            "StoreRelation",
-            buildRelationValueSelectionScript(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression),
-            "Store selected relation value and label into CRUD draft state."
+        ctx.controlEventNode("Change", [
+          ctx.setLocalActionNode(
+            "SetDraft",
+            "draft",
+            buildLocalDraftUpdateExpression(ctx, fieldNameExpression, selectedValueExpression, selectedLabelExpression)
           )
         ], {
           attrName: "(ionChange)",
@@ -1058,23 +972,22 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     var currentConfig = config || {};
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
     var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
-    var relatedEntityKeyExpression = currentConfig.relatedEntityKeyExpression || "this.RelatedEntityKey";
     var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
     var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
     var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
-    var searchKeyExpression = buildRelationSearchKeyExpression(ctx, fieldNameExpression);
-    var searchExpression = ctx.crudRelationSearchExpression(searchKeyExpression);
-    var rowsExpression = relationRowsExpression(ctx, relatedEntityKeyExpression);
+    var optionsExpression = relationOptionsExpression(currentConfig.optionsPropertyName);
+    var searchExpr = relationSearchExpression(currentConfig.searchPropertyName);
     var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
-    var visibleValueExpression = "((" + searchExpression + ") || (" + relationDraftLabelExpression(ctx, fieldNameExpression) + ") || (" + ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''") + "))";
-    var optionMatchesExpression = "(String(" + optionLabelExpression + " || '').toLowerCase().indexOf(String(" + searchExpression + " || '').toLowerCase()) !== -1)";
+    var selectedValueExpression = "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))";
+    var selectedLabelExpression = currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression)
+      .replace(localDraftFieldExpression(ctx, fieldNameExpression, "''"), "(" + selectedValueExpression + ")");
     return {
       className: "ngx.components.UIDynamicElement#DivTag",
       name: "RelationAutocomplete",
       children: [
         {
           className: "ngx.components.UIDynamicElement#Input",
-          name: "RelationAutocompleteInput",
+          name: "Search",
           properties: {
             Label: {
               mode: "SCRIPT",
@@ -1090,104 +1003,93 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
             },
             Value: {
               mode: "SCRIPT",
-              value: visibleValueExpression
+              value: "((" + searchExpr + ") || (" + relationDraftLabelExpression(ctx, fieldNameExpression) + ") || (" + localDraftFieldExpression(ctx, fieldNameExpression, "''") + "))"
             }
           },
           children: [
-            ctx.controlEventNode("InputEvent", [
-              ctx.customAsyncActionNode("StoreRelationSearch", buildRelationSearchUpdateScript(ctx, fieldNameExpression), "Store relation autocomplete search text into CRUD global state.")
+            ctx.controlEventNode("Input", [
+              ctx.setLocalActionNode(
+                "SetSearch",
+                currentConfig.searchPropertyName,
+                "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))"
+              )
             ], {
               attrName: "(ionInput)",
               eventName: "ionInput"
             })
           ]
         },
-        ctx.ifDirectiveNode(
-          "RelationAutocompleteVisible",
-          "((" + rowsExpression + ").length > 0)",
-          [
-            {
-              className: "ngx.components.UIDynamicElement#Select",
-              name: "RelationAutocompleteSelect",
-              properties: {
-                Label: {
-                  mode: "SCRIPT",
-                  value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
-                },
-                LabelPlacement: {
-                  mode: "PLAIN",
-                  value: "stacked"
-                },
-                Placeholder: {
-                  mode: "SCRIPT",
-                  value: placeholderExpression
-                },
-                Interface: {
-                  mode: "PLAIN",
-                  value: "popover"
-                },
-                Value: {
-                  mode: "SCRIPT",
-                  value: ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''")
-                }
-              },
-              children: [
-                ctx.iterationDirectiveNode(
-                  "RelationAutocompleteLoop",
-                  TOKENS.PROJECT_NAME,
-                  "option",
-                  rowsExpression,
-                  [
-                    ctx.ifDirectiveNode(
-                      "RelationAutocompleteMatch",
-                      optionMatchesExpression,
-                      [
-                        {
-                          className: "ngx.components.UIDynamicElement#SelectOption",
-                          name: "RelationAutocompleteItem",
-                          properties: {
-                            Value: {
-                              mode: "SCRIPT",
-                              value: "'' + (" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + " ?? '')"
-                            }
-                          },
-                          children: [
-                            ctx.smartTextNode("AutocompleteOptionText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, optionLabelExpression))
-                          ]
-                        }
-                      ]
-                    )
-                  ],
-                  "idx"
-                ),
-                ctx.controlEventNode("ChangeEvent", [
-                  ctx.customAsyncActionNode(
-                    "StoreRelationSelection",
-                    buildRelationValueSelectionScript(ctx, fieldNameExpression, relatedEntityKeyExpression, relatedLabelFieldExpression, relatedValueFieldExpression),
-                    "Store the selected relation autocomplete option into CRUD draft state."
-                  )
-                ], {
-                  attrName: "(ionChange)",
-                  eventName: "ionChange"
-                })
-              ]
+        {
+          className: "ngx.components.UIDynamicElement#Select",
+          name: "Select",
+          properties: {
+            Label: {
+              mode: "SCRIPT",
+              value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
+            },
+            LabelPlacement: {
+              mode: "PLAIN",
+              value: "stacked"
+            },
+            Placeholder: {
+              mode: "SCRIPT",
+              value: placeholderExpression
+            },
+            Interface: {
+              mode: "PLAIN",
+              value: "popover"
+            },
+            Value: {
+              mode: currentConfig.column ? "SOURCE" : "SCRIPT",
+              value: currentConfig.column ? localDraftSourceValue(ctx, currentConfig.projectName, currentConfig.column).value : localDraftFieldExpression(ctx, fieldNameExpression, "''")
             }
-          ]
-        ),
-        ctx.ifDirectiveNode(
-          "RelationAutocompleteSelection",
-          "!!" + ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''"),
-          [
-            ctx.textElementNode(
-              "ngx.components.UIDynamicElement#Paragraph",
-              "RelationAutocompleteSelectedText",
-              ctx.scriptTextNode(
-                "RelationAutocompleteSelectedValue",
-                ctx.scriptLiteral("Selected: ") + " + (" + relationDraftLabelExpression(ctx, fieldNameExpression) + " || String(" + ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''") + "))"
+          },
+          children: [
+            ctx.iterationDirectiveNode(
+              "Loop",
+              TOKENS.PROJECT_NAME,
+              "option",
+              optionsExpression,
+              [
+                ctx.ifDirectiveNode(
+                  "Match",
+                  "(String(" + optionLabelExpression + " || '').toLowerCase().indexOf(String(" + searchExpr + " || '').toLowerCase()) !== -1)",
+                  [
+                    {
+                      className: "ngx.components.UIDynamicElement#SelectOption",
+                      name: "Option",
+                      properties: {
+                        Value: {
+                          mode: "SCRIPT",
+                          value: "String(" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + " ?? '')"
+                        }
+                      },
+                      children: [
+                        ctx.smartTextNode("Text", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, optionLabelExpression))
+                      ]
+                    }
+                  ]
+                )
+              ],
+              "idx"
+            ),
+            ctx.controlEventNode("Change", [
+              ctx.setLocalActionNode(
+                "SetDraft",
+                "draft",
+                buildLocalDraftUpdateExpression(ctx, fieldNameExpression, selectedValueExpression, selectedLabelExpression)
+              ),
+              ctx.setLocalActionNode(
+                "SetSearch",
+                currentConfig.searchPropertyName,
+                selectedLabelExpression
               )
-            )
+            ], {
+              attrName: "(ionChange)",
+              eventName: "ionChange"
+            })
           ]
-        )
+        }
       ]
     };
   }
@@ -1196,10 +1098,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     var currentConfig = config || {};
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
     var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
-    var requiredExpression = currentConfig.requiredExpression || "this.FieldRequired === true || this.FieldRequired === 'true'";
+    var requiredExpression = currentConfig.requiredExpression || "false";
     return {
       className: "ngx.components.UIDynamicElement#Input",
-      name: "FieldInput",
+      name: "Input",
       properties: {
         Label: {
           mode: "SCRIPT",
@@ -1214,8 +1116,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           value: coalescedStringExpression(ctx, fieldLabelExpression, "Field")
         },
         Value: {
-          mode: "SCRIPT",
-          value: ctx.dynamicFieldAccessExpression(ctx.crudDraftExpression("this.EntityKey"), fieldNameExpression, "''")
+          mode: currentConfig.column ? "SOURCE" : "SCRIPT",
+          value: currentConfig.column ? localDraftSourceValue(ctx, currentConfig.projectName, currentConfig.column).value : localDraftFieldExpression(ctx, fieldNameExpression, "''")
         },
         Required: {
           mode: "SCRIPT",
@@ -1223,8 +1125,16 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         }
       },
       children: [
-        ctx.controlEventNode("InputEvent", [
-          ctx.customAsyncActionNode("StoreField", buildDraftFieldUpdateScript(ctx, fieldNameExpression), "Store input value into CRUD draft state.")
+        ctx.controlEventNode("InputChange", [
+          ctx.setLocalActionNode(
+            "SetDraft",
+            "draft",
+            buildLocalDraftUpdateExpression(
+              ctx,
+              fieldNameExpression,
+              "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))"
+            )
+          )
         ], {
           attrName: "(ionInput)",
           eventName: "ionInput"
@@ -1235,9 +1145,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
 
   function formFieldItemNode(ctx, index, fieldConfig) {
     var currentConfig = fieldConfig || {};
-    var item = {
+    return {
       className: "ngx.components.UIDynamicElement#FormItem",
-      name: "Field" + (index + 1) + "Item",
+      name: "Field" + (index + 1),
       children: [
         currentConfig.relation
           ? ((trimmed(ctx, currentConfig.control || "select") === "autocomplete")
@@ -1246,7 +1156,6 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           : textInputNode(ctx, currentConfig)
       ]
     };
-    return item;
   }
 
   function scriptLabelButtonNode(ctx, name, labelExpression, options, children) {
@@ -1272,11 +1181,256 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
+  function templateEntityListPanelTree(ctx) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: templateComponentName("EntityListPanel"),
+      properties: {
+        comment: "Template source for the CRUD entity list panel."
+      },
+      children: [
+        ctx.compVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL)),
+        ctx.compVariableNode("PrimaryField", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
+        ctx.compVariableNode("SecondaryField", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
+        ctx.compVariableNode("ActionLabel", ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR)),
+        ctx.compVariableNode("RefreshToken", ctx.scriptLiteral("")),
+        ctx.compEventNode("ItemSelected", "ItemSelected", {
+          comment: "Emitted when the user selects one row from the local list."
+        }),
+        ctx.compEventNode("NewRequested", "NewRequested", {
+          comment: "Emitted when the user wants to create a new row."
+        }),
+        ctx.sharedComponentEventNode(
+          "SharedComponent_Event",
+          "onInit",
+          [
+            ctx.setLocalActionNode("SetRows", "rows", "[]")
+          ],
+          "Initialize component-local rows once so bindings stay simple."
+        ),
+        ctx.sharedComponentEventNode(
+          "Load",
+          "onChanges",
+          [
+            ctx.ifActionNode(
+              "WhenRefreshReady",
+              "!!this.RefreshToken",
+              [
+                chainActionNodes(ctx, [
+                  ctx.callSequenceActionNode(
+                    "LoadRows",
+                    TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_list_" + TOKENS.ENTITY_PLURAL,
+                    [],
+                    {
+                      noLoading: true,
+                      comment: "Load the entity rows into component-local state."
+                    }
+                  ),
+                  ctx.setLocalActionNode(
+                    "SetRows",
+                    "rows",
+                    "out?.rows || []"
+                  )
+                ])
+              ],
+              {
+                comment: "Only load rows after the page has initialized the session and provided a refresh token."
+              }
+            )
+          ],
+          "Load the local rows whenever inputs change."
+        ),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "Card",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "Header",
+              children: [
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "Title",
+                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL))
+                ),
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#CardSubTitle",
+                  "Subtitle",
+                  ctx.scriptTextNode("SubtitleText", "'Rows: ' + this.local.rows.length")
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "Content",
+              children: [
+                scriptLabelButtonNode(
+                  ctx,
+                  "New",
+                  "this.ActionLabel || " + ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR),
+                  { fill: "outline" },
+                  [
+                    ctx.controlEventNode("Event", [
+                      ctx.emitEventActionNode(
+                        "EmitNewRequested",
+                        componentEventQName(templateComponentName("EntityListPanel"), "NewRequested"),
+                        "script:{ requested: true }",
+                        "Bubble the new-request event to the page glue."
+                      )
+                    ])
+                  ]
+                ),
+                ctx.ifDirectiveNode(
+                  "Empty",
+                  ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.rows", {
+                    suffix: ".length === 0"
+                  }),
+                  [
+                    ctx.textElementNode(
+                      "ngx.components.UIDynamicElement#Paragraph",
+                      "EmptyText",
+                      ctx.plainTextNode("Text", "No rows available yet.")
+                    )
+                  ]
+                ),
+                {
+                  className: "ngx.components.UIDynamicElement#List",
+                  name: "List",
+                  children: [
+                    ctx.sourceDirectiveNode(
+                      "Loop",
+                      "row",
+                      ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.rows"),
+                      [
+                        {
+                          className: "ngx.components.UIDynamicElement#ListItem",
+                          name: "Item",
+                          properties: {
+                            Button: {
+                              mode: "PLAIN",
+                              value: "true"
+                            },
+                            Detail: {
+                              mode: "PLAIN",
+                              value: "false"
+                            }
+                          },
+                          children: [
+                            {
+                              className: "ngx.components.UIDynamicElement#Label",
+                              name: "Label",
+                              children: [
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#Heading2",
+                                  "Title",
+                                  ctx.smartTextNode("TitleText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, "row." + TOKENS.PRIMARY_FIELD))
+                                ),
+                                ctx.textElementNode(
+                                  "ngx.components.UIDynamicElement#Paragraph",
+                                  "Meta",
+                                  ctx.smartTextNode("MetaText", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, "row." + TOKENS.SECONDARY_FIELD))
+                                )
+                              ]
+                            },
+                            ctx.controlEventNode("Event", [
+                              ctx.emitEventActionNode(
+                                "EmitItemSelected",
+                                componentEventQName(templateComponentName("EntityListPanel"), "ItemSelected"),
+                                "script:{ id: row?.id ?? '', row: row }",
+                                "Bubble the selected row id and row payload to the page glue."
+                              )
+                            ])
+                          ]
+                        }
+                      ],
+                      "idx"
+                    )
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  function templateEntityDetailCardTree(ctx) {
+    return {
+      className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
+      name: templateComponentName("EntityDetailCard"),
+      properties: {
+        comment: "Template source for the CRUD entity detail card."
+      },
+      children: [
+        ctx.compVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail")),
+        ctx.compVariableNode("SelectedId", ctx.scriptLiteral("")),
+        ctx.compVariableNode("RefreshToken", ctx.scriptLiteral("")),
+        ctx.sharedComponentEventNode(
+          "Load",
+          "onChanges",
+          [
+            ctx.setLocalActionNode("ClearRow", "row", "null"),
+            ctx.ifActionNode(
+              "WhenSelected",
+              "!!this.SelectedId",
+              [
+                chainActionNodes(ctx, [
+                  ctx.callSequenceActionNode(
+                    "LoadRow",
+                    TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_read_" + TOKENS.ENTITY_SINGULAR,
+                    [
+                      ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                    ],
+                    {
+                      noLoading: true,
+                      comment: "Load the selected row into component-local state."
+                    }
+                  ),
+                  ctx.setLocalActionNode("SetRow", "row", firstRowFromActionExpression("out", "null"))
+                ])
+              ],
+              {
+                comment: "Only read the row when one id is selected."
+              }
+            )
+          ],
+          "Refresh the detail card local row when selection changes."
+        ),
+        {
+          className: "ngx.components.UIDynamicElement#Card",
+          name: "Card",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#CardHeader",
+              name: "Header",
+              children: [
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#CardTitle",
+                  "Title",
+                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail"))
+                )
+              ]
+            },
+            {
+              className: "ngx.components.UIDynamicElement#CardContent",
+              name: "Content",
+              children: [
+                ctx.textElementNode(
+                  "ngx.components.UIDynamicElement#Paragraph",
+                  "Primary",
+                  ctx.scriptTextNode("PrimaryText", "this.SelectedId ? ('Selected id: ' + this.SelectedId) : 'No record selected.'")
+                )
+              ]
+            }
+          ]
+        }
+      ]
+    };
+  }
+
   function templateEntityEditFormTree(ctx) {
     var singular = TOKENS.ENTITY_SINGULAR;
-    var saveQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_save_" + singular);
-    var cancelQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_cancel_" + singular);
-    var deleteQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_delete_" + singular);
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: templateComponentName("EntityEditForm"),
@@ -1284,91 +1438,193 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         comment: "Template source for the CRUD entity edit form."
       },
       children: [
-        ctx.compVariableNode("EntityKey", ctx.scriptLiteral(TOKENS.ENTITY_KEY)),
-        ctx.compVariableNode("PrimaryField", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
-        ctx.compVariableNode("PrimaryFieldLabel", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
-        ctx.compVariableNode("PrimaryFieldRequired", ctx.scriptLiteral("false")),
-        ctx.compVariableNode("SecondaryField", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
-        ctx.compVariableNode("SecondaryFieldLabel", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
-        ctx.compVariableNode("SecondaryFieldRequired", ctx.scriptLiteral("false")),
+        ctx.compVariableNode("SelectedId", ctx.scriptLiteral("")),
+        ctx.compVariableNode("Mode", ctx.scriptLiteral("create")),
+        ctx.compVariableNode("RefreshToken", ctx.scriptLiteral("")),
+        ctx.compVariableNode("DraftSeed", "{}"),
         ctx.compVariableNode("ActionLabel", ctx.scriptLiteral(TOKENS.ACTION_LABEL)),
-        ctx.compVariableNode("CreateTitle", ctx.scriptLiteral("Create " + TOKENS.ENTITY_SINGULAR)),
-        ctx.compVariableNode("EditTitle", ctx.scriptLiteral("Edit " + TOKENS.ENTITY_SINGULAR)),
-        ctx.compVariableNode("DeleteLabel", ctx.scriptLiteral("Delete " + TOKENS.ENTITY_SINGULAR)),
+        ctx.compVariableNode("CreateTitle", ctx.scriptLiteral("Create " + singular)),
+        ctx.compVariableNode("EditTitle", ctx.scriptLiteral("Edit " + singular)),
+        ctx.compVariableNode("DeleteLabel", ctx.scriptLiteral("Delete " + singular)),
+        ctx.compEventNode("Saved", "Saved", {
+          comment: "Emitted after a successful create or update."
+        }),
+        ctx.compEventNode("Deleted", "Deleted", {
+          comment: "Emitted after a successful delete."
+        }),
+        ctx.compEventNode("Cancelled", "Cancelled", {
+          comment: "Emitted when the user cancels form editing."
+        }),
+        ctx.sharedComponentEventNode(
+          "Load",
+          "onChanges",
+          [
+            ctx.ifActionNode(
+              "WhenCreateMode",
+              "this.Mode === 'create' || !this.SelectedId",
+              [
+                ctx.setLocalActionNode("SetCreateDraft", "draft", clonedSeedDraftExpression())
+              ],
+              {
+                comment: "Initialize the local draft when the page switches to create mode."
+              }
+            ),
+            ctx.ifActionNode(
+              "WhenUpdateMode",
+              "this.Mode !== 'create' && !!this.SelectedId",
+              [
+                chainActionNodes(ctx, [
+                  ctx.callSequenceActionNode(
+                    "LoadRow",
+                    TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_read_" + singular,
+                    [
+                      ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                    ],
+                    {
+                      noLoading: true,
+                      comment: "Load the selected row into the local draft."
+                    }
+                  ),
+                  ctx.setLocalActionNode("SetUpdateDraft", "draft", firstRowFromActionExpression("out", clonedSeedDraftExpression()))
+                ])
+              ],
+              {
+                comment: "Reload the local draft when the selected id changes."
+              }
+            )
+          ],
+          "Maintain the entity draft in component-local state."
+        ),
         {
           className: "ngx.components.UIDynamicElement#Card",
-          name: templateComponentName("EntityEditForm") + "Root",
+          name: "Card",
           children: [
             {
               className: "ngx.components.UIDynamicElement#CardHeader",
-              name: templateComponentName("EntityEditForm") + "Header",
+              name: "Header",
               children: [
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
-                  templateComponentName("EntityEditForm") + "Title",
-                  ctx.scriptTextNode("TitleText", "(" + ctx.crudModeExpression("this.EntityKey") + " === 'create' ? (this.CreateTitle || " + ctx.scriptLiteral("Create " + TOKENS.ENTITY_SINGULAR) + ") : (this.EditTitle || " + ctx.scriptLiteral("Edit " + TOKENS.ENTITY_SINGULAR) + "))")
+                  "Title",
+                  ctx.scriptTextNode("TitleText", "(this.Mode === 'create' ? (this.CreateTitle || " + ctx.scriptLiteral("Create " + singular) + ") : (this.EditTitle || " + ctx.scriptLiteral("Edit " + singular) + "))")
                 )
               ]
             },
             {
               className: "ngx.components.UIDynamicElement#CardContent",
-              name: templateComponentName("EntityEditForm") + "Content",
+              name: "Content",
               children: [
-                formFieldItemNode(ctx, 0, {
-                  fieldNameExpression: "this.PrimaryField",
-                  fieldLabelExpression: "this.PrimaryFieldLabel",
-                  requiredExpression: "this.PrimaryFieldRequired === true || this.PrimaryFieldRequired === 'true'"
-                }),
-                formFieldItemNode(ctx, 1, {
-                  fieldNameExpression: "this.SecondaryField",
-                  fieldLabelExpression: "this.SecondaryFieldLabel",
-                  requiredExpression: "this.SecondaryFieldRequired === true || this.SecondaryFieldRequired === 'true'"
-                }),
-                ctx.scriptTextNode("FormStatus", "'Entity status: ' + (" + ctx.crudEntityStatusExpression("this.EntityKey") + ")"),
                 ctx.ifDirectiveNode(
-                  templateComponentName("EntityEditForm") + "ErrorVisible",
-                  "!!" + ctx.crudEntityErrorExpression("this.EntityKey"),
+                  "SaveCreateVisible",
+                  "this.Mode === 'create'",
                   [
-                    ctx.textElementNode(
-                      "ngx.components.UIDynamicElement#Paragraph",
-                      templateComponentName("EntityEditForm") + "ErrorMessage",
-                      ctx.scriptTextNode("ErrorText", ctx.crudEntityErrorExpression("this.EntityKey"))
+                    scriptLabelButtonNode(
+                      ctx,
+                      "SaveCreate",
+                      "this.ActionLabel || " + ctx.scriptLiteral(TOKENS.ACTION_LABEL),
+                      { color: "primary" },
+                      [
+                        ctx.controlEventNode("Event", [
+                          chainActionNodes(ctx, [
+                            ctx.callSequenceActionNode(
+                              "Create",
+                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_create_" + singular,
+                              [],
+                              {
+                                comment: "Create a new row from the local draft."
+                              }
+                            ),
+                            ctx.emitEventActionNode(
+                              "EmitSaved",
+                              componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
+                              "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", localDraftExpression())) + ", mode: 'create' }",
+                              "Notify the page glue that the create succeeded."
+                            )
+                          ])
+                        ])
+                      ]
+                    )
+                  ]
+                ),
+                ctx.ifDirectiveNode(
+                  "SaveUpdateVisible",
+                  "this.Mode !== 'create' && !!this.SelectedId",
+                  [
+                    scriptLabelButtonNode(
+                      ctx,
+                      "SaveUpdate",
+                      "this.ActionLabel || " + ctx.scriptLiteral(TOKENS.ACTION_LABEL),
+                      { color: "primary" },
+                      [
+                        ctx.controlEventNode("Event", [
+                          chainActionNodes(ctx, [
+                            ctx.callSequenceActionNode(
+                              "Update",
+                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_update_" + singular,
+                              [
+                                ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                              ],
+                              {
+                                comment: "Update the selected row from the local draft."
+                              }
+                            ),
+                            ctx.emitEventActionNode(
+                              "EmitSaved",
+                              componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
+                              "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", "{ id: this.SelectedId || '' }")) + ", mode: 'update' }",
+                              "Notify the page glue that the update succeeded."
+                            )
+                          ])
+                        ])
+                      ]
                     )
                   ]
                 ),
                 scriptLabelButtonNode(
                   ctx,
-                  "SaveButton",
-                  "this.ActionLabel || " + ctx.scriptLiteral(TOKENS.ACTION_LABEL),
-                  { color: "primary" },
-                  [
-                    ctx.controlEventNode("Event", [
-                      ctx.dynamicInvokeNode("InvokeSave", saveQName, [])
-                    ])
-                  ]
-                ),
-                ctx.entityPagesButtonNode(
-                  "CancelButton",
                   "Cancel",
+                  ctx.scriptLiteral("Cancel"),
                   { fill: "outline" },
                   [
                     ctx.controlEventNode("Event", [
-                      ctx.dynamicInvokeNode("InvokeCancel", cancelQName, [])
+                      ctx.emitEventActionNode(
+                        "EmitCancelled",
+                        componentEventQName(templateComponentName("EntityEditForm"), "Cancelled"),
+                        "script:{ id: this.SelectedId || '', mode: this.Mode || 'create' }",
+                        "Notify the page glue that the form was cancelled."
+                      )
                     ])
                   ]
                 ),
                 ctx.ifDirectiveNode(
-                  templateComponentName("EntityEditForm") + "DeleteVisible",
-                  "!!" + ctx.crudSelectedExpression("this.EntityKey"),
+                  "DeleteVisible",
+                  "this.Mode !== 'create' && !!this.SelectedId",
                   [
                     scriptLabelButtonNode(
                       ctx,
-                      "DeleteButton",
-                      "this.DeleteLabel || " + ctx.scriptLiteral("Delete " + TOKENS.ENTITY_SINGULAR),
+                      "Delete",
+                      "this.DeleteLabel || " + ctx.scriptLiteral("Delete " + singular),
                       { color: "danger", fill: "outline" },
                       [
                         ctx.controlEventNode("Event", [
-                          ctx.dynamicInvokeNode("InvokeDelete", deleteQName, [])
+                          chainActionNodes(ctx, [
+                            ctx.callSequenceActionNode(
+                              "Delete",
+                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_delete_" + singular,
+                              [
+                                ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                              ],
+                              {
+                                comment: "Delete the selected row."
+                              }
+                            ),
+                            ctx.emitEventActionNode(
+                              "EmitDeleted",
+                              componentEventQName(templateComponentName("EntityEditForm"), "Deleted"),
+                              "script:{ id: this.SelectedId || '' }",
+                              "Notify the page glue that the delete succeeded."
+                            )
+                          ])
                         ])
                       ]
                     )
@@ -1581,69 +1837,62 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
-  function templatesPageRootTree(_ctx, pageName) {
+  function templatesPageRootTree(ctx, projectName, pageName) {
     return {
       className: "ngx.components.PageComponent#PageComponent",
       name: pageName,
       properties: {
         segment: "templates",
         title: "CRUD Templates",
-        isRoot: false
-      }
+        isRoot: false,
+        scriptContent: ctx.blankPageScriptContent()
+      },
+      children: [
+        ctx.pageEventNode(
+          "PageEvent",
+          "onWillLoad",
+          [
+            ctx.customAsyncActionNode("SeedTemplatePreview", templatesPreviewStateScript(), "Seed maintainers-only preview state for CRUD templates.")
+          ],
+          "Seed preview global state for the template gallery."
+        ),
+        galleryPageHeaderTree(ctx, "CRUD Templates"),
+        galleryPageShellTree(ctx, projectName, {
+          headerTitle: "CRUD template gallery",
+          headerSubtitle: "Real shared components stored inside ConvertigoMCP."
+        })
+      ]
     };
   }
 
-  function templatesPagePatchTree(ctx, projectName, pageName) {
+  function homeGalleryPageRootTree(ctx, projectName) {
     return {
-      qname: canonicalPageQName(ctx, projectName, pageName),
-      tree: {
-        properties: {
-          segment: "templates",
-          title: "CRUD Templates",
-          scriptContent: ctx.blankPageScriptContent()
-        },
-        children: [
-          ctx.pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              ctx.customAsyncActionNode("SeedTemplatePreview", templatesPreviewStateScript(), "Seed maintainers-only preview state for CRUD templates.")
-            ],
-            "Seed preview global state for the template gallery."
-          ),
-          galleryPageHeaderTree(ctx, "CRUD Templates"),
-          galleryPageShellTree(ctx, projectName, {
-            headerTitle: "CRUD template gallery",
-            headerSubtitle: "Real shared components stored inside ConvertigoMCP."
-          })
-        ]
-      }
-    };
-  }
-
-  function homeGalleryPatchTree(ctx, projectName) {
-    return {
-      qname: canonicalPageQName(ctx, projectName, "Home"),
-      tree: {
-        properties: {
-          title: "CRUD Templates"
-        },
-        children: [
-          ctx.pageEventNode(
-            "PageEvent",
-            "onWillLoad",
-            [
-              ctx.customAsyncActionNode("SeedTemplatePreview", templatesPreviewStateScript(), "Seed maintainers-only preview state for CRUD templates.")
-            ],
-            "Seed preview global state for the template gallery."
-          ),
-          galleryPageHeaderTree(ctx, "CRUD Templates"),
-          galleryPageShellTree(ctx, projectName, {
-            headerTitle: "CRUD template gallery",
-            headerSubtitle: "Preview gallery served from the root maintainer page."
-          })
-        ]
-      }
+      className: "ngx.components.PageComponent#PageComponent",
+      name: "Home",
+      properties: {
+        icon: "home",
+        inAutoMenu: true,
+        isRoot: true,
+        preloadPriority: "high",
+        segment: "home",
+        title: "CRUD Templates",
+        scriptContent: ctx.blankPageScriptContent()
+      },
+      children: [
+        ctx.pageEventNode(
+          "PageEvent",
+          "onWillLoad",
+          [
+            ctx.customAsyncActionNode("SeedTemplatePreview", templatesPreviewStateScript(), "Seed maintainers-only preview state for CRUD templates.")
+          ],
+          "Seed preview global state for the template gallery."
+        ),
+        galleryPageHeaderTree(ctx, "CRUD Templates"),
+        galleryPageShellTree(ctx, projectName, {
+          headerTitle: "CRUD template gallery",
+          headerSubtitle: "Preview gallery served from the root maintainer page."
+        })
+      ]
     };
   }
 
@@ -1794,7 +2043,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       className: "ngx.components.UIDynamicElement#GridCol",
                       name: "HeaderCol",
                       children: [
-                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "UseTplCrudPageHeader", [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "PageHeader", [
                           ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.PROJECT_NAME + " CRUD home")),
                           ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Open an entity page to edit live facade data."))
                         ])
@@ -1813,7 +2062,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                         ctx.ifDirectiveNode(
                           "BootstrapVisible",
                           "((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "UseTplWorkInProgressCard", [])]
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "Bootstrap", [])]
                         )
                       ]
                     }
@@ -1835,7 +2084,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                         ctx.ifDirectiveNode(
                           "LoadingVisible",
                           "this.global?.crudLoading === true",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "UseTplCrudLoadingState", [])]
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "Loading", [])]
                         )
                       ]
                     }
@@ -1852,7 +2101,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                         ctx.ifDirectiveNode(
                           "ErrorVisible",
                           "!!this.global?.crudError",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "UseTplCrudErrorRetryState", [])]
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "Error", [])]
                         )
                       ]
                     }
@@ -1899,34 +2148,17 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               children: [
                 {
                   className: "ngx.components.UIDynamicElement#GridRow",
-                  name: "PageHeaderRow",
+                  name: "HeaderRow",
                   children: [
                     {
                       className: "ngx.components.UIDynamicElement#GridCol",
-                      name: "PageHeaderCol",
+                      name: "HeaderCol",
                       children: [
-                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "UseTplCrudPageHeader", [
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "PageHeader", [
                           ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " workspace")),
                           ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select, edit, create, then return to the home page if needed."))
                         ]),
-                        ctx.entityPagesButtonNode("BackToHome", "Back to home", { routerPath: TOKENS.ENTRY_ROUTE, routerDirection: "back", fill: "outline" }, [])
-                      ]
-                    }
-                  ]
-                },
-                {
-                  className: "ngx.components.UIDynamicElement#GridRow",
-                  name: "BootstrapRow",
-                  children: [
-                    {
-                      className: "ngx.components.UIDynamicElement#GridCol",
-                      name: "BootstrapCol",
-                      children: [
-                        ctx.ifDirectiveNode(
-                          "BootstrapVisible",
-                          "((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "UseTplWorkInProgressCard", [])]
-                        )
+                        ctx.entityPagesButtonNode("Back", "Back to home", { routerPath: TOKENS.ENTRY_ROUTE, routerDirection: "back", fill: "outline" }, [])
                       ]
                     }
                   ]
@@ -1939,7 +2171,39 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       className: "ngx.components.UIDynamicElement#GridCol",
                       name: "ListCol",
                       children: [
-                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityListPanel), "UseTplEntityListPanel", [])
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityListPanel), "ListPanel", [
+                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL)),
+                          ctx.useVariableNode("PrimaryField", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
+                          ctx.useVariableNode("SecondaryField", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
+                          ctx.useVariableNode("ActionLabel", ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR)),
+                          ctx.useVariableNode("RefreshToken", "(this.local?.refreshToken || '') + ''"),
+                          ctx.controlEventNode(
+                            "ItemSelected",
+                            [
+                              chainActionNodes(ctx, [
+                                ctx.setLocalActionNode("SetSelectedId", "selectedId", "String(parent.out?.id ?? parent.out?.row?.id ?? '')"),
+                                ctx.setLocalActionNode("SetMode", "mode", "'update'")
+                              ])
+                            ],
+                            {
+                              attrName: "(ItemSelected)",
+                              eventName: "ItemSelected"
+                            }
+                          ),
+                          ctx.controlEventNode(
+                            "NewRequested",
+                            [
+                              chainActionNodes(ctx, [
+                                ctx.setLocalActionNode("ClearSelectedId", "selectedId", "''"),
+                                ctx.setLocalActionNode("SetCreateMode", "mode", "'create'")
+                              ])
+                            ],
+                            {
+                              attrName: "(NewRequested)",
+                              eventName: "NewRequested"
+                            }
+                          )
+                        ])
                       ]
                     }
                   ]
@@ -1952,7 +2216,11 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       className: "ngx.components.UIDynamicElement#GridCol",
                       name: "DetailCol",
                       children: [
-                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityDetailCard), "UseTplEntityDetailCard", [])
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityDetailCard), "DetailCard", [
+                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail")),
+                          ctx.useVariableNode("SelectedId", "(this.local?.selectedId || '') + ''"),
+                          ctx.useVariableNode("RefreshToken", "(this.local?.refreshToken || '') + ''")
+                        ])
                       ]
                     }
                   ]
@@ -1965,41 +2233,49 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       className: "ngx.components.UIDynamicElement#GridCol",
                       name: "FormCol",
                       children: [
-                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityEditForm), "UseTplEntityEditForm", [])
-                      ]
-                    }
-                  ]
-                },
-                {
-                  className: "ngx.components.UIDynamicElement#GridRow",
-                  name: "LoadingRow",
-                  children: [
-                    {
-                      className: "ngx.components.UIDynamicElement#GridCol",
-                      name: "LoadingCol",
-                      children: [
-                        ctx.ifDirectiveNode(
-                          "LoadingVisible",
-                          "this.global?.crudLoading === true || " + ctx.crudEntityStatusExpression(ctx.scriptLiteral(TOKENS.ENTITY_KEY)) + " === 'loading'",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "UseTplCrudLoadingState", [])]
-                        )
-                      ]
-                    }
-                  ]
-                },
-                {
-                  className: "ngx.components.UIDynamicElement#GridRow",
-                  name: "ErrorRow",
-                  children: [
-                    {
-                      className: "ngx.components.UIDynamicElement#GridCol",
-                      name: "ErrorCol",
-                      children: [
-                        ctx.ifDirectiveNode(
-                          "ErrorVisible",
-                          "!!this.global?.crudError || !!" + ctx.crudEntityErrorExpression(ctx.scriptLiteral(TOKENS.ENTITY_KEY)),
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "UseTplCrudErrorRetryState", [])]
-                        )
+                        ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityEditForm), "EditForm", [
+                          ctx.useVariableNode("SelectedId", "(this.local?.selectedId || '') + ''"),
+                          ctx.useVariableNode("Mode", "(this.local?.mode || 'create') + ''"),
+                          ctx.useVariableNode("RefreshToken", "(this.local?.refreshToken || '') + ''"),
+                          ctx.controlEventNode(
+                            "Saved",
+                            [
+                              chainActionNodes(ctx, [
+                                ctx.setLocalActionNode("SetSelectedId", "selectedId", "String(parent.out?.id ?? this.local?.selectedId ?? '')"),
+                                ctx.setLocalActionNode("SetMode", "mode", "'update'"),
+                                ctx.setLocalActionNode("Refresh", "refreshToken", "String(Date.now())")
+                              ])
+                            ],
+                            {
+                              attrName: "(Saved)",
+                              eventName: "Saved"
+                            }
+                          ),
+                          ctx.controlEventNode(
+                            "Deleted",
+                            [
+                              chainActionNodes(ctx, [
+                                ctx.setLocalActionNode("ClearSelectedId", "selectedId", "''"),
+                                ctx.setLocalActionNode("SetCreateMode", "mode", "'create'"),
+                                ctx.setLocalActionNode("Refresh", "refreshToken", "String(Date.now())")
+                              ])
+                            ],
+                            {
+                              attrName: "(Deleted)",
+                              eventName: "Deleted"
+                            }
+                          ),
+                          ctx.controlEventNode(
+                            "Cancelled",
+                            [
+                              ctx.setLocalActionNode("SetCancelMode", "mode", "this.local?.selectedId ? 'update' : 'create'")
+                            ],
+                            {
+                              attrName: "(Cancelled)",
+                              eventName: "Cancelled"
+                            }
+                          )
+                        ])
                       ]
                     }
                   ]
@@ -2015,163 +2291,50 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   function buildRefreshOperations(ctx, sourceProject, pageName, force) {
     var names = sourceTemplateNames();
     var operations = [];
-    var sourceNgxAppQName = ctx.ngxAppQName(sourceProject);
     var componentTrees = templateSharedComponentsTree(ctx);
-    var componentChildren = [];
-    for (var i = 0; i < componentTrees.length; i++) {
-      var candidate = componentTrees[i];
-      var exists = ctx.resolveQName(ctx.sharedComponentQName(sourceProject, candidate.name), { optional: true }) != null;
-      if (force || !exists) {
-        componentChildren.push(candidate);
-      }
-    }
     var pageQName = canonicalPageQName(ctx, sourceProject, pageName);
-    var pageExists = ctx.resolveQName(pageQName, { optional: true }) != null;
     var loginPageQName = pageTemplateQName(ctx, sourceProject, "Login");
     var homeTemplateQName = pageTemplateQName(ctx, sourceProject, "Home");
     var entityTemplateQName = pageTemplateQName(ctx, sourceProject, "EntityPage");
-    var loginPageExists = ctx.resolveQName(loginPageQName, { optional: true }) != null;
-    var homeTemplateExists = ctx.resolveQName(homeTemplateQName, { optional: true }) != null;
-    var entityTemplateExists = ctx.resolveQName(entityTemplateQName, { optional: true }) != null;
-    if (componentChildren.length) {
-      operations.push({
-        type: "upsertTree",
-        qname: sourceNgxAppQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: componentChildren
-        }
-      });
-    }
-    if (force || !pageExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: sourceNgxAppQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: [
-            templatesPageRootTree(ctx, pageName)
-          ]
-        }
-      });
-    }
-    if (force || !loginPageExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: sourceNgxAppQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: [
-            templateLoginPageRootTree(ctx)
-          ]
-        }
-      });
-    }
-    if (force || !homeTemplateExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: sourceNgxAppQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: [
-            templateHomePageRootTree(ctx, sourceProject)
-          ]
-        }
-      });
-    }
-    if (force || !entityTemplateExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: sourceNgxAppQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: {
-          children: [
-            templateEntityPageRootTree(ctx, sourceProject)
-          ]
-        }
-      });
-    }
-    if (force || !pageExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: pageQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: templatesPagePatchTree(ctx, sourceProject, pageName).tree
-      });
-    }
-    if (force || !loginPageExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: loginPageQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: true,
-          reorder: false
-        },
-        patch: templateLoginPageRootTree(ctx)
-      });
-    }
-    if (force || !homeTemplateExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: homeTemplateQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: true,
-          reorder: false
-        },
-        patch: templateHomePageRootTree(ctx, sourceProject)
-      });
-    }
-    if (force || !entityTemplateExists) {
-      operations.push({
-        type: "upsertTree",
-        qname: entityTemplateQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: true,
-          reorder: false
-        },
-        patch: templateEntityPageRootTree(ctx, sourceProject)
-      });
-    }
     var homePageQName = canonicalPageQName(ctx, sourceProject, "Home");
-    if (ctx.resolveQName(homePageQName, { optional: true }) != null) {
-      operations.push({
-        type: "upsertTree",
-        qname: homePageQName,
-        strategy: {
-          replaceOnClassMismatch: true,
-          pruneMissing: false,
-          reorder: false
-        },
-        patch: homeGalleryPatchTree(ctx, sourceProject).tree
-      });
+    var pageTrees = [
+      templatesPageRootTree(ctx, sourceProject, pageName),
+      templateLoginPageRootTree(ctx),
+      templateHomePageRootTree(ctx, sourceProject),
+      templateEntityPageRootTree(ctx, sourceProject),
+      homeGalleryPageRootTree(ctx, sourceProject)
+    ];
+    if (force) {
+      var managedQNames = componentTrees.map(function (candidate) {
+        return ctx.sharedComponentQName(sourceProject, candidate.name);
+      }).concat([
+        pageQName,
+        loginPageQName,
+        homeTemplateQName,
+        entityTemplateQName,
+        homePageQName
+      ]);
+      for (var deleteIndex = 0; deleteIndex < managedQNames.length; deleteIndex++) {
+        if (ctx.resolveQName(managedQNames[deleteIndex], { optional: true }) != null) {
+          operations.push({
+            type: "delete",
+            qname: managedQNames[deleteIndex]
+          });
+        }
+      }
     }
+    operations.push({
+      type: "upsertTree",
+      qname: ctx.ngxAppQName(sourceProject),
+      strategy: {
+        replaceOnClassMismatch: true,
+        pruneMissing: false,
+        reorder: false
+      },
+      patch: {
+        children: componentTrees.concat(pageTrees)
+      }
+    });
     return {
       componentNames: [
         names.pageHeader,
@@ -2203,38 +2366,38 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     var componentPrefix = ctx.pascalize(entity.name);
     return {
       className: "ngx.components.UIDynamicElement#GridCol",
-      name: componentPrefix + "RouteCol",
+      name: componentPrefix,
       children: [
         {
           className: "ngx.components.UIDynamicElement#Card",
-          name: componentPrefix + "RouteCard",
+          name: "Card",
           children: [
             {
               className: "ngx.components.UIDynamicElement#CardHeader",
-              name: componentPrefix + "RouteHeader",
+              name: "Header",
               children: [
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
-                  componentPrefix + "RouteTitle",
-                  ctx.plainTextNode(componentPrefix + "RouteTitleText", entity.label)
+                  "Title",
+                  ctx.plainTextNode("Text", entity.label)
                 ),
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardSubTitle",
-                  componentPrefix + "RouteSubtitle",
-                  ctx.scriptTextNode("RouteSubtitleText", "'Rows: ' + (" + ctx.dashboardCountExpression(ctx.scriptLiteral(entity.name)) + ")")
+                  "Subtitle",
+                  ctx.scriptTextNode("Text", "'Rows: ' + (" + ctx.dashboardCountExpression(ctx.scriptLiteral(entity.name)) + ")")
                 )
               ]
             },
             {
               className: "ngx.components.UIDynamicElement#CardContent",
-              name: componentPrefix + "RouteContent",
+              name: "Content",
               children: [
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#Paragraph",
-                  componentPrefix + "RouteHint",
-                  ctx.plainTextNode("RouteHintText", "Open the " + entity.label.toLowerCase() + " workspace to browse and edit live facade data.")
+                  "Hint",
+                  ctx.plainTextNode("Text", "Open the " + entity.label.toLowerCase() + " workspace to browse and edit live facade data.")
                 ),
-                ctx.entityPagesButtonNode("OpenPageButton", "Open " + entity.label, { routerPath: ctx.entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
+                ctx.entityPagesButtonNode("Open", "Open " + entity.label, { routerPath: ctx.entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
               ]
             }
           ]
@@ -2251,7 +2414,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return markManagedPageClone(tree, pageName || targetName || tree.name);
   }
 
-  function buildEntityPagesPageBundle(ctx, projectName, entryPage, entities, stage) {
+  function buildEntityPagesPageBundle(ctx, projectName, entryPage, facadePrefix, entities, stage) {
     var sourceProject = sourceProjectName(ctx);
     var names = sourceTemplateNames();
     var warnings = [];
@@ -2296,12 +2459,13 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       var entity = entities[i];
       var entityPrefix = ctx.pascalize(entity.name);
       var replacements = buildCommonPageSharedReplacements(ctx, projectName);
+      var entityReplacements = placeholderMap(ctx, projectName, facadePrefix, entity, entities);
       replacements[TOKENS.ENTRY_ROUTE] = homeRoute;
-      replacements[TOKENS.DISPLAY_LABEL] = trimmed(ctx, entity.label || entity.name);
-      replacements[TOKENS.ENTITY_SINGULAR] = trimmed(ctx, entity.singular || "entity");
-      replacements[TOKENS.ENTITY_PLURAL] = trimmed(ctx, entity.name || entity.plural || ctx.pluralize(entity.singular || "entity"));
-      replacements[TOKENS.ENTITY_KEY] = trimmed(ctx, entity.name || entity.plural || "entities");
-      replacements[TOKENS.ROUTE_SEGMENT] = trimmed(ctx, entity.routeSegment || ctx.entityRouteSegment(entity));
+      var entityReplacementKeys = Object.keys(entityReplacements || {});
+      for (var replacementIndex = 0; replacementIndex < entityReplacementKeys.length; replacementIndex++) {
+        var replacementKey = entityReplacementKeys[replacementIndex];
+        replacements[replacementKey] = entityReplacements[replacementKey];
+      }
       replacements[ctx.sharedComponentQName(sourceProject, names.entityListPanel)] = ctx.sharedComponentQName(projectName, entityPrefix + "ListPanel");
       replacements[ctx.sharedComponentQName(sourceProject, names.entityDetailCard)] = ctx.sharedComponentQName(projectName, entityPrefix + "DetailCard");
       replacements[ctx.sharedComponentQName(sourceProject, names.entityEditForm)] = ctx.sharedComponentQName(projectName, entityPrefix + "EditForm");
@@ -2336,7 +2500,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
-  function buildEntityPagesSharedComponentsTree(ctx, projectName, entities, stage) {
+  function buildEntityPagesSharedComponentsTree(ctx, projectName, facadePrefix, entities, stage) {
     var names = sourceTemplateNames();
     var sourceProject = sourceProjectName(ctx);
     var children = [];
@@ -2372,9 +2536,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     }
     for (var entityIndex = 0; entityIndex < entities.length; entityIndex++) {
       var entity = entities[entityIndex];
-      var entityConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, "crud", entity, entities) : null;
+      var entityConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, facadePrefix, entity, entities) : null;
       var entityPrefix = ctx.pascalize(entity.name);
-      var replacements = placeholderMap(ctx, projectName, entity, entities);
+      var replacements = placeholderMap(ctx, projectName, facadePrefix, entity, entities);
       var listTargetName = entityPrefix + "ListPanel";
       replacements[templateComponentName("EntityListPanel")] = listTargetName;
       var listSourceQName = ctx.sharedComponentQName(sourceProject, names.entityListPanel);
@@ -2385,7 +2549,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         listTargetName
       );
       var detailTargetName = entityPrefix + "DetailCard";
-      var detailReplacements = placeholderMap(ctx, projectName, entity, entities);
+      var detailReplacements = placeholderMap(ctx, projectName, facadePrefix, entity, entities);
       detailReplacements[templateComponentName("EntityDetailCard")] = detailTargetName;
       var detailSourceQName = ctx.sharedComponentQName(sourceProject, names.entityDetailCard);
       var detailTree = cloneTemplateTree(
@@ -2395,7 +2559,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         detailTargetName
       );
       var formTargetName = entityPrefix + "EditForm";
-      var formReplacements = placeholderMap(ctx, projectName, entity, entities);
+      var formReplacements = placeholderMap(ctx, projectName, facadePrefix, entity, entities);
       formReplacements[templateComponentName("EntityEditForm")] = formTargetName;
       var formSourceQName = ctx.sharedComponentQName(sourceProject, names.entityEditForm);
       var formTree = cloneTemplateTree(
@@ -2409,8 +2573,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         return null;
       }
       children.push(
-        customizeEntityListPanelTree(ctx, listTree, listTargetName, entityConfig || {}),
-        customizeEntityDetailCardTree(ctx, detailTree, detailTargetName, entityConfig || {}),
+        customizeEntityListPanelTree(ctx, listTree, listTargetName, entityConfig || {}, projectName),
+        customizeEntityDetailCardTree(ctx, detailTree, detailTargetName, entityConfig || {}, projectName),
         customizeEntityEditFormTree(ctx, formTree, formTargetName, entityConfig || {}, entities, projectName)
       );
       qnames.push(
@@ -2464,26 +2628,34 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       return result;
     }
     var queuedOperations = refreshPlan.operations.slice(0);
-    var pagePatchOperation = null;
-    if (queuedOperations.length) {
-      var lastOperation = queuedOperations[queuedOperations.length - 1];
-      if (trimmed(ctx, lastOperation && lastOperation.qname) === trimmed(ctx, refreshPlan.pageQName)) {
-        pagePatchOperation = queuedOperations.pop();
+    var expandedOperations = [];
+    for (var operationIndex = 0; operationIndex < queuedOperations.length; operationIndex++) {
+      var queuedOperation = queuedOperations[operationIndex];
+      var operationType = trimmed(ctx, queuedOperation && queuedOperation.type).toLowerCase();
+      if (operationType === "upserttree" &&
+        trimmed(ctx, queuedOperation && queuedOperation.qname) === ctx.ngxAppQName(projectName) &&
+        queuedOperation.patch &&
+        Array.isArray(queuedOperation.patch.children) &&
+        queuedOperation.patch.children.length > 1) {
+        for (var childIndex = 0; childIndex < queuedOperation.patch.children.length; childIndex++) {
+          var childTree = queuedOperation.patch.children[childIndex];
+          expandedOperations.push({
+            type: "upsertTree",
+            qname: queuedOperation.qname,
+            strategy: queuedOperation.strategy,
+            patch: {
+              children: [childTree]
+            }
+          });
+        }
+        continue;
       }
+      expandedOperations.push(queuedOperation);
     }
     var applyResults = [];
-    if (queuedOperations.length) {
+    for (var expandedIndex = 0; expandedIndex < expandedOperations.length; expandedIndex++) {
       applyResults.push(ctx.batchApply({
-        operations: queuedOperations,
-        onError: "stop",
-        autoSave: true,
-        refresh: true,
-        triggerMobileBuilder: false
-      }));
-    }
-    if (pagePatchOperation) {
-      applyResults.push(ctx.batchApply({
-        operations: [pagePatchOperation],
+        operations: [expandedOperations[expandedIndex]],
         onError: "stop",
         autoSave: true,
         refresh: true,

@@ -35,11 +35,11 @@ C8O.crudUiCrmActions = C8O.crudUiCrmActions || {};
             [],
             [
               ctx.callSequenceActionNode("CallCompanies", listCompaniesQName, [], { noLoading: true, cacheTtl: 3000 }),
-              ctx.setGlobalActionNode("SetCompanies", "crmCompanies", "parent.out?.sql_output ?? []"),
-              ctx.setGlobalActionNode("SetCompanyCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { companies: Number(parent.out?.sql_output?.length ?? 0) })"),
+              ctx.setGlobalActionNode("SetCompanies", "crmCompanies", "parent.out?.rows ?? []"),
+              ctx.setGlobalActionNode("SetCompanyCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { companies: Number(parent.out?.rows?.length ?? 0) })"),
               ctx.setGlobalActionNode("SetCompanyStatus", "crmStatus", "parent.out?.status ?? 'ok'"),
               ctx.setGlobalActionNode("SetCompanyError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load companies') : ''"),
-              ctx.setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmSelectedCompany && (parent.out?.sql_output || []).some((item) => String(item?.ID ?? item?.id) === String(this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id))) ? this.global?.crmSelectedCompany : ((parent.out?.sql_output || [])[0] ?? null)")
+              ctx.setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmSelectedCompany && (parent.out?.rows || []).some((item) => String(item?.id) === String(this.global?.crmSelectedCompany?.id))) ? this.global?.crmSelectedCompany : ((parent.out?.rows || [])[0] ?? null)")
             ],
             "CRM companies refresh action."
           ),
@@ -48,8 +48,8 @@ C8O.crudUiCrmActions = C8O.crudUiCrmActions || {};
             [],
             [
               ctx.callSequenceActionNode("CallContacts", listContactsQName, [], { noLoading: true, cacheTtl: 3000 }),
-              ctx.setGlobalActionNode("SetContacts", "crmContacts", "parent.out?.sql_output ?? []"),
-              ctx.setGlobalActionNode("SetContactCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { contacts: Number(parent.out?.sql_output?.length ?? 0) })"),
+              ctx.setGlobalActionNode("SetContacts", "crmContacts", "parent.out?.rows ?? []"),
+              ctx.setGlobalActionNode("SetContactCount", "crmCounts", "Object.assign({}, this.global?.crmCounts || {}, { contacts: Number(parent.out?.rows?.length ?? 0) })"),
               ctx.setGlobalActionNode("SetContactsStatus", "crmStatus", "(this.global?.crmError ? 'error' : (parent.out?.status ?? 'ok'))"),
               ctx.setGlobalActionNode("SetContactsError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load contacts') : (this.global?.crmError || '')")
             ],
@@ -60,9 +60,9 @@ C8O.crudUiCrmActions = C8O.crudUiCrmActions || {};
             [ctx.stackVariableNode("company_id", "0")],
             [
               ctx.callSequenceActionNode("CallCompanyContacts", listCompanyContactsQName, [
-                ctx.controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
+                ctx.controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.id ?? 0)")
               ], { noLoading: true, cacheTtl: 3000 }),
-              ctx.setGlobalActionNode("SetCompanyContacts", "crmCompanyContacts", "parent.out?.sql_output ?? []"),
+              ctx.setGlobalActionNode("SetCompanyContacts", "crmCompanyContacts", "parent.out?.rows ?? []"),
               ctx.setGlobalActionNode("SetCompanyContactsStatus", "crmStatus", "(this.global?.crmError ? 'error' : (parent.out?.status ?? 'ok'))"),
               ctx.setGlobalActionNode("SetCompanyContactsError", "crmError", "(parent.out?.status && parent.out?.status !== 'ok') ? (parent.out?.error ?? 'Unable to load company contacts') : (this.global?.crmError || '')")
             ],
@@ -72,9 +72,9 @@ C8O.crudUiCrmActions = C8O.crudUiCrmActions || {};
             "crm_select_company",
             [ctx.stackVariableNode("company_id", "0")],
             [
-              ctx.setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmCompanies || []).find((item) => String(item?.ID ?? item?.id) === String(vars.company_id ?? '')) || null"),
+              ctx.setGlobalActionNode("SetSelectedCompany", "crmSelectedCompany", "(this.global?.crmCompanies || []).find((item) => String(item?.id) === String(vars.company_id ?? '')) || null"),
               ctx.dynamicInvokeNode("InvokeRefreshCompanyContacts", refreshCompanyContactsQName, [
-                ctx.controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
+                ctx.controlVariableNode("company_id", "Number(vars.company_id ?? this.global?.crmSelectedCompany?.id ?? 0)")
               ])
             ],
             "CRM company selection action."
@@ -90,7 +90,7 @@ C8O.crudUiCrmActions = C8O.crudUiCrmActions || {};
               ctx.dynamicInvokeNode("InvokeRefreshCompanies", refreshCompaniesQName, []),
               ctx.dynamicInvokeNode("InvokeRefreshContacts", refreshContactsQName, []),
               ctx.dynamicInvokeNode("InvokeRefreshCompanyContacts", refreshCompanyContactsQName, [
-                ctx.controlVariableNode("company_id", "Number(this.global?.crmSelectedCompany?.ID ?? this.global?.crmSelectedCompany?.id ?? 0)")
+                ctx.controlVariableNode("company_id", "Number(this.global?.crmSelectedCompany?.id ?? 0)")
               ]),
               ctx.setGlobalActionNode("ClearLoading", "crmLoading", "false"),
               ctx.setGlobalActionNode("FinalizeStatus", "crmStatus", "this.global?.crmError ? 'error' : 'ok'")

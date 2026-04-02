@@ -33,7 +33,7 @@ C8O.crudUiDashboard = C8O.crudUiDashboard || {};
       "  page.global.crudStatus = 'error';",
       "  page.c8o.log.debug('[MB] crud_refresh_' + key + ' failed', e);",
       "  page.ref.markForCheck();",
-      "  return { status: 'error', error: page.global.crudError, sql_output: [] };",
+      "  return { status: 'error', error: page.global.crudError, rows: [] };",
       "} finally {",
       "  page.global.crudLoading = false;",
       "  page.ref.markForCheck();",
@@ -69,7 +69,7 @@ C8O.crudUiDashboard = C8O.crudUiDashboard || {};
       "  } catch (e) {",
       "    var message = (e && e.message) ? e.message : ('' + e);",
       "    page.c8o.log.debug('[MB] crud_bootstrap_dashboard refresh failed for ' + String((config && config.key) || 'entity'), e);",
-      "    return { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), sql_output: [] } };",
+      "    return { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), rows: [] } };",
       "  }",
       "};",
       "try {",
@@ -142,13 +142,13 @@ C8O.crudUiDashboard = C8O.crudUiDashboard || {};
       "\t\t\tconst results = await Promise.all(configs.map(async (config) => {",
       "\t\t\t\ttry {",
       "\t\t\t\t\tconst result: any = await this['call'].apply(this, [config.requestable, {__localCache_priority: null, __localCache_ttl: 3000}, null, 5000, true]);",
-      "\t\t\t\t\tconst rows = Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []);",
+      "\t\t\t\t\tconst rows = Array.isArray(result?.rows) ? result.rows : [];",
       "\t\t\t\t\tconst status = (result && result.status) ? result.status : 'ok';",
       "\t\t\t\t\treturn { key: config.key, rows, status, error: status !== 'ok' ? (result?.error ?? ('Unable to load ' + String(config.label || config.key).toLowerCase())) : '', result };",
       "\t\t\t\t} catch (e: any) {",
       "\t\t\t\t\tconst message = (e && e.message) ? e.message : ('' + e);",
       "\t\t\t\t\tthis.c8o.log.debug('[MB] bootstrapCrudDashboardState refresh failed for ' + String((config && config.key) || 'entity'), e);",
-      "\t\t\t\t\treturn { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), sql_output: [] } };",
+      "\t\t\t\t\treturn { key: config.key, rows: [], status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), result: { status: 'error', error: message || ('Unable to load ' + String(config.label || config.key).toLowerCase()), rows: [] } };",
       "\t\t\t\t}",
       "\t\t\t}));",
       "\t\t\tconst rowsByKey: any = {};",
@@ -185,7 +185,6 @@ C8O.crudUiDashboard = C8O.crudUiDashboard || {};
     var qnames = [];
     var children = [];
     var bootstrapQName = ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard");
-    var retryQName = ctx.dashboardActionQName(projectName, "crud_retry_dashboard");
     for (var i = 0; i < entities.length; i++) {
       var entity = entities[i];
       var actionName = "crud_refresh_" + entity.name;
@@ -207,7 +206,7 @@ C8O.crudUiDashboard = C8O.crudUiDashboard || {};
         )
       );
     }
-    qnames.push(bootstrapQName, retryQName);
+    qnames.push(bootstrapQName);
     children.push(
       ctx.actionStackNode(
         "crud_bootstrap_dashboard",
@@ -220,14 +219,6 @@ C8O.crudUiDashboard = C8O.crudUiDashboard || {};
           )
         ],
         "CRUD dashboard bootstrap action."
-      ),
-      ctx.actionStackNode(
-        "crud_retry_dashboard",
-        [],
-        [
-          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
-        ],
-        "CRUD dashboard retry action."
       )
     );
     return {

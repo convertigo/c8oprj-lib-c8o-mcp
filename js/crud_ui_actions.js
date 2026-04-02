@@ -19,6 +19,21 @@ C8O.crudUiActions = C8O.crudUiActions || {};
     return draft;
   }
 
+  function loginSequenceActionNode(ctx, projectName, name) {
+    return ctx.callSequenceActionNode(
+      name || "InvokeCrudAuthLogin",
+      projectName + ".auth_login",
+      [
+        ctx.controlVariableNode("username", ctx.scriptLiteral("demo"), "Best-case demo user for the generated auth skeleton."),
+        ctx.controlVariableNode("password", ctx.scriptLiteral("demo"), "Best-case demo password for the generated auth skeleton.")
+      ],
+      {
+        noLoading: true,
+        comment: "Establish the generated authenticated context before CRUD facade calls."
+      }
+    );
+  }
+
   function relationSearchResetLines(configVarName) {
     var cfg = String(configVarName || "config");
     return [
@@ -42,7 +57,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.global = page.global || {};",
       "var configs = " + JSON.stringify(configs) + ";",
       "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
-      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var extractRows = function(result) { return Array.isArray(result?.rows) ? result.rows : []; };",
       "var statusOf = function(result) { return (result && result.status) ? result.status : 'ok'; };",
       "page.global.crudBuildStage = " + ctx.scriptLiteral(ctx.trimmed(stage || "bootstrap")) + ";",
       "page.global.crudLoading = true;",
@@ -60,10 +75,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.ref.markForCheck();",
       "try {",
       "  var extractTotal = function(result) {",
-      "    var rows = extractRows(result);",
-      "    var first = Array.isArray(rows) && rows.length ? (rows[0] || {}) : {};",
-      "    var total = first?.TOTAL ?? first?.total ?? first?.COUNT ?? first?.count ?? 0;",
-      "    var numeric = Number(total);",
+      "    var numeric = Number(result?.total ?? 0);",
       "    return Number.isFinite(numeric) ? numeric : 0;",
       "  };",
       "  var results = await Promise.all(configs.map(async function(config) {",
@@ -128,8 +140,8 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.global = page.global || {};",
       "var config = " + JSON.stringify(cfg) + ";",
       "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
-      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
-      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.rows) ? result.rows : []; };",
+      "var normalizeId = function(item) { return item ? String(item?.id ?? '') : ''; };",
       "var hasAnyErrors = function() { var errors = page.global?.crudEntityErrors || {}; for (var key in errors) { if (errors[key]) { return true; } } return false; };",
       "var key = config.key;",
       "var previousSelected = ((page.global?.crudSelected || {})[key]) || null;",
@@ -171,7 +183,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "  page.global.crudStatus = 'error';",
       "  page.c8o.log.debug('[MB] crud_refresh_' + key + ' failed', e);",
       "  page.ref.markForCheck();",
-      "  return { status: 'error', error: page.global.crudError, sql_output: [] };",
+      "  return { status: 'error', error: page.global.crudError, rows: [] };",
       "}"
     ].join("\n");
   }
@@ -205,8 +217,8 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.global = page.global || {};",
       "var config = " + JSON.stringify(cfg) + ";",
       "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
-      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
-      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var normalizeId = function(item) { return item ? String(item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.rows) ? result.rows : []; };",
       "var key = config.key;",
       "page.global.crudBuildStage = page.global.crudBuildStage || 'final';",
       "page.global.crudLoading = true;",
@@ -278,7 +290,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "var key = config.key;",
       "var rows = ((page.global?.crudRows || {})[key]) || [];",
       "var rowId = String(vars.row_id ?? '');",
-      "var selected = rows.find(function(row) { return String(row?.ID ?? row?.id ?? '') === rowId; }) || null;",
+      "var selected = rows.find(function(row) { return String(row?.id ?? '') === rowId; }) || null;",
       "page.global.crudSelected = Object.assign({}, page.global.crudSelected || {}, { [key]: selected });",
       "page.global.crudDrafts = Object.assign({}, page.global.crudDrafts || {}, { [key]: cloneRecord(selected || config.defaultDraft || {}) });",
       relationSearchResetLines("config")[0],
@@ -348,8 +360,8 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "page.global = page.global || {};",
       "var config = " + JSON.stringify(cfg) + ";",
       "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
-      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
-      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var normalizeId = function(item) { return item ? String(item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.rows) ? result.rows : []; };",
       "var key = config.key;",
       "var draft = cloneRecord(((page.global?.crudDrafts || {})[key]) || {});",
       "var selected = ((page.global?.crudSelected || {})[key]) || null;",
@@ -382,7 +394,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       "        for (var index = 0; index < config.uniqueFields.length; index++) {",
       "          var column = config.uniqueFields[index];",
       "          var expected = draft[column] == null ? '' : String(draft[column]);",
-      "          var actual = row ? String(row[column.toUpperCase()] ?? row[column] ?? '') : '';",
+      "          var actual = row ? String(row[column] ?? '') : '';",
       "          if (actual !== expected) {",
       "            return false;",
       "          }",
@@ -431,8 +443,8 @@ C8O.crudUiActions = C8O.crudUiActions || {};
     return [
       "page.global = page.global || {};",
       "var config = " + JSON.stringify(cfg) + ";",
-      "var normalizeId = function(item) { return item ? String(item?.ID ?? item?.id ?? '') : ''; };",
-      "var extractRows = function(result) { return Array.isArray(result?.sql_output) ? result.sql_output : (Array.isArray(result?.transaction?.document?.sql_output) ? result.transaction.document.sql_output : []); };",
+      "var normalizeId = function(item) { return item ? String(item?.id ?? '') : ''; };",
+      "var extractRows = function(result) { return Array.isArray(result?.rows) ? result.rows : []; };",
       "var cloneRecord = function(item) { try { return JSON.parse(JSON.stringify(item || {})); } catch (e) { return item || {}; } };",
       "var key = config.key;",
       "var selected = ((page.global?.crudSelected || {})[key]) || null;",
@@ -492,11 +504,32 @@ C8O.crudUiActions = C8O.crudUiActions || {};
   function buildEntityPagesActionStacksTree(ctx, projectName, facadePrefix, entities, stage) {
     var qnames = [];
     var children = [];
-    var configs = entities.map(function (entity) {
-      return ctx.entityUiConfig(projectName, facadePrefix, entity, entities);
-    });
+    var ensureSessionQName = ctx.dashboardActionQName(projectName, "crud_ensure_session");
     var bootstrapQName = ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard");
-    qnames.push(bootstrapQName, ctx.dashboardActionQName(projectName, "crud_retry_dashboard"));
+    var loginNode = loginSequenceActionNode(ctx, projectName, "InvokeCrudAuthLogin");
+    loginNode.children = ctx.ensureArray(loginNode.children).concat([
+      ctx.setGlobalActionNode("SetSessionReady", "crudSessionReady", "true")
+    ]);
+    qnames.push(ensureSessionQName);
+    children.push(
+      ctx.actionStackNode(
+        "crud_ensure_session",
+        [],
+        [
+          ctx.ifActionNode(
+            "WhenSessionMissing",
+            "this.global?.crudSessionReady === true",
+            [loginNode],
+            {
+              negate: true,
+              comment: "Establish the generated auth session once, then trust the session cookie for the rest of the app."
+            }
+          )
+        ],
+        "Ensure a generated authenticated session exists before CRUD facade calls."
+      )
+    );
+    qnames.push(bootstrapQName);
     children.push(
       ctx.actionStackNode(
         "crud_bootstrap_dashboard",
@@ -509,121 +542,8 @@ C8O.crudUiActions = C8O.crudUiActions || {};
           )
         ],
         "CRUD entity-pages bootstrap action."
-      ),
-      ctx.actionStackNode(
-        "crud_retry_dashboard",
-        [],
-        [
-          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
-        ],
-        "CRUD entity-pages retry action."
       )
     );
-    for (var i = 0; i < configs.length; i++) {
-      var config = configs[i];
-      var refreshName = "crud_refresh_" + config.key;
-      var bootstrapPageName = "crud_bootstrap_" + config.key + "_page";
-      var selectName = "crud_select_" + config.singular;
-      var newName = "crud_new_" + config.singular;
-      var saveName = "crud_save_" + config.singular;
-      var deleteName = "crud_delete_" + config.singular;
-      var cancelName = "crud_cancel_" + config.singular;
-      qnames.push(
-        ctx.dashboardActionQName(projectName, refreshName),
-        ctx.dashboardActionQName(projectName, bootstrapPageName),
-        ctx.dashboardActionQName(projectName, selectName),
-        ctx.dashboardActionQName(projectName, newName),
-        ctx.dashboardActionQName(projectName, saveName),
-        ctx.dashboardActionQName(projectName, deleteName),
-        ctx.dashboardActionQName(projectName, cancelName)
-      );
-      children.push(
-        ctx.actionStackNode(
-          refreshName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "Refresh" + ctx.pascalize(config.key),
-              buildEntityPagesRefreshActionScript(ctx, config),
-              "Refresh CRUD state for " + config.label + "."
-            )
-          ],
-          "CRUD refresh action for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          bootstrapPageName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "Bootstrap" + ctx.pascalize(config.key) + "Page",
-              buildEntityPagesBootstrapPageScript(ctx, config),
-              "Prepare selection and draft state for the " + config.label + " page."
-            )
-          ],
-          "CRUD entity page bootstrap for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          selectName,
-          [ctx.stackVariableNode("row_id", "''")],
-          [
-            ctx.customAsyncActionNode(
-              "Select" + ctx.pascalize(config.singular),
-              buildEntityPagesSelectActionScript(ctx, config),
-              "Select one " + config.singular + " row."
-            )
-          ],
-          "CRUD select action for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          newName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "New" + ctx.pascalize(config.singular),
-              buildEntityPagesNewActionScript(ctx, config),
-              "Prepare a new " + config.singular + " draft."
-            )
-          ],
-          "CRUD new action for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          saveName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "Save" + ctx.pascalize(config.singular),
-              buildEntityPagesSaveActionScript(ctx, config),
-              "Persist the current " + config.singular + " draft."
-            )
-          ],
-          "CRUD save action for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          deleteName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "Delete" + ctx.pascalize(config.singular),
-              buildEntityPagesDeleteActionScript(ctx, config),
-              "Delete the selected " + config.singular + "."
-            )
-          ],
-          "CRUD delete action for " + config.label + "."
-        ),
-        ctx.actionStackNode(
-          cancelName,
-          [],
-          [
-            ctx.customAsyncActionNode(
-              "Cancel" + ctx.pascalize(config.singular),
-              buildEntityPagesCancelActionScript(ctx, config),
-              "Reset the current " + config.singular + " draft."
-            )
-          ],
-          "CRUD cancel action for " + config.label + "."
-        )
-      );
-    }
     return {
       qnames: qnames,
       tree: {
@@ -633,6 +553,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
   }
 
   C8O.crudUiActions.entityPagesDefaultDraft = entityPagesDefaultDraft;
+  C8O.crudUiActions.loginSequenceActionNode = loginSequenceActionNode;
   C8O.crudUiActions.buildEntityPagesBootstrapActionScript = buildEntityPagesBootstrapActionScript;
   C8O.crudUiActions.buildEntityPagesRefreshActionScript = buildEntityPagesRefreshActionScript;
   C8O.crudUiActions.buildEntityPagesBootstrapPageScript = buildEntityPagesBootstrapPageScript;

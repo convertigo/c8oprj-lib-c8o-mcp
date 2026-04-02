@@ -239,6 +239,244 @@ C8O.crudBackend = C8O.crudBackend || {};
     return null;
   }
 
+  function sourceSmartType(priority, xpath) {
+    return {
+      mode: "SOURCE",
+      sources: [String(priority || ""), String(xpath || "")]
+    };
+  }
+
+  function plainSmartType(value) {
+    return {
+      mode: "PLAIN",
+      value: String(value == null ? "" : value)
+    };
+  }
+
+  function jsonFieldTypeForColumn(field) {
+    var rawType = String(field && field.type || "").toUpperCase();
+    if (/INT|DECIMAL|NUMERIC|DOUBLE|FLOAT|REAL/.test(rawType)) {
+      return "number";
+    }
+    return "string";
+  }
+
+  function rawSqlOutputKey(ctx, fieldName) {
+    return ctx.normalizedIdentifier(fieldName || "").toUpperCase();
+  }
+
+  function facadeRowFieldEntries(ctx, spec, entity) {
+    var entries = [];
+    var fields = ctx.ensureArray(entity && entity.fields);
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field) {
+        continue;
+      }
+      entries.push({
+        key: ctx.normalizedIdentifier(field.column || field.name || ""),
+        sourceKey: rawSqlOutputKey(ctx, field.column || field.name || ""),
+        type: jsonFieldTypeForColumn(field)
+      });
+    }
+    var relations = relationsForEntity(ctx, spec, entity);
+    for (var relationIndex = 0; relationIndex < relations.length; relationIndex++) {
+      var relation = relations[relationIndex];
+      if (!relation) {
+        continue;
+      }
+      var alias = relationLabelAlias(ctx, relation);
+      entries.push({
+        key: alias,
+        sourceKey: rawSqlOutputKey(ctx, alias),
+        type: "string"
+      });
+    }
+    return entries;
+  }
+
+  function pruneNamedSteps(ctx, parent, names, result) {
+    var allowed = {};
+    var entries = ctx.ensureArray(names);
+    for (var i = 0; i < entries.length; i++) {
+      allowed[String(entries[i])] = true;
+    }
+    if (!parent || typeof parent.getDatabaseObjectChildren !== "function") {
+      return;
+    }
+    var children = parent.getDatabaseObjectChildren();
+    var toRemove = [];
+    for (var childIndex = 0; childIndex < children.size(); childIndex++) {
+      var child = children.get(childIndex);
+      var childName = String(child.getName ? child.getName() : "");
+      if (allowed[childName]) {
+        toRemove.push(child);
+      }
+    }
+    for (var removeIndex = 0; removeIndex < toRemove.length; removeIndex++) {
+      removeChild(parent, toRemove[removeIndex], result);
+    }
+  }
+
+  function pruneUnexpectedChildSteps(ctx, parent, allowedNames, result) {
+    if (!parent || typeof parent.getDatabaseObjectChildren !== "function") {
+      return;
+    }
+    var allowed = {};
+    var entries = ctx.ensureArray(allowedNames);
+    for (var i = 0; i < entries.length; i++) {
+      allowed[String(entries[i])] = true;
+    }
+    var children = parent.getDatabaseObjectChildren();
+    var toRemove = [];
+    for (var childIndex = 0; childIndex < children.size(); childIndex++) {
+      var child = children.get(childIndex);
+      var logical = ctx.logicalClassName(child);
+      if (logical.indexOf("steps.") !== 0) {
+        continue;
+      }
+      var childName = String(child.getName ? child.getName() : "");
+      if (!allowed[childName]) {
+        toRemove.push(child);
+      }
+    }
+    for (var removeIndex = 0; removeIndex < toRemove.length; removeIndex++) {
+      removeChild(parent, toRemove[removeIndex], result);
+    }
+  }
+
+  function ensureFacadeJsonField(ctx, parent, name, key, valueSmartType, type, result) {
+    var field = ctx.ensureChild(parent, "steps.JsonFieldStep", name, result);
+    var updates = {
+      key: plainSmartType(key),
+      value: valueSmartType
+    };
+    if (ctx.trimmed(type).length) {
+      updates.type = ctx.trimmed(type);
+    }
+    ctx.applyUpdates(field, updates, result);
+    return field;
+  }
+
+  function buildCanonicalRowsPayload(ctx, sequence, txStep, spec, entity, result) {
+    pruneNamedSteps(ctx, sequence, ["CopyPayload", "Total", "Message", "AffectedRows", "AffectedRowsText", "Row"], result);
+    var rowsStep = ctx.ensureChild(sequence, "steps.JsonArrayStep", "Rows", result);
+    ctx.applyUpdates(rowsStep, {
+      key: plainSmartType("rows")
+    }, result);
+    var iterator = ctx.ensureChild(rowsStep, "steps.IteratorStep", "RowsIterator", result);
+    ctx.applyUpdates(iterator, {
+      condition: "",
+      sourceDefinition: [ctx.priorityOf(txStep), "./document/sql_output/row"]
+    }, result);
+    var rowStep = ctx.ensureChild(iterator, "steps.JsonObjectStep", "Item", result);
+    var fields = facadeRowFieldEntries(ctx, spec, entity);
+    var allowedNames = ["Item"];
+    var rowPriority = ctx.priorityOf(iterator);
+    for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+      var entry = fields[fieldIndex];
+      var stepName = ctx.pascalize ? ctx.pascalize(entry.key.replace(/__/g, "_")) : entry.key;
+      allowedNames.push(stepName);
+      ensureFacadeJsonField(
+        ctx,
+        rowStep,
+        stepName,
+        entry.key,
+        sourceSmartType(rowPriority, "./" + entry.sourceKey + "/text()"),
+        entry.type,
+        result
+      );
+    }
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Rows"], result);
+    pruneUnexpectedChildSteps(ctx, rowsStep, ["RowsIterator"], result);
+    pruneUnexpectedChildSteps(ctx, iterator, ["Item"], result);
+    pruneUnexpectedChildSteps(ctx, rowStep, allowedNames, result);
+  }
+
+  function buildCanonicalSingleRowPayload(ctx, sequence, txStep, spec, entity, result) {
+    pruneNamedSteps(ctx, sequence, ["CopyPayload", "SqlOutput", "Rows", "Total", "Message", "AffectedRows", "AffectedRowsText"], result);
+    var rowStep = ctx.ensureChild(sequence, "steps.JsonObjectStep", "Row", result);
+    ctx.applyUpdates(rowStep, {
+      key: plainSmartType("row")
+    }, result);
+    var fields = facadeRowFieldEntries(ctx, spec, entity);
+    var allowedNames = ["Row"];
+    var txPriority = ctx.priorityOf(txStep);
+    for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+      var entry = fields[fieldIndex];
+      var stepName = ctx.pascalize ? ctx.pascalize(entry.key.replace(/__/g, "_")) : entry.key;
+      allowedNames.push(stepName);
+      ensureFacadeJsonField(
+        ctx,
+        rowStep,
+        stepName,
+        entry.key,
+        sourceSmartType(txPriority, "./document/sql_output/row/" + entry.sourceKey + "/text()"),
+        entry.type,
+        result
+      );
+    }
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Row"], result);
+    pruneUnexpectedChildSteps(ctx, rowStep, allowedNames, result);
+  }
+
+  function buildCanonicalCountPayload(ctx, sequence, txStep, result) {
+    pruneNamedSteps(ctx, sequence, ["CopyPayload", "SqlOutput", "Message", "AffectedRows", "AffectedRowsText"], result);
+    ensureFacadeJsonField(
+      ctx,
+      sequence,
+      "Total",
+      "total",
+      sourceSmartType(ctx.priorityOf(txStep), "./document/sql_output/row/TOTAL/text()"),
+      "number",
+      result
+    );
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Total"], result);
+  }
+
+  function buildCanonicalMutationPayload(ctx, sequence, txStep, result) {
+    pruneNamedSteps(ctx, sequence, ["CopyPayload", "SqlOutput", "Total", "AffectedRows", "AffectedRowsText"], result);
+    ensureFacadeJsonField(
+      ctx,
+      sequence,
+      "Message",
+      "message",
+      sourceSmartType(ctx.priorityOf(txStep), "./document/sql_output/text()"),
+      "string",
+      result
+    );
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Message"], result);
+  }
+
+  function configurePublicSequencePayload(ctx, sequence, txStep, options, result) {
+    var current = options || {};
+    if (current.kind === "relation" && current.entity) {
+      buildCanonicalRowsPayload(ctx, sequence, txStep, current.spec, current.entity, result);
+      return;
+    }
+    if (current.kind !== "crud" || !current.entity) {
+      return;
+    }
+    switch (String(current.verb || "")) {
+      case "list":
+        buildCanonicalRowsPayload(ctx, sequence, txStep, current.spec, current.entity, result);
+        return;
+      case "read":
+        buildCanonicalSingleRowPayload(ctx, sequence, txStep, current.spec, current.entity, result);
+        return;
+      case "count":
+        buildCanonicalCountPayload(ctx, sequence, txStep, result);
+        return;
+      case "create":
+      case "update":
+      case "delete":
+        buildCanonicalMutationPayload(ctx, sequence, txStep, result);
+        return;
+      default:
+        return;
+    }
+  }
+
   function lastRow(rows) {
     return Array.isArray(rows) && rows.length ? rows[rows.length - 1] : null;
   }
@@ -867,12 +1105,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     txStep.setSourceTransaction(sourceTransaction);
     txStep.setOutput(false);
     C8O.crudBackend.ensureStepVariables(ctx, txStep, normalizedEntries, result);
-    var copyStep = ctx.ensureChild(sequence, "steps.XMLCopyStep", "CopyPayload", result);
-    copyStep.setOutput(true);
-    var sourcePriority = ctx.priorityOf(txStep);
-    ctx.applyUpdates(copyStep, {
-      sourceDefinition: [sourcePriority, "./document/*"]
-    }, result);
+    configurePublicSequencePayload(ctx, sequence, txStep, currentOptions, result);
     return sequence;
   };
 
@@ -1067,6 +1300,10 @@ C8O.crudBackend = C8O.crudBackend || {};
         var publicVerbs = ["list", "count", "read", "create", "update", "delete"];
         for (var p = 0; p < publicNames.length; p++) {
           var seq = C8O.crudBackend.ensurePublicSequence(ctx, project, publicNames[p], publicSources[p], publicVars[p], result, {
+            kind: "crud",
+            verb: publicVerbs[p],
+            entity: entity,
+            spec: spec,
             comment: sequenceComment(ctx, { kind: "crud", verb: publicVerbs[p], entity: entity })
           });
           result.primaryTargets.flow.push(seq.getFullQName ? String(seq.getFullQName()) : (spec.project + "." + publicNames[p]));
@@ -1127,6 +1364,10 @@ C8O.crudBackend = C8O.crudBackend || {};
           relationVars,
           result,
           {
+            kind: "relation",
+            relation: relation,
+            entity: relatedEntity,
+            spec: spec,
             comment: sequenceComment(ctx, { kind: "relation", relation: relation, entity: relatedEntity })
           }
         );

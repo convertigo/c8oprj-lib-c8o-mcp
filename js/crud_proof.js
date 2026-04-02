@@ -62,6 +62,10 @@ C8O.crudProof = C8O.crudProof || {};
     }
 
     var itemsValue = collectNestedValue(safe, [
+      ["rows"],
+      ["result", "rows"],
+      ["response", "rows"],
+      ["document", "rows"],
       ["items"],
       ["result", "items"],
       ["response", "items"],
@@ -69,6 +73,15 @@ C8O.crudProof = C8O.crudProof || {};
     ]);
     if (Array.isArray(itemsValue)) {
       summary.itemCount = itemsValue.length;
+    }
+    var rowValue = collectNestedValue(safe, [
+      ["row"],
+      ["result", "row"],
+      ["response", "row"],
+      ["document", "row"]
+    ]);
+    if (summary.itemCount == null && rowValue && typeof rowValue === "object") {
+      summary.itemCount = 1;
     }
 
     var sourceValue = collectNestedValue(safe, [
@@ -125,20 +138,37 @@ C8O.crudProof = C8O.crudProof || {};
   }
 
   function firstSqlOutputRow(_ctx, payload) {
-    var sqlOutput = collectNestedValue(payload, [
+    var row = collectNestedValue(payload, [
+      ["row"],
+      ["result", "row"],
+      ["response", "row"],
+      ["document", "row"]
+    ]);
+    if (row && typeof row === "object") {
+      return row;
+    }
+    var rows = collectNestedValue(payload, [
+      ["rows"],
+      ["result", "rows"],
+      ["response", "rows"],
+      ["document", "rows"],
       ["sql_output"],
       ["result", "sql_output"],
       ["response", "sql_output"],
       ["document", "sql_output"]
     ]);
-    if (Array.isArray(sqlOutput) && sqlOutput.length) {
-      return sqlOutput[0];
+    if (Array.isArray(rows) && rows.length) {
+      return rows[0];
     }
     return null;
   }
 
   function collectSqlOutputRows(_ctx, payload) {
-    var sqlOutput = collectNestedValue(payload, [
+    var rows = collectNestedValue(payload, [
+      ["rows"],
+      ["result", "rows"],
+      ["response", "rows"],
+      ["document", "rows"],
       ["sql_output"],
       ["result", "sql_output"],
       ["response", "sql_output"],
@@ -147,7 +177,16 @@ C8O.crudProof = C8O.crudProof || {};
       ["result", "transaction", "document", "sql_output"],
       ["response", "transaction", "document", "sql_output"]
     ]);
-    return Array.isArray(sqlOutput) ? sqlOutput : [];
+    if (Array.isArray(rows)) {
+      return rows;
+    }
+    var row = collectNestedValue(payload, [
+      ["row"],
+      ["result", "row"],
+      ["response", "row"],
+      ["document", "row"]
+    ]);
+    return row && typeof row === "object" ? [row] : [];
   }
 
   function extractRowField(_ctx, row, candidates) {
@@ -843,7 +882,8 @@ C8O.crudProof = C8O.crudProof || {};
       var retryStackQName = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
         ? ctx.crmActionQName(spec.project, "crm_retry_dashboard")
         : ctx.dashboardActionQName(spec.project, "crud_retry_dashboard");
-      status.ui.statefulActionsPresent = !!(ctx.resolveQName(bootstrapStackQName, { optional: true }) && ctx.resolveQName(retryStackQName, { optional: true }));
+      status.ui.statefulActionsPresent = !!ctx.resolveQName(bootstrapStackQName, { optional: true });
+      status.ui.retryActionPresent = !!ctx.resolveQName(retryStackQName, { optional: true });
     } catch (uiActionError) {
       ctx.addWarning(status, "Unable to inspect UI shared actions: " + String(uiActionError));
     }
@@ -851,7 +891,7 @@ C8O.crudProof = C8O.crudProof || {};
     try {
       var pageTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
         target: ctx.pageQName(spec.project, spec.ui.entryPage),
-        childrenDepth: 2,
+        childrenDepth: 3,
         properties: "all",
         limit: 180
       });

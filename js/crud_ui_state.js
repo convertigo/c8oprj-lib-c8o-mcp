@@ -189,26 +189,7 @@ C8O.crudUiState = C8O.crudUiState || {};
     var targetExpr = trimmed(ctx, targetExpression || "null") || "null";
     var fieldExpr = trimmed(ctx, fieldExpression || "''") || "''";
     var fallbackExpr = fallbackExpression == null ? "''" : String(fallbackExpression);
-    var literalField = null;
-    if ((fieldExpr.charAt(0) === "'" && fieldExpr.charAt(fieldExpr.length - 1) === "'") ||
-      (fieldExpr.charAt(0) === "\"" && fieldExpr.charAt(fieldExpr.length - 1) === "\"")) {
-      literalField = fieldExpr.substring(1, fieldExpr.length - 1);
-      if (fieldExpr.charAt(0) === "'") {
-        literalField = literalField.replace(/\\'/g, "'");
-      } else {
-        literalField = literalField.replace(/\\"/g, "\"");
-      }
-    }
-    if (literalField != null) {
-      return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
-        targetExpr + "?.[" + ctx.scriptLiteral(literalField.toUpperCase()) + "] ?? " +
-        targetExpr + "?.[" + ctx.scriptLiteral(literalField.toLowerCase()) + "] ?? " +
-        fallbackExpr + ")";
-    }
-    return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " +
-      targetExpr + "?.[(('' + (" + fieldExpr + " || '')).toUpperCase())] ?? " +
-      targetExpr + "?.[(('' + (" + fieldExpr + " || '')).toLowerCase())] ?? " +
-      fallbackExpr + ")";
+    return "(" + targetExpr + "?.[" + fieldExpr + "] ?? " + fallbackExpr + ")";
   }
 
   C8O.crudUiState.dashboardUiGlobals = dashboardUiGlobals;

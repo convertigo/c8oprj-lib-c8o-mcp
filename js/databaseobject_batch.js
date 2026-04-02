@@ -676,9 +676,33 @@ include("js/crud_ui_refresh.js");
       } catch (_ignoreFqcn) {}
     }
     var updateHints = updatesForInstantiation && typeof updatesForInstantiation === "object" ? updatesForInstantiation : {};
-    var dbo = C8O.dbo.instantiateForCreate(normalizedClassName, parent, updateHints);
+    var dbo = null;
+    try {
+      dbo = C8O.dbo.instantiateForCreate(normalizedClassName, parent, updateHints);
+    } catch (instantiateError) {
+      var parentQName = "";
+      var parentClass = "";
+      try {
+        parentQName = safeQName(parent);
+      } catch (_ignoreParentQName) {}
+      try {
+        parentClass = parent && parent.getClass ? shortClassName(parent.getClass().getName()) : "";
+      } catch (_ignoreParentClass) {}
+      throw new Error(
+        String(instantiateError) +
+        " (child=" + String(name || "") +
+        ", class=" + String(normalizedClassName || "") +
+        ", parent=" + String(parentQName || "") +
+        (parentClass ? ", parentClass=" + String(parentClass) : "") +
+        ")"
+      );
+    }
     if (!dbo) {
-      throw new Error("Unable to instantiate class " + normalizedClassName);
+      throw new Error(
+        "Unable to instantiate class " + normalizedClassName +
+        " (child=" + String(name || "") +
+        ", parent=" + String(safeQName(parent) || "") + ")"
+      );
     }
     dbo.bNew = true;
     dbo.hasChanged = true;
