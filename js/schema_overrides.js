@@ -282,7 +282,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: { type: "string", description: "Marketplace project name." },
-        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template." }
+        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template." },
+        targetProject: { type: "string", description: "Optional consumer project technical name. When set, the imported or already-loaded library is also referenced by that target project so shared objects appear in its palette." }
       },
       required: ["project"],
       additionalProperties: false
@@ -468,6 +469,121 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       },
       additionalProperties: false
     };
+  }
+
+  function paletteJsonSkeletonInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        parent: { type: "string", description: "Existing parent QName. Case-sensitive." },
+        className: {
+          type: "string",
+          description: "Palette entry class token. For NGX dynamic entries keep the #logicalId suffix."
+        },
+        name: {
+          type: "string",
+          description: "Optional technical name override. Omit to use the palette-derived suggestion."
+        },
+        includeHints: booleanFlagSchema(false, "Set true to append property hints next to the generated skeleton.")
+      },
+      required: ["parent", "className"],
+      additionalProperties: false
+    };
+  }
+
+  function paletteResolveWithMarketplaceInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        parent: { type: "string", description: "Existing parent QName. Case-sensitive." },
+        className: {
+          type: "string",
+          description: "Optional palette entry class token. For NGX dynamic entries keep the #logicalId suffix."
+        },
+        filter: { type: "string", description: "Optional palette filter text used to narrow the initial and refreshed palette reads." },
+        library: { type: "string", description: "Optional marketplace library identifier to match/import when the palette is missing the needed object." },
+        search: { type: "string", description: "Optional marketplace search query. Defaults to library, then filter." },
+        topics: topicInputSchema("Optional marketplace topic filter. Defaults to library."),
+        autoImport: booleanFlagSchema(true, "Set true to auto-import a matched marketplace library into the target project before rereading the palette."),
+        importedProjectName: { type: "string", description: "Optional local project name override used when importing a starter template or renaming the imported library." },
+        includeBuiltIn: booleanFlagSchema(true, "Default true. Set false to hide built-in entries during palette reads."),
+        includeShared: booleanFlagSchema(true, "Default true. Set false to hide shared entries during palette reads."),
+        name: { type: "string", description: "Optional technical name override forwarded to palette-json-skeleton when an exact class token is resolved." },
+        includeHints: booleanFlagSchema(false, "Set true to append property hints when an exact class token is resolved and a JSON skeleton is returned.")
+      },
+      required: ["parent"],
+      additionalProperties: false
+    };
+  }
+
+  function paletteJsonSkeletonOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string" },
+      source: { type: "string" },
+      coverage: {
+        type: "string",
+        enum: ["serialized", "template", "hints"],
+        description: "Primary provenance of the skeleton. template=palette registry yamlTemplate, serialized=live palette full XML export, hints=property-hint-only fallback."
+      },
+      parent: openObjectSchema({
+        qname: { type: "string" },
+        className: { type: "string" }
+      }),
+      entry: openObjectSchema({
+        className: { type: "string" },
+        resolvedClassName: { type: "string" },
+        nameSuggestion: { type: "string" }
+      }),
+      template: openObjectSchema({
+        related: { type: "string" },
+        mode: { type: "string" },
+        className: { type: "string" },
+        name: { type: "string" }
+      }),
+      skeleton: openObjectSchema({}),
+      splitFileSkeleton: openObjectSchema({}),
+      propertyHints: { type: "array", items: openObjectSchema({}) },
+      warnings: stringArraySchema()
+    });
+  }
+
+  function paletteResolveWithMarketplaceOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string" },
+      resolvedVia: { type: "string" },
+      source: { type: "string" },
+      coverage: {
+        type: "string",
+        enum: ["serialized", "template", "hints"],
+        description: "Primary provenance of the returned skeleton when one is available."
+      },
+      parent: openObjectSchema({
+        qname: { type: "string" },
+        className: { type: "string" },
+        project: { type: "string" }
+      }),
+      request: openObjectSchema({}),
+      palette: openObjectSchema({
+        before: openObjectSchema({}),
+        after: nullableSchema(openObjectSchema({}))
+      }),
+      marketplace: openObjectSchema({
+        checked: { type: "boolean" },
+        query: { type: "string" },
+        returned: { type: "number" },
+        matchedEntry: nullableSchema(openObjectSchema({})),
+        sample: { type: "array", items: openObjectSchema({}) },
+        suggestions: { type: "array", items: openObjectSchema({}) },
+        importAttempted: { type: "boolean" },
+        importResult: nullableSchema(openObjectSchema({}))
+      }),
+      entry: openObjectSchema({}),
+      template: openObjectSchema({}),
+      skeleton: openObjectSchema({}),
+      splitFileSkeleton: openObjectSchema({}),
+      propertyHints: { type: "array", items: openObjectSchema({}) },
+      warnings: stringArraySchema()
+    });
   }
 
   function projectListInputSchema() {
@@ -1155,6 +1271,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_palette_describe") {
       return paletteDescribeInputSchema();
     }
+    if (seq === "tools_palette_json_skeleton") {
+      return paletteJsonSkeletonInputSchema();
+    }
+    if (seq === "tools_palette_resolve_with_marketplace") {
+      return paletteResolveWithMarketplaceInputSchema();
+    }
     if (seq === "tools_palette_list") {
       return paletteListInputSchema();
     }
@@ -1212,6 +1334,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_requestable_execute") {
       return requestableExecuteOutputSchema();
+    }
+    if (seq === "tools_palette_json_skeleton") {
+      return paletteJsonSkeletonOutputSchema();
+    }
+    if (seq === "tools_palette_resolve_with_marketplace") {
+      return paletteResolveWithMarketplaceOutputSchema();
     }
     if (seq === "tools_mobile_builder_open") {
       return mobileBuilderOpenOutputSchema();

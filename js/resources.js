@@ -14,7 +14,7 @@ var C8O_RESOURCES_BUILTIN = [
       "# Convertigo MCP capabilities",
       "",
       "- Treat the live MCP catalog as the public source of truth: `tools/list`, `resources/list`, `prompts/list`.",
-      "- Primitive authoring stays tree-first: inspect with `databaseobject-tree-get`, discover with `project-list` and `databaseobject-search`, create with `palette-list` and `palette-describe`, mutate with `databaseobject-tree-apply`, and group changes with `batch-call`.",
+      "- Primitive authoring stays tree-first: inspect with `databaseobject-tree-get`, discover with `project-list` and `databaseobject-search`, create with `palette-list`, `palette-describe`, `palette-resolve-with-marketplace` when shared/external libraries may be involved, and `palette-json-skeleton` when the exact JSON mirror shape matters, mutate with `databaseobject-tree-apply`, and group changes with `batch-call`.",
       "- Runtime proof uses `requestable-execute`, `crud-status`, `crud-proof`, and `log-view` when execution feedback is not enough.",
       "- New UI projects start from `marketplace-import` and `mobile-builder-open` so the live viewer is visible early.",
       "- For a standard SQL CRUD + starter NGX UI task, the current recommended public rail is `marketplace-import` -> `mobile-builder-open` -> `upsert-crud` -> backend `crud-proof` -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final `crud-proof(viewerUrl)` -> `project-save`.",
@@ -42,7 +42,7 @@ var C8O_RESOURCES_BUILTIN = [
       "5. In generated CRUD UI apps, initialize the session once on the generated `Login` root page, then let the visible pages call only the CRUD facades they need.",
       "6. For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second UX refinement pass unless the user explicitly asked for it.",
       "7. Once the fast path is chosen, do not call `rag-query` unless the built-in guides and tools are exhausted.",
-      "8. Use `databaseobject-tree-get` and `databaseobject-search` to inspect live state, `palette-list` and `palette-describe` to confirm legal creations, and `databaseobject-tree-apply` or `batch-call` for mutations.",
+      "8. Use `databaseobject-tree-get` and `databaseobject-search` to inspect live state, `palette-list` and `palette-describe` to confirm legal creations, `palette-resolve-with-marketplace` when shared/external libraries may need to enrich the palette, `palette-json-skeleton` when you need a canonical JSON subtree, and `databaseobject-tree-apply` or `batch-call` for mutations.",
       "9. Validate runtime behavior with `requestable-execute` or `crud-proof`, then persist with `project-save`.",
       "10. If `mobile-builder-open` reports `compile_error`, fix the Convertigo source objects or MCP generator path. Do not repair generated runtime artifacts."
     ].join("\n")

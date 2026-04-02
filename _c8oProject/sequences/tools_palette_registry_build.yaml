@@ -1,5 +1,4 @@
 accessibility: Private
-authenticatedContextRequired: false
 comment: |
   Build a palette registry cache
   Builds a local JSON registry from palette entries and writes it under the generator project js/ directory so agents can reuse templates without repeating palette MCP calls.

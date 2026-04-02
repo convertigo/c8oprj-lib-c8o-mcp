@@ -1,0 +1,33 @@
+accessibility: Private
+comment: |
+  Return a minimal JSON skeleton for one palette entry
+  Resolves a palette class against an existing parent QName, prefers a canonical `yamlTemplate` from the palette registry when available, falls back to the live palette full XML export otherwise, and returns a minimal JSON subtree wrapper ready to adapt. Use this when you need the exact JSON shape for `c8oProject.json` / `_c8oProjectJson` without mining other projects for examples.
+↓BuildSkeleton [steps.SimpleStep-1775200200001]: 
+  comment: Resolve the palette entry into a canonical JSON skeleton, using palette registry yamlTemplate first and live palette full XML fallback second.
+  expression: include("js/tools_palette_json_skeleton.js");
+↓result [steps.JsonToXmlStep-1775200200002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: paletteJsonSkeletonResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓parent [variables.RequestableVariable-1775200200003]: 
+  comment: Existing parent QName. Case-sensitive.
+  description: Existing parent QName. Case-sensitive.
+↓className [variables.RequestableVariable-1775200200004]: 
+  comment: Palette entry class token. For NGX dynamic entries keep the #logicalId suffix.
+  description: Palette entry class token. For NGX dynamic entries keep the #logicalId suffix.
+↓name [variables.RequestableVariable-1775200200005]: 
+  comment: Optional technical name override. Omit to use the palette-derived suggestion.
+  description: Optional technical name override. Omit to use the palette-derived suggestion.
+↓includeHints [variables.RequestableVariable-1775200200006]: 
+  comment: Set true to append property hints next to the generated skeleton.
+  description: Set true to append property hints next to the generated skeleton.
+  value: false

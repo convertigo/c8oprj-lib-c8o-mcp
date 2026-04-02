@@ -15,11 +15,13 @@ comment: |
       throw new Error("project is required");
     }
     var importedName = C8O.marketplace._trim(importedProjectName);
+    var consumerProject = C8O.marketplace._trim(targetProject);
     var importErrorMessage = "";
     try {
       marketplaceImportResult = C8O.marketplace.importLibrary({
         project: requestedProject,
         importedProjectName: importedName,
+        targetProject: consumerProject,
         save: true,
         forceImport: false
       });
@@ -44,15 +46,21 @@ comment: |
         referenceUpdated: false,
         referenceName: "",
         referenceProjectUrl: "",
+        consumerProject: consumerProject,
         saveRequested: false,
         saved: false,
         saveMessage: "",
+        consumerSaved: false,
+        consumerSaveMessage: "",
         refresh: false,
         warnings: [importErrorMessage]
       };
     }
-    marketplaceImportRefresh = marketplaceImportResult && marketplaceImportResult.refresh === true;
-    marketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.targetProject ? String(marketplaceImportResult.targetProject) : "";
+    marketplaceImportRefresh = marketplaceImportResult && (marketplaceImportResult.refresh === true || marketplaceImportResult.referenceAdded === true || marketplaceImportResult.referenceUpdated === true);
+    marketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.consumerProject ? String(marketplaceImportResult.consumerProject) : "";
+    if (!marketplaceImportTargetQName.length) {
+      marketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.targetProject ? String(marketplaceImportResult.targetProject) : "";
+    }
     marketplaceImportLibraryQName = marketplaceImportTargetQName;
     marketplaceImportLoadedAfter = marketplaceImportResult && marketplaceImportResult.loadedAfter === true;
     marketplaceImportTimestamp = java.lang.System.currentTimeMillis();'
@@ -330,6 +338,19 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: 'marketplaceImportResult && marketplaceImportResult.referenceProjectUrl ? marketplaceImportResult.referenceProjectUrl : ""'
+  ↓consumerProject [steps.JsonFieldStep-1775124395199]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: consumerProject
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'marketplaceImportResult && marketplaceImportResult.consumerProject ? marketplaceImportResult.consumerProject : ""'
   ↓saveRequested [steps.JsonFieldStep-1764302001031]: 
     key: 
       - xmlizable: 
@@ -371,6 +392,33 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: 'marketplaceImportResult && marketplaceImportResult.saveMessage ? marketplaceImportResult.saveMessage : ""'
+  ↓consumerSaved [steps.JsonFieldStep-1775124395227]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: consumerSaved
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: marketplaceImportResult && marketplaceImportResult.consumerSaved === true
+  ↓consumerSaveMessage [steps.JsonFieldStep-1775124395253]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: consumerSaveMessage
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'marketplaceImportResult && marketplaceImportResult.consumerSaveMessage ? marketplaceImportResult.consumerSaveMessage : ""'
   ↓refresh [steps.JsonFieldStep-1764302001034]: 
     key: 
       - xmlizable: 
@@ -427,3 +475,6 @@ comment: |
 ↓importedProjectName [variables.RequestableVariable-1772793514924]: 
   comment: New local project name. Required when the marketplace entry is a starter template.
   description: New local project name. Required when the marketplace entry is a starter template.
+↓targetProject [variables.RequestableVariable-1775124395152]: 
+  comment: Optional consumer project technical name. When set, the imported or already-loaded library is also referenced by that project so its shared objects appear in the palette.
+  description: Optional consumer project technical name. When set, the imported or already-loaded library is also referenced by that project so its shared objects appear in the palette.

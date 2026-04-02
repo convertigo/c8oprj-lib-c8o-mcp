@@ -29,6 +29,18 @@ Good NGX work:
 - wires actions and states third
 - validates build/runtime before concluding
 
+### Marketplace-first for optional capabilities
+- Do not conclude that Convertigo lacks a feature just because the default palette is empty.
+- When the user asks for a capability rather than a known class token, treat that as a marketplace-resolution trigger if the palette does not already expose an obvious built-in answer.
+- Typical examples: charts/graphs, maps, barcode/QR, signature capture, PDF/document viewers, rich text editors, calendar/timeline/kanban, media widgets, diagramming.
+- Preferred flow:
+  1. read the target palette
+  2. if no clear built-in object appears, call `palette-resolve-with-marketplace`
+  3. pass intent-derived `search` / `filter` hints even if `className` is still unknown
+  4. if a library is imported, continue from the refreshed palette result before editing descriptors
+- uses `palette-json-skeleton` when the exact JSON mirror shape of one palette entry is needed, instead of mining other projects for examples, and reads `coverage` to know whether the subtree is template-backed, serialized, or hints-only
+- treats the palette as incomplete until marketplace discovery/import has been checked for shared or external UI libraries
+
 Common trap:
 - creating a visually plausible tree with weak action wiring, then assuming the page is “done”
 
@@ -41,6 +53,22 @@ Use explicit page/container structure for:
 - list/detail structure
 
 Do not hide the entire page logic inside one freeform custom fragment if the palette provides the right structural objects.
+
+When a small custom or style object is still required (`UICustom`, `UIStyle`, directive wrapper, dynamic NGX component with tricky `beanData`), prefer this exact order:
+1. resolve the real parent subtree
+2. call `palette-json-skeleton`
+3. adapt the returned JSON subtree locally
+4. apply it to the target project
+
+Do not search unrelated projects just to recover the raw JSON/YAML shape of those objects.
+
+When a needed shared component/action or external UI object is missing from the palette, prefer this exact order:
+1. call `palette-resolve-with-marketplace` with the target parent and the best available `library/search/filter` hints
+2. if that composite tool is unavailable or insufficient, call `marketplace-list` with the target project context
+3. inspect which libraries expose the needed shared components/actions
+4. call `marketplace-import(targetProject=...)` if the matching library is not yet wired into the target project
+5. reread the palette
+6. only then conclude that a fallback object is required
 
 Hard rule for data-backed pages:
 - do not implement the primary page body as one large `ngx.components.UICustom#UICustom` with inline `htmlTemplate`
@@ -297,6 +325,7 @@ For a credible NGX data page:
 - `batch-call`
 - `palette-list`
 - `palette-describe`
+- `palette-resolve-with-marketplace`
 - `requestable-execute`
 - `mobile-builder-open`
 - `log-view`

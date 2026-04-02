@@ -850,11 +850,45 @@ C8O.marketplace.findEntry = function (entries, options) {
   return null;
 };
 
+C8O.marketplace.resolveLoadedEntry = function (options) {
+  var opts = options || {};
+  var identifier = C8O.marketplace._trim(opts.library || opts.name || opts.identifier || opts.project);
+  if (!identifier.length) {
+    return null;
+  }
+  var loadedMap = C8O.marketplace.getLoadedProjectMap();
+  var loadedProjectName = loadedMap && loadedMap.lower ? loadedMap.lower[identifier.toLowerCase()] : "";
+  if (!loadedProjectName) {
+    return null;
+  }
+  var annotated = C8O.marketplace.annotateEntries([{
+    name: loadedProjectName,
+    technicalName: loadedProjectName,
+    description: "Already loaded in workspace.",
+    topics: ["library"],
+    cloneUrl: "",
+    defaultBranch: "",
+    htmlUrl: "",
+    projectUrl: loadedProjectName
+  }], {
+    targetProject: opts.targetProject || opts.projectName || opts.project,
+    includeDetails: true
+  });
+  return annotated && annotated.length ? annotated[0] : null;
+};
+
 C8O.marketplace.resolveEntry = function (options) {
   var opts = C8O.marketplace.normalizeListOptions(options || {});
   var projectToken = C8O.marketplace._trim(opts.project);
   if (!projectToken.length) {
     return null;
+  }
+  var localEntry = C8O.marketplace.resolveLoadedEntry({
+    project: projectToken,
+    targetProject: opts.targetProject || opts.projectName
+  });
+  if (localEntry) {
+    return localEntry;
   }
   var search = C8O.marketplace._trim(opts.search);
   if (!search.length) {
@@ -889,6 +923,7 @@ C8O.marketplace.importLibrary = function (options) {
   var warnings = [];
   var requestedProject = C8O.marketplace._trim(opts.project);
   var importedProjectName = C8O.marketplace._trim(opts.importedProjectName);
+  var targetProjectName = C8O.marketplace._trim(opts.targetProject || opts.consumerProject || opts.target);
   var saveFlag = C8O.marketplace._toBoolean(opts.save, true);
   var forceImport = C8O.marketplace._toBoolean(opts.forceImport, false);
 
@@ -899,6 +934,7 @@ C8O.marketplace.importLibrary = function (options) {
   var entry = C8O.marketplace.resolveEntry({
     endpoint: opts.endpoint,
     project: requestedProject,
+    targetProject: targetProjectName,
     search: opts.search,
     topics: opts.topics
   });
@@ -928,7 +964,7 @@ C8O.marketplace.importLibrary = function (options) {
   var finalCloneUrl = C8O.marketplace._trim(entry.cloneUrl);
   var finalBranch = C8O.marketplace._trim(entry.defaultBranch);
   var usageUrl = C8O.marketplace.toUsageArchiveUrl(finalCloneUrl, finalBranch);
-  if (!usageUrl.length) {
+  if (!usageUrl.length && !C8O.marketplace.resolveProject(importedProjectName)) {
     throw new Error("Unable to resolve usage archive URL for project: " + sourceProjectName);
   }
 
@@ -936,6 +972,10 @@ C8O.marketplace.importLibrary = function (options) {
     Engine.theApp.referencedProjectManager = new ReferencedProjectManager();
   }
   var refManager = Engine.theApp.referencedProjectManager;
+  var consumerProject = targetProjectName.length ? C8O.marketplace.resolveProject(targetProjectName) : null;
+  if (targetProjectName.length && consumerProject == null) {
+    warnings.push("Target project not loaded: " + targetProjectName);
+  }
 
   var loadedBefore = C8O.marketplace.resolveProject(importedProjectName) != null;
   var importedProject = null;
@@ -960,6 +1000,34 @@ C8O.marketplace.importLibrary = function (options) {
   }
 
   var loadedAfter = C8O.marketplace.resolveProject(importedProjectName) != null;
+  var addReference = false;
+  var referenceAlready = false;
+  var referenceAdded = false;
+  var referenceUpdated = false;
+  var referenceName = "";
+  var referenceProjectUrl = "";
+
+  if (consumerProject != null && C8O.marketplace._trim(consumerProject.getName()) !== importedProjectName) {
+    addReference = true;
+    try {
+      var referenceMap = C8O.marketplace.getProjectReferenceMap(consumerProject);
+      referenceAlready = !!(referenceMap && referenceMap.lower && referenceMap.lower[String(importedProjectName).toLowerCase()]);
+    } catch (_ignoreReferenceMap) {
+      referenceAlready = false;
+    }
+    try {
+      var projectRef = refManager.getReferenceFromProject(consumerProject, importedProjectName);
+      if (projectRef != null) {
+        referenceAdded = !referenceAlready;
+        referenceUpdated = referenceAlready;
+        referenceName = C8O.marketplace._trim(projectRef.getName ? projectRef.getName() : "");
+        referenceProjectUrl = C8O.marketplace._trim(projectRef.getProjectName ? projectRef.getProjectName() : "");
+      }
+    } catch (referenceError) {
+      warnings.push(String(referenceError));
+    }
+  }
+
   var saveResult = { saved: false, message: "" };
   if (saveFlag) {
     var loadedProject = importedProject || C8O.marketplace.resolveProject(importedProjectName);
@@ -976,11 +1044,26 @@ C8O.marketplace.importLibrary = function (options) {
       }
     }
   }
+  var consumerSaveResult = { saved: false, message: "", skipped: true };
+  if (saveFlag && consumerProject != null && C8O.marketplace._trim(consumerProject.getName()) !== importedProjectName) {
+    var consumerSaveErrors = [];
+    consumerSaveResult = C8O.dbo.saveProjectIfNeeded(consumerProject, true, consumerSaveErrors);
+    if (consumerSaveErrors && consumerSaveErrors.length) {
+      for (var j = 0; j < consumerSaveErrors.length; j++) {
+        var consumerErrorItem = consumerSaveErrors[j];
+        if (consumerErrorItem && consumerErrorItem.message) {
+          warnings.push(String(consumerErrorItem.message));
+        }
+      }
+    }
+  }
 
   var status = "ready";
   if (importStatus === "error") {
     status = "failed";
   } else if (!loadedAfter) {
+    status = "incomplete";
+  } else if (addReference && !referenceAlready && !referenceAdded) {
     status = "incomplete";
   }
 
@@ -997,21 +1080,24 @@ C8O.marketplace.importLibrary = function (options) {
     htmlUrl: C8O.marketplace._trim(entry.htmlUrl),
     description: C8O.marketplace._trim(entry.description),
     topics: entry.topics || [],
-    projectUrl: importedProjectName + "=" + usageUrl,
+    projectUrl: usageUrl.length ? (importedProjectName + "=" + usageUrl) : importedProjectName,
     loadedBefore: loadedBefore,
     loadedAfter: loadedAfter,
     imported: imported,
     importStatus: importStatus,
     importMessage: importMessage,
-    addReference: false,
-    referenceAlready: false,
-    referenceAdded: false,
-    referenceUpdated: false,
-    referenceName: "",
-    referenceProjectUrl: "",
+    addReference: addReference,
+    referenceAlready: referenceAlready,
+    referenceAdded: referenceAdded,
+    referenceUpdated: referenceUpdated,
+    referenceName: referenceName,
+    referenceProjectUrl: referenceProjectUrl,
+    consumerProject: consumerProject != null ? C8O.marketplace._trim(consumerProject.getName()) : "",
     saved: saveFlag ? (saveResult.saved === true) : false,
     saveRequested: saveFlag,
     saveMessage: saveResult.message || "",
+    consumerSaved: saveFlag ? (consumerSaveResult.saved === true) : false,
+    consumerSaveMessage: consumerSaveResult.message || "",
     warnings: warnings
   };
 };

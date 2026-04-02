@@ -1,0 +1,60 @@
+accessibility: Private
+comment: |
+  Resolve a palette need with marketplace fallback
+  Checks the target parent palette first, optionally imports a matching marketplace library into the target project when the needed object is missing, rereads the palette, and returns the refreshed palette plus a canonical JSON skeleton when an exact class token is provided.
+↓Resolve [steps.SimpleStep-1775221200001]: 
+  comment: Resolve the requested palette object and, when needed, query/import marketplace libraries before rereading the palette.
+  expression: include("js/tools_palette_resolve_with_marketplace.js");
+↓result [steps.JsonToXmlStep-1775221200002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: paletteResolveWithMarketplaceResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓parent [variables.RequestableVariable-1775221200003]: 
+  comment: Existing parent QName. Case-sensitive.
+  description: Existing parent QName. Case-sensitive.
+↓className [variables.RequestableVariable-1775221200004]: 
+  comment: Optional palette entry class token. For NGX dynamic entries keep the #logicalId suffix.
+  description: Optional palette entry class token. For NGX dynamic entries keep the #logicalId suffix.
+↓filter [variables.RequestableVariable-1775221200005]: 
+  comment: Optional palette filter text used to narrow the initial and refreshed palette reads.
+  description: Optional palette filter text used to narrow the initial and refreshed palette reads.
+↓library [variables.RequestableVariable-1775221200006]: 
+  comment: Optional marketplace library identifier to match/import when the palette is missing the needed object.
+  description: Optional marketplace library identifier to match/import when the palette is missing the needed object.
+↓search [variables.RequestableVariable-1775221200007]: 
+  comment: Optional marketplace search query. Defaults to library, then filter.
+  description: Optional marketplace search query. Defaults to library, then filter.
+↓topics [variables.RequestableVariable-1775221200008]: 
+  comment: Optional marketplace topic filter. Defaults to library.
+  description: Optional marketplace topic filter. Defaults to library.
+↓autoImport [variables.RequestableVariable-1775221200009]: 
+  comment: Set true to auto-import a matched marketplace library into the target project before rereading the palette.
+  description: Set true to auto-import a matched marketplace library into the target project before rereading the palette.
+  value: true
+↓importedProjectName [variables.RequestableVariable-1775221200010]: 
+  comment: Optional local project name override used when importing a starter template or renaming the imported library.
+  description: Optional local project name override used when importing a starter template or renaming the imported library.
+↓includeBuiltIn [variables.RequestableVariable-1775221200011]: 
+  comment: Default true. Set false to hide built-in entries during palette reads.
+  description: Default true. Set false to hide built-in entries during palette reads.
+  value: true
+↓includeShared [variables.RequestableVariable-1775221200012]: 
+  comment: Default true. Set false to hide shared entries during palette reads.
+  description: Default true. Set false to hide shared entries during palette reads.
+  value: true
+↓name [variables.RequestableVariable-1775221200013]: 
+  comment: Optional technical name override forwarded to palette-json-skeleton when an exact class token is resolved.
+  description: Optional technical name override forwarded to palette-json-skeleton when an exact class token is resolved.
+↓includeHints [variables.RequestableVariable-1775221200014]: 
+  comment: Set true to append property hints when an exact class token is resolved and a JSON skeleton is returned.
+  description: Set true to append property hints when an exact class token is resolved and a JSON skeleton is returned.
+  value: false
