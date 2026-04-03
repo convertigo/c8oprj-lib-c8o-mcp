@@ -1,0 +1,38 @@
+This is a mono-agent CRUD edit fast-path probe.
+
+- Benchmark policy: the runner already injected `convertigo-crud-fastpath`.
+- The target project already exists and is already a green deterministic CRUD project.
+- Use MCP tools only for Convertigo project mutations. Do not edit local YAML files.
+- Do not grep the local workspace to rediscover `relations[]`, `ui.relationFields`, or `seed.data`.
+- Once the CRUD rail is confirmed, do not call `rag-query`.
+- Mutate only `__TARGET_PROJECT__`.
+
+Update the existing CRUD project `__TARGET_PROJECT__` to match this full explicit spec:
+
+```json
+__CRUD_SPEC_JSON__
+```
+
+Required workflow:
+1. Stay on the deterministic CRUD rail.
+2. Run `crud-status` first.
+3. Run `upsert-crud` with the exact updated spec above.
+4. Run backend `crud-proof`.
+5. If backend proof fails, stop with `RESULT: FAIL`.
+6. If the task includes UI, run exactly one `upsert-ngx-crud-kit` with `stage=final`.
+7. Run `mobile-builder-open`.
+8. Run final `crud-proof` with `expectUiShell=true` and the live `viewerUrl`.
+9. Save the project if a final save is still needed.
+10. Stop after the first successful final proof.
+
+Do not:
+- run `marketplace-import`
+- run `upsert-ngx-crud-kit stage=bootstrap`
+- patch `init_schema` manually
+- run `project-reload`
+- start a second refinement pass
+
+Final output format:
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly and the final backend + UI proof is green.
+- Otherwise `RESULT: FAIL` with the failing step and the most useful tool response snippets.
+- End with one short `MCP critique` item.

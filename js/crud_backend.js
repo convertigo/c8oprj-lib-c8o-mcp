@@ -538,6 +538,29 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
+  function compactMutationList(ctx, entries, limit) {
+    var items = ctx.ensureArray(entries);
+    var maxItems = Math.max(1, parseInt(limit, 10) || 20);
+    if (items.length <= maxItems) {
+      return items.slice();
+    }
+    var headSize = Math.max(1, Math.floor(maxItems / 2));
+    var tailSize = Math.max(1, maxItems - headSize - 1);
+    var compacted = items.slice(0, headSize);
+    compacted.push("... +" + String(items.length - headSize - tailSize) + " more");
+    return compacted.concat(items.slice(items.length - tailSize));
+  }
+
+  function finalizeUpsertCrudResult(ctx, result) {
+    result.createdCount = ctx.ensureArray(result.created).length;
+    result.updatedCount = ctx.ensureArray(result.updated).length;
+    result.deletedCount = ctx.ensureArray(result.deleted).length;
+    result.created = compactMutationList(ctx, result.created, 25);
+    result.updated = compactMutationList(ctx, result.updated, 25);
+    result.deleted = compactMutationList(ctx, result.deleted, 15);
+    return result;
+  }
+
   function prunePlaceholderVoidConnector(ctx, project, connectorName, result) {
     if (!project) {
       return;
@@ -730,7 +753,29 @@ C8O.crudBackend = C8O.crudBackend || {};
     var parent = relationTargetEntity(ctx, spec, relation);
     var childPlural = child && child.name ? child.name : ctx.pluralize(ctx.normalizedIdentifier(relation && relation.fromEntity || ""));
     var parentSingular = parent && parent.singular ? parent.singular : ctx.normalizedIdentifier(relation && relation.toEntity || "parent");
-    return "list_" + childPlural + "_by_" + parentSingular;
+    var suffix = parentSingular;
+    var duplicateCount = 0;
+    var relations = ctx.ensureArray(spec && spec.relations);
+    for (var i = 0; i < relations.length; i++) {
+      var current = relations[i];
+      if (!current || current.type !== "many-to-one") {
+        continue;
+      }
+      if (ctx.normalizedIdentifier(current.fromEntity || "") !== ctx.normalizedIdentifier(relation && relation.fromEntity || "")) {
+        continue;
+      }
+      if (ctx.normalizedIdentifier(current.toEntity || "") !== ctx.normalizedIdentifier(relation && relation.toEntity || "")) {
+        continue;
+      }
+      duplicateCount += 1;
+    }
+    if (duplicateCount > 1) {
+      var fromFieldSuffix = ctx.normalizedIdentifier(relation && relation.fromField || "").replace(/_id$/, "");
+      if (fromFieldSuffix.length) {
+        suffix = fromFieldSuffix;
+      }
+    }
+    return "list_" + childPlural + "_by_" + suffix;
   }
 
   function buildJoinedSelectSql(ctx, spec, entity, options) {
@@ -1451,7 +1496,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
 
     result.status = result.warnings.length ? "partial" : "success";
-    return result;
+    return finalizeUpsertCrudResult(ctx, result);
   };
 
   C8O.crudBackend.relationsForEntity = relationsForEntity;

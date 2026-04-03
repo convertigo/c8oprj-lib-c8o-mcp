@@ -38,21 +38,23 @@ Capture these before the first mutation:
 
 Default assumptions for the fast path:
 - starter-derived NGX app
-- visible entry page is `Page`
+- visible entry page is `Home`
 - facade prefix is `crud`
 - deterministic shared-component shell is acceptable for the first visible pass
 - use the exact requested project name when it is technically valid; do not invent prefixes, suffixes, or dates
 - for the generic CRUD UI, prefer `ui.variant=entity-pages`
 - `entity-pages` means:
-  - landing dashboard on `Page`
+  - landing dashboard on `Home`
   - one generated page per entity
   - shared actions + global state + shared components already wired
 - if no explicit seed profile is provided, use `seed.profile=realistic`
+- if the user wants explicit business demo rows, use `seed.data`
 - treat `dashboard` as a legacy single-page fallback
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 - for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
 - when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
 - for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` over direct edits on generated CRUD-kit shared components
+- relation controls default to `select`; use `ui.relationFields.<field>.control=autocomplete` only when the larger option set really needs it
 - generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences, and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
 - prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
 
@@ -67,6 +69,23 @@ Default assumptions for the fast path:
 8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
 9. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
 10. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
+
+## Existing project edit rail
+If the target is already a deterministic CRUD project and the UI is already green, do not replay the new-project rail. Use `convertigo://resources/convertigo-crud-edit-fastpath` instead:
+1. Run `crud-status`.
+2. Build the full updated `spec`.
+3. Run `upsert-crud` with `sequence=true` and `ui=false`.
+4. Run backend `crud-proof`.
+5. Run one `upsert-ngx-crud-kit stage=final`.
+6. Run `mobile-builder-open`.
+7. Run final `crud-proof(expectUiShell=true, viewerUrl=...)`.
+8. Save with `project-save` if needed, then stop.
+
+Do not:
+- rerun `stage=bootstrap`
+- patch `init_schema` manually
+- grep the local workspace just to rediscover `relations[]`, `ui.relationFields`, or `seed.data`
+- normalize `project-reload` into the edit rail
 
 ## Proof contract
 `crud-proof` is sufficient when all of these hold:
@@ -94,11 +113,165 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - expect the backend to expose `company_id__label` in `list_employees` / `read_employee`
 - expect a derived CRUD facade such as `list_employees_by_company`
 
+## Canonical examples
+
+### Employees / companies
+
+```json
+{
+  "project": "EmployeesCompanies",
+  "facade": { "prefix": "hr" },
+  "relations": [
+    {
+      "name": "employee_company",
+      "type": "many-to-one",
+      "fromEntity": "employees",
+      "fromField": "company_id",
+      "toEntity": "companies",
+      "toField": "id",
+      "label": "Company",
+      "required": true
+    }
+  ],
+  "entities": [
+    {
+      "name": "companies",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "City", "type": "VARCHAR(128)" },
+        { "name": "Industry", "type": "VARCHAR(128)" }
+      ]
+    },
+    {
+      "name": "employees",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "FirstName", "type": "VARCHAR(128)" },
+        { "name": "LastName", "type": "VARCHAR(128)" },
+        { "name": "Email", "type": "VARCHAR(255)", "unique": true },
+        { "name": "Title", "type": "VARCHAR(128)" },
+        { "name": "CompanyId", "column": "company_id", "type": "INT", "required": true }
+      ],
+      "ui": {
+        "relationFields": {
+          "company_id": {
+            "control": "select",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select company"
+          }
+        }
+      }
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "data": {
+      "companies": [
+        { "name": "Blue Orbit", "city": "Paris", "industry": "Software" },
+        { "name": "North Harbor", "city": "Lyon", "industry": "Logistics" }
+      ],
+      "employees": [
+        { "first_name": "Nora", "last_name": "Martin", "email": "nora.martin@example.test", "title": "Account manager", "company_id": 1 },
+        { "first_name": "Leo", "last_name": "Bernard", "email": "leo.bernard@example.test", "title": "Field engineer", "company_id": 2 }
+      ]
+    }
+  }
+}
+```
+
+### Pokemon / types / regions
+
+```json
+{
+  "project": "PokemonCatalog",
+  "facade": { "prefix": "pk" },
+  "relations": [
+    {
+      "name": "pokemon_region",
+      "type": "many-to-one",
+      "fromEntity": "pokemon",
+      "fromField": "region_id",
+      "toEntity": "regions",
+      "toField": "id",
+      "label": "Region",
+      "required": true
+    },
+    {
+      "name": "pokemon_primary_type",
+      "type": "many-to-one",
+      "fromEntity": "pokemon",
+      "fromField": "primary_type_id",
+      "toEntity": "types",
+      "toField": "id",
+      "label": "Primary type",
+      "required": true
+    },
+    {
+      "name": "pokemon_secondary_type",
+      "type": "many-to-one",
+      "fromEntity": "pokemon",
+      "fromField": "secondary_type_id",
+      "toEntity": "types",
+      "toField": "id",
+      "label": "Secondary type"
+    }
+  ],
+  "entities": [
+    {
+      "name": "pokemon",
+      "ui": {
+        "relationFields": {
+          "region_id": {
+            "control": "select",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select region"
+          },
+          "primary_type_id": {
+            "control": "select",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select primary type"
+          },
+          "secondary_type_id": {
+            "control": "autocomplete",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select optional secondary type"
+          }
+        }
+      }
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "data": {
+      "types": [
+        { "name": "Grass" },
+        { "name": "Poison" },
+        { "name": "Electric" }
+      ],
+      "regions": [
+        { "name": "Kanto" }
+      ],
+      "pokemon": [
+        { "name": "Bulbasaur", "region_id": 1, "primary_type_id": 1, "secondary_type_id": 2 },
+        { "name": "Pikachu", "region_id": 1, "primary_type_id": 3 }
+      ]
+    }
+  }
+}
+```
+
 ## Anti-patterns
 - Do not route a standard CRUD task through planner/specialist handoffs first.
 - Do not let the agent rediscover CRUD scaffolding manually when `upsert-crud` already fits.
+- Do not let the agent rediscover `relations[]`, `ui.relationFields`, or `seed.data` manually once the public CRUD guides already document them.
 - Do not accept a run where the starter body is still dominant on the visible page.
 - Do not use RAG before the built-in CRUD tools and guides are exhausted.
 - Do not continue mutating the generated CRUD UI after the first green proof unless the user explicitly asked for more than the generic scaffold.
 - Do not patch CRUD-kit-managed shared components directly when `spec.relations[]`, `field.references`, `ui.listFields`, `ui.detailFields`, `ui.formFields`, or `ui.relationFields` can express the needed CRUD behavior.
+- Do not patch `init_schema` manually just to inject better demo rows when `seed.data` can express them in the spec.
 - Do not expose generated CRUD facades as public requestables; keep the hidden/authenticated contract and customize the generated auth skeleton instead.

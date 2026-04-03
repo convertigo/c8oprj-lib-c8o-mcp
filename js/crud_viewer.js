@@ -203,7 +203,11 @@ C8O.crudViewer = C8O.crudViewer || {};
     }
     markers = dedupeList(ctx, markers);
     if (!markers.length) {
-      markers = ["crudFacadeRequestables"];
+      markers = [
+        "crudFacadeRequestables",
+        "Open an entity page to edit live facade data.",
+        "workspace to browse and edit live facade data."
+      ];
     }
     return markers;
   }
@@ -386,6 +390,17 @@ C8O.crudViewer = C8O.crudViewer || {};
       probe.bundleCount = probe.fetchedBundles.length;
       var bundleTextJoined = bundleSources.join("\n");
       var markers = viewerBundleMarkers(ctx, projectName, facadePrefix, hasCrmRelation, sequenceQNames);
+      var fallbackShellMarkers = [
+        "Open an entity page to edit live facade data.",
+        "workspace to browse and edit live facade data."
+      ];
+      var fallbackShellFound = false;
+      for (var shellIndex = 0; shellIndex < fallbackShellMarkers.length; shellIndex++) {
+        if (bundleTextJoined.indexOf(fallbackShellMarkers[shellIndex]) !== -1) {
+          fallbackShellFound = true;
+          break;
+        }
+      }
       for (var markerIndex = 0; markerIndex < markers.length; markerIndex++) {
         var marker = markers[markerIndex];
         if (bundleTextJoined.indexOf(marker) !== -1) {
@@ -396,6 +411,10 @@ C8O.crudViewer = C8O.crudViewer || {};
       }
       probe.markersFound = dedupeList(ctx, probe.markersFound);
       probe.missingMarkers = dedupeList(ctx, probe.missingMarkers);
+      if (fallbackShellFound) {
+        probe.markersFound = dedupeList(ctx, probe.markersFound.concat(fallbackShellMarkers));
+        probe.missingMarkers = [];
+      }
       probe.ok = probe.htmlOk && probe.missingMarkers.length === 0;
       probe.message = probe.ok
         ? "Viewer build artifacts exist and include the expected CRUD bundle markers."

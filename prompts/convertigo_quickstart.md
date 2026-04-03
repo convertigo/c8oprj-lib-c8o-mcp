@@ -22,6 +22,7 @@ Read the smallest matching recipe next:
 - SQL CRUD behind facade: `convertigo://resources/convertigo-recipe-sql-crud`
 - direct CRUD proof flow: `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD case
 - preferred mono-agent CRUD rail: `convertigo://resources/convertigo-crud-fastpath` when the task is standard SQL CRUD + starter NGX UI
+- existing deterministic CRUD project edit rail: `convertigo://resources/convertigo-crud-edit-fastpath` when the project is already green and only needs CRUD extension
 - NGX data page: `convertigo://resources/convertigo-recipe-ngx-data-page`
 
 Read the deeper domain guides only when the recipe leaves open questions:
@@ -47,7 +48,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 
 ## Mandatory workflow
 1. Read the built-ins, the start guide, the big-picture guide, and the bootstrap decision matrix.
-2. If the task is standard SQL CRUD + starter NGX UI, redirect to `convertigo-crud-fastpath` instead of continuing through planner/specialist routing.
+2. If the task is standard SQL CRUD + starter NGX UI, redirect to `convertigo-crud-fastpath` instead of continuing through planner/specialist routing. If the target project is already a green deterministic CRUD project, also read `convertigo://resources/convertigo-crud-edit-fastpath` and keep that edit rail in mind.
 3. Pick one matching recipe before any broad discovery.
 4. Do not call `rag-query` before the start guide and the chosen recipe were read.
 5. Inspect only the exact target project or subtree required to answer the next bootstrap question.
@@ -66,7 +67,8 @@ Read the deeper domain guides only when the recipe leaves open questions:
 7. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery`.
 8. Choose the matching specialist prompt from live prompt discovery when it exists; otherwise use the canonical routing table below or the caller-provided synchronized role metadata.
 9. For a new standard CRUD UI project, validate the exact project name, run `marketplace-import`, open the live viewer immediately with `mobile-builder-open`, then continue with `upsert-crud`, `upsert-ngx-crud-kit stage=bootstrap`, another `mobile-builder-open` probe, and the final UI proof.
-10. Do not mutate the project in this role.
+10. For an existing deterministic CRUD project edit, the preferred rail is `crud-status` -> `upsert-crud` -> backend `crud-proof` -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open` -> final UI proof. Do not replay the bootstrap stage.
+11. Do not mutate the project in this role.
 
 ## Interactive contract
 - When information is missing, end the turn with exactly one `<interactive_state>...</interactive_state>` block.
@@ -99,14 +101,18 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - Inputs accept both flat legacy QNames and canonical prefixed QNames. Public outputs use the canonical `qname`; prefer copying that value into the next MCP call.
 - Use `resources/templates/list` only to pick a template-bearing guide quickly; read the actual content through `resources/read`.
 - When the task is a standard CRUD path, capture the deterministic `spec` inputs early: project, driver family, connector name, facade prefix, entities, seed choice, visible entry page, and UI variant.
+- For standard CRUD edits, capture the public contract directly from the guides instead of reverse-engineering it: `relations[]`, `ui.relationFields`, and `seed.data`.
 - When the task is a standard CRUD path and relations are obvious, capture them explicitly in `spec.relations[]`. Treat `field.references` as the compatibility layer, not the preferred authoring surface.
 - When the task is a standard CRUD path, remember that generated CRUD facades are hidden requestables with `authenticated context required=true`; generated CRUD UI apps initialize that session once on a `Login` root page that calls `auth_login(username,password)`, then the visible pages only bootstrap the CRUD data they need.
 - Use the exact project name requested by the user when it is technically valid. Do not append prefixes, suffixes, or dates unless the user explicitly asked for them.
 - For the generic CRUD UI, prefer `ui.variant=entity-pages`. Treat `dashboard` as a legacy single-page fallback.
 - For generic CRUD UI relation controls, prefer `ui.relationFields` over patching generated CRUD-kit components.
+- For explicit business demo rows, prefer `seed.data` over post-generation patches of `init_schema`.
 - When the task is a standard CRUD path, prefer `convertigo-crud-fastpath` and the direct order documented there: `marketplace-import` -> `mobile-builder-open` -> `upsert-crud` -> backend `crud-proof` -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final `crud-proof(viewerUrl)`.
+- When the task is a standard CRUD edit on a project that is already green, prefer the edit rail documented in `convertigo://resources/convertigo-crud-edit-fastpath`: `crud-status` -> `upsert-crud` -> backend `crud-proof` -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open` -> final `crud-proof(viewerUrl)`.
 - When the task is a low-detail CRUD path, stop after that first green proof plus seeded demo data unless the user explicitly asked for custom screens, custom layout, or field-level UX tailoring.
 - Once the fast path has been selected, do not call `rag-query` unless the built-in guides and CRUD tools still leave a blocking gap.
+- Once the CRUD guides were read, do not grep the local workspace just to recover the shape of `relations[]`, `ui.relationFields`, or `seed.data`.
 - For the live dev viewer returned by `mobile-builder-open`, prefer `viewerHomeUrl` or `viewerBaseUrl`. Reserve `DisplayObjects/mobile/home` for production builds.
 - Never repair `_private/ionic`, `DisplayObjects`, or other generated frontend artifacts. If `mobile-builder-open` reports `compile_error`, fix the Convertigo source objects or the MCP generator path instead.
 - When the task is a standard CRUD path, do not ask the frontend specialist to compose the starter replacement manually on the first pass. Prefer the shared-component shell generated by `upsert-ngx-crud-kit`, then ask for refinement only after the fast path is proven.

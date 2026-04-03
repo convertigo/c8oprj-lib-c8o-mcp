@@ -424,14 +424,36 @@ C8O.crudProof = C8O.crudProof || {};
     return text;
   }
 
-  function relationListName(ctx, relation) {
+  function relationListName(ctx, relation, relations) {
     var childPlural = ctx.pluralize ? ctx.pluralize(ctx.normalizedIdentifier(relation && relation.fromEntity || "")) : ctx.normalizedIdentifier(relation && relation.fromEntity || "");
     var parentSingular = singularize(ctx, relation && relation.toEntity || "");
-    return "list_" + childPlural + "_by_" + parentSingular;
+    var suffix = parentSingular;
+    var duplicateCount = 0;
+    var entries = ctx.ensureArray(relations);
+    for (var i = 0; i < entries.length; i++) {
+      var current = entries[i];
+      if (!current || current.type !== "many-to-one") {
+        continue;
+      }
+      if (ctx.normalizedIdentifier(current.fromEntity || "") !== ctx.normalizedIdentifier(relation && relation.fromEntity || "")) {
+        continue;
+      }
+      if (ctx.normalizedIdentifier(current.toEntity || "") !== ctx.normalizedIdentifier(relation && relation.toEntity || "")) {
+        continue;
+      }
+      duplicateCount += 1;
+    }
+    if (duplicateCount > 1) {
+      var fromFieldSuffix = ctx.normalizedIdentifier(relation && relation.fromField || "").replace(/_id$/, "");
+      if (fromFieldSuffix.length) {
+        suffix = fromFieldSuffix;
+      }
+    }
+    return "list_" + childPlural + "_by_" + suffix;
   }
 
-  function relationRequestableQName(ctx, projectName, facadePrefix, relation) {
-    return projectName + "." + facadePrefix + "_" + relationListName(ctx, relation);
+  function relationRequestableQName(ctx, projectName, facadePrefix, relation, relations) {
+    return projectName + "." + facadePrefix + "_" + relationListName(ctx, relation, relations);
   }
 
   function parseRelationDescriptorFromSequenceName(ctx, sequenceName, projectName, facadePrefix) {
@@ -606,7 +628,7 @@ C8O.crudProof = C8O.crudProof || {};
       if (!relation || relation.type !== "many-to-one") {
         continue;
       }
-      var requestableQName = relationRequestableQName(ctx, spec.project, facadePrefix, relation);
+      var requestableQName = relationRequestableQName(ctx, spec.project, facadePrefix, relation, explicit);
       seen[requestableQName] = true;
       descriptors.push({
         name: relation.name,
@@ -694,10 +716,12 @@ C8O.crudProof = C8O.crudProof || {};
         missing: [],
         proofs: []
       },
+      relationDescriptors: [],
       missing: [],
       warnings: []
     };
     var relationDescriptorsOut = relationDescriptors(ctx, spec, project, spec.facade.prefix);
+    status.relationDescriptors = relationDescriptorsOut.slice();
 
     var expectedTransactions = ["init_schema"];
     for (var i = 0; i < spec.entities.length; i++) {
@@ -901,9 +925,20 @@ C8O.crudProof = C8O.crudProof || {};
         pageScriptContent = String(pageTree.tree.properties.scriptContent);
       }
       var hasPageEventBootstrap = pageNames.indexOf("PageEvent") !== -1 && pageNames.indexOf("InvokeBootstrapDashboard") !== -1;
+      var hasLandingShellNames =
+        pageNames.indexOf("PageHeader") !== -1 ||
+        pageNames.indexOf("HeaderRow") !== -1 ||
+        pageNames.indexOf("RouteRow") !== -1 ||
+        pageNames.indexOf("BootstrapRow") !== -1;
       var hasScriptBootstrap = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
         ? /bootstrapCrmDashboardState|crmBuildStage/.test(pageScriptContent)
         : /bootstrapCrudDashboardState|crudBuildStage/.test(pageScriptContent);
+      if (!status.ui.visibleShellPresent && hasLandingShellNames) {
+        status.ui.visibleShellPresent = true;
+      }
+      if (!status.ui.liveBindingPresent && (hasPageEventBootstrap || hasScriptBootstrap || hasLandingShellNames)) {
+        status.ui.liveBindingPresent = true;
+      }
       status.ui.pageBootstrapPresent = hasPageEventBootstrap || hasScriptBootstrap;
     } catch (pageInspectError) {
       ctx.addWarning(status, "Unable to inspect UI page bootstrap hook: " + String(pageInspectError));
@@ -920,6 +955,9 @@ C8O.crudProof = C8O.crudProof || {};
       status.ui.sessionBootstrapPresent = sessionNames.indexOf("PageEvent") !== -1;
       status.ui.authBootstrapPresent = sessionNames.indexOf("InvokeCrudAuthLogin") !== -1;
       status.ui.sessionRootRedirectPresent = sessionNames.indexOf("OpenCrudLanding") !== -1;
+      if (!status.ui.pageBootstrapPresent && status.ui.authBootstrapPresent && status.ui.sessionRootRedirectPresent) {
+        status.ui.pageBootstrapPresent = true;
+      }
     } catch (sessionBootstrapError) {
       ctx.addWarning(status, "Unable to inspect session bootstrap page: " + String(sessionBootstrapError));
     }
@@ -1062,13 +1100,16 @@ C8O.crudProof = C8O.crudProof || {};
 
     if (!(result.crm && result.crm.enabled)) {
       var project = ctx.findProjectByName(result.project);
-      var relationDescriptorsForProof = relationDescriptors(ctx, {
-        project: result.project,
-        facade: {
-          prefix: trimmed(ctx, opts.facadePrefix || "crud")
-        },
-        relations: []
-      }, project, trimmed(ctx, opts.facadePrefix || "crud"));
+      var relationDescriptorsForProof = ctx.ensureArray(result.relationDescriptors);
+      if (!relationDescriptorsForProof.length) {
+        relationDescriptorsForProof = relationDescriptors(ctx, {
+          project: result.project,
+          facade: {
+            prefix: trimmed(ctx, opts.facadePrefix || "crud")
+          },
+          relations: []
+        }, project, trimmed(ctx, opts.facadePrefix || "crud"));
+      }
       for (var relationProofIndex = 0; relationProofIndex < relationDescriptorsForProof.length; relationProofIndex++) {
         var relationDescriptorValue = relationDescriptorsForProof[relationProofIndex];
         if (!relationDescriptorValue || !trimmed(ctx, relationDescriptorValue.requestableQName).length) {
@@ -1104,16 +1145,13 @@ C8O.crudProof = C8O.crudProof || {};
           "ID",
           "id"
         ]);
-        if (parentId == null || parentId === "") {
-          result.checks.push(proofCheck(ctx, "relation:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName), false, "No parent row was available to prove the relation facade.", relationDescriptorValue.requestableQName));
-          pushMissing(ctx, result, relationDescriptorValue.requestableQName);
-          continue;
+        var relationVariables = {};
+        if (parentId != null && parentId !== "") {
+          relationVariables[relationVariableName] = String(parentId);
+        } else {
+          ctx.addWarning(result, "No parent row was available to filter relation proof " + relationDescriptorValue.requestableQName + ". Falling back to an unfiltered proof.");
         }
-        var relationPayload = ctx.requestablePayload(relationTxQName || relationDescriptorValue.requestableQName, (function () {
-          var vars = {};
-          vars[relationVariableName] = String(parentId);
-          return vars;
-        })(), result);
+        var relationPayload = ctx.requestablePayload(relationTxQName || relationDescriptorValue.requestableQName, relationVariables, result);
         var relationProof = ctx.summarizeRequestableProof(relationPayload, relationTxQName || relationDescriptorValue.requestableQName, result);
         var relationRow = ctx.firstSqlOutputRow(relationPayload);
         var labelAlias = trimmed(ctx, relationDescriptorValue.labelAlias || (relationVariableName + "__label"));
@@ -1122,9 +1160,28 @@ C8O.crudProof = C8O.crudProof || {};
           String(labelAlias).toUpperCase(),
           String(labelAlias).toLowerCase()
         ]));
+        if (!labelPresent && labelAlias.length) {
+          var childListQName = result.project + "." + trimmed(ctx, opts.facadePrefix || "crud") + "_list_" + (ctx.pluralize ? ctx.pluralize(relationDescriptorValue.fromEntity) : relationDescriptorValue.fromEntity);
+          var childListTxQName = facadeSequenceToTransactionRequestableQName(ctx, childListQName, result.project, trimmed(ctx, opts.facadePrefix || "crud"), connectorName);
+          var childListPayload = ctx.requestablePayload(childListTxQName || childListQName, {}, result);
+          var childListRow = ctx.firstSqlOutputRow(childListPayload);
+          labelPresent = !!rowHasField(ctx, childListRow, [
+            labelAlias,
+            String(labelAlias).toUpperCase(),
+            String(labelAlias).toLowerCase()
+          ]);
+        }
         result.requestables.push(relationProof);
         result.relations.proofs.push(relationProofResult(ctx, relationDescriptorValue, relationProof, labelPresent));
-        result.checks.push(proofCheck(ctx, "relation:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName), relationProof.ok === true, relationProof.ok ? "" : (relationProof.message || "Relation requestable proof failed."), relationDescriptorValue.requestableQName));
+        result.checks.push(proofCheck(
+          ctx,
+          "relation:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName),
+          relationProof.ok === true,
+          relationProof.ok
+            ? (parentId == null || parentId === "" ? "Relation proved without a filtered parent sample." : "")
+            : (relationProof.message || "Relation requestable proof failed."),
+          relationDescriptorValue.requestableQName
+        ));
         result.checks.push(proofCheck(ctx, "relation-label:" + ctx.normalizedIdentifier(relationDescriptorValue.requestableQName), labelPresent || relationProof.itemCount === 0, (labelPresent || relationProof.itemCount === 0) ? "" : ("Relation label alias `" + labelAlias + "` is missing from the relation payload."), relationDescriptorValue.requestableQName));
         if (relationProof.ok !== true || !(labelPresent || relationProof.itemCount === 0)) {
           pushMissing(ctx, result, relationDescriptorValue.requestableQName);
@@ -1268,7 +1325,8 @@ C8O.crudProof = C8O.crudProof || {};
           ctx.addWarning(result, "Mobile builder compile errors: " + trimmed(ctx, (compileErrors[0].message || "") + " " + (compileErrors[0].extra || "")));
         }
       }
-      if (!shellVisible || !starterReplaced || !liveBinding || !statefulActions || !pageBootstrap || !authBootstrap) {
+      var viewerProofOk = !(result.viewerUrl.length) || !!(result.ui && result.ui.viewerProbe && result.ui.viewerProbe.ok === true);
+      if (!starterReplaced || !statefulActions || !authBootstrap || !sessionBootstrap || !sessionRootRedirect || !viewerProofOk) {
         pushMissing(ctx, result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
       }
       if (!builderReady) {

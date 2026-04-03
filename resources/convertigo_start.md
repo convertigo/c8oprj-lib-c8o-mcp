@@ -52,22 +52,25 @@ Read this first for any MCP session that touches a Convertigo project.
 8. Pick one matching recipe before the first broad mutation.
 9. Do not call `rag-query` before the start guide and the chosen recipe were read.
 10. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
-11. Decide whether the task truly fits `upsert-crud` before the first write call. Editing an existing project or building a non-CRUD feature stays exploratory.
+11. Decide whether the task truly fits `upsert-crud` before the first write call.
 12. Use the exact project name requested by the user when it is technically valid. Do not invent prefixes, suffixes, or dates.
 13. Build the mutation plan before the first write call.
 14. Apply changes with `databaseobject-tree-apply` or `batch-call`.
 15. For a new CRUD UI project, make the app visible immediately: `marketplace-import` with the exact project name -> `mobile-builder-open` -> `upsert-crud` -> backend proof -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` probe -> `upsert-ngx-crud-kit stage=final` -> final proof with `viewerUrl`.
-16. For a low-detail CRUD request, stop after the first green scaffold plus seeded demo data. Do not start a second refinement pass on layout, labels, or field-level UX unless the user explicitly asked for it.
-17. Once the CRUD fast path is selected, do not call `rag-query` unless the built-in guides and tools no longer answer the task.
-18. When a CRUD domain obviously contains relations, declare them explicitly in `spec.relations[]`; use `field.references` only as the compatibility layer for simple FK fields.
-19. For generic CRUD UI relation controls, prefer `ui.relationFields` over direct edits on CRUD-kit-managed pages or shared components.
-20. Generated CRUD facade sequences are hidden requestables with `authenticated context required=true`; generated CRUD UI apps now initialize that session once on a `Login` root page that calls `auth_login(username,password)` and then redirects to the visible home page.
-21. Prefer best-case-first code. Let the standard error bubble handle normal failures unless there is a clear UX reason to intercept them.
-22. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
-23. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
-24. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
-25. Save with `project-save`.
-26. Read a specialized handbook only when the recipe leaves open questions.
+16. For an existing deterministic CRUD project that is already green, prefer `convertigo://resources/convertigo-crud-edit-fastpath`: `crud-status` -> `upsert-crud` -> backend proof -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open` -> final proof with `viewerUrl`.
+17. For a low-detail CRUD request, stop after the first green scaffold plus seeded demo data. Do not start a second refinement pass on layout, labels, or field-level UX unless the user explicitly asked for it.
+18. Once the CRUD fast path is selected, do not call `rag-query` unless the built-in guides and tools no longer answer the task.
+19. When a CRUD domain obviously contains relations, declare them explicitly in `spec.relations[]`; use `field.references` only as the compatibility layer for simple FK fields.
+20. For generic CRUD UI relation controls, prefer `ui.relationFields` over direct edits on CRUD-kit-managed pages or shared components.
+21. For credible demo rows, prefer `seed.data` over patching `init_schema` manually after generation.
+22. Do not grep the local workspace to rediscover the public CRUD shapes of `relations[]`, `ui.relationFields`, or `seed.data` once the built-in guides already document them.
+23. Generated CRUD facade sequences are hidden requestables with `authenticated context required=true`; generated CRUD UI apps now initialize that session once on a `Login` root page that calls `auth_login(username,password)` and then redirects to the visible home page.
+24. Prefer best-case-first code. Let the standard error bubble handle normal failures unless there is a clear UX reason to intercept them.
+25. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
+26. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
+27. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
+28. Save with `project-save`.
+29. Read a specialized handbook only when the recipe leaves open questions.
 
 ### Minimal call skeletons
 

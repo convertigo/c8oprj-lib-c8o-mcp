@@ -454,6 +454,7 @@ C8O.crud = C8O.crud || {};
         return C8O.dbo.saveProject(project, warnings || []);
       },
       cleanupGeneratedIonicSources: cleanupGeneratedIonicSources,
+      purgeManagedGeneratedIonicSources: purgeManagedGeneratedIonicSources,
       triggerUiSourceRefreshTargets: triggerUiSourceRefreshTargets,
       refreshStudioProjectTree: refreshStudioProjectTree,
       normalizeStatus: normalizeStatus,

@@ -19,6 +19,7 @@ Read `convertigo://resources/convertigo-crud-practical-cases` only when the curr
 - Collect the minimum CRUD spec required for deterministic execution.
 - Prefer MCP CRUD accelerators over manual tree authoring.
 - For a new project with UI, make the project visible immediately: import the starter with the exact name, open the viewer, then mutate the CRUD scaffolding live.
+- For an existing deterministic CRUD project that is already green, skip the bootstrap UI pass and use the one-pass edit rail documented in `convertigo://resources/convertigo-crud-edit-fastpath`.
 - Produce proof after backend creation and again after the final UI shell.
 - Refuse tasks that fall outside the standard SQL CRUD + starter NGX path.
 - Do not call `rag-query` before you have read `convertigo://resources/convertigo-start` and the fast-path recipe.
@@ -35,15 +36,19 @@ Collect or confirm:
 - `entities[]`
 - `ui.entryPage`
 - optional `ui.variant`
+- optional `relations[]`
+- optional `entities[].ui.relationFields`
+- optional `seed.data`
 - for the generic CRUD fast path, default to:
   - `ui.variant=entity-pages`
-  - landing page on `Page`
+  - landing page on `Home`
   - one generated entity page per CRUD entity
   - `seed.profile=realistic`
   - generated CRUD facades stay `hidden` with `authenticated context required=true`
   - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`, with a `Login` root page that authenticates once before the visible CRUD home page opens
   - declare obvious many-to-one relations in `spec.relations[]`
   - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` when the user explicitly asks for better visible fields without a custom redesign
+  - `seed.data` is the preferred first-pass surface for explicit business demo rows
 - for the CRM demo profile, prefer:
   - `ui.variant=master-detail`
   - `seed.profile=crm`
@@ -58,20 +63,21 @@ If some fields are missing, ask only for the missing CRUD spec items.
 1. Confirm the task matches the standard CRUD fast path.
 2. If it does not, stop and redirect to the exploratory path instead of improvising.
 3. Build one explicit `spec` object.
-4. For a new UI project, run `marketplace-import` with `template_ngxBuilderIonic` and the exact requested project name.
-5. For a new UI project, call `mobile-builder-open` immediately after the starter import and keep `viewerHomeUrl` or `viewerBaseUrl` for the live dev app.
-6. Run `upsert-crud`.
-7. Run `crud-proof` with backend requestables.
-8. If proof fails, stop and report the exact missing proof items.
-9. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
-10. If the task includes UI, call `mobile-builder-open` again after the bootstrap shell exists. If it returns `compile_error`, report the compile errors and fix the MCP source path, never the generated runtime files.
-11. Run `upsert-ngx-crud-kit` with `stage=final`.
+4. If the target project does not exist yet and the task includes UI, run `marketplace-import` with `template_ngxBuilderIonic` and the exact requested project name.
+5. If the target project does not exist yet and the task includes UI, call `mobile-builder-open` immediately after the starter import and keep `viewerHomeUrl` or `viewerBaseUrl` for the live dev app.
+6. If the target project already exists and `crud-status` confirms a green deterministic CRUD rail, stay on the existing-project edit fast path instead of replaying the new-project bootstrap.
+7. Run `upsert-crud`.
+8. Run `crud-proof` with backend requestables.
+9. If proof fails, stop and report the exact missing proof items.
+10. For a new project UI pass, run `upsert-ngx-crud-kit` with `stage=bootstrap`, probe `mobile-builder-open`, then run `stage=final`.
+11. For an existing green project UI pass, run only one `upsert-ngx-crud-kit` with `stage=final`.
 12. Run `crud-proof` with `expectUiShell=true` and pass the live `viewerUrl` from `mobile-builder-open`.
 13. Save with `project-save` when the target project was mutated and save proof is still needed.
 14. If the final proof is green and the request was low-detail, stop there.
 15. Do not call planner, critic, or maintainer prompts from this flow.
-16. Prefer `spec.relations[]`, `field.references`, and entity-level UI hints (`ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, `ui.relationFields`) over direct edits on CRUD-kit-managed shared components.
-17. Do not make generated CRUD facades public just to get the demo running; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
+16. Prefer `spec.relations[]`, `field.references`, entity-level UI hints (`ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, `ui.relationFields`), and `seed.data` over direct edits on CRUD-kit-managed shared components or manual patches of `init_schema`.
+17. Once the CRUD guides already documented the contract, do not run shell searches to rediscover the shapes of `relations[]`, `ui.relationFields`, or `seed.data`.
+18. Do not make generated CRUD facades public just to get the demo running; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
 
 ## UI variant policy
 - `entity-pages` is the recommended generic CRUD UI.

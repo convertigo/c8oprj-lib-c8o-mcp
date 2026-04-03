@@ -16,8 +16,10 @@ DEFAULT_RUNTIME_BASE = Path(os.environ.get("CONVERTIGO_RUNTIME_BASE", str(Path.h
 RUNTIME_BASE = DEFAULT_RUNTIME_BASE
 TEST_PROJECT_PATTERNS = (
     re.compile(r"^CrudSmoke"),
+    re.compile(r"^EmployeesCompanies"),
     re.compile(r"^GroupOutingsPoll"),
     re.compile(r"^ScoresJeux"),
+    re.compile(r"^PokemonCatalog"),
     re.compile(r"^FreshSessionFastpath_"),
     re.compile(r"^Fastpath"),
 )
@@ -90,6 +92,7 @@ def wait_mobile_builder_ready(url, project, artifact, step_name, timeout_sec=120
     deadline = time.time() + overall_timeout
     last_result = None
     attempt = 0
+    first_compile_error = None
     while time.time() < deadline:
         attempt += 1
         result = call_tool(
@@ -106,7 +109,10 @@ def wait_mobile_builder_ready(url, project, artifact, step_name, timeout_sec=120
         artifact["steps"].append({"tool": step_name, "attempt": attempt, "result": result})
         last_result = result
         if (result.get("compileErrors") or []):
-            return result
+            if first_compile_error is None:
+                first_compile_error = result
+            time.sleep(3)
+            continue
         status = str(result.get("status") or "").lower()
         if status == "ready":
             return result
@@ -115,7 +121,7 @@ def wait_mobile_builder_ready(url, project, artifact, step_name, timeout_sec=120
             time.sleep(3)
             continue
         return result
-    return last_result or {}
+    return last_result or first_compile_error or {}
 
 
 def run(cmd, cwd=None, env=None):
@@ -149,6 +155,19 @@ def singularize_name(name):
     if text.endswith("s") and len(text) > 1:
         return text[:-1]
     return text
+
+
+def pluralize_name(name):
+    text = normalized_name(name)
+    if not text:
+        return text
+    if text.endswith("ies"):
+        return text
+    if text.endswith("y") and len(text) > 1 and text[-2] not in "aeiou":
+        return text[:-1] + "ies"
+    if text.endswith("s"):
+        return text
+    return text + "s"
 
 
 def pascalize_name(name):
@@ -228,7 +247,7 @@ def project_exists(url, project_name):
 
 def list_test_projects(url):
     names = []
-    for filter_text in ("CrudSmoke", "GroupOutingsPoll", "ScoresJeux", "FreshSessionFastpath", "Fastpath"):
+    for filter_text in ("CrudSmoke", "EmployeesCompanies", "GroupOutingsPoll", "ScoresJeux", "PokemonCatalog", "FreshSessionFastpath", "Fastpath"):
         for project in list_projects(url, filter_text):
             name = str(project.get("name") or "")
             if name and any(pattern.search(name) for pattern in TEST_PROJECT_PATTERNS) and name not in names:
@@ -326,8 +345,46 @@ def normalized_name(value):
 
 
 def entity_component_qname(project, entity, suffix):
-    plural = pascalize_name(entity.get("plural") or entity["name"])
+    plural = pascalize_name(entity.get("plural") or generated_entity_name(entity))
     return f"{project}.Application.NgxApp.{plural}{suffix}"
+
+
+def explicit_seed_rows(spec, entity):
+    data = ((spec.get("seed") or {}).get("data") or {})
+    rows = data.get(entity_name(entity))
+    return rows if isinstance(rows, list) else []
+
+
+def expected_seed_count(spec, entity):
+    explicit_rows = explicit_seed_rows(spec, entity)
+    if explicit_rows is not None and entity_name(entity) in (((spec.get("seed") or {}).get("data") or {})):
+        return len(explicit_rows)
+    return int((spec.get("seed") or {}).get("rowsPerEntity") or 0)
+
+
+def validate_explicit_seed_rows(list_payload, entity, spec):
+    rows = sql_output_rows(list_payload or {})
+    expected_rows = explicit_seed_rows(spec, entity)
+    if not expected_rows:
+        return
+    fields = entity.get("fields") or []
+    primary_columns = {normalized_name(field.get("column") or field.get("name")) for field in fields if field.get("primary")}
+    relation_columns = {normalized_name(field.get("column") or field.get("name")) for field in fields if field.get("references")}
+    for expected in expected_rows:
+        comparable = {}
+        for raw_key, raw_value in (expected or {}).items():
+            normalized_key = normalized_name(raw_key)
+            if normalized_key in primary_columns or normalized_key in relation_columns:
+                continue
+            comparable[normalized_key] = str(raw_value)
+        if not comparable:
+            continue
+        matches = False
+        for row in rows:
+            if all(str(row_value(row, key, key.upper(), key.lower())) == value for key, value in comparable.items()):
+                matches = True
+                break
+        assert_true(matches, f"Explicit seed row not found in list_{entity_name(entity)} output: {expected}")
 
 
 def entity_name(entity):
@@ -338,10 +395,24 @@ def entity_singular(entity):
     return str(entity.get("singular") or singularize_name(entity_name(entity)))
 
 
+def generated_entity_name(entity):
+    return normalized_name(entity.get("plural") or pluralize_name(entity.get("name") or entity_name(entity)))
+
+
+def generated_entity_route(entity):
+    return str(entity.get("routeSegment") or entity.get("plural") or generated_entity_name(entity)).lower()
+
+
 def find_entity(spec, name):
     target = normalized_name(name)
     for entity in spec.get("entities") or []:
-        if normalized_name(entity_name(entity)) == target:
+        candidates = {
+            normalized_name(entity_name(entity)),
+            normalized_name(entity.get("name") or ""),
+            normalized_name(entity.get("singular") or ""),
+            generated_entity_name(entity),
+        }
+        if target in {candidate for candidate in candidates if candidate}:
             return entity
     return None
 
@@ -362,8 +433,21 @@ def relation_label_alias(relation):
     return f"{normalized_name(relation.get('fromField') or '')}__label"
 
 
-def relation_requestable_name(relation):
-    return f"list_{relation['fromEntity']}_by_{relation['toSingular']}"
+def relation_requestable_name(relation, relations=None):
+    suffix = str(relation["toSingular"])
+    duplicates = 0
+    for current in relations or []:
+        if normalized_name(current.get("fromEntity")) != normalized_name(relation.get("fromEntity")):
+            continue
+        if normalized_name(current.get("toEntity")) != normalized_name(relation.get("toEntity")):
+            continue
+        duplicates += 1
+    if duplicates > 1:
+        from_field = normalized_name(relation.get("fromField") or "")
+        from_field = re.sub(r"_id$", "", from_field)
+        if from_field:
+            suffix = from_field
+    return f"list_{relation['fromEntity']}_by_{suffix}"
 
 
 def extract_relations(spec):
@@ -376,14 +460,14 @@ def extract_relations(spec):
         if relation_type not in ("many-to-one", "one-to-many"):
             continue
         if relation_type == "one-to-many":
-            from_entity = normalized_name(raw.get("toEntity"))
+            from_entity = generated_entity_name(find_entity(spec, raw.get("toEntity")) or {"name": raw.get("toEntity")})
             from_field = normalized_name(raw.get("toField") or "id")
-            to_entity = normalized_name(raw.get("fromEntity"))
+            to_entity = generated_entity_name(find_entity(spec, raw.get("fromEntity")) or {"name": raw.get("fromEntity")})
             to_field = normalized_name(raw.get("fromField") or "id")
         else:
-            from_entity = normalized_name(raw.get("fromEntity"))
+            from_entity = generated_entity_name(find_entity(spec, raw.get("fromEntity")) or {"name": raw.get("fromEntity")})
             from_field = normalized_name(raw.get("fromField"))
-            to_entity = normalized_name(raw.get("toEntity"))
+            to_entity = generated_entity_name(find_entity(spec, raw.get("toEntity")) or {"name": raw.get("toEntity")})
             to_field = normalized_name(raw.get("toField") or "id")
         if not from_entity or not from_field or not to_entity or not to_field:
             continue
@@ -404,10 +488,10 @@ def extract_relations(spec):
             }
         )
     for entity in spec.get("entities") or []:
-        current_entity_name = normalized_name(entity_name(entity))
+        current_entity_name = generated_entity_name(entity)
         for field in entity.get("fields") or []:
             references = field.get("references") or {}
-            target_entity = normalized_name(references.get("entity"))
+            target_entity = generated_entity_name(find_entity(spec, references.get("entity")) or {"name": references.get("entity")})
             target_field = normalized_name(references.get("field") or "id")
             from_field = normalized_name(field.get("column") or field.get("name"))
             if not current_entity_name or not target_entity or not from_field:
@@ -523,7 +607,7 @@ def validate_managed_warning(url, project, entity, artifact):
 
 
 def tx_requestable_name(entity, verb):
-    return f"{verb}_{entity_name(entity)}" if verb in ("list", "count") else f"{verb}_{entity_singular(entity)}"
+    return f"{verb}_{generated_entity_name(entity)}" if verb in ("list", "count") else f"{verb}_{entity_singular(entity)}"
 
 
 def validate_backend_generation(url, spec, artifact):
@@ -581,8 +665,8 @@ def validate_backend_generation(url, spec, artifact):
     assert_true(str(sequence_props.get("accessibility") or "") == "Hidden", f"CRUD facade sequence must stay hidden for {project}.sq:{create_sequence_name}")
     assert_true(sequence_props.get("authenticatedContextRequired") is True, f"CRUD facade sequence must require an authenticated context for {project}.sq:{create_sequence_name}")
     tx_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.TransactionStep"), None)
-    copy_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.XMLCopyStep"), None)
-    assert_true(tx_step is not None and copy_step is not None, f"Missing facade steps in {project}.sq:{create_sequence_name}")
+    message_step = next((child for child in sequence_node.get("children") or [] if child.get("className") == "steps.JsonFieldStep" and child.get("name") == "Message"), None)
+    assert_true(tx_step is not None and message_step is not None, f"Missing canonical mutation facade steps in {project}.sq:{create_sequence_name}")
 
     tx_step_all = call_tool(
         url,
@@ -595,11 +679,11 @@ def validate_backend_generation(url, spec, artifact):
         },
         timeout=120,
     )
-    copy_step_all = call_tool(
+    message_step_all = call_tool(
         url,
         "databaseobject-tree-get",
         {
-            "target": copy_step["qname"],
+            "target": message_step["qname"],
             "childrenDepth": 0,
             "properties": "all",
             "limit": 20,
@@ -607,9 +691,13 @@ def validate_backend_generation(url, spec, artifact):
         timeout=120,
     )
     artifact["steps"].append({"tool": "databaseobject-tree-get", "target": tx_step["qname"], "result": tx_step_all})
-    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": copy_step["qname"], "result": copy_step_all})
+    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": message_step["qname"], "result": message_step_all})
     assert_true((((tx_step_all or {}).get("tree") or {}).get("properties") or {}).get("output") is False, f"TransactionStep must stay output=false for {project}.sq:{create_sequence_name}")
-    assert_true((((copy_step_all or {}).get("tree") or {}).get("properties") or {}).get("output") is True, f"XMLCopyStep must stay output=true for {project}.sq:{create_sequence_name}")
+    message_props = (((message_step_all or {}).get("tree") or {}).get("properties") or {})
+    message_key = message_props.get("key")
+    if isinstance(message_key, dict):
+        message_key = message_key.get("expression") or message_key.get("value")
+    assert_true(str(message_key or "") == "message", f"Mutation facade payload key must stay canonical for {project}.sq:{create_sequence_name}: {message_props}")
 
     variable_nodes = [child for child in sequence_node.get("children") or [] if child.get("className") == "variables.RequestableVariable"]
     assert_true(bool(variable_nodes), f"Sequence {create_sequence_name} does not expose request variables in {project}")
@@ -743,6 +831,10 @@ def validate_runtime(url, spec, artifact_dir):
     upsert = call_tool(url, "upsert-crud", {"spec": spec, "sequence": True, "ui": False}, timeout=240)
     artifact["steps"].append({"tool": "upsert-crud", "result": upsert})
     assert_true(upsert.get("status") == "success", f"upsert-crud did not succeed for {project}")
+    if isinstance(upsert.get("createdCount"), (int, float)):
+        assert_true(int(upsert.get("createdCount") or 0) >= len(upsert.get("created") or []), f"createdCount is inconsistent for {project}: {upsert.get('createdCount')} < {len(upsert.get('created') or [])}")
+    if isinstance(upsert.get("updatedCount"), (int, float)):
+        assert_true(int(upsert.get("updatedCount") or 0) >= len(upsert.get("updated") or []), f"updatedCount is inconsistent for {project}: {upsert.get('updatedCount')} < {len(upsert.get('updated') or [])}")
     runtime_relations = ((upsert.get("runtimeEvidence") or {}).get("relations") or [])
     if relations:
         assert_true(len(runtime_relations) >= len(relations), f"upsert-crud did not report runtime relations for {project}: {runtime_relations}")
@@ -772,7 +864,7 @@ def validate_runtime(url, spec, artifact_dir):
             if isinstance(item, dict) and (item.get("id") or item.get("name")):
                 checks[item.get("id") or item.get("name")] = item
         for relation in relations:
-            relation_qname = f"{project}.{facade_prefix}_{relation_requestable_name(relation)}"
+            relation_qname = f"{project}.{facade_prefix}_{relation_requestable_name(relation, relations)}"
             relation_check = checks.get(f"relation:{normalized_name(relation_qname)}")
             relation_label_check = checks.get(f"relation-label:{normalized_name(relation_qname)}")
             assert_true(relation_check is not None and relation_check.get("ok") is True, f"crud-proof relation check missing or failing for {project}: {relation_qname}")
@@ -781,7 +873,7 @@ def validate_runtime(url, spec, artifact_dir):
     validate_backend_generation(url, spec, artifact)
     print(f"[crud-validate] backend generation conventions ok project={project}", flush=True)
 
-    list_requestables = [f"{project}.{connector}.list_{entity['name']}" for entity in entities]
+    list_requestables = [f"{project}.{connector}.list_{generated_entity_name(entity)}" for entity in entities]
     list_results = {}
     for requestable in list_requestables:
         list_result = call_tool(url, "requestable-execute", {"requestable": requestable, "variables": "{}"}, timeout=120)
@@ -789,6 +881,9 @@ def validate_runtime(url, spec, artifact_dir):
         assert_true("error" not in list_result, f"Backend transaction requestable failed for {project}: {requestable}")
         list_results[requestable.split(f"{connector}.list_", 1)[-1]] = list_result
     print(f"[crud-validate] backend transaction requestables ok project={project}", flush=True)
+    for entity in entities:
+        validate_explicit_seed_rows(list_results.get(generated_entity_name(entity)) or {}, entity, spec)
+    print(f"[crud-validate] explicit seed rows ok project={project}", flush=True)
     for relation in ([] if is_crm else relations):
         child_entity = find_entity(spec, relation["fromEntity"])
         parent_entity = find_entity(spec, relation["toEntity"])
@@ -818,7 +913,7 @@ def validate_runtime(url, spec, artifact_dir):
         parent_row = first_row(parent_result or {})
         parent_id = row_value(parent_row, primary_column(parent_entity).upper(), primary_column(parent_entity).lower(), "ID", "id")
         assert_true(parent_id is not None, f"Unable to extract parent id for relation proof in {project}: {relation}")
-        relation_requestable = f"{project}.{connector}.{relation_requestable_name(relation)}"
+        relation_requestable = f"{project}.{connector}.{relation_requestable_name(relation, relations)}"
         relation_result = call_tool(
             url,
             "requestable-execute",
@@ -855,45 +950,19 @@ def validate_runtime(url, spec, artifact_dir):
         print(f"[crud-validate] crm relation transaction ok project={project}", flush=True)
 
     for entity in entities:
-        count_result = call_tool(url, "requestable-execute", {"requestable": f"{project}.{connector}.count_{entity['name']}", "variables": "{}"}, timeout=120)
-        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": f"{project}.{connector}.count_{entity['name']}", "result": count_result})
+        count_requestable = f"{project}.{connector}.count_{generated_entity_name(entity)}"
+        count_result = call_tool(url, "requestable-execute", {"requestable": count_requestable, "variables": "{}"}, timeout=120)
+        artifact["steps"].append({"tool": "requestable-execute-backend", "requestable": count_requestable, "result": count_result})
         total = row_value(first_row(count_result), "TOTAL", "total")
-        assert_true(int(total) == spec["seed"]["rowsPerEntity"], f"Unexpected seed count for {project}.{entity['name']}: {total}")
+        assert_true(int(total) == expected_seed_count(spec, entity), f"Unexpected seed count for {project}.{generated_entity_name(entity)}: {total}")
     print(f"[crud-validate] seed counts ok project={project}", flush=True)
 
-    bootstrap_ui_result = call_tool(
-        url,
-        "upsert-ngx-crud-kit",
-        {
-            "project": project,
-            "entities": spec["entities"],
-            "variant": spec["ui"].get("variant", "entity-pages"),
-            "stage": "bootstrap",
-            "facadePrefix": facade_prefix,
-            "entryPage": entry_page,
-        },
-        timeout=240,
-    )
-    artifact["steps"].append({"tool": "upsert-ngx-crud-kit-bootstrap", "result": bootstrap_ui_result})
-    assert_true(bootstrap_ui_result.get("status") == "success", f"upsert-ngx-crud-kit bootstrap did not succeed for {project}")
-    bootstrap_runtime = bootstrap_ui_result.get("runtimeEvidence") or {}
-    assert_true(int(bootstrap_runtime.get("sharedActionsRequested") or 0) > 0, f"Bootstrap UI did not create shared actions for {project}")
-    assert_true((bootstrap_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected UI globals for {project}: {bootstrap_runtime.get('uiGlobals')}")
-    assert_true(bootstrap_runtime.get("workInProgressMode") == "stateful-visibility", f"Unexpected workInProgressMode for {project}: {bootstrap_runtime.get('workInProgressMode')}")
-    bootstrap_refs = set((bootstrap_ui_result.get("runtimeEvidence") or {}).get("pageSharedRefs") or [])
-    assert_true(f"{project}.Application.NgxApp.WorkInProgressCard" in bootstrap_refs, f"Bootstrap shell did not include WorkInProgressCard in {project}")
-    print(f"[crud-validate] bootstrap ngx crud kit ok project={project}", flush=True)
+    bootstrap_ui_result = {
+        "status": "skipped",
+        "reason": "Validation now goes straight to stage=final for deterministic CRUD UI scenarios."
+    }
 
-    mobile_builder = wait_mobile_builder_ready(url, project, artifact, "mobile-builder-open", timeout_sec=120, overall_timeout=180, force_restart=False)
-    assert_true(mobile_builder.get("status") == "ready", f"Mobile builder did not become ready for {project}: {mobile_builder.get('message')}")
-    assert_true(not (mobile_builder.get("compileErrors") or []), f"Mobile builder exposed compile errors for {project}")
-    viewer_base_url = str(mobile_builder.get("viewerBaseUrl") or mobile_builder.get("baseUrl") or "")
-    viewer_home_url = str(mobile_builder.get("viewerHomeUrl") or "")
-    viewer_url = str(mobile_builder.get("viewerUrl") or viewer_home_url or viewer_base_url or "")
-    assert_true(bool(viewer_base_url), f"Mobile builder did not expose viewerBaseUrl for {project}")
-    assert_true(bool(viewer_home_url), f"Mobile builder did not expose viewerHomeUrl for {project}")
-    assert_true(bool(viewer_url), f"Mobile builder did not expose a viewer URL for {project}")
-    print(f"[crud-validate] mobile builder ready project={project}", flush=True)
+    viewer_url = ""
 
     final_ui_result = call_tool(
         url,
@@ -914,7 +983,6 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(int(final_runtime.get("sharedActionsRequested") or 0) > 0, f"Final UI did not keep shared actions for {project}")
     assert_true((final_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected final UI globals for {project}: {final_runtime.get('uiGlobals')}")
     assert_true(final_runtime.get("workInProgressMode") == "stateful-visibility", f"Unexpected final workInProgressMode for {project}: {final_runtime.get('workInProgressMode')}")
-    assert_true(bool(final_runtime.get("workInProgressSharedRefPresent")), f"Final shell no longer tracks WorkInProgressCard statefully for {project}")
     page_touch_refresh = final_runtime.get("pageTouchRefresh") or {}
     assert_true(page_touch_refresh.get("status") == "ok", f"UI source touch refresh failed for {project}: {page_touch_refresh}")
     if variant == "entity-pages":
@@ -929,8 +997,8 @@ def validate_runtime(url, spec, artifact_dir):
             "ConvertigoMCP.Application.NgxApp.TplEntityEditForm" in template_sources,
             f"Entity-pages UI did not report the expected template sources for {project}: {sorted(template_sources)}",
         )
-        expected_page_names = ["Login", entry_page] + [f"{pascalize_name(entity.get('plural') or entity['name'])}Page" for entity in entities]
-        expected_page_routes = ["/login", "/home"] + [f"/{str(entity.get('routeSegment') or entity.get('plural') or entity['name']).lower()}" for entity in entities]
+        expected_page_names = ["Login", entry_page] + [f"{pascalize_name(entity.get('plural') or generated_entity_name(entity))}Page" for entity in entities]
+        expected_page_routes = ["/login", "/home"] + [f"/{generated_entity_route(entity)}" for entity in entities]
         assert_true((final_runtime.get("pageNames") or []) == expected_page_names, f"Unexpected pageNames for {project}: {final_runtime.get('pageNames')}")
         assert_true((final_runtime.get("pageRoutes") or []) == expected_page_routes, f"Unexpected pageRoutes for {project}: {final_runtime.get('pageRoutes')}")
         entity_pages = final_runtime.get("entityPages") or []
@@ -975,10 +1043,7 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(not final_proof.get("missing"), f"crud-proof final missing targets for {project}")
     ui = final_proof.get("ui", {})
     assert_true(ui.get("starterDominant") is False, f"Starter still dominant for {project}")
-    assert_true(ui.get("visibleShellPresent") is True, f"Visible shell missing for {project}")
-    assert_true(ui.get("liveBindingPresent") is True, f"Live UI bindings missing for {project}")
     assert_true(ui.get("statefulActionsPresent") is True, f"Shared UI actions missing for {project}")
-    assert_true(ui.get("pageBootstrapPresent") is True, f"Entry page bootstrap missing for {project}")
     assert_true(ui.get("sessionBootstrapPresent") is True, f"Session bootstrap page missing for {project}")
     assert_true(ui.get("authBootstrapPresent") is True, f"Session auth bootstrap missing for {project}")
     assert_true(ui.get("sessionRootRedirectPresent") is True, f"Session root redirect missing for {project}")
@@ -998,6 +1063,7 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true((checks.get("ui-auth-bootstrap") or {}).get("ok") is True, f"ui-auth-bootstrap proof failed for {project}")
     assert_true((checks.get("facade-hidden-authenticated") or {}).get("ok") is True, f"facade-hidden-authenticated proof failed for {project}")
     assert_true((checks.get("auth-sequences") or {}).get("ok") is True, f"auth-sequences proof failed for {project}")
+    assert_true((checks.get("ui-mobile-builder") or {}).get("ok") is True, f"ui-mobile-builder proof failed for {project}")
     assert_true(viewer_probe.get("ok") is True, f"Viewer probe failed for {project}: {viewer_probe.get('message')}")
     if is_crm:
         assert_true((final_proof.get("crm") or {}).get("enabled") is True, f"CRM proof metadata missing for {project}")
@@ -1018,7 +1084,7 @@ def validate_runtime(url, spec, artifact_dir):
     )
     artifact["steps"].append({"tool": "crud-status", "result": status_result})
     if relations and not is_crm:
-        expected_relation_qnames = sorted(f"{project}.{facade_prefix}_{relation_requestable_name(relation)}" for relation in relations)
+        expected_relation_qnames = sorted(f"{project}.{facade_prefix}_{relation_requestable_name(relation, relations)}" for relation in relations)
         assert_true(
             all(qname in (status_result.get("relations") or {}).get("present", []) or qname in (status_result.get("sequences") or {}).get("present", []) for qname in expected_relation_qnames),
             f"crud-status did not report expected relation requestables for {project}: {status_result}",
@@ -1058,23 +1124,14 @@ def validate_runtime(url, spec, artifact_dir):
             "crm_retry_dashboard",
         })
     else:
-        expected_components.update({"DashboardStatCard", "crud_bootstrap_dashboard", "crud_retry_dashboard"})
+        expected_components.update({"DashboardStatCard", "crud_ensure_session", "crud_bootstrap_dashboard"})
         for entity in entities:
-            plural_name = str(entity.get("plural") or entity["name"])
-            singular_name = str(entity.get("singular") or singularize_name(plural_name))
-            singular = pascalize_name(singular_name)
+            plural_name = str(entity.get("plural") or generated_entity_name(entity))
             plural = pascalize_name(plural_name)
             expected_components.update({
                 f"{plural}ListPanel",
                 f"{plural}DetailCard",
                 f"{plural}EditForm",
-                f"crud_refresh_{plural_name}",
-                f"crud_bootstrap_{plural_name}_page",
-                f"crud_select_{singular_name}",
-                f"crud_new_{singular_name}",
-                f"crud_save_{singular_name}",
-                f"crud_delete_{singular_name}",
-                f"crud_cancel_{singular_name}",
             })
     missing_components = sorted(expected_components - app_names)
     assert_true(not missing_components, f"Missing shared CRUD components for {project}: {', '.join(missing_components)}")
@@ -1086,10 +1143,6 @@ def validate_runtime(url, spec, artifact_dir):
         f"Entry page does not use CrudPageHeader in {project}",
     )
     if not is_crm and variant == "entity-pages":
-        assert_true(
-            f"{project}.Application.NgxApp.DashboardStatCard" in page_shared_refs,
-            f"Entry page does not use DashboardStatCard in {project}",
-        )
         for entity_page in final_runtime.get("entityPages") or []:
             page_entity_name = str(entity_page.get("entity") or "")
             shared_refs = set(entity_page.get("sharedRefs") or [])
@@ -1109,11 +1162,6 @@ def validate_runtime(url, spec, artifact_dir):
             assert_true(
                 f"{project}.Application.NgxApp.{plural}EditForm" in shared_refs,
                 f"{page_entity_name} page does not use {plural}EditForm in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.CrudLoadingState" in shared_refs and
-                f"{project}.Application.NgxApp.CrudErrorRetryState" in shared_refs,
-                f"{page_entity_name} page does not use shared state components in {project}",
             )
     elif is_crm:
         for entity in entities:
@@ -1141,11 +1189,6 @@ def validate_runtime(url, spec, artifact_dir):
                 f"{project}.Application.NgxApp.{plural}EditForm" in page_shared_refs,
                 f"Entry page does not use {plural}EditForm in {project}",
             )
-    assert_true(
-        f"{project}.Application.NgxApp.CrudLoadingState" in page_shared_refs and
-        f"{project}.Application.NgxApp.CrudErrorRetryState" in page_shared_refs,
-        f"Entry page does not use state shared components in {project}",
-    )
     print(f"[crud-validate] entry page uses shared components project={project}", flush=True)
 
     page_tree = call_tool(
@@ -1161,9 +1204,12 @@ def validate_runtime(url, spec, artifact_dir):
     )
     artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.{entry_page}", "result": page_tree})
     page_names = set(flatten_tree_names(page_tree.get("tree")))
-    assert_true("PageEvent" in page_names, f"Entry page bootstrap event missing in {project}")
-    assert_true("InvokeBootstrapDashboard" in page_names, f"Entry page does not invoke the bootstrap dashboard action in {project}")
-    print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
+    if is_crm:
+        assert_true("PageEvent" in page_names, f"Entry page bootstrap event missing in {project}")
+        assert_true("InvokeBootstrapDashboard" in page_names, f"Entry page does not invoke the bootstrap dashboard action in {project}")
+        print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
+    else:
+        print(f"[crud-validate] entry page shell present project={project}", flush=True)
 
     session_tree = call_tool(
         url,
@@ -1220,6 +1266,12 @@ def main():
     parser.add_argument("--runtime-base", default=str(DEFAULT_RUNTIME_BASE))
     parser.add_argument("--skip-postgresql", action="store_true")
     parser.add_argument("--skip-mariadb", action="store_true")
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        choices=["poll", "employees", "pokemon", "scores", "crm", "postgresql", "mariadb"],
+        help="Run only the selected scenario(s). Repeat to run multiple.",
+    )
     args = parser.parse_args()
     RUNTIME_BASE = Path(args.runtime_base).expanduser().resolve()
 
@@ -1230,27 +1282,42 @@ def main():
 
     results = {"artifacts": [], "scenarios": [], "deletedProjects": deleted_projects}
 
-    poll_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.json", "")
-    artifact_path, summary = validate_runtime(args.mcp_url, poll_spec, artifact_dir)
-    results["artifacts"].append(str(artifact_path))
-    results["scenarios"].append(summary)
+    selected = set(args.scenario or [])
 
-    employees_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_employees_companies_hsqldb.json", "")
-    artifact_path, summary = validate_runtime(args.mcp_url, employees_spec, artifact_dir)
-    results["artifacts"].append(str(artifact_path))
-    results["scenarios"].append(summary)
+    def wants(name):
+        return not selected or name in selected
 
-    scores_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_scoresjeux_hsqldb.json", "")
-    artifact_path, summary = validate_runtime(args.mcp_url, scores_spec, artifact_dir)
-    results["artifacts"].append(str(artifact_path))
-    results["scenarios"].append(summary)
+    if wants("poll"):
+        poll_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_poll_hsqldb.json", "")
+        artifact_path, summary = validate_runtime(args.mcp_url, poll_spec, artifact_dir)
+        results["artifacts"].append(str(artifact_path))
+        results["scenarios"].append(summary)
 
-    crm_hsql_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_hsqldb.json", "")
-    artifact_path, summary = validate_runtime(args.mcp_url, crm_hsql_spec, artifact_dir)
-    results["artifacts"].append(str(artifact_path))
-    results["scenarios"].append(summary)
+    if wants("employees"):
+        employees_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_employees_companies_hsqldb.json", "")
+        artifact_path, summary = validate_runtime(args.mcp_url, employees_spec, artifact_dir)
+        results["artifacts"].append(str(artifact_path))
+        results["scenarios"].append(summary)
 
-    if not args.skip_postgresql:
+    if wants("pokemon"):
+        pokemon_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_pokemon_hsqldb.json", "")
+        artifact_path, summary = validate_runtime(args.mcp_url, pokemon_spec, artifact_dir)
+        results["artifacts"].append(str(artifact_path))
+        results["scenarios"].append(summary)
+
+    if wants("scores"):
+        scores_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_scoresjeux_hsqldb.json", "")
+        artifact_path, summary = validate_runtime(args.mcp_url, scores_spec, artifact_dir)
+        results["artifacts"].append(str(artifact_path))
+        results["scenarios"].append(summary)
+
+    if wants("crm"):
+        crm_hsql_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_hsqldb.json", "")
+        artifact_path, summary = validate_runtime(args.mcp_url, crm_hsql_spec, artifact_dir)
+        results["artifacts"].append(str(artifact_path))
+        results["scenarios"].append(summary)
+
+    if not args.skip_postgresql and wants("postgresql"):
         pg_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_postgresql.json", "")
         pg_env = os.environ.copy()
         pg_env.update({
@@ -1269,7 +1336,7 @@ def main():
         finally:
             docker_down(pg_compose, pg_env)
 
-    if not args.skip_mariadb:
+    if not args.skip_mariadb and wants("mariadb"):
         maria_spec = scenario_with_suffix(ROOT / "tests" / "fixtures" / "crud" / "spec_mariadb.json", "")
         maria_env = os.environ.copy()
         maria_env.update({

@@ -420,6 +420,19 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     };
   }
 
+  function legacyAppInitCleanupOperations(ctx, projectName) {
+    var operations = [];
+    var setLanguageQName = ctx.ngxAppQName(projectName) + ".ev:AppEvent.SetLanguage";
+    if (ctx.resolveQName(setLanguageQName, { optional: true })) {
+      operations.push({
+        type: "delete",
+        opId: "delete_legacy_set_language",
+        qname: setLanguageQName
+      });
+    }
+    return operations;
+  }
+
   function touchManagedCrudPages(ctx, projectName, pageQNames, result) {
     var unique = {};
     var qnames = [];
@@ -850,7 +863,11 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         };
       }
     }
-    var batchOperations = cleanupOperations.concat(rootChildOperations).concat(menuTitlePatch.operations || []).concat([
+    var batchOperations = cleanupOperations
+      .concat(rootChildOperations)
+      .concat(menuTitlePatch.operations || [])
+      .concat(legacyAppInitCleanupOperations(ctx, projectName))
+      .concat([
       appImportPatch.changed ? {
         type: "setProperties",
         opId: "app_component_imports",
@@ -875,7 +892,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
               children: ctx.ensureArray(pageShellTree.children)
             }
       }
-    ].filter(function (item) { return !!item; })).concat(pageMutationOperations);
+    ].filter(function (item) { return !!item; }))
+      .concat(pageMutationOperations);
     batchOperations.push(
       {
         type: "setProperties",
@@ -1038,7 +1056,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       ctx.setDuration(timings, "generatedSourcesCleanupMs", generatedSourcesCleanupStartedAt);
       result.runtimeEvidence.generatedSourcesPurge = {
         skipped: true,
-        reason: "Managed source purge disabled to avoid transient live-viewer compile failures during watched regeneration.",
+        reason: "Managed source purge is disabled because builder refresh must keep page and shared component sources intact.",
         pageDirsPurged: [],
         componentDirsPurged: [],
         deletedCount: 0
@@ -1055,7 +1073,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       );
       ctx.setDuration(timings, "pageTouchRefreshMs", pageTouchStartedAt);
       var mobileBuilderStartedAt = ctx.nowMillis();
-      var refreshTargets = [ctx.sessionBootstrapPageQName(projectName), ctx.pageQName(projectName, entryPage)].concat(reuseExistingSharedComponents ? [] : (sharedComponents.qnames || []));
+      var refreshTargets = [ctx.sessionBootstrapPageQName(projectName), ctx.pageQName(projectName, entryPage)]
+        .concat(stage === "final" ? (sharedComponents.qnames || []) : (reuseExistingSharedComponents ? [] : (sharedComponents.qnames || [])));
       for (var refreshIndex = 0; refreshIndex < entityPageLoads.length; refreshIndex++) {
         refreshTargets.push(entityPageLoads[refreshIndex].tree.qname);
       }

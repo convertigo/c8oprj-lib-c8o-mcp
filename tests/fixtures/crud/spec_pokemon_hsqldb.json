@@ -1,0 +1,131 @@
+{
+  "project": "PokemonCatalog",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "pokemon_catalog",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "pk"
+  },
+  "relations": [
+    {
+      "name": "pokemon_region",
+      "type": "many-to-one",
+      "fromEntity": "pokemon",
+      "fromField": "region_id",
+      "toEntity": "regions",
+      "toField": "id",
+      "required": true,
+      "label": "Region"
+    },
+    {
+      "name": "pokemon_primary_type",
+      "type": "many-to-one",
+      "fromEntity": "pokemon",
+      "fromField": "primary_type_id",
+      "toEntity": "types",
+      "toField": "id",
+      "required": true,
+      "label": "Primary type"
+    },
+    {
+      "name": "pokemon_secondary_type",
+      "type": "many-to-one",
+      "fromEntity": "pokemon",
+      "fromField": "secondary_type_id",
+      "toEntity": "types",
+      "toField": "id",
+      "required": false,
+      "label": "Secondary type"
+    }
+  ],
+  "entities": [
+    {
+      "name": "types",
+      "label": "Types",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(64)", "unique": true }
+      ]
+    },
+    {
+      "name": "regions",
+      "label": "Regions",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(64)", "unique": true }
+      ]
+    },
+    {
+      "name": "pokemon",
+      "label": "Pokemon",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "RegionId", "column": "region_id", "type": "INT", "required": true, "references": { "entity": "regions", "field": "id" } },
+        { "name": "PrimaryTypeId", "column": "primary_type_id", "type": "INT", "required": true, "references": { "entity": "types", "field": "id" } },
+        { "name": "SecondaryTypeId", "column": "secondary_type_id", "type": "INT", "references": { "entity": "types", "field": "id" } }
+      ],
+      "ui": {
+        "listFields": ["name", "region_id", "primary_type_id"],
+        "detailFields": ["name", "region_id", "primary_type_id", "secondary_type_id"],
+        "formFields": ["name", "region_id", "primary_type_id", "secondary_type_id"],
+        "fieldLabels": {
+          "region_id": "Region",
+          "primary_type_id": "Primary type",
+          "secondary_type_id": "Secondary type"
+        },
+        "relationFields": {
+          "region_id": {
+            "control": "select",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select region"
+          },
+          "primary_type_id": {
+            "control": "select",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select primary type"
+          },
+          "secondary_type_id": {
+            "control": "autocomplete",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select optional secondary type"
+          }
+        }
+      }
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 2,
+    "data": {
+      "types": [
+        { "name": "Grass" },
+        { "name": "Poison" },
+        { "name": "Electric" }
+      ],
+      "regions": [
+        { "name": "Kanto" },
+        { "name": "Johto" }
+      ],
+      "pokemon": [
+        { "name": "Bulbasaur", "region_id": 1, "primary_type_id": 1, "secondary_type_id": 2 },
+        { "name": "Pikachu", "region_id": 1, "primary_type_id": 3 }
+      ]
+    }
+  },
+  "ui": {
+    "entryPage": "Home",
+    "variant": "entity-pages"
+  }
+}

@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": ["start", "onboarding", "tree-authoring"],
     "prerequisites": [],
     "recommendedTools": [
@@ -39,7 +39,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_fastpath.md",
     "guideId": "convertigo/crud-fastpath",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -61,6 +61,43 @@
     ],
     "promptNames": [
       "convertigo-crud-fastpath"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
+    "name": "Convertigo CRUD Edit Fast Path",
+    "title": "Convertigo CRUD Edit Fast Path",
+    "description": "Fast extension rail for an existing deterministic CRUD project that is already green.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_crud_edit_fastpath.md",
+    "guideId": "convertigo/crud-edit-fastpath",
+    "revision": 1,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "crud",
+      "sql",
+      "ngx",
+      "existing-project",
+      "mono-agent"
+    ],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/crud-fastpath@2"
+    ],
+    "recommendedTools": [
+      "crud-status",
+      "upsert-crud",
+      "crud-proof",
+      "upsert-ngx-crud-kit",
+      "mobile-builder-open",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-crud-fastpath",
+      "convertigo-quickstart"
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false

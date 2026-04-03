@@ -381,7 +381,6 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
     var File = Packages.java.io.File;
     var projectDir = C8O.project.resolveProjectDirectory({ projectName: projectName });
     var appDir = new File(projectDir, "_private/ionic/src/app");
-    var pagesDir = new File(appDir, "pages");
     var componentsDir = new File(appDir, "components");
     var projectPrefix = ctx.normalizedIdentifier(projectName).toLowerCase();
     var summary = {
@@ -390,22 +389,9 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
       deletedCount: 0
     };
     var seen = {};
-    var pageEntries = ctx.ensureArray(pageNames);
-    for (var i = 0; i < pageEntries.length; i++) {
-      var pageName = ctx.trimmed(pageEntries[i]).toLowerCase();
-      if (!pageName.length || seen["page:" + pageName]) {
-        continue;
-      }
-      seen["page:" + pageName] = true;
-      var pageDir = new File(pagesDir, pageName);
-      if (pageDir.exists()) {
-        summary.deletedCount += deleteFileRecursively(pageDir);
-        summary.pageDirsPurged.push(pageName);
-      }
-    }
     var sharedEntries = ctx.ensureArray(sharedComponentNames);
-    for (var j = 0; j < sharedEntries.length; j++) {
-      var rawShared = ctx.trimmed(sharedEntries[j]);
+    for (var i = 0; i < sharedEntries.length; i++) {
+      var rawShared = ctx.trimmed(sharedEntries[i]);
       if (!rawShared.length) {
         continue;
       }

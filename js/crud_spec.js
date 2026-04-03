@@ -190,6 +190,73 @@ C8O.crudSpec = C8O.crudSpec || {};
     return keys;
   }
 
+  function findSeedFieldByKey(ctx, entity, rawKey) {
+    var lookupKeys = normalizedLookupKeys(ctx, rawKey);
+    if (!lookupKeys.length) {
+      return null;
+    }
+    var fields = ctx.ensureArray(entity && entity.fields);
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field) {
+        continue;
+      }
+      var fieldKeys = normalizedLookupKeys(ctx, field.column || field.name || "");
+      var nameKeys = normalizedLookupKeys(ctx, field.name || field.column || "");
+      for (var lookupIndex = 0; lookupIndex < lookupKeys.length; lookupIndex++) {
+        var currentKey = lookupKeys[lookupIndex];
+        if (fieldKeys.indexOf(currentKey) !== -1 || nameKeys.indexOf(currentKey) !== -1) {
+          return field;
+        }
+      }
+    }
+    return null;
+  }
+
+  function shouldAssignImplicitSeedPrimary(field) {
+    var type = String(field && field.type || "").toUpperCase();
+    return /^(INT|INTEGER|BIGINT|SMALLINT|DECIMAL|NUMERIC|NUMBER|SERIAL)\b/.test(type) || String(field && field.column || "") === "id";
+  }
+
+  function normalizeSeedData(ctx, entities, rawSeedData) {
+    if (!rawSeedData || typeof rawSeedData !== "object" || Array.isArray(rawSeedData)) {
+      return {};
+    }
+    var normalized = {};
+    var entityKeys = Object.keys(rawSeedData);
+    for (var entityIndex = 0; entityIndex < entityKeys.length; entityIndex++) {
+      var rawEntityKey = entityKeys[entityIndex];
+      var entity = C8O.crudSpec.findEntityByName(ctx, entities, rawEntityKey);
+      if (!entity) {
+        throw new Error("seed.data contains an unknown entity: " + rawEntityKey);
+      }
+      var rawRows = ctx.ensureArray(rawSeedData[rawEntityKey]);
+      var normalizedRows = [];
+      for (var rowIndex = 0; rowIndex < rawRows.length; rowIndex++) {
+        var rawRow = rawRows[rowIndex];
+        if (!rawRow || typeof rawRow !== "object" || Array.isArray(rawRow)) {
+          throw new Error("seed.data." + entity.name + "[" + rowIndex + "] must be an object");
+        }
+        var row = {};
+        var rawRowKeys = Object.keys(rawRow);
+        for (var keyIndex = 0; keyIndex < rawRowKeys.length; keyIndex++) {
+          var rawKey = rawRowKeys[keyIndex];
+          var field = findSeedFieldByKey(ctx, entity, rawKey);
+          if (!field) {
+            throw new Error("seed.data." + entity.name + "[" + rowIndex + "] contains an unknown field: " + rawKey);
+          }
+          row[field.column] = rawRow[rawKey];
+        }
+        if (entity.primaryField && row[entity.primaryField.column] == null && shouldAssignImplicitSeedPrimary(entity.primaryField)) {
+          row[entity.primaryField.column] = rowIndex + 1;
+        }
+        normalizedRows.push(row);
+      }
+      normalized[entity.name] = normalizedRows;
+    }
+    return normalized;
+  }
+
   C8O.crudSpec.normalizeEntityUi = function (ctx, rawUi) {
     var source = rawUi && typeof rawUi === "object" ? rawUi : {};
 
@@ -662,6 +729,7 @@ C8O.crudSpec = C8O.crudSpec || {};
     result.seed.enabled = result.seed.enabled == null ? true : ctx.toBoolean(result.seed.enabled, true);
     result.seed.profile = ctx.trimmed(result.seed.profile || "");
     result.seed.rowsPerEntity = parseInt(result.seed.rowsPerEntity, 10);
+    result.seed.data = normalizeSeedData(ctx, result.entities, result.seed.data);
     result.ui.entryPage = ctx.trimmed(result.ui.entryPage || "Home");
     result.ui.variant = ctx.trimmed(result.ui.variant || "entity-pages");
     C8O.crudSpec.applyCrmDefaults(ctx, result);

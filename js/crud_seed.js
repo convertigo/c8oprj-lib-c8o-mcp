@@ -26,6 +26,24 @@ C8O.crudSeed = C8O.crudSeed || {};
     return ctx.trimmed(fieldValue && fieldValue.type).toUpperCase().replace(/\(.*\)/, "");
   }
 
+  function explicitSeedRowsForEntity(spec, entity) {
+    var seedData = spec && spec.seed && spec.seed.data;
+    if (!seedData || typeof seedData !== "object") {
+      return [];
+    }
+    var rows = seedData[entity && entity.name];
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function hasExplicitSeedDataForEntity(spec, entity) {
+    var seedData = spec && spec.seed && spec.seed.data;
+    return !!seedData && typeof seedData === "object" && Object.prototype.hasOwnProperty.call(seedData, entity && entity.name);
+  }
+
+  function rowHasOwnColumn(row, column) {
+    return !!row && Object.prototype.hasOwnProperty.call(row, String(column || ""));
+  }
+
   function seedLiteral(ctx, spec, value, fieldValue) {
     if (value === null || value === undefined) {
       return "NULL";
@@ -254,6 +272,18 @@ C8O.crudSeed = C8O.crudSeed || {};
       }
       lookupField = lookupField || C8O.crudSeed.pickSeedLookupField(ctx, targetEntity);
       if (targetEntity && lookupField) {
+        var explicitRows = explicitSeedRowsForEntity(spec, targetEntity);
+        if (explicitRows.length) {
+          var explicitRow = explicitRows[rowIndex % explicitRows.length] || {};
+          var explicitId = explicitRow[targetEntity.primaryField && targetEntity.primaryField.column];
+          if (explicitId != null && explicitId !== "") {
+            return seedLiteral(ctx, spec, explicitId, targetEntity.primaryField);
+          }
+          var explicitLookupValue = explicitRow[lookupField.column];
+          if (explicitLookupValue != null && explicitLookupValue !== "") {
+            return "(SELECT " + targetEntity.primaryField.column + " FROM " + targetEntity.name + " WHERE " + lookupField.column + " = " + seedLiteral(ctx, spec, explicitLookupValue, lookupField) + ")";
+          }
+        }
         var targetValue = C8O.crudSeed.sampleValueForField(ctx, targetEntity, lookupField, rowIndex % Math.max(1, spec.seed.rowsPerEntity));
         return "(SELECT " + targetEntity.primaryField.column + " FROM " + targetEntity.name + " WHERE " + lookupField.column + " = " + seedLiteral(ctx, spec, targetValue, lookupField) + ")";
       }
@@ -261,9 +291,55 @@ C8O.crudSeed = C8O.crudSeed || {};
     return seedLiteral(ctx, spec, C8O.crudSeed.sampleValueForField(ctx, entity, field, rowIndex), field);
   };
 
+  function buildExplicitSeedSql(ctx, spec, entity, rows) {
+    if (!rows.length) {
+      return "";
+    }
+    var entityFields = ctx.ensureArray(entity && entity.fields);
+    var insertFields = [];
+    for (var fieldIndex = 0; fieldIndex < entityFields.length; fieldIndex++) {
+      var entityField = entityFields[fieldIndex];
+      for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        if (rowHasOwnColumn(rows[rowIndex], entityField.column)) {
+          insertFields.push(entityField);
+          break;
+        }
+      }
+    }
+    if (!insertFields.length) {
+      return "";
+    }
+    var values = [];
+    for (var row = 0; row < rows.length; row++) {
+      var currentRow = rows[row] || {};
+      var rowValues = [];
+      for (var insertIndex = 0; insertIndex < insertFields.length; insertIndex++) {
+        var insertField = insertFields[insertIndex];
+        if (!rowHasOwnColumn(currentRow, insertField.column)) {
+          rowValues.push(insertField.primary ? "DEFAULT" : "NULL");
+          continue;
+        }
+        rowValues.push(seedLiteral(ctx, spec, currentRow[insertField.column], insertField));
+      }
+      values.push("  (" + rowValues.join(", ") + ")");
+    }
+    var statement = "INSERT INTO " + entity.name + " (" + insertFields.map(function (item) { return item.column; }).join(", ") + ") VALUES\n" + values.join(",\n") + ";";
+    var includesPrimary = insertFields.some(function (field) {
+      return field && field.primary === true;
+    });
+    if (includesPrimary && String(spec && spec.database && spec.database.driver && spec.database.driver.id || "").toLowerCase() === "sqlserver") {
+      return "SET IDENTITY_INSERT " + entity.name + " ON;\n" + statement + "\nSET IDENTITY_INSERT " + entity.name + " OFF;";
+    }
+    return statement;
+  }
+
   C8O.crudSeed.buildSeedSql = function (ctx, spec, entity) {
     if (spec.seed.enabled !== true) {
       return "";
+    }
+    var explicitRows = explicitSeedRowsForEntity(spec, entity);
+    if (hasExplicitSeedDataForEntity(spec, entity)) {
+      return buildExplicitSeedSql(ctx, spec, entity, explicitRows);
     }
     var fields = [];
     for (var i = 0; i < entity.fields.length; i++) {
