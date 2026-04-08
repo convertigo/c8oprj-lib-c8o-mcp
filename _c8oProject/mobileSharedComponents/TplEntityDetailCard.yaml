@@ -1,22 +1,22 @@
 comment: Template source for the CRUD entity detail card.
-↓Title [ngx.components.UICompVariable-1775150040251]: 
+↓Title [ngx.components.UICompVariable-1775660575955]: 
   value: '''__DISPLAY_LABEL__ detail'''
-↓SelectedId [ngx.components.UICompVariable-1775150040253]: 
-↓RefreshToken [ngx.components.UICompVariable-1775150040255]: 
-↓Load [ngx.components.UISharedComponentEvent-1775150040257]: 
+↓SelectedId [ngx.components.UICompVariable-1775660575957]: 
+↓RefreshToken [ngx.components.UICompVariable-1775660575959]: 
+↓Load [ngx.components.UISharedComponentEvent-1775660575961]: 
   comment: Refresh the detail card local row when selection changes.
   componentEvent: onChanges
-  ↓ClearRow [ngx.components.UIDynamicAction-1775150040259]: 
+  ↓ClearRow [ngx.components.UIDynamicAction-1775660575963]: 
     beanData: |
       '{
        "ionBean": "SetLocalAction",
        "Property": "plain:row",
        "Value": "script:null"
       }'
-  ↓WhenSelected [ngx.components.UIDynamicAction-1775150040261]: 
+  ↓WhenSelected [ngx.components.UIDynamicAction-1775660575965]: 
     beanData: '{"ionBean":"IfAction","condition":"script:!!this.SelectedId"}'
     comment: Only read the row when one id is selected.
-    ↓LoadRow [ngx.components.UIDynamicAction-1775150040263]: 
+    ↓LoadRow [ngx.components.UIDynamicAction-1775660575967]: 
       beanData: |
         '{
          "ionBean": "CallSequenceAction",
@@ -24,39 +24,39 @@ comment: Template source for the CRUD entity detail card.
          "noLoading": "plain:true"
         }'
       comment: Load the selected row into component-local state.
-      ↓id [ngx.components.UIControlVariable-1775150040265]: 
+      ↓id [ngx.components.UIControlVariable-1775660575969]: 
         varValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:String(this.SelectedId || '')
-      ↓SetRow [ngx.components.UIDynamicAction-1775150040267]: 
+      ↓SetRow [ngx.components.UIDynamicAction-1775660575971]: 
         beanData: |
           '{
            "ionBean": "SetLocalAction",
            "Property": "plain:row",
            "Value": "script:(function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : null; })()"
           }'
-↓Card [ngx.components.UIDynamicElement-1775150040269]: 
+↓Card [ngx.components.UIDynamicElement-1775660575973]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓Header [ngx.components.UIDynamicElement-1775150040271]: 
+  ↓Header [ngx.components.UIDynamicElement-1775660575975]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓Title [ngx.components.UIDynamicElement-1775150040273]: 
+    ↓Title [ngx.components.UIDynamicElement-1775660575977]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775150040275]: 
+      ↓TitleText [ngx.components.UIText-1775660575979]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__ detail'
-  ↓Content [ngx.components.UIDynamicElement-1775150040277]: 
+  ↓Content [ngx.components.UIDynamicElement-1775660575981]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓Primary [ngx.components.UIDynamicElement-1775150040279]: 
+    ↓Primary [ngx.components.UIDynamicElement-1775660575983]: 
       beanData: '{"ionBean":"Paragraph"}'
       tagName: p
-      ↓PrimaryText [ngx.components.UIText-1775150040281]: 
+      ↓PrimaryText [ngx.components.UIText-1775660575985]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType

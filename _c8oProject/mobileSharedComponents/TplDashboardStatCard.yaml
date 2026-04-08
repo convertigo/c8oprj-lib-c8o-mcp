@@ -1,33 +1,33 @@
 comment: Template source for the CRUD dashboard stat card.
-↓Title [ngx.components.UICompVariable-1775150034761]: 
+↓Title [ngx.components.UICompVariable-1775660571909]: 
   value: '''__DISPLAY_LABEL__'''
-↓EntityKey [ngx.components.UICompVariable-1775150034763]: 
+↓EntityKey [ngx.components.UICompVariable-1775660571911]: 
   value: '''__ENTITY_KEY__'''
-↓Caption [ngx.components.UICompVariable-1775150034765]: 
+↓Caption [ngx.components.UICompVariable-1775660571913]: 
   value: '''Loaded from public facade'''
-↓TplDashboardStatCardCard [ngx.components.UIDynamicElement-1775150034767]: 
+↓TplDashboardStatCardCard [ngx.components.UIDynamicElement-1775660571915]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓TplDashboardStatCardHeader [ngx.components.UIDynamicElement-1775150034769]: 
+  ↓TplDashboardStatCardHeader [ngx.components.UIDynamicElement-1775660571917]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplDashboardStatCardTitleSlot [ngx.components.UIDynamicElement-1775150034771]: 
+    ↓TplDashboardStatCardTitleSlot [ngx.components.UIDynamicElement-1775660571919]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775150034773]: 
+      ↓TitleText [ngx.components.UIText-1775660571921]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__'
-  ↓TplDashboardStatCardContent [ngx.components.UIDynamicElement-1775150034775]: 
+  ↓TplDashboardStatCardContent [ngx.components.UIDynamicElement-1775660571923]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplDashboardStatCardValue [ngx.components.UIText-1775150034777]: 
+    ↓TplDashboardStatCardValue [ngx.components.UIText-1775660571925]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
           - MobileSmartSourceType: script:'' + (((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudCounts || {})[this.EntityKey] ?? (((((((($any(this).pageOwner || $any(this).owner || this).global || {})).crudRows || {})[this.EntityKey]) || [])).length ?? 0)))
-    ↓TplDashboardStatCardCaption [ngx.components.UIText-1775150034779]: 
+    ↓TplDashboardStatCardCaption [ngx.components.UIText-1775660571927]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType

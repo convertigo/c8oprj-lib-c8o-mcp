@@ -25,6 +25,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     ACTION_LABEL: "__ACTION_LABEL__",
     FACADE_PREFIX: "__FACADE_PREFIX__"
   };
+  var ENTITY_FORM_IDENTIFIER = "entityForm";
 
   function trimmed(ctx, value) {
     return ctx.trimmed(value);
@@ -329,11 +330,31 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function localRowSourceValue(ctx, projectName, fieldName, options) {
-    return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.row." + String(fieldName || ""), options);
+    return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.row?." + String(fieldName || ""), options);
   }
 
   function localDraftSourceValue(ctx, projectName, fieldName, options) {
-    return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.draft." + String(fieldName || ""), options);
+    return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.draft?." + String(fieldName || ""), options);
+  }
+
+  function formControlSourceValue(ctx, projectName, controlName, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    return {
+      mode: "SOURCE",
+      value: JSON.stringify({
+        filter: "Form",
+        project: projectName || TOKENS.PROJECT_NAME,
+        input: trimmed(ctx, extra.input || ""),
+        model: {
+          data: [{ identifier: extra.formIdentifier || ENTITY_FORM_IDENTIFIER }],
+          path: "?.controls[" + JSON.stringify(String(controlName || "")) + "]?.value",
+          prefix: extra.prefix == null ? "" : String(extra.prefix),
+          suffix: extra.suffix == null ? "" : String(extra.suffix),
+          custom: extra.custom == null ? "" : String(extra.custom),
+          useCustom: false
+        }
+      })
+    };
   }
 
   function extractRowsFromActionExpression(sourceExpression) {
@@ -423,8 +444,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       variables.push(
         ctx.controlVariableNode(
           column,
-          localDraftSourceValue(ctx, projectName, column),
-          "Forward the local draft field " + column + "."
+          formControlSourceValue(ctx, projectName, column),
+          "Forward the submitted form field " + column + "."
         )
       );
     }
@@ -571,7 +592,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
 
   function customizeEntityEditFormTree(ctx, tree, targetName, config, entities, projectName) {
     var eventNode = findTreeNodeByName(tree, "Load");
-    var contentNode = findTreeNodeByName(tree, "Content");
+    var formNode = findTreeNodeByNameAndClass(tree, "Form", "ngx.components.UIForm#UIForm");
     if (eventNode) {
       var relationFields = ensureArray(ctx, config && config.relationFields);
       for (var relationIndex = 0; relationIndex < relationFields.length; relationIndex++) {
@@ -631,16 +652,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         ctx.controlVariableNode("id", "String(this.SelectedId || '')")
       ].concat(nonVariableChildren(deleteNode));
     }
-    if (contentNode) {
-      var existingChildren = Array.isArray(contentNode.children) ? contentNode.children.slice() : [];
+    if (formNode) {
+      var existingChildren = Array.isArray(formNode.children) ? formNode.children.slice() : [];
       var formChildren = buildFormFieldChildren(ctx, config, entities, projectName);
-      if (existingChildren.length >= 4) {
-        formChildren.push(existingChildren[existingChildren.length - 4]);
-        formChildren.push(existingChildren[existingChildren.length - 3]);
+      if (existingChildren.length >= 2) {
         formChildren.push(existingChildren[existingChildren.length - 2]);
         formChildren.push(existingChildren[existingChildren.length - 1]);
       }
-      contentNode.children = formChildren;
+      formNode.children = formChildren;
     }
     return markManagedClone(tree, targetName);
   }
@@ -898,18 +917,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   function relationSelectNode(ctx, config) {
     var currentConfig = config || {};
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
-    var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
     var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
     var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
     var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
     var optionsExpression = relationOptionsExpression(currentConfig.optionsPropertyName);
-    var selectedValueExpression = "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))";
-    var selectedLabelExpression = currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression)
-      .replace(localDraftFieldExpression(ctx, fieldNameExpression, "''"), "(" + selectedValueExpression + ")");
     return {
       className: "ngx.components.UIDynamicElement#Select",
       name: "RelationSelect",
       properties: {
+        ControlName: {
+          mode: "PLAIN",
+          value: trimmed(ctx, currentConfig.column || "value")
+        },
         Label: {
           mode: "SCRIPT",
           value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
@@ -927,8 +946,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           value: "popover"
         },
         Value: {
-          mode: currentConfig.column ? "SOURCE" : "SCRIPT",
-          value: currentConfig.column ? localDraftSourceValue(ctx, currentConfig.projectName, currentConfig.column).value : localDraftFieldExpression(ctx, fieldNameExpression, "''")
+          mode: "SCRIPT",
+          value: localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''")
         }
       },
       children: [
@@ -953,17 +972,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
             }
           ],
           "idx"
-        ),
-        ctx.controlEventNode("Change", [
-          ctx.setLocalActionNode(
-            "SetDraft",
-            "draft",
-            buildLocalDraftUpdateExpression(ctx, fieldNameExpression, selectedValueExpression, selectedLabelExpression)
-          )
-        ], {
-          attrName: "(ionChange)",
-          eventName: "ionChange"
-        })
+        )
       ]
     };
   }
@@ -1023,6 +1032,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           className: "ngx.components.UIDynamicElement#Select",
           name: "Select",
           properties: {
+            ControlName: {
+              mode: "PLAIN",
+              value: trimmed(ctx, currentConfig.column || "value")
+            },
             Label: {
               mode: "SCRIPT",
               value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
@@ -1040,8 +1053,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               value: "popover"
             },
             Value: {
-              mode: currentConfig.column ? "SOURCE" : "SCRIPT",
-              value: currentConfig.column ? localDraftSourceValue(ctx, currentConfig.projectName, currentConfig.column).value : localDraftFieldExpression(ctx, fieldNameExpression, "''")
+              mode: "SCRIPT",
+              value: localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''")
             }
           },
           children: [
@@ -1097,12 +1110,15 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   function textInputNode(ctx, config) {
     var currentConfig = config || {};
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
-    var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
     var requiredExpression = currentConfig.requiredExpression || "false";
     return {
       className: "ngx.components.UIDynamicElement#Input",
       name: "Input",
       properties: {
+        ControlName: {
+          mode: "PLAIN",
+          value: trimmed(ctx, currentConfig.column || "value")
+        },
         Label: {
           mode: "SCRIPT",
           value: coalescedStringExpression(ctx, fieldLabelExpression, "Field")
@@ -1116,30 +1132,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           value: coalescedStringExpression(ctx, fieldLabelExpression, "Field")
         },
         Value: {
-          mode: currentConfig.column ? "SOURCE" : "SCRIPT",
-          value: currentConfig.column ? localDraftSourceValue(ctx, currentConfig.projectName, currentConfig.column).value : localDraftFieldExpression(ctx, fieldNameExpression, "''")
+          mode: "SCRIPT",
+          value: localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''")
         },
         Required: {
           mode: "SCRIPT",
           value: requiredExpression
         }
-      },
-      children: [
-        ctx.controlEventNode("InputChange", [
-          ctx.setLocalActionNode(
-            "SetDraft",
-            "draft",
-            buildLocalDraftUpdateExpression(
-              ctx,
-              fieldNameExpression,
-              "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))"
-            )
-          )
-        ], {
-          attrName: "(ionInput)",
-          eventName: "ionInput"
-        })
-      ]
+      }
     };
   }
 
@@ -1178,6 +1178,31 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       name: name,
       properties: properties,
       children: [ctx.scriptTextNode(name + "Text", labelExpression)].concat(ctx.ensureArray(children))
+    };
+  }
+
+  function submitButtonNode(ctx, name, labelExpression, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    var properties = {};
+    if (extra.color) {
+      properties.IonColor = {
+        mode: "PLAIN",
+        value: String(extra.color)
+      };
+    }
+    if (extra.fill) {
+      properties.IonFill = {
+        mode: "PLAIN",
+        value: String(extra.fill)
+      };
+    }
+    return {
+      className: "ngx.components.UIDynamicElement#SubmitButton",
+      name: name,
+      properties: properties,
+      children: [
+        ctx.scriptTextNode("Text", labelExpression)
+      ]
     };
   }
 
@@ -1456,6 +1481,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           comment: "Emitted when the user cancels form editing."
         }),
         ctx.sharedComponentEventNode(
+          "SharedComponent_Event",
+          "onInit",
+          [
+            ctx.setLocalActionNode("SetDraft", "draft", clonedSeedDraftExpression())
+          ],
+          "Initialize component-local draft once so form bindings stay safe."
+        ),
+        ctx.sharedComponentEventNode(
           "Load",
           "onChanges",
           [
@@ -1514,72 +1547,76 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "Content",
               children: [
-                ctx.ifDirectiveNode(
-                  "SaveCreateVisible",
-                  "this.Mode === 'create'",
-                  [
-                    scriptLabelButtonNode(
+                {
+                  className: "ngx.components.UIForm#UIForm",
+                  name: "Form",
+                  properties: {
+                    identifier: ENTITY_FORM_IDENTIFIER
+                  },
+                  children: [
+                    submitButtonNode(
                       ctx,
-                      "SaveCreate",
+                      "Submit",
                       "this.ActionLabel || " + ctx.scriptLiteral(TOKENS.ACTION_LABEL),
-                      { color: "primary" },
+                      { color: "primary" }
+                    ),
+                    ctx.controlEventNode(
+                      "Submit",
                       [
-                        ctx.controlEventNode("Event", [
-                          chainActionNodes(ctx, [
-                            ctx.callSequenceActionNode(
-                              "Create",
-                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_create_" + singular,
-                              [],
-                              {
-                                comment: "Create a new row from the local draft."
-                              }
-                            ),
-                            ctx.emitEventActionNode(
-                              "EmitSaved",
-                              componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
-                              "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", localDraftExpression())) + ", mode: 'create' }",
-                              "Notify the page glue that the create succeeded."
-                            )
-                          ])
-                        ])
-                      ]
+                        ctx.ifActionNode(
+                          "WhenCreateMode",
+                          "this.Mode === 'create' || !this.SelectedId",
+                          [
+                            chainActionNodes(ctx, [
+                              ctx.callSequenceActionNode(
+                                "Create",
+                                TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_create_" + singular,
+                                [],
+                                {
+                                  comment: "Create a new row from the submitted form."
+                                }
+                              ),
+                              ctx.emitEventActionNode(
+                                "EmitSaved",
+                                componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
+                                "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", localDraftExpression())) + ", mode: 'create' }",
+                                "Notify the page glue that the create succeeded."
+                              )
+                            ])
+                          ]
+                        ),
+                        ctx.ifActionNode(
+                          "WhenUpdateMode",
+                          "this.Mode !== 'create' && !!this.SelectedId",
+                          [
+                            chainActionNodes(ctx, [
+                              ctx.callSequenceActionNode(
+                                "Update",
+                                TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_update_" + singular,
+                                [
+                                  ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                                ],
+                                {
+                                  comment: "Update the selected row from the submitted form."
+                                }
+                              ),
+                              ctx.emitEventActionNode(
+                                "EmitSaved",
+                                componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
+                                "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", "{ id: this.SelectedId || '' }")) + ", mode: 'update' }",
+                                "Notify the page glue that the update succeeded."
+                              )
+                            ])
+                          ]
+                        )
+                      ],
+                      {
+                        attrName: "(ngSubmit)",
+                        eventName: "onSubmit"
+                      }
                     )
                   ]
-                ),
-                ctx.ifDirectiveNode(
-                  "SaveUpdateVisible",
-                  "this.Mode !== 'create' && !!this.SelectedId",
-                  [
-                    scriptLabelButtonNode(
-                      ctx,
-                      "SaveUpdate",
-                      "this.ActionLabel || " + ctx.scriptLiteral(TOKENS.ACTION_LABEL),
-                      { color: "primary" },
-                      [
-                        ctx.controlEventNode("Event", [
-                          chainActionNodes(ctx, [
-                            ctx.callSequenceActionNode(
-                              "Update",
-                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_update_" + singular,
-                              [
-                                ctx.controlVariableNode("id", "String(this.SelectedId || '')")
-                              ],
-                              {
-                                comment: "Update the selected row from the local draft."
-                              }
-                            ),
-                            ctx.emitEventActionNode(
-                              "EmitSaved",
-                              componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
-                              "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", "{ id: this.SelectedId || '' }")) + ", mode: 'update' }",
-                              "Notify the page glue that the update succeeded."
-                            )
-                          ])
-                        ])
-                      ]
-                    )
-                  ]
-                ),
+                },
                 scriptLabelButtonNode(
                   ctx,
                   "Cancel",

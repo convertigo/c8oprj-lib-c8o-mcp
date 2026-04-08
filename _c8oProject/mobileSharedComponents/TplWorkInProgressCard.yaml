@@ -1,27 +1,27 @@
 comment: Template source for the bootstrap work-in-progress card.
-↓TplWorkInProgressCardRoot [ngx.components.UIDynamicElement-1775150033431]: 
+↓TplWorkInProgressCardRoot [ngx.components.UIDynamicElement-1775660570897]: 
   beanData: '{"ionBean":"Card","IonColor":"plain:warning"}'
   tagName: ion-card
-  ↓TplWorkInProgressCardHeader [ngx.components.UIDynamicElement-1775150033433]: 
+  ↓TplWorkInProgressCardHeader [ngx.components.UIDynamicElement-1775660570899]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplWorkInProgressCardTitle [ngx.components.UIDynamicElement-1775150033435]: 
+    ↓TplWorkInProgressCardTitle [ngx.components.UIDynamicElement-1775660570901]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TplWorkInProgressCardTitleText [ngx.components.UIText-1775150033437]: 
+      ↓TplWorkInProgressCardTitleText [ngx.components.UIText-1775660570903]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: plain:Work in progress
-  ↓TplWorkInProgressCardContent [ngx.components.UIDynamicElement-1775150033439]: 
+  ↓TplWorkInProgressCardContent [ngx.components.UIDynamicElement-1775660570905]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplWorkInProgressText [ngx.components.UIText-1775150033441]: 
+    ↓TplWorkInProgressText [ngx.components.UIText-1775660570907]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
           - MobileSmartSourceType: 'script:''Bootstrap stage visible. Current build stage: '' + (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudBuildStage ?? ''bootstrap'')'
-    ↓TplWorkInProgressHint [ngx.components.UIText-1775150033443]: 
+    ↓TplWorkInProgressHint [ngx.components.UIText-1775660570909]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
