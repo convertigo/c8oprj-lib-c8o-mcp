@@ -410,9 +410,14 @@ C8O.crud = C8O.crud || {};
       entityPageContentQName: entityPageContentQName,
       entityRoutePath: entityRoutePath,
       sharedComponentQName: sharedComponentQName,
+      sharedSourceValue: sharedSourceValue,
+      formSourceValue: formSourceValue,
+      entityUiConfig: entityUiConfig,
       resolveQName: function (qname, options) {
         return C8O.dbo.resolve(qname, options || {});
       },
+      priorityOf: priorityOf,
+      pascalize: pascalize,
       buildCrmSharedComponentsTree: buildCrmSharedComponentsTree,
       buildEntityPagesSharedComponentsTree: buildEntityPagesSharedComponentsTree,
       buildEntityPagesPageBundle: buildEntityPagesPageBundle,
@@ -1377,6 +1382,10 @@ C8O.crud = C8O.crud || {};
 
   function sharedSourceValue(projectName, priority, variableName) {
     return C8O.crudUi.sharedSourceValue(crudUiContext(), projectName, priority, variableName);
+  }
+
+  function formSourceValue(projectName, priority, controlName, formIdentifier) {
+    return C8O.crudUi.formSourceValue(crudUiContext(), projectName, priority, controlName, formIdentifier);
   }
 
   function sequenceSourceValue(projectName, sequenceName, path, options) {

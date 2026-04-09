@@ -48,6 +48,40 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     );
   }
 
+  function dashboardRetryHandlerNode(ctx, projectName) {
+    return ctx.controlEventNode(
+      "Retry",
+      [
+        chainActionNodes(ctx, [
+          ctx.setGlobalActionNode("ClearCrudError", "crudError", "''"),
+          ctx.dynamicInvokeNode("InvokeEnsureSession", ctx.dashboardActionQName(projectName, "crud_ensure_session"), []),
+          ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(projectName, "crud_bootstrap_dashboard"), [])
+        ])
+      ],
+      {
+        attrName: "(Retry)",
+        eventName: "Retry"
+      }
+    );
+  }
+
+  function entityRetryHandlerNode(ctx, projectName) {
+    return ctx.controlEventNode(
+      "Retry",
+      [
+        chainActionNodes(ctx, [
+          ctx.setGlobalActionNode("ClearCrudError", "crudError", "''"),
+          ctx.dynamicInvokeNode("InvokeEnsureSession", ctx.dashboardActionQName(projectName, "crud_ensure_session"), []),
+          ctx.setLocalActionNode("Refresh", "refreshToken", "String(Date.now())")
+        ])
+      ],
+      {
+        attrName: "(Retry)",
+        eventName: "Retry"
+      }
+    );
+  }
+
   function entityPagesHeaderTitleTree(ctx, titleText) {
     return {
       className: "ngx.components.UIDynamicElement#Header",
@@ -378,7 +412,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               ctx.ifDirectiveNode(
                 "LoadingVisible",
                 "this.global?.crudLoading === true",
-                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [
+                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                ])]
               )
             ]
           }
@@ -395,7 +431,10 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               ctx.ifDirectiveNode(
                 "ErrorVisible",
                 "!!this.global?.crudError",
-                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [
+                  ctx.useVariableNode("Message", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                  dashboardRetryHandlerNode(ctx, projectName)
+                ])]
               )
             ]
           }
@@ -510,7 +549,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               ctx.ifDirectiveNode(
                 "LoadingVisible",
                 "this.global?.crudLoading === true",
-                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [
+                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                ])]
               )
             ]
           }
@@ -527,7 +568,10 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               ctx.ifDirectiveNode(
                 "ErrorVisible",
                 "!!this.global?.crudError",
-                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [
+                  ctx.useVariableNode("Message", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                  dashboardRetryHandlerNode(ctx, projectName)
+                ])]
               )
             ]
           }
@@ -640,7 +684,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               ctx.ifDirectiveNode(
                 prefix + "LoadingVisible",
                 "this.global?.crudLoading === true || " + ctx.crudEntityStatusExpression(ctx.scriptLiteral(entity.name)) + " === 'loading'",
-                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [])]
+                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [
+                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                ])]
               )
             ]
           }
@@ -657,7 +703,13 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               ctx.ifDirectiveNode(
                 prefix + "ErrorVisible",
                 "!!this.global?.crudError || !!" + ctx.crudEntityErrorExpression(ctx.scriptLiteral(entity.name)),
-                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [])]
+                [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [
+                  ctx.useVariableNode(
+                    "Message",
+                    "this.global?.crudError || (" + ctx.crudEntityErrorExpression(ctx.scriptLiteral(entity.name)) + ") || 'Retry if one facade call fails.'"
+                  ),
+                  entityRetryHandlerNode(ctx, projectName)
+                ])]
               )
             ]
           }

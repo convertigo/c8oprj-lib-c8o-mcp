@@ -267,6 +267,29 @@ C8O.crudUi = C8O.crudUi || {};
     };
   }
 
+  function formSourceValue(_ctx, projectName, priority, controlName, formIdentifier) {
+    var controlKey = String(controlName || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    return {
+      mode: "SOURCE",
+      value: JSON.stringify({
+        filter: "Form",
+        project: projectName,
+        input: "",
+        model: {
+          data: [{
+            priority: Number(priority),
+            identifier: String(formIdentifier || "entityForm")
+          }],
+          path: "?.controls?.['" + controlKey + "']?.value",
+          prefix: "",
+          suffix: "",
+          custom: "",
+          useCustom: false
+        }
+      })
+    };
+  }
+
   function sequenceSourceValue(ctx, projectName, sequenceName, path, options) {
     var sequenceQName = trimmed(ctx, sequenceName);
     var extra = options && typeof options === "object" ? options : {};
@@ -615,6 +638,7 @@ C8O.crudUi = C8O.crudUi || {};
   C8O.crudUi.labelNode = labelNode;
   C8O.crudUi.textElementNode = textElementNode;
   C8O.crudUi.sharedSourceValue = sharedSourceValue;
+  C8O.crudUi.formSourceValue = formSourceValue;
   C8O.crudUi.sequenceSourceValue = sequenceSourceValue;
   C8O.crudUi.globalSourceValue = globalSourceValue;
   C8O.crudUi.localSourceValue = localSourceValue;

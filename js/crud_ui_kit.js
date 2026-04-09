@@ -256,6 +256,142 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return ctx.trimmed(fallback || "Deterministic CRUD page refresh touch.");
   }
 
+  function crudPageHeaderBindingOperations(ctx, projectName, result) {
+    var componentQName = ctx.sharedComponentQName(projectName, "CrudPageHeader");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure CrudPageHeader shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var bindings = [
+      { node: "CrudPageHeaderCard.CrudPageHeaderHeader.CrudPageHeaderTitleSlot.TitleText", variable: "Title" },
+      { node: "CrudPageHeaderCard.CrudPageHeaderHeader.CrudPageHeaderSubtitleSlot.SubtitleText", variable: "Subtitle" }
+    ];
+    var operations = [];
+    for (var i = 0; i < bindings.length; i++) {
+      var current = bindings[i];
+      var qname = componentQName + "." + current.node;
+      if (!ctx.resolveQName(qname, { optional: true })) {
+        continue;
+      }
+      operations.push({
+        type: "setProperties",
+        opId: "crud_page_header_binding_" + ctx.normalizedIdentifier(current.variable),
+        qname: qname,
+        properties: {
+          textValue: ctx.sharedSourceValue(projectName, componentPriority, current.variable)
+        }
+      });
+    }
+    return operations;
+  }
+
+  function crudLoadingStateBindingOperations(ctx, projectName, result) {
+    var componentQName = ctx.sharedComponentQName(projectName, "CrudLoadingState");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure CrudLoadingState shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var textQName = componentQName + ".CrudLoadingStateCard.CrudLoadingStateContent.CrudLoadingStateText";
+    if (!ctx.resolveQName(textQName, { optional: true })) {
+      return [];
+    }
+    return [{
+      type: "setProperties",
+      opId: "crud_loading_state_binding_message",
+      qname: textQName,
+      properties: {
+        textValue: ctx.sharedSourceValue(projectName, componentPriority, "Message")
+      }
+    }];
+  }
+
+  function crudErrorRetryStateBindingOperations(ctx, projectName, result) {
+    var componentQName = ctx.sharedComponentQName(projectName, "CrudErrorRetryState");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure CrudErrorRetryState shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var textQName = componentQName + ".CrudErrorRetryStateCard.CrudErrorRetryStateContent.CrudErrorRetryStateText";
+    if (!ctx.resolveQName(textQName, { optional: true })) {
+      return [];
+    }
+    return [{
+      type: "setProperties",
+      opId: "crud_error_retry_state_binding_message",
+      qname: textQName,
+      properties: {
+        textValue: ctx.sharedSourceValue(projectName, componentPriority, "Message")
+      }
+    }];
+  }
+
+  function entityEditFormBindingOperations(ctx, projectName, facadePrefix, entity, entities, result) {
+    var entityName = ctx.trimmed(entity && entity.name);
+    if (!entityName.length) {
+      return [];
+    }
+    var componentQName = ctx.sharedComponentQName(projectName, ctx.pascalize(entityName) + "EditForm");
+    var formQName = componentQName + ".Card.Content.Form";
+    var formDbo = ctx.resolveQName(formQName, { optional: true });
+    if (!formDbo) {
+      return [];
+    }
+    var formPriority = Number(ctx.priorityOf(formDbo));
+    if (!isFinite(formPriority) || formPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure edit form sources: invalid form priority for " + formQName);
+      return [];
+    }
+    var uiConfig = typeof ctx.entityUiConfig === "function" ? ctx.entityUiConfig(projectName, facadePrefix, entity, entities) : null;
+    var editableFields = ctx.ensureArray(uiConfig && uiConfig.editableFields);
+    var operations = [];
+    for (var i = 0; i < editableFields.length; i++) {
+      var field = editableFields[i] || {};
+      var column = ctx.trimmed(field.column || field.name);
+      if (!column.length) {
+        continue;
+      }
+      var sourceValue = ctx.formSourceValue(projectName, formPriority, column, "entityForm");
+      var createVarQName = componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create." + column;
+      var updateVarQName = componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update." + column;
+      if (ctx.resolveQName(createVarQName, { optional: true })) {
+        operations.push({
+          type: "setProperties",
+          opId: "edit_form_create_binding_" + ctx.normalizedIdentifier(entityName + "_" + column),
+          qname: createVarQName,
+          properties: {
+            varValue: sourceValue
+          }
+        });
+      }
+      if (ctx.resolveQName(updateVarQName, { optional: true })) {
+        operations.push({
+          type: "setProperties",
+          opId: "edit_form_update_binding_" + ctx.normalizedIdentifier(entityName + "_" + column),
+          qname: updateVarQName,
+          properties: {
+            varValue: sourceValue
+          }
+        });
+      }
+    }
+    return operations;
+  }
+
   function setPageRootFlagValue(pageDbo, enabled) {
     var value = !!enabled;
     var updated = false;
@@ -998,6 +1134,16 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.rootPageSelection = applyPageRootSelection(ctx, projectName, entryPage, result);
     var sharedBindingsStartedAt = ctx.nowMillis();
     var sharedBindingOperations = [];
+    if (isEntityPages) {
+      sharedBindingOperations = sharedBindingOperations.concat(crudPageHeaderBindingOperations(ctx, projectName, result));
+      sharedBindingOperations = sharedBindingOperations.concat(crudLoadingStateBindingOperations(ctx, projectName, result));
+      sharedBindingOperations = sharedBindingOperations.concat(crudErrorRetryStateBindingOperations(ctx, projectName, result));
+      for (var sharedBindingEntityIndex = 0; sharedBindingEntityIndex < entities.length; sharedBindingEntityIndex++) {
+        sharedBindingOperations = sharedBindingOperations.concat(
+          entityEditFormBindingOperations(ctx, projectName, facadePrefix, entities[sharedBindingEntityIndex], entities, result)
+        );
+      }
+    }
     if (sharedBindingOperations.length) {
       var sharedBindingsBatch = ctx.batchApply({
         target: ctx.ngxAppQName(projectName),

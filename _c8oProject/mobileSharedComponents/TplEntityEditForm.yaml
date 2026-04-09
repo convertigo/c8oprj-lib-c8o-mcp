@@ -1,54 +1,54 @@
 comment: Template source for the CRUD entity edit form.
-↓SelectedId [ngx.components.UICompVariable-1775729046146]: 
-↓Mode [ngx.components.UICompVariable-1775729046148]: 
+↓SelectedId [ngx.components.UICompVariable-1775751427309]: 
+↓Mode [ngx.components.UICompVariable-1775751427311]: 
   value: '''create'''
-↓RefreshToken [ngx.components.UICompVariable-1775729046150]: 
-↓DraftSeed [ngx.components.UICompVariable-1775729046152]: 
+↓RefreshToken [ngx.components.UICompVariable-1775751427313]: 
+↓DraftSeed [ngx.components.UICompVariable-1775751427315]: 
   value: '{}'
-↓ActionLabel [ngx.components.UICompVariable-1775729046154]: 
+↓ActionLabel [ngx.components.UICompVariable-1775751427317]: 
   value: '''__ACTION_LABEL__'''
-↓CreateTitle [ngx.components.UICompVariable-1775729046156]: 
+↓CreateTitle [ngx.components.UICompVariable-1775751427319]: 
   value: '''Create __ENTITY_SINGULAR__'''
-↓EditTitle [ngx.components.UICompVariable-1775729046158]: 
+↓EditTitle [ngx.components.UICompVariable-1775751427321]: 
   value: '''Edit __ENTITY_SINGULAR__'''
-↓DeleteLabel [ngx.components.UICompVariable-1775729046160]: 
+↓DeleteLabel [ngx.components.UICompVariable-1775751427323]: 
   value: '''Delete __ENTITY_SINGULAR__'''
-↓Saved [ngx.components.UICompEvent-1775729046162]: 
+↓Saved [ngx.components.UICompEvent-1775751427325]: 
   attrName: Saved
   comment: Emitted after a successful create or update.
-↓Deleted [ngx.components.UICompEvent-1775729046164]: 
+↓Deleted [ngx.components.UICompEvent-1775751427327]: 
   attrName: Deleted
   comment: Emitted after a successful delete.
-↓Cancelled [ngx.components.UICompEvent-1775729046166]: 
+↓Cancelled [ngx.components.UICompEvent-1775751427329]: 
   attrName: Cancelled
   comment: Emitted when the user cancels form editing.
-↓SharedComponent_Event [ngx.components.UISharedComponentEvent-1775729046168]: 
+↓SharedComponent_Event [ngx.components.UISharedComponentEvent-1775751427331]: 
   comment: Initialize component-local draft once so form bindings stay safe.
   componentEvent: onInit
-  ↓SetDraft [ngx.components.UIDynamicAction-1775729046170]: 
+  ↓SetDraft [ngx.components.UIDynamicAction-1775751427333]: 
     beanData: |
       '{
        "ionBean": "SetLocalAction",
        "Property": "plain:draft",
        "Value": "script:(function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this)"
       }'
-↓Load [ngx.components.UISharedComponentEvent-1775729046172]: 
+↓Load [ngx.components.UISharedComponentEvent-1775751427335]: 
   comment: Maintain the entity draft in component-local state.
   componentEvent: onChanges
-  ↓WhenCreateMode [ngx.components.UIDynamicAction-1775729046174]: 
+  ↓WhenCreateMode [ngx.components.UIDynamicAction-1775751427337]: 
     beanData: '{"ionBean":"IfAction","condition":"script:this.Mode === ''create'' || !this.SelectedId"}'
     comment: Initialize the local draft when the page switches to create mode.
-    ↓SetCreateDraft [ngx.components.UIDynamicAction-1775729046176]: 
+    ↓SetCreateDraft [ngx.components.UIDynamicAction-1775751427339]: 
       beanData: |
         '{
          "ionBean": "SetLocalAction",
          "Property": "plain:draft",
          "Value": "script:(function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this)"
         }'
-  ↓WhenUpdateMode [ngx.components.UIDynamicAction-1775729046178]: 
+  ↓WhenUpdateMode [ngx.components.UIDynamicAction-1775751427341]: 
     beanData: '{"ionBean":"IfAction","condition":"script:this.Mode !== ''create'' && !!this.SelectedId"}'
     comment: Reload the local draft when the selected id changes.
-    ↓LoadRow [ngx.components.UIDynamicAction-1775729046180]: 
+    ↓LoadRow [ngx.components.UIDynamicAction-1775751427343]: 
       beanData: |
         '{
          "ionBean": "CallSequenceAction",
@@ -56,54 +56,54 @@ comment: Template source for the CRUD entity edit form.
          "noLoading": "plain:true"
         }'
       comment: Load the selected row into the local draft.
-      ↓id [ngx.components.UIControlVariable-1775729046182]: 
+      ↓id [ngx.components.UIControlVariable-1775751427345]: 
         varValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:String(this.SelectedId || '')
-      ↓SetUpdateDraft [ngx.components.UIDynamicAction-1775729046184]: 
+      ↓SetUpdateDraft [ngx.components.UIDynamicAction-1775751427347]: 
         beanData: |
           '{
            "ionBean": "SetLocalAction",
            "Property": "plain:draft",
            "Value": "script:(function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : (function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this); })()"
           }'
-↓Card [ngx.components.UIDynamicElement-1775729046186]: 
+↓Card [ngx.components.UIDynamicElement-1775751427349]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓Header [ngx.components.UIDynamicElement-1775729046188]: 
+  ↓Header [ngx.components.UIDynamicElement-1775751427351]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓Title [ngx.components.UIDynamicElement-1775729046190]: 
+    ↓Title [ngx.components.UIDynamicElement-1775751427353]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775729046192]: 
+      ↓TitleText [ngx.components.UIText-1775751427355]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: 'script:(this.Mode === ''create'' ? (this.CreateTitle || ''Create __ENTITY_SINGULAR__'') : (this.EditTitle || ''Edit __ENTITY_SINGULAR__''))'
-  ↓Content [ngx.components.UIDynamicElement-1775729046194]: 
+  ↓Content [ngx.components.UIDynamicElement-1775751427357]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓Form [ngx.components.UIForm-1775729046196]: 
+    ↓Form [ngx.components.UIForm-1775751427359]: 
       identifier: entityForm
-      ↓Submit [ngx.components.UIDynamicElement-1775729048574]: 
+      ↓Submit [ngx.components.UIDynamicElement-1775751429297]: 
         beanData: '{"ionBean":"SubmitButton","IonColor":"plain:primary"}'
         tagName: ion-button
-        ↓Text [ngx.components.UIText-1775729048576]: 
+        ↓Text [ngx.components.UIText-1775751429299]: 
           textValue: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: script:this.ActionLabel || '__ACTION_LABEL__'
-      ↓Submit1 [ngx.components.UIControlEvent-1775729048578]: 
+      ↓Submit1 [ngx.components.UIControlEvent-1775751429301]: 
         attrName: (ngSubmit)
         eventName: onSubmit
-        ↓WhenCreateMode [ngx.components.UIDynamicAction-1775729048580]: 
+        ↓WhenCreateMode [ngx.components.UIDynamicAction-1775751429303]: 
           beanData: '{"ionBean":"IfAction","condition":"script:this.Mode === ''create'' || !this.SelectedId"}'
-          ↓Create [ngx.components.UIDynamicAction-1775729048582]: 
+          ↓Create [ngx.components.UIDynamicAction-1775751429305]: 
             beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___create___ENTITY_SINGULAR__"}'
             comment: Create a new row from the submitted form.
-            ↓EmitSaved [ngx.components.UIDynamicEmit-1775729048584]: 
+            ↓EmitSaved [ngx.components.UIDynamicEmit-1775751429307]: 
               beanData: |
                 '{
                  "ionBean": "EmitEventAction",
@@ -111,17 +111,17 @@ comment: Template source for the CRUD entity edit form.
                  "data": "script:{ id: (function(){\n  var selectedRow = (function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : (this.local?.draft || {}); })();\n  var selectedId = selectedRow && selectedRow.id != null ? selectedRow.id : '''';\n  return '''' + selectedId;\n})(), mode: ''create'' }"
                 }'
               comment: Notify the page glue that the create succeeded.
-        ↓WhenUpdateMode [ngx.components.UIDynamicAction-1775729048586]: 
+        ↓WhenUpdateMode [ngx.components.UIDynamicAction-1775751429309]: 
           beanData: '{"ionBean":"IfAction","condition":"script:this.Mode !== ''create'' && !!this.SelectedId"}'
-          ↓Update [ngx.components.UIDynamicAction-1775729048588]: 
+          ↓Update [ngx.components.UIDynamicAction-1775751429311]: 
             beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___update___ENTITY_SINGULAR__"}'
             comment: Update the selected row from the submitted form.
-            ↓id [ngx.components.UIControlVariable-1775729048590]: 
+            ↓id [ngx.components.UIControlVariable-1775751429313]: 
               varValue: 
                 - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                   - MobileSmartSourceType: script:String(this.SelectedId || '')
-            ↓EmitSaved [ngx.components.UIDynamicEmit-1775729048592]: 
+            ↓EmitSaved [ngx.components.UIDynamicEmit-1775751429315]: 
               beanData: |
                 '{
                  "ionBean": "EmitEventAction",
@@ -129,16 +129,16 @@ comment: Template source for the CRUD entity edit form.
                  "data": "script:{ id: (function(){\n  var selectedRow = (function(){ if (out?.row && typeof out.row === ''object'') { return out.row; } var rows = (Array.isArray(out?.rows) ? out.rows : []); return rows.length ? rows[0] : { id: this.SelectedId || '''' }; })();\n  var selectedId = selectedRow && selectedRow.id != null ? selectedRow.id : '''';\n  return '''' + selectedId;\n})(), mode: ''update'' }"
                 }'
               comment: Notify the page glue that the update succeeded.
-    ↓Cancel [ngx.components.UIDynamicElement-1775729048594]: 
+    ↓Cancel [ngx.components.UIDynamicElement-1775751429317]: 
       beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
       tagName: ion-button
-      ↓CancelText [ngx.components.UIText-1775729048596]: 
+      ↓CancelText [ngx.components.UIText-1775751429319]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:'Cancel'
-      ↓Event [ngx.components.UIControlEvent-1775729048598]: 
-        ↓EmitCancelled [ngx.components.UIDynamicEmit-1775729048600]: 
+      ↓Event [ngx.components.UIControlEvent-1775751429321]: 
+        ↓EmitCancelled [ngx.components.UIDynamicEmit-1775751429323]: 
           beanData: |
             '{
              "ionBean": "EmitEventAction",
@@ -146,10 +146,10 @@ comment: Template source for the CRUD entity edit form.
              "data": "script:{ id: this.SelectedId || '''', mode: this.Mode || ''create'' }"
             }'
           comment: Notify the page glue that the form was cancelled.
-    ↓DeleteVisible [ngx.components.UIControlDirective-1775729048602]: 
+    ↓DeleteVisible [ngx.components.UIControlDirective-1775751429325]: 
       directiveExpression: this.Mode !== 'create' && !!this.SelectedId
       directiveName: If
-      ↓Delete [ngx.components.UIDynamicElement-1775729048604]: 
+      ↓Delete [ngx.components.UIDynamicElement-1775751429327]: 
         beanData: |
           '{
            "ionBean": "Button",
@@ -157,21 +157,21 @@ comment: Template source for the CRUD entity edit form.
            "IonFill": "plain:outline"
           }'
         tagName: ion-button
-        ↓DeleteText [ngx.components.UIText-1775729048606]: 
+        ↓DeleteText [ngx.components.UIText-1775751429329]: 
           textValue: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: script:this.DeleteLabel || 'Delete __ENTITY_SINGULAR__'
-        ↓Event [ngx.components.UIControlEvent-1775729048608]: 
-          ↓Delete [ngx.components.UIDynamicAction-1775729048610]: 
+        ↓Event [ngx.components.UIControlEvent-1775751429331]: 
+          ↓Delete [ngx.components.UIDynamicAction-1775751429333]: 
             beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___delete___ENTITY_SINGULAR__"}'
             comment: Delete the selected row.
-            ↓id [ngx.components.UIControlVariable-1775729048612]: 
+            ↓id [ngx.components.UIControlVariable-1775751429335]: 
               varValue: 
                 - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                   - MobileSmartSourceType: script:String(this.SelectedId || '')
-            ↓EmitDeleted [ngx.components.UIDynamicEmit-1775729048614]: 
+            ↓EmitDeleted [ngx.components.UIDynamicEmit-1775751429337]: 
               beanData: |
                 '{
                  "ionBean": "EmitEventAction",

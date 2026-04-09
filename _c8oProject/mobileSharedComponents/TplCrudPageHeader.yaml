@@ -1,27 +1,27 @@
 comment: Template source for the CRUD page header.
-↓Title [ngx.components.UICompVariable-1775729038172]: 
+↓Title [ngx.components.UICompVariable-1775751420353]: 
   value: '''__DISPLAY_LABEL__'''
-↓Subtitle [ngx.components.UICompVariable-1775729038174]: 
+↓Subtitle [ngx.components.UICompVariable-1775751420355]: 
   value: '''Live CRUD template preview'''
-↓TplCrudPageHeaderCard [ngx.components.UIDynamicElement-1775729038176]: 
+↓TplCrudPageHeaderCard [ngx.components.UIDynamicElement-1775751420357]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓TplCrudPageHeaderHeader [ngx.components.UIDynamicElement-1775729040554]: 
+  ↓TplCrudPageHeaderHeader [ngx.components.UIDynamicElement-1775751422295]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplCrudPageHeaderTitleSlot [ngx.components.UIDynamicElement-1775729040556]: 
+    ↓TplCrudPageHeaderTitleSlot [ngx.components.UIDynamicElement-1775751422297]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775729040558]: 
+      ↓TitleText [ngx.components.UIText-1775751422299]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-            - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__'
-    ↓TplCrudPageHeaderSubtitleSlot [ngx.components.UIDynamicElement-1775729040560]: 
+            - MobileSmartSourceType: script:this.Title
+    ↓TplCrudPageHeaderSubtitleSlot [ngx.components.UIDynamicElement-1775751422301]: 
       beanData: '{"ionBean":"CardSubTitle"}'
       tagName: ion-card-subtitle
-      ↓SubtitleText [ngx.components.UIText-1775729040562]: 
+      ↓SubtitleText [ngx.components.UIText-1775751422303]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-            - MobileSmartSourceType: 'script:this.Subtitle || (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudStatus === ''ok'' ? ''Public facade data is live.'' : (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudLoading ? ''Loading public facade...'' : (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudError || ''Preparing public facade state.'')))'
+            - MobileSmartSourceType: script:this.Subtitle

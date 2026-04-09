@@ -339,6 +339,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
 
   function formControlSourceValue(ctx, projectName, controlName, options) {
     var extra = options && typeof options === "object" ? options : {};
+    var controlKey = String(controlName || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     return {
       mode: "SOURCE",
       value: JSON.stringify({
@@ -347,7 +348,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         input: trimmed(ctx, extra.input || ""),
         model: {
           data: [{ identifier: extra.formIdentifier || ENTITY_FORM_IDENTIFIER }],
-          path: "?.controls[" + JSON.stringify(String(controlName || "")) + "]?.value",
+          path: "?.controls?.['" + controlKey + "']?.value",
           prefix: extra.prefix == null ? "" : String(extra.prefix),
           suffix: extra.suffix == null ? "" : String(extra.suffix),
           custom: extra.custom == null ? "" : String(extra.custom),
@@ -680,7 +681,6 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function templateCrudPageHeaderTree(ctx) {
-    var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: templateComponentName("CrudPageHeader"),
@@ -701,12 +701,12 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "TplCrudPageHeaderTitleSlot",
-                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL))
+                  ctx.scriptTextNode("TitleText", "this.Title")
                 ),
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardSubTitle",
                   "TplCrudPageHeaderSubtitleSlot",
-                  ctx.scriptTextNode("SubtitleText", "this.Subtitle || ((" + crudGlobal + ").crudStatus === 'ok' ? 'Public facade data is live.' : ((" + crudGlobal + ").crudLoading ? 'Loading public facade...' : ((" + crudGlobal + ").crudError || 'Preparing public facade state.')))")
+                  ctx.scriptTextNode("SubtitleText", "this.Subtitle")
                 )
               ]
             }
@@ -761,7 +761,6 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function templateCrudLoadingStateTree(ctx) {
-    var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: templateComponentName("CrudLoadingState"),
@@ -769,6 +768,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         comment: "Template source for the CRUD loading state card."
       },
       children: [
+        ctx.compVariableNode("Message", ctx.scriptLiteral("Loading public facade rows...")),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "TplCrudLoadingStateCard",
@@ -777,7 +777,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "TplCrudLoadingStateContent",
               children: [
-                ctx.scriptTextNode("TplCrudLoadingStateText", "(" + crudGlobal + ").crudLoading ? 'Loading public facade rows...' : ('State: ' + ((" + crudGlobal + ").crudStatus ?? 'idle'))")
+                ctx.scriptTextNode("TplCrudLoadingStateText", "this.Message")
               ]
             }
           ]
@@ -787,8 +787,6 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function templateCrudErrorRetryStateTree(ctx) {
-    var bootstrapQName = ctx.dashboardActionQName(TOKENS.PROJECT_NAME, "crud_bootstrap_dashboard");
-    var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: templateComponentName("CrudErrorRetryState"),
@@ -796,6 +794,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         comment: "Template source for the CRUD error/retry card."
       },
       children: [
+        ctx.compVariableNode("Message", ctx.scriptLiteral("Retry if one facade call fails.")),
+        ctx.compEventNode("Retry", "Retry", {
+          comment: "Emitted when the user asks to retry the current CRUD state."
+        }),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "TplCrudErrorRetryStateCard",
@@ -821,14 +823,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "TplCrudErrorRetryStateContent",
               children: [
-                ctx.scriptTextNode("TplCrudErrorRetryStateText", "(" + crudGlobal + ").crudError || 'Retry if one facade call fails.'"),
+                ctx.scriptTextNode("TplCrudErrorRetryStateText", "this.Message"),
                 ctx.entityPagesButtonNode(
                   "RetryButton",
                   "Retry",
                   { color: "primary" },
                   [
                     ctx.controlEventNode("Event", [
-                      ctx.dynamicInvokeNode("InvokeBootstrapDashboard", bootstrapQName, [])
+                      ctx.emitEventActionNode(
+                        "EmitRetry",
+                        componentEventQName(templateComponentName("CrudErrorRetryState"), "Retry"),
+                        "{}"
+                      )
                     ])
                   ]
                 )
@@ -1730,14 +1736,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                   className: "ngx.components.UIDynamicElement#GridCol",
                   name: "LoadingCol",
                   children: [
-                    ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, templateComponentName("CrudLoadingState")), "UseTplCrudLoadingState", [])
+                    ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, templateComponentName("CrudLoadingState")), "UseTplCrudLoadingState", [
+                      ctx.useVariableNode("Message", ctx.scriptLiteral("Loading template preview..."))
+                    ])
                   ]
                 },
                 {
                   className: "ngx.components.UIDynamicElement#GridCol",
                   name: "ErrorCol",
                   children: [
-                    ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, templateComponentName("CrudErrorRetryState")), "UseTplCrudErrorRetryState", [])
+                    ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, templateComponentName("CrudErrorRetryState")), "UseTplCrudErrorRetryState", [
+                      ctx.useVariableNode("Message", ctx.scriptLiteral("Preview retry state for maintainers."))
+                    ])
                   ]
                 }
               ]
@@ -2045,7 +2055,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                         ctx.ifDirectiveNode(
                           "LoadingVisible",
                           "this.global?.crudLoading === true",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "Loading", [])]
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "Loading", [
+                            ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                          ])]
                         )
                       ]
                     }
@@ -2062,7 +2074,23 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                         ctx.ifDirectiveNode(
                           "ErrorVisible",
                           "!!this.global?.crudError",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "Error", [])]
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "Error", [
+                            ctx.useVariableNode("Message", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                            ctx.controlEventNode(
+                              "Retry",
+                              [
+                                chainActionNodes(ctx, [
+                                  ctx.setGlobalActionNode("ClearCrudError", "crudError", "''"),
+                                  ctx.dynamicInvokeNode("InvokeEnsureSession", ctx.dashboardActionQName(sourceProject, "crud_ensure_session"), []),
+                                  ctx.dynamicInvokeNode("InvokeBootstrapDashboard", ctx.dashboardActionQName(sourceProject, "crud_bootstrap_dashboard"), [])
+                                ])
+                              ],
+                              {
+                                attrName: "(Retry)",
+                                eventName: "Retry"
+                              }
+                            )
+                          ])]
                         )
                       ]
                     }

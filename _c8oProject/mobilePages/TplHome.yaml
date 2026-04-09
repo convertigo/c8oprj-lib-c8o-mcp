@@ -18,63 +18,89 @@ scriptContent:
         
 segment: tpl-home
 title: Template Home
-↓Content [ngx.components.UIDynamicElement-1775729054902]: 
+↓Content [ngx.components.UIDynamicElement-1775751434701]: 
   beanData: '{"ionBean":"Content"}'
   tagName: ion-content
-  ↓Grid [ngx.components.UIDynamicElement-1775729054904]: 
+  ↓Grid [ngx.components.UIDynamicElement-1775751434703]: 
     beanData: '{"ionBean":"Grid"}'
     tagName: ion-grid
-    ↓HeaderRow [ngx.components.UIDynamicElement-1775729054906]: 
+    ↓HeaderRow [ngx.components.UIDynamicElement-1775751434705]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓HeaderCol [ngx.components.UIDynamicElement-1775729054908]: 
+      ↓HeaderCol [ngx.components.UIDynamicElement-1775751434707]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓PageHeader [ngx.components.UIUseShared-1775729054910]: 
+        ↓PageHeader [ngx.components.UIUseShared-1775751434709]: 
           sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
-          ↓Title [ngx.components.UIUseVariable-1775729054912]: 
+          ↓Title [ngx.components.UIUseVariable-1775751434711]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'__PROJECT_NAME__ CRUD home'
-          ↓Subtitle [ngx.components.UIUseVariable-1775729054914]: 
+          ↓Subtitle [ngx.components.UIUseVariable-1775751434713]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'Open an entity page to edit live facade data.'
-    ↓BootstrapRow [ngx.components.UIDynamicElement-1775729054916]: 
+    ↓BootstrapRow [ngx.components.UIDynamicElement-1775751434715]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓BootstrapCol [ngx.components.UIDynamicElement-1775729054918]: 
+      ↓BootstrapCol [ngx.components.UIDynamicElement-1775751434717]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓BootstrapVisible [ngx.components.UIControlDirective-1775729054920]: 
+        ↓BootstrapVisible [ngx.components.UIControlDirective-1775751434719]: 
           directiveExpression: ((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'
           directiveName: If
-          ↓Bootstrap [ngx.components.UIUseShared-1775729054922]: 
+          ↓Bootstrap [ngx.components.UIUseShared-1775751434721]: 
             sharedcomponent: ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
-    ↓RouteRow [ngx.components.UIDynamicElement-1775729054924]: 
+    ↓RouteRow [ngx.components.UIDynamicElement-1775751434723]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-    ↓LoadingRow [ngx.components.UIDynamicElement-1775729054926]: 
+    ↓LoadingRow [ngx.components.UIDynamicElement-1775751434725]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓LoadingCol [ngx.components.UIDynamicElement-1775729054928]: 
+      ↓LoadingCol [ngx.components.UIDynamicElement-1775751434727]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓LoadingVisible [ngx.components.UIControlDirective-1775729054930]: 
+        ↓LoadingVisible [ngx.components.UIControlDirective-1775751434729]: 
           directiveExpression: this.global?.crudLoading === true
           directiveName: If
-          ↓Loading [ngx.components.UIUseShared-1775729054932]: 
+          ↓Loading [ngx.components.UIUseShared-1775751434731]: 
             sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
-    ↓ErrorRow [ngx.components.UIDynamicElement-1775729054934]: 
+            ↓Message [ngx.components.UIUseVariable-1775751434733]: 
+              varValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: script:'Loading public facade rows...'
+    ↓ErrorRow [ngx.components.UIDynamicElement-1775751434735]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓ErrorCol [ngx.components.UIDynamicElement-1775729054936]: 
+      ↓ErrorCol [ngx.components.UIDynamicElement-1775751434737]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓ErrorVisible [ngx.components.UIControlDirective-1775729054938]: 
+        ↓ErrorVisible [ngx.components.UIControlDirective-1775751434739]: 
           directiveExpression: '!!this.global?.crudError'
           directiveName: If
-          ↓Error [ngx.components.UIUseShared-1775729054940]: 
+          ↓Error [ngx.components.UIUseShared-1775751434741]: 
             sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
+            ↓Message [ngx.components.UIUseVariable-1775751434743]: 
+              varValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: script:this.global?.crudError || 'Retry if one facade call fails.'
+            ↓Retry [ngx.components.UIControlEvent-1775752420200]: 
+              attrName: (Retry)
+              eventName: Retry
+              ↓ClearCrudError [ngx.components.UIDynamicAction-1775752421156]: 
+                beanData: |
+                  '{
+                   "ionBean": "SetGlobalAction",
+                   "Property": "plain:crudError",
+                   "Value": "script:''''"
+                  }'
+                ↓InvokeEnsureSession [ngx.components.UIDynamicInvoke-1775752422128]: 
+                  beanData: '{"ionBean":"InvokeAction"}'
+                  stack: ConvertigoMCP.Application.NgxApp.crud_ensure_session
+                  ↓InvokeBootstrapDashboard [ngx.components.UIDynamicInvoke-1775752423100]: 
+                    beanData: '{"ionBean":"InvokeAction"}'
+                    stack: ConvertigoMCP.Application.NgxApp.crud_bootstrap_dashboard
