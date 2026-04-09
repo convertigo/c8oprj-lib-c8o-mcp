@@ -947,7 +947,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         },
         Value: {
           mode: "SCRIPT",
-          value: localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''")
+          value: "('' + ((" + localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''") + ") ?? ''))"
         }
       },
       children: [
@@ -963,7 +963,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               properties: {
                 Value: {
                   mode: "SCRIPT",
-                  value: "String(" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + " ?? '')"
+                  value: "('' + ((" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + ") ?? ''))"
                 }
               },
               children: [
@@ -1054,7 +1054,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
             },
             Value: {
               mode: "SCRIPT",
-              value: localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''")
+              value: "('' + ((" + localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''") + ") ?? ''))"
             }
           },
           children: [
@@ -1066,7 +1066,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               [
                 ctx.ifDirectiveNode(
                   "Match",
-                  "(String(" + optionLabelExpression + " || '').toLowerCase().indexOf(String(" + searchExpr + " || '').toLowerCase()) !== -1)",
+                  "((('' + ((" + optionLabelExpression + ") ?? '')).toLowerCase()).indexOf(('' + ((" + searchExpr + ") ?? '')).toLowerCase()) !== -1)",
                   [
                     {
                       className: "ngx.components.UIDynamicElement#SelectOption",
@@ -1074,7 +1074,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       properties: {
                         Value: {
                           mode: "SCRIPT",
-                          value: "String(" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + " ?? '')"
+                          value: "('' + ((" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + ") ?? ''))"
                         }
                       },
                       children: [
@@ -1229,9 +1229,25 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           "SharedComponent_Event",
           "onInit",
           [
-            ctx.setLocalActionNode("SetRows", "rows", "[]")
+            chainActionNodes(ctx, [
+              ctx.setLocalActionNode("SetRows", "rows", "[]"),
+              ctx.callSequenceActionNode(
+                "LoadRows",
+                TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_list_" + TOKENS.ENTITY_PLURAL,
+                [],
+                {
+                  noLoading: true,
+                  comment: "Load the entity rows into component-local state on first render."
+                }
+              ),
+              ctx.setLocalActionNode(
+                "SetLoadedRows",
+                "rows",
+                "out?.rows || []"
+              )
+            ])
           ],
-          "Initialize component-local rows once so bindings stay simple."
+          "Initialize component-local rows once, then load them immediately."
         ),
         ctx.sharedComponentEventNode(
           "Load",
@@ -1239,7 +1255,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           [
             ctx.ifActionNode(
               "WhenRefreshReady",
-              "!!this.RefreshToken",
+              "!!scope?.changes?.RefreshToken && !scope?.changes?.RefreshToken.firstChange",
               [
                 chainActionNodes(ctx, [
                   ctx.callSequenceActionNode(
@@ -1259,7 +1275,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ])
               ],
               {
-                comment: "Only load rows after the page has initialized the session and provided a refresh token."
+                comment: "Reload rows only when the page explicitly bumps the refresh token."
               }
             )
           ],

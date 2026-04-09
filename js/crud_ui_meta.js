@@ -290,21 +290,97 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     return ctx.findEntityByName(entities, references.entity);
   }
 
-  function buildRelationConfig(ctx, entities, field, override, label) {
-    if (!field || !field.references) {
+  function relationInferenceTokens(ctx, field) {
+    var column = ctx.normalizedIdentifier(field && (field.column || field.name));
+    if (!column.length) {
+      return [];
+    }
+    var base = column.replace(/_id$/, "");
+    var parts = base.split("_");
+    var candidates = [];
+    var seen = {};
+    function push(token) {
+      var normalized = ctx.normalizedIdentifier(token || "");
+      if (!normalized.length || seen[normalized]) {
+        return;
+      }
+      seen[normalized] = true;
+      candidates.push(normalized);
+    }
+    push(base);
+    for (var index = 1; index < parts.length; index++) {
+      push(parts.slice(index).join("_"));
+    }
+    return candidates;
+  }
+
+  function inferRelatedEntityFromField(ctx, entities, field, override) {
+    var column = ctx.normalizedIdentifier(field && (field.column || field.name));
+    var currentOverride = override && typeof override === "object" ? override : null;
+    if (!column.length) {
       return null;
     }
-    var relatedEntity = findRelatedEntity(ctx, entities, field.references);
+    if (!currentOverride && !/_id$/i.test(column)) {
+      return null;
+    }
+    if (currentOverride && ctx.trimmed(currentOverride.entity || "").length && typeof ctx.findEntityByName === "function") {
+      var explicit = ctx.findEntityByName(entities, currentOverride.entity);
+      if (explicit) {
+        return explicit;
+      }
+    }
+    var candidates = relationInferenceTokens(ctx, field);
+    if (!candidates.length) {
+      return null;
+    }
+    var entityList = ctx.ensureArray(entities);
+    for (var candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+      var candidate = candidates[candidateIndex];
+      for (var entityIndex = 0; entityIndex < entityList.length; entityIndex++) {
+        var entity = entityList[entityIndex] || {};
+        var pluralName = ctx.normalizedIdentifier(entity.name || "");
+        var singularName = ctx.normalizedIdentifier(entity.singular || "");
+        if (!pluralName.length && !singularName.length) {
+          continue;
+        }
+        if (singularName === candidate || pluralName === candidate || pluralName === ctx.pluralize(candidate)) {
+          return entity;
+        }
+      }
+    }
+    return null;
+  }
+
+  function effectiveRelationReferences(ctx, entities, field, override) {
+    if (field && field.references) {
+      return ctx.clone(field.references);
+    }
+    var inferredEntity = inferRelatedEntityFromField(ctx, entities, field, override);
+    if (!inferredEntity) {
+      return null;
+    }
+    return {
+      entity: inferredEntity.name,
+      field: (inferredEntity.primaryField && inferredEntity.primaryField.column) || "id"
+    };
+  }
+
+  function buildRelationConfig(ctx, entities, field, override, label) {
+    var references = effectiveRelationReferences(ctx, entities, field, override);
+    if (!field || !references) {
+      return null;
+    }
+    var relatedEntity = findRelatedEntity(ctx, entities, references) || inferRelatedEntityFromField(ctx, entities, field, override);
     var preferredLabelField = preferredRelationLabelField(ctx, relatedEntity);
     var optionLabelField = ctx.normalizedIdentifier(
       (override && override.optionLabelField) ||
       (preferredLabelField && (preferredLabelField.column || preferredLabelField.name)) ||
-      (field.references && field.references.field) ||
+      (references && references.field) ||
       "id"
     );
     var optionValueField = ctx.normalizedIdentifier(
       (override && override.optionValueField) ||
-      (field.references && field.references.field) ||
+      (references && references.field) ||
       "id"
     );
     var control = ctx.trimmed(override && override.control || "").toLowerCase();
@@ -315,8 +391,8 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       control: control,
       column: field.column,
       label: label,
-      entity: ctx.pluralize(ctx.normalizedIdentifier(field.references.entity)),
-      targetField: ctx.normalizedIdentifier(field.references.field || "id"),
+      entity: ctx.pluralize(ctx.normalizedIdentifier(references.entity)),
+      targetField: ctx.normalizedIdentifier(references.field || "id"),
       optionLabelField: optionLabelField,
       optionValueField: optionValueField,
       placeholder: ctx.trimmed(override && override.placeholder || ("Select " + label)),
@@ -401,9 +477,6 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       }
       fieldLabels[normalizedKey] = overrideUi.fieldLabels[normalizedKey] || inferFieldLabel(ctx, currentField);
     }
-    var relationFields = editableFields.filter(function (field) {
-      return field && field.references;
-    });
     var mappedListFields = listFields.map(function (field) {
       return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {});
     });
@@ -420,7 +493,11 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     });
     var previewPrimary = mappedListFields[0] || mappedDetailFields[0] || buildConfiguredField(ctx, entities, C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}, fieldLabels, overrideUi.relationFields || {});
     var previewSecondary = mappedListFields[1] || mappedDetailFields[1] || mappedListFields[0] || mappedDetailFields[0] || buildConfiguredField(ctx, entities, C8O.crudUiMeta.secondPreviewField(ctx, entity) || C8O.crudUiMeta.firstNonPrimaryField(ctx, entity) || entity.primaryField || {}, fieldLabels, overrideUi.relationFields || {});
-    var mappedRelationFields = relationFields.filter(function (field) {
+    var mappedRelationFields = formFields.map(function (field) {
+      return buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {});
+    }).filter(function (field) {
+      return !!(field && field.relation);
+    }).filter(function (field) {
       var allowed = false;
       for (var i = 0; i < formFields.length; i++) {
         if (formFields[i] && formFields[i].column === field.column) {
@@ -430,7 +507,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       }
       return allowed;
     }).map(function (field) {
-      var relation = buildConfiguredField(ctx, entities, field, fieldLabels, overrideUi.relationFields || {}).relation;
+      var relation = field.relation;
       if (!relation) {
         return relation;
       }
