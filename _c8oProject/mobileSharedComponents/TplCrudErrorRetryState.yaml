@@ -1,35 +1,35 @@
 comment: Template source for the CRUD error/retry card.
-↓TplCrudErrorRetryStateCard [ngx.components.UIDynamicElement-1775660570921]: 
+↓TplCrudErrorRetryStateCard [ngx.components.UIDynamicElement-1775729040590]: 
   beanData: '{"ionBean":"Card","IonColor":"plain:warning"}'
   tagName: ion-card
-  ↓TplCrudErrorRetryStateHeader [ngx.components.UIDynamicElement-1775660570923]: 
+  ↓TplCrudErrorRetryStateHeader [ngx.components.UIDynamicElement-1775729040592]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplCrudErrorRetryStateTitle [ngx.components.UIDynamicElement-1775660570925]: 
+    ↓TplCrudErrorRetryStateTitle [ngx.components.UIDynamicElement-1775729040594]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TplCrudErrorRetryStateTitleText [ngx.components.UIText-1775660570927]: 
+      ↓TplCrudErrorRetryStateTitleText [ngx.components.UIText-1775729040596]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: plain:Retry CRUD state
-  ↓TplCrudErrorRetryStateContent [ngx.components.UIDynamicElement-1775660570929]: 
+  ↓TplCrudErrorRetryStateContent [ngx.components.UIDynamicElement-1775729040598]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplCrudErrorRetryStateText [ngx.components.UIText-1775660570931]: 
+    ↓TplCrudErrorRetryStateText [ngx.components.UIText-1775729040600]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
           - MobileSmartSourceType: script:((($any(this).pageOwner || $any(this).owner || this).global || {})).crudError || 'Retry if one facade call fails.'
-    ↓RetryButton [ngx.components.UIDynamicElement-1775660570933]: 
+    ↓RetryButton [ngx.components.UIDynamicElement-1775729040602]: 
       beanData: '{"ionBean":"Button","IonColor":"plain:primary"}'
       tagName: ion-button
-      ↓RetryButtonText [ngx.components.UIText-1775660570935]: 
+      ↓RetryButtonText [ngx.components.UIText-1775729040604]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: plain:Retry
-      ↓Event [ngx.components.UIControlEvent-1775660570937]: 
-        ↓InvokeBootstrapDashboard [ngx.components.UIDynamicInvoke-1775660571905]: 
+      ↓Event [ngx.components.UIControlEvent-1775729040606]: 
+        ↓InvokeBootstrapDashboard [ngx.components.UIDynamicInvoke-1775729041610]: 
           beanData: '{"ionBean":"InvokeAction"}'
           stack: __PROJECT_NAME__.Application.NgxApp.crud_bootstrap_dashboard

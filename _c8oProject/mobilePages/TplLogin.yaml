@@ -4,64 +4,64 @@ inAutoMenu: false
 preloadPriority: high
 segment: tpl-login
 title: Template Login
-↓Header [ngx.components.UIDynamicElement-1775660583143]: 
+↓Header [ngx.components.UIDynamicElement-1775729054864]: 
   beanData: '{"ionBean":"Header"}'
   tagName: ion-header
-  ↓ToolBar [ngx.components.UIDynamicElement-1775660583145]: 
+  ↓ToolBar [ngx.components.UIDynamicElement-1775729054866]: 
     beanData: '{"ionBean":"ToolBar"}'
     tagName: ion-toolbar
-    ↓BarTitle [ngx.components.UIDynamicElement-1775660583147]: 
+    ↓BarTitle [ngx.components.UIDynamicElement-1775729054868]: 
       beanData: '{"ionBean":"BarTitle"}'
       tagName: ion-title
-      ↓Text [ngx.components.UIText-1775660583149]: 
+      ↓Text [ngx.components.UIText-1775729054870]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: plain:Template Login
-↓Content [ngx.components.UIDynamicElement-1775660583151]: 
+↓Content [ngx.components.UIDynamicElement-1775729054872]: 
   beanData: '{"ionBean":"Content"}'
   tagName: ion-content
-  ↓Grid [ngx.components.UIDynamicElement-1775660583153]: 
+  ↓Grid [ngx.components.UIDynamicElement-1775729054874]: 
     beanData: '{"ionBean":"Grid"}'
     tagName: ion-grid
-    ↓Row [ngx.components.UIDynamicElement-1775660583155]: 
+    ↓Row [ngx.components.UIDynamicElement-1775729054876]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓Col [ngx.components.UIDynamicElement-1775660583157]: 
+      ↓Col [ngx.components.UIDynamicElement-1775729054878]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓Card [ngx.components.UIDynamicElement-1775660583159]: 
+        ↓Card [ngx.components.UIDynamicElement-1775729054880]: 
           beanData: '{"ionBean":"Card"}'
           tagName: ion-card
-          ↓Header [ngx.components.UIDynamicElement-1775660583161]: 
+          ↓Header [ngx.components.UIDynamicElement-1775729054882]: 
             beanData: '{"ionBean":"CardHeader"}'
             tagName: ion-card-header
-            ↓Title [ngx.components.UIDynamicElement-1775660583163]: 
+            ↓Title [ngx.components.UIDynamicElement-1775729054884]: 
               beanData: '{"ionBean":"CardTitle"}'
               tagName: ion-card-title
-              ↓TitleText [ngx.components.UIText-1775660583165]: 
+              ↓TitleText [ngx.components.UIText-1775729054886]: 
                 textValue: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                     - MobileSmartSourceType: plain:Opening the app
-            ↓Subtitle [ngx.components.UIDynamicElement-1775660583167]: 
+            ↓Subtitle [ngx.components.UIDynamicElement-1775729054888]: 
               beanData: '{"ionBean":"CardSubTitle"}'
               tagName: ion-card-subtitle
-              ↓SubtitleText [ngx.components.UIText-1775660583169]: 
+              ↓SubtitleText [ngx.components.UIText-1775729054890]: 
                 textValue: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                     - MobileSmartSourceType: plain:Authenticating the demo session before opening the CRUD home page.
-          ↓CardContent [ngx.components.UIDynamicElement-1775660583171]: 
+          ↓CardContent [ngx.components.UIDynamicElement-1775729054892]: 
             beanData: '{"ionBean":"CardContent"}'
             tagName: ion-card-content
-            ↓Spinner [ngx.components.UIDynamicElement-1775660583173]: 
+            ↓Spinner [ngx.components.UIDynamicElement-1775729054894]: 
               beanData: '{"ionBean":"Spinner"}'
               tagName: ion-spinner
-            ↓Hint [ngx.components.UIDynamicElement-1775660583175]: 
+            ↓Hint [ngx.components.UIDynamicElement-1775729054896]: 
               beanData: '{"ionBean":"Paragraph"}'
               tagName: p
-              ↓HintText [ngx.components.UIText-1775660583177]: 
+              ↓HintText [ngx.components.UIText-1775729054898]: 
                 textValue: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType

@@ -4,7 +4,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.21
+  version: 0.0.22
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml

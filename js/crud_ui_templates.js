@@ -373,9 +373,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return "(this.local?.draft || {})";
   }
 
+  function dynamicFieldAccessNoFallback(objectExpression, fieldExpression) {
+    return "((" + String(objectExpression || "null") + ")?.[" + String(fieldExpression || "''") + "])";
+  }
+
   function localDraftFieldExpression(ctx, fieldExpression, fallbackExpression) {
     var fallback = fallbackExpression == null ? "''" : String(fallbackExpression);
     return ctx.dynamicFieldAccessExpression(localDraftExpression(), fieldExpression, fallback);
+  }
+
+  function localDraftFieldStringExpression(ctx, fieldExpression) {
+    var access = dynamicFieldAccessNoFallback(localDraftExpression(), fieldExpression);
+    return "((" + access + ") != null ? '' + (" + access + ") : '')";
   }
 
   function clonedSeedDraftExpression() {
@@ -384,7 +393,13 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
 
   function selectedRowIdExpression(rowExpression) {
     var row = String(rowExpression || "row");
-    return "String(" + row + "?.id ?? '')";
+    return [
+      "(function(){",
+      "  var selectedRow = " + row + ";",
+      "  var selectedId = selectedRow && selectedRow.id != null ? selectedRow.id : '';",
+      "  return '' + selectedId;",
+      "})()"
+    ].join("\n");
   }
 
   function buildLocalDraftUpdateExpression(ctx, fieldNameExpression, valueExpression, labelExpression) {
@@ -883,13 +898,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function relationSearchExpression(propertyName) {
-    return "(this.local?." + String(propertyName || "relationSearch") + " || '')";
+    var property = String(propertyName || "relationSearch");
+    return "((this.local?." + property + ") != null ? this.local?." + property + " : '')";
   }
 
   function relationDraftLabelExpression(ctx, fieldNameExpression) {
     var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
     var labelFieldExpression = "((" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ") + '__label')";
-    return ctx.dynamicFieldAccessExpression(localDraftExpression(), labelFieldExpression, "''");
+    return localDraftFieldStringExpression(ctx, labelFieldExpression);
   }
 
   function currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
@@ -978,133 +994,25 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function relationAutocompleteNode(ctx, config) {
-    var currentConfig = config || {};
-    var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
-    var fieldNameExpression = currentConfig.fieldNameExpression || "this.FieldName";
-    var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
-    var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
-    var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
-    var optionsExpression = relationOptionsExpression(currentConfig.optionsPropertyName);
-    var searchExpr = relationSearchExpression(currentConfig.searchPropertyName);
-    var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
-    var selectedValueExpression = "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))";
-    var selectedLabelExpression = currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression)
-      .replace(localDraftFieldExpression(ctx, fieldNameExpression, "''"), "(" + selectedValueExpression + ")");
-    return {
-      className: "ngx.components.UIDynamicElement#DivTag",
-      name: "RelationAutocomplete",
-      children: [
-        {
-          className: "ngx.components.UIDynamicElement#Input",
-          name: "Search",
-          properties: {
-            Label: {
-              mode: "SCRIPT",
-              value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
-            },
-            LabelPlacement: {
-              mode: "PLAIN",
-              value: "stacked"
-            },
-            Placeholder: {
-              mode: "SCRIPT",
-              value: placeholderExpression
-            },
-            Value: {
-              mode: "SCRIPT",
-              value: "((" + searchExpr + ") || (" + relationDraftLabelExpression(ctx, fieldNameExpression) + ") || (" + localDraftFieldExpression(ctx, fieldNameExpression, "''") + "))"
-            }
-          },
-          children: [
-            ctx.controlEventNode("Input", [
-              ctx.setLocalActionNode(
-                "SetSearch",
-                currentConfig.searchPropertyName,
-                "(event && event.detail && event.detail.value != null ? event.detail.value : ((event && event.target && event.target.value != null) ? event.target.value : ''))"
-              )
-            ], {
-              attrName: "(ionInput)",
-              eventName: "ionInput"
-            })
-          ]
-        },
-        {
-          className: "ngx.components.UIDynamicElement#Select",
-          name: "Select",
-          properties: {
-            ControlName: {
-              mode: "PLAIN",
-              value: trimmed(ctx, currentConfig.column || "value")
-            },
-            Label: {
-              mode: "SCRIPT",
-              value: coalescedStringExpression(ctx, fieldLabelExpression, "Related")
-            },
-            LabelPlacement: {
-              mode: "PLAIN",
-              value: "stacked"
-            },
-            Placeholder: {
-              mode: "SCRIPT",
-              value: placeholderExpression
-            },
-            Interface: {
-              mode: "PLAIN",
-              value: "popover"
-            },
-            Value: {
-              mode: "SCRIPT",
-              value: "('' + ((" + localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''") + ") ?? ''))"
-            }
-          },
-          children: [
-            ctx.iterationDirectiveNode(
-              "Loop",
-              TOKENS.PROJECT_NAME,
-              "option",
-              optionsExpression,
-              [
-                ctx.ifDirectiveNode(
-                  "Match",
-                  "((('' + ((" + optionLabelExpression + ") ?? '')).toLowerCase()).indexOf(('' + ((" + searchExpr + ") ?? '')).toLowerCase()) !== -1)",
-                  [
-                    {
-                      className: "ngx.components.UIDynamicElement#SelectOption",
-                      name: "Option",
-                      properties: {
-                        Value: {
-                          mode: "SCRIPT",
-                          value: "('' + ((" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + ") ?? ''))"
-                        }
-                      },
-                      children: [
-                        ctx.smartTextNode("Text", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, optionLabelExpression))
-                      ]
-                    }
-                  ]
-                )
-              ],
-              "idx"
-            ),
-            ctx.controlEventNode("Change", [
-              ctx.setLocalActionNode(
-                "SetDraft",
-                "draft",
-                buildLocalDraftUpdateExpression(ctx, fieldNameExpression, selectedValueExpression, selectedLabelExpression)
-              ),
-              ctx.setLocalActionNode(
-                "SetSearch",
-                currentConfig.searchPropertyName,
-                selectedLabelExpression
-              )
-            ], {
-              attrName: "(ionChange)",
-              eventName: "ionChange"
-            })
-          ]
-        }
-      ]
-    };
+    return relationSelectNode(ctx, config);
+  }
+
+  function routeButtonNode(ctx, name, label, routerPath, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    return ctx.entityPagesButtonNode(
+      name,
+      label,
+      {
+        color: extra.color,
+        fill: extra.fill,
+        routerPath: routerPath,
+        routerDirection: extra.routerDirection
+      }
+    );
+  }
+
+  function templatePageActionQName(ctx, projectName, pageName) {
+    return String(projectName || TOKENS.PROJECT_NAME) + ".Application.NgxApp.pg:" + trimmed(ctx, pageName || "Home");
   }
 
   function textInputNode(ctx, config) {
@@ -2211,7 +2119,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                           ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " workspace")),
                           ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select, edit, create, then return to the home page if needed."))
                         ]),
-                        ctx.entityPagesButtonNode("Back", "Back to home", { routerPath: TOKENS.ENTRY_ROUTE, routerDirection: "back", fill: "outline" }, [])
+                        routeButtonNode(ctx, "Back", "Back to home", "/home", { fill: "outline", routerDirection: "back" })
                       ]
                     }
                   ]
@@ -2415,7 +2323,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     ];
   }
 
-  function landingRouteCardNode(ctx, entity) {
+  function landingRouteCardNode(ctx, projectName, entity) {
     var componentPrefix = ctx.pascalize(entity.name);
     return {
       className: "ngx.components.UIDynamicElement#GridCol",
@@ -2450,7 +2358,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                   "Hint",
                   ctx.plainTextNode("Text", "Open the " + entity.label.toLowerCase() + " workspace to browse and edit live facade data.")
                 ),
-                ctx.entityPagesButtonNode("Open", "Open " + entity.label, { routerPath: ctx.entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
+                routeButtonNode(ctx, "Open", "Open " + entity.label, "/" + ctx.entityRouteSegment(entity), { color: "primary", routerDirection: "forward" })
               ]
             }
           ]
@@ -2501,7 +2409,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     var routeRow = directChildByName(ctx, homeGrid, "RouteRow");
     if (routeRow) {
       routeRow.children = entities.map(function (entity) {
-        return landingRouteCardNode(ctx, entity);
+        return landingRouteCardNode(ctx, projectName, entity);
       });
     }
     if (trimmed(ctx, stage).toLowerCase() === "final" && homeGrid) {

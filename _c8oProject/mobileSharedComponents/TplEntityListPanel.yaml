@@ -1,36 +1,51 @@
 comment: Template source for the CRUD entity list panel.
-↓Title [ngx.components.UICompVariable-1775660571931]: 
+↓Title [ngx.components.UICompVariable-1775729041636]: 
   value: '''__DISPLAY_LABEL__'''
-↓PrimaryField [ngx.components.UICompVariable-1775660571933]: 
+↓PrimaryField [ngx.components.UICompVariable-1775729041638]: 
   value: '''__PRIMARY_FIELD__'''
-↓SecondaryField [ngx.components.UICompVariable-1775660571935]: 
+↓SecondaryField [ngx.components.UICompVariable-1775729041640]: 
   value: '''__SECONDARY_FIELD__'''
-↓ActionLabel [ngx.components.UICompVariable-1775660571937]: 
+↓ActionLabel [ngx.components.UICompVariable-1775729041642]: 
   value: '''New __ENTITY_SINGULAR__'''
-↓RefreshToken [ngx.components.UICompVariable-1775660571939]: 
-↓ItemSelected [ngx.components.UICompEvent-1775660571941]: 
+↓RefreshToken [ngx.components.UICompVariable-1775729041644]: 
+↓ItemSelected [ngx.components.UICompEvent-1775729041646]: 
   attrName: ItemSelected
   comment: Emitted when the user selects one row from the local list.
-↓NewRequested [ngx.components.UICompEvent-1775660571943]: 
+↓NewRequested [ngx.components.UICompEvent-1775729041648]: 
   attrName: NewRequested
   comment: Emitted when the user wants to create a new row.
-↓SharedComponent_Event [ngx.components.UISharedComponentEvent-1775660571945]: 
-  comment: Initialize component-local rows once so bindings stay simple.
+↓SharedComponent_Event [ngx.components.UISharedComponentEvent-1775729041650]: 
+  comment: Initialize component-local rows once, then load them immediately.
   componentEvent: onInit
-  ↓SetRows [ngx.components.UIDynamicAction-1775660572913]: 
+  ↓SetRows [ngx.components.UIDynamicAction-1775729042654]: 
     beanData: |
       '{
        "ionBean": "SetLocalAction",
        "Property": "plain:rows",
        "Value": "script:[]"
       }'
-↓Load [ngx.components.UISharedComponentEvent-1775660572915]: 
+    ↓LoadRows [ngx.components.UIDynamicAction-1775729043674]: 
+      beanData: |
+        '{
+         "ionBean": "CallSequenceAction",
+         "requestable": "plain:__PROJECT_NAME__.__FACADE_PREFIX___list___ENTITY_PLURAL__",
+         "noLoading": "plain:true"
+        }'
+      comment: Load the entity rows into component-local state on first render.
+      ↓SetLoadedRows [ngx.components.UIDynamicAction-1775729043676]: 
+        beanData: |
+          '{
+           "ionBean": "SetLocalAction",
+           "Property": "plain:rows",
+           "Value": "script:out?.rows || []"
+          }'
+↓Load [ngx.components.UISharedComponentEvent-1775729043678]: 
   comment: Load the local rows whenever inputs change.
   componentEvent: onChanges
-  ↓WhenRefreshReady [ngx.components.UIDynamicAction-1775660572917]: 
-    beanData: '{"ionBean":"IfAction","condition":"script:!!this.RefreshToken"}'
-    comment: Only load rows after the page has initialized the session and provided a refresh token.
-    ↓LoadRows [ngx.components.UIDynamicAction-1775660573901]: 
+  ↓WhenRefreshReady [ngx.components.UIDynamicAction-1775729043680]: 
+    beanData: '{"ionBean":"IfAction","condition":"script:!!scope?.changes?.RefreshToken && !scope?.changes?.RefreshToken.firstChange"}'
+    comment: Reload rows only when the page explicitly bumps the refresh token.
+    ↓LoadRows [ngx.components.UIDynamicAction-1775729043682]: 
       beanData: |
         '{
          "ionBean": "CallSequenceAction",
@@ -38,48 +53,48 @@ comment: Template source for the CRUD entity list panel.
          "noLoading": "plain:true"
         }'
       comment: Load the entity rows into component-local state.
-      ↓SetRows [ngx.components.UIDynamicAction-1775660573903]: 
+      ↓SetRows [ngx.components.UIDynamicAction-1775729043684]: 
         beanData: |
           '{
            "ionBean": "SetLocalAction",
            "Property": "plain:rows",
            "Value": "script:out?.rows || []"
           }'
-↓Card [ngx.components.UIDynamicElement-1775660573905]: 
+↓Card [ngx.components.UIDynamicElement-1775729043686]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓Header [ngx.components.UIDynamicElement-1775660573907]: 
+  ↓Header [ngx.components.UIDynamicElement-1775729043688]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓Title [ngx.components.UIDynamicElement-1775660573909]: 
+    ↓Title [ngx.components.UIDynamicElement-1775729043690]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775660573911]: 
+      ↓TitleText [ngx.components.UIText-1775729043692]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:this.Title || '__DISPLAY_LABEL__'
-    ↓Subtitle [ngx.components.UIDynamicElement-1775660573913]: 
+    ↓Subtitle [ngx.components.UIDynamicElement-1775729043694]: 
       beanData: '{"ionBean":"CardSubTitle"}'
       tagName: ion-card-subtitle
-      ↓SubtitleText [ngx.components.UIText-1775660573915]: 
+      ↓SubtitleText [ngx.components.UIText-1775729043696]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: 'script:''Rows: '' + this.local.rows.length'
-  ↓Content [ngx.components.UIDynamicElement-1775660573917]: 
+  ↓Content [ngx.components.UIDynamicElement-1775729043698]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓New [ngx.components.UIDynamicElement-1775660573919]: 
+    ↓New [ngx.components.UIDynamicElement-1775729043700]: 
       beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
       tagName: ion-button
-      ↓NewText [ngx.components.UIText-1775660573921]: 
+      ↓NewText [ngx.components.UIText-1775729043702]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:this.ActionLabel || 'New __ENTITY_SINGULAR__'
-      ↓Event [ngx.components.UIControlEvent-1775660573923]: 
-        ↓EmitNewRequested [ngx.components.UIDynamicEmit-1775660573925]: 
+      ↓Event [ngx.components.UIControlEvent-1775729043704]: 
+        ↓EmitNewRequested [ngx.components.UIDynamicEmit-1775729043706]: 
           beanData: |
             '{
              "ionBean": "EmitEventAction",
@@ -87,54 +102,54 @@ comment: Template source for the CRUD entity list panel.
              "data": "script:{ requested: true }"
             }'
           comment: Bubble the new-request event to the page glue.
-    ↓Empty [ngx.components.UIControlDirective-1775660573927]: 
+    ↓Empty [ngx.components.UIControlDirective-1775729043708]: 
       directiveName: If
       directiveSource: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
           - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.rows","prefix":"","suffix":".length === 0","custom":"","useCustom":false}}
-      ↓EmptyText [ngx.components.UIDynamicElement-1775660575929]: 
+      ↓EmptyText [ngx.components.UIDynamicElement-1775729046086]: 
         beanData: '{"ionBean":"Paragraph"}'
         tagName: p
-        ↓Text [ngx.components.UIText-1775660575931]: 
+        ↓Text [ngx.components.UIText-1775729046088]: 
           textValue: 
             - xmlizable: 
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: plain:No rows available yet.
-    ↓List [ngx.components.UIDynamicElement-1775660575933]: 
+    ↓List [ngx.components.UIDynamicElement-1775729046090]: 
       beanData: '{"ionBean":"List"}'
       tagName: ion-list
-      ↓Loop [ngx.components.UIControlDirective-1775660575935]: 
+      ↓Loop [ngx.components.UIControlDirective-1775729046092]: 
         directiveIndexName: idx
         directiveItemName: row
         directiveSource: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.rows","prefix":"","suffix":"","custom":"","useCustom":false}}
-        ↓Item [ngx.components.UIDynamicElement-1775660575937]: 
+        ↓Item [ngx.components.UIDynamicElement-1775729046094]: 
           beanData: '{"ionBean":"ListItem","Button":"plain:true"}'
           tagName: ion-item
-          ↓Label [ngx.components.UIDynamicElement-1775660575939]: 
+          ↓Label [ngx.components.UIDynamicElement-1775729046096]: 
             beanData: '{"ionBean":"Label"}'
             tagName: ion-label
-            ↓Title [ngx.components.UIDynamicElement-1775660575941]: 
+            ↓Title [ngx.components.UIDynamicElement-1775729046098]: 
               beanData: '{"ionBean":"Heading2"}'
               tagName: h2
-              ↓TitleText [ngx.components.UIText-1775660575943]: 
+              ↓TitleText [ngx.components.UIText-1775729046100]: 
                 textValue: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                     - MobileSmartSourceType: source:{"filter":"Iteration","project":"__PROJECT_NAME__","input":"row.__PRIMARY_FIELD__"}
-            ↓Meta [ngx.components.UIDynamicElement-1775660575945]: 
+            ↓Meta [ngx.components.UIDynamicElement-1775729046102]: 
               beanData: '{"ionBean":"Paragraph"}'
               tagName: p
-              ↓MetaText [ngx.components.UIText-1775660575947]: 
+              ↓MetaText [ngx.components.UIText-1775729046104]: 
                 textValue: 
                   - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                     - MobileSmartSourceType: source:{"filter":"Iteration","project":"__PROJECT_NAME__","input":"row.__SECONDARY_FIELD__"}
-          ↓Event [ngx.components.UIControlEvent-1775660575949]: 
-            ↓EmitItemSelected [ngx.components.UIDynamicEmit-1775660575951]: 
+          ↓Event [ngx.components.UIControlEvent-1775729046106]: 
+            ↓EmitItemSelected [ngx.components.UIDynamicEmit-1775729046108]: 
               beanData: |
                 '{
                  "ionBean": "EmitEventAction",

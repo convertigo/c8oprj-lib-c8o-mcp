@@ -34,6 +34,20 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     return filtered.length ? filtered[0] : null;
   }
 
+  function routeButtonNode(ctx, name, label, routerPath, options) {
+    var extra = options && typeof options === "object" ? options : {};
+    return ctx.entityPagesButtonNode(
+      name,
+      label,
+      {
+        color: extra.color,
+        fill: extra.fill,
+        routerPath: routerPath,
+        routerDirection: extra.routerDirection
+      }
+    );
+  }
+
   function entityPagesHeaderTitleTree(ctx, titleText) {
     return {
       className: "ngx.components.UIDynamicElement#Header",
@@ -86,7 +100,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
 
   function buildSessionBootstrapPageRootTree(ctx, projectName, entryPage) {
     var pageName = ctx.sessionBootstrapPageName();
-    var targetQName = ctx.pageQName(projectName, entryPage);
+    var targetRoute = "/" + ctx.trimmed(entryPage || "home").toLowerCase();
     return {
       className: "ngx.components.PageComponent#PageComponent",
       name: pageName,
@@ -169,10 +183,10 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               projectName,
               "InvokeCrudAuthLogin",
               [
-                ctx.rootPageActionNode(
+                ctx.navigatePageActionNode(
                   "OpenCrudLanding",
-                  targetQName,
-                  "not set",
+                  targetRoute,
+                  "{}",
                   "Open the generated CRUD home page once the best-case auth session exists."
                 )
               ]
@@ -185,6 +199,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   }
 
   function buildSessionBootstrapPageLoadTree(ctx, projectName, entryPage) {
+    var targetRoute = "/" + ctx.trimmed(entryPage || "home").toLowerCase();
     return {
       qname: ctx.sessionBootstrapPageQName(projectName),
       legacyQNames: [],
@@ -202,10 +217,10 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                 projectName,
                 "InvokeCrudAuthLogin",
                 [
-                  ctx.rootPageActionNode(
+                  ctx.navigatePageActionNode(
                     "OpenCrudLanding",
-                    ctx.pageQName(projectName, entryPage),
-                    "not set",
+                    targetRoute,
+                    "{}",
                     "Open the generated CRUD home page once the best-case auth session exists."
                   )
                 ]
@@ -249,7 +264,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               name: componentPrefix + "RouteContent",
               children: [
                 ctx.scriptTextNode("RoutePreview", ctx.dynamicFieldAccessExpression(ctx.dashboardSampleExpression(ctx.scriptLiteral(entity.name)), ctx.scriptLiteral(((ctx.firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id"), ctx.scriptLiteral("No live sample yet"))),
-                ctx.entityPagesButtonNode("OpenPageButton", "Open " + entity.label, { routerPath: ctx.entityRoutePath(entity), routerDirection: "forward", color: "primary" }, [])
+                routeButtonNode(ctx, "OpenPageButton", "Open " + entity.label, "/" + ctx.entityRouteSegment(entity), { color: "primary", routerDirection: "forward" })
               ]
             }
           ]
@@ -559,7 +574,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                       ctx.useVariableNode("Title", ctx.scriptLiteral(entity.label + " workspace")),
                       ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select, edit, create, then return to the landing page if needed."))
                     ]),
-                    ctx.entityPagesButtonNode("BackToLanding", "Back to landing", { routerPath: "/home", routerDirection: "back", fill: "outline" }, [])
+                    routeButtonNode(ctx, "BackToLanding", "Back to landing", "/home", { fill: "outline", routerDirection: "back" })
                   ]
                 }
               ]

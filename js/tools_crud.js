@@ -492,6 +492,8 @@ C8O.crud = C8O.crud || {};
       dynamicInvokeNode: dynamicInvokeNode,
       controlVariableNode: controlVariableNode,
       callSequenceActionNode: callSequenceActionNode,
+      rootPageActionNode: rootPageActionNode,
+      navigatePageActionNode: navigatePageActionNode,
       setLocalActionNode: setLocalActionNode,
       emitEventActionNode: emitEventActionNode,
       customAsyncActionNode: customAsyncActionNode,
@@ -602,6 +604,7 @@ C8O.crud = C8O.crud || {};
       controlVariableNode: controlVariableNode,
       callSequenceActionNode: callSequenceActionNode,
       rootPageActionNode: rootPageActionNode,
+      navigatePageActionNode: navigatePageActionNode,
       setLocalActionNode: setLocalActionNode,
       plainTextNode: plainTextNode,
       scriptTextNode: scriptTextNode,
@@ -1247,6 +1250,10 @@ C8O.crud = C8O.crud || {};
 
   function rootPageActionNode(name, pageQNameValue, dataExpression, comment) {
     return C8O.crudUi.rootPageActionNode(crudUiContext(), name, pageQNameValue, dataExpression, comment);
+  }
+
+  function navigatePageActionNode(name, url, dataExpression, comment) {
+    return C8O.crudUi.navigatePageActionNode(crudUiContext(), name, url, dataExpression, comment);
   }
 
   function buildPageScriptContent(projectName, entities, facadePrefix) {

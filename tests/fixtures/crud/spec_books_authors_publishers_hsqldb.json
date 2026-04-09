@@ -1,0 +1,129 @@
+{
+  "project": "BooksAuthorsPublishers",
+  "starter": "ngx",
+  "database": {
+    "mode": "hsqldb",
+    "connector": "appdb",
+    "technology": "HSQLDB",
+    "host": "localhost",
+    "port": 9001,
+    "database": "books_authors_publishers",
+    "user": "SA",
+    "password": ""
+  },
+  "facade": {
+    "prefix": "lib"
+  },
+  "relations": [
+    {
+      "name": "book_author",
+      "type": "many-to-one",
+      "fromEntity": "books",
+      "fromField": "author_id",
+      "toEntity": "authors",
+      "toField": "id",
+      "required": true,
+      "label": "Author"
+    },
+    {
+      "name": "book_publisher",
+      "type": "many-to-one",
+      "fromEntity": "books",
+      "fromField": "publisher_id",
+      "toEntity": "publishers",
+      "toField": "id",
+      "required": true,
+      "label": "Publisher"
+    }
+  ],
+  "entities": [
+    {
+      "name": "authors",
+      "label": "Authors",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "Country", "type": "VARCHAR(64)" }
+      ],
+      "ui": {
+        "listFields": ["name", "country"],
+        "detailFields": ["name", "country"],
+        "formFields": ["name", "country"]
+      }
+    },
+    {
+      "name": "publishers",
+      "label": "Publishers",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Name", "type": "VARCHAR(128)", "unique": true },
+        { "name": "City", "type": "VARCHAR(64)" }
+      ],
+      "ui": {
+        "listFields": ["name", "city"],
+        "detailFields": ["name", "city"],
+        "formFields": ["name", "city"]
+      }
+    },
+    {
+      "name": "books",
+      "label": "Books",
+      "fields": [
+        { "name": "Id", "type": "INT", "primary": true },
+        { "name": "Title", "type": "VARCHAR(160)", "required": true },
+        { "name": "Isbn", "column": "isbn", "type": "VARCHAR(32)", "unique": true },
+        { "name": "AuthorId", "column": "author_id", "type": "INT", "required": true, "references": { "entity": "authors", "field": "id" } },
+        { "name": "PublisherId", "column": "publisher_id", "type": "INT", "required": true, "references": { "entity": "publishers", "field": "id" } }
+      ],
+      "ui": {
+        "listFields": ["title", "author_id", "publisher_id"],
+        "detailFields": ["title", "isbn", "author_id", "publisher_id"],
+        "formFields": ["title", "isbn", "author_id", "publisher_id"],
+        "fieldLabels": {
+          "author_id": "Author",
+          "publisher_id": "Publisher"
+        },
+        "relationFields": {
+          "author_id": {
+            "control": "select",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select author"
+          },
+          "publisher_id": {
+            "control": "autocomplete",
+            "optionLabelField": "name",
+            "optionValueField": "id",
+            "placeholder": "Select publisher"
+          }
+        }
+      }
+    }
+  ],
+  "seed": {
+    "enabled": true,
+    "rowsPerEntity": 2,
+    "data": {
+      "authors": [
+        { "name": "Ursula Le Guin", "country": "United States" },
+        { "name": "Toni Morrison", "country": "United States" },
+        { "name": "Haruki Murakami", "country": "Japan" }
+      ],
+      "publishers": [
+        { "name": "Northwind House", "city": "Paris" },
+        { "name": "Blue Harbor Press", "city": "Lyon" },
+        { "name": "Maple Street Books", "city": "Marseille" }
+      ],
+      "books": [
+        { "title": "Earthsea Notebook", "isbn": "978000000001", "author_id": 1, "publisher_id": 1 },
+        { "title": "Jazz Letters", "isbn": "978000000002", "author_id": 2, "publisher_id": 2 },
+        { "title": "Midnight Railway", "isbn": "978000000003", "author_id": 3, "publisher_id": 3 },
+        { "title": "Sea of Memory", "isbn": "978000000004", "author_id": 1, "publisher_id": 2 }
+      ]
+    }
+  },
+  "ui": {
+    "entryPage": "Home",
+    "variant": "entity-pages"
+  }
+}
