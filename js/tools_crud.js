@@ -307,6 +307,8 @@ C8O.crud = C8O.crud || {};
       crudRelationSearchExpression: crudRelationSearchExpression,
       ifDirectiveNode: ifDirectiveNode,
       buildUseSharedNode: buildUseSharedNode,
+      useVariableNode: useVariableNode,
+      globalSourceValue: globalSourceValue,
       scriptLiteral: function (value) {
         return scriptLiteral(value);
       }
@@ -411,6 +413,8 @@ C8O.crud = C8O.crud || {};
       entityRoutePath: entityRoutePath,
       sharedComponentQName: sharedComponentQName,
       sharedSourceValue: sharedSourceValue,
+      localSourceValue: localSourceValue,
+      iterationSourceValue: iterationSourceValue,
       formSourceValue: formSourceValue,
       entityUiConfig: entityUiConfig,
       resolveQName: function (qname, options) {
@@ -491,6 +495,7 @@ C8O.crud = C8O.crud || {};
       iterationSourceValue: iterationSourceValue,
       sourceDirectiveNode: sourceDirectiveNode,
       localSourceValue: localSourceValue,
+      globalSourceValue: globalSourceValue,
       controlEventNode: controlEventNode,
       sharedComponentEventNode: sharedComponentEventNode,
       compEventNode: compEventNode,
@@ -500,6 +505,7 @@ C8O.crud = C8O.crud || {};
       rootPageActionNode: rootPageActionNode,
       navigatePageActionNode: navigatePageActionNode,
       setLocalActionNode: setLocalActionNode,
+      setGlobalActionNode: setGlobalActionNode,
       emitEventActionNode: emitEventActionNode,
       customAsyncActionNode: customAsyncActionNode,
       crudGlobalExpression: crudGlobalExpression,
@@ -606,6 +612,7 @@ C8O.crud = C8O.crud || {};
       pascalize: pascalize,
       scriptLiteral: scriptLiteral,
       localSourceValue: localSourceValue,
+      globalSourceValue: globalSourceValue,
       controlVariableNode: controlVariableNode,
       callSequenceActionNode: callSequenceActionNode,
       rootPageActionNode: rootPageActionNode,
@@ -1584,6 +1591,10 @@ C8O.crud = C8O.crud || {};
         value: String(extra.routerDirection || "forward")
       };
     }
+    properties.Disabled = {
+      mode: "PLAIN",
+      value: "not set"
+    };
     return {
       className: "ngx.components.UIDynamicElement#Button",
       name: name,

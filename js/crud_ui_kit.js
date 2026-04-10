@@ -22,6 +22,14 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       .replace(/^\w/, function (char) { return char.toUpperCase(); });
   }
 
+  function optionAccessExpression(rawKey) {
+    var field = String(rawKey || "id");
+    if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(field)) {
+      return "option." + field;
+    }
+    return "option[" + JSON.stringify(field) + "]";
+  }
+
   function needsUiFieldHydration(ctx, entity) {
     var fields = ctx.ensureArray(entity && entity.fields);
     if (!fields.length) {
@@ -315,6 +323,34 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     }];
   }
 
+  function workInProgressCardBindingOperations(ctx, projectName, result) {
+    var componentQName = ctx.sharedComponentQName(projectName, "WorkInProgressCard");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure WorkInProgressCard shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressText";
+    if (!ctx.resolveQName(textQName, { optional: true })) {
+      textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.WorkInProgressText";
+    }
+    if (!ctx.resolveQName(textQName, { optional: true })) {
+      return [];
+    }
+    return [{
+      type: "setProperties",
+      opId: "work_in_progress_binding_message",
+      qname: textQName,
+      properties: {
+        textValue: ctx.sharedSourceValue(projectName, componentPriority, "Message")
+      }
+    }];
+  }
+
   function crudErrorRetryStateBindingOperations(ctx, projectName, result) {
     var componentQName = ctx.sharedComponentQName(projectName, "CrudErrorRetryState");
     var componentDbo = ctx.resolveQName(componentQName, { optional: true });
@@ -338,6 +374,207 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         textValue: ctx.sharedSourceValue(projectName, componentPriority, "Message")
       }
     }];
+  }
+
+  function dashboardStatCardBindingOperations(ctx, projectName, result) {
+    var componentQName = ctx.sharedComponentQName(projectName, "DashboardStatCard");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure DashboardStatCard shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var bindings = [
+      { qname: componentQName + ".DashboardStatCardCard.DashboardStatCardHeader.DashboardStatCardTitleSlot.TitleText", variable: "Title", property: "textValue" },
+      { qname: componentQName + ".DashboardStatCardCard.DashboardStatCardContent.DashboardStatCardValue", variable: "Count", property: "textValue" },
+      { qname: componentQName + ".DashboardStatCardCard.DashboardStatCardContent.DashboardStatCardCaption", variable: "Caption", property: "textValue" }
+    ];
+    var operations = [];
+    for (var i = 0; i < bindings.length; i++) {
+      var current = bindings[i];
+      if (!ctx.resolveQName(current.qname, { optional: true })) {
+        continue;
+      }
+      var properties = {};
+      properties[current.property] = ctx.sharedSourceValue(projectName, componentPriority, current.variable);
+      operations.push({
+        type: "setProperties",
+        opId: "dashboard_stat_binding_" + ctx.normalizedIdentifier(current.variable),
+        qname: current.qname,
+        properties: properties
+      });
+    }
+    return operations;
+  }
+
+  function entityListPanelBindingOperations(ctx, projectName, entity, result) {
+    var entityName = ctx.trimmed(entity && entity.name);
+    if (!entityName.length) {
+      return [];
+    }
+    var componentQName = ctx.sharedComponentQName(projectName, ctx.pascalize(entityName) + "ListPanel");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure list panel shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var bindings = [
+      { qname: componentQName + ".Card.Header.Title.TitleText", variable: "Title" },
+      { qname: componentQName + ".Card.Content.New.NewText", variable: "ActionLabel" }
+    ];
+    var operations = [];
+    for (var i = 0; i < bindings.length; i++) {
+      var current = bindings[i];
+      if (!ctx.resolveQName(current.qname, { optional: true })) {
+        continue;
+      }
+      operations.push({
+        type: "setProperties",
+        opId: "list_panel_binding_" + ctx.normalizedIdentifier(entityName + "_" + current.variable),
+        qname: current.qname,
+        properties: {
+          textValue: ctx.sharedSourceValue(projectName, componentPriority, current.variable)
+        }
+      });
+    }
+    var subtitleQName = componentQName + ".Card.Header.Subtitle.RowsCountText";
+    if (!ctx.resolveQName(subtitleQName, { optional: true })) {
+      subtitleQName = componentQName + ".Card.Header.Subtitle.SubtitleText";
+    }
+    if (ctx.resolveQName(subtitleQName, { optional: true })) {
+      operations.push({
+        type: "setProperties",
+        opId: "list_panel_binding_" + ctx.normalizedIdentifier(entityName + "_Rows"),
+        qname: subtitleQName,
+        properties: {
+          textValue: ctx.localSourceValue(projectName, "?.rows", {
+            suffix: ".length"
+          })
+        }
+      });
+    }
+    var setRowsBindings = [
+      componentQName + ".SharedComponent_Event.SetRows.LoadRows.SetLoadedRows",
+      componentQName + ".Load.WhenRefreshReady.LoadRows.SetRows"
+    ];
+    for (var setRowsIndex = 0; setRowsIndex < setRowsBindings.length; setRowsIndex++) {
+      var setRowsQName = setRowsBindings[setRowsIndex];
+      if (!ctx.resolveQName(setRowsQName, { optional: true })) {
+        continue;
+      }
+      operations.push({
+        type: "setProperties",
+        opId: "list_panel_rows_assignment_" + ctx.normalizedIdentifier(entityName + "_" + setRowsIndex),
+        qname: setRowsQName,
+        properties: {
+          Value: {
+            mode: "SCRIPT",
+            value: "out.rows"
+          }
+        }
+      });
+    }
+    var emitSelectedQName = componentQName + ".Card.Content.List.Loop.Item.Event.EmitItemSelected";
+    if (ctx.resolveQName(emitSelectedQName, { optional: true })) {
+      operations.push({
+        type: "setProperties",
+        opId: "list_panel_emit_selected_" + ctx.normalizedIdentifier(entityName),
+        qname: emitSelectedQName,
+        properties: {
+          data: {
+            mode: "SCRIPT",
+            value: "{ id: row.id, row: row }"
+          }
+        }
+      });
+    }
+    var enabledQNames = [
+      componentQName + ".Card.Content.New",
+      componentQName + ".Card.Content.List.Loop.Item"
+    ];
+    for (var enabledIndex = 0; enabledIndex < enabledQNames.length; enabledIndex++) {
+      var enabledQName = enabledQNames[enabledIndex];
+      if (!ctx.resolveQName(enabledQName, { optional: true })) {
+        continue;
+      }
+      operations.push({
+        type: "setProperties",
+        opId: "list_panel_enabled_" + ctx.normalizedIdentifier(entityName + "_" + enabledIndex),
+        qname: enabledQName,
+        properties: {
+          Disabled: {
+            mode: "PLAIN",
+            value: "not set"
+          }
+        }
+      });
+    }
+    return operations;
+  }
+
+  function entityDetailCardBindingOperations(ctx, projectName, entity, result) {
+    var entityName = ctx.trimmed(entity && entity.name);
+    if (!entityName.length) {
+      return [];
+    }
+    var componentQName = ctx.sharedComponentQName(projectName, ctx.pascalize(entityName) + "DetailCard");
+    var componentDbo = ctx.resolveQName(componentQName, { optional: true });
+    if (!componentDbo) {
+      return [];
+    }
+    var componentPriority = Number(ctx.priorityOf(componentDbo));
+    if (!isFinite(componentPriority) || componentPriority <= 0) {
+      ctx.addWarning(result, "Unable to configure detail card shared sources: invalid component priority for " + componentQName);
+      return [];
+    }
+    var operations = [];
+    var titleQName = componentQName + ".Card.Header.Title.TitleText";
+    if (ctx.resolveQName(titleQName, { optional: true })) {
+      operations.push({
+        type: "setProperties",
+        opId: "detail_card_binding_" + ctx.normalizedIdentifier(entityName + "_Title"),
+        qname: titleQName,
+        properties: {
+          textValue: ctx.sharedSourceValue(projectName, componentPriority, "Title")
+        }
+      });
+    }
+    var loadRowIdQName = componentQName + ".Load.WhenSelected.LoadRow.id";
+    if (ctx.resolveQName(loadRowIdQName, { optional: true })) {
+      operations.push({
+        type: "setProperties",
+        opId: "detail_card_load_id_" + ctx.normalizedIdentifier(entityName),
+        qname: loadRowIdQName,
+        properties: {
+          varValue: {
+            mode: "SCRIPT",
+            value: "this.SelectedId"
+          }
+        }
+      });
+    }
+    var setRowQName = componentQName + ".Load.WhenSelected.LoadRow.SetRow";
+    if (ctx.resolveQName(setRowQName, { optional: true })) {
+      operations.push({
+        type: "setProperties",
+        opId: "detail_card_set_row_" + ctx.normalizedIdentifier(entityName),
+        qname: setRowQName,
+        properties: {
+          Value: {
+            mode: "SCRIPT",
+            value: "out.row || (out.rows && out.rows[0]) || null"
+          }
+        }
+      });
+    }
+    return operations;
   }
 
   function entityEditFormBindingOperations(ctx, projectName, facadePrefix, entity, entities, result) {
@@ -368,6 +605,79 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       var sourceValue = ctx.formSourceValue(projectName, formPriority, column, "entityForm");
       var createVarQName = componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create." + column;
       var updateVarQName = componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update." + column;
+      var controlQName = componentQName + ".Card.Content.Form.Field" + (i + 1) + "." + (field.relation ? "RelationSelect" : "Input");
+      if (ctx.resolveQName(controlQName, { optional: true })) {
+        operations.push({
+          type: "setProperties",
+          opId: "edit_form_control_binding_" + ctx.normalizedIdentifier(entityName + "_" + column),
+          qname: controlQName,
+          properties: {
+            Disabled: {
+              mode: "PLAIN",
+              value: "not set"
+            },
+            Value: field.relation
+              ? ctx.localSourceValue(projectName, "?.draft?." + column, { suffix: " + ''" })
+              : ctx.localSourceValue(projectName, "?.draft?." + column)
+          }
+        });
+      }
+      var fieldQName = componentQName + ".Card.Content.Form.Field" + (i + 1);
+      if (ctx.resolveQName(fieldQName, { optional: true })) {
+        operations.push({
+          type: "setProperties",
+          opId: "edit_form_field_enabled_" + ctx.normalizedIdentifier(entityName + "_" + column),
+          qname: fieldQName,
+          properties: {
+            Disabled: {
+              mode: "PLAIN",
+              value: "not set"
+            }
+          }
+        });
+      }
+      if (field.relation) {
+        var optionValueField = ctx.trimmed((field.relation && field.relation.optionValueField) || "id");
+        var optionLabelField = ctx.trimmed((field.relation && field.relation.optionLabelField) || "id");
+        var optionsPath = "?." + String(column || "relation").replace(/[^A-Za-z0-9_]/g, "_") + "Options";
+        var relationLoopQName = controlQName + ".Loop";
+        if (ctx.resolveQName(relationLoopQName, { optional: true })) {
+          operations.push({
+            type: "setProperties",
+            opId: "edit_form_relation_loop_" + ctx.normalizedIdentifier(entityName + "_" + column),
+            qname: relationLoopQName,
+            properties: {
+              directiveSource: ctx.localSourceValue(projectName, optionsPath)
+            }
+          });
+        }
+        var optionQName = relationLoopQName + ".Option";
+        if (ctx.resolveQName(optionQName, { optional: true })) {
+          operations.push({
+            type: "setProperties",
+            opId: "edit_form_relation_option_" + ctx.normalizedIdentifier(entityName + "_" + column),
+            qname: optionQName,
+            properties: {
+              Disabled: {
+                mode: "PLAIN",
+                value: "not set"
+              },
+              Value: ctx.iterationSourceValue(projectName, "'' + " + optionAccessExpression(optionValueField))
+            }
+          });
+        }
+        var optionTextQName = optionQName + ".Text";
+        if (ctx.resolveQName(optionTextQName, { optional: true })) {
+          operations.push({
+            type: "setProperties",
+            opId: "edit_form_relation_option_text_" + ctx.normalizedIdentifier(entityName + "_" + column),
+            qname: optionTextQName,
+            properties: {
+              textValue: ctx.iterationSourceValue(projectName, optionAccessExpression(optionLabelField))
+            }
+          });
+        }
+      }
       if (ctx.resolveQName(createVarQName, { optional: true })) {
         operations.push({
           type: "setProperties",
@@ -388,6 +698,69 @@ C8O.crudUiKit = C8O.crudUiKit || {};
           }
         });
       }
+    }
+    var simpleBindings = [
+      { qname: componentQName + ".SharedComponent_Event.SetDraft", property: "Value", value: "this.DraftSeed" },
+      { qname: componentQName + ".Load.WhenCreateMode.SetCreateDraft", property: "Value", value: "this.DraftSeed" },
+      { qname: componentQName + ".Load.WhenUpdateMode.LoadRow.id", property: "varValue", value: "this.SelectedId" },
+      { qname: componentQName + ".Load.WhenUpdateMode.LoadRow.SetUpdateDraft", property: "Value", value: "out.row || (out.rows && out.rows[0]) || this.DraftSeed" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create.EmitSaved", property: "data", value: "{ id: (out.row || (out.rows && out.rows[0]) || {}).id, mode: 'create' }" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.id", property: "varValue", value: "this.SelectedId" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.EmitSaved", property: "data", value: "{ id: this.SelectedId, mode: 'update' }" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.SecondaryActionCol.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.DangerActionCol.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.DangerActionCol.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
+      { qname: componentQName + ".Card.Content.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
+      { qname: componentQName + ".Card.Content.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
+      { qname: componentQName + ".Card.Content.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" }
+    ];
+    for (var bindingIndex = 0; bindingIndex < simpleBindings.length; bindingIndex++) {
+      var binding = simpleBindings[bindingIndex];
+      if (!ctx.resolveQName(binding.qname, { optional: true })) {
+        continue;
+      }
+      var properties = {};
+      properties[binding.property] = {
+        mode: "SCRIPT",
+        value: binding.value
+      };
+      operations.push({
+        type: "setProperties",
+        opId: "edit_form_simple_binding_" + ctx.normalizedIdentifier(entityName + "_" + bindingIndex),
+        qname: binding.qname,
+        properties: properties
+      });
+    }
+    var enabledQNames = [
+      componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.Submit",
+      componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.Cancel",
+      componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete",
+      componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.PrimaryActionCol.Submit",
+      componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.SecondaryActionCol.Cancel",
+      componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.DangerActionCol.DeleteVisible.Delete",
+      componentQName + ".Card.Content.Form.Submit",
+      componentQName + ".Card.Content.Cancel",
+      componentQName + ".Card.Content.DeleteVisible.Delete"
+    ];
+    for (var enabledIndex = 0; enabledIndex < enabledQNames.length; enabledIndex++) {
+      var enabledQName = enabledQNames[enabledIndex];
+      if (!ctx.resolveQName(enabledQName, { optional: true })) {
+        continue;
+      }
+      operations.push({
+        type: "setProperties",
+        opId: "edit_form_enabled_" + ctx.normalizedIdentifier(entityName + "_" + enabledIndex),
+        qname: enabledQName,
+        properties: {
+          Disabled: {
+            mode: "PLAIN",
+            value: "not set"
+          }
+        }
+      });
     }
     return operations;
   }
@@ -800,7 +1173,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var sharedActions = isMasterDetail
       ? ctx.buildCrmActionStacksTree(projectName, facadePrefix, stage)
       : (isEntityPages ? ctx.buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
-    var reuseExistingSharedComponents = stage === "final" && ctx.everyQNameExists(sharedComponents.qnames);
+    // Entity page shared components encode the configured fields and relation controls.
+    // Reapply them on final passes so UI hint changes cannot be masked by existing QNames.
+    var reuseExistingSharedComponents = stage === "final" && !isEntityPages && ctx.everyQNameExists(sharedComponents.qnames);
     var reuseExistingSharedActions = !isEntityPages && stage === "final" && ctx.everyQNameExists(sharedActions.qnames);
     var sharedComponentChildren = reuseExistingSharedComponents ? [] : ctx.ensureArray(sharedComponents.tree.children);
     var sharedActionChildren = reuseExistingSharedActions ? [] : ctx.ensureArray(sharedActions.tree.children);
@@ -1136,9 +1511,17 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var sharedBindingOperations = [];
     if (isEntityPages) {
       sharedBindingOperations = sharedBindingOperations.concat(crudPageHeaderBindingOperations(ctx, projectName, result));
+      sharedBindingOperations = sharedBindingOperations.concat(workInProgressCardBindingOperations(ctx, projectName, result));
       sharedBindingOperations = sharedBindingOperations.concat(crudLoadingStateBindingOperations(ctx, projectName, result));
       sharedBindingOperations = sharedBindingOperations.concat(crudErrorRetryStateBindingOperations(ctx, projectName, result));
+      sharedBindingOperations = sharedBindingOperations.concat(dashboardStatCardBindingOperations(ctx, projectName, result));
       for (var sharedBindingEntityIndex = 0; sharedBindingEntityIndex < entities.length; sharedBindingEntityIndex++) {
+        sharedBindingOperations = sharedBindingOperations.concat(
+          entityListPanelBindingOperations(ctx, projectName, entities[sharedBindingEntityIndex], result)
+        );
+        sharedBindingOperations = sharedBindingOperations.concat(
+          entityDetailCardBindingOperations(ctx, projectName, entities[sharedBindingEntityIndex], result)
+        );
         sharedBindingOperations = sharedBindingOperations.concat(
           entityEditFormBindingOperations(ctx, projectName, facadePrefix, entities[sharedBindingEntityIndex], entities, result)
         );

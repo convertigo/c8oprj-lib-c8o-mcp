@@ -17,212 +17,213 @@ scriptContent:
         
 segment: tpl-entity
 title: __DISPLAY_LABEL__
-↓Content [ngx.components.UIDynamicElement-1775751434971]: 
+↓Content [ngx.components.UIDynamicElement-1775818423286]: 
   beanData: '{"ionBean":"Content"}'
   tagName: ion-content
-  ↓Grid [ngx.components.UIDynamicElement-1775751434973]: 
+  ↓Grid [ngx.components.UIDynamicElement-1775818423288]: 
     beanData: '{"ionBean":"Grid"}'
     tagName: ion-grid
-    ↓HeaderRow [ngx.components.UIDynamicElement-1775751434975]: 
+    ↓HeaderRow [ngx.components.UIDynamicElement-1775818423290]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓HeaderCol [ngx.components.UIDynamicElement-1775751434977]: 
+      ↓HeaderCol [ngx.components.UIDynamicElement-1775818423292]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓PageHeader [ngx.components.UIUseShared-1775751434979]: 
+        ↓PageHeader [ngx.components.UIUseShared-1775818423294]: 
           sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
-          ↓Title [ngx.components.UIUseVariable-1775751434981]: 
+          ↓Title [ngx.components.UIUseVariable-1775818423296]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'__DISPLAY_LABEL__ workspace'
-          ↓Subtitle [ngx.components.UIUseVariable-1775751434983]: 
+                - MobileSmartSourceType: script:'__DISPLAY_LABEL__'
+          ↓Subtitle [ngx.components.UIUseVariable-1775818423298]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Select, edit, create, then return to the home page if needed.'
-        ↓Back [ngx.components.UIDynamicElement-1775751434985]: 
+                - MobileSmartSourceType: script:'Select a record, edit it, or create a new one.'
+        ↓Back [ngx.components.UIDynamicElement-1775818423300]: 
           beanData: |
             '{
              "ionBean": "Button",
+             "Disabled": "plain",
              "IonFill": "plain:outline",
              "LinkRouterPath": "plain:\/home",
              "LinkRouterDirection": "plain:back"
             }'
           tagName: ion-button
-          ↓BackText [ngx.components.UIText-1775751434987]: 
+          ↓BackText [ngx.components.UIText-1775818423302]: 
             textValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: plain:Back to home
-    ↓ListRow [ngx.components.UIDynamicElement-1775751434989]: 
+    ↓ListRow [ngx.components.UIDynamicElement-1775818423304]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓ListCol [ngx.components.UIDynamicElement-1775751434991]: 
+      ↓ListCol [ngx.components.UIDynamicElement-1775818423306]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓ListPanel [ngx.components.UIUseShared-1775751434993]: 
+        ↓ListPanel [ngx.components.UIUseShared-1775818423308]: 
           sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityListPanel
-          ↓Title [ngx.components.UIUseVariable-1775751434995]: 
+          ↓Title [ngx.components.UIUseVariable-1775818423310]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'__DISPLAY_LABEL__'
-          ↓PrimaryField [ngx.components.UIUseVariable-1775751434997]: 
+          ↓PrimaryField [ngx.components.UIUseVariable-1775818423312]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'__PRIMARY_FIELD__'
-          ↓SecondaryField [ngx.components.UIUseVariable-1775751434999]: 
+          ↓SecondaryField [ngx.components.UIUseVariable-1775818423314]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'__SECONDARY_FIELD__'
-          ↓ActionLabel [ngx.components.UIUseVariable-1775751435001]: 
+          ↓ActionLabel [ngx.components.UIUseVariable-1775818423316]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'New __ENTITY_SINGULAR__'
-          ↓RefreshToken [ngx.components.UIUseVariable-1775751435003]: 
+          ↓RefreshToken [ngx.components.UIUseVariable-1775818423318]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:(this.local?.refreshToken || '') + ''
-          ↓ItemSelected [ngx.components.UIControlEvent-1775751435005]: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.refreshToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓ItemSelected [ngx.components.UIControlEvent-1775818423320]: 
             attrName: (ItemSelected)
             eventName: ItemSelected
-            ↓SetSelectedId [ngx.components.UIDynamicAction-1775751435007]: 
+            ↓SetSelectedId [ngx.components.UIDynamicAction-1775818423322]: 
               beanData: |
                 '{
                  "ionBean": "SetLocalAction",
                  "Property": "plain:selectedId",
-                 "Value": "script:String(parent.out?.id ?? parent.out?.row?.id ?? '''')"
+                 "Value": "script:parent.out.id"
                 }'
-              ↓SetMode [ngx.components.UIDynamicAction-1775751435009]: 
+              ↓SetMode [ngx.components.UIDynamicAction-1775818423324]: 
                 beanData: |
                   '{
                    "ionBean": "SetLocalAction",
                    "Property": "plain:mode",
                    "Value": "script:''update''"
                   }'
-          ↓NewRequested [ngx.components.UIControlEvent-1775751435011]: 
+          ↓NewRequested [ngx.components.UIControlEvent-1775818423326]: 
             attrName: (NewRequested)
             eventName: NewRequested
-            ↓ClearSelectedId [ngx.components.UIDynamicAction-1775751435013]: 
+            ↓ClearSelectedId [ngx.components.UIDynamicAction-1775818423328]: 
               beanData: |
                 '{
                  "ionBean": "SetLocalAction",
                  "Property": "plain:selectedId",
                  "Value": "script:''''"
                 }'
-              ↓SetCreateMode [ngx.components.UIDynamicAction-1775751435015]: 
+              ↓SetCreateMode [ngx.components.UIDynamicAction-1775818423330]: 
                 beanData: |
                   '{
                    "ionBean": "SetLocalAction",
                    "Property": "plain:mode",
                    "Value": "script:''create''"
                   }'
-    ↓DetailRow [ngx.components.UIDynamicElement-1775751435017]: 
+    ↓DetailRow [ngx.components.UIDynamicElement-1775818423332]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓DetailCol [ngx.components.UIDynamicElement-1775751435019]: 
+      ↓DetailCol [ngx.components.UIDynamicElement-1775818423334]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓DetailCard [ngx.components.UIUseShared-1775751435021]: 
+        ↓DetailCard [ngx.components.UIUseShared-1775818423336]: 
           sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
-          ↓Title [ngx.components.UIUseVariable-1775751435023]: 
+          ↓Title [ngx.components.UIUseVariable-1775818423338]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                 - MobileSmartSourceType: script:'__DISPLAY_LABEL__ detail'
-          ↓SelectedId [ngx.components.UIUseVariable-1775751435025]: 
+          ↓SelectedId [ngx.components.UIUseVariable-1775818423340]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:(this.local?.selectedId || '') + ''
-          ↓RefreshToken [ngx.components.UIUseVariable-1775751435027]: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.selectedId","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓RefreshToken [ngx.components.UIUseVariable-1775818423342]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:(this.local?.refreshToken || '') + ''
-    ↓FormRow [ngx.components.UIDynamicElement-1775751435029]: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.refreshToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+    ↓FormRow [ngx.components.UIDynamicElement-1775818423344]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
-      ↓FormCol [ngx.components.UIDynamicElement-1775751435031]: 
+      ↓FormCol [ngx.components.UIDynamicElement-1775818423346]: 
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
-        ↓EditForm [ngx.components.UIUseShared-1775751435033]: 
+        ↓EditForm [ngx.components.UIUseShared-1775818423348]: 
           sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityEditForm
-          ↓SelectedId [ngx.components.UIUseVariable-1775751435035]: 
+          ↓SelectedId [ngx.components.UIUseVariable-1775818423350]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:(this.local?.selectedId || '') + ''
-          ↓Mode [ngx.components.UIUseVariable-1775751435037]: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.selectedId","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓Mode [ngx.components.UIUseVariable-1775818423352]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:(this.local?.mode || 'create') + ''
-          ↓RefreshToken [ngx.components.UIUseVariable-1775751435039]: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.mode","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓RefreshToken [ngx.components.UIUseVariable-1775818423354]: 
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:(this.local?.refreshToken || '') + ''
-          ↓Saved [ngx.components.UIControlEvent-1775751435041]: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"__PROJECT_NAME__","input":"","model":{"data":[{"localObject":"local"}],"path":"?.refreshToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓Saved [ngx.components.UIControlEvent-1775818423356]: 
             attrName: (Saved)
             eventName: Saved
-            ↓SetSelectedId [ngx.components.UIDynamicAction-1775751435043]: 
+            ↓SetSelectedId [ngx.components.UIDynamicAction-1775818423358]: 
               beanData: |
                 '{
                  "ionBean": "SetLocalAction",
                  "Property": "plain:selectedId",
-                 "Value": "script:String(parent.out?.id ?? this.local?.selectedId ?? '''')"
+                 "Value": "script:parent.out.id"
                 }'
-              ↓SetMode [ngx.components.UIDynamicAction-1775751435045]: 
+              ↓SetMode [ngx.components.UIDynamicAction-1775818423360]: 
                 beanData: |
                   '{
                    "ionBean": "SetLocalAction",
                    "Property": "plain:mode",
                    "Value": "script:''update''"
                   }'
-                ↓Refresh [ngx.components.UIDynamicAction-1775751435047]: 
+                ↓Refresh [ngx.components.UIDynamicAction-1775818423362]: 
                   beanData: |
                     '{
                      "ionBean": "SetLocalAction",
                      "Property": "plain:refreshToken",
                      "Value": "script:String(Date.now())"
                     }'
-          ↓Deleted [ngx.components.UIControlEvent-1775751435049]: 
+          ↓Deleted [ngx.components.UIControlEvent-1775818423364]: 
             attrName: (Deleted)
             eventName: Deleted
-            ↓ClearSelectedId [ngx.components.UIDynamicAction-1775751435051]: 
+            ↓ClearSelectedId [ngx.components.UIDynamicAction-1775818423366]: 
               beanData: |
                 '{
                  "ionBean": "SetLocalAction",
                  "Property": "plain:selectedId",
                  "Value": "script:''''"
                 }'
-              ↓SetCreateMode [ngx.components.UIDynamicAction-1775751435053]: 
+              ↓SetCreateMode [ngx.components.UIDynamicAction-1775818423368]: 
                 beanData: |
                   '{
                    "ionBean": "SetLocalAction",
                    "Property": "plain:mode",
                    "Value": "script:''create''"
                   }'
-                ↓Refresh [ngx.components.UIDynamicAction-1775751435055]: 
+                ↓Refresh [ngx.components.UIDynamicAction-1775818423370]: 
                   beanData: |
                     '{
                      "ionBean": "SetLocalAction",
                      "Property": "plain:refreshToken",
                      "Value": "script:String(Date.now())"
                     }'
-          ↓Cancelled [ngx.components.UIControlEvent-1775751435057]: 
+          ↓Cancelled [ngx.components.UIControlEvent-1775818423372]: 
             attrName: (Cancelled)
             eventName: Cancelled
-            ↓SetCancelMode [ngx.components.UIDynamicAction-1775751435059]: 
+            ↓SetCancelMode [ngx.components.UIDynamicAction-1775818423374]: 
               beanData: |
                 '{
                  "ionBean": "SetLocalAction",
                  "Property": "plain:mode",
-                 "Value": "script:this.local?.selectedId ? ''update'' : ''create''"
+                 "Value": "script:parent.out.mode"
                 }'

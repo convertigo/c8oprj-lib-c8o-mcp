@@ -1,26 +1,26 @@
 comment: Template source for the CRUD page header.
-↓Title [ngx.components.UICompVariable-1775751420353]: 
+↓Title [ngx.components.UICompVariable-1775818408442]: 
   value: '''__DISPLAY_LABEL__'''
-↓Subtitle [ngx.components.UICompVariable-1775751420355]: 
-  value: '''Live CRUD template preview'''
-↓TplCrudPageHeaderCard [ngx.components.UIDynamicElement-1775751420357]: 
+↓Subtitle [ngx.components.UICompVariable-1775818408444]: 
+  value: '''Manage your records'''
+↓TplCrudPageHeaderCard [ngx.components.UIDynamicElement-1775818408446]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓TplCrudPageHeaderHeader [ngx.components.UIDynamicElement-1775751422295]: 
+  ↓TplCrudPageHeaderHeader [ngx.components.UIDynamicElement-1775818410328]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplCrudPageHeaderTitleSlot [ngx.components.UIDynamicElement-1775751422297]: 
+    ↓TplCrudPageHeaderTitleSlot [ngx.components.UIDynamicElement-1775818410330]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TitleText [ngx.components.UIText-1775751422299]: 
+      ↓TitleText [ngx.components.UIText-1775818410332]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: script:this.Title
-    ↓TplCrudPageHeaderSubtitleSlot [ngx.components.UIDynamicElement-1775751422301]: 
+    ↓TplCrudPageHeaderSubtitleSlot [ngx.components.UIDynamicElement-1775818410334]: 
       beanData: '{"ionBean":"CardSubTitle"}'
       tagName: ion-card-subtitle
-      ↓SubtitleText [ngx.components.UIText-1775751422303]: 
+      ↓SubtitleText [ngx.components.UIText-1775818410336]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType

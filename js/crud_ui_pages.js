@@ -48,6 +48,25 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     );
   }
 
+  function dashboardCountSource(ctx, projectName, entity) {
+    return ctx.globalSourceValue(projectName, "?.crudCounts?." + entity.name, {
+      prefix: "",
+      suffix: "",
+      custom: "",
+      useCustom: false
+    });
+  }
+
+  function dashboardLoadingSource(ctx, projectName) {
+    return ctx.globalSourceValue(projectName, "?.crudLoading", {
+      suffix: " === true"
+    });
+  }
+
+  function dashboardErrorSource(ctx, projectName) {
+    return ctx.globalSourceValue(projectName, "?.crudError");
+  }
+
   function dashboardRetryHandlerNode(ctx, projectName) {
     return ctx.controlEventNode(
       "Retry",
@@ -194,7 +213,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                                 ctx.textElementNode(
                                   "ngx.components.UIDynamicElement#Paragraph",
                                   "Hint",
-                                  ctx.plainTextNode("Text", "Signing in with the generated demo user, then opening the CRUD home page.")
+                                  ctx.plainTextNode("Text", "Opening the application.")
                                 )
                               ]
                             }
@@ -289,7 +308,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardSubTitle",
                   componentPrefix + "RouteSubtitle",
-                  ctx.scriptTextNode("RouteSubtitleText", "'Rows: ' + (" + ctx.dashboardCountExpression(ctx.scriptLiteral(entity.name)) + ")")
+                  ctx.plainTextNode("RouteSubtitleText", "Manage " + entity.label.toLowerCase())
                 )
               ]
             },
@@ -298,7 +317,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
               name: componentPrefix + "RouteContent",
               children: [
                 ctx.scriptTextNode("RoutePreview", ctx.dynamicFieldAccessExpression(ctx.dashboardSampleExpression(ctx.scriptLiteral(entity.name)), ctx.scriptLiteral(((ctx.firstNonPrimaryField(entity) || entity.primaryField || {}).column) || "id"), ctx.scriptLiteral("No live sample yet"))),
-                routeButtonNode(ctx, "OpenPageButton", "Open " + entity.label, "/" + ctx.entityRouteSegment(entity), { color: "primary", routerDirection: "forward" })
+                routeButtonNode(ctx, "OpenPageButton", "Manage " + entity.label, "/" + ctx.entityRouteSegment(entity), { color: "primary", routerDirection: "forward" })
               ]
             }
           ]
@@ -322,7 +341,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                 name: "HeaderCol",
                 children: [
                   ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
-                    ctx.useVariableNode("Title", ctx.scriptLiteral(ctx.ucfirst(projectName) + " Live Dashboard")),
+                    ctx.useVariableNode("Title", ctx.scriptLiteral(ctx.ucfirst(projectName))),
                     ctx.useVariableNode("Subtitle", ctx.scriptLiteral(entities.map(function (entity) { return entity.label.toLowerCase(); }).join(" and ")))
                   ])
                 ]
@@ -344,8 +363,8 @@ C8O.crudUiPages = C8O.crudUiPages || {};
           children: [
             ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "DashboardStatCard"), "Use" + ctx.ucfirst(entity.singular) + "StatCard", [
               ctx.useVariableNode("Title", ctx.scriptLiteral(entity.label)),
-              ctx.useVariableNode("EntityKey", ctx.scriptLiteral(entity.name)),
-              ctx.useVariableNode("Caption", ctx.scriptLiteral("Loaded from public facade"))
+              ctx.useVariableNode("Count", dashboardCountSource(ctx, projectName, entity)),
+              ctx.useVariableNode("Caption", ctx.scriptLiteral(entity.label.toLowerCase()))
             ])
           ]
         };
@@ -411,9 +430,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
             children: [
               ctx.ifDirectiveNode(
                 "LoadingVisible",
-                "this.global?.crudLoading === true",
+                dashboardLoadingSource(ctx, projectName),
                 [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [
-                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading records..."))
                 ])]
               )
             ]
@@ -430,9 +449,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
             children: [
               ctx.ifDirectiveNode(
                 "ErrorVisible",
-                "!!this.global?.crudError",
+                dashboardErrorSource(ctx, projectName),
                 [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [
-                  ctx.useVariableNode("Message", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                  ctx.useVariableNode("Message", dashboardErrorSource(ctx, projectName)),
                   dashboardRetryHandlerNode(ctx, projectName)
                 ])]
               )
@@ -501,8 +520,8 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                 name: "HeaderCol",
                 children: [
                   ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
-                    ctx.useVariableNode("Title", ctx.scriptLiteral(ctx.ucfirst(projectName) + " CRUD landing")),
-                    ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Open an entity page to edit live facade data."))
+                    ctx.useVariableNode("Title", ctx.scriptLiteral(ctx.ucfirst(projectName))),
+                    ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Choose what you want to manage."))
                   ])
                 ]
               }
@@ -523,8 +542,8 @@ C8O.crudUiPages = C8O.crudUiPages || {};
           children: [
             ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "DashboardStatCard"), "Use" + ctx.pascalize(entity.name) + "StatCard", [
               ctx.useVariableNode("Title", ctx.scriptLiteral(entity.label)),
-              ctx.useVariableNode("EntityKey", ctx.scriptLiteral(entity.name)),
-              ctx.useVariableNode("Caption", ctx.scriptLiteral("Landing state is live"))
+              ctx.useVariableNode("Count", dashboardCountSource(ctx, projectName, entity)),
+              ctx.useVariableNode("Caption", ctx.scriptLiteral(entity.label.toLowerCase()))
             ])
           ]
         };
@@ -548,9 +567,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
             children: [
               ctx.ifDirectiveNode(
                 "LoadingVisible",
-                "this.global?.crudLoading === true",
+                dashboardLoadingSource(ctx, projectName),
                 [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [
-                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading records..."))
                 ])]
               )
             ]
@@ -567,9 +586,9 @@ C8O.crudUiPages = C8O.crudUiPages || {};
             children: [
               ctx.ifDirectiveNode(
                 "ErrorVisible",
-                "!!this.global?.crudError",
+                dashboardErrorSource(ctx, projectName),
                 [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [
-                  ctx.useVariableNode("Message", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                  ctx.useVariableNode("Message", dashboardErrorSource(ctx, projectName)),
                   dashboardRetryHandlerNode(ctx, projectName)
                 ])]
               )
@@ -615,8 +634,8 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                   name: "PageHeaderCol",
                   children: [
                     ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudPageHeader"), "UseCrudPageHeader", [
-                      ctx.useVariableNode("Title", ctx.scriptLiteral(entity.label + " workspace")),
-                      ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select, edit, create, then return to the landing page if needed."))
+                      ctx.useVariableNode("Title", ctx.scriptLiteral(entity.label)),
+                      ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select a record, edit it, or create a new one."))
                     ]),
                     routeButtonNode(ctx, "BackToLanding", "Back to landing", "/home", { fill: "outline", routerDirection: "back" })
                   ]
@@ -685,7 +704,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                 prefix + "LoadingVisible",
                 "this.global?.crudLoading === true || " + ctx.crudEntityStatusExpression(ctx.scriptLiteral(entity.name)) + " === 'loading'",
                 [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudLoadingState"), "UseCrudLoadingState", [
-                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                  ctx.useVariableNode("Message", ctx.scriptLiteral("Loading records..."))
                 ])]
               )
             ]
@@ -706,7 +725,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
                 [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "CrudErrorRetryState"), "UseCrudErrorRetryState", [
                   ctx.useVariableNode(
                     "Message",
-                    "this.global?.crudError || (" + ctx.crudEntityErrorExpression(ctx.scriptLiteral(entity.name)) + ") || 'Retry if one facade call fails.'"
+                    "this.global?.crudError || (" + ctx.crudEntityErrorExpression(ctx.scriptLiteral(entity.name)) + ") || 'Try again if loading fails.'"
                   ),
                   entityRetryHandlerNode(ctx, projectName)
                 ])]

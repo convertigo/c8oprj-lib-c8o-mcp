@@ -98,15 +98,35 @@ C8O.crudUiState = C8O.crudUiState || {};
       : pageRoot + "CrudDashboardGrid.BootstrapRow";
   }
 
-  function workInProgressVisibilityExpression(ctx, globalStageExpression) {
+  function workInProgressStagePath(ctx, globalStageExpression) {
     var source = trimmed(ctx, globalStageExpression || "''");
     if (!source.length) {
-      source = "''";
+      return "?.crudBuildStage";
     }
+    if (source.indexOf("?.") === 0) {
+      return source;
+    }
+    var match = /^this\.global\?\.(\w+)$/.exec(source);
+    if (match) {
+      return "?." + match[1];
+    }
+    return "";
+  }
+
+  function workInProgressVisibilityExpression(ctx, globalStageExpression) {
+    var source = trimmed(ctx, globalStageExpression || "''") || "''";
     return "((" + source + ") ?? 'bootstrap') !== 'final'";
   }
 
   function buildStatefulBootstrapRow(ctx, projectName, globalStageExpression) {
+    var stagePath = workInProgressStagePath(ctx, globalStageExpression);
+    var visibility = stagePath && typeof ctx.globalSourceValue === "function"
+      ? ctx.globalSourceValue(projectName, stagePath, { suffix: " !== 'final'" })
+      : workInProgressVisibilityExpression(ctx, globalStageExpression);
+    var variables = [];
+    if (typeof ctx.useVariableNode === "function") {
+      variables.push(ctx.useVariableNode("Message", ctx.scriptLiteral("Preparing CRUD shell.")));
+    }
     return {
       className: "ngx.components.UIDynamicElement#GridRow",
       name: "BootstrapRow",
@@ -117,8 +137,8 @@ C8O.crudUiState = C8O.crudUiState || {};
           children: [
             ctx.ifDirectiveNode(
               "BootstrapVisible",
-              workInProgressVisibilityExpression(ctx, globalStageExpression),
-              [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", [])]
+              visibility,
+              [ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "WorkInProgressCard"), "UseWorkInProgressCard", variables)]
             )
           ]
         }
@@ -199,6 +219,7 @@ C8O.crudUiState = C8O.crudUiState || {};
   C8O.crudUiState.everyQNameExists = everyQNameExists;
   C8O.crudUiState.statefulBootstrapStageQName = statefulBootstrapStageQName;
   C8O.crudUiState.statefulBootstrapRowQName = statefulBootstrapRowQName;
+  C8O.crudUiState.workInProgressStagePath = workInProgressStagePath;
   C8O.crudUiState.workInProgressVisibilityExpression = workInProgressVisibilityExpression;
   C8O.crudUiState.buildStatefulBootstrapRow = buildStatefulBootstrapRow;
   C8O.crudUiState.crudGlobalExpression = crudGlobalExpression;

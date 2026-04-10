@@ -337,6 +337,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return ctx.localSourceValue(projectName || TOKENS.PROJECT_NAME, "?.draft?." + String(fieldName || ""), options);
   }
 
+  function globalSourceValue(ctx, projectName, path, options) {
+    return ctx.globalSourceValue(projectName || TOKENS.PROJECT_NAME, path, options);
+  }
+
   function formControlSourceValue(ctx, projectName, controlName, options) {
     var extra = options && typeof options === "object" ? options : {};
     var controlKey = String(controlName || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -358,67 +362,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
-  function extractRowsFromActionExpression(sourceExpression) {
-    var source = String(sourceExpression || "out");
-    return "(Array.isArray(" + source + "?.rows) ? " + source + ".rows : [])";
-  }
-
-  function firstRowFromActionExpression(sourceExpression, fallbackExpression) {
-    var source = String(sourceExpression || "out");
-    var rowsExpression = extractRowsFromActionExpression(source);
-    var fallback = fallbackExpression == null ? "null" : String(fallbackExpression);
-    return "(function(){ if (" + source + "?.row && typeof " + source + ".row === 'object') { return " + source + ".row; } var rows = " + rowsExpression + "; return rows.length ? rows[0] : " + fallback + "; })()";
-  }
-
-  function localDraftExpression() {
-    return "(this.local?.draft || {})";
-  }
-
-  function dynamicFieldAccessNoFallback(objectExpression, fieldExpression) {
-    return "((" + String(objectExpression || "null") + ")?.[" + String(fieldExpression || "''") + "])";
-  }
-
-  function localDraftFieldExpression(ctx, fieldExpression, fallbackExpression) {
-    var fallback = fallbackExpression == null ? "''" : String(fallbackExpression);
-    return ctx.dynamicFieldAccessExpression(localDraftExpression(), fieldExpression, fallback);
-  }
-
-  function localDraftFieldStringExpression(ctx, fieldExpression) {
-    var access = dynamicFieldAccessNoFallback(localDraftExpression(), fieldExpression);
-    return "((" + access + ") != null ? '' + (" + access + ") : '')";
-  }
-
   function clonedSeedDraftExpression() {
-    return "(function(){ try { return JSON.parse(JSON.stringify(this.DraftSeed || {})); } catch (e) { return Object.assign({}, this.DraftSeed || {}); } }).call(this)";
-  }
-
-  function selectedRowIdExpression(rowExpression) {
-    var row = String(rowExpression || "row");
-    return [
-      "(function(){",
-      "  var selectedRow = " + row + ";",
-      "  var selectedId = selectedRow && selectedRow.id != null ? selectedRow.id : '';",
-      "  return '' + selectedId;",
-      "})()"
-    ].join("\n");
-  }
-
-  function buildLocalDraftUpdateExpression(ctx, fieldNameExpression, valueExpression, labelExpression) {
-    var fieldExpr = coalescedStringExpression(ctx, fieldNameExpression, "");
-    var valueExpr = valueExpression == null ? "''" : String(valueExpression);
-    var parts = [
-      "(function(){",
-      "  var draft = Object.assign({}, this.local?.draft || {});",
-      "  var fieldName = " + fieldExpr + ";",
-      "  var nextValue = " + valueExpr + ";",
-      "  draft[fieldName] = nextValue == null ? '' : nextValue;"
-    ];
-    if (labelExpression) {
-      parts.push("  draft[fieldName + '__label'] = ((" + labelExpression + ") == null ? '' : String(" + labelExpression + "));");
-    }
-    parts.push("  return draft;");
-    parts.push("}).call(this)");
-    return parts.join("\n");
+    return "this.DraftSeed";
   }
 
   function chainActionNodes(ctx, nodes) {
@@ -579,8 +524,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         fieldConfig.control = trimmed(ctx, relation.control || "select") || "select";
         fieldConfig.relatedEntityKeyExpression = ctx.scriptLiteral(trimmed(ctx, relation.entity || ""));
         fieldConfig.controlExpression = ctx.scriptLiteral(trimmed(ctx, relation.control || "select") || "select");
-        fieldConfig.relatedLabelFieldExpression = ctx.scriptLiteral(trimmed(ctx, relation.optionLabelField || (relatedConfig && relatedConfig.previewPrimaryColumn) || relation.targetField || "id"));
-        fieldConfig.relatedValueFieldExpression = ctx.scriptLiteral(trimmed(ctx, relation.optionValueField || relation.targetField || "id"));
+        fieldConfig.relatedLabelField = trimmed(ctx, relation.optionLabelField || (relatedConfig && relatedConfig.previewPrimaryColumn) || relation.targetField || "id");
+        fieldConfig.relatedValueField = trimmed(ctx, relation.optionValueField || relation.targetField || "id");
+        fieldConfig.relatedLabelFieldExpression = ctx.scriptLiteral(fieldConfig.relatedLabelField);
+        fieldConfig.relatedValueFieldExpression = ctx.scriptLiteral(fieldConfig.relatedValueField);
         fieldConfig.placeholderExpression = ctx.scriptLiteral(trimmed(ctx, relation.placeholder || ("Select " + (field.label || field.name || field.column || "value"))));
         fieldConfig.optionsPropertyName = relationOptionsPropertyName(field.column || field.name || "relation");
         fieldConfig.searchPropertyName = relationSearchPropertyName(field.column || field.name || "relation");
@@ -630,7 +577,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           ctx.setLocalActionNode(
             "Set" + ctx.pascalize(relationColumn) + "Options",
             relationOptionsPropertyName(relationColumn),
-            extractRowsFromActionExpression("out")
+            "out.rows"
           )
         ]));
       }
@@ -652,7 +599,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     }
     if (loadRowNode) {
       loadRowNode.children = [
-        ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+        ctx.controlVariableNode("id", "this.SelectedId")
       ].concat(nonVariableChildren(loadRowNode));
     }
     if (createNode) {
@@ -660,12 +607,12 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     }
     if (updateNode) {
       updateNode.children = [
-        ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+        ctx.controlVariableNode("id", "this.SelectedId")
       ].concat(editableVariables).concat(nonVariableChildren(updateNode));
     }
     if (deleteNode) {
       deleteNode.children = [
-        ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+        ctx.controlVariableNode("id", "this.SelectedId")
       ].concat(nonVariableChildren(deleteNode));
     }
     if (formNode) {
@@ -689,7 +636,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       },
       children: [
         ctx.compVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL)),
-        ctx.compVariableNode("Subtitle", ctx.scriptLiteral("Live CRUD template preview")),
+        ctx.compVariableNode("Subtitle", ctx.scriptLiteral("Manage your records")),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "TplCrudPageHeaderCard",
@@ -717,7 +664,6 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function templateWorkInProgressCardTree(ctx) {
-    var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: templateComponentName("WorkInProgressCard"),
@@ -725,6 +671,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         comment: "Template source for the bootstrap work-in-progress card."
       },
       children: [
+        ctx.compVariableNode("Message", ctx.scriptLiteral("Preparing the application.")),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "TplWorkInProgressCardRoot",
@@ -750,8 +697,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "TplWorkInProgressCardContent",
               children: [
-                ctx.scriptTextNode("TplWorkInProgressText", "'Bootstrap stage visible. Current build stage: ' + ((" + crudGlobal + ").crudBuildStage ?? 'bootstrap')"),
-                ctx.plainTextNode("TplWorkInProgressHint", "The CRUD shell is visible while live shared actions populate global state.")
+                ctx.scriptTextNode("TplWorkInProgressText", "this.Message"),
+                ctx.plainTextNode("TplWorkInProgressHint", "This page will be ready in a moment.")
               ]
             }
           ]
@@ -768,7 +715,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         comment: "Template source for the CRUD loading state card."
       },
       children: [
-        ctx.compVariableNode("Message", ctx.scriptLiteral("Loading public facade rows...")),
+        ctx.compVariableNode("Message", ctx.scriptLiteral("Loading records...")),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "TplCrudLoadingStateCard",
@@ -794,7 +741,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         comment: "Template source for the CRUD error/retry card."
       },
       children: [
-        ctx.compVariableNode("Message", ctx.scriptLiteral("Retry if one facade call fails.")),
+        ctx.compVariableNode("Message", ctx.scriptLiteral("Try again if loading fails.")),
         ctx.compEventNode("Retry", "Retry", {
           comment: "Emitted when the user asks to retry the current CRUD state."
         }),
@@ -815,7 +762,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "TplCrudErrorRetryStateTitle",
-                  ctx.plainTextNode("TplCrudErrorRetryStateTitleText", "Retry CRUD state")
+                  ctx.plainTextNode("TplCrudErrorRetryStateTitleText", "Retry")
                 )
               ]
             },
@@ -847,7 +794,6 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
 
   function templateDashboardStatCardTree(ctx) {
-    var crudGlobal = ctx.crudGlobalExpression();
     return {
       className: "ngx.components.UISharedRegularComponent#UISharedRegularComponent",
       name: templateComponentName("DashboardStatCard"),
@@ -856,8 +802,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       },
       children: [
         ctx.compVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL)),
-        ctx.compVariableNode("EntityKey", ctx.scriptLiteral(TOKENS.ENTITY_KEY)),
-        ctx.compVariableNode("Caption", ctx.scriptLiteral("Loaded from public facade")),
+        ctx.compVariableNode("Count", ctx.scriptLiteral("0")),
+        ctx.compVariableNode("Caption", ctx.scriptLiteral("items")),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "TplDashboardStatCardCard",
@@ -869,7 +815,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "TplDashboardStatCardTitleSlot",
-                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL))
+                  ctx.scriptTextNode("TitleText", "this.Title")
                 )
               ]
             },
@@ -877,8 +823,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "TplDashboardStatCardContent",
               children: [
-                ctx.scriptTextNode("TplDashboardStatCardValue", "'' + (" + ctx.dashboardCountExpression("this.EntityKey") + ")"),
-                ctx.scriptTextNode("TplDashboardStatCardCaption", "this.Caption || ((" + crudGlobal + ").crudLoading ? 'Loading public facade...' : ((" + crudGlobal + ").crudError || 'Loaded from public facade'))")
+                ctx.scriptTextNode("TplDashboardStatCardValue", "this.Count"),
+                ctx.plainTextNode("TplDashboardStatCardSeparator", " "),
+                ctx.scriptTextNode("TplDashboardStatCardCaption", "this.Caption")
               ]
             }
           ]
@@ -891,65 +838,21 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return "plain:" + TOKENS.PROJECT_NAME + ".Application.NgxApp." + componentName + "." + eventName;
   }
 
-  function relationOptionLabelExpression(ctx, optionExpression, relatedLabelFieldExpression) {
-    return ctx.dynamicFieldAccessExpression(optionExpression, relatedLabelFieldExpression, ctx.scriptLiteral("Option"));
-  }
-
-  function relationOptionValueExpression(ctx, optionExpression, relatedValueFieldExpression) {
-    return ctx.dynamicFieldAccessExpression(optionExpression, relatedValueFieldExpression, ctx.scriptLiteral(""));
-  }
-
-  function relationOptionsExpression(propertyName) {
-    return "(this.local?." + String(propertyName || "relationOptions") + " || [])";
-  }
-
-  function relationSearchExpression(propertyName) {
-    var property = String(propertyName || "relationSearch");
-    return "((this.local?." + property + ") != null ? this.local?." + property + " : '')";
-  }
-
-  function relationDraftLabelExpression(ctx, fieldNameExpression) {
-    var resolvedFieldNameExpression = trimmed(ctx, fieldNameExpression || "this.FieldName") || "this.FieldName";
-    var labelFieldExpression = "((" + coalescedStringExpression(ctx, resolvedFieldNameExpression, "") + ") + '__label')";
-    return localDraftFieldStringExpression(ctx, labelFieldExpression);
-  }
-
-  function currentRelationLabelExpression(ctx, optionsExpression, fieldNameExpression, relatedLabelFieldExpression, relatedValueFieldExpression) {
-    var draftValueExpression = localDraftFieldExpression(ctx, fieldNameExpression, "''");
-    var optionLabelExpression = relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression);
-    var optionValueExpression = relationOptionValueExpression(ctx, "option", relatedValueFieldExpression);
-    return [
-      "(function(){",
-      "  var rows = " + String(optionsExpression || "[]") + ";",
-      "  var currentValue = " + draftValueExpression + ";",
-      "  if (currentValue == null || String(currentValue) === '') {",
-      "    return '';",
-      "  }",
-      "  for (var idx = 0; idx < rows.length; idx++) {",
-      "    var option = rows[idx];",
-      "    if (String(" + optionValueExpression + ") === String(currentValue)) {",
-      "      return String(" + optionLabelExpression + ");",
-      "    }",
-      "  }",
-      "  return String(currentValue);",
-      "})()"
-    ].join("\n");
-  }
-
   function relationSelectNode(ctx, config) {
     var currentConfig = config || {};
+    var column = trimmed(ctx, currentConfig.column || "value");
     var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
-    var relatedLabelFieldExpression = currentConfig.relatedLabelFieldExpression || "this.RelatedLabelField";
-    var relatedValueFieldExpression = currentConfig.relatedValueFieldExpression || "this.RelatedValueField";
+    var relatedLabelField = trimmed(ctx, currentConfig.relatedLabelField || "id");
+    var relatedValueField = trimmed(ctx, currentConfig.relatedValueField || "id");
     var placeholderExpression = currentConfig.placeholderExpression || ("'Select ' + " + coalescedStringExpression(ctx, fieldLabelExpression, "related value"));
-    var optionsExpression = relationOptionsExpression(currentConfig.optionsPropertyName);
+    var optionsProperty = trimmed(ctx, currentConfig.optionsPropertyName || "relationOptions");
     return {
       className: "ngx.components.UIDynamicElement#Select",
       name: "RelationSelect",
       properties: {
         ControlName: {
           mode: "PLAIN",
-          value: trimmed(ctx, currentConfig.column || "value")
+          value: column
         },
         Label: {
           mode: "SCRIPT",
@@ -967,29 +870,33 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           mode: "PLAIN",
           value: "popover"
         },
+        Disabled: {
+          mode: "PLAIN",
+          value: "not set"
+        },
         Value: {
-          mode: "SCRIPT",
-          value: "('' + ((" + localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''") + ") ?? ''))"
+          mode: "SOURCE",
+          value: localDraftSourceValue(ctx, TOKENS.PROJECT_NAME, column, { suffix: " + ''" }).value
         }
       },
       children: [
-        ctx.iterationDirectiveNode(
+        ctx.sourceDirectiveNode(
           "Loop",
-          TOKENS.PROJECT_NAME,
           "option",
-          optionsExpression,
+          ctx.localSourceValue(TOKENS.PROJECT_NAME, "?." + optionsProperty),
           [
             {
               className: "ngx.components.UIDynamicElement#SelectOption",
               name: "Option",
               properties: {
-                Value: {
-                  mode: "SCRIPT",
-                  value: "('' + ((" + relationOptionValueExpression(ctx, "option", relatedValueFieldExpression) + ") ?? ''))"
-                }
+                Disabled: {
+                  mode: "PLAIN",
+                  value: "not set"
+                },
+                Value: ctx.iterationSourceValue(TOKENS.PROJECT_NAME, "'' + " + propertyAccessExpression("option", relatedValueField))
               },
               children: [
-                ctx.smartTextNode("Text", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, relationOptionLabelExpression(ctx, "option", relatedLabelFieldExpression)))
+                ctx.smartTextNode("Text", ctx.iterationSourceValue(TOKENS.PROJECT_NAME, propertyAccessExpression("option", relatedLabelField)))
               ]
             }
           ],
@@ -1045,9 +952,13 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           mode: "SCRIPT",
           value: coalescedStringExpression(ctx, fieldLabelExpression, "Field")
         },
+        Disabled: {
+          mode: "PLAIN",
+          value: "not set"
+        },
         Value: {
-          mode: "SCRIPT",
-          value: localDraftFieldExpression(ctx, ctx.scriptLiteral(trimmed(ctx, currentConfig.column || "")), "''")
+          mode: "SOURCE",
+          value: localDraftSourceValue(ctx, TOKENS.PROJECT_NAME, trimmed(ctx, currentConfig.column || "")).value
         },
         Required: {
           mode: "SCRIPT",
@@ -1062,6 +973,12 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return {
       className: "ngx.components.UIDynamicElement#FormItem",
       name: "Field" + (index + 1),
+      properties: {
+        Disabled: {
+          mode: "PLAIN",
+          value: "not set"
+        }
+      },
       children: [
         currentConfig.relation
           ? ((trimmed(ctx, currentConfig.control || "select") === "autocomplete")
@@ -1087,6 +1004,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         value: String(extra.fill)
       };
     }
+    properties.Disabled = {
+      mode: "PLAIN",
+      value: "not set"
+    };
     return {
       className: "ngx.components.UIDynamicElement#Button",
       name: name,
@@ -1110,12 +1031,93 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         value: String(extra.fill)
       };
     }
+    properties.Disabled = {
+      mode: "PLAIN",
+      value: "not set"
+    };
     return {
       className: "ngx.components.UIDynamicElement#SubmitButton",
       name: name,
       properties: properties,
       children: [
         ctx.scriptTextNode("Text", labelExpression)
+      ]
+    };
+  }
+
+  function entityEditActionsGridNode(ctx) {
+    return {
+      className: "ngx.components.UIDynamicElement#Grid",
+      name: "ActionsGrid",
+      children: [
+        {
+          className: "ngx.components.UIDynamicElement#GridRow",
+          name: "ActionsRow",
+          children: [
+            {
+              className: "ngx.components.UIDynamicElement#GridCol",
+              name: "ActionsCol",
+              children: [
+                submitButtonNode(
+                  ctx,
+                  "Submit",
+                  "this.ActionLabel",
+                  { color: "primary" }
+                ),
+                scriptLabelButtonNode(
+                  ctx,
+                  "Cancel",
+                  ctx.scriptLiteral("Cancel"),
+                  { fill: "outline" },
+                  [
+                    ctx.controlEventNode("Event", [
+                      ctx.emitEventActionNode(
+                        "EmitCancelled",
+                        componentEventQName(templateComponentName("EntityEditForm"), "Cancelled"),
+                        "script:{ id: this.SelectedId, mode: this.Mode }",
+                        "Notify the page glue that the form was cancelled."
+                      )
+                    ])
+                  ]
+                ),
+                ctx.ifDirectiveNode(
+                  "DeleteVisible",
+                  "this.Mode !== 'create' && !!this.SelectedId",
+                  [
+                    scriptLabelButtonNode(
+                      ctx,
+                      "Delete",
+                      "this.DeleteLabel",
+                      { color: "danger", fill: "outline" },
+                      [
+                        ctx.controlEventNode("Event", [
+                          chainActionNodes(ctx, [
+                            ctx.callSequenceActionNode(
+                              "Delete",
+                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_delete_" + TOKENS.ENTITY_SINGULAR,
+                              [
+                                ctx.controlVariableNode("id", "this.SelectedId")
+                              ],
+                              {
+                                comment: "Delete the selected row."
+                              }
+                            ),
+                            ctx.emitEventActionNode(
+                              "EmitDeleted",
+                              componentEventQName(templateComponentName("EntityEditForm"), "Deleted"),
+                              "script:{ id: this.SelectedId }",
+                              "Notify the page glue that the delete succeeded."
+                            )
+                          ])
+                        ])
+                      ]
+                    )
+                  ]
+                )
+              ]
+            }
+          ]
+        }
       ]
     };
   }
@@ -1157,7 +1159,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               ctx.setLocalActionNode(
                 "SetLoadedRows",
                 "rows",
-                "out?.rows || []"
+                "out.rows"
               )
             ])
           ],
@@ -1184,7 +1186,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                   ctx.setLocalActionNode(
                     "SetRows",
                     "rows",
-                    "out?.rows || []"
+                    "out.rows"
                   )
                 ])
               ],
@@ -1206,13 +1208,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "Title",
-                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL))
+                  ctx.scriptTextNode("TitleText", "this.Title")
                 ),
-                ctx.textElementNode(
-                  "ngx.components.UIDynamicElement#CardSubTitle",
-                  "Subtitle",
-                  ctx.scriptTextNode("SubtitleText", "'Rows: ' + this.local.rows.length")
-                )
+                {
+                  className: "ngx.components.UIDynamicElement#CardSubTitle",
+                  name: "Subtitle",
+                  children: [
+                    ctx.plainTextNode("RowsLabelText", "Rows: "),
+                    ctx.smartTextNode("RowsCountText", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.rows", {
+                      suffix: ".length"
+                    }))
+                  ]
+                }
               ]
             },
             {
@@ -1222,7 +1229,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 scriptLabelButtonNode(
                   ctx,
                   "New",
-                  "this.ActionLabel || " + ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR),
+                  "this.ActionLabel",
                   { fill: "outline" },
                   [
                     ctx.controlEventNode("Event", [
@@ -1268,6 +1275,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                             Detail: {
                               mode: "PLAIN",
                               value: "false"
+                            },
+                            Disabled: {
+                              mode: "PLAIN",
+                              value: "not set"
                             }
                           },
                           children: [
@@ -1291,7 +1302,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                               ctx.emitEventActionNode(
                                 "EmitItemSelected",
                                 componentEventQName(templateComponentName("EntityListPanel"), "ItemSelected"),
-                                "script:{ id: row?.id ?? '', row: row }",
+                                "script:{ id: row.id, row: row }",
                                 "Bubble the selected row id and row payload to the page glue."
                               )
                             ])
@@ -1335,14 +1346,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                     "LoadRow",
                     TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_read_" + TOKENS.ENTITY_SINGULAR,
                     [
-                      ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                      ctx.controlVariableNode("id", "this.SelectedId")
                     ],
                     {
                       noLoading: true,
                       comment: "Load the selected row into component-local state."
                     }
                   ),
-                  ctx.setLocalActionNode("SetRow", "row", firstRowFromActionExpression("out", "null"))
+                  ctx.setLocalActionNode("SetRow", "row", "out.row || (out.rows && out.rows[0]) || null")
                 ])
               ],
               {
@@ -1363,7 +1374,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "Title",
-                  ctx.scriptTextNode("TitleText", "this.Title || " + ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail"))
+                  ctx.scriptTextNode("TitleText", "this.Title")
                 )
               ]
             },
@@ -1441,14 +1452,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                     "LoadRow",
                     TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_read_" + singular,
                     [
-                      ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                      ctx.controlVariableNode("id", "this.SelectedId")
                     ],
                     {
                       noLoading: true,
                       comment: "Load the selected row into the local draft."
                     }
                   ),
-                  ctx.setLocalActionNode("SetUpdateDraft", "draft", firstRowFromActionExpression("out", clonedSeedDraftExpression()))
+                  ctx.setLocalActionNode("SetUpdateDraft", "draft", "out.row || (out.rows && out.rows[0]) || this.DraftSeed")
                 ])
               ],
               {
@@ -1469,7 +1480,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "Title",
-                  ctx.scriptTextNode("TitleText", "(this.Mode === 'create' ? (this.CreateTitle || " + ctx.scriptLiteral("Create " + singular) + ") : (this.EditTitle || " + ctx.scriptLiteral("Edit " + singular) + "))")
+                  ctx.scriptTextNode("TitleText", "(this.Mode === 'create' ? this.CreateTitle : this.EditTitle)")
                 )
               ]
             },
@@ -1484,14 +1495,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                     identifier: ENTITY_FORM_IDENTIFIER
                   },
                   children: [
-                    submitButtonNode(
-                      ctx,
-                      "Submit",
-                      "this.ActionLabel || " + ctx.scriptLiteral(TOKENS.ACTION_LABEL),
-                      { color: "primary" }
-                    ),
+                    entityEditActionsGridNode(ctx),
                     ctx.controlEventNode(
-                      "Submit",
+                      "Submit1",
                       [
                         ctx.ifActionNode(
                           "WhenCreateMode",
@@ -1509,7 +1515,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                               ctx.emitEventActionNode(
                                 "EmitSaved",
                                 componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
-                                "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", localDraftExpression())) + ", mode: 'create' }",
+                                "script:{ id: (out.row || (out.rows && out.rows[0]) || {}).id, mode: 'create' }",
                                 "Notify the page glue that the create succeeded."
                               )
                             ])
@@ -1521,10 +1527,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                           [
                             chainActionNodes(ctx, [
                               ctx.callSequenceActionNode(
-                                "Update",
-                                TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_update_" + singular,
-                                [
-                                  ctx.controlVariableNode("id", "String(this.SelectedId || '')")
+                                  "Update",
+                                  TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_update_" + singular,
+                                  [
+                                  ctx.controlVariableNode("id", "this.SelectedId")
                                 ],
                                 {
                                   comment: "Update the selected row from the submitted form."
@@ -1533,7 +1539,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                               ctx.emitEventActionNode(
                                 "EmitSaved",
                                 componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
-                                "script:{ id: " + selectedRowIdExpression(firstRowFromActionExpression("out", "{ id: this.SelectedId || '' }")) + ", mode: 'update' }",
+                                "script:{ id: this.SelectedId, mode: 'update' }",
                                 "Notify the page glue that the update succeeded."
                               )
                             ])
@@ -1546,57 +1552,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       }
                     )
                   ]
-                },
-                scriptLabelButtonNode(
-                  ctx,
-                  "Cancel",
-                  ctx.scriptLiteral("Cancel"),
-                  { fill: "outline" },
-                  [
-                    ctx.controlEventNode("Event", [
-                      ctx.emitEventActionNode(
-                        "EmitCancelled",
-                        componentEventQName(templateComponentName("EntityEditForm"), "Cancelled"),
-                        "script:{ id: this.SelectedId || '', mode: this.Mode || 'create' }",
-                        "Notify the page glue that the form was cancelled."
-                      )
-                    ])
-                  ]
-                ),
-                ctx.ifDirectiveNode(
-                  "DeleteVisible",
-                  "this.Mode !== 'create' && !!this.SelectedId",
-                  [
-                    scriptLabelButtonNode(
-                      ctx,
-                      "Delete",
-                      "this.DeleteLabel || " + ctx.scriptLiteral("Delete " + singular),
-                      { color: "danger", fill: "outline" },
-                      [
-                        ctx.controlEventNode("Event", [
-                          chainActionNodes(ctx, [
-                            ctx.callSequenceActionNode(
-                              "Delete",
-                              TOKENS.PROJECT_NAME + "." + TOKENS.FACADE_PREFIX + "_delete_" + singular,
-                              [
-                                ctx.controlVariableNode("id", "String(this.SelectedId || '')")
-                              ],
-                              {
-                                comment: "Delete the selected row."
-                              }
-                            ),
-                            ctx.emitEventActionNode(
-                              "EmitDeleted",
-                              componentEventQName(templateComponentName("EntityEditForm"), "Deleted"),
-                              "script:{ id: this.SelectedId || '' }",
-                              "Notify the page glue that the delete succeeded."
-                            )
-                          ])
-                        ])
-                      ]
-                    )
-                  ]
-                )
+                }
               ]
             }
           ]
@@ -1727,7 +1683,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                   children: [
                     ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, templateComponentName("DashboardStatCard")), "UseTplDashboardStatCard", [
                       ctx.useVariableNode("Title", ctx.scriptLiteral(statTitle)),
-                      ctx.useVariableNode("EntityKey", ctx.scriptLiteral("templateitems")),
+                      ctx.useVariableNode("Count", ctx.scriptLiteral("3")),
                       ctx.useVariableNode("Caption", ctx.scriptLiteral(statCaption))
                     ])
                   ]
@@ -1920,7 +1876,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                                 ctx.textElementNode(
                                   "ngx.components.UIDynamicElement#CardSubTitle",
                                   "Subtitle",
-                                  ctx.plainTextNode("SubtitleText", "Authenticating the demo session before opening the CRUD home page.")
+                                  ctx.plainTextNode("SubtitleText", "Opening the application.")
                                 )
                               ]
                             },
@@ -1935,7 +1891,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                                 ctx.textElementNode(
                                   "ngx.components.UIDynamicElement#Paragraph",
                                   "Hint",
-                                  ctx.plainTextNode("HintText", "Please wait. The session is initialized once, then the pages call only the CRUD facades they need.")
+                                  ctx.plainTextNode("HintText", "Please wait a moment.")
                                 )
                               ]
                             }
@@ -2015,8 +1971,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       name: "HeaderCol",
                       children: [
                         ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "PageHeader", [
-                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.PROJECT_NAME + " CRUD home")),
-                          ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Open an entity page to edit live facade data."))
+                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.PROJECT_NAME)),
+                          ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Choose what you want to manage."))
                         ])
                       ]
                     }
@@ -2032,12 +1988,19 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       children: [
                         ctx.ifDirectiveNode(
                           "BootstrapVisible",
-                          "((this.global?.crudBuildStage) ?? 'bootstrap') !== 'final'",
-                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "Bootstrap", [])]
+                          globalSourceValue(ctx, TOKENS.PROJECT_NAME, "?.crudBuildStage", { suffix: " !== 'final'" }),
+                          [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.workInProgress), "Bootstrap", [
+                            ctx.useVariableNode("Message", ctx.scriptLiteral("Preparing the application."))
+                          ])]
                         )
                       ]
                     }
                   ]
+                },
+                {
+                  className: "ngx.components.UIDynamicElement#GridRow",
+                  name: "MetricsRow",
+                  children: []
                 },
                 {
                   className: "ngx.components.UIDynamicElement#GridRow",
@@ -2054,9 +2017,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       children: [
                         ctx.ifDirectiveNode(
                           "LoadingVisible",
-                          "this.global?.crudLoading === true",
+                          globalSourceValue(ctx, TOKENS.PROJECT_NAME, "?.crudLoading", { suffix: " === true" }),
                           [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.loadingState), "Loading", [
-                            ctx.useVariableNode("Message", ctx.scriptLiteral("Loading public facade rows..."))
+                            ctx.useVariableNode("Message", ctx.scriptLiteral("Loading records..."))
                           ])]
                         )
                       ]
@@ -2073,9 +2036,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       children: [
                         ctx.ifDirectiveNode(
                           "ErrorVisible",
-                          "!!this.global?.crudError",
+                          globalSourceValue(ctx, TOKENS.PROJECT_NAME, "?.crudError"),
                           [ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.errorRetry), "Error", [
-                            ctx.useVariableNode("Message", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                            ctx.useVariableNode("Message", globalSourceValue(ctx, TOKENS.PROJECT_NAME, "?.crudError")),
                             ctx.controlEventNode(
                               "Retry",
                               [
@@ -2144,8 +2107,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       name: "HeaderCol",
                       children: [
                         ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.pageHeader), "PageHeader", [
-                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " workspace")),
-                          ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select, edit, create, then return to the home page if needed."))
+                          ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL)),
+                          ctx.useVariableNode("Subtitle", ctx.scriptLiteral("Select a record, edit it, or create a new one."))
                         ]),
                         routeButtonNode(ctx, "Back", "Back to home", "/home", { fill: "outline", routerDirection: "back" })
                       ]
@@ -2165,12 +2128,12 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                           ctx.useVariableNode("PrimaryField", ctx.scriptLiteral(TOKENS.PRIMARY_FIELD)),
                           ctx.useVariableNode("SecondaryField", ctx.scriptLiteral(TOKENS.SECONDARY_FIELD)),
                           ctx.useVariableNode("ActionLabel", ctx.scriptLiteral("New " + TOKENS.ENTITY_SINGULAR)),
-                          ctx.useVariableNode("RefreshToken", "(this.local?.refreshToken || '') + ''"),
+                          ctx.useVariableNode("RefreshToken", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.refreshToken")),
                           ctx.controlEventNode(
                             "ItemSelected",
                             [
                               chainActionNodes(ctx, [
-                                ctx.setLocalActionNode("SetSelectedId", "selectedId", "String(parent.out?.id ?? parent.out?.row?.id ?? '')"),
+                                ctx.setLocalActionNode("SetSelectedId", "selectedId", "parent.out.id"),
                                 ctx.setLocalActionNode("SetMode", "mode", "'update'")
                               ])
                             ],
@@ -2207,8 +2170,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       children: [
                         ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityDetailCard), "DetailCard", [
                           ctx.useVariableNode("Title", ctx.scriptLiteral(TOKENS.DISPLAY_LABEL + " detail")),
-                          ctx.useVariableNode("SelectedId", "(this.local?.selectedId || '') + ''"),
-                          ctx.useVariableNode("RefreshToken", "(this.local?.refreshToken || '') + ''")
+                          ctx.useVariableNode("SelectedId", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.selectedId")),
+                          ctx.useVariableNode("RefreshToken", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.refreshToken"))
                         ])
                       ]
                     }
@@ -2223,14 +2186,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                       name: "FormCol",
                       children: [
                         ctx.buildUseSharedNode(ctx.sharedComponentQName(sourceProject, names.entityEditForm), "EditForm", [
-                          ctx.useVariableNode("SelectedId", "(this.local?.selectedId || '') + ''"),
-                          ctx.useVariableNode("Mode", "(this.local?.mode || 'create') + ''"),
-                          ctx.useVariableNode("RefreshToken", "(this.local?.refreshToken || '') + ''"),
+                          ctx.useVariableNode("SelectedId", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.selectedId")),
+                          ctx.useVariableNode("Mode", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.mode")),
+                          ctx.useVariableNode("RefreshToken", ctx.localSourceValue(TOKENS.PROJECT_NAME, "?.refreshToken")),
                           ctx.controlEventNode(
                             "Saved",
                             [
                               chainActionNodes(ctx, [
-                                ctx.setLocalActionNode("SetSelectedId", "selectedId", "String(parent.out?.id ?? this.local?.selectedId ?? '')"),
+                                ctx.setLocalActionNode("SetSelectedId", "selectedId", "parent.out.id"),
                                 ctx.setLocalActionNode("SetMode", "mode", "'update'"),
                                 ctx.setLocalActionNode("Refresh", "refreshToken", "String(Date.now())")
                               ])
@@ -2257,7 +2220,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                           ctx.controlEventNode(
                             "Cancelled",
                             [
-                              ctx.setLocalActionNode("SetCancelMode", "mode", "this.local?.selectedId ? 'update' : 'create'")
+                              ctx.setLocalActionNode("SetCancelMode", "mode", "parent.out.mode")
                             ],
                             {
                               attrName: "(Cancelled)",
@@ -2373,7 +2336,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardSubTitle",
                   "Subtitle",
-                  ctx.scriptTextNode("Text", "'Rows: ' + (" + ctx.dashboardCountExpression(ctx.scriptLiteral(entity.name)) + ")")
+                  ctx.plainTextNode("Text", "Manage " + entity.label.toLowerCase())
                 )
               ]
             },
@@ -2384,13 +2347,28 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#Paragraph",
                   "Hint",
-                  ctx.plainTextNode("Text", "Open the " + entity.label.toLowerCase() + " workspace to browse and edit live facade data.")
+                  ctx.plainTextNode("Text", "Browse, add, and update " + entity.label.toLowerCase() + ".")
                 ),
-                routeButtonNode(ctx, "Open", "Open " + entity.label, "/" + ctx.entityRouteSegment(entity), { color: "primary", routerDirection: "forward" })
+                routeButtonNode(ctx, "Open", "Manage " + entity.label, "/" + ctx.entityRouteSegment(entity), { color: "primary", routerDirection: "forward" })
               ]
             }
           ]
         }
+      ]
+    };
+  }
+
+  function landingMetricCardNode(ctx, projectName, entity) {
+    var componentPrefix = ctx.pascalize(entity.name);
+    return {
+      className: "ngx.components.UIDynamicElement#GridCol",
+      name: componentPrefix + "MetricCol",
+      children: [
+        ctx.buildUseSharedNode(ctx.sharedComponentQName(projectName, "DashboardStatCard"), "Use" + componentPrefix + "StatCard", [
+          ctx.useVariableNode("Title", ctx.scriptLiteral(entity.label)),
+          ctx.useVariableNode("Count", globalSourceValue(ctx, projectName, "?.crudCounts?." + entity.name)),
+          ctx.useVariableNode("Caption", ctx.scriptLiteral(entity.label.toLowerCase()))
+        ])
       ]
     };
   }
@@ -2434,6 +2412,12 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     homeTree.properties.preloadPriority = "high";
     homeTree.properties.inAutoMenu = true;
     var homeGrid = directChildByName(ctx, directChildByName(ctx, homeTree, "Content"), "Grid");
+    var metricsRow = directChildByName(ctx, homeGrid, "MetricsRow");
+    if (metricsRow) {
+      metricsRow.children = entities.map(function (entity) {
+        return landingMetricCardNode(ctx, projectName, entity);
+      });
+    }
     var routeRow = directChildByName(ctx, homeGrid, "RouteRow");
     if (routeRow) {
       routeRow.children = entities.map(function (entity) {

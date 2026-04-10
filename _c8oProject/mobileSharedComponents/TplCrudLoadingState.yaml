@@ -1,13 +1,13 @@
 comment: Template source for the CRUD loading state card.
-↓Message [ngx.components.UICompVariable-1775751422323]: 
-  value: '''Loading public facade rows...'''
-↓TplCrudLoadingStateCard [ngx.components.UIDynamicElement-1775751422325]: 
+↓Message [ngx.components.UICompVariable-1775818410358]: 
+  value: '''Loading records...'''
+↓TplCrudLoadingStateCard [ngx.components.UIDynamicElement-1775818410360]: 
   beanData: '{"ionBean":"Card"}'
   tagName: ion-card
-  ↓TplCrudLoadingStateContent [ngx.components.UIDynamicElement-1775751422327]: 
+  ↓TplCrudLoadingStateContent [ngx.components.UIDynamicElement-1775818410362]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplCrudLoadingStateText [ngx.components.UIText-1775751422329]: 
+    ↓TplCrudLoadingStateText [ngx.components.UIText-1775818410364]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType

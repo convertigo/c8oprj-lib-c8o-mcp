@@ -1,28 +1,30 @@
 comment: Template source for the bootstrap work-in-progress card.
-↓TplWorkInProgressCardRoot [ngx.components.UIDynamicElement-1775751422307]: 
+↓Message [ngx.components.UICompVariable-1775818410340]: 
+  value: '''Preparing the application.'''
+↓TplWorkInProgressCardRoot [ngx.components.UIDynamicElement-1775818410342]: 
   beanData: '{"ionBean":"Card","IonColor":"plain:warning"}'
   tagName: ion-card
-  ↓TplWorkInProgressCardHeader [ngx.components.UIDynamicElement-1775751422309]: 
+  ↓TplWorkInProgressCardHeader [ngx.components.UIDynamicElement-1775818410344]: 
     beanData: '{"ionBean":"CardHeader"}'
     tagName: ion-card-header
-    ↓TplWorkInProgressCardTitle [ngx.components.UIDynamicElement-1775751422311]: 
+    ↓TplWorkInProgressCardTitle [ngx.components.UIDynamicElement-1775818410346]: 
       beanData: '{"ionBean":"CardTitle"}'
       tagName: ion-card-title
-      ↓TplWorkInProgressCardTitleText [ngx.components.UIText-1775751422313]: 
+      ↓TplWorkInProgressCardTitleText [ngx.components.UIText-1775818410348]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
             - MobileSmartSourceType: plain:Work in progress
-  ↓TplWorkInProgressCardContent [ngx.components.UIDynamicElement-1775751422315]: 
+  ↓TplWorkInProgressCardContent [ngx.components.UIDynamicElement-1775818410350]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplWorkInProgressText [ngx.components.UIText-1775751422317]: 
+    ↓TplWorkInProgressText [ngx.components.UIText-1775818410352]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-          - MobileSmartSourceType: 'script:''Bootstrap stage visible. Current build stage: '' + (((($any(this).pageOwner || $any(this).owner || this).global || {})).crudBuildStage ?? ''bootstrap'')'
-    ↓TplWorkInProgressHint [ngx.components.UIText-1775751422319]: 
+          - MobileSmartSourceType: script:this.Message
+    ↓TplWorkInProgressHint [ngx.components.UIText-1775818410354]: 
       textValue: 
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-          - MobileSmartSourceType: plain:The CRUD shell is visible while live shared actions populate global state.
+          - MobileSmartSourceType: plain:This page will be ready in a moment.
