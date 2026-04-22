@@ -457,6 +457,29 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function paletteAuthoringCatalogInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        parent: { type: "string", description: "Existing NGX parent QName. Case-sensitive." },
+        filter: { type: "string", description: "Optional palette filter text used to narrow the returned authoring entries." },
+        includeBuiltIn: booleanFlagSchema(true, "Default true. Set false to hide built-in palette entries."),
+        includeShared: booleanFlagSchema(true, "Default true. Set false to hide shared palette entries."),
+        includeHints: booleanFlagSchema(false, "Set true to append property hints for each returned authoring entry."),
+        includeSkeleton: booleanFlagSchema(false, "Set true to append the canonical Convertigo JSON skeleton for each returned authoring entry."),
+        limit: integerSchema(0, null, 0, "Maximum local palette entries returned. Leave empty or 0 for no local limit."),
+        _nextCursor: { type: "string", description: "Opaque cursor from a previous response. Internal pagination token for the local palette section." },
+        includeMarketplace: booleanFlagSchema(false, "Set true to append marketplace library suggestions derived from search/library/filter hints."),
+        search: { type: "string", description: "Optional marketplace search query. Defaults to library, then filter." },
+        library: { type: "string", description: "Optional marketplace library identifier used to bias the marketplace suggestion list." },
+        topics: topicInputSchema("Optional marketplace topic filter."),
+        marketplaceLimit: integerSchema(1, 100, 12, "Maximum marketplace library suggestions returned when includeMarketplace=true.")
+      },
+      required: ["parent"],
+      additionalProperties: false
+    };
+  }
+
   function paletteListInputSchema() {
     return {
       type: "object",
@@ -491,6 +514,26 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function paletteHtmlSkeletonInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        parent: { type: "string", description: "Existing parent QName. Case-sensitive." },
+        className: {
+          type: "string",
+          description: "Palette entry class token. For NGX dynamic entries keep the #logicalId suffix."
+        },
+        name: {
+          type: "string",
+          description: "Optional technical name override. Omit to use the palette-derived suggestion."
+        },
+        includeHints: booleanFlagSchema(false, "Set true to append property hints next to the generated authoring surface.")
+      },
+      required: ["parent", "className"],
+      additionalProperties: false
+    };
+  }
+
   function paletteResolveWithMarketplaceInputSchema() {
     return {
       type: "object",
@@ -508,8 +551,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         importedProjectName: { type: "string", description: "Optional local project name override used when importing a starter template or renaming the imported library." },
         includeBuiltIn: booleanFlagSchema(true, "Default true. Set false to hide built-in entries during palette reads."),
         includeShared: booleanFlagSchema(true, "Default true. Set false to hide shared entries during palette reads."),
-        name: { type: "string", description: "Optional technical name override forwarded to palette-json-skeleton when an exact class token is resolved." },
-        includeHints: booleanFlagSchema(false, "Set true to append property hints when an exact class token is resolved and a JSON skeleton is returned.")
+        name: { type: "string", description: "Optional technical name override forwarded to palette-json-skeleton and palette-html-skeleton when an exact class token is resolved." },
+        includeHints: booleanFlagSchema(false, "Set true to append property hints when an exact class token is resolved and a JSON/HTML authoring skeleton is returned.")
       },
       required: ["parent"],
       additionalProperties: false
@@ -543,6 +586,137 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       skeleton: openObjectSchema({}),
       splitFileSkeleton: openObjectSchema({}),
       propertyHints: { type: "array", items: openObjectSchema({}) },
+      warnings: stringArraySchema()
+    });
+  }
+
+  function paletteHtmlAuthoringSchema() {
+    return openObjectSchema({
+      surface: {
+        type: "string",
+        enum: ["html", "scss", "text"],
+        description: "Authoring surface type returned for the palette entry."
+      },
+      markerAttribute: {
+        type: "string",
+        description: "Semantic marker attribute to preserve palette/shared intent in authoring HTML."
+      },
+      markerValue: {
+        type: "string",
+        description: "Marker value paired with markerAttribute."
+      },
+      html: { type: "string" },
+      scss: { type: "string" },
+      text: { type: "string" },
+      tag: { type: "string" },
+      componentName: { type: "string" }
+    });
+  }
+
+  function paletteHtmlSkeletonOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string" },
+      source: { type: "string" },
+      coverage: {
+        type: "string",
+        enum: ["serialized", "template", "hints"],
+        description: "Primary provenance of the underlying skeleton metadata."
+      },
+      parent: openObjectSchema({
+        qname: { type: "string" },
+        className: { type: "string" }
+      }),
+      entry: openObjectSchema({
+        className: { type: "string" },
+        resolvedClassName: { type: "string" },
+        nameSuggestion: { type: "string" },
+        tag: { type: "string" },
+        componentName: { type: "string" }
+      }),
+      template: openObjectSchema({
+        related: { type: "string" },
+        mode: { type: "string" },
+        className: { type: "string" },
+        name: { type: "string" }
+      }),
+      skeleton: openObjectSchema({}),
+      splitFileSkeleton: openObjectSchema({}),
+      authoring: paletteHtmlAuthoringSchema(),
+      propertyHints: { type: "array", items: openObjectSchema({}) },
+      warnings: stringArraySchema()
+    });
+  }
+
+  function paletteAuthoringCatalogEntrySchema() {
+    return openObjectSchema({
+      entry: openObjectSchema({
+        name: { type: "string" },
+        className: { type: "string" },
+        resolvedClassName: { type: "string" },
+        category: { type: "string" },
+        group: { type: "string" },
+        componentName: { type: "string" },
+        tag: { type: "string" },
+        builtin: { type: "boolean" },
+        additional: { type: "boolean" },
+        propertyCount: { type: "number" },
+        nameSuggestion: { type: "string" }
+      }),
+      source: { type: "string" },
+      coverage: {
+        type: "string",
+        enum: ["serialized", "template", "hints"]
+      },
+      template: openObjectSchema({
+        related: { type: "string" },
+        mode: { type: "string" },
+        className: { type: "string" },
+        name: { type: "string" }
+      }),
+      authoring: paletteHtmlAuthoringSchema(),
+      skeleton: openObjectSchema({}),
+      splitFileSkeleton: openObjectSchema({}),
+      sourceDetails: openObjectSchema({}),
+      propertyHints: { type: "array", items: openObjectSchema({}) },
+      warnings: stringArraySchema()
+    });
+  }
+
+  function paletteAuthoringCatalogOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string" },
+      parent: openObjectSchema({
+        qname: { type: "string" },
+        className: { type: "string" },
+        project: { type: "string" }
+      }),
+      request: openObjectSchema({}),
+      palette: openObjectSchema({
+        returned: { type: "number" },
+        totalMatches: { type: "number" },
+        hasMore: { type: "boolean" },
+        nextCursor: { type: "string" },
+        categories: {
+          type: "array",
+          items: openObjectSchema({
+            name: { type: "string" },
+            type: { type: "string" },
+            count: { type: "number" }
+          })
+        }
+      }),
+      entries: {
+        type: "array",
+        items: paletteAuthoringCatalogEntrySchema()
+      },
+      marketplace: openObjectSchema({
+        checked: { type: "boolean" },
+        query: { type: "string" },
+        topics: { type: "array", items: { type: "string" } },
+        returned: { type: "number" },
+        entries: { type: "array", items: openObjectSchema({}) },
+        suggestions: { type: "array", items: openObjectSchema({}) }
+      }),
       warnings: stringArraySchema()
     });
   }
@@ -581,6 +755,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       template: openObjectSchema({}),
       skeleton: openObjectSchema({}),
       splitFileSkeleton: openObjectSchema({}),
+      authoring: paletteHtmlAuthoringSchema(),
       propertyHints: { type: "array", items: openObjectSchema({}) },
       warnings: stringArraySchema()
     });
@@ -620,6 +795,18 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         project: { type: "string", description: "Project technical name. Omit only when the current context project is unambiguous." },
         deleteCar: booleanFlagSchema(true, "Delete the exported .car archive when present. Default true.")
+      },
+      additionalProperties: false
+    };
+  }
+
+  function projectReloadInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Project technical name. Omit only when the current context project is unambiguous." },
+        fromIonic: booleanFlagSchema(false, "Set true to reimport supported _private/ionic frontend edits before reload."),
+        ionicTarget: { type: "string", description: "Optional generated Ionic file, sidecar, or directory to import without a full project reload when fromIonic is true." }
       },
       additionalProperties: false
     };
@@ -1148,6 +1335,38 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function projectReloadOutputSchema() {
+    return closedObjectSchema({
+      project: { type: "string" },
+      fromIonic: { type: "boolean" },
+      preserveIonic: { type: "boolean" },
+      reloaded: { type: "boolean" },
+      ionicImported: { type: "boolean" },
+      status: { type: "string" },
+      message: { type: "string" },
+      ionicSource: { type: "string" },
+      ionicTarget: { type: "string" },
+      ionicReport: openObjectSchema({
+        processed: { type: "number" },
+        pagesUpdated: { type: "number" },
+        sharedComponentsUpdated: { type: "number" },
+        templatesUpdated: { type: "number" },
+        stylesUpdated: { type: "number" },
+        scriptsUpdated: { type: "number" },
+        skipped: { type: "number" },
+        warnings: stringArraySchema()
+      }),
+      timestamp: { type: "number" },
+      errors: {
+        type: "array",
+        items: closedObjectSchema({
+          name: { type: "string" },
+          message: { type: "string" }
+        })
+      }
+    });
+  }
+
   function cleanDocText(value) {
     var text = value == null ? "" : String(value);
     text = text.replace(/\r\n?/g, "\n").trim();
@@ -1271,6 +1490,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_palette_describe") {
       return paletteDescribeInputSchema();
     }
+    if (seq === "tools_palette_authoring_catalog") {
+      return paletteAuthoringCatalogInputSchema();
+    }
+    if (seq === "tools_palette_html_skeleton") {
+      return paletteHtmlSkeletonInputSchema();
+    }
     if (seq === "tools_palette_json_skeleton") {
       return paletteJsonSkeletonInputSchema();
     }
@@ -1282,6 +1507,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_list") {
       return projectListInputSchema();
+    }
+    if (seq === "tools_project_reload") {
+      return projectReloadInputSchema();
     }
     if (seq === "tools_project_list_symbols") {
       return projectListSymbolsInputSchema();
@@ -1335,6 +1563,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_requestable_execute") {
       return requestableExecuteOutputSchema();
     }
+    if (seq === "tools_palette_authoring_catalog") {
+      return paletteAuthoringCatalogOutputSchema();
+    }
+    if (seq === "tools_palette_html_skeleton") {
+      return paletteHtmlSkeletonOutputSchema();
+    }
     if (seq === "tools_palette_json_skeleton") {
       return paletteJsonSkeletonOutputSchema();
     }
@@ -1349,6 +1583,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_delete") {
       return projectDeleteOutputSchema();
+    }
+    if (seq === "tools_project_reload") {
+      return projectReloadOutputSchema();
     }
     var crudOutputOverride = C8O.schemaOverridesCrud && C8O.schemaOverridesCrud.applyOutput
       ? C8O.schemaOverridesCrud.applyOutput(seq)

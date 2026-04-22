@@ -1,0 +1,33 @@
+accessibility: Private
+comment: |
+  Return an authoring HTML/SCSS/text skeleton for one frontend palette entry
+  Resolves a palette class against an existing parent QName, prefers the same canonical metadata as `palette-json-skeleton`, then instantiates the palette entry live and returns an authoring surface suitable for `_private/ionic` edits and round-trip import. The response keeps the JSON skeleton metadata plus `authoring` (`surface=html|scss|text`) so agents can compose frontend markup without mining other projects for examples.
+↓BuildAuthoring [steps.SimpleStep-1775248600001]: 
+  comment: Resolve the palette entry into an authoring HTML/SCSS/text surface, reusing the canonical JSON skeleton metadata.
+  expression: include("js/tools_palette_html_skeleton.js");
+↓result [steps.JsonToXmlStep-1775248600002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: paletteHtmlSkeletonResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓parent [variables.RequestableVariable-1775248600003]: 
+  comment: Existing parent QName. Case-sensitive.
+  description: Existing parent QName. Case-sensitive.
+↓className [variables.RequestableVariable-1775248600004]: 
+  comment: Palette entry class token. For NGX dynamic entries keep the #logicalId suffix.
+  description: Palette entry class token. For NGX dynamic entries keep the #logicalId suffix.
+↓name [variables.RequestableVariable-1775248600005]: 
+  comment: Optional technical name override. Omit to use the palette-derived suggestion.
+  description: Optional technical name override. Omit to use the palette-derived suggestion.
+↓includeHints [variables.RequestableVariable-1775248600006]: 
+  comment: Set true to append property hints next to the generated authoring surface.
+  description: Set true to append property hints next to the generated authoring surface.
+  value: false

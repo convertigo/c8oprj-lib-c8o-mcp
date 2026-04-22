@@ -300,7 +300,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       "",
       "## MCP-only boundary",
       "",
-      "- Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
+      "- Do not edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts except through the supported sidecar-backed HTML editor round-trip; that supported path includes page/shared-component HTML/SCSS plus explicit `sharedComponent`, `useSharedComponent`, `sharedAction`, and `invokeSharedAction` sidecars. Outside that path, fix source objects or generator code.",
       "- Generated artifacts are diagnostic-only surfaces. Fix the Convertigo source objects or the MCP generator instead.",
       "- Do not run `npm run build` or other manual frontend builds outside MCP to close a task.",
       "",

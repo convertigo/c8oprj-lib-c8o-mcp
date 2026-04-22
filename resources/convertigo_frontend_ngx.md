@@ -12,6 +12,124 @@ Read this when implementing or changing NGX pages, bindings, actions, route logi
 ## Read this after the recipe
 If the task is a classic data-backed page, read `convertigo/recipe-ngx-data-page@1` first. Use this handbook when the page needs deeper NGX structure, action chaining, runtime proof, or event semantics beyond the recipe.
 
+
+## HTML editor round-trip
+- For free-form visual NGX work, check `_private/ionic/src/app/**/*.c8o-map.json` before choosing the authoring surface.
+- If sidecars exist for the target page/shared component and the task is supported visual HTML/SCSS work, use `_private/ionic` as the authoring surface and reimport with `project-reload { fromIonic=true, ionicTarget="<generated file or directory>" }` for targeted frontend-only changes, or `project-reload { fromIonic=true }` / Studio `Reload from Ionic` when the whole authoring bundle must be reimported.
+- In this HTML editor flavor, all visible NGX front-end generation must use `_private/ionic` HTML/SCSS plus supported sidecars. Do not generate visible page/shared-component content through descriptor/tree YAML mutations.
+- Preserve every existing `class123456...` token on authored HTML nodes. These `class<priority>` tokens are mandatory unique round-trip anchors and must not be removed, renamed, reassigned, copied, invented, or reused as style classes.
+- Prefer editing existing anchored elements in place instead of replacing them. When a visual change applies to an existing generated element, keep its `class<priority>` anchor and add/update semantic classes on that same element, for example `class="crm-card class1776709259833"`.
+- A `class<priority>` token may appear at most once in an authored HTML file, and only on the original generated element where it was found. New elements must use semantic class names such as `crm-card`, never copied numeric anchor classes such as `class1776709259833`.
+- When an anchored node already maps to a palette/shared Convertigo object, keep its selector or Ionic/palette tag by default. Do not replace an anchored `ion-*` tag or shared-component selector with a generic `div`/`span` unless the underlying object is intentionally being replaced through a supported workflow.
+- Mandatory rule for the round-trip pass: when it must create reusable frontend objects or mount/invoke them, emit dedicated create/use sidecars under `_private/ionic`:
+  - `kind: "sharedComponent"` for a new `UISharedRegularComponent`
+  - `kind: "sharedAction"` for a new `UIActionStack` plus its primary custom action body
+  - `kind: "invokeSharedAction"` for wiring a page/shared-component element to a shared action through `UIControlEvent` + `UIDynamicInvoke`
+  - `kind: "useSharedComponent"` for wiring a page/shared-component container to a shared component through `UIUseShared` + `UIUseVariable`
+- For `invokeSharedAction`, use `create.target.priority` / `class123...` when targeting an existing Convertigo element, or add a stable custom class in the authored HTML and use `create.target.classToken` when the element is new in the same round-trip.
+- For `useSharedComponent`, use `create.target.priority` / `class123...` when targeting an existing Convertigo container, or add a stable custom class in the authored HTML and use `create.target.classToken` when the container is new in the same round-trip.
+- Shared action create sidecars may declare `create.variables`; invoke sidecars may declare `create.variables` to populate `UIControlVariable` inputs.
+- Shared component create sidecars may declare `create.variables` to populate `UICompVariable` inputs; `useSharedComponent` sidecars may declare `create.variables` to populate `UIUseVariable` inputs.
+- If the task needs both creation and wiring in the same pass, emit both sidecars in the same authoring bundle. Do not hand-build YAML for these flows.
+- If sidecars are absent or the visible front-end mutation is outside the supported round-trip scope, stop and surface the limitation. Do not fall back to YAML generation for visible front-end in this HTML editor flavor.
+- Before writing HTML, inspect the target HTML/SCSS, global styles, and existing shell/header controls, then call `palette-authoring-catalog` for the real parent.
+- Preserve existing light/dark and i18n controls unless explicitly asked to redesign the shell.
+- Do not use JSON mirrors or `fromJson` in the HTML editor workflow.
+- For mixed backend + frontend work, preserve edited authoring files by moving/restoring the bundle around descriptor reloads; do not rely on `preserveIonic`.
+
+Example pair when a new HTML button must call a new shared action:
+
+```json
+{
+  "version": 1,
+  "strategy": "structured-tree-v2",
+  "kind": "sharedAction",
+  "project": "MyApp",
+  "name": "RefreshDashboard",
+  "create": {
+    "name": "RefreshDashboard",
+    "customActionName": "Run",
+    "async": false,
+    "variables": [
+      { "name": "source", "mode": "PLAIN", "value": "" }
+    ]
+  },
+  "files": {
+    "ts": "_private/ionic/src/app/services/refresh-dashboard.ts"
+  }
+}
+```
+
+Example pair when a new shared component must be mounted into a page container:
+
+```json
+{
+  "version": 1,
+  "strategy": "structured-tree-v2",
+  "kind": "sharedComponent",
+  "project": "MyApp",
+  "name": "CustomerCallout",
+  "create": {
+    "name": "CustomerCallout",
+    "sharedModule": "CustomerCalloutModule",
+    "exposed": true,
+    "variables": [
+      { "name": "Title", "mode": "PLAIN", "value": "" }
+    ]
+  },
+  "files": {
+    "html": "_private/ionic/src/app/components/myapp.customercallout/myapp-customercallout.html",
+    "scss": "_private/ionic/src/app/components/myapp.customercallout/myapp-customercallout.scss",
+    "ts": "_private/ionic/src/app/components/myapp.customercallout/myapp-customercallout.ts"
+  }
+}
+```
+
+```json
+{
+  "version": 1,
+  "strategy": "structured-tree-v2",
+  "kind": "useSharedComponent",
+  "project": "MyApp",
+  "qname": "MyApp.MobileApplication.Application.Page",
+  "name": "UseCustomerCallout",
+  "create": {
+    "sharedComponent": "CustomerCallout",
+    "target": {
+      "classToken": "customer-callout-slot",
+      "tagName": "div"
+    },
+    "useName": "UseCustomerCallout",
+    "variables": [
+      { "name": "Title", "mode": "PLAIN", "value": "Hello customer" }
+    ]
+  }
+}
+```
+
+```json
+{
+  "version": 1,
+  "strategy": "structured-tree-v2",
+  "kind": "invokeSharedAction",
+  "project": "MyApp",
+  "qname": "MyApp.MobileApplication.Application.Page",
+  "name": "InvokeRefreshDashboard",
+  "create": {
+    "sharedAction": "RefreshDashboard",
+    "target": {
+      "classToken": "refresh-dashboard-trigger",
+      "tagName": "ion-button"
+    },
+    "eventName": "(click)",
+    "invokeName": "InvokeRefreshDashboard",
+    "variables": [
+      { "name": "source", "mode": "PLAIN", "value": "dashboard" }
+    ]
+  }
+}
+```
+
 ## NGX mental model
 
 ### Structure first, then wiring
@@ -38,8 +156,14 @@ Good NGX work:
   2. if no clear built-in object appears, call `palette-resolve-with-marketplace`
   3. pass intent-derived `search` / `filter` hints even if `className` is still unknown
   4. if a library is imported, continue from the refreshed palette result before editing descriptors
-- uses `palette-json-skeleton` when the exact JSON mirror shape of one palette entry is needed, instead of mining other projects for examples, and reads `coverage` to know whether the subtree is template-backed, serialized, or hints-only
+- uses `palette-html-skeleton` when the exact frontend authoring surface of one palette entry is needed for `_private/ionic` composition; legacy JSON skeleton helpers are not the default frontend authoring path
+- uses `palette-authoring-catalog` first when the goal is to expose the current frontend possibilities for one NGX parent in authoring form, instead of discovering one palette entry at a time
 - treats the palette as incomplete until marketplace discovery/import has been checked for shared or external UI libraries
+- emits explicit sidecars when the HTML editor workflow must create new reusable objects instead of only restyling existing page/shared-component HTML:
+  - `sharedComponent` sidecar
+  - `sharedAction` sidecar
+  - `invokeSharedAction` sidecar
+  - `useSharedComponent` sidecar
 
 Common trap:
 - creating a visually plausible tree with weak action wiring, then assuming the page is “done”
@@ -56,11 +180,11 @@ Do not hide the entire page logic inside one freeform custom fragment if the pal
 
 When a small custom or style object is still required (`UICustom`, `UIStyle`, directive wrapper, dynamic NGX component with tricky `beanData`), prefer this exact order:
 1. resolve the real parent subtree
-2. call `palette-json-skeleton`
-3. adapt the returned JSON subtree locally
+2. call `palette-html-skeleton` when the authoring goal is `_private/ionic` HTML/SCSS/text
+3. adapt the returned snippet locally
 4. apply it to the target project
 
-Do not search unrelated projects just to recover the raw JSON/YAML shape of those objects.
+Do not search unrelated projects just to recover the raw descriptor shape of those objects.
 
 When a needed shared component/action or external UI object is missing from the palette, prefer this exact order:
 1. call `palette-resolve-with-marketplace` with the target parent and the best available `library/search/filter` hints
@@ -321,11 +445,12 @@ For a credible NGX data page:
 
 ## Recommended MCP tools
 - `databaseobject-tree-get`
-- `databaseobject-tree-apply`
-- `batch-call`
+- `palette-authoring-catalog`
+- `palette-html-skeleton`
 - `palette-list`
 - `palette-describe`
 - `palette-resolve-with-marketplace`
+- `project-reload`
 - `requestable-execute`
 - `mobile-builder-open`
 - `log-view`
@@ -338,6 +463,7 @@ For a credible NGX data page:
 - Do not treat structural UI presence as runtime proof.
 - Do not forget `__stub=true` when the requestable contract needs it.
 - Do not build a contract-backed data page mainly through one large `UICustom` body.
+- Do not generate visible front-end through descriptor/YAML mutations in this HTML editor flavor.
 
 ## Completion checks
 - The page uses deliberate NGX structure and action placement.

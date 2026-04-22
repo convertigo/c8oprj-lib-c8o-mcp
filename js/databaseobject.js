@@ -2690,17 +2690,237 @@ C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   return result;
 };
 
+C8O.dbo._toIonicImportReport = function (imported, defaultProjectName) {
+  var warningArray = [];
+  if (imported && imported.warnings) {
+    try {
+      for (var wi = 0; wi < imported.warnings.size(); wi++) {
+        warningArray.push(String(imported.warnings.get(wi)));
+      }
+    } catch (_ignoreIonicWarnings) {
+      try {
+        for (var wj = 0; wj < imported.warnings.length; wj++) {
+          warningArray.push(String(imported.warnings[wj]));
+        }
+      } catch (_ignoreIonicWarningsArray) {}
+    }
+  }
+  return {
+    projectName: imported && imported.projectName != null ? String(imported.projectName) : defaultProjectName,
+    processed: imported && imported.processed != null ? Number(imported.processed) : 0,
+    pagesUpdated: imported && imported.pagesUpdated != null ? Number(imported.pagesUpdated) : 0,
+    sharedComponentsUpdated: imported && imported.sharedComponentsUpdated != null ? Number(imported.sharedComponentsUpdated) : 0,
+    templatesUpdated: imported && imported.templatesUpdated != null ? Number(imported.templatesUpdated) : 0,
+    stylesUpdated: imported && imported.stylesUpdated != null ? Number(imported.stylesUpdated) : 0,
+    scriptsUpdated: imported && imported.scriptsUpdated != null ? Number(imported.scriptsUpdated) : 0,
+    skipped: imported && imported.skipped != null ? Number(imported.skipped) : 0,
+    warnings: warningArray
+  };
+};
+
+C8O.dbo._importFromIonicViaStudio = function (projectName, projectDir, errors) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+  var Runnable = Packages.java.lang.Runnable;
+  var Thread = Packages.java.lang.Thread;
+  var ProjectTreeObject = Packages.com.twinsoft.convertigo.eclipse.views.projectexplorer.model.ProjectTreeObject;
+  var UnloadedProjectTreeObject = Packages.com.twinsoft.convertigo.eclipse.views.projectexplorer.model.UnloadedProjectTreeObject;
+  var NgxIonicRoundTripConverter = Packages.com.twinsoft.convertigo.engine.util.NgxIonicRoundTripConverter;
+  var result = {
+    executed: false,
+    imported: false,
+    message: "",
+    error: null,
+    report: null,
+    requiresFinalReload: false
+  };
+  var preparedTreeObject = null;
+  var needsLoad = false;
+
+  try {
+    var pluginInstance = ConvertigoPlugin.getDefault();
+    if (pluginInstance == null) {
+      result.message = "Project Explorer view not available";
+      return result;
+    }
+
+    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      try {
+        var view = pluginInstance.getProjectExplorerView();
+        if (view == null) {
+          result.message = "Project Explorer view not available";
+          return;
+        }
+
+        var imported = null;
+        var treeObject = null;
+        try {
+          treeObject = view.getProjectRootObject(projectName);
+        } catch (_ignoreProjectRootLookupError) {
+          treeObject = null;
+        }
+        if (treeObject == null) {
+          try {
+            var provider = view.viewer != null ? view.viewer.getContentProvider() : null;
+            if (provider != null) {
+              var loadProjectMethod = provider.getClass().getDeclaredMethod("loadProject", Packages.java.lang.String);
+              loadProjectMethod.setAccessible(true);
+              loadProjectMethod.invoke(provider, projectName);
+              treeObject = view.getProjectRootObject(projectName);
+            }
+          } catch (_ignoreProviderLoadProject) {}
+        }
+        if (treeObject == null) {
+          try {
+            view.importProjectTreeObject(projectName);
+            treeObject = view.getProjectRootObject(projectName);
+          } catch (_ignoreImportProjectTreeObject) {}
+        }
+        if (treeObject instanceof UnloadedProjectTreeObject) {
+          preparedTreeObject = treeObject;
+          needsLoad = true;
+          result.executed = true;
+          return;
+        }
+        if (treeObject instanceof ProjectTreeObject) {
+          preparedTreeObject = treeObject;
+          result.executed = true;
+          return;
+        }
+        throw new Error("Project root not found in Project Explorer: " + projectName);
+      } catch (uiError) {
+        result.error = String(uiError);
+        result.message = String(uiError);
+      }
+    }}));
+  } catch (studioError) {
+    result.error = String(studioError);
+    result.message = String(studioError);
+  }
+
+  if (!result.imported && result.message.length && errors && errors.push) {
+    errors.push({ name: "__ionicStudio__", message: result.message, detail: result.error });
+  }
+
+  if (result.error != null) {
+    return result;
+  }
+
+  try {
+    if (needsLoad && preparedTreeObject != null) {
+      ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+        try {
+          var view = pluginInstance.getProjectExplorerView();
+          if (view != null) {
+            view.loadProject(preparedTreeObject, false);
+          }
+        } catch (loadError) {
+          result.error = String(loadError);
+          result.message = String(loadError);
+        }
+      }}));
+      if (result.error != null) {
+        return result;
+      }
+      var loadedProject = null;
+      for (var attempt = 0; attempt < 100; attempt++) {
+        try {
+          loadedProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName, false);
+        } catch (_ignoreProjectLoadPoll) {
+          loadedProject = null;
+        }
+        if (loadedProject != null) {
+          break;
+        }
+        Thread.sleep(100);
+      }
+      if (loadedProject == null) {
+        result.error = "Timed out while waiting for project to load: " + projectName;
+        result.message = result.error;
+        return result;
+      }
+    }
+
+    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      try {
+        var view = pluginInstance.getProjectExplorerView();
+        if (view == null) {
+          throw new Error("Project Explorer view not available");
+        }
+        var treeObject = view.getProjectRootObject(projectName);
+        if (!(treeObject instanceof ProjectTreeObject)) {
+          throw new Error("Project not loaded in Project Explorer: " + projectName);
+        }
+        if (treeObject.getModified && treeObject.getModified()) {
+          treeObject.save(false);
+        }
+        var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName, false);
+        if (project == null) {
+          throw new Error("Project not loaded: " + projectName);
+        }
+        var imported = NgxIonicRoundTripConverter.importFromIonic(project);
+        view.reloadProject(treeObject);
+        result.executed = true;
+        result.imported = true;
+        result.report = C8O.dbo._toIonicImportReport(imported, projectName);
+      } catch (finalUiError) {
+        result.error = String(finalUiError);
+        result.message = String(finalUiError);
+      }
+    }}));
+  } catch (lateStudioError) {
+    result.error = String(lateStudioError);
+    result.message = String(lateStudioError);
+  }
+
+  if (!result.imported && result.message.length && errors && errors.push) {
+    errors.push({ name: "__ionicStudio__", message: result.message, detail: result.error });
+  }
+  return result;
+};
+
+C8O.dbo.forbiddenIonicAuthoringTarget = function (target) {
+  var raw = C8O.util && typeof C8O.util.toTrimmedString === "function"
+    ? C8O.util.toTrimmedString(target || "")
+    : String(target || "").trim();
+  if (!raw.length) {
+    return null;
+  }
+  var normalized = raw.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "").toLowerCase();
+  var forbiddenSuffixes = [
+    "/src/global.css",
+    "/src/global.scss",
+    "/src/global.sass"
+  ];
+  for (var i = 0; i < forbiddenSuffixes.length; i++) {
+    var suffix = forbiddenSuffixes[i];
+    if (normalized === suffix.substring(1) || normalized.indexOf(suffix) === normalized.length - suffix.length) {
+      return suffix.substring(1);
+    }
+  }
+  return null;
+};
+
 C8O.dbo.reloadProject = function (projectOrName, errors, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var DatabaseObjectsManager = Packages.com.twinsoft.convertigo.engine.DatabaseObjectsManager;
   var File = Packages.java.io.File;
-  var ConvertigoJsonConverter = Packages.com.twinsoft.convertigo.engine.util.ConvertigoJsonConverter;
+  var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
   var name = "";
   var opts = options || {};
-  var fromJson = C8O.util && typeof C8O.util.toBoolean === "function"
-    ? C8O.util.toBoolean(opts.fromJson, false) === true
-    : opts.fromJson === true;
-  var yamlRebuilt = false;
-  var jsonSource = "";
+  var fromIonic = C8O.util && typeof C8O.util.toBoolean === "function"
+    ? C8O.util.toBoolean(opts.fromIonic, false) === true
+    : opts.fromIonic === true;
+  var preserveIonic = C8O.util && typeof C8O.util.toBoolean === "function"
+    ? C8O.util.toBoolean(opts.preserveIonic, false) === true
+    : opts.preserveIonic === true;
+  var ionicTarget = C8O.util && typeof C8O.util.toTrimmedString === "function"
+    ? C8O.util.toTrimmedString(opts.ionicTarget || opts.ionicTargetPath || "")
+    : String(opts.ionicTarget || opts.ionicTargetPath || "").trim();
+  var ionicImported = false;
+  var ionicSource = "";
+  var ionicReport = null;
+  var studioProjects = Engine.theApp.databaseObjectsManager.getStudioProjects();
   if (projectOrName != null) {
     if (typeof projectOrName === 'string') {
       name = C8O.util.toTrimmedString(projectOrName);
@@ -2715,40 +2935,111 @@ C8O.dbo.reloadProject = function (projectOrName, errors, options) {
     if (errors && errors.push) {
       errors.push({ name: "__reload__", message: message });
     }
-    return { reloaded: false, message: message };
+    return { reloaded: false, message: message, fromIonic: fromIonic, preserveIonic: preserveIonic, ionicImported: false, ionicSource: "", ionicTarget: ionicTarget, ionicReport: null };
   }
-  if (fromJson) {
+  var projectDir = null;
+  if (fromIonic) {
     try {
-      var projectDir = C8O.project && typeof C8O.project.resolveProjectDirectory === "function"
-        ? C8O.project.resolveProjectDirectory({ projectName: name })
-        : new File(String(Engine.projectDir(name)));
+      if (C8O.project && typeof C8O.project.resolveProjectDirectory === "function") {
+        try {
+          projectDir = C8O.project.resolveProjectDirectory({ projectName: name });
+        } catch (_ignoreResolveProjectDirectoryError) {
+          projectDir = null;
+        }
+      }
+      if (projectDir == null) {
+        projectDir = new File(String(Engine.projectDir(name)));
+      }
       if (projectDir == null) {
         throw new Error("Project directory is not available for '" + name + "'");
       }
-      var rootJson = new File(projectDir, "c8oProject.json");
-      jsonSource = rootJson.getCanonicalPath ? String(rootJson.getCanonicalPath()) : String(rootJson.getAbsolutePath());
-      if (!rootJson.exists()) {
-        throw new Error("Missing Convertigo JSON project file: " + jsonSource);
-      }
-      ConvertigoJsonConverter.writeYamlFromJson(projectDir);
-      yamlRebuilt = true;
-    } catch (jsonError) {
-      var jsonMessage = String(jsonError);
+    } catch (dirError) {
+      var dirMessage = String(dirError);
       if (errors && errors.push) {
-        errors.push({ name: "__json__", message: jsonMessage });
+        errors.push({ name: "__projectDir__", message: dirMessage });
       }
-      return { reloaded: false, message: jsonMessage, fromJson: true, yamlRebuilt: false, jsonSource: jsonSource };
+      return { reloaded: false, message: dirMessage, fromIonic: fromIonic, preserveIonic: preserveIonic, ionicImported: false, ionicSource: "", ionicTarget: ionicTarget, ionicReport: null };
+    }
+  }
+  if (fromIonic && ionicTarget.length) {
+    var forbiddenTarget = C8O.dbo.forbiddenIonicAuthoringTarget
+      ? C8O.dbo.forbiddenIonicAuthoringTarget(ionicTarget)
+      : null;
+    if (forbiddenTarget) {
+      var forbiddenMessage = "Forbidden Ionic authoring target: " + forbiddenTarget +
+        ". Do not edit global styles from the HTML editor workflow; use app.component.scss or the target page/shared-component SCSS instead.";
+      if (errors && errors.push) {
+        errors.push({ name: "__ionicTarget__", message: forbiddenMessage, target: ionicTarget });
+      }
+      return { reloaded: false, message: forbiddenMessage, fromIonic: fromIonic, preserveIonic: preserveIonic, ionicImported: false, ionicSource: "", ionicTarget: ionicTarget, ionicReport: null };
+    }
+  }
+  if (preserveIonic === true || fromIonic === true) {
+    if (ConvertigoPlugin == null || ConvertigoPlugin.getDefault == null || ConvertigoPlugin.getDefault() == null) {
+      var preserveIonicMessage = "preserveIonic requires an updated Studio build.";
+      if (errors && errors.push) {
+        errors.push({ name: "__preserveIonic__", message: preserveIonicMessage });
+      }
+      return { reloaded: false, message: preserveIonicMessage, fromIonic: fromIonic, preserveIonic: preserveIonic, ionicImported: ionicImported, ionicSource: ionicSource, ionicTarget: ionicTarget, ionicReport: ionicReport };
+    }
+  }
+
+  if (fromIonic) {
+    try {
+      var ionicDir = new File(projectDir, "_private/ionic");
+      var projectSource = new File(projectDir, "c8oProject.yaml");
+      ionicSource = ionicDir.getCanonicalPath ? String(ionicDir.getCanonicalPath()) : String(ionicDir.getAbsolutePath());
+      if (!ionicDir.exists()) {
+        throw new Error("Missing Ionic authoring directory: " + ionicSource);
+      }
+      if (!projectSource.exists()) {
+        throw new Error("Missing c8oProject.yaml for '" + name + "' in " + String(projectDir.getAbsolutePath()));
+      }
+      var imported = ionicTarget.length
+        ? ConvertigoPlugin.getDefault().importProjectFromIonic(name, ionicTarget)
+        : ConvertigoPlugin.getDefault().reloadProjectFromIonic(name);
+      ionicImported = true;
+      ionicReport = C8O.dbo._toIonicImportReport(imported, name);
+      return {
+        reloaded: true,
+        message: "",
+        fromIonic: true,
+        preserveIonic: preserveIonic,
+        ionicImported: true,
+        ionicSource: ionicSource,
+        ionicTarget: ionicTarget,
+        ionicReport: ionicReport
+      };
+    } catch (ionicError) {
+      var ionicMessage = String(ionicError);
+      if (errors && errors.push) {
+        errors.push({ name: "__ionic__", message: ionicMessage });
+      }
+      return { reloaded: false, message: ionicMessage, fromIonic: true, preserveIonic: preserveIonic, ionicImported: false, ionicSource: ionicSource, ionicTarget: ionicTarget, ionicReport: ionicReport };
+    }
+  }
+
+  if (preserveIonic === true) {
+    try {
+      ConvertigoPlugin.getDefault().reloadProjectPreservingIonic(name);
+      return { reloaded: true, message: "", fromIonic: false, preserveIonic: true, ionicImported: false, ionicSource: ionicSource, ionicTarget: ionicTarget, ionicReport: ionicReport };
+    } catch (preserveIonicError) {
+      var preserveMessage = String(preserveIonicError);
+      if (errors && errors.push) {
+        errors.push({ name: "__preserveIonic__", message: preserveMessage });
+      }
+      return { reloaded: false, message: preserveMessage, fromIonic: false, preserveIonic: true, ionicImported: false, ionicSource: ionicSource, ionicTarget: ionicTarget, ionicReport: ionicReport };
     }
   }
   try {
-    Engine.theApp.databaseObjectsManager.getStudioProjects().reloadProject(name);
-    return { reloaded: true, message: "", fromJson: fromJson, yamlRebuilt: yamlRebuilt, jsonSource: jsonSource };
+    studioProjects.reloadProject(name);
+    return { reloaded: true, message: "", fromIonic: fromIonic, preserveIonic: preserveIonic, ionicImported: ionicImported, ionicSource: ionicSource, ionicTarget: ionicTarget, ionicReport: ionicReport };
   } catch (reloadError) {
     var message = String(reloadError);
     if (errors && errors.push) {
       errors.push({ name: "__reload__", message: message });
     }
-    return { reloaded: false, message: message, fromJson: fromJson, yamlRebuilt: yamlRebuilt, jsonSource: jsonSource };
+    return { reloaded: false, message: message, fromIonic: fromIonic, preserveIonic: preserveIonic, ionicImported: ionicImported, ionicSource: ionicSource, ionicTarget: ionicTarget, ionicReport: ionicReport };
   }
 };
 

@@ -64,7 +64,7 @@ Read this first for any MCP session that touches a Convertigo project.
 20. Generated CRUD facade sequences are hidden requestables with `authenticated context required=true`; generated CRUD UI apps now initialize that session once on a `Login` root page that calls `auth_login(username,password)` and then redirects to the visible home page.
 21. Prefer best-case-first code. Let the standard error bubble handle normal failures unless there is a clear UX reason to intercept them.
 22. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
-23. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
+23. Do not patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts except through the supported sidecar-backed HTML editor round-trip. Treat unsupported generated artifacts as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
 24. Validate behavior with `requestable-execute` or `crud-proof`. Use `log-view` only when execution feedback is not enough.
 25. Save with `project-save`.
 26. Read a specialized handbook only when the recipe leaves open questions.

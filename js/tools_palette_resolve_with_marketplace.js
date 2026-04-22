@@ -1,6 +1,8 @@
 include("js/marketplace.js");
 var __c8oPaletteJsonSkeletonAutoRun = false;
 include("js/tools_palette_json_skeleton.js");
+var __c8oPaletteHtmlSkeletonAutoRun = false;
+include("js/tools_palette_html_skeleton.js");
 
 function toTrimmed(value) {
   return value == null ? "" : String(value).trim();
@@ -59,6 +61,42 @@ function pruneNulls(value) {
     return objectOut;
   }
   return value;
+}
+
+function mergeWarnings(target, additions) {
+  var targetArray = target || [];
+  var sourceArray = additions || [];
+  for (var i = 0; i < sourceArray.length; i++) {
+    var message = String(sourceArray[i]);
+    if (targetArray.indexOf(message) === -1) {
+      targetArray.push(message);
+    }
+  }
+  return targetArray;
+}
+
+function canBuildAuthoring(parentDbo, classToken) {
+  if (!parentDbo || !C8O.dbo || typeof C8O.dbo._isNgxParent !== "function" || C8O.dbo._isNgxParent(parentDbo) !== true) {
+    return false;
+  }
+  var token = toTrimmed(classToken);
+  if (!token.length) {
+    return false;
+  }
+  if (typeof C8O.dbo.parseLogicalClassToken === "function" && typeof C8O.dbo._isNgxClassFqcn === "function") {
+    var parsed = C8O.dbo.parseLogicalClassToken(token);
+    return parsed && parsed.baseClassFqcn && C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn) === true;
+  }
+  return true;
+}
+
+function resolveAuthoringSafely(options, warnings) {
+  try {
+    return C8O.paletteHtmlSkeleton.resolve(options);
+  } catch (e) {
+    mergeWarnings(warnings, ["Unable to build authoring frontend skeleton: " + String(e && e.message ? e.message : e)]);
+    return null;
+  }
 }
 
 function normalizeTopics(value) {
@@ -283,6 +321,7 @@ var paletteMatchBefore = findPaletteMatch(paletteBefore.entries, requestedClassN
 
 var resolvedVia = "none";
 var skeletonResult = null;
+var authoringResult = null;
 var marketplaceChecked = false;
 var marketplaceQuery = deriveSearchQuery({
   search: requestedSearch,
@@ -306,6 +345,15 @@ if (paletteMatchBefore != null) {
       name: requestedName,
       includeHints: includeHintsFlag
     });
+    if (canBuildAuthoring(parentDbo, requestedClassName)) {
+      authoringResult = resolveAuthoringSafely({
+        parent: requestedParent,
+        parentDbo: parentDbo,
+        className: requestedClassName,
+        name: requestedName,
+        includeHints: includeHintsFlag
+      }, warnings);
+    }
   }
 } else {
   marketplaceChecked = true;
@@ -375,6 +423,15 @@ if (paletteMatchBefore != null) {
           name: requestedName,
           includeHints: includeHintsFlag
         });
+        if (canBuildAuthoring(parentDbo, requestedClassName)) {
+          authoringResult = resolveAuthoringSafely({
+            parent: requestedParent,
+            parentDbo: parentDbo,
+            className: requestedClassName,
+            name: requestedName,
+            includeHints: includeHintsFlag
+          }, warnings);
+        }
       }
     }
   }
@@ -450,9 +507,14 @@ if (skeletonResult) {
     paletteResolveWithMarketplacePayload.propertyHints = skeletonResult.propertyHints;
   }
   if (skeletonResult.warnings && skeletonResult.warnings.length) {
-    for (var si = 0; si < skeletonResult.warnings.length; si++) {
-      warnings.push(String(skeletonResult.warnings[si]));
-    }
+    mergeWarnings(warnings, skeletonResult.warnings);
+  }
+}
+
+if (authoringResult) {
+  paletteResolveWithMarketplacePayload.authoring = authoringResult.authoring;
+  if (authoringResult.warnings && authoringResult.warnings.length) {
+    mergeWarnings(warnings, authoringResult.warnings);
   }
 }
 

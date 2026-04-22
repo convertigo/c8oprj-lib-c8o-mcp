@@ -75,7 +75,7 @@ Noisy proof:
 - `databaseobject-tree-get`
 - `batch-call`
 - `project-save`
-- `project-reload` (`fromJson=true` when JSON mirrors are the edited surface)
+- `project-reload`
 - `resources/templates/list` when a validation or delivery guide points to a template-bearing fast path
 
 ## Anti-patterns / do not do

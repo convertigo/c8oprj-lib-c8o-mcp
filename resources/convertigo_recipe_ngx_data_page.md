@@ -74,7 +74,7 @@ The exact object tree may vary, but the semantics must be explicit.
 - Put retry on a real button event backed by a real action chain.
 - Avoid custom action calls for backend access when a built-in call sequence action exists.
 - Avoid one big `UICustom` fragment as the main implementation path for a data page.
-- When a tiny `UICustom`, `UIStyle`, or other localized NGX object is truly required and its JSON mirror shape is not obvious, call `palette-json-skeleton` against the real parent QName instead of looking for examples in other projects.
+- When a tiny `UICustom`, `UIStyle`, or other localized NGX object is truly required, call `palette-html-skeleton` against the real parent QName for `_private/ionic` authoring. Do not look for examples in other projects.
 - If a needed shared component/action or external UI object is not visible in the palette, call `palette-resolve-with-marketplace` first. Fall back to `marketplace-list` + `marketplace-import(targetProject=...)` only when the composite tool is unavailable or insufficient, then reread the palette before falling back to generic objects.
 - Avoid “reference hunting” across the workspace to recover `directiveSource` snippets or wrapper placement from unrelated projects. If recipe + palette + target subtree are not enough, escalate the gap instead of copying opaque structures.
 - Avoid repeated `palette-list` loops for common page primitives after the first targeted read.
@@ -93,6 +93,7 @@ The exact object tree may vary, but the semantics must be explicit.
 - `palette-list`
 - `palette-describe`
 - `palette-resolve-with-marketplace`
+- `palette-html-skeleton`
 - `palette-json-skeleton`
 - `requestable-execute`
 - `mobile-builder-open`

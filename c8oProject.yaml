@@ -44,13 +44,14 @@
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_marketplace_list1 [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list1.yaml
   ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml
+  ↓tools_palette_authoring_catalog [sequences.GenericSequence]: 🗏 sequences/tools_palette_authoring_catalog.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
+  ↓tools_palette_html_skeleton [sequences.GenericSequence]: 🗏 sequences/tools_palette_html_skeleton.yaml
   ↓tools_palette_json_skeleton [sequences.GenericSequence]: 🗏 sequences/tools_palette_json_skeleton.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_palette_registry_build [sequences.GenericSequence]: 🗏 sequences/tools_palette_registry_build.yaml
   ↓tools_palette_resolve_with_marketplace [sequences.GenericSequence]: 🗏 sequences/tools_palette_resolve_with_marketplace.yaml
   ↓tools_project_delete [sequences.GenericSequence]: 🗏 sequences/tools_project_delete.yaml
-  ↓tools_project_execute [sequences.GenericSequence]: 🗏 sequences/tools_project_execute.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml
   ↓tools_project_list [sequences.GenericSequence]: 🗏 sequences/tools_project_list.yaml

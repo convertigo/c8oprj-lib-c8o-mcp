@@ -178,8 +178,17 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return token;
   }
 
+  function unwrapClientToolName(value) {
+    var normalized = String(value || "").trim();
+    var wrapper = normalized.match(/^mcp__.+?__(.*)$/);
+    if (wrapper) {
+      normalized = String(wrapper[1] || "").replace(/^\.+/, "");
+    }
+    return normalized;
+  }
+
   function mapToolToSequence(rawToolName) {
-    var toolName = asTrimmed(rawToolName);
+    var toolName = unwrapClientToolName(asTrimmed(rawToolName));
     if (!toolName.length) {
       throw new Error("tool is required");
     }

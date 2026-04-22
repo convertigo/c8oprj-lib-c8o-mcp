@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Resolve a palette need with marketplace fallback
-  Checks the target parent palette first, optionally imports a matching marketplace library into the target project when the needed object is missing, rereads the palette, and returns the refreshed palette plus a canonical JSON skeleton when an exact class token is provided.
+  Checks the target parent palette first, optionally imports a matching marketplace library into the target project when the needed object is missing, rereads the palette, and returns the refreshed palette plus canonical JSON skeleton and authoring HTML/SCSS/text when an exact class token is provided.
 ↓Resolve [steps.SimpleStep-1775221200001]: 
   comment: Resolve the requested palette object and, when needed, query/import marketplace libraries before rereading the palette.
   expression: include("js/tools_palette_resolve_with_marketplace.js");
@@ -52,9 +52,9 @@ comment: |
   description: Default true. Set false to hide shared entries during palette reads.
   value: true
 ↓name [variables.RequestableVariable-1775221200013]: 
-  comment: Optional technical name override forwarded to palette-json-skeleton when an exact class token is resolved.
-  description: Optional technical name override forwarded to palette-json-skeleton when an exact class token is resolved.
+  comment: Optional technical name override forwarded to palette-json-skeleton and palette-html-skeleton when an exact class token is resolved.
+  description: Optional technical name override forwarded to palette-json-skeleton and palette-html-skeleton when an exact class token is resolved.
 ↓includeHints [variables.RequestableVariable-1775221200014]: 
-  comment: Set true to append property hints when an exact class token is resolved and a JSON skeleton is returned.
-  description: Set true to append property hints when an exact class token is resolved and a JSON skeleton is returned.
+  comment: Set true to append property hints when an exact class token is resolved and a JSON/HTML authoring skeleton is returned.
+  description: Set true to append property hints when an exact class token is resolved and a JSON/HTML authoring skeleton is returned.
   value: false

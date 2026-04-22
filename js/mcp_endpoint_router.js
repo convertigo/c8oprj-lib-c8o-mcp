@@ -327,10 +327,18 @@ if (methodName === "initialize") {
     token = token.replace(/^[-_]+|[-_]+$/g, "");
     return token;
   }
+  function unwrapClientToolName(value) {
+    var normalized = String(value || "").trim();
+    var wrapper = normalized.match(/^mcp__.+?__(.*)$/);
+    if (wrapper) {
+      normalized = String(wrapper[1] || "").replace(/^\.+/, "");
+    }
+    return normalized;
+  }
   if (!toolNameRaw || String(toolNameRaw).trim().length === 0) {
     mappingError = { status: "400", code: "-32602", message: "Missing tool name" };
   } else {
-    var normalizedName = String(toolNameRaw).trim();
+    var normalizedName = unwrapClientToolName(toolNameRaw);
     if (normalizedName.indexOf('.') !== -1) {
       var dotParts = normalizedName.split('.');
       if (dotParts.length < 2) {

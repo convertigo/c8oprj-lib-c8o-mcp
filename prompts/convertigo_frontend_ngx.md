@@ -14,11 +14,34 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - `convertigo://resources/convertigo-frontend-ngx`
 - `convertigo://resources/convertigo-validation-and-evidence`
 
+
+## HTML editor workflow override
+- For free-form visual NGX composition, first check for `_private/ionic/src/app/**/*.c8o-map.json` sidecars on the target page/shared component.
+- If sidecars exist and the task is visual HTML/SCSS work, author in `_private/ionic` instead of rebuilding the page tree by hand. Use `palette-authoring-catalog` as the allowed tag vocabulary and `palette-html-skeleton` for exact snippets.
+- Mandatory rule for this MCP flavor: all visible NGX front-end generation must be authored through `_private/ionic` HTML/SCSS plus supported sidecars. Do not generate visible page/shared-component structure through `databaseobject-tree-apply`, `batch-call`, `upsert-ngx-crud-kit`, or hand-written YAML.
+- Preserve every existing `class123456...` token on authored HTML nodes. These `class<priority>` tokens are unique round-trip anchors, not cosmetic classes. Do not remove, rename, move, copy, invent, or reuse them on another node.
+- Prefer editing existing anchored elements in place instead of replacing them. When a visual change applies to an existing generated element, keep its `class<priority>` anchor and add/update semantic classes on that same element, for example `class="crm-card class1776709259833"`.
+- A `class<priority>` token may appear at most once in an authored HTML file, and only on the original generated element where it was found. New elements must use semantic class names such as `crm-card`, never copied numeric anchor classes such as `class1776709259833`.
+- When an existing anchored node already corresponds to a palette/shared Convertigo object, keep the same selector or Ionic/palette tag by default. Do not rewrite an anchored `ion-*` tag or shared-component selector as a generic `div`/`span` unless the underlying object is intentionally being replaced through a supported workflow.
+- Mandatory rule for the `_private/ionic` authoring pass: when it must create reusable frontend objects or mount/invoke them, emit dedicated create/use sidecars instead of falling back to YAML:
+  - `kind: "sharedComponent"` with `create.name`, optional `sharedModule` / `exposed`, and `files.html|scss|ts`
+  - `kind: "sharedAction"` with `create.name`, optional `customActionName` / `async` / `variables`, and `files.ts`
+  - `kind: "invokeSharedAction"` with parent `qname`, `create.sharedAction`, `create.target`, `eventName`, `invokeName`, and optional `variables`
+  - `kind: "useSharedComponent"` with parent `qname`, `create.sharedComponent`, `create.target`, `useName`, and optional `variables`
+- For `invokeSharedAction`, target an existing element with `create.target.priority` / `class123...` when the element already exists in Convertigo, or target a newly authored HTML element with a stable custom class token via `create.target.classToken`. Use `tagName` as an additional guard when useful.
+- For `useSharedComponent`, target the container that should host the `UIUseShared`. Use `create.target.priority` / `class123...` for an existing container, or a stable custom class token on a newly authored HTML container when the page/shared-component HTML is also being edited in the same round-trip.
+- When the same task creates a shared action and immediately wires it from page/shared-component HTML, the agent must emit both sidecars in the same authoring bundle and then run `project-reload { fromIonic=true, ionicTarget="<generated file or directory>" }` when the edited bundle is targetable, otherwise `project-reload { fromIonic=true }`. Do not hand-build YAML for that flow.
+- When the same task creates a shared component and immediately mounts it in a page/shared component, the agent must emit both `sharedComponent` and `useSharedComponent` sidecars in the same authoring bundle and then run `project-reload { fromIonic=true, ionicTarget="<generated file or directory>" }` when the edited bundle is targetable, otherwise `project-reload { fromIonic=true }`. Do not hand-build YAML for that flow.
+- Backend, sequence, transaction, and descriptor topology changes remain YAML/descriptor work; do not use JSON mirrors or `fromJson` in this workflow.
+- For mixed backend + frontend work, prefer the targeted final import: reload/apply backend descriptors first, then restore/edit the frontend authoring bundle and run `project-reload { fromIonic=true, ionicTarget="<generated file or directory>" }`. If the edited bundle is not targetable, move/restore it around descriptor reloads and use `project-reload { fromIonic=true }` as the broader fallback.
+- Do not use `preserveIonic` as the safety mechanism for mixed work.
+- If sidecars are absent or the requested visible front-end mutation is outside the supported round-trip scope, stop and return an `Open Handoff` for the limitation. Do not fall back to YAML generation for visible front-end in this MCP flavor.
+
 ## Mission
 - Build NGX UI by following the canonical data-page pattern first.
 - Create visible progress early in Studio by starting the mobile builder early.
 - For common CRUD/list demos, act recipe-first and shell-first instead of rediscovering page structure.
-- When the task fits the deterministic CRUD shell kit, prefer `upsert-ngx-crud-kit` over composing the first visible shell by hand.
+- In this HTML editor variant, do not use `upsert-ngx-crud-kit` to generate the visible shell. Compose the shell in `_private/ionic` with palette-backed HTML and supported sidecars.
 - Treat the CRUD UI fast path as shared-component-first: create entity-specific `UISharedRegularComponent` objects in the target app, then compose the visible page with `UIUseShared` + `UIUseVariable`.
 - Treat the selected fast-path resource as a literal first-pass template source. On the first pass, copy its page-content structure and adapt only the requested title, labels, and facade bindings.
 - Wire real loading, empty, error, and retry behavior instead of structural placeholders.
@@ -37,9 +60,12 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 3. Choose exactly one fast path before writing:
    - `starter-entry-page-replacement`
 4. Inspect the target subtree and do at most one targeted palette read needed for the first visible pass. If the fast-path resource already covers the needed first-pass shape, skip `palette-list` entirely.
-5. When the exact JSON mirror shape of a palette object matters (`UICustom`, `UIStyle`, directive wrapper, dynamic NGX component, shared-use wrapper, etc.), call `palette-json-skeleton` with the real parent QName instead of searching other projects for an example. Read `coverage` immediately so you know whether the subtree is template-backed, serialized from the live palette, or hints-only.
-6. Treat the palette as potentially incomplete when shared/external UI libraries may be involved. If a needed shared component/action or external UI object is missing from the palette, call `palette-resolve-with-marketplace` first. Fall back to `marketplace-list` + `marketplace-import(targetProject=...)` + reread palette only if the composite tool is unavailable or insufficient.
-7. Before the first save/build/proof loop, perform one targeted structural read, then mutate the target page visibly by applying the literal first-write shape from `convertigo-fast-path-ngx-entry-shell`.
+5. When the task starts from free-form frontend composition and the agent needs to see the current frontend possibilities under one NGX parent, call `palette-authoring-catalog` first. Use its returned authoring snippets as the preferred frontend composition surface before asking for individual skeletons.
+6. When the exact frontend authoring surface of a palette object matters (`UICustom`, `UIStyle`, directive wrapper, dynamic NGX component, shared-use wrapper, etc.), call `palette-html-skeleton` with the real parent QName when composing `_private/ionic` HTML/SCSS/text. Read `coverage` immediately so you know whether the result is template-backed, serialized from the live palette, or hints-only.
+7. Treat the palette as potentially incomplete when shared/external UI libraries may be involved. If a needed shared component/action or external UI object is missing from the palette, call `palette-resolve-with-marketplace` first. Fall back to `marketplace-list` + `marketplace-import(targetProject=...)` + reread palette only if the composite tool is unavailable or insufficient.
+7. When the task needs a new reusable shared action or a button that invokes it, do not hand-build the YAML tree under any circumstance. Author the visible HTML in `_private/ionic`, then emit explicit `sharedAction` and `invokeSharedAction` sidecars so `project-reload { fromIonic=true, ionicTarget="<generated file or directory>" }` reconstructs the `UIActionStack`, `UIControlEvent`, `UIDynamicInvoke`, and `UIControlVariable` nodes.
+7. When the task needs a new reusable shared component and a page/shared-component container that mounts it, do not hand-build the YAML tree under any circumstance. Emit explicit `sharedComponent` and `useSharedComponent` sidecars so `project-reload { fromIonic=true, ionicTarget="<generated file or directory>" }` reconstructs the `UISharedRegularComponent`, `UIUseShared`, and `UIUseVariable` nodes.
+7. Before the first save/build/proof loop, perform one targeted structural read, then mutate the target page visibly by editing the target `_private/ionic` HTML/SCSS and any required sidecars. Treat the fast-path shell resource as the literal first-write shape, but author it in HTML rather than descriptor YAML.
 8. If the app starts from a starter-derived NGX project and the visible entry page is still the default `Page`, make the first write under that visible entry page subtree. Do not postpone the first visible change by creating only secondary pages while the starter home page stays dominant.
 9. Stay inside the target project and target subtree. Do not mine unrelated workspace projects, starter pages, or YAML references looking for `directiveSource`, wrapper shapes, or ready-made page fragments unless the task explicitly names that project as a read-only example source.
 10. On the first implementation pass, replace the dominant starter/default page content with a visible feature shell:
@@ -49,12 +75,12 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
    - a visible loading, empty, or retry state bound to the stable contract or stub
    - if the starter page currently shows `WelcomeCard` or an equivalent demo placeholder, remove or replace that dominant body in this first pass
    Do not leave the default starter page as the main visible content while waiting for backend proof.
-11. For the first visible pass, prefer `upsert-ngx-crud-kit` when the requested UI is a standard CRUD/dashboard/list-form/master-detail shell. That tool is expected to create shared components such as `<Entity>Table`, `<Entity>Card`, and `<Entity>Form` directly in the target app, then assemble the visible page with `UIUseShared`. If you must work manually, use one direct `databaseobject-tree-apply` on the visible entry page content subtree. If the starter body must disappear, replace it implicitly through that one tree apply instead of a preliminary delete step.
+11. For the first visible pass, build the visible shell in `_private/ionic` using `palette-authoring-catalog`, `palette-html-skeleton`, and the supported sidecars. Do not use `upsert-ngx-crud-kit` or `databaseobject-tree-apply` to generate visible page/shared-component content in this variant. If the starter body must disappear, replace it directly in the authored HTML instead of through descriptor tree mutations.
 12. When the task is a standard CRUD shell on a fresh starter NGX project, use the exact direct order documented in `convertigo-crud-practical-cases` and treat its shell proof criteria as the minimum acceptance bar.
 13. Open `mobile-builder-open` only after the first visible shell mutation exists, then use it early enough that the app becomes visibly alive in Studio.
 14. Treat “one read, then visible mutation” as mandatory. A pass that only reads, saves, opens the builder, or loops on palette discovery without a visible page mutation is a no-op.
 15. If the starter body still dominates, clear or replace the dominant children under the visible page content subtree first. Do not negotiate with the starter body and do not preserve `WelcomeCard` as a temporary placeholder.
-16. On the first pass, do not use `batch-call`, `databaseobject-search`, `rag-query`, or repeated `palette-describe` exploration before the first successful `databaseobject-tree-apply` on the visible entry page content subtree.
+16. On the first pass, do not use `batch-call`, `databaseobject-search`, `rag-query`, or repeated `palette-describe` exploration before the first successful visible `_private/ionic` mutation on the target page/shared component.
 17. Choose SmartType modes intentionally:
    - `TX` for fixed values
    - `TS` for short TypeScript expressions
@@ -78,11 +104,11 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - Do not use `UICustom` / `htmlTemplate` as the default way to build a contract-backed data page.
 - Do not burn multiple turns on repeated `palette-list` exploration for common page primitives when the recipe already defines the first visible shell to build.
 - Do not call `palette-list` on the first pass when the fast-path template already gives the shell structure you need.
-- Do not bypass `upsert-ngx-crud-kit` for a standard CRUD/dashboard shell unless the brief explicitly requires a shape the kit cannot express.
-- Do not use `batch-call` on the first pass of a starter-entry-page replacement. Start with one direct `databaseobject-tree-apply` on `Primary Target`.
+- Do not generate visible front-end with `upsert-ngx-crud-kit`, `databaseobject-tree-apply`, or hand-written YAML in this HTML editor variant.
+- Do not use `batch-call` on the first pass of a starter-entry-page replacement. Start with one direct `_private/ionic` HTML/SCSS mutation on `Primary Target`.
 - Do not use `databaseobject-search`, `rag-query`, or repeated `palette-describe` calls before the first visible mutation on the target page.
 - Do not browse unrelated workspace projects or raw YAML files looking for a “known-good” directive tree when the target subtree, recipe, and live palette are enough to build the page.
-- If the target subtree plus palette still leave a real gap, call `palette-json-skeleton` for the exact parent/class pair before concluding the MCP/doc surface is missing.
+- If the target subtree plus palette still leave a real gap, call `palette-html-skeleton` for `_private/ionic` authoring before concluding the MCP/doc surface is missing.
 - If a needed shared/external UI object is not in the palette, do not conclude it is unavailable before running `palette-resolve-with-marketplace` or, failing that, the manual `marketplace-list` + `marketplace-import(targetProject=...)` path followed by a fresh palette read.
 - Do not spend multiple turns on workspace mining, builder-only checks, or save loops before the first visible mutation on the target page.
 - Do not spend the first pass creating only a secondary page while the default visible entry page still shows the untouched starter body.

@@ -1,0 +1,65 @@
+accessibility: Private
+comment: |
+  Return an authoring catalog for frontend palette entries under one NGX parent
+  Lists the creatable frontend palette entries under the requested NGX parent, builds an authoring surface (`html`, `scss`, or `text`) for each local entry, and optionally appends marketplace suggestions when capability hints are provided. Use this as the high-level catalog when an agent should see all current frontend possibilities before composing `_private/ionic`.
+↓BuildCatalog [steps.SimpleStep-1775249800001]: 
+  comment: Resolve the local frontend palette into a paginable authoring catalog and optionally attach marketplace suggestions.
+  expression: include("js/tools_palette_authoring_catalog.js");
+↓result [steps.JsonToXmlStep-1775249800002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: paletteAuthoringCatalogResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓parent [variables.RequestableVariable-1775249800003]: 
+  comment: Existing NGX parent QName. Case-sensitive.
+  description: Existing NGX parent QName. Case-sensitive.
+↓filter [variables.RequestableVariable-1775249800004]: 
+  comment: Optional palette filter text used to narrow the returned authoring entries.
+  description: Optional palette filter text used to narrow the returned authoring entries.
+↓includeBuiltIn [variables.RequestableVariable-1775249800005]: 
+  comment: Default true. Set false to hide built-in palette entries.
+  description: Default true. Set false to hide built-in palette entries.
+  value: true
+↓includeShared [variables.RequestableVariable-1775249800006]: 
+  comment: Default true. Set false to hide shared palette entries.
+  description: Default true. Set false to hide shared palette entries.
+  value: true
+↓includeHints [variables.RequestableVariable-1775249800007]: 
+  comment: Set true to append property hints for each returned authoring entry.
+  description: Set true to append property hints for each returned authoring entry.
+  value: false
+↓includeSkeleton [variables.RequestableVariable-1775137407539]: 
+  comment: Set true to append the canonical Convertigo JSON skeleton for each returned authoring entry.
+  description: Set true to append the canonical Convertigo JSON skeleton for each returned authoring entry.
+  value: false
+↓limit [variables.RequestableVariable-1775249800008]: 
+  comment: Maximum local palette entries returned. Leave empty or 0 for no local limit.
+  description: Maximum local palette entries returned. Leave empty or 0 for no local limit.
+↓_nextCursor [variables.RequestableVariable-1775249800009]: 
+  comment: Opaque cursor from a previous response. Internal pagination token for the local palette section.
+  description: Opaque cursor from a previous response. Internal pagination token for the local palette section.
+↓includeMarketplace [variables.RequestableVariable-1775249800010]: 
+  comment: Set true to append marketplace library suggestions derived from search/library/filter hints.
+  description: Set true to append marketplace library suggestions derived from search/library/filter hints.
+  value: false
+↓search [variables.RequestableVariable-1775249800011]: 
+  comment: Optional marketplace search query. Defaults to library, then filter.
+  description: Optional marketplace search query. Defaults to library, then filter.
+↓library [variables.RequestableVariable-1775249800012]: 
+  comment: Optional marketplace library identifier used to bias the marketplace suggestion list.
+  description: Optional marketplace library identifier used to bias the marketplace suggestion list.
+↓topics [variables.RequestableVariable-1775249800013]: 
+  comment: Optional marketplace topic filter.
+  description: Optional marketplace topic filter.
+↓marketplaceLimit [variables.RequestableVariable-1775249800014]: 
+  comment: Maximum marketplace library suggestions returned when includeMarketplace=true.
+  description: Maximum marketplace library suggestions returned when includeMarketplace=true.
+  value: 12

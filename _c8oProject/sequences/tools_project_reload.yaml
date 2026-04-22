@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Reload a project from disk
-  Reloads one project and discards unsaved in-memory changes. Pass `fromJson=true` to rebuild YAML descriptors from `c8oProject.json` / `_c8oProjectJson` before reload.
+  Reloads one project and discards unsaved in-memory changes. Pass `fromIonic=true` to reimport supported `_private/ionic` frontend edits before reload. Add `ionicTarget` to import only one generated Ionic file/directory into the loaded tree without a full project reload. `preserveIonic` is legacy/internal; agent workflows should move/restore edited authoring files explicitly around backend reloads instead.
 ↓IncludeHelpers [steps.SimpleStep-1762445690829]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
@@ -9,7 +9,9 @@ comment: |
   comment: Resolve project and perform reload
   expression: |
     'var providedName = C8O.util.toTrimmedString(project);
-    var fromJsonFlag = C8O.util.toBoolean(fromJson, false) === true;
+    var preserveIonicFlag = C8O.util.toBoolean(preserveIonic, false) === true;
+    var fromIonicFlag = C8O.util.toBoolean(fromIonic, false) === true;
+    var ionicTargetPath = C8O.util.toTrimmedString(ionicTarget);
     if (!providedName.length && context && context.project) {
       providedName = currentProjectName;
     }
@@ -17,21 +19,28 @@ comment: |
     var errorEntries = [];
     var reloadResult;
     if (providedName.length) {
-      reloadResult = C8O.dbo.reloadProject(providedName, errorEntries, { fromJson: fromJsonFlag });
+      reloadResult = C8O.dbo.reloadProject(providedName, errorEntries, { preserveIonic: preserveIonicFlag, fromIonic: fromIonicFlag, ionicTarget: ionicTargetPath });
     } else {
       var missingMessage = "Project name is required";
       errorEntries.push({ name: "__reload__", message: missingMessage });
-      reloadResult = { reloaded: false, message: missingMessage, fromJson: fromJsonFlag, yamlRebuilt: false, jsonSource: "" };
+      reloadResult = { reloaded: false, message: missingMessage, preserveIonic: preserveIonicFlag, fromIonic: fromIonicFlag, ionicImported: false, ionicSource: "", ionicTarget: ionicTargetPath, ionicReport: null };
     }
     
     var reloadedFlag = reloadResult.reloaded === true;
-    var statusText = reloadedFlag ? (fromJsonFlag ? "reloaded_from_json" : "reloaded") : (providedName.length ? "failed" : "missing");
+    var statusText = reloadedFlag
+      ? (fromIonicFlag
+        ? (ionicTargetPath.length ? "imported_from_ionic" : "reloaded_from_ionic")
+        : (preserveIonicFlag ? "reloaded_preserving_ionic" : "reloaded"))
+      : (providedName.length ? "failed" : "missing");
     
     projectReloadRequested = providedName;
-    projectReloadFromJson = fromJsonFlag;
+    projectReloadPreserveIonic = preserveIonicFlag;
+    projectReloadFromIonic = fromIonicFlag;
     projectReloadReloaded = reloadedFlag;
-    projectReloadYamlRebuilt = reloadResult.yamlRebuilt === true;
-    projectReloadJsonSource = reloadResult.jsonSource || "";
+    projectReloadIonicImported = reloadResult.ionicImported === true;
+    projectReloadIonicSource = reloadResult.ionicSource || "";
+    projectReloadIonicTarget = reloadResult.ionicTarget || ionicTargetPath;
+    projectReloadIonicReport = reloadResult.ionicReport || {};
     projectReloadMessage = reloadResult.message || "";
     projectReloadTimestamp = java.lang.System.currentTimeMillis();
     projectReloadErrors = errorEntries;
@@ -57,20 +66,34 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadRequested
-  ↓fromJson [steps.JsonFieldStep-1774100201001]: 
+  ↓fromIonic [steps.JsonFieldStep-1775137902277]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: fromJson
+          - →→: fromIonic
     type: bool
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: projectReloadFromJson
+          - →→: projectReloadFromIonic
+  ↓preserveIonic [steps.JsonFieldStep-1775138753119]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: preserveIonic
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadPreserveIonic
   ↓reloaded [steps.JsonFieldStep-1762445799436]: 
     key: 
       - xmlizable: 
@@ -85,20 +108,6 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadReloaded
-  ↓yamlRebuilt [steps.JsonFieldStep-1774100201002]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: yamlRebuilt
-    type: bool
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: projectReloadYamlRebuilt
   ↓status [steps.JsonFieldStep-1762445818609]: 
     key: 
       - xmlizable: 
@@ -125,19 +134,173 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: projectReloadMessage
-  ↓jsonSource [steps.JsonFieldStep-1774100201003]: 
+  ↓ionicImported [steps.JsonFieldStep-1775137902293]: 
     key: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: PLAIN
-          - →→: jsonSource
+          - →→: ionicImported
+    type: bool
     value: 
       - xmlizable: 
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: projectReloadJsonSource
+          - →→: projectReloadIonicImported
+  ↓ionicSource [steps.JsonFieldStep-1775137902308]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: ionicSource
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadIonicSource
+  ↓ionicTarget [steps.JsonFieldStep-1776679300000]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: ionicTarget
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: projectReloadIonicTarget
+  ↓ionicReport [steps.JsonObjectStep-1775137902325]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: ionicReport
+    ↓processed [steps.JsonFieldStep-1775137902327]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: processed
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.processed != null ? Number(projectReloadIonicReport.processed) : 0'
+    ↓pagesUpdated [steps.JsonFieldStep-1775137902329]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: pagesUpdated
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.pagesUpdated != null ? Number(projectReloadIonicReport.pagesUpdated) : 0'
+    ↓sharedComponentsUpdated [steps.JsonFieldStep-1775137902331]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: sharedComponentsUpdated
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.sharedComponentsUpdated != null ? Number(projectReloadIonicReport.sharedComponentsUpdated) : 0'
+    ↓templatesUpdated [steps.JsonFieldStep-1775137902333]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: templatesUpdated
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.templatesUpdated != null ? Number(projectReloadIonicReport.templatesUpdated) : 0'
+    ↓stylesUpdated [steps.JsonFieldStep-1775137902335]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: stylesUpdated
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.stylesUpdated != null ? Number(projectReloadIonicReport.stylesUpdated) : 0'
+    ↓scriptsUpdated [steps.JsonFieldStep-1775137902337]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: scriptsUpdated
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.scriptsUpdated != null ? Number(projectReloadIonicReport.scriptsUpdated) : 0'
+    ↓skipped [steps.JsonFieldStep-1775137902339]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: skipped
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: 'projectReloadIonicReport && projectReloadIonicReport.skipped != null ? Number(projectReloadIonicReport.skipped) : 0'
+    ↓warnings [steps.JsonArrayStep-1775137902341]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: warnings
+      ↓WarningsIterator [steps.SimpleIteratorStep-1775137902343]: 
+        expression: 'projectReloadIonicReport && projectReloadIonicReport.warnings ? projectReloadIonicReport.warnings : []'
+        ↓WarningEntry [steps.JsonFieldStep-1775137902345]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: warning
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item == null ? "" : String(item)'
   ↓timestamp [steps.JsonFieldStep-1762445853008]: 
     key: 
       - xmlizable: 
@@ -197,7 +360,14 @@ comment: |
 ↓project [variables.RequestableVariable-1762445963717]: 
   comment: Project technical name. Omit only when the current context project is unambiguous.
   description: Project technical name. Omit only when the current context project is unambiguous.
-↓fromJson [variables.RequestableVariable-1774100201004]: 
-  comment: Set true to rebuild c8oProject.yaml and _c8oProject from c8oProject.json and _c8oProjectJson before reload.
-  description: Set true to rebuild c8oProject.yaml and _c8oProject from c8oProject.json and _c8oProjectJson before reload.
+↓preserveIonic [variables.RequestableVariable-1775138753054]: 
+  comment: Legacy/internal. Do not use in agent workflows; move/restore edited authoring files explicitly instead.
+  description: Legacy/internal. Do not use in agent workflows; move/restore edited authoring files explicitly instead.
   value: false
+↓fromIonic [variables.RequestableVariable-1775137902233]: 
+  comment: Set true to reimport supported _private/ionic frontend edits before reload.
+  description: Set true to reimport supported _private/ionic frontend edits before reload.
+  value: false
+↓ionicTarget [variables.RequestableVariable-1776679300001]: 
+  comment: Optional generated Ionic file, sidecar, or directory to import without a full project reload when fromIonic is true.
+  description: Optional generated Ionic file, sidecar, or directory to import without a full project reload when fromIonic is true.
