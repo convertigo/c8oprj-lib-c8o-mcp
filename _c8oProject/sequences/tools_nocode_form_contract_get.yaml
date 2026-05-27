@@ -1,0 +1,33 @@
+accessibility: Private
+comment: |
+  Read the C8Oforms No Code form contract
+  Returns allowed component prototypes from C8Oforms AllTypes.json, type aliases, and the reduced JSON shape MCP clients should generate.
+↓Run [steps.SimpleStep-1780100000001]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    var includeAll = String(includeAllTypes || "false").toLowerCase() == "true";
+    result = C8O.nocodeForms.contract({
+      project: project,
+      includeAllTypes: includeAll
+    });'
+↓result [steps.JsonToXmlStep-1780100000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1780100000003]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓includeAllTypes [variables.RequestableVariable-1780100000004]: 
+  comment: Set true to include full component prototypes from AllTypes.json.
+  description: Set true to include full component prototypes from AllTypes.json.
+  value: false

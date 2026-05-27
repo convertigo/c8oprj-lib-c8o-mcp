@@ -40,6 +40,11 @@
   ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml
+  ↓tools_nocode_form_compile [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_compile.yaml
+  ↓tools_nocode_form_contract_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_contract_get.yaml
+  ↓tools_nocode_form_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_create.yaml
+  ↓tools_nocode_form_update [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_update.yaml
+  ↓tools_nocode_form_validate [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_validate.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_delete [sequences.GenericSequence]: 🗏 sequences/tools_project_delete.yaml

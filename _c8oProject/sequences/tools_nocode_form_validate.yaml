@@ -1,0 +1,30 @@
+accessibility: Private
+comment: |
+  Validate a No Code form document
+  Checks a full C8Oforms form document against the component catalog and semantic graph invariants before saving.
+↓Run [steps.SimpleStep-1780100000201]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    var formObject = C8O.nocodeForms.parseObject(form, "form", {});
+    result = C8O.nocodeForms.validate(formObject, { project: project });'
+↓result [steps.JsonToXmlStep-1780100000202]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1780100000203]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓form [variables.RequestableVariable-1780100000204]: 
+  comment: Full C8Oforms form document JSON object.
+  description: Full C8Oforms form document JSON object.
+  value: '{}'

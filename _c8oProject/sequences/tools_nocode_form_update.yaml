@@ -1,0 +1,36 @@
+accessibility: Private
+comment: |
+  Update a No Code form through C8Oforms APIs
+  Fetches the form through C8Oforms.APIV2_getDocument, applies a JSON merge patch, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
+↓Run [steps.SimpleStep-1780100000401]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    var patchObject = C8O.nocodeForms.parseObject(patch, "patch", {});
+    result = C8O.nocodeForms.update(id, patchObject, { project: project, rev: rev });'
+↓result [steps.JsonToXmlStep-1780100000402]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1780100000403]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓id [variables.RequestableVariable-1780100000404]: 
+  comment: Form document id to update.
+  description: Form document id to update.
+↓rev [variables.RequestableVariable-1780100000405]: 
+  comment: Optional revision forwarded to APIV2_getDocument.
+  description: Optional revision forwarded to APIV2_getDocument.
+↓patch [variables.RequestableVariable-1780100000406]: 
+  comment: JSON merge patch to apply to the fetched form document.
+  description: JSON merge patch to apply to the fetched form document.
+  value: '{}'
