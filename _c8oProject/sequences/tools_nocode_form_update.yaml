@@ -6,7 +6,7 @@ comment: |
   expression: |
     'include("js/nocode_forms.js");
     var patchObject = C8O.nocodeForms.parseObject(patch, "patch", {});
-    result = C8O.nocodeForms.update(id, patchObject, { project: project, rev: rev });'
+    result = C8O.nocodeForms.update(id, patchObject, { project: project, rev: rev, token: token });'
 ↓result [steps.JsonToXmlStep-1780100000402]: 
   jsonObject: 
     - xmlizable: 
@@ -34,3 +34,6 @@ comment: |
   comment: JSON merge patch to apply to the fetched form document.
   description: JSON merge patch to apply to the fetched form document.
   value: '{}'
+↓token [variables.RequestableVariable-1779908983938]: 
+  comment: No Code Studio bearer token used to authenticate the C8Oforms API calls.
+  description: No Code Studio bearer token used to authenticate the C8Oforms API calls.

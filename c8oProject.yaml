@@ -4,7 +4,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.24
+  version: 0.0.25
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
@@ -26,6 +26,7 @@
   ↓mcp_resources_read [sequences.GenericSequence]: 🗏 sequences/mcp_resources_read.yaml
   ↓mcp_resources_templates_list [sequences.GenericSequence]: 🗏 sequences/mcp_resources_templates_list.yaml
   ↓mcp_tools_list [sequences.GenericSequence]: 🗏 sequences/mcp_tools_list.yaml
+  ↓nocode_validate_token [sequences.GenericSequence]: 🗏 sequences/nocode_validate_token.yaml
   ↓tools_batch_call [sequences.GenericSequence]: 🗏 sequences/tools_batch_call.yaml
   ↓tools_crud_proof [sequences.GenericSequence]: 🗏 sequences/tools_crud_proof.yaml
   ↓tools_crud_status [sequences.GenericSequence]: 🗏 sequences/tools_crud_status.yaml

@@ -588,6 +588,70 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return json;
   }
 
+  function currentMcpProjectName() {
+    try {
+      if (typeof context !== "undefined" && context && context.project && context.project.getName) {
+        return String(context.project.getName());
+      }
+    } catch (_ignoreProjectName) {}
+    return "ConvertigoMCP";
+  }
+
+  function unwrapSequenceResult(response) {
+    if (!response) {
+      return response;
+    }
+    if (response.document && response.document.result) {
+      return response.document.result;
+    }
+    if (response.doc && response.doc.document && response.doc.document.result) {
+      return response.doc.document.result;
+    }
+    if (response.result) {
+      return response.result;
+    }
+    return response;
+  }
+
+  function apiError(response) {
+    if (!response) {
+      return null;
+    }
+    if (response.document && response.document.error) {
+      return response.document.error;
+    }
+    if (response.doc && response.doc.document && response.doc.document.error) {
+      return response.doc.document.error;
+    }
+    if (response.error) {
+      return response.error;
+    }
+    return null;
+  }
+
+  function validateToken(options) {
+    var opts = options || {};
+    var token = trimmed(opts.token);
+    if (!token.length) {
+      return {
+        status: "invalid",
+        authenticated: false,
+        error: { code: "missing_token", message: "No Code token is required." }
+      };
+    }
+    var response = callC8oSequence(currentMcpProjectName(), "nocode_validate_token", { token: token });
+    var error = apiError(response);
+    if (error) {
+      return {
+        status: "invalid",
+        authenticated: false,
+        error: error,
+        response: unwrapSequenceResult(response)
+      };
+    }
+    return unwrapSequenceResult(response);
+  }
+
   function unwrapApiResult(response) {
     if (!response) {
       return response;
@@ -607,13 +671,34 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
     }
+    var authentication = validateToken(opts);
+    if (!authentication || authentication.authenticated !== true) {
+      return {
+        status: "auth_required",
+        saved: false,
+        validation: validation,
+        authentication: authentication || { authenticated: false }
+      };
+    }
     var response = callC8oSequence(opts.project || opts.projectName || "C8Oforms", "APIV2_updateFormulaireDocument", {
       meta: JSON.stringify(form)
     });
+    var error = apiError(response);
+    if (error) {
+      return {
+        status: "error",
+        saved: false,
+        validation: validation,
+        authentication: authentication,
+        error: error,
+        response: unwrapApiResult(response)
+      };
+    }
     return {
       status: "ok",
       saved: true,
       validation: validation,
+      authentication: authentication,
       response: unwrapApiResult(response)
     };
   }
@@ -623,12 +708,31 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!trimmed(id).length) {
       throw new Error("id is required");
     }
-    return unwrapApiResult(callC8oSequence(opts.project || opts.projectName || "C8Oforms", "APIV2_getDocument", {
+    var authentication = validateToken(opts);
+    if (!authentication || authentication.authenticated !== true) {
+      return {
+        status: "auth_required",
+        fetched: false,
+        authentication: authentication || { authenticated: false }
+      };
+    }
+    var response = callC8oSequence(opts.project || opts.projectName || "C8Oforms", "APIV2_getDocument", {
       id: String(id),
       rev: opts.rev || "",
       fromResponse: "false",
       exportForm: "false"
-    }));
+    });
+    var error = apiError(response);
+    if (error) {
+      return {
+        status: "error",
+        fetched: false,
+        authentication: authentication,
+        error: error,
+        response: unwrapApiResult(response)
+      };
+    }
+    return unwrapApiResult(response);
   }
 
   function applyMergePatch(target, patch) {
@@ -679,6 +783,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   };
   C8O.nocodeForms.update = function (id, patch, options) {
     var current = getForm(id, options);
+    if (current && current.fetched === false) {
+      current.saved = false;
+      return current;
+    }
     var currentForm = current && current.res ? current.res : current;
     var patched = applyMergePatch(currentForm, patch);
     var saved = saveForm(patched, options);

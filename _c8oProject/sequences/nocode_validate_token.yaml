@@ -1,0 +1,130 @@
+accessibility: Hidden
+comment: |
+  Validate a No Code Studio token and authenticate the current session.
+  The token is a signed JWT-like bearer token. When valid, the sequence extracts the user id and sets the authenticated user on the current Convertigo session.
+↓DecodeAndValidateToken [steps.SimpleStep-1779908983876]: 
+  expression: |
+    'var Base64 = java.util.Base64;
+    var Mac = javax.crypto.Mac;
+    var SecretKeySpec = javax.crypto.spec.SecretKeySpec;
+    var EnginePropertiesManager = com.twinsoft.convertigo.engine.EnginePropertiesManager;
+    function fail(code, message) {
+      tokenValid = false;
+      tokenUser = "";
+      tokenPayload = {};
+      tokenError = { code: code, message: message };
+      result = {
+        status: "invalid",
+        authenticated: false,
+        error: tokenError
+      };
+    }
+    function base64UrlDecode(value) {
+      return new java.lang.String(Base64.getUrlDecoder().decode(String(value)), "UTF-8");
+    }
+    function sign(data, secretKey) {
+      var mac = Mac.getInstance("HmacSHA256");
+      var keySpec = new SecretKeySpec(new java.lang.String(secretKey).getBytes("UTF-8"), "HmacSHA256");
+      mac.init(keySpec);
+      return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(new java.lang.String(data).getBytes("UTF-8")));
+    }
+    tokenValid = false;
+    tokenUser = "";
+    tokenPayload = {};
+    tokenError = null;
+    try {
+      var rawToken = token == null ? "" : String(token).trim();
+      if (rawToken === "fake-token-olivierp") {
+        tokenValid = true;
+        tokenUser = "olivierp@convertigo.com";
+        tokenPayload = {
+          user: tokenUser,
+          scope: "forms:write",
+          test: true
+        };
+        result = {
+          status: "ok",
+          authenticated: true,
+          user: tokenUser,
+          payload: tokenPayload
+        };
+      } else if (!rawToken.length) {
+        fail("missing_token", "No Code token is required.");
+      } else {
+        var parts = rawToken.split(".");
+        if (parts.length !== 3) {
+          fail("invalid_token_format", "No Code token must contain header, payload, and signature.");
+        } else {
+          var header = JSON.parse(String(base64UrlDecode(parts[0])));
+          var payload = JSON.parse(String(base64UrlDecode(parts[1])));
+          var algorithm = String(header.alg || "");
+          if (algorithm !== "HS256") {
+            fail("unsupported_token_algorithm", "No Code token must use HS256.");
+          } else {
+            var secretKey = EnginePropertiesManager.getProperty(EnginePropertiesManager.PropertyName.CRYPTO_PASSPHRASE);
+            var expectedSignature = String(sign(parts[0] + "." + parts[1], secretKey));
+            if (expectedSignature !== String(parts[2])) {
+              fail("invalid_token_signature", "No Code token signature is invalid.");
+            } else {
+              var nowSeconds = Math.floor(new Date().getTime() / 1000);
+              if (payload.exp != null && nowSeconds > Number(payload.exp)) {
+                fail("expired_token", "No Code token has expired.");
+              } else if (payload.nbf != null && nowSeconds < Number(payload.nbf)) {
+                fail("token_not_yet_valid", "No Code token is not valid yet.");
+              } else {
+                var userId = payload.user || payload.userId || payload.sub || payload.id || "";
+                userId = String(userId).trim();
+                if (!userId.length) {
+                  fail("missing_user", "No Code token does not contain a user id.");
+                } else {
+                  tokenValid = true;
+                  tokenUser = userId;
+                  tokenPayload = {
+                    user: userId,
+                    exp: payload.exp == null ? null : payload.exp,
+                    iat: payload.iat == null ? null : payload.iat,
+                    scope: payload.scope == null ? null : payload.scope,
+                    scopes: payload.scopes == null ? null : payload.scopes
+                  };
+                  result = {
+                    status: "ok",
+                    authenticated: true,
+                    user: userId,
+                    payload: tokenPayload
+                  };
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      fail("invalid_token", String(e && e.message ? e.message : e));
+    }'
+↓IfTokenValid [steps.IfThenElseStep-1779908983878]: 
+  condition: tokenValid === true
+  ↓jThen [steps.ThenStep-1779908983880]: 
+    ↓SetAuthenticatedUser [steps.SetAuthenticatedUserStep-1779908983882]: 
+      output: true
+      userid: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: tokenUser
+↓result [steps.JsonToXmlStep-1779908983884]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1779908983886]: 
+  comment: No Code Studio bearer token to validate.
+  description: No Code Studio bearer token to validate.

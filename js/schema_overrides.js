@@ -511,6 +511,13 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeFormsTokenProperty() {
+    return {
+      type: "string",
+      description: "No Code Studio bearer token used to authenticate protected C8Oforms API calls."
+    };
+  }
+
   function nocodeFormContractGetInputSchema() {
     return {
       type: "object",
@@ -555,9 +562,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: nocodeFormsProjectProperty(),
-        reduced: jsonObjectOrStringSchema("Reduced creative form JSON. The tool compiles it, validates it, and persists only through C8Oforms APIs.")
+        reduced: jsonObjectOrStringSchema("Reduced creative form JSON. The tool compiles it, validates it, and persists only through C8Oforms APIs."),
+        token: nocodeFormsTokenProperty()
       },
-      required: ["reduced"],
+      required: ["reduced", "token"],
       additionalProperties: false
     };
   }
@@ -575,9 +583,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           description: "Optional expected document revision. When provided, it is sent back with the patched document."
         },
-        patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs.")
+        patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs."),
+        token: nocodeFormsTokenProperty()
       },
-      required: ["id", "patch"],
+      required: ["id", "patch", "token"],
       additionalProperties: false
     };
   }
