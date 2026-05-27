@@ -30,6 +30,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (value == null || trimmed(value).length === 0) {
       return fallback;
     }
+    var text = trimmed(value);
+    if (text.charAt(0) === "{") {
+      try {
+        var parsedText = JSON.parse(text);
+        if (parsedText && typeof parsedText === "object" && !Array.isArray(parsedText)) {
+          return parsedText;
+        }
+      } catch (_ignoreTextParse) {}
+    }
     if (typeof value === "object" && !Array.isArray(value)) {
       return value;
     }
@@ -45,6 +54,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function parseArray(value, label, fallback) {
     if (value == null || trimmed(value).length === 0) {
       return fallback;
+    }
+    var text = trimmed(value);
+    if (text.charAt(0) === "[") {
+      try {
+        var parsedText = JSON.parse(text);
+        if (Array.isArray(parsedText)) {
+          return parsedText;
+        }
+      } catch (_ignoreTextParse) {}
     }
     if (Array.isArray(value)) {
       return value;
