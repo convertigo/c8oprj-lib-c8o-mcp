@@ -44,6 +44,7 @@
   ↓tools_nocode_form_compile [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_compile.yaml
   ↓tools_nocode_form_contract_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_contract_get.yaml
   ↓tools_nocode_form_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_create.yaml
+  ↓tools_nocode_form_edit [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_edit.yaml
   ↓tools_nocode_form_update [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_update.yaml
   ↓tools_nocode_form_validate [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_validate.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml

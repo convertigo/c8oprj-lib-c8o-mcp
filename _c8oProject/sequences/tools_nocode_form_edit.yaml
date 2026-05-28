@@ -1,0 +1,64 @@
+accessibility: Private
+comment: |
+  Edit a No Code form through C8Oforms APIs
+  Use this for incremental edits to an existing form when the user asks to add, update, delete, or move pages, components, flows, or flow elements. It is safer than nocode-form-update for structural edits because it applies semantic operations and repairs C8Oforms references such as childrenRefs and parentRef. The tool fetches the form through C8Oforms.APIV2_getDocument, applies operations in order, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
+  Typical operations:
+  - add_page: {action:"add_page", name:"Details", index:1, navigationMode:"tabs"}
+  - update_page: {action:"update_page", pageName:"Details", patch:{iconName:"people", enabledTab:true}}
+  - add_field/add_component: {action:"add_field", pageName:"Details", fieldObject:{type:"text", name:"child_name", description:"Child name", mandatory:true}}
+  - add field inside a layout: {action:"add_field", parentFieldId:"177...", fieldObject:{type:"select", name:"status", values:["Open","Closed"]}}
+  - update_field: {action:"update_field", fieldName:"child_name", patch:{config:{mandatory:false}}}
+  - remove_field: {action:"remove_field", fieldName:"child_name"}
+  - move_field: {action:"move_field", fieldName:"status", pageName:"Details", index:0}
+  - add_flow_element: {action:"add_flow_element", flowId:"flow_save", element:{type:"toast", message:"Saved"}}
+  Pass operations as an array for multiple edits, or as one operation object for a single edit. Requires a No Code Studio bearer token.
+↓Run [steps.SimpleStep-1780100000601]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    try {
+      var rawOperations = typeof operations !== "undefined" ? operations : null;
+      if ((rawOperations == null || String(rawOperations).trim() === "") && typeof operation !== "undefined") {
+        rawOperations = operation;
+      }
+      else if (String(rawOperations).trim() === "[]" && typeof operation !== "undefined" && operation != null && String(operation).trim() !== "") {
+        rawOperations = operation;
+      }
+      var operationsArray = C8O.nocodeForms.parseOperations(rawOperations, "operations", []);
+      result = C8O.nocodeForms.edit(id, operationsArray, { project: project, rev: rev, token: token });
+    }
+    catch (e) {
+      result = { status: "error", saved: false, error: { code: "invalid_operations", message: String(e && e.message ? e.message : e) } };
+    }'
+↓result [steps.JsonToXmlStep-1780100000602]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1780100000603]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓id [variables.RequestableVariable-1780100000604]: 
+  comment: Form document id to edit.
+  description: Form document id to edit.
+↓rev [variables.RequestableVariable-1780100000605]: 
+  comment: Optional revision forwarded to APIV2_getDocument.
+  description: Optional revision forwarded to APIV2_getDocument.
+↓operations [variables.RequestableVariable-1780100000606]: 
+  comment: JSON array of semantic edit operations.
+  description: JSON array of semantic edit operations.
+  value: '[]'
+↓operation [variables.RequestableVariable-1780100000608]: 
+  comment: Alias for a single semantic edit operation object.
+  description: Alias for a single semantic edit operation object.
+↓token [variables.RequestableVariable-1780100000607]: 
+  comment: No Code Studio bearer token used to authenticate the C8Oforms API calls.
+  description: No Code Studio bearer token used to authenticate the C8Oforms API calls.

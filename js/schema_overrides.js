@@ -591,6 +591,147 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeFormEditOperationSchema() {
+    return {
+      type: "object",
+      description: "One semantic form edit. Prefer names when stable; use ids when available from a prior fetch/result. Use fieldObject for new components with the same reduced component shape accepted by nocode-form-compile.",
+      properties: {
+        action: {
+          type: "string",
+          enum: [
+            "set_root",
+            "set_media",
+            "add_page",
+            "update_page",
+            "remove_page",
+            "delete_page",
+            "move_page",
+            "add_field",
+            "add_component",
+            "add_element",
+            "update_field",
+            "update_component",
+            "update_element",
+            "remove_field",
+            "remove_component",
+            "remove_element",
+            "delete_field",
+            "delete_component",
+            "delete_element",
+            "move_field",
+            "move_component",
+            "move_element",
+            "add_flow",
+            "update_flow",
+            "remove_flow",
+            "delete_flow",
+            "add_flow_element",
+            "update_flow_element",
+            "remove_flow_element",
+            "delete_flow_element",
+            "move_flow_element"
+          ],
+          description: "Semantic edit action. Common choices: add_page, update_page, add_field/add_component, update_field, remove_field, move_field, add_flow, add_flow_element. Use nocode-form-update only for simple root merge patches."
+        },
+        page: { type: "string", description: "Page technical name or visible page name. Use pageName for clarity when matching by visible name." },
+        pageTechName: { type: "string", description: "Target pageTechName." },
+        pageName: { type: "string", description: "Target visible page name." },
+        field: { type: "string", description: "Field id or technical name. Use fieldName for clarity when matching by component name." },
+        fieldId: { type: "string", description: "Target field id." },
+        fieldName: { type: "string", description: "Target field name." },
+        flow: { type: "string", description: "Flow id or name, depending on the operation." },
+        flowId: { type: "string", description: "Target flow id." },
+        flowName: { type: "string", description: "Target flow name." },
+        element: { description: "For add/update flow element, the element object; otherwise target element id/name may be supplied as string." },
+        elementId: { type: "string", description: "Target flow element id." },
+        elementName: { type: "string", description: "Target flow element name." },
+        parent: { type: "string", description: "Parent field/flow element id when adding or moving inside a container." },
+        parentId: { type: "string", description: "Parent field/flow element id when adding or moving inside a container." },
+        parentFieldId: { type: "string", description: "Parent field id when adding or moving a field inside a layout/container." },
+        parentElementId: { type: "string", description: "Parent flow element id when adding or moving inside an if/loop/action container." },
+        refKey: { type: "string", enum: ["childrenRefs", "childrenRefsElse"], description: "Flow child reference branch. Default childrenRefs." },
+        index: { type: "integer", minimum: 0, description: "Destination insertion index. Omit to append." },
+        fromIndex: { type: "integer", minimum: 0, description: "Source index for move_page when no page identifier is supplied." },
+        toIndex: { type: "integer", minimum: 0, description: "Destination index for move_page." },
+        fromFlowId: { type: "string", description: "Source flow id for move_flow_element." },
+        fromFlowName: { type: "string", description: "Source flow name for move_flow_element." },
+        toFlowId: { type: "string", description: "Destination flow id for move_flow_element." },
+        toFlowName: { type: "string", description: "Destination flow name for move_flow_element." },
+        name: { type: "string", description: "Visible/technical name used by add or update operations." },
+        description: { type: "string", description: "Description HTML/text used by root, page, or field operations." },
+        language: { type: "string", description: "Root language for set_root." },
+        backgroundColor: { type: "string", description: "Wallpaper color for set_media/set_root." },
+        thumbnailUrl: { type: "string", description: "Thumbnail URL for set_media/set_root." },
+        navigationMode: { type: "string", enum: ["tabs", "buttons"], description: "Navigation default used when adding a page." },
+        pageObject: { type: "object", additionalProperties: true, description: "Page payload for add_page/update_page, for example {name:'Details', iconName:'people', enabledTab:true}." },
+        fieldObject: { type: "object", additionalProperties: true, description: "Component payload for add_field/add_component. Use reduced component shape: {type:'text', name:'child_name', description:'Child name', mandatory:true} or {type:'layout', name:'row', children:[...]}." },
+        patch: { type: "object", additionalProperties: true, description: "JSON merge patch for set_root/update_page/update_field/update_flow/update_flow_element. For component config, patch under config, e.g. {config:{mandatory:false, label:'Name'}}." },
+        pageData: { type: "object", additionalProperties: true, description: "Page object for add_page/update_page." },
+        flowData: { type: "object", additionalProperties: true, description: "Flow object for add_flow/update_flow." }
+      },
+      required: ["action"],
+      additionalProperties: true,
+      examples: [
+        { action: "add_page", name: "Details", index: 1, navigationMode: "tabs" },
+        { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } },
+        { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } },
+        { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false } } },
+        { action: "remove_field", fieldName: "child_name" },
+        { action: "move_field", fieldName: "status", pageName: "Details", index: 0 },
+        { action: "add_flow_element", flowId: "flow_save", element: { type: "toast", message: "Saved" } }
+      ]
+    };
+  }
+
+  function nocodeFormEditInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: nocodeFormsProjectProperty(),
+        id: {
+          type: "string",
+          description: "C8Oforms document id to fetch through APIV2_getDocument before editing."
+        },
+        rev: {
+          type: "string",
+          description: "Optional expected document revision. When provided, it is forwarded to APIV2_getDocument."
+        },
+        operations: {
+          description: "Ordered semantic edit operations, or one operation object. Use this instead of nocode-form-update for structural edits. Examples: [{action:'add_page', name:'Details'}], [{action:'add_field', pageName:'Details', fieldObject:{type:'text', name:'child_name', description:'Child name'}}], [{action:'remove_field', fieldName:'obsolete_field'}]. The tool applies them in memory, validates, then persists only through C8Oforms.APIV2_updateFormulaireDocument.",
+          oneOf: [
+            {
+              type: "array",
+              items: nocodeFormEditOperationSchema()
+            },
+            nocodeFormEditOperationSchema(),
+            { type: "string" }
+          ]
+        },
+        operation: Object.assign(nocodeFormEditOperationSchema(), {
+          description: "Alias for operations when sending a single operation object, for example {action:'add_page', name:'Details'}."
+        }),
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["id", "token"],
+      additionalProperties: false,
+      examples: [
+        {
+          id: "1712345678901",
+          operations: [
+            { action: "add_page", name: "Details", navigationMode: "tabs" },
+            { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } }
+          ],
+          token: "ey..."
+        },
+        {
+          id: "1712345678901",
+          operations: { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false } } },
+          token: "ey..."
+        }
+      ]
+    };
+  }
+
   function openObjectSchema(properties) {
     return {
       type: "object",
@@ -1227,6 +1368,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_form_create") {
       return nocodeFormCreateInputSchema();
+    }
+    if (seq === "tools_nocode_form_edit") {
+      return nocodeFormEditInputSchema();
     }
     if (seq === "tools_nocode_form_update") {
       return nocodeFormUpdateInputSchema();
