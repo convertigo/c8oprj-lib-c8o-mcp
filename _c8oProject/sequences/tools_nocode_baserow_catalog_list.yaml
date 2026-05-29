@@ -1,0 +1,24 @@
+accessibility: Private
+comment: |
+  List No Code Baserow catalog
+  Authenticates with the No Code Studio token, then delegates Baserow discovery to lib_BaseRow.formscommon_ApplicationsList. Returns the workspaces, bases, and tables accessible to the authenticated No Code user.
+↓Run [steps.SimpleStep-1780200000001]: 
+  expression: |
+    'include("js/nocode_baserow.js");
+    result = C8O.nocodeBaserow.catalogList({ token: token });'
+↓result [steps.JsonToXmlStep-1780200000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1780200000003]: 
+  comment: No Code Studio bearer token used to authenticate the catalog request.
+  description: No Code Studio bearer token used to authenticate the catalog request.

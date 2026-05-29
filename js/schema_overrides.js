@@ -518,6 +518,20 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeBaserowCatalogListInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        token: {
+          type: "string",
+          description: "No Code Studio bearer token. The tool authenticates the No Code user, then delegates Baserow discovery to lib_BaseRow."
+        }
+      },
+      required: ["token"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeFormContractGetInputSchema() {
     return {
       type: "object",
@@ -1356,6 +1370,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_mobile_builder_open") {
       return mobileBuilderOpenInputSchema();
+    }
+    if (seq === "tools_nocode_baserow_catalog_list") {
+      return nocodeBaserowCatalogListInputSchema();
     }
     if (seq === "tools_nocode_form_contract_get") {
       return nocodeFormContractGetInputSchema();
