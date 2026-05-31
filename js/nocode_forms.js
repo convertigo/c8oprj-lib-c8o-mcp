@@ -188,6 +188,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  function dynamicReferenceContract() {
+    return {
+      syntax: "$$START<component-formula-or-action-id>{...smart-source-payload...}END<component-formula-or-action-id>$$",
+      scope: "This is the general C8Oforms SmartSource reference mechanism. It can appear anywhere a C8Oforms dynamic string is accepted, including labels, source variable values, filter values, formulas, action parameters, conditions, and other UI-authored dynamic text.",
+      rule: "The START id and END id identify the referenced component, formula, or action and must match each other. Preserve the full envelope exactly when copying, editing, or generating no-code JSON.",
+      example: "$$START1780215220834{\"c8otype\":\"path\",\"c8opath\":\"\",\"c8oPrettyPath\":null,\"c8obuiltin\":null,\"fakeId\":\"${uniqueId}\",\"c8oName\":null}END1780215220834$$",
+      notes: [
+        "Do not treat an empty c8opath inside the payload as invalid by itself; the START/END id envelope is the important runtime reference.",
+        "Do not replace SmartSource envelopes with plain text ids, raw field names, or hand-written JavaScript expressions unless the target property explicitly expects JavaScript.",
+        "When the referenced component, formula, or action id changes, update both START and END ids together."
+      ]
+    };
+  }
+
   function baserowSourceContract() {
     var filterOperators = [
       "equal",
@@ -284,14 +298,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       formsConfig: {
         noCodeStudioIdentityRule: {
+          requiredForEveryBaserowSource: ["form_id", "source_id", "source_owner"],
           requiredTogether: ["table_id", "table_id_int"],
+          form_id: "The C8Oforms document id that owns the component.",
+          source_id: "Must exactly match the id of the component carrying this source. formscommon_CheckConfig uses it to find the saved component and compare forms_config identity.",
+          source_owner: "The No Code Studio owner/user email stored with the source.",
           table_id: "The UI path string, for example Workspace~>Database~>Table. Keep it even when table_id_int is present.",
           table_id_int: "The numeric Baserow table id.",
-          outsideContract: "table_id_int alone can pass low-level validation but is not a robust No Code Studio source configuration."
+          outsideContract: "table_id_int alone, or any config missing form_id/source_id/source_owner, can pass low-level validation but is not a robust No Code Studio runtime source configuration."
         },
-        tableData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "hidden", "form_id", "source_id", "source_owner", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], link_row_table_id: [] } },
-        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "form_id", "source_id", "source_owner", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [] } },
-        fieldValues: { required: ["table_id", "columns"], example: { table_id: 123, columns: ["Status"] } }
+        tableData: { required: ["table_id", "table_id_int", "columns", "form_id", "source_id", "source_owner"], optional: ["view_id", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], form_id: "1780132303501", source_id: 1780132310205, source_owner: "user@example.com", link_row_table_id: [] } },
+        selectData: { required: ["table_id", "table_id_int", "columns", "form_id", "source_id", "source_owner"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], form_id: "1780132303501", source_id: 1780132310206, source_owner: "user@example.com", link_row_table_id: [] } },
+        fieldValues: { required: ["table_id", "columns", "form_id", "source_id", "source_owner"], example: { table_id: 123, columns: ["Status"], form_id: "1780132303501", source_id: 1780132310207, source_owner: "user@example.com" } }
       },
       filter: {
         variablesBySource: {
@@ -299,6 +317,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           selectData: "forms_Filter",
           selectSearch: "forms_filter"
         },
+        dynamicValueReferences: "Filter values in val2.str use the general authoringContract.dynamicReferences SmartSource mechanism.",
         uiAuthoredShape: {
           str: "",
           html: false,
@@ -319,7 +338,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           "Use condVisible with and/or for the top-level filter group operator.",
           "For equal with an empty value, lib_BaseRow sends __empty to avoid returning every row.",
           "SelectData also supports forms_filter as a simple search string; it is separate from forms_Filter.",
-          "For source objects copied from C8Oforms, keep the conds/condVisible/type metadata."
+          "For source objects copied from C8Oforms, keep the conds/condVisible/type metadata.",
+          "When val2.str references another form variable, preserve the $$START...END...$$ SmartSource envelope exactly."
         ]
       },
       sort: {
@@ -359,6 +379,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       sourceExamples: {
         gridWithUiAuthoredSourceConfig: {
           type: "grid",
+          id: 1780132310205,
           name: "pipeline",
           sourceEnabled: true,
           columns: [{ name: "Opportunity", type: "text" }, { name: "Company", type: "text" }, { name: "Stage", type: "text" }],
@@ -379,6 +400,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         },
         selectWithFilterAndDistinct: {
           type: "select",
+          id: 1780132310206,
           name: "customer",
           sourceEnabled: true,
           sources: {
@@ -386,7 +408,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
               enabled: true,
               fullsync: false,
               vars: {
-                forms_config: { str: "{\"table_id\":\"Workspace~>Database~>Customers\",\"table_id_int\":123,\"columns\":[\"Customer\",\"Customer ID\"],\"displayValue\":\"Customer\",\"value\":\"Customer ID\",\"hidden\":[]}", html: false },
+                forms_config: { str: "{\"table_id\":\"Workspace~>Database~>Customers\",\"table_id_int\":123,\"columns\":[\"Customer\",\"Customer ID\"],\"displayValue\":\"Customer\",\"value\":\"Customer ID\",\"hidden\":[],\"form_id\":\"1780132303501\",\"source_id\":1780132310206,\"source_owner\":\"user@example.com\",\"link_row_table_id\":[]}", html: false },
                 forms_Filter: { str: "", html: false, conds: [{ val1: { name: "Active", displayName: "Active" }, val2: { type: "checkbox", str: "true", html: false, arr: [] }, operator: "boolean" }], condVisible: "and", type: "filter" },
                 forms_filter: { str: "", html: false },
                 forms_tableSort: { str: "", html: false, conds: [{ name: "Customer", order: "asc" }], type: "sort" },
@@ -456,6 +478,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         actions: { type: "object", optional: true, description: "Advanced C8Oforms action configuration; prefer flows for ordinary buttons." },
         flow: { type: "string", optional: true, description: "For button fields, references a flows[].id." }
       },
+      dynamicReferences: dynamicReferenceContract(),
       componentAuthoring: {
         layout: {
           fields: ["name", "cols", "tablet", "phoneL", "phoneP", "children"],
