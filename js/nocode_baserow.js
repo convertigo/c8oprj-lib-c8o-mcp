@@ -137,6 +137,30 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return [];
   }
 
+  function readTableFields(tableId, editor) {
+    var fieldsConfig = {
+      table_id: tableId,
+      editor: trimmed(editor)
+    };
+    var response = callC8oSequence("lib_BaseRow", "formscommon_FieldsList", {
+      forms_config: JSON.stringify(fieldsConfig)
+    });
+    var error = apiError(response);
+    if (error) {
+      throw new Error("table " + tableId + ": " + String(error.message || error.code || JSON.stringify(error)));
+    }
+    if (response && response.document && response.document.array != null) {
+      return ensureArray(response.document.array);
+    }
+    if (response && response.doc && response.doc.document && response.doc.document.array != null) {
+      return ensureArray(response.doc.document.array);
+    }
+    if (response && response.array != null) {
+      return ensureArray(response.array);
+    }
+    return [];
+  }
+
   function numberOrNull(value) {
     if (value == null || value === "") {
       return null;
@@ -157,6 +181,144 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       workspaceId: numberOrNull(workspace && workspace.id),
       workspaceName: trimmed(workspace && workspace.name)
     };
+  }
+
+  function booleanValue(value) {
+    if (value === true) {
+      return true;
+    }
+    if (value === false || value == null) {
+      return false;
+    }
+    var text = trimmed(value).toLowerCase();
+    return text === "true" || text === "1" || text === "yes";
+  }
+
+  function cloneShallow(value) {
+    var out = {};
+    if (!value) {
+      return out;
+    }
+    var keys = Object.keys(value);
+    for (var i = 0; i < keys.length; i++) {
+      out[keys[i]] = value[keys[i]];
+    }
+    return out;
+  }
+
+  function normalizeColumn(field, table) {
+    var raw = cloneShallow(field);
+    raw.id = numberOrNull(raw.id);
+    raw.name = trimmed(raw.name);
+    raw.type = trimmed(raw.type);
+    raw.order = numberOrNull(raw.order);
+    raw.primary = raw.primary === true || raw.primary === "true";
+    raw.readOnly = raw.read_only === true || raw.readOnly === true || raw.read_only === "true" || raw.readOnly === "true";
+    raw.tableId = numberOrNull(table && table.id);
+    raw.tableName = trimmed(table && table.name);
+    raw.databaseId = numberOrNull(table && table.databaseId);
+    raw.baseId = numberOrNull(table && table.baseId);
+    raw.baseName = trimmed(table && table.baseName);
+    raw.workspaceId = numberOrNull(table && table.workspaceId);
+    raw.workspaceName = trimmed(table && table.workspaceName);
+    return raw;
+  }
+
+  function filterCatalog(catalog, filters) {
+    var workspaceId = numberOrNull(filters.workspaceId);
+    var databaseId = numberOrNull(filters.databaseId);
+    var tableId = numberOrNull(filters.tableId);
+    if (workspaceId == null && databaseId == null && tableId == null) {
+      return catalog;
+    }
+
+    var workspaces = [];
+    var bases = [];
+    var tables = [];
+    var workspaceById = {};
+    var baseById = {};
+    var catalogBaseById = {};
+
+    for (var b = 0; b < catalog.bases.length; b++) {
+      var catalogBase = catalog.bases[b];
+      if (catalogBase.id != null) {
+        catalogBaseById["id:" + catalogBase.id] = catalogBase;
+      }
+    }
+
+    function workspaceKey(table) {
+      return table.workspaceId == null ? "name:" + table.workspaceName : "id:" + table.workspaceId;
+    }
+
+    function baseKey(table) {
+      return table.baseId == null ? "name:" + table.workspaceId + ":" + table.baseName : "id:" + table.baseId;
+    }
+
+    for (var i = 0; i < catalog.tables.length; i++) {
+      var table = catalog.tables[i];
+      if (workspaceId != null && table.workspaceId !== workspaceId) {
+        continue;
+      }
+      if (databaseId != null && table.databaseId !== databaseId && table.baseId !== databaseId) {
+        continue;
+      }
+      if (tableId != null && table.id !== tableId) {
+        continue;
+      }
+
+      var wKey = workspaceKey(table);
+      if (!workspaceById[wKey]) {
+        workspaceById[wKey] = {
+          id: table.workspaceId,
+          name: table.workspaceName,
+          bases: []
+        };
+        workspaces.push(workspaceById[wKey]);
+      }
+
+      var bKey = baseKey(table);
+      if (!baseById[bKey]) {
+        var baseMeta = catalogBaseById[bKey] || {};
+        baseById[bKey] = {
+          id: table.baseId,
+          name: table.baseName,
+          order: numberOrNull(baseMeta.order),
+          type: trimmed(baseMeta.type) || "database",
+          workspaceId: table.workspaceId,
+          workspaceName: table.workspaceName,
+          tables: []
+        };
+        bases.push(baseById[bKey]);
+        workspaceById[wKey].bases.push(baseById[bKey]);
+      }
+
+      var tableCopy = cloneShallow(table);
+      baseById[bKey].tables.push(tableCopy);
+      tables.push(tableCopy);
+    }
+
+    return {
+      workspaces: workspaces,
+      bases: bases,
+      tables: tables
+    };
+  }
+
+  function hydrateColumns(catalog, authentication) {
+    var columns = [];
+    var editor = authentication && authentication.user;
+    for (var i = 0; i < catalog.tables.length; i++) {
+      var table = catalog.tables[i];
+      var rawFields = readTableFields(table.id, editor);
+      table.columns = [];
+      for (var f = 0; f < rawFields.length; f++) {
+        var column = normalizeColumn(rawFields[f], table);
+        table.columns.push(column);
+        columns.push(column);
+      }
+      table.columnCount = table.columns.length;
+    }
+    return columns;
   }
 
   function normalizeBase(application) {
@@ -217,6 +379,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
 
   C8O.nocodeBaserow.catalogList = function (options) {
     var opts = options || {};
+    var includeColumns = booleanValue(opts.includeColumns);
     var authentication = validateToken(opts.token);
     if (!authentication || authentication.authenticated !== true) {
       return {
@@ -229,17 +392,46 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
     try {
       var applications = readApplications();
-      var catalog = normalizeCatalog(applications);
+      var allCatalog = normalizeCatalog(applications);
+      var catalog = filterCatalog(allCatalog, opts);
+      var columns = [];
+      if (includeColumns) {
+        if (numberOrNull(opts.workspaceId) == null && numberOrNull(opts.databaseId) == null && numberOrNull(opts.tableId) == null) {
+          return {
+            status: "invalid_request",
+            authentication: authentication,
+            error: {
+              code: "columns_filter_required",
+              message: "includeColumns=true requires workspaceId, databaseId, or tableId to avoid hydrating all " + allCatalog.tables.length + " tables."
+            },
+            workspaces: [],
+            bases: [],
+            tables: [],
+            columns: [],
+            counts: {
+              workspaces: 0,
+              bases: 0,
+              tables: 0,
+              columns: 0,
+              availableTables: allCatalog.tables.length
+            }
+          };
+        }
+        columns = hydrateColumns(catalog, authentication);
+      }
       return {
         status: "ok",
         authentication: authentication,
         workspaces: catalog.workspaces,
         bases: catalog.bases,
         tables: catalog.tables,
+        columns: columns,
         counts: {
           workspaces: catalog.workspaces.length,
           bases: catalog.bases.length,
-          tables: catalog.tables.length
+          tables: catalog.tables.length,
+          columns: columns.length,
+          availableTables: allCatalog.tables.length
         }
       };
     } catch (e) {
@@ -252,7 +444,8 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         },
         workspaces: [],
         bases: [],
-        tables: []
+        tables: [],
+        columns: []
       };
     }
   };

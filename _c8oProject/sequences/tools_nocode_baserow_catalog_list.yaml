@@ -5,7 +5,13 @@ comment: |
 ↓Run [steps.SimpleStep-1780200000001]: 
   expression: |
     'include("js/nocode_baserow.js");
-    result = C8O.nocodeBaserow.catalogList({ token: token });'
+    result = C8O.nocodeBaserow.catalogList({
+      token: token,
+      includeColumns: typeof includeColumns === "undefined" ? false : includeColumns,
+      workspaceId: typeof workspaceId === "undefined" ? null : workspaceId,
+      databaseId: typeof databaseId === "undefined" ? null : databaseId,
+      tableId: typeof tableId === "undefined" ? null : tableId
+    });'
 ↓result [steps.JsonToXmlStep-1780200000002]: 
   jsonObject: 
     - xmlizable: 
@@ -22,3 +28,15 @@ comment: |
 ↓token [variables.RequestableVariable-1780200000003]: 
   comment: No Code Studio bearer token used to authenticate the catalog request.
   description: No Code Studio bearer token used to authenticate the catalog request.
+↓includeColumns [variables.RequestableVariable-1780124961587]: 
+  comment: Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId.
+  description: Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId.
+↓workspaceId [variables.RequestableVariable-1780124961591]: 
+  comment: Optional Baserow workspace id filter.
+  description: Optional Baserow workspace id filter.
+↓databaseId [variables.RequestableVariable-1780124961593]: 
+  comment: Optional Baserow database/application id filter.
+  description: Optional Baserow database/application id filter.
+↓tableId [variables.RequestableVariable-1780124961595]: 
+  comment: Optional Baserow table id filter.
+  description: Optional Baserow table id filter.

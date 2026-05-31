@@ -188,6 +188,217 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  function baserowSourceContract() {
+    var filterOperators = [
+      "equal",
+      "not_equal",
+      "filename_contains",
+      "files_lower_than",
+      "has_file_type",
+      "contains",
+      "contains_not",
+      "contains_word",
+      "doesnt_contain_word",
+      "length_is_lower_than",
+      "higher_than",
+      "higher_than_or_equal",
+      "lower_than",
+      "lower_than_or_equal",
+      "is_even_and_whole",
+      "date_equal",
+      "date_before",
+      "date_before_or_equal",
+      "date_after_days_ago",
+      "date_after",
+      "date_after_or_equal",
+      "date_not_equal",
+      "date_equals_today",
+      "date_before_today",
+      "date_after_today",
+      "date_within_days",
+      "date_within_weeks",
+      "date_within_months",
+      "date_equals_days_ago",
+      "date_equals_months_ago",
+      "date_equals_years_ago",
+      "date_equals_week",
+      "date_equals_month",
+      "date_equals_day_of_month",
+      "date_equals_year",
+      "date_is",
+      "date_is_not",
+      "date_is_before",
+      "date_is_on_or_before",
+      "date_is_after",
+      "date_is_on_or_after",
+      "date_is_within",
+      "single_select_equal",
+      "single_select_not_equal",
+      "single_select_is_any_of",
+      "single_select_is_none_of",
+      "link_row_has",
+      "link_row_has_not",
+      "link_row_contains",
+      "link_row_not_contains",
+      "boolean",
+      "empty",
+      "not_empty",
+      "multiple_select_has",
+      "multiple_select_has_not",
+      "multiple_collaborators_has",
+      "multiple_collaborators_has_not",
+      "user_is",
+      "user_is_not",
+      "has_value_equal",
+      "has_not_value_equal",
+      "has_value_contains",
+      "has_not_value_contains",
+      "has_value_contains_word",
+      "has_not_value_contains_word",
+      "has_value_length_is_lower_than",
+      "has_empty_value",
+      "has_not_empty_value"
+    ];
+    return {
+      learnedFrom: [
+        "lib_BaseRow.formssource_GetTableData",
+        "lib_BaseRow.formssource_GetSelectData",
+        "lib_BaseRow.TableGetData",
+        "lib_BaseRow.Baserow_API_spec"
+      ],
+      sourceKeys: {
+        tableData: "lib_BaseRow.formssource_GetTableData",
+        selectData: "lib_BaseRow.formssource_GetSelectData",
+        fieldValues: "lib_BaseRow.formssource_GetFieldValues"
+      },
+      sourceVariableEncoding: "C8Oforms sources use the sequence key as the source object key. For No Code Studio Baserow sources, the only valid contract shape is { enabled: true, fullsync: false, vars: { ... } } with UI-authored variables. Every lib_BaseRow source variable must preserve { str: stringValue, html: false }. Filter and sort variables must keep their UI metadata such as conds, condVisible, and type.",
+      editableNoCodeStudioRule: {
+        required: "Use UI-authored variable objects for lib_BaseRow.formssource_GetTableData, lib_BaseRow.formssource_GetSelectData, and lib_BaseRow.formssource_GetFieldValues.",
+        outsideContract: "Any Baserow source object that does not preserve the UI-authored variable shape is outside this No Code contract.",
+        reason: "No Code Studio needs the UI metadata to keep the Baserow source editable and to avoid forms_config/filter conversion errors."
+      },
+      supportedComponents: {
+        tableData: ["grid", "chart", "map"],
+        selectData: ["select", "checkbox", "radio", "checkbox_group", "radio_group"],
+        fieldValues: ["select", "checkbox", "radio"]
+      },
+      formsConfig: {
+        noCodeStudioIdentityRule: {
+          requiredTogether: ["table_id", "table_id_int"],
+          table_id: "The UI path string, for example Workspace~>Database~>Table. Keep it even when table_id_int is present.",
+          table_id_int: "The numeric Baserow table id.",
+          outsideContract: "table_id_int alone can pass low-level validation but is not a robust No Code Studio source configuration."
+        },
+        tableData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "hidden", "form_id", "source_id", "source_owner", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], link_row_table_id: [] } },
+        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "form_id", "source_id", "source_owner", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [] } },
+        fieldValues: { required: ["table_id", "columns"], example: { table_id: 123, columns: ["Status"] } }
+      },
+      filter: {
+        variablesBySource: {
+          tableData: "forms_tableFilter",
+          selectData: "forms_Filter",
+          selectSearch: "forms_filter"
+        },
+        uiAuthoredShape: {
+          str: "",
+          html: false,
+          conds: [
+            {
+              val1: { name: "Opportunity", displayName: "Opportunity" },
+              val2: { type: "text", str: "A", html: false, arr: [] },
+              operator: "contains"
+            }
+          ],
+          condVisible: "and",
+          type: "filter"
+        },
+        groupOperators: ["and", "or"],
+        operators: filterOperators,
+        notes: [
+          "Use Baserow column names in val1.name.",
+          "Use condVisible with and/or for the top-level filter group operator.",
+          "For equal with an empty value, lib_BaseRow sends __empty to avoid returning every row.",
+          "SelectData also supports forms_filter as a simple search string; it is separate from forms_Filter.",
+          "For source objects copied from C8Oforms, keep the conds/condVisible/type metadata."
+        ]
+      },
+      sort: {
+        variablesBySource: { tableData: "forms_tableSort", selectData: "forms_tableSort" },
+        syntax: "Comma-separated column names. Prefix a column with - for descending order.",
+        uiAuthoredShape: { str: "", html: false, conds: [{ name: "Opportunity", order: "asc" }, { name: "Stage", order: "asc" }], type: "sort" },
+        examples: ["Name", "Name,-Created on"]
+      },
+      distinct: {
+        variablesBySource: { tableData: "forms_tableDistinct", selectData: "forms_tableDistinct" },
+        syntax: "Comma-separated column names.",
+        example: "Country,City",
+        behavior: "Keeps only the first row for each unique combination of the listed columns.",
+        notes: ["When forms_tableGroupBy is set on tableData, distinct is ignored."]
+      },
+      groupBy: {
+        source: "tableData only",
+        variable: "forms_tableGroupBy",
+        syntax: "Comma-separated column names.",
+        example: "Service,Region",
+        behavior: "Returns one row per unique group key combination.",
+        defaultAggregation: "count"
+      },
+      groupAggregations: {
+        source: "tableData only",
+        variable: "forms_tableAggregations",
+        operators: ["count", "sum", "avg", "min", "max"],
+        syntax: "Comma-separated aggregation specs: count or operator:Column name.",
+        examples: ["count", "sum:Amount", "avg:Amount", "min:Date", "max:Score"],
+        recommendedUse: [
+          "count works for any grouped data.",
+          "sum and avg should target numeric columns.",
+          "min and max should target simple single-value columns."
+        ],
+        unsupportedColumns: ["files", "linked rows", "multiple selections", "other multi-value columns"]
+      },
+      sourceExamples: {
+        gridWithUiAuthoredSourceConfig: {
+          type: "grid",
+          name: "pipeline",
+          sourceEnabled: true,
+          columns: [{ name: "Opportunity", type: "text" }, { name: "Company", type: "text" }, { name: "Stage", type: "text" }],
+          sources: {
+            "lib_BaseRow.formssource_GetTableData": {
+              vars: {
+                forms_config: { str: "{\"table_id\":\"Mini CRM~>Lightweight CRM~>Pipelines\",\"table_id_int\":3162,\"columns\":[\"Opportunity\",\"Company\",\"Stage\"],\"hidden\":[],\"form_id\":\"1780132303501\",\"source_id\":1780132310205,\"source_owner\":\"user@example.com\",\"link_row_table_id\":[]}", html: false },
+                forms_tableFilter: { str: "", html: false, conds: [{ val1: { name: "Opportunity", displayName: "Opportunity" }, val2: { type: "text", str: "A", html: false, arr: [] }, operator: "contains" }], condVisible: "and", type: "filter" },
+                forms_tableSort: { str: "", html: false, conds: [{ name: "Opportunity", order: "asc" }, { name: "Stage", order: "asc" }], type: "sort" },
+                forms_tableDistinct: { str: "Opportunity,Stage", html: false },
+                forms_tableGroupBy: { str: "Opportunity", html: false },
+                forms_tableAggregations: { str: "count", html: false }
+              },
+              enabled: true,
+              fullsync: false
+            }
+          }
+        },
+        selectWithFilterAndDistinct: {
+          type: "select",
+          name: "customer",
+          sourceEnabled: true,
+          sources: {
+            "lib_BaseRow.formssource_GetSelectData": {
+              enabled: true,
+              fullsync: false,
+              vars: {
+                forms_config: { str: "{\"table_id\":\"Workspace~>Database~>Customers\",\"table_id_int\":123,\"columns\":[\"Customer\",\"Customer ID\"],\"displayValue\":\"Customer\",\"value\":\"Customer ID\",\"hidden\":[]}", html: false },
+                forms_Filter: { str: "", html: false, conds: [{ val1: { name: "Active", displayName: "Active" }, val2: { type: "checkbox", str: "true", html: false, arr: [] }, operator: "boolean" }], condVisible: "and", type: "filter" },
+                forms_filter: { str: "", html: false },
+                forms_tableSort: { str: "", html: false, conds: [{ name: "Customer", order: "asc" }], type: "sort" },
+                forms_tableDistinct: { str: "Customer", html: false }
+              }
+            }
+          }
+        }
+      }
+    };
+  }
+
   function detailedAuthoringContract(types) {
     return {
       format: "reduced-authoring-json",
@@ -271,6 +482,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         chart: { fields: ["name", "description", "sources", "config"] },
         map: { fields: ["name", "description", "sources", "config"] }
       },
+      baserowSources: baserowSourceContract(),
       flowAuthoring: {
         rule: "Use flows only when referenced by a button or when formulas/business logic are needed.",
         formulas: "Put business_logic elements in the flow with id formulas.",

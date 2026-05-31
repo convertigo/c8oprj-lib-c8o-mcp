@@ -525,6 +525,23 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         token: {
           type: "string",
           description: "No Code Studio bearer token. The tool authenticates the No Code user, then delegates Baserow discovery to lib_BaseRow."
+        },
+        includeColumns: {
+          type: "boolean",
+          default: false,
+          description: "Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId."
+        },
+        workspaceId: {
+          type: "integer",
+          description: "Optional Baserow workspace id filter. With includeColumns=true, fields are listed for all tables in the workspace."
+        },
+        databaseId: {
+          type: "integer",
+          description: "Optional Baserow database/application id filter. With includeColumns=true, fields are listed only for tables in that database."
+        },
+        tableId: {
+          type: "integer",
+          description: "Optional Baserow table id filter. With includeColumns=true, fields are listed only for this table."
         }
       },
       required: ["token"],
