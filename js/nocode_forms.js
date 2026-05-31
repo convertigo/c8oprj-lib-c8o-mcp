@@ -194,6 +194,165 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       scope: "This is the general C8Oforms SmartSource reference mechanism. It can appear anywhere a C8Oforms dynamic string is accepted, including labels, source variable values, filter values, formulas, action parameters, conditions, and other UI-authored dynamic text.",
       rule: "The START id and END id identify the referenced component, formula, or action and must match each other. Preserve the full envelope exactly when copying, editing, or generating no-code JSON.",
       example: "$$START1780215220834{\"c8otype\":\"path\",\"c8opath\":\"\",\"c8oPrettyPath\":null,\"c8obuiltin\":null,\"fakeId\":\"${uniqueId}\",\"c8oName\":null}END1780215220834$$",
+      complexObjectAccess: {
+        field: "The SmartSource payload c8opath is the UI-authored path into the referenced value. For complex values, keep the dot path exactly as authored by C8Oforms.",
+        syntax: "<componentName>.<property-or-column>.<nested-property>",
+        componentValueShapes: {
+          common: {
+            submittedValuePath: "Most form components are read through formsSubmit[componentName].value. Components inside ion-card are read through formsSubmit[cardName].children[componentName].value or children.",
+            sourceValuePath: "Source-backed components can also keep raw source choices or display models under local.sourceValue[componentName].",
+            rule: "A c8opath segment after the component name follows the runtime object shape. Preserve the UI-authored path exactly."
+          },
+          grid: {
+            rowShape: "{ <columnNameOrDisplayName>: <cellValueOrCellObject>, ... }",
+            cellObjectFields: {
+              value: "Raw/runtime value used for saved responses and comparisons.",
+              displayValue: "Formatted value shown by the UI; prefer this for labels when the SmartSource path selected it.",
+              displayName: "Visible column label. When present, C8Oforms can use it as the runtime row key and keep the original key in technicalName.",
+              technicalName: "Original technical/source column name added by the grid runtime when displayName rewrites the visible key.",
+              sortHide: "Source metadata used by the editor to hide the column from sort choices; preserve it when copying source model data.",
+              filterHide: "Source metadata used by the editor to hide the column from filter choices; preserve it when copying source model data.",
+              filterCompletion: "Optional completion metadata used by filter editors.",
+              cType: "Optional source column type metadata used by filter editors.",
+              type: "Optional cell rendering/type metadata, for example html."
+            },
+            returnedValueModes: {
+              row_selected: "Paths such as <gridName>.<columnName>.displayValue read from the selected ag-grid row stored in local.techGrid.",
+              cell_selected: "Use <gridName>.cellSelected.value/displayValue for the selected cell, or <gridName>.parentRow.<columnName>.displayValue for another value from the same row.",
+              multiple_row_selected: "The selection is index-based; paths can target <gridName>.<index>.<columnName>.displayValue.",
+              all_the_data: "The full source data is index-based under local.sourceValue; paths can target <gridName>.<index>.<columnName>.displayValue.",
+              nothing: "The grid does not contribute a response value, but source data can still exist for UI/runtime access."
+            },
+            paths: ["<gridName>.<columnName>.displayValue", "<gridName>.cellSelected.displayValue", "<gridName>.parentRow.<columnName>.displayValue", "<gridName>.<index>.<columnName>.displayValue"],
+            notes: [
+              "The column name is the path segment before value/displayValue, for example Name in companies_grid.Name.displayValue.",
+              "A grid row is not a flat map of strings. Cells can be rich objects carrying displayName, value, displayValue, sort/filter metadata, and runtime technicalName.",
+              "If displayName differs from the original source key, C8Oforms may expose the row under displayName and store the original key in technicalName."
+            ]
+          },
+          text: {
+            submittedShape: "{ name, type: 'text', label, value: string, labelHtml }",
+            paths: ["<textName>", "<textName>.<nestedKey> when value is an object"],
+            notes: ["Ordinary text values are strings. Empty c8opath can validly mean the component value."]
+          },
+          slider: {
+            submittedShape: "{ name, type: 'slider', label, value: number|string, labelHtml }",
+            paths: ["<sliderName>"],
+            notes: ["URL/default values can be coerced to number, but persisted responses may still be represented as runtime values."]
+          },
+          datetime: {
+            submittedShape: "{ name, type: 'datetime', label, value: 'YYYY-MM-DD'|string, labelHtml }",
+            builtins: ["fulldate", "day", "month", "year"],
+            paths: ["<datetimeName>", "<datetimeName>.day via UI-authored builtin SmartSource"]
+          },
+          time: {
+            submittedShape: "{ name, type: 'time', label, value: 'HH:mm'|string, labelHtml }",
+            builtins: ["fullhours", "hours", "mins"],
+            paths: ["<timeName>", "<timeName>.hours via UI-authored builtin SmartSource"]
+          },
+          barcode: {
+            submittedShape: "{ name, type: 'barcode', label, value: string, labelHtml }",
+            paths: ["<barcodeName>"]
+          },
+          checkbox: {
+            submittedShape: "{ name, type: 'checkbox', label, children: [{ value, selected, other?, displayValue? }], labelHtml }",
+            sourceShape: "local.sourceValue[name] is the source array; each choice can be a string or an object with value/displayValue.",
+            builtins: ["selected_data_c8o_separated_by_coma", "not_selected_data_c8o_separated_by_coma", "selected_data", "not_selected_data", "all_data"],
+            paths: ["<checkboxName>.<index>.value", "<checkboxName>.<index>.displayValue", "<checkboxName>.<index>.selected"],
+            notes: ["No-path text rendering returns selected values separated by comma."]
+          },
+          radio: {
+            submittedShape: "{ name, type: 'radio', label, value, children: [{ value, selected, other?, displayValue? }], labelHtml }",
+            sourceShape: "For sourced radio components, local.sourceValue[name] keeps the available choices and local.techSelect[name] keeps the selected source object.",
+            paths: ["<radioName>", "<radioName>.value", "<radioName>.displayValue for sourced selections"],
+            notes: ["The submitted value is the raw value. displayValue is read from local.techSelect for sourced radio choices."]
+          },
+          select: {
+            submittedShape: "{ name, type: 'select', label, value, children: [{ value, selected, other?, displayValue? }], labelHtml }",
+            sourceShape: "For sourced selects, local.sourceValue[name] keeps the available choices and local.techSelect[name] keeps the selected source object.",
+            paths: ["<selectName>", "<selectName>.value", "<selectName>.displayValue for sourced selections"],
+            notes: ["Use value for the submitted value, displayValue for the visible selected label when available."]
+          },
+          radio_group: {
+            submittedShape: "{ name, type: 'radio_group', label, children: { [lineTitle]: selectedValue }, children_label, labelHtml }",
+            sourceShape: "When source-backed, local.sourceValue[name] carries children: [{ value, selected? }] and lines: [{ title, selected? }].",
+            builtins: ["selected_data", "selected_data_c8o_separated_by_coma"],
+            paths: ["<radioGroupName>.<lineTitle>"],
+            notes: ["The runtime value is a map from row/line title to the selected column value."]
+          },
+          checkbox_group: {
+            submittedShape: "{ name, type: 'checkbox_group', label, children: { [lineTitle]: [{ value, selected }] }, labelHtml }",
+            sourceShape: "When source-backed, local.sourceValue[name] carries children: [{ value, selected? }] and lines: [{ title, selected? }].",
+            builtins: ["selected_data_c8o_separated_by_coma", "not_selected_data_c8o_separated_by_coma", "selected_data", "not_selected_data", "all_data"],
+            paths: ["<checkboxGroupName>.<lineTitle>.<index>.value", "<checkboxGroupName>.<lineTitle>.<index>.selected"],
+            notes: ["The runtime value is a map from row/line title to an array of checkbox choices."]
+          },
+          location: {
+            submittedShape: "{ name, type: 'location', label, value: { addr: {...}, gps: {...} }, labelHtml }",
+            addrFields: ["AddressLine", "AdminDistrict", "AdminDistrict2", "CountryRegion", "FormattedAddress", "Locality", "PostalCode"],
+            gpsFields: ["latitude", "longitude", "altitude", "accuracy", "altitudeAccuracy"],
+            paths: ["<locationName>.addr.FormattedAddress", "<locationName>.gps.latitude"],
+            notes: ["TEXT_format defaults to addr.FormattedAddress when available."]
+          },
+          media: {
+            img: "{ name, type: 'img', label, value: Blob|File|attachmentName|string, att_type?, labelHtml }",
+            signature: "{ name, type: 'signature', label, value: dataUrl|string|Blob, labelHtml }",
+            file: "{ name, type: 'file', label, value: Array<File|Blob|attachmentName|string>, labelHtml }",
+            paths: ["<imgName>", "<signatureName>", "<fileName>.<index>.name"],
+            notes: ["HTML dynamic rendering has special handling: images/signatures can render as img tags, and files can render as links or image previews."]
+          },
+          chart: {
+            sourceShape: "local.sourceValue[name] = { labels: [], xaxis: { categories: [] }, series: [] }.",
+            seriesShapes: ["For bar/line/area/treemap: series contains { name, data: number[] } objects.", "For pie/donut/radar: series contains numeric values."],
+            paths: ["<chartName>.labels.0", "<chartName>.xaxis.categories.0", "<chartName>.series.0.data.0"]
+          },
+          map: {
+            sourceShape: "local.sourceValue[name] = { markers: [], circles: [], polygons: [], center?, xaxis: { categories: [] }, series: [] }.",
+            markerShape: "{ options: { title }, tooltip, popup, lat, lng }",
+            circleShape: "{ options: { title }, tooltip, popup, lat, lng, radius }",
+            polygonShape: "{ options: { title }, tooltip, popup, coord: [[lat, lng], ...] }",
+            paths: ["<mapName>.markers.0.lat", "<mapName>.circles.0.radius", "<mapName>.polygons.0.coord.0.0", "<mapName>.center.lat"]
+          },
+          ion_card: {
+            submittedShape: "{ name, type: 'ion-card', children: { [childName]: childSubmittedShape }, label, labelHtml }",
+            paths: ["<childName> references the child directly by id/name; runtime storage is nested under the card in formsSubmit."]
+          },
+          business_logic: {
+            runtimeShape: "actions[name] = { name, type: 'business_logic', value }.",
+            paths: ["<businessLogicName>", "<businessLogicName>.<nestedKey>"],
+            notes: ["Business logic values are action values, not form response fields."]
+          }
+        },
+        examples: [
+          {
+            use: "Display the Name column of the selected row in a grid label.",
+            reference: "$$START1780214945653{\"c8otype\":\"path\",\"c8opath\":\"companies_grid.Name.displayValue\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780217041094\",\"c8oName\":null}END1780214945653$$",
+            meaning: "Read companies_grid, then the Name field of the selected row, then its displayValue."
+          },
+          {
+            use: "Display the currently selected cell value when a grid is configured with returned_value=cell_selected.",
+            reference: "$$START1780214945653{\"c8otype\":\"path\",\"c8opath\":\"companies_grid.cellSelected.displayValue\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780217041095\",\"c8oName\":null}END1780214945653$$",
+            meaning: "Read companies_grid, then the synthetic cellSelected object, then its displayValue."
+          },
+          {
+            use: "Display another column from the row that owns the selected cell.",
+            reference: "$$START1780214945653{\"c8otype\":\"path\",\"c8opath\":\"companies_grid.parentRow.Name.displayValue\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780217041096\",\"c8oName\":null}END1780214945653$$",
+            meaning: "Read the parent row of the selected cell, then the Name cell displayValue."
+          },
+          {
+            use: "Use the current value of a simple text component.",
+            reference: "$$START1780215220834{\"c8otype\":\"path\",\"c8opath\":\"\",\"c8oPrettyPath\":null,\"c8obuiltin\":null,\"fakeId\":\"${uniqueId}\",\"c8oName\":null}END1780215220834$$",
+            meaning: "An empty c8opath can be valid when the envelope already identifies the referenced simple component."
+          }
+        ],
+        rules: [
+          "For grids and other complex components, the selected object can expose nested fields such as <gridName>.<columnName>.displayValue.",
+          "Use displayValue when the UI-authored SmartSource selected it; do not remove it because raw values and displayed values can differ.",
+          "Use value when a raw persisted/runtime value is required; use displayValue when the UI label is required.",
+          "Column or property names in c8opath are the authored C8Oforms/Baserow names. Preserve capitalization, spaces, and punctuation exactly when present.",
+          "Do not invent c8opath strings manually when editing an existing document; preserve the UI-authored path or derive it from an observed SmartSource expression."
+        ]
+      },
       notes: [
         "Do not treat an empty c8opath inside the payload as invalid by itself; the START/END id envelope is the important runtime reference.",
         "Do not replace SmartSource envelopes with plain text ids, raw field names, or hand-written JavaScript expressions unless the target property explicitly expects JavaScript.",
