@@ -692,7 +692,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         description: { type: "string", description: "Description HTML/text used by root, page, or field operations." },
         language: { type: "string", description: "Root language for set_root." },
         backgroundColor: { type: "string", description: "Wallpaper color for set_media/set_root." },
-        thumbnailUrl: { type: "string", description: "Thumbnail URL for set_media/set_root." },
+        thumbnailColor: { type: "string", description: "Application/form thumbnail color for set_media/set_root. URL thumbnails require an uploaded attachment and are not supported by JSON-only no-code edits." },
         navigationMode: { type: "string", enum: ["tabs", "buttons"], description: "Navigation default used when adding a page." },
         pageObject: { type: "object", additionalProperties: true, description: "Page payload for add_page/update_page, for example {name:'Details', iconName:'people', enabledTab:true}." },
         fieldObject: { type: "object", additionalProperties: true, description: "Component payload for add_field/add_component. Use reduced component shape: {type:'text', name:'child_name', description:'Child name', mandatory:true} or {type:'layout', name:'row', children:[...]}." },

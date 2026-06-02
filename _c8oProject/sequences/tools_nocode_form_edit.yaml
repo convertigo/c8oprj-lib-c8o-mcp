@@ -1,6 +1,6 @@
 accessibility: Private
 comment: |
-  Edit a No Code form through C8Oforms APIs
+  'Edit a No Code form through C8Oforms APIs
   Use this for incremental edits to an existing form when the user asks to add, update, delete, or move pages, components, flows, or flow elements. It is safer than nocode-form-update for structural edits because it applies semantic operations and repairs C8Oforms references such as childrenRefs and parentRef. The tool fetches the form through C8Oforms.APIV2_getDocument, applies operations in order, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
   Typical operations:
   - add_page: {action:"add_page", name:"Details", index:1, navigationMode:"tabs"}
@@ -11,7 +11,7 @@ comment: |
   - remove_field: {action:"remove_field", fieldName:"child_name"}
   - move_field: {action:"move_field", fieldName:"status", pageName:"Details", index:0}
   - add_flow_element: {action:"add_flow_element", flowId:"flow_save", element:{type:"toast", message:"Saved"}}
-  Pass operations as an array for multiple edits, or as one operation object for a single edit. Requires a No Code Studio bearer token.
+  Pass operations as an array for multiple edits, or as one operation object for a single edit. Requires a No Code Studio bearer token.'
 ↓Run [steps.SimpleStep-1780100000601]: 
   expression: |
     'include("js/nocode_forms.js");

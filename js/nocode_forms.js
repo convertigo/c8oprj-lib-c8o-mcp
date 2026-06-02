@@ -169,7 +169,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       description: "Tell us what you think.",
       language: "en",
       backgroundColor: "rgba(32,38,70,0.06)",
-      thumbnailUrl: "https://example.com/thumbnail.png",
+      thumbnailColor: "#2f6fed",
       pages: [
         {
           name: "General",
@@ -455,6 +455,52 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         selectData: ["select", "checkbox", "radio", "checkbox_group", "radio_group"],
         fieldValues: ["select", "checkbox", "radio"]
       },
+      inputComponentGeneration: {
+        source: "When generating input components from a Baserow table catalog, use the field type returned by lib_BaseRow.formscommon_FieldsList as the primary signal for the C8Oforms component type.",
+        rule: "Do not default every Baserow column to text. Pick the component that best preserves the Baserow data type, choices, and write behavior.",
+        fieldTypeToComponent: {
+          text: { component: "text", notes: ["Single-line free text."] },
+          long_text: { component: "text", configHints: ["Use a multiline/long-text config when available."], notes: ["Do not generate a select for long_text."] },
+          email: { component: "text", configHints: ["Use email-oriented placeholder or validation when available."] },
+          phone_number: { component: "text", configHints: ["Use phone-oriented placeholder or validation when available."] },
+          url: { component: "text", configHints: ["Use URL-oriented placeholder or validation when available."] },
+          password: { component: "text", configHints: ["Use hidden/password input config when available."] },
+          number: { component: "text", configHints: ["Prefer numeric keyboard/validation config when available."], notes: ["Use slider only when the product intent provides a bounded min/max range."] },
+          rating: { component: "slider", configHints: ["Set min/max/step from the Baserow rating metadata when available."], fallback: "text" },
+          duration: { component: "text", notes: ["Duration has no dedicated C8Oforms input component in the reduced contract; preserve as a structured/text value unless a project-specific duration UI exists."] },
+          date: { component: "datetime", configHints: ["Use Baserow date metadata to decide date-only versus date-time display when available."] },
+          boolean: { component: "radio", values: ["true", "false"], fallback: "select", notes: ["Use an explicit binary choice because Baserow expects a boolean-like value for writes."] },
+          single_select: {
+            component: "select",
+            source: "lib_BaseRow.formssource_GetFieldValues",
+            staticValuesFallback: "field.select_options[].value only when the user explicitly requests an offline/static form.",
+            valueRule: "Use a source-backed select so C8Oforms resolves the current Baserow dropdown values at runtime; lib_BaseRow.forms_AddRow maps the selected display value back to the Baserow option id when needed.",
+            notes: [
+              "This is the canonical mapping for Baserow dropdown/list fields.",
+              "Do not materialize field.select_options as local children unless explicitly requested for an offline/static form."
+            ]
+          },
+          multiple_select: { component: "checkbox", valuesFrom: "field.select_options[].value", writeSupport: "limited", notes: ["C8Oforms can present this as checkbox choices, but lib_BaseRow.forms_AddRow currently logs multiple_select as TODO, so do not promise robust Baserow writes without a tested action path."] },
+          link_row: { component: "select", source: "lib_BaseRow.formssource_GetSelectData", valueRule: "Use the linked row id as value and a readable linked row column as displayValue.", notes: ["For one linked row, use select/radio. For many linked rows, use checkbox only when the target write path is tested."] },
+          file: { component: "file", alternatives: ["img", "signature"], notes: ["Use img/signature only when the user intent is specifically photo/signature capture; otherwise use file."] },
+          created_on: { component: "description", writable: false, notes: ["Read-only Baserow metadata; do not generate an input field for writes."] },
+          created_by: { component: "description", writable: false, notes: ["Read-only Baserow metadata; do not generate an input field for writes."] },
+          last_modified: { component: "description", writable: false, notes: ["Read-only Baserow metadata; do not generate an input field for writes."] },
+          last_modified_by: { component: "description", writable: false, notes: ["Read-only Baserow metadata; do not generate an input field for writes."] },
+          formula: { component: "description", writable: false, notes: ["Computed Baserow field; show it only as read-only display unless the app is editing formula inputs instead."] },
+          lookup: { component: "description", writable: false, notes: ["Derived Baserow field; show read-only."] },
+          rollup: { component: "description", writable: false, notes: ["Derived Baserow field; show read-only."] },
+          count: { component: "description", writable: false, notes: ["Derived Baserow field; show read-only."] }
+        },
+        generationRules: [
+          "For Baserow single_select inputs, generate a source-backed select using lib_BaseRow.formssource_GetFieldValues. Do not materialize field.select_options as local children unless explicitly requested for an offline/static form.",
+          "For select/radio/checkbox values, preserve Baserow option labels exactly, including capitalization and punctuation.",
+          "For link_row inputs, generate a source-backed select using lib_BaseRow.formssource_GetSelectData so the UI displays readable rows while submitting the linked row id.",
+          "Do not generate writable inputs for read-only or computed Baserow types such as formula, lookup, rollup, count, created_on, created_by, last_modified, and last_modified_by.",
+          "When the target flow will call lib_BaseRow.forms_AddRow or lib_BaseRow.forms_AddRowFromData, prefer Baserow types explicitly handled by those sequences: text, long_text, number, date, boolean, email, phone_number, rating, duration, password, url, single_select, link_row, and file.",
+          "For multiple_select, either keep the field read-only or require an explicit tested write strategy, because the observed lib_BaseRow forms add-row sequences do not fully implement multiple_select writes."
+        ]
+      },
       formsConfig: {
         noCodeStudioIdentityRule: {
           requiredForEveryBaserowSource: ["form_id", "source_id", "source_owner"],
@@ -580,6 +626,138 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  function backendActionContract() {
+    return {
+      runtime: "Backend actions are not standalone visual flow elements. They are stored under a submit flow element actions object and executed by C8Oforms.APIV2_Execute_Sequences when that submit step runs.",
+      storagePath: "flows[].elements[type='submit'].actions[sequenceQualifiedName]",
+      sequenceKey: "The action object key is the fully qualified backend action sequence name, for example lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple.",
+      knownNoCodeBackendActions: {
+        c8oforms: {
+          "lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple": {
+            purpose: "Send a simple response notification email.",
+            displayName: "Send an email.",
+            vars: ["forms_mail_recipients_to", "forms_mail_recipients_cc", "forms_mail_recipients_bcc", "forms_mail_sender_alias", "forms_mail_subject", "forms_mail_body", "forms_mail_logo", "forms_mail_summary"],
+            runtimeInputs: ["doc", "originalDoc"],
+            notes: ["SMTP variables are resolved by the backend and should not be authored as ordinary No Code action vars unless the UI exposes them."]
+          },
+          "lib_Actions_C8Oforms.forms_delete_response": {
+            purpose: "Delete responses from the form.",
+            displayName: "Remove responses from the form.",
+            vars: [],
+            runtimeInputs: ["doc", "originalDoc"]
+          },
+          "lib_Actions_C8Oforms.forms_edit_field": {
+            purpose: "Change a field value in the response document.",
+            displayName: "Change the value of a field in the response.",
+            vars: ["forms_input_field_name", "forms_input_field_value"],
+            runtimeInputs: ["doc", "originalDoc"]
+          },
+          "lib_Actions_C8Oforms.forms_fill_PDF": {
+            purpose: "Fill a PDF document from the form response.",
+            displayName: "Fill out a PDF document.",
+            vars: ["forms_input_pdf_path"],
+            runtimeInputs: ["doc", "originalDoc"]
+          }
+        },
+        baserow: {
+          "lib_BaseRow.forms_AddRow": {
+            displayName: "Add or update a row in the no-code database by matching form responses.",
+            behavior: "Adds a row when forms_id is empty; updates the Baserow row identified by forms_id when it is set. Form response technical ids are matched to Baserow column names.",
+            vars: ["forms_config", "forms_id", "forms_createColumn"],
+            runtimeInputs: ["doc", "originalDoc"],
+            underlyingSequences: ["lib_BaseRow.FieldsList", "lib_BaseRow.TableCreateColumn", "lib_BaseRow.TableCreateRow", "lib_BaseRow.TableUpdateRow"],
+            notes: [
+              "forms_createColumn=true creates text or file columns when a form field technical id does not match an existing Baserow column.",
+              "Selection and linked-row values are converted according to Baserow field metadata."
+            ]
+          },
+          "lib_BaseRow.forms_AddRowFromData": {
+            displayName: "Add or update a row in the no-code database from explicit column/value data.",
+            behavior: "Adds a row when forms_id is empty; updates the Baserow row identified by forms_id when it is set. Values come from forms_freeVars instead of the whole form response map.",
+            vars: ["forms_config", "forms_id", "forms_createColumn", "forms_freeVars"],
+            runtimeInputs: ["doc", "originalDoc"],
+            underlyingSequences: ["lib_BaseRow.FieldsList", "lib_BaseRow.TableCreateColumn", "lib_BaseRow.TableCreateRow", "lib_BaseRow.TableUpdateRow"],
+            forms_freeVars: "UI-authored multi-value variable (__c8o_multi) containing explicit column names and values. Values may include SmartSource references.",
+            notes: [
+              "Use this action when the UI author chooses the Baserow columns explicitly instead of relying on form field technical ids.",
+              "forms_createColumn=true creates text or file columns when an explicit column name does not match an existing Baserow column."
+            ]
+          },
+          "lib_BaseRow.forms_DeleteRow": {
+            displayName: "Delete a row in the no-code database.",
+            behavior: "Deletes the Baserow row identified by forms_id.",
+            vars: ["forms_config", "forms_id"],
+            runtimeInputs: ["doc", "originalDoc"],
+            underlyingSequences: ["lib_BaseRow.TableDeleteRow"],
+            notes: ["forms_id is mandatory; the sequence returns an error when it is empty."]
+          }
+        }
+      },
+      shape: {
+        enabled: true,
+        fullsync: false,
+        vars: {
+          forms_config: { str: "{\"form_id\":\"<form document id>\",\"source_id\":<submit action id>,\"source_owner\":\"user@example.com\"}", html: false },
+          "<variableName>": { str: "<literal or $$START...END...$$ dynamic reference>", html: false }
+        }
+      },
+      uiAuthoredRule: "Preserve the UI-authored action variable objects exactly. Backend action vars can contain SmartSource envelopes and the same { str, html:false } encoding rules as source variables.",
+      identityRule: {
+        form_id: "The C8Oforms document id that owns the submit action.",
+        source_id: "The id of the submit/action element carrying the backend action.",
+        source_owner: "The No Code Studio owner/user email stored with the action config.",
+        baserowFormsConfig: "For lib_BaseRow.forms_* actions, forms_config is selected with lib_BaseRow/DisplayObjects/mobile/BrowseTables?noCols=true and must preserve the UI-authored table identity, typically table_id, table_id_int, form_id, source_id, and source_owner."
+      },
+      executionPayload: "At runtime, C8Oforms builds a response document containing resp, formId, timestamp, version, actions, finished:true, and flow:true, then sends it to APIV2_Execute_Sequences with attachments and attachments_meta.",
+      resultAccess: "The response from APIV2_Execute_Sequences is written into actions[submitElementName].value and can be referenced later through the general SmartSource action mechanism.",
+      rules: [
+        "Do not model backend actions as top-level form fields.",
+        "Do not put backend sequence calls directly on a button; put a submit element in the button flow and attach backend actions to that submit element.",
+        "Use the backend sequence qualified name as the actions object key.",
+        "Preserve forms_config and every variable as UI-authored objects; do not collapse them to raw strings.",
+        "Dynamic backend action variables may use $$START...END$$ SmartSource references just like filters, labels, and formulas.",
+        "For lib_BaseRow.forms_AddRow and lib_BaseRow.forms_DeleteRow, do not call TableCreateRow/TableUpdateRow/TableDeleteRow directly from No Code Studio; use the forms_* wrappers so formscommon_CheckConfig, attachments, field conversion, and UI-authored configuration are honored."
+      ],
+      example: {
+        flow: {
+          id: "flow_save",
+          elements: [
+            {
+              type: "submit",
+              name: "save_submit",
+              actions: {
+                "lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple": {
+                  enabled: true,
+                  fullsync: false,
+                  vars: {
+                    forms_config: { str: "{\"form_id\":\"1780214945733\",\"source_id\":1780217000000,\"source_owner\":\"user@example.com\"}", html: false },
+                    forms_mail_summary: { str: "$$START1780215220834{\"c8otype\":\"path\",\"c8opath\":\"\",\"c8oPrettyPath\":null,\"c8obuiltin\":null,\"fakeId\":\"fakeId1780217042000\",\"c8oName\":null}END1780215220834$$", html: false }
+                  }
+                }
+              }
+            },
+            {
+              type: "submit",
+              name: "save_to_baserow",
+              actions: {
+                "lib_BaseRow.forms_AddRowFromData": {
+                  enabled: true,
+                  fullsync: false,
+                  vars: {
+                    forms_config: { str: "{\"table_id\":\"Mini CRM~>Lightweight CRM~>Companies\",\"table_id_int\":123,\"form_id\":\"1780214945733\",\"source_id\":1780217000001,\"source_owner\":\"user@example.com\",\"link_row_table_id\":[]}", html: false },
+                    forms_id: { str: "$$START1780214945653{\"c8otype\":\"path\",\"c8opath\":\"companies_grid.id.value\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780217042001\",\"c8oName\":null}END1780214945653$$", html: false },
+                    forms_createColumn: { str: "false", html: false },
+                    forms_freeVars: { str: "{\"Name\":\"$$START1780215220834{\\\"c8otype\\\":\\\"path\\\",\\\"c8opath\\\":\\\"\\\",\\\"c8oPrettyPath\\\":null,\\\"c8obuiltin\\\":null,\\\"fakeId\\\":\\\"fakeId1780217042002\\\",\\\"c8oName\\\":null}END1780215220834$$\"}", html: false }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
   function detailedAuthoringContract(types) {
     return {
       format: "reduced-authoring-json",
@@ -590,7 +768,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         description: { type: "string", html: true, mapsTo: "descform" },
         language: { type: "string", default: "en", mapsTo: "lang" },
         backgroundColor: { type: "string", optional: true, example: "rgba(32,38,70,0.06)", mapsTo: "wallpaper.type=color" },
-        thumbnailUrl: { type: "string", optional: true, example: "https://example.com/thumbnail.png", mapsTo: "thumbnail.type=url" },
+        thumbnailColor: { type: "string", optional: true, example: "#2f6fed", mapsTo: "thumbnail.type=color" },
         tag: { oneOf: ["string", "string[]"], optional: true },
         subTag: { oneOf: ["string", "string[]"], optional: true },
         appLike: { type: "boolean", optional: true, description: "When true, pages default to persisted tab navigation." },
@@ -602,9 +780,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       mediaSupport: {
         supported: {
           backgroundColor: "Creates a color wallpaper.",
-          thumbnailUrl: "Creates a URL thumbnail."
+          thumbnailColor: "Creates a color application/form thumbnail. This is the only thumbnail shape persistable by JSON-only no-code create/update."
         },
         notYetSupportedInReducedInput: [
+          "thumbnailUrl: C8Oforms does not render URL thumbnails from form JSON. The UI fetches the URL and uploads it as the CouchDB attachment named thumbnail, then stores thumbnail.type='custom'. The current no-code MCP create/update contract has no file-upload input, so do not use thumbnailUrl.",
           "custom thumbnail binary/base64 uploads",
           "custom wallpaper binary/base64 uploads",
           "external image-search prompts"
@@ -665,10 +844,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         map: { fields: ["name", "description", "sources", "config"] }
       },
       baserowSources: baserowSourceContract(),
+      backendActions: backendActionContract(),
       flowAuthoring: {
-        rule: "Use flows only when referenced by a button or when formulas/business logic are needed.",
+        rule: "Use flows only when referenced by a button, when formulas/business logic are needed, or when a submit step must execute backend actions.",
         formulas: "Put business_logic elements in the flow with id formulas.",
         buttonFlow: "A button field may set flow to a custom flow id.",
+        backendActions: "Attach backend sequence actions to submit elements through submit.actions; see authoringContract.backendActions.",
         elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"],
         examples: [
           { id: "flow_save", elements: [{ type: "submit" }, { type: "toast", message: "Saved" }] },
@@ -835,7 +1016,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       loopToForm: true,
       progressIndicator: false,
       wallpaper: reduced.backgroundColor ? { enabled: true, index: 0, random: random, type: "color", link: null, color: String(reduced.backgroundColor) } : { link: null, enabled: false, index: null, random: random },
-      thumbnail: reduced.thumbnailUrl ? { enabled: true, index: 0, type: "url", url: String(reduced.thumbnailUrl) } : { enabled: false, index: null, random: random },
+      thumbnail: reduced.thumbnailColor ? { enabled: true, index: 0, type: "color", color: String(reduced.thumbnailColor) } : { enabled: false, index: null, random: random },
       config: clone(reduced.config, defaultRootConfig()) || defaultRootConfig(),
       pages: [],
       formulaire: [],
@@ -1037,9 +1218,32 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function compileReduced(reduced, options) {
     var opts = options || {};
-    var contract = readAllTypes(opts.project || opts.projectName || "C8Oforms");
+    var projectName = opts.project || opts.projectName || "C8Oforms";
+    var contract = readAllTypes(projectName);
     var byType = indexCatalog(contract.catalog);
     var input = clone(reduced, {});
+    if (hasOwn(input, "thumbnailUrl")) {
+      return {
+        status: "invalid",
+        project: projectName,
+        allTypesPath: contract.file,
+        error: {
+          code: "unsupported_thumbnail_url",
+          message: "thumbnailUrl is not supported by the C8Oforms runtime JSON contract. The C8Oforms UI fetches URLs and uploads an attachment named thumbnail; the no-code MCP JSON contract only supports thumbnailColor for thumbnails."
+        },
+        validation: {
+          valid: false,
+          issueCount: 1,
+          warningCount: 0,
+          issues: [{
+            code: "unsupported_thumbnail_url",
+            message: "Use thumbnailColor, or upload an attachment named thumbnail through a dedicated media-upload flow before setting thumbnail.type to custom/library.",
+            path: "/thumbnailUrl"
+          }],
+          warnings: []
+        }
+      };
+    }
     var doc = defaultDoc(input);
     var pages = ensureArray(input.pages);
     if (!pages.length) {
@@ -1096,10 +1300,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     doc.chatResponse = input.chatResponse || "";
     return {
       status: "ok",
-      project: opts.project || opts.projectName || "C8Oforms",
+      project: projectName,
       allTypesPath: contract.file,
       form: doc,
-      validation: validateForm(doc, { project: opts.project || opts.projectName || "C8Oforms" }).validation
+      validation: validateForm(doc, { project: projectName }).validation
     };
   }
 
@@ -1123,6 +1327,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     } else {
       if (!Array.isArray(form.pages) || form.pages.length === 0) {
         issue("missing_pages", "Form must contain at least one page", "/pages");
+      }
+      if (form.thumbnail && typeof form.thumbnail === "object" && form.thumbnail.enabled === true) {
+        if (form.thumbnail.type === "url" || hasOwn(form.thumbnail, "url")) {
+          issue("unsupported_thumbnail_url", "C8Oforms does not render URL thumbnails from form JSON. Use thumbnail.type=color, or upload an attachment named thumbnail and use type custom/library.", "/thumbnail");
+        }
       }
       if (!Array.isArray(form.formulaire)) {
         issue("missing_formulaire", "Form must contain formulaire array", "/formulaire");
@@ -1627,7 +1836,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       patch.wallpaper = { enabled: true, index: 0, random: "assets/images/svg/imgplaceholder/placeholder0.svg", type: "color", link: null, color: String(op.backgroundColor) };
     }
     if (hasOwn(op, "thumbnailUrl")) {
-      patch.thumbnail = { enabled: true, index: 0, type: "url", url: String(op.thumbnailUrl) };
+      throw new Error("thumbnailUrl is not supported by the C8Oforms runtime JSON contract. Upload-backed thumbnails require an attachment named thumbnail; use thumbnailColor for JSON-only no-code edits.");
+    }
+    if (hasOwn(op, "thumbnailColor")) {
+      patch.thumbnail = { enabled: true, index: 0, type: "color", color: String(op.thumbnailColor) };
     }
     return applyMergePatch(form, patch);
   }
@@ -1904,6 +2116,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   C8O.nocodeForms.get = getForm;
   C8O.nocodeForms.create = function (reduced, options) {
     var compiled = compileReduced(reduced, options);
+    if (!compiled || compiled.status !== "ok") {
+      if (compiled) {
+        compiled.saved = false;
+      }
+      return compiled;
+    }
     var saved = saveForm(compiled.form, options);
     saved.form = compiled.form;
     saved.allTypesPath = compiled.allTypesPath;
