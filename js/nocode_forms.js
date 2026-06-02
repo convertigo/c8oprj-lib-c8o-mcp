@@ -9,6 +9,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   var File = Packages.java.io.File;
   var FileUtils = Packages.org.apache.commons.io.FileUtils;
   var HashMap = Packages.java.util.HashMap;
+  var Base64 = Packages.java.util.Base64;
   var InternalHttpServletRequest = Packages.com.twinsoft.convertigo.engine.requesters.InternalHttpServletRequest;
   var InternalRequester = Packages.com.twinsoft.convertigo.engine.requesters.InternalRequester;
   var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
@@ -170,6 +171,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       language: "en",
       backgroundColor: "rgba(32,38,70,0.06)",
       thumbnailColor: "#2f6fed",
+      thumbnailImage: { contentType: "image/png", base64: "<base64 png>" },
       pages: [
         {
           name: "General",
@@ -769,6 +771,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         language: { type: "string", default: "en", mapsTo: "lang" },
         backgroundColor: { type: "string", optional: true, example: "rgba(32,38,70,0.06)", mapsTo: "wallpaper.type=color" },
         thumbnailColor: { type: "string", optional: true, example: "#2f6fed", mapsTo: "thumbnail.type=color" },
+        thumbnailImage: { type: "object", optional: true, fields: { contentType: "image/png | image/jpeg | image/webp", base64: "standard or URL-safe base64 image payload, without requiring a data: URL prefix" }, maxDimensions: "smaller than 512x512 px", mapsTo: "thumbnail.type=custom plus attachment named thumbnail" },
         tag: { oneOf: ["string", "string[]"], optional: true },
         subTag: { oneOf: ["string", "string[]"], optional: true },
         appLike: { type: "boolean", optional: true, description: "When true, pages default to persisted tab navigation." },
@@ -780,11 +783,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       mediaSupport: {
         supported: {
           backgroundColor: "Creates a color wallpaper.",
-          thumbnailColor: "Creates a color application/form thumbnail. This is the only thumbnail shape persistable by JSON-only no-code create/update."
+          thumbnailColor: "Creates a color application/form thumbnail.",
+          thumbnailImage: "Creates a custom thumbnail by uploading a base64 image smaller than 512x512 px as the C8Oforms attachment named thumbnail through APIV2_updateFormulaireDocument."
         },
         notYetSupportedInReducedInput: [
-          "thumbnailUrl: C8Oforms does not render URL thumbnails from form JSON. The UI fetches the URL and uploads it as the CouchDB attachment named thumbnail, then stores thumbnail.type='custom'. The current no-code MCP create/update contract has no file-upload input, so do not use thumbnailUrl.",
-          "custom thumbnail binary/base64 uploads",
+          "thumbnailUrl: C8Oforms does not render URL thumbnails from form JSON. Generate or fetch the image client-side and pass thumbnailImage.base64 instead.",
           "custom wallpaper binary/base64 uploads",
           "external image-search prompts"
         ]
@@ -1016,7 +1019,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       loopToForm: true,
       progressIndicator: false,
       wallpaper: reduced.backgroundColor ? { enabled: true, index: 0, random: random, type: "color", link: null, color: String(reduced.backgroundColor) } : { link: null, enabled: false, index: null, random: random },
-      thumbnail: reduced.thumbnailColor ? { enabled: true, index: 0, type: "color", color: String(reduced.thumbnailColor) } : { enabled: false, index: null, random: random },
+      thumbnail: reduced.thumbnailImage ? { enabled: true, index: 0, type: "custom" } : (reduced.thumbnailColor ? { enabled: true, index: 0, type: "color", color: String(reduced.thumbnailColor) } : { enabled: false, index: null, random: random }),
       config: clone(reduced.config, defaultRootConfig()) || defaultRootConfig(),
       pages: [],
       formulaire: [],
@@ -1229,7 +1232,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         allTypesPath: contract.file,
         error: {
           code: "unsupported_thumbnail_url",
-          message: "thumbnailUrl is not supported by the C8Oforms runtime JSON contract. The C8Oforms UI fetches URLs and uploads an attachment named thumbnail; the no-code MCP JSON contract only supports thumbnailColor for thumbnails."
+          message: "thumbnailUrl is not supported by the C8Oforms runtime JSON contract. Generate or fetch the image client-side and pass thumbnailImage.base64 instead."
         },
         validation: {
           valid: false,
@@ -1237,7 +1240,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           warningCount: 0,
           issues: [{
             code: "unsupported_thumbnail_url",
-            message: "Use thumbnailColor, or upload an attachment named thumbnail through a dedicated media-upload flow before setting thumbnail.type to custom/library.",
+            message: "Use thumbnailColor, or pass thumbnailImage with contentType and base64 so the MCP tool uploads the thumbnail attachment through APIV2_updateFormulaireDocument.",
             path: "/thumbnailUrl"
           }],
           warnings: []
@@ -1322,6 +1325,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     function issue(code, message, path) {
       issues.push({ code: code, message: message, path: path || "" });
     }
+    function warning(code, message, path) {
+      warnings.push({ code: code, message: message, path: path || "" });
+    }
     if (!form || typeof form !== "object" || Array.isArray(form)) {
       issue("invalid_form", "Form must be a JSON object", "");
     } else {
@@ -1330,7 +1336,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       if (form.thumbnail && typeof form.thumbnail === "object" && form.thumbnail.enabled === true) {
         if (form.thumbnail.type === "url" || hasOwn(form.thumbnail, "url")) {
-          issue("unsupported_thumbnail_url", "C8Oforms does not render URL thumbnails from form JSON. Use thumbnail.type=color, or upload an attachment named thumbnail and use type custom/library.", "/thumbnail");
+          warning("legacy_thumbnail_url_ignored", "Existing C8Oforms document contains a thumbnail URL. No-code JSON edits ignore this legacy/runtime key; use thumbnailColor or thumbnailImage for thumbnail changes.", "/thumbnail");
         }
       }
       if (!Array.isArray(form.formulaire)) {
@@ -1488,6 +1494,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (response.doc && response.doc.document && response.doc.document.error) {
       return response.doc.document.error;
     }
+    if (response.document && response.document.res && response.document.res.error) {
+      return response.document.res;
+    }
+    if (response.doc && response.doc.document && response.doc.document.res && response.doc.document.res.error) {
+      return response.doc.document.res;
+    }
     if (response.error) {
       return response.error;
     }
@@ -1532,7 +1544,26 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function saveForm(form, options) {
     var opts = options || {};
-    var validation = validateForm(form, opts).validation;
+    var rawThumbnailImage = opts.thumbnailImage || (form && form.thumbnailImage);
+    var sanitized = sanitizeFormBeforeSave(form);
+    var thumbnailImage = normalizeThumbnailImage(rawThumbnailImage);
+    if (thumbnailImage.error) {
+      return {
+        status: "invalid",
+        saved: false,
+        validation: {
+          valid: false,
+          issueCount: 1,
+          warningCount: 0,
+          issues: [thumbnailImage.error],
+          warnings: []
+        }
+      };
+    }
+    if (thumbnailImage.media) {
+      sanitized.thumbnail = { enabled: true, index: 0, type: "custom" };
+    }
+    var validation = validateForm(sanitized, opts).validation;
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
     }
@@ -1545,9 +1576,43 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         authentication: authentication || { authenticated: false }
       };
     }
-    var response = callC8oSequence(opts.project || opts.projectName || "C8Oforms", "APIV2_updateFormulaireDocument", {
-      meta: JSON.stringify(form)
-    });
+    var tempFile = null;
+    var meta = clone(sanitized, {});
+    var variables = { meta: JSON.stringify(meta) };
+    if (thumbnailImage.media) {
+      try {
+        tempFile = writeThumbnailImageFile(thumbnailImage.media);
+        meta._up_thumbnail = true;
+        meta._up_content_type = thumbnailImage.media.contentType;
+        variables.meta = JSON.stringify(meta);
+        variables.file = String(tempFile.getAbsolutePath());
+      } catch (mediaError) {
+        return {
+          status: "invalid",
+          saved: false,
+          validation: {
+            valid: false,
+            issueCount: 1,
+            warningCount: validation.warningCount,
+            issues: [{
+              code: "invalid_thumbnail_image",
+              message: String(mediaError && mediaError.message ? mediaError.message : mediaError),
+              path: "/thumbnailImage/base64"
+            }],
+            warnings: validation.warnings || []
+          },
+          authentication: authentication
+        };
+      }
+    }
+    var response;
+    try {
+      response = callC8oSequence(opts.project || opts.projectName || "C8Oforms", "APIV2_updateFormulaireDocument", variables);
+    } finally {
+      if (tempFile) {
+        try { tempFile["delete"](); } catch (_ignoreTempDelete) {}
+      }
+    }
     var error = apiError(response);
     if (error) {
       return {
@@ -1566,6 +1631,84 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       authentication: authentication,
       response: unwrapApiResult(response)
     };
+  }
+
+  function sanitizeFormBeforeSave(form) {
+    var out = clone(form, {});
+    try { delete out.thumbnailImage; } catch (_ignoreThumbnailImageDelete) {}
+    try { delete out._attachments; } catch (_ignoreAttachmentsDelete) {}
+    try { delete out._c8oMeta; } catch (_ignoreC8oMetaDelete) {}
+    if (out && out.thumbnail && typeof out.thumbnail === "object" && !Array.isArray(out.thumbnail)) {
+      if (hasOwn(out.thumbnail, "url")) {
+        try { delete out.thumbnail.url; } catch (_ignoreThumbnailUrlDelete) {}
+      }
+      if (out.thumbnail.type === "url") {
+        out.thumbnail.type = out.thumbnail.color ? "color" : "custom";
+      }
+    }
+    return out;
+  }
+
+  function normalizeThumbnailImage(input) {
+    if (input == null || trimmed(input).length === 0) {
+      return { media: null };
+    }
+    var image = input;
+    if (typeof input === "string") {
+      try {
+        image = parseObject(input, "thumbnailImage", null);
+      } catch (_thumbnailParseError) {
+        return { error: { code: "invalid_thumbnail_image", message: "thumbnailImage must be an object with contentType and base64.", path: "/thumbnailImage" } };
+      }
+    }
+    if (!image || typeof image !== "object" || Array.isArray(image)) {
+      return { error: { code: "invalid_thumbnail_image", message: "thumbnailImage must be an object with contentType and base64.", path: "/thumbnailImage" } };
+    }
+    var contentType = trimmed(image.contentType || image.mimeType || image.type).toLowerCase();
+    var base64 = trimmed(image.base64 || image.data);
+    if (!contentType.length) {
+      return { error: { code: "invalid_thumbnail_image_content_type", message: "thumbnailImage.contentType is required.", path: "/thumbnailImage/contentType" } };
+    }
+    if (["image/png", "image/jpeg", "image/jpg", "image/webp"].indexOf(contentType) === -1) {
+      return { error: { code: "unsupported_thumbnail_image_content_type", message: "thumbnailImage.contentType must be image/png, image/jpeg, or image/webp.", path: "/thumbnailImage/contentType" } };
+    }
+    if (contentType === "image/jpg") {
+      contentType = "image/jpeg";
+    }
+    if (!base64.length) {
+      return { error: { code: "missing_thumbnail_image_base64", message: "thumbnailImage.base64 is required.", path: "/thumbnailImage/base64" } };
+    }
+    var dataUrlMatch = /^data:([^;,]+);base64,(.*)$/i.exec(base64);
+    if (dataUrlMatch) {
+      if (!trimmed(image.contentType || image.mimeType || image.type).length) {
+        contentType = String(dataUrlMatch[1]).toLowerCase();
+      }
+      base64 = dataUrlMatch[2];
+    }
+    base64 = String(base64).replace(/\s+/g, "");
+    base64 = normalizeBase64Payload(base64);
+    return { media: { contentType: contentType, base64: base64 } };
+  }
+
+  function normalizeBase64Payload(base64) {
+    var normalized = String(base64 || "");
+    normalized = normalized.replace(/-/g, "+").replace(/_/g, "/");
+    var remainder = normalized.length % 4;
+    if (remainder === 2) {
+      normalized += "==";
+    } else if (remainder === 3) {
+      normalized += "=";
+    }
+    return normalized;
+  }
+
+  function writeThumbnailImageFile(media) {
+    var suffix = media.contentType === "image/jpeg" ? ".jpg" : (media.contentType === "image/webp" ? ".webp" : ".png");
+    var file = File.createTempFile("c8o-nocode-thumbnail-", suffix);
+    file.deleteOnExit();
+    var bytes = Base64.getDecoder().decode(String(media.base64));
+    FileUtils.writeByteArrayToFile(file, bytes);
+    return file;
   }
 
   function getForm(id, options) {
@@ -1836,10 +1979,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       patch.wallpaper = { enabled: true, index: 0, random: "assets/images/svg/imgplaceholder/placeholder0.svg", type: "color", link: null, color: String(op.backgroundColor) };
     }
     if (hasOwn(op, "thumbnailUrl")) {
-      throw new Error("thumbnailUrl is not supported by the C8Oforms runtime JSON contract. Upload-backed thumbnails require an attachment named thumbnail; use thumbnailColor for JSON-only no-code edits.");
+      throw new Error("thumbnailUrl is not supported by the C8Oforms runtime JSON contract. Generate or fetch the image client-side and pass thumbnailImage.base64 instead.");
     }
     if (hasOwn(op, "thumbnailColor")) {
       patch.thumbnail = { enabled: true, index: 0, type: "color", color: String(op.thumbnailColor) };
+    }
+    if (hasOwn(op, "thumbnailImage")) {
+      patch.thumbnail = { enabled: true, index: 0, type: "custom" };
+      patch.thumbnailImage = op.thumbnailImage;
     }
     return applyMergePatch(form, patch);
   }
@@ -2122,7 +2269,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       return compiled;
     }
-    var saved = saveForm(compiled.form, options);
+    var createOptions = clone(options || {}, {});
+    if (reduced && reduced.thumbnailImage) {
+      createOptions.thumbnailImage = reduced.thumbnailImage;
+    }
+    var saved = saveForm(compiled.form, createOptions);
     saved.form = compiled.form;
     saved.allTypesPath = compiled.allTypesPath;
     return saved;
@@ -2136,7 +2287,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var currentForm = current && current.res ? current.res : current;
     var patched = applyMergePatch(currentForm, patch);
     var saved = saveForm(patched, options);
-    saved.form = patched;
+    saved.form = sanitizeFormBeforeSave(patched);
     return saved;
   };
   C8O.nocodeForms.edit = function (id, operations, options) {
@@ -2149,7 +2300,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var currentForm = current && current.res ? current.res : current;
       var applied = applyEditOperations(currentForm, operations, options);
       var saved = saveForm(applied.form, options);
-      saved.form = applied.form;
+      saved.form = sanitizeFormBeforeSave(applied.form);
       saved.operations = applied.operations;
       saved.allTypesPath = applied.allTypesPath;
       return saved;

@@ -518,6 +518,25 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeThumbnailImageSchema() {
+    return {
+      type: "object",
+      properties: {
+        contentType: {
+          type: "string",
+          enum: ["image/png", "image/jpeg", "image/webp"],
+          description: "MIME type for the generated thumbnail image."
+        },
+        base64: {
+          type: "string",
+          description: "Base64 image payload for an image smaller than 512x512 px. Standard base64, URL-safe base64, missing padding, and a data:image/...;base64 prefix are accepted."
+        }
+      },
+      required: ["contentType", "base64"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeBaserowCatalogListInputSchema() {
     return {
       type: "object",
@@ -593,7 +612,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: nocodeFormsProjectProperty(),
-        reduced: jsonObjectOrStringSchema("Reduced creative form JSON. The tool compiles it, validates it, and persists only through C8Oforms APIs."),
+        reduced: jsonObjectOrStringSchema("Reduced creative form JSON. To upload a generated thumbnail image, include reduced.thumbnailImage={contentType:'image/png',base64:'...'}; the tool persists it as the C8Oforms attachment named thumbnail through APIV2_updateFormulaireDocument."),
         token: nocodeFormsTokenProperty()
       },
       required: ["reduced", "token"],
@@ -614,7 +633,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           description: "Optional expected document revision. When provided, it is sent back with the patched document."
         },
-        patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs."),
+        patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a generated thumbnail image, include patch.thumbnailImage={contentType:'image/png',base64:'...'}; it is consumed by the tool and not stored in the form JSON."),
         token: nocodeFormsTokenProperty()
       },
       required: ["id", "patch", "token"],
@@ -692,7 +711,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         description: { type: "string", description: "Description HTML/text used by root, page, or field operations." },
         language: { type: "string", description: "Root language for set_root." },
         backgroundColor: { type: "string", description: "Wallpaper color for set_media/set_root." },
-        thumbnailColor: { type: "string", description: "Application/form thumbnail color for set_media/set_root. URL thumbnails require an uploaded attachment and are not supported by JSON-only no-code edits." },
+        thumbnailColor: { type: "string", description: "Application/form thumbnail color for set_media/set_root." },
+        thumbnailImage: nocodeThumbnailImageSchema(),
         navigationMode: { type: "string", enum: ["tabs", "buttons"], description: "Navigation default used when adding a page." },
         pageObject: { type: "object", additionalProperties: true, description: "Page payload for add_page/update_page, for example {name:'Details', iconName:'people', enabledTab:true}." },
         fieldObject: { type: "object", additionalProperties: true, description: "Component payload for add_field/add_component. Use reduced component shape: {type:'text', name:'child_name', description:'Child name', mandatory:true} or {type:'layout', name:'row', children:[...]}." },
