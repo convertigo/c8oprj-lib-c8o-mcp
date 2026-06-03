@@ -3,7 +3,7 @@
   comment: Mashup Sequencer project
   contextTimeout: 59
   corsOrigin: =Origin
-  httpSessionTimeout: 60
+  httpSessionTimeout: 600
   version: 0.0.27
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
