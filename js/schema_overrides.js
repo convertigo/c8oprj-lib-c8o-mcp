@@ -568,6 +568,176 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeBaserowSchemaApplyInputSchema() {
+    var baserowFieldSchema = {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Baserow field name." },
+        type: {
+          type: "string",
+          enum: [
+            "text",
+            "long_text",
+            "number",
+            "boolean",
+            "date",
+            "email",
+            "phone_number",
+            "url",
+            "file",
+            "single_select",
+            "multiple_select",
+            "link_row",
+            "link",
+            "lookup",
+            "rollup",
+            "count",
+            "formula",
+            "rating",
+            "duration",
+            "uuid",
+            "autonumber",
+            "password"
+          ],
+          description: "Baserow field type. link is accepted as an alias for link_row."
+        },
+        required: { type: "boolean", description: "Business-required marker kept for planning; Baserow fields themselves are nullable unless type options enforce otherwise." },
+        description: { type: "string", description: "Optional Baserow field description." },
+        values: {
+          type: "array",
+          description: "Options for single_select or multiple_select. Items can be strings or Baserow option objects.",
+          items: {
+            oneOf: [
+              { type: "string" },
+              { type: "object", additionalProperties: true }
+            ]
+          }
+        },
+        targetTable: { type: "string", description: "Target table name for link_row fields." },
+        multiple: { type: "boolean", description: "For link_row, whether multiple linked rows are allowed when supported by Baserow." },
+        createRelatedField: { type: "boolean", description: "For link_row, whether Baserow should create the reciprocal related field." },
+        relatedFieldName: { type: "string", description: "Optional reciprocal link field name." },
+        through: { type: "string", description: "For lookup/rollup/count, the existing link_row field name." },
+        targetField: { type: "string", description: "For lookup/rollup, the field name to report from the linked table." },
+        formula: { type: "string", description: "Formula expression for formula fields." },
+        baserowOptions: { type: "object", additionalProperties: true, description: "Raw Baserow create-field options for advanced/current field types." }
+      },
+      required: ["name", "type"],
+      additionalProperties: false
+    };
+    var tableSchema = {
+      type: "object",
+      properties: {
+        id: { type: "integer", description: "Existing Baserow table id. If omitted, the table is matched by name in the target base." },
+        name: { type: "string", description: "Baserow table name." },
+        primaryField: { type: "string", description: "Business display field used by clients to resolve sample row references." },
+        upsertKey: { type: "string", description: "Business key used to update existing sample rows instead of creating duplicates. When provided, the tool reads rows through lib_BaseRow.TableGetData and updates matches through lib_BaseRow.TableUpdateRow." },
+        fields: {
+          type: "array",
+          description: "Baserow fields/columns to ensure. Use link_row for relationships and lookup for reported fields.",
+          items: baserowFieldSchema
+        },
+        columns: {
+          type: "array",
+          description: "Alias of fields.",
+          items: baserowFieldSchema
+        },
+        sampleRows: {
+          type: "array",
+          description: "Rows to insert or upsert as sample data. Keys are matched case-insensitively to real Baserow field names, so business keys like nom can populate the native Nom primary field. Link fields can contain target row ids or previously inserted sample row keys.",
+          items: { type: "object", additionalProperties: true }
+        },
+        views: {
+          type: "array",
+          description: "Views to create. Filters use Baserow filter types, for example single_select_equal, link_row_has, contains.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              type: { type: "string", default: "grid" },
+              filterType: { type: "string", enum: ["AND", "OR"], default: "AND" },
+              public: { type: "boolean", default: false },
+              filters: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    field: { type: "string" },
+                    type: { type: "string" },
+                    value: {}
+                  },
+                  required: ["field", "type"],
+                  additionalProperties: true
+                }
+              }
+            },
+            required: ["name"],
+            additionalProperties: true
+          }
+        }
+      },
+      required: ["name"],
+      additionalProperties: false
+    };
+    return {
+      type: "object",
+      properties: {
+        token: {
+          type: "string",
+          description: "No Code Studio bearer token. The tool authenticates like the other no-code tools, then delegates Baserow operations through lib_BaseRow."
+        },
+        mode: {
+          type: "string",
+          enum: ["plan", "apply"],
+          default: "plan",
+          description: "plan returns the computed operations without persisting; apply creates/mutates through lib_BaseRow primitives and connector transactions."
+        },
+        create: {
+          type: "object",
+          properties: {
+            workspace: { type: "boolean", default: false, description: "Allow creating a new Baserow workspace. Default false." },
+            base: { type: "boolean", default: true, description: "Allow creating a new Baserow database/base in the workspace. Default true." },
+            tables: { type: "boolean", default: true },
+            fields: { type: "boolean", default: true },
+            views: { type: "boolean", default: true },
+            sampleRows: { type: "boolean", default: true }
+          },
+          additionalProperties: false
+        },
+        readBack: {
+          type: "boolean",
+          default: true,
+          description: "Read the resulting catalog and fields back through lib_BaseRow after planning/applying."
+        },
+        schema: {
+          description: "Canonical Baserow schema. Agents may translate Markdown, YAML, PDFs, or ER diagrams to this strict JSON before calling the tool.",
+          oneOf: [
+            {
+              type: "object",
+              properties: {
+                workspaceId: { type: "integer" },
+                workspaceName: { type: "string" },
+                baseId: { type: "integer", description: "Existing Baserow database/application id." },
+                databaseId: { type: "integer", description: "Alias of baseId." },
+                baseName: { type: "string" },
+                databaseName: { type: "string", description: "Alias of baseName." },
+                tables: {
+                  type: "array",
+                  items: tableSchema
+                }
+              },
+              required: ["tables"],
+              additionalProperties: false
+            },
+            { type: "string" }
+          ]
+        }
+      },
+      required: ["token", "schema"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeFormContractGetInputSchema() {
     return {
       type: "object",
@@ -1410,6 +1580,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_baserow_catalog_list") {
       return nocodeBaserowCatalogListInputSchema();
+    }
+    if (seq === "tools_nocode_baserow_schema_apply") {
+      return nocodeBaserowSchemaApplyInputSchema();
     }
     if (seq === "tools_nocode_form_contract_get") {
       return nocodeFormContractGetInputSchema();

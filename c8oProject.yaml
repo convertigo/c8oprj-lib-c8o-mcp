@@ -4,7 +4,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 60
-  version: 0.0.26
+  version: 0.0.27
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
@@ -42,6 +42,7 @@
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml
   ↓tools_nocode_baserow_catalog_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_catalog_list.yaml
+  ↓tools_nocode_baserow_schema_apply [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_schema_apply.yaml
   ↓tools_nocode_form_compile [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_compile.yaml
   ↓tools_nocode_form_contract_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_contract_get.yaml
   ↓tools_nocode_form_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_create.yaml

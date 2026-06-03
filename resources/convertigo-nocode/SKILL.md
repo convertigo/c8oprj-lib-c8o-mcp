@@ -16,7 +16,7 @@ No-code create, edit/update, and Baserow catalog operations require a No Code St
 - The token must be copied by the user from No Code Studio and provided in the conversation.
 - Do not infer, search for, read from disk, extract from browser storage, or reuse a token from any other source.
 - If a token is required and the user has not provided one, ask the user to copy the token from No Code Studio and paste it into the conversation.
-- Do not call `nocode-baserow-catalog-list`, `nocode-form-create`, `nocode-form-edit`, or `nocode-form-update` without an explicit user-provided token.
+- Do not call `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, or `nocode-form-update` without an explicit user-provided token.
 - Compilation and validation may be done without a token when the tool permits it.
 
 ## Hard Tool Boundary
@@ -25,6 +25,7 @@ Allowed Convertigo MCP tools:
 
 - `nocode-form-contract-get`
 - `nocode-baserow-catalog-list`
+- `nocode-baserow-schema-apply`
 - `nocode-form-compile`
 - `nocode-form-validate`
 - `nocode-form-create`
@@ -72,7 +73,17 @@ If the requested change cannot be completed with the allowed tools, stop and say
    - The tool takes only the No Code Studio `token`
    - Treat the returned `workspaces`, `bases`, `tables`, and `counts` as the discovery source of truth for selecting Baserow-backed no-code sources.
    - Never call Baserow HTTP APIs directly and never bypass `lib_BaseRow`; this catalog tool authenticates like the form tools and delegates discovery to `lib_BaseRow.formscommon_ApplicationsList`.
-6. When an allowed tool returns an error:
+6. For Baserow no-code schema creation or updates:
+   - Use `nocode-baserow-schema-apply` when the user asks to create or update No Code Baserow workspaces, bases, tables, fields, link-row relationships, lookup/reported fields, views, filters, or sample rows.
+   - The tool takes the user-provided No Code Studio `token`, `mode` (`plan` or `apply`), `create` permissions, and a canonical Baserow `schema`.
+   - Agents may read any user-provided format, such as Markdown, JSON, YAML, CSV, diagrams, PDFs, or prose, but must translate it into the tool's strict canonical JSON before calling the tool.
+   - Treat Baserow relationships as fields, not SQL foreign keys: use `type:"link_row"` with `targetTable`; use `type:"lookup"` with `through` and `targetField` for reported fields.
+   - For repeatable sample data updates, set `tables[].upsertKey` to a stable business field such as `ordre`, `code`, or `reference`. The tool will read existing rows through `lib_BaseRow.TableGetData`, update matches through `lib_BaseRow.TableUpdateRow`, and create only missing rows.
+   - Sample row keys are matched case-insensitively to real Baserow field names. It is acceptable to generate business keys like `nom` when the existing primary Baserow field is `Nom`.
+   - Use `mode:"plan"` first for non-trivial schemas. Use `mode:"apply"` only when the user asked to persist.
+   - By default, workspace creation is disabled. Set `create.workspace=true` only when the user explicitly wants a new workspace.
+   - Do not add or modify `lib_BaseRow` sequences. The MCP tool delegates to existing `lib_BaseRow` sequences and its existing Baserow connector transactions.
+7. When an allowed tool returns an error:
    - Use the returned diagnostics first.
    - Use `log-view` with narrow filters such as `project`, `level`, `requestable`, `text`, or `since` when more detail is needed.
    - Fix the reduced JSON or merge patch and retry through the no-code tools.
@@ -94,7 +105,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
 - Do not directly edit full C8Oforms internals unless the no-code tool contract explicitly requires that shape.
 - When editing existing forms, prefer semantic `nocode-form-edit` operations over replacing full arrays through `nocode-form-update`.
 - Do not infer authentication tokens. If a token is required and missing, ask the user to copy it from No Code Studio and paste it into the conversation instead of switching tools.
-- For Baserow catalog discovery, use `nocode-baserow-catalog-list` with exactly the user-provided No Code Studio token. Do not ask for or use a Baserow JWT, Baserow database token, API key, workspace id, database id, filter, or project name for discovery.
+- For Baserow catalog discovery and schema application, use `nocode-baserow-catalog-list` or `nocode-baserow-schema-apply` with exactly the user-provided No Code Studio token. Do not ask for or use a Baserow JWT, Baserow database token, API key, or project name.
 
 ## Sourceable Components
 
@@ -108,6 +119,9 @@ If the requested change cannot be completed with the allowed tools, stop and say
 ### Baserow Source Pattern
 
 - Use `nocode-baserow-catalog-list` first when you need to discover which Baserow workspaces, bases, and tables are available to the authenticated No Code user.
+- Use `nocode-baserow-schema-apply` for schema work. It can plan or apply canonical schema JSON with `workspaceName`/`workspaceId`, `baseName`/`baseId`, `tables[].fields`, `tables[].views`, and `tables[].sampleRows`.
+- Use `tables[].upsertKey` whenever applying sample rows to an existing table, so reruns update existing rows instead of creating duplicates.
+- `nocode-baserow-schema-apply` follows Baserow semantics: tables are Baserow tables; relationships are `link_row` fields; reported fields are `lookup` fields depending on an existing link field.
 - The catalog tool returns normalized `workspaces`, `bases`, `tables`, and `counts`; base ids are Baserow database ids, and table ids are Baserow table ids.
 - The catalog tool is read-only discovery. It must not be used as permission to call low-code requestables or raw Baserow APIs.
 - A component is connected to Baserow when it has an enabled `sources["lib_BaseRow.formssource_GetTableData"]` entry.

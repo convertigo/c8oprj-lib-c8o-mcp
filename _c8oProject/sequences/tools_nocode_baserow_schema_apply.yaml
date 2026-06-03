@@ -1,0 +1,45 @@
+accessibility: Private
+comment: |
+  Apply a No Code Baserow schema
+  Authenticates with the No Code Studio token, then plans or applies workspace/base/table/field/link/lookup/view/sample-row changes through lib_BaseRow requestables and its Baserow connector.
+↓Run [steps.SimpleStep-1780481728024]: 
+  expression: |
+    'include("js/nocode_baserow.js");
+    result = C8O.nocodeBaserow.schemaApply({
+      token: token,
+      mode: typeof mode === "undefined" ? "plan" : mode,
+      schema: typeof schema === "undefined" ? "{}" : schema,
+      create: typeof create === "undefined" ? "{}" : create,
+      readBack: typeof readBack === "undefined" ? true : readBack
+    });'
+↓result [steps.JsonToXmlStep-1780481728026]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1780481728030]: 
+  comment: No Code Studio bearer token used to authenticate the schema operation.
+  description: No Code Studio bearer token used to authenticate the schema operation.
+↓mode [variables.RequestableVariable-1780481728032]: 
+  comment: plan or apply. Default plan.
+  description: plan or apply. Default plan.
+  value: plan
+↓schema [variables.RequestableVariable-1780481728034]: 
+  comment: Canonical Baserow schema JSON object/string.
+  description: Canonical Baserow schema JSON object/string.
+  required: true
+↓create [variables.RequestableVariable-1780481728036]: 
+  comment: Creation permissions JSON, for example {"workspace":false,"base":true,"tables":true,"fields":true,"views":true,"sampleRows":true}.
+  description: Creation permissions JSON.
+↓readBack [variables.RequestableVariable-1780481728038]: 
+  comment: Read resulting catalog and fields back through lib_BaseRow.
+  description: Read resulting catalog and fields back through lib_BaseRow.
+  value: true
