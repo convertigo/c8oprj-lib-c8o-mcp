@@ -22,6 +22,19 @@ For more technical informations : [documentation](./project.md)
 - [Mobile Application](#mobile-application)
     - [Pages](#pages)
         - [Home](#home)
+        - [Templates](#templates)
+        - [TplEntityPage](#tplentitypage)
+        - [TplHome](#tplhome)
+        - [TplLogin](#tpllogin)
+    - [Shared Components](#shared-components)
+        - [TplCrudErrorRetryState](#tplcruderrorretrystate)
+        - [TplCrudLoadingState](#tplcrudloadingstate)
+        - [TplCrudPageHeader](#tplcrudpageheader)
+        - [TplDashboardStatCard](#tpldashboardstatcard)
+        - [TplEntityDetailCard](#tplentitydetailcard)
+        - [TplEntityEditForm](#tplentityeditform)
+        - [TplEntityListPanel](#tplentitylistpanel)
+        - [TplWorkInProgressCard](#tplworkinprogresscard)
 
 
 ## Installation
@@ -37,13 +50,13 @@ For more technical informations : [documentation](./project.md)
      <tr><td>To contribute</td><td>
 
      ```
-     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
+     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp.git:branch=no-code-mcp
      ```
      </td></tr>
      <tr><td>To simply use</td><td>
 
      ```
-     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
+     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp/archive/no-code-mcp.zip
      ```
      </td></tr>
     </table>
@@ -107,6 +120,232 @@ Streamable HTTP entry point for MCP requests
 ### Pages
 
 #### Home
+
+#### Templates
+
+#### TplEntityPage
+
+Template source for generated CRUD entity pages.
+
+#### TplHome
+
+Template source for the generated CRUD home page.
+
+#### TplLogin
+
+Template source for the generated login/session bootstrap page.
+
+### Shared Components
+
+#### TplCrudErrorRetryState
+
+Template source for the CRUD error/retry card.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Message</td><td></td>
+</tr>
+</table>
+
+**events**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Retry</td><td>Emitted when the user asks to retry the current CRUD state.</td>
+</tr>
+</table>
+
+#### TplCrudLoadingState
+
+Template source for the CRUD loading state card.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Message</td><td></td>
+</tr>
+</table>
+
+#### TplCrudPageHeader
+
+Template source for the CRUD page header.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Subtitle</td><td></td>
+</tr>
+<tr>
+<td>Title</td><td></td>
+</tr>
+</table>
+
+#### TplDashboardStatCard
+
+Template source for the CRUD dashboard stat card.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Caption</td><td></td>
+</tr>
+<tr>
+<td>Count</td><td></td>
+</tr>
+<tr>
+<td>Title</td><td></td>
+</tr>
+</table>
+
+#### TplEntityDetailCard
+
+Template source for the CRUD entity detail card.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>RefreshToken</td><td></td>
+</tr>
+<tr>
+<td>SelectedId</td><td></td>
+</tr>
+<tr>
+<td>Title</td><td></td>
+</tr>
+</table>
+
+#### TplEntityEditForm
+
+Template source for the CRUD entity edit form.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>ActionLabel</td><td></td>
+</tr>
+<tr>
+<td>CreateTitle</td><td></td>
+</tr>
+<tr>
+<td>DeleteLabel</td><td></td>
+</tr>
+<tr>
+<td>DraftSeed</td><td></td>
+</tr>
+<tr>
+<td>EditTitle</td><td></td>
+</tr>
+<tr>
+<td>Mode</td><td></td>
+</tr>
+<tr>
+<td>RefreshToken</td><td></td>
+</tr>
+<tr>
+<td>SelectedId</td><td></td>
+</tr>
+</table>
+
+**events**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Cancelled</td><td>Emitted when the user cancels form editing.</td>
+</tr>
+<tr>
+<td>Deleted</td><td>Emitted after a successful delete.</td>
+</tr>
+<tr>
+<td>Saved</td><td>Emitted after a successful create or update.</td>
+</tr>
+</table>
+
+#### TplEntityListPanel
+
+Template source for the CRUD entity list panel.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>ActionLabel</td><td></td>
+</tr>
+<tr>
+<td>PrimaryField</td><td></td>
+</tr>
+<tr>
+<td>RefreshToken</td><td></td>
+</tr>
+<tr>
+<td>SecondaryField</td><td></td>
+</tr>
+<tr>
+<td>Title</td><td></td>
+</tr>
+</table>
+
+**events**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>ItemSelected</td><td>Emitted when the user selects one row from the local list.</td>
+</tr>
+<tr>
+<td>NewRequested</td><td>Emitted when the user wants to create a new row.</td>
+</tr>
+</table>
+
+#### TplWorkInProgressCard
+
+Template source for the bootstrap work-in-progress card.
+
+**variables**
+
+<table>
+<tr>
+<th>name</th><th>comment</th>
+</tr>
+<tr>
+<td>Message</td><td></td>
+</tr>
+</table>
 
 
 
