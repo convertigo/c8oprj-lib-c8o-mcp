@@ -5,9 +5,12 @@ comment: |
 ↓DecodeAndValidateToken [steps.SimpleStep-1779908983876]: 
   expression: |
     'var Base64 = java.util.Base64;
-    var Mac = javax.crypto.Mac;
-    var SecretKeySpec = javax.crypto.spec.SecretKeySpec;
-    var EnginePropertiesManager = com.twinsoft.convertigo.engine.EnginePropertiesManager;
+    var HashMap = Packages.java.util.HashMap;
+    var InternalRequester = Packages.com.twinsoft.convertigo.engine.requesters.InternalRequester;
+    var InternalHttpServletRequest = Packages.com.twinsoft.convertigo.engine.requesters.InternalHttpServletRequest;
+    var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+    var JsonOutput = Packages.com.twinsoft.convertigo.engine.enums.JsonOutput;
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     function fail(code, message) {
       tokenValid = false;
       tokenUser = "";
@@ -22,11 +25,47 @@ comment: |
     function base64UrlDecode(value) {
       return new java.lang.String(Base64.getUrlDecoder().decode(String(value)), "UTF-8");
     }
-    function sign(data, secretKey) {
-      var mac = Mac.getInstance("HmacSHA256");
-      var keySpec = new SecretKeySpec(new java.lang.String(secretKey).getBytes("UTF-8"), "HmacSHA256");
-      mac.init(keySpec);
-      return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(new java.lang.String(data).getBytes("UTF-8")));
+    function callC8oSequence(project, sequence, variables) {
+      var params = new HashMap();
+      var projectArray = java.lang.reflect.Array.newInstance(java.lang.String, 1);
+      projectArray[0] = project;
+      params.put("__project", projectArray);
+      params.put("__sequence", sequence);
+      params.put("__context", "syncContext_" + java.lang.System.currentTimeMillis());
+      var keys = Object.keys(variables || {});
+      for (var i = 0; i < keys.length; i++) {
+        if (variables[keys[i]] != null) {
+          params.put(keys[i], variables[keys[i]]);
+        }
+      }
+      var hasContext = typeof context !== "undefined" && context;
+      var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+      var requester = new InternalRequester(params, request);
+      var response = requester.processRequest();
+      var json = JSON.parse(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode).toString());
+      try {
+        var ctx2 = requester.getContext();
+        Engine.theApp.contextManager.remove(ctx2);
+      } catch (_ignoreCtx) {}
+      if (hasContext && context.logParameters) {
+        org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+      }
+      return json;
+    }
+    function unwrapSequenceResult(response) {
+      if (response && response.document && response.document.result) {
+        return response.document.result;
+      }
+      if (response && response.doc && response.doc.document && response.doc.document.result) {
+        return response.doc.document.result;
+      }
+      if (response && response.result) {
+        return response.result;
+      }
+      return response;
+    }
+    function isTrue(value) {
+      return value === true || String(value) === "true";
     }
     tokenValid = false;
     tokenUser = "";
@@ -34,21 +73,7 @@ comment: |
     tokenError = null;
     try {
       var rawToken = token == null ? "" : String(token).trim();
-      if (rawToken === "fake-token-olivierp") {
-        tokenValid = true;
-        tokenUser = "olivierp@convertigo.com";
-        tokenPayload = {
-          user: tokenUser,
-          scope: "forms:write",
-          test: true
-        };
-        result = {
-          status: "ok",
-          authenticated: true,
-          user: tokenUser,
-          payload: tokenPayload
-        };
-      } else if (!rawToken.length) {
+      if (!rawToken.length) {
         fail("missing_token", "No Code token is required.");
       } else {
         var parts = rawToken.split(".");
@@ -60,36 +85,47 @@ comment: |
           var algorithm = String(header.alg || "");
           if (algorithm !== "HS256") {
             fail("unsupported_token_algorithm", "No Code token must use HS256.");
+          } else if (String(header.typ || "JWT").toUpperCase() !== "JWT") {
+            fail("unsupported_token_type", "No Code token must be a JWT.");
+          } else if (String(payload.iss || "") !== "C8Oforms") {
+            fail("invalid_token_issuer", "No Code token issuer is invalid.");
+          } else if (String(payload.aud || "") !== "ConvertigoMCP") {
+            fail("invalid_token_audience", "No Code token audience is invalid.");
           } else {
-            var secretKey = EnginePropertiesManager.getProperty(EnginePropertiesManager.PropertyName.CRYPTO_PASSPHRASE);
-            var expectedSignature = String(sign(parts[0] + "." + parts[1], secretKey));
-            if (expectedSignature !== String(parts[2])) {
-              fail("invalid_token_signature", "No Code token signature is invalid.");
+            var nowSeconds = Math.floor(new Date().getTime() / 1000);
+            if (payload.exp != null && nowSeconds > Number(payload.exp)) {
+              fail("expired_token", "No Code token has expired.");
+            } else if (payload.nbf != null && nowSeconds < Number(payload.nbf)) {
+              fail("token_not_yet_valid", "No Code token is not valid yet.");
             } else {
-              var nowSeconds = Math.floor(new Date().getTime() / 1000);
-              if (payload.exp != null && nowSeconds > Number(payload.exp)) {
-                fail("expired_token", "No Code token has expired.");
-              } else if (payload.nbf != null && nowSeconds < Number(payload.nbf)) {
-                fail("token_not_yet_valid", "No Code token is not valid yet.");
+              var userId = payload.user || payload.userId || payload.sub || payload.id || "";
+              userId = String(userId).trim();
+              if (!userId.length) {
+                fail("missing_user", "No Code token does not contain a user id.");
               } else {
-                var userId = payload.user || payload.userId || payload.sub || payload.id || "";
-                userId = String(userId).trim();
-                if (!userId.length) {
-                  fail("missing_user", "No Code token does not contain a user id.");
+                var validationResponse = callC8oSequence("C8Oforms", "APIV2_McpTokenValidate", {
+                  headerJson: JSON.stringify(header),
+                  payloadJson: JSON.stringify(payload),
+                  signingInput: parts[0] + "." + parts[1],
+                  signature: parts[2]
+                });
+                var validation = unwrapSequenceResult(validationResponse);
+                if (!validation || String(validation.status || "") !== "ok" || !isTrue(validation.authenticated)) {
+                  var error = validation && validation.error ? validation.error : {};
+                  fail(error.code || "invalid_token", error.message || "No Code token is invalid.");
                 } else {
                   tokenValid = true;
-                  tokenUser = userId;
-                  tokenPayload = {
-                    user: userId,
+                  tokenUser = String(validation.user || userId);
+                  tokenPayload = validation.payload || {
+                    user: tokenUser,
                     exp: payload.exp == null ? null : payload.exp,
                     iat: payload.iat == null ? null : payload.iat,
-                    scope: payload.scope == null ? null : payload.scope,
-                    scopes: payload.scopes == null ? null : payload.scopes
+                    scope: payload.scope == null ? null : payload.scope
                   };
                   result = {
                     status: "ok",
                     authenticated: true,
-                    user: userId,
+                    user: tokenUser,
                     payload: tokenPayload
                   };
                 }
