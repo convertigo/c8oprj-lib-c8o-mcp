@@ -1,7 +1,42 @@
 
 # ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/core/images/project_color_16x16.png?raw=true "Project") ConvertigoMCP
 
-MCP server project exposing Convertigo tools, prompts, resources, setup helpers, and authoring guides for Codex-driven project creation and validation.
+# Convertigo MCP Usage Guide
+
+ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
+
+Endpoint:
+`http://localhost:18080/convertigo/api/mcp`
+
+## Codex
+
+Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
+
+```toml
+[mcp_servers.convertigo]
+url = "http://localhost:18080/convertigo/api/mcp"
+```
+
+## Claude Code
+
+Register Convertigo as a Streamable HTTP MCP server. Ask Claude Code to call `tools/list`, `resources/list`, and `prompts/list`, then use the exposed MCP tools for project tree edits, validation, save, and runtime checks.
+
+```toml
+[mcp_servers.convertigo]
+type = "streamable-http"
+url = "http://localhost:18080/convertigo/api/mcp"
+```
+
+## Mistral Vibe
+
+Add the same MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
+
+```toml
+[mcp_servers.convertigo]
+transport = "http"
+url = "http://localhost:18080/convertigo/api/mcp"
+```
+
 
 <details><summary><span style="color:DarkGoldenRod"><i>References</i></span></summary><blockquote><p>
 
