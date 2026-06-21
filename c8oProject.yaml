@@ -8,6 +8,16 @@
     Endpoint:
     `http://localhost:18080/convertigo/api/mcp`
     
+    ## Mistral Vibe
+    
+    Add the Convertigo MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
+    
+    ```toml
+    [mcp_servers.convertigo]
+    transport = "http"
+    url = "http://localhost:18080/convertigo/api/mcp"
+    ```
+    
     ## Codex
     
     Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
@@ -26,21 +36,11 @@
     type = "streamable-http"
     url = "http://localhost:18080/convertigo/api/mcp"
     ```
-    
-    ## Mistral Vibe
-    
-    Add the same MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
-    
-    ```toml
-    [mcp_servers.convertigo]
-    transport = "http"
-    url = "http://localhost:18080/convertigo/api/mcp"
-    ```
     '
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 600
-  version: 0.0.30
+  version: 0.0.31
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
