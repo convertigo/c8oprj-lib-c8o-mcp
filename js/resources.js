@@ -16,6 +16,7 @@ var C8O_RESOURCES_BUILTIN = [
       "- Treat the live MCP catalog as the public source of truth: `tools/list`, `resources/list`, `prompts/list`.",
       "- Primitive authoring stays tree-first: inspect with `databaseobject-tree-get`, discover with `project-list` and `databaseobject-search`, create with `palette-list` and `palette-describe`, mutate with `databaseobject-tree-apply`, and group changes with `batch-call`.",
       "- Runtime proof uses `requestable-execute`, `crud-status`, `crud-proof`, and `log-view` when execution feedback is not enough.",
+      "- HTTP integration must keep transport in `HttpConnector` plus typed HTTP transactions; facade sequences call them with `TransactionStep` and only orchestrate or shape contracts.",
       "- New UI projects start from `marketplace-import` and `mobile-builder-open` so the live viewer is visible early.",
       "- For a new standard SQL CRUD + starter NGX UI task, the current recommended public rail is `marketplace-import` -> `mobile-builder-open` -> `upsert-crud` -> backend `crud-proof` -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` -> `upsert-ngx-crud-kit stage=final` -> final `crud-proof(viewerUrl)` -> `project-save`.",
       "- For an existing deterministic CRUD project that is already green, prefer the edit rail: `crud-status` -> `upsert-crud` -> backend `crud-proof` -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open` -> final `crud-proof(viewerUrl)` -> `project-save`.",

@@ -232,6 +232,9 @@ C8O.setupCodex = C8O.setupCodex || {};
       resourceSummary("convertigo://recipes/quickstart", "Convertigo MCP quickstart recipes"),
       resourceSummary("convertigo://resources/convertigo-start", "Convertigo Start Guide"),
       resourceSummary("convertigo://resources/convertigo-crud-fastpath", "Convertigo CRUD Fast Path"),
+      resourceSummary("convertigo://resources/convertigo-recipe-starter-extension", "Convertigo Starter Extension Recipe"),
+      resourceSummary("convertigo://resources/convertigo-recipe-ngx-data-page", "Convertigo NGX Data Page Recipe"),
+      resourceSummary("convertigo://resources/convertigo-frontend-ngx", "Convertigo Frontend NGX"),
       promptSummary("convertigo-quickstart", "Convertigo MCP Quickstart"),
       promptSummary("convertigo-crud-fastpath", "Convertigo CRUD Fast Path")
     ];
@@ -268,6 +271,8 @@ C8O.setupCodex = C8O.setupCodex || {};
       "6. Only then decide the route:",
       "   - Standard SQL CRUD + starter NGX UI: read `convertigo://resources/convertigo-crud-fastpath` and use `convertigo-crud-fastpath`.",
       "   - Existing deterministic CRUD project edits: also read `convertigo://resources/convertigo-crud-edit-fastpath`, then stay on the CRUD rail without replaying the new-project bootstrap.",
+      "   - New starter NGX app outside the CRUD rail: read `convertigo://resources/convertigo-recipe-starter-extension` before import, then if the app has backend or open-data results, read `convertigo://resources/convertigo-recipe-ngx-data-page` before any page mutation.",
+      "   - NGX / Ionic UI creation or edits outside the CRUD rail: read `convertigo://resources/convertigo-recipe-ngx-data-page` first for data-backed pages, then `convertigo://resources/convertigo-frontend-ngx` before UI mutations.",
       "   - Non-CRUD work or tasks outside the deterministic rail: stay exploratory and follow `convertigo-quickstart`.",
       "7. Do not call `rag-query` before the start guide and the chosen recipe were read.",
       "8. If the user explicitly wants MCP-only work or the starting workspace is empty/non-relevant, do not inspect the local shell workspace before the MCP route decision is made.",

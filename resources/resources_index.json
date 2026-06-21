@@ -7,8 +7,12 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 3,
-    "scopeTags": ["start", "onboarding", "tree-authoring"],
+    "revision": 14,
+    "scopeTags": [
+      "start",
+      "onboarding",
+      "tree-authoring"
+    ],
     "prerequisites": [],
     "recommendedTools": [
       "resources/list",
@@ -111,8 +115,15 @@
     "file": "convertigo_platform_big_picture.md",
     "guideId": "convertigo/platform-big-picture",
     "revision": 2,
-    "scopeTags": ["start", "platform", "architecture", "mindset"],
-    "prerequisites": ["convertigo/start@1"],
+    "scopeTags": [
+      "start",
+      "platform",
+      "architecture",
+      "mindset"
+    ],
+    "prerequisites": [
+      "convertigo/start@1"
+    ],
     "recommendedTools": [
       "resources/read",
       "project-list",
@@ -142,8 +153,15 @@
     "file": "convertigo_engineering_workflow.md",
     "guideId": "convertigo/engineering-workflow",
     "revision": 1,
-    "scopeTags": ["workflow", "validation", "review", "rag-policy"],
-    "prerequisites": ["convertigo/start@1"],
+    "scopeTags": [
+      "workflow",
+      "validation",
+      "review",
+      "rag-policy"
+    ],
+    "prerequisites": [
+      "convertigo/start@1"
+    ],
     "recommendedTools": [
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
@@ -176,7 +194,13 @@
     "file": "convertigo_bootstrap_decision_matrix.md",
     "guideId": "convertigo/bootstrap-decision-matrix",
     "revision": 1,
-    "scopeTags": ["workflow", "bootstrap", "triage", "decision-matrix", "interactive"],
+    "scopeTags": [
+      "workflow",
+      "bootstrap",
+      "triage",
+      "decision-matrix",
+      "interactive"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1"
@@ -205,7 +229,12 @@
     "file": "convertigo_contract_first_delivery.md",
     "guideId": "convertigo/contract-first-delivery",
     "revision": 1,
-    "scopeTags": ["workflow", "planner", "contract-first", "parallel-delivery"],
+    "scopeTags": [
+      "workflow",
+      "planner",
+      "contract-first",
+      "parallel-delivery"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/engineering-workflow@1"
@@ -235,8 +264,14 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_starter_extension.md",
     "guideId": "convertigo/recipe-starter-extension",
-    "revision": 1,
-    "scopeTags": ["workflow", "recipe", "starter", "marketplace", "poc"],
+    "revision": 2,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "starter",
+      "marketplace",
+      "poc"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1"
@@ -269,7 +304,13 @@
     "file": "convertigo_recipe_facade_stub.md",
     "guideId": "convertigo/recipe-facade-stub",
     "revision": 1,
-    "scopeTags": ["workflow", "recipe", "backend", "facade", "stub"],
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "backend",
+      "facade",
+      "stub"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1"
@@ -301,9 +342,17 @@
     "mimeType": "text/markdown",
     "file": "convertigo_backend_sequences.md",
     "guideId": "convertigo/backend-sequences",
-    "revision": 1,
-    "scopeTags": ["domain", "backend", "sequences", "smarttypes", "json"],
-    "prerequisites": ["convertigo/start@1"],
+    "revision": 2,
+    "scopeTags": [
+      "domain",
+      "backend",
+      "sequences",
+      "smarttypes",
+      "json"
+    ],
+    "prerequisites": [
+      "convertigo/start@1"
+    ],
     "recommendedTools": [
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
@@ -331,8 +380,14 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_http_facade.md",
     "guideId": "convertigo/recipe-http-facade",
-    "revision": 1,
-    "scopeTags": ["workflow", "recipe", "integration", "http", "facade"],
+    "revision": 3,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "integration",
+      "http",
+      "facade"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -363,7 +418,12 @@
     "file": "convertigo_integration_http.md",
     "guideId": "convertigo/integration-http",
     "revision": 1,
-    "scopeTags": ["domain", "integration", "http", "transactions"],
+    "scopeTags": [
+      "domain",
+      "integration",
+      "http",
+      "transactions"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/backend-sequences@1"
@@ -392,7 +452,13 @@
     "file": "convertigo_recipe_sql_crud.md",
     "guideId": "convertigo/recipe-sql-crud",
     "revision": 4,
-    "scopeTags": ["workflow", "recipe", "integration", "sql", "crud"],
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "integration",
+      "sql",
+      "crud"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -423,7 +489,13 @@
     "file": "convertigo_fast_path_sql_hsqldb.md",
     "guideId": "convertigo/fast-path-sql-hsqldb",
     "revision": 4,
-    "scopeTags": ["workflow", "recipe", "sql", "fast-path", "hsqldb"],
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "sql",
+      "fast-path",
+      "hsqldb"
+    ],
     "prerequisites": [
       "convertigo/recipe-sql-crud@3"
     ],
@@ -525,7 +597,13 @@
     "file": "convertigo_fast_path_sql_mariadb.md",
     "guideId": "convertigo/fast-path-sql-mariadb",
     "revision": 3,
-    "scopeTags": ["workflow", "recipe", "sql", "fast-path", "mariadb"],
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "sql",
+      "fast-path",
+      "mariadb"
+    ],
     "prerequisites": [
       "convertigo/recipe-sql-crud@3"
     ],
@@ -618,7 +696,12 @@
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
     "revision": 1,
-    "scopeTags": ["domain", "integration", "sql", "transactions"],
+    "scopeTags": [
+      "domain",
+      "integration",
+      "sql",
+      "transactions"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/backend-sequences@1"
@@ -646,8 +729,14 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_ngx_data_page.md",
     "guideId": "convertigo/recipe-ngx-data-page",
-    "revision": 4,
-    "scopeTags": ["workflow", "recipe", "frontend", "ngx", "data-page"],
+    "revision": 19,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "frontend",
+      "ngx",
+      "data-page"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
@@ -679,10 +768,16 @@
     "file": "convertigo_fast_path_ngx_entry_shell.md",
     "guideId": "convertigo/fast-path-ngx-entry-shell",
     "revision": 3,
-    "scopeTags": ["workflow", "recipe", "frontend", "ngx", "fast-path"],
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "frontend",
+      "ngx",
+      "fast-path"
+    ],
     "prerequisites": [
       "convertigo/recipe-starter-extension@1",
-      "convertigo/recipe-ngx-data-page@4"
+      "convertigo/recipe-ngx-data-page@19"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
@@ -716,12 +811,17 @@
     "uri": "convertigo://resources/convertigo-frontend-ngx",
     "name": "Convertigo Frontend NGX",
     "title": "Convertigo Frontend NGX",
-    "description": "Palette-first NGX delivery with contract-based bindings, batching, and resilient UI states.",
+    "description": "Palette-first NGX delivery with contract-based bindings, batching, scoped template expressions, and resilient UI states.",
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 1,
-    "scopeTags": ["domain", "frontend", "ngx", "ui"],
+    "revision": 16,
+    "scopeTags": [
+      "domain",
+      "frontend",
+      "ngx",
+      "ui"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/contract-first-delivery@1"
@@ -752,7 +852,12 @@
     "file": "convertigo_validation_and_evidence.md",
     "guideId": "convertigo/validation-and-evidence",
     "revision": 1,
-    "scopeTags": ["validation", "evidence", "closure", "critic"],
+    "scopeTags": [
+      "validation",
+      "evidence",
+      "closure",
+      "critic"
+    ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/engineering-workflow@1"
@@ -787,7 +892,12 @@
     "file": "convertigo_context_api.md",
     "guideId": "convertigo/context-api",
     "revision": 1,
-    "scopeTags": ["reference", "backend", "rhino", "context"],
+    "scopeTags": [
+      "reference",
+      "backend",
+      "rhino",
+      "context"
+    ],
     "prerequisites": [],
     "recommendedTools": [
       "databaseobject-tree-get",
@@ -809,7 +919,12 @@
     "file": "convertigo_json_quickref.md",
     "guideId": "convertigo/json-quickref",
     "revision": 1,
-    "scopeTags": ["reference", "backend", "json", "steps"],
+    "scopeTags": [
+      "reference",
+      "backend",
+      "json",
+      "steps"
+    ],
     "prerequisites": [],
     "recommendedTools": [
       "databaseobject-tree-get",

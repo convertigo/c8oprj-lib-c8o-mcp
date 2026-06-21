@@ -26,8 +26,8 @@ Read this first for any MCP session that touches a Convertigo project.
 | SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | Start with the CRUD scaffold recipe, then go deeper on driver and transaction subtleties. |
 | Standard SQL CRUD + starter NGX UI | `convertigo/crud-fastpath@1` | Preferred mono-agent public path for the current recovery cycle. |
 | HTTP-backed feature | `convertigo/recipe-http-facade@1`, then `convertigo/integration-http@1` | Start with the connector and facade recipe, then go deeper on payload, schema, and handler details. |
-| NGX UI task | `convertigo/recipe-ngx-data-page@1`, then `convertigo/frontend-ngx@1` | Start with the canonical data-page pattern, then go deeper on palette, actions, and bindings. |
-| New app or starter-based POC | `convertigo/recipe-starter-extension@1` | Gives the fast path for importing a starter and extending it instead of rediscovering project structure. |
+| NGX UI task | `convertigo/recipe-ngx-data-page@19`, then `convertigo/frontend-ngx@16` | Start with the canonical data-page pattern, then go deeper on palette, actions, and bindings. |
+| New app or starter-based POC | `convertigo/recipe-starter-extension@2`; if it displays backend/open-data results, also `convertigo/recipe-ngx-data-page@19` before page mutation | Gives the fast path for importing a starter and prevents raw fragment pages for data-backed UI. |
 | Multi-track delivery across backend, integration, and UI | `convertigo/engineering-workflow@1`, then `convertigo/contract-first-delivery@1`, then the matching recipe | Planner rules, stub strategy, parallel handoff, and the first implementation pattern live there. |
 | Final closure, proof, or review | `convertigo/validation-and-evidence@1` | Save/reload discipline and final proof expectations live there. |
 | Rhino `context` or JSON step details | `convertigo/context-api@1` or `convertigo/json-quickref@1` | These are references, not primary onboarding guides. |
@@ -49,13 +49,18 @@ Read this first for any MCP session that touches a Convertigo project.
 7. If you need to create an object, confirm the allowed entry with:
    - `palette-list`
    - `palette-describe`
-8. Pick one matching recipe before the first broad mutation.
+8. Pick one matching recipe before the first broad mutation. For starter apps that display backend, HTTP, SQL, FullSync, or open-data results, this means both `convertigo://resources/convertigo-recipe-starter-extension` for import and `convertigo://resources/convertigo-recipe-ngx-data-page` before the first page mutation.
 9. Do not call `rag-query` before the start guide and the chosen recipe were read.
 10. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
 11. Decide whether the task truly fits `upsert-crud` before the first write call.
 12. Use the exact project name requested by the user when it is technically valid. Do not invent prefixes, suffixes, or dates.
 13. Build the mutation plan before the first write call.
 14. Apply changes with `databaseobject-tree-apply` or `batch-call`.
+   - In `databaseobject-tree-apply`, `tree.properties` must be a JSON object/map, not an array of `{name,value}` entries.
+   - Correct: `"properties":{"comment":"...","output":"true"}`.
+   - Wrong: `"properties":[{"name":"comment","value":"..."},{"name":"output","value":"true"}]`.
+   - If a call returns `status:"partial"` with `parse_properties`, `SyntaxError: Unexpected token: o`, or `Expected a JSON object`, stop using that shape and retry the same mutation with object properties before moving on.
+   - For several sibling children, prefer `batch-call` with one focused `databaseobject-tree-apply` per child over one large `tree.children` payload. This is especially safer for transaction variables, UI variables, and action children because oversized/nested children payloads can trigger MCP transport deserialization failures.
 15. For a new CRUD UI project, make the app visible immediately: `marketplace-import` with the exact project name -> `mobile-builder-open` -> `upsert-crud` -> backend proof -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open` probe -> `upsert-ngx-crud-kit stage=final` -> final proof with `viewerUrl`.
 16. For an existing deterministic CRUD project that is already green, prefer `convertigo://resources/convertigo-crud-edit-fastpath`: `crud-status` -> `upsert-crud` -> backend proof -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open` -> final proof with `viewerUrl`.
 17. For a low-detail CRUD request, stop after the first green scaffold plus seeded demo data. Do not start a second refinement pass on layout, labels, or field-level UX unless the user explicitly asked for it.
@@ -90,6 +95,14 @@ Read this first for any MCP session that touches a Convertigo project.
 {"name":"databaseobject-tree-apply","arguments":{"target":"<qname>","at":"self","mode":"merge","tree":{"properties":{}}}}
 ```
 
+Property values belong inside that object:
+
+```json
+{"name":"databaseobject-tree-apply","arguments":{"target":"<qname>","at":"self","mode":"merge","tree":{"properties":{"comment":"Updated by MCP","isEnabled":"true"}}}}
+```
+
+Do not send `tree.properties` as an array of `{name,value}` objects. That legacy-looking shape can be partially applied while still returning parser errors, which makes later validation unreliable.
+
 ```json
 {"name":"requestable-execute","arguments":{"requestable":"<project>[.<connector>].<requestable>","variables":{}}}
 ```
@@ -102,6 +115,8 @@ Lock these decisions before the first mutation:
 - correct parent placement: `self`, `inside`, `before`, or `after`
 - correct palette entry or canonical `className`
 - expected response contract when the task changes runtime behavior
+- for HTTP integrations, confirmed transport is modeled by `HttpConnector` plus a typed HTTP transaction before writing the facade
+- for HTTP integrations, confirmed the facade will call the transaction through `TransactionStep` and will not contain `java.net.URL`, `fetch`, `XMLHttpRequest`, ad hoc HTTP clients, or equivalent transport code
 - validation call to run immediately after the mutation
 - whether the task requires only `project-save` or also `project-reload`
 - whether the task truly needs rollback/reload proof; `project-reload` is not a freshness step for `requestable-execute`
@@ -119,7 +134,7 @@ Correct escalation for a multi-track feature:
 4. Read `convertigo/contract-first-delivery@1` before any write call.
 5. Read `convertigo/recipe-facade-stub@1` to define the facade sequence and stub.
 6. Read `convertigo/recipe-http-facade@1` or `convertigo/recipe-sql-crud@1` for the real data source.
-7. Read `convertigo/recipe-ngx-data-page@1` only when the contract is stable enough to bind UI work.
+7. Read `convertigo/recipe-ngx-data-page@19` before UI work as soon as the page will display facade-backed data. Do not wait until after a raw UI shortcut has been created.
 8. Read the matching deep handbook only if the recipe is not enough.
 9. Close with `convertigo/validation-and-evidence@1`.
 
@@ -142,6 +157,7 @@ Correct escalation for a multi-track feature:
 - Do not guess QNames, class names, or NGX palette entries.
 - Do not start with RAG when tool metadata and tracked guides already answer the question.
 - Do not generate defensive wrappers or catch-all error handling by default. Convertigo already surfaces standard execution failures; intercept only the cases where the UX truly needs it.
+- Do not put external HTTP transport inside a sequence facade. HTTP-backed features must use `HttpConnector` plus a typed HTTP transaction for transport, and the facade must call it with `TransactionStep`.
 - Do not validate only the tree shape when runtime behavior matters.
 - Do not read every handbook by default. Read the smallest recipe and handbook set that matches the task.
 

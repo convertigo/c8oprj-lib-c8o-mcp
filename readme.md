@@ -3,7 +3,7 @@
 
 # ConvertigoMCP
 
-Mashup Sequencer project
+MCP server project exposing Convertigo tools, prompts, resources, setup helpers, and authoring guides for Codex-driven project creation and validation.
 
 
 For more technical informations : [documentation](./project.md)
@@ -50,13 +50,13 @@ For more technical informations : [documentation](./project.md)
      <tr><td>To contribute</td><td>
 
      ```
-     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp.git:branch=no-code-mcp
+     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp.git:branch=codex
      ```
      </td></tr>
      <tr><td>To simply use</td><td>
 
      ```
-     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp/archive/no-code-mcp.zip
+     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp/archive/codex.zip
      ```
      </td></tr>
     </table>
@@ -346,6 +346,5 @@ Template source for the bootstrap work-in-progress card.
 <td>Message</td><td></td>
 </tr>
 </table>
-
 
 

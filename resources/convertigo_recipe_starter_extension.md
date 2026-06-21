@@ -15,8 +15,9 @@ Read this for new POCs, demos, or benchmarks that start from a marketplace start
 2. Confirm the project exists and is the only mutation target.
 3. Add the minimal backend facade first.
 4. Add connector or transaction work second.
-5. Add or extend the UI page third, starting with the actual visible entry page instead of leaving the default starter body dominant.
-6. Validate runtime and save.
+5. If the UI will display backend, HTTP, SQL, FullSync, or open-data results, read `convertigo://resources/convertigo-recipe-ngx-data-page` before any page mutation.
+6. Add or extend the UI page third, starting with the actual visible entry page instead of leaving the default starter body dominant.
+7. Validate runtime and save.
 
 ### What the starter is for
 The starter gives you:
@@ -33,6 +34,9 @@ For fresh NGX projects in the current MCP flow, the starter import is the suppor
 - Reuse existing app shell and page structure where it helps speed.
 - Replace or extend demo placeholders with stable facade-backed structures.
 - Keep contracts, not starter internals, as the long-term reference.
+- For facade-backed pages, the starter recipe is only the project bootstrap. The page implementation rules come from the NGX data-page recipe, and that recipe overrides any temptation to use one `UICustom` fragment or page `scriptContent` transport.
+- A starter page that searches external/open-data content must call the facade through `UIDynamicAction#CallSequenceAction` and pass query values with `UIControlVariable`. Do not implement the search by adding a page method that calls `this.c8o.callJsonObject(...).async()` or `this.c8o.callJson(...)`.
+- The visible form, submit button, loading/empty/error states, and result list must be palette objects/directives. A compiling `UICustom#UICustom` fragment is not an acceptable shortcut for starter extension when palette objects can model the page.
 
 ### Why this is the right way
 - It dramatically reduces setup search.
@@ -44,7 +48,11 @@ For fresh NGX projects in the current MCP flow, the starter import is the suppor
 - `marketplace-import`
 - `project-list`
 - `databaseobject-tree-get`
+- `palette-list`
+- `palette-describe`
 - `databaseobject-tree-apply`
+- `batch-call`
+- `mobile-builder-open`
 - `project-save`
 
 ## Anti-patterns / do not do
@@ -52,16 +60,22 @@ For fresh NGX projects in the current MCP flow, the starter import is the suppor
 - Do not assume the starter's demo data model is the public contract for the new feature.
 - Do not rebuild the root NGX structure from scratch if the starter already provides it.
 - Do not leave the default home page visually untouched while creating only secondary pages and claiming visible frontend progress.
+- Do not use `UICustom#UICustom` plus raw Angular/Ionic markup as the main page body for data-backed starter pages.
+- Do not put backend calls in page `scriptContent`; use a palette `CallSequenceAction` chain.
 
 ### Common failure modes
 - Agent spends too long discovering projects instead of using the prepared starter.
 - New work leaks into the wrong workspace project.
 - Starter demo structure is copied without replacing contract assumptions.
+- The builder is green but the page is a raw `UICustom` fragment, so the Convertigo NGX tree does not expose the feature controls and action chain.
+- A page method calls the facade directly from TypeScript, bypassing `CallSequenceAction` and `UIControlVariable`.
 
 ## Minimum validation proof
 - Project import or project existence is explicit.
 - The target project name is used consistently in writes and validation.
 - Runtime proof shows the new behavior in the imported project, not in an unrelated workspace project.
+- For backend-backed UI, tree readback shows `CallSequenceAction` and `UIControlVariable` under a real page event.
+- Tree readback does not show the primary data page body as `ngx.components.UICustom#UICustom` or `htmlTemplate`.
 
 ## Completion checks
 - Only the target starter-derived project was mutated.

@@ -1,7 +1,7 @@
 
 # ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/core/images/project_color_16x16.png?raw=true "Project") ConvertigoMCP
 
-Mashup Sequencer project
+MCP server project exposing Convertigo tools, prompts, resources, setup helpers, and authoring guides for Codex-driven project creation and validation.
 
 <details><summary><span style="color:DarkGoldenRod"><i>References</i></span></summary><blockquote><p>
 

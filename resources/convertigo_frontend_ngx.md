@@ -10,7 +10,34 @@ Read this when implementing or changing NGX pages, bindings, actions, route logi
 - How to keep visible progress in Studio by starting the mobile builder early.
 
 ## Read this after the recipe
-If the task is a classic data-backed page, read `convertigo/recipe-ngx-data-page@1` first. Use this handbook when the page needs deeper NGX structure, action chaining, runtime proof, or event semantics beyond the recipe.
+If the task is a classic data-backed page, read `convertigo/recipe-ngx-data-page@19` first. Use this handbook when the page needs deeper NGX structure, action chaining, runtime proof, or event semantics beyond the recipe.
+
+For starter-based apps that display backend, HTTP, SQL, FullSync, or open-data results, this handbook is not the entry point. Stop before any page mutation unless `convertigo://resources/convertigo-recipe-ngx-data-page` has already been read in the current session.
+
+For data-backed pages, run the recipe's final tree-readback self-audit before any final response. If the readback shows a primary `UICustom`/`htmlTemplate` renderer, TypeScript page state, or direct `this.c8o.callJson*` transport, the page is still non-compliant even when the mobile builder is ready.
+
+## Palette-first authoring rules
+
+- Think of every NGX application as a normal Ionic / Angular application represented by the Convertigo object tree.
+- For each Angular or Ionic component, use the matching Convertigo palette component first.
+- Prefer palette-backed NGX components, events, actions, bindings, forms, lists, cards, tabs, menus, and Ionic controls over hand-written templates.
+- Never use `UICustom` fragments for application UI. Treat fragments as forbidden for normal UI authoring, not as a shortcut.
+- If you are about to create `ngx.components.UICustom#UICustom` with a large `htmlTemplate` for a data page, stop and redesign the tree with palette objects. A compiling large fragment is still a failed NGX delivery when palette components can express the page.
+- Do not use a `UICustom` fragment as the main renderer even when the backend call itself is wired through `CallSequenceAction`. A fragment that contains the input, labels, loading notes, empty/error notes, list, or repeated result markup is still the primary page implementation and is non-compliant.
+- If you already created such a fragment while probing, remove it before completion and replace it with visible palette objects. Do not keep it as a renderer and claim completion on builder proof alone.
+- Treat `palette-describe` text for `UICustom#UICustom` as generic platform documentation, not permission for normal app delivery. For feature pages, use `UIDynamicElement`, `UIElement`, `UIText`, `UIAttribute`, `UIStyle`, `UIControlEvent`, `UIDynamicAction`, and `UIControlDirective` instead.
+- A page that calls backend data from `scriptContent` with `this.c8o.callJson(...)` is not palette-first. Move the backend call to a button/page event containing `UIDynamicAction#CallSequenceAction` and pass variables with `UIControlVariable`.
+- A page that calls backend data from `scriptContent` with `this.c8o.callJsonObject(...).async()` has the same failure mode and is also non-compliant. The page may contain small local helper methods, but backend execution belongs in the NGX action chain.
+- Use generic `Div`, `Tag`, or other low-level HTML palette entries only as a last resort when no specific Ionic / Angular palette component exists for the need. Plain HTML containers such as `section`, `div`, `p`, `h1`, or `span` are acceptable for layout and copy; Ionic controls such as cards, inputs, lists, labels, buttons, progress bars, select controls, and items must use their `UIDynamicElement#...` palette entries when available.
+- Keep UI structure visible in the tree: page layout, loading, empty, error, retry, forms, and action paths must be modeled with palette objects whenever possible.
+- If a needed component seems missing, call `palette-list` / `palette-describe` on the intended parent before falling back to lower-level HTML nodes.
+- Do not put business logic, filtering, mapping, set-difference computation, or complex Angular expressions in Convertigo pages. Pages should bind to backend-prepared fields with simple property paths or simple method-free expressions.
+- Prepare filtered lists, candidate lists, relation summaries, and other view models in backend facade sequences. The NGX page should consume those prepared fields directly, especially for `ForEach` sources and select options.
+- Apply CSS classes through the palette `Attribute` object with `attrName=class`; do not use inline `style` attributes for normal styling.
+- Put additional global CSS in a new dedicated `UIStyle` object under the NGX app, with a clear name for the feature or concern. Do not append unrelated feature CSS to an existing generic `Style` object.
+- Keep page-specific layout CSS in a page-level `UIStyle` only when it belongs only to that page; reusable classes and cross-page styling belong in their own app-level `UIStyle` object.
+- Prefer stable class names such as `admin-list-item` applied through `Attribute` objects over broad selectors that affect every Ionic component of the same type.
+- If a temporary inline style was used while probing a layout, remove it before completion and replace it with a palette `Attribute` class plus a dedicated `UIStyle` rule.
 
 ## NGX mental model
 
@@ -53,6 +80,12 @@ For a data-backed page, you usually need:
 - one action stack
 - one `CallSequenceAction` or `CallFullSync` path
 - UI state updates around success/error/empty cases
+
+Hard rule for server-backed data:
+- External HTTP/SQL/service data must flow through Convertigo backend objects first: connector or source object, requestable transaction/sequence, then a stable public facade sequence.
+- The NGX page must call that facade with the palette `UIDynamicAction#CallSequenceAction`.
+- Do not use browser `fetch`, ad hoc HTTP clients, or direct `this.c8o.callJson()` from page TypeScript/custom actions for normal data loading when a `CallSequenceAction` can express the call.
+- Do not place the backend call inside a freeform wrapper merely to avoid modeling the action stack.
 
 ### Retry path
 Retry must be a real action path:
@@ -111,6 +144,59 @@ Use `CallFullSyncAction` when:
 
 Do not hide these calls inside arbitrary custom wrappers when a normal action stack already expresses the flow clearly.
 
+Canonical searchable data chain:
+1. input control uses `UIDynamicElement#Input` with a deliberate binding for the query value
+2. submit button uses `UIDynamicElement#Button`
+3. button event contains `UIDynamicAction#CallSequenceAction` targeting the public facade sequence
+4. query variables are modeled as `UIControlVariable` children of the call action
+5. result lists/details bind from the call output or stable facade source using `SC` whenever possible
+6. `UICustomAction` is allowed only for true local side effects, not as the primary transport or response mapper when source bindings can consume the action output
+
+### HTTP search page pattern
+For a search app backed by an HTTP/open-data API, use this shape:
+- Backend: `HttpConnector` -> typed `JsonHttpTransaction` -> public facade `GenericSequence`.
+- UI search input: `UIDynamicElement#Input`; bind its Binding/`DoubleBinding` property to a page local such as `?.searchQuery` with `SC`/source mode on `Local`. Do not use `ionChange`/`InputChange` plus `SetLocalAction` only to copy the typed value.
+- Page-local UI state must live in Convertigo locals, not in TypeScript page fields. Do not declare `searchQuery`, `results`, `loading`, `error`, or similar state in `Begin_c8o_PageDeclaration`.
+- Add a page-enter `UIPageEvent` that initializes every local used by Local SmartSources or `SetLocalAction` with `SetLocalAction` before first render/user interaction. In current NGX trees the default `viewEvent` is `onDidEnter`, which satisfies this page-enter initialization rule. A search page normally initializes `searchQuery`, `loading`, `error`, `errorMessage`, `empty`, and `results`.
+- Widgets/directives that read page-local UI state must use SmartSource/source mode on `Local`, for example `source:{"filter":"Local",...}`. Do not bind that state with `script:searchQuery`, `script:page.searchQuery`, `script:this.local?...`, or `plain:loading`.
+- If `palette-describe` for `SetLocalAction` suggests reading back the value with `this.local?.myProperty` in TS mode, treat that as generic palette documentation and override it for data pages. This guide requires Local SmartSource reads.
+- Tree-apply local read shape:
+
+```json
+{
+  "mode": "SOURCE",
+  "value": "{\"filter\":\"Local\",\"project\":\"SkillFranceCity\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.results?.items\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"
+}
+```
+
+- Use that shape for `UIControlVariable.varValue`, `UIControlDirective.directiveSource`, `UIText.textValue`, and dynamic component properties whenever the value comes from `SetLocalAction`.
+- Keep Local SmartSource `prefix` and `suffix` empty. For visible text such as `Ville:` or `Population:`, use separate static `UIText`/`Label` objects around the bound value. Affixes on Local SmartSources can generate invalid Angular interpolation.
+- UI submit: `UIDynamicElement#Button` -> `UIControlEvent`.
+- Pre-call state changes use `SetLocalAction` nodes for `loading`, `error`, `empty`, and related flags. A small `UICustomAction` may only handle validation or normalization that palette actions cannot express.
+- Backend call: `UIDynamicAction#CallSequenceAction` under that event, with `requestable` set to `<Project>.<facadeSequence>`.
+- Query handoff: `UIControlVariable` under the call action, with `varValue` sourced from the local `searchQuery` via SmartSource/source mode when possible.
+- If the query does not reach the sequence during browser smoke, do not switch the variable to `script:document.querySelector(...)` and do not add an input event that copies the DOM value. Keep the input `DoubleBinding` and the `UIControlVariable.varValue` on the same Local SmartSource `?.searchQuery`, then fix the source binding shape until tree readback shows `source:{"filter":"Local",...,"path":"?.searchQuery"}` in both places.
+- Scope note: visible template/component bindings do not expose a `page` object. For state that belongs to the page, prefer Local SmartSource bindings over TypeScript component fields.
+- Exact tree-apply shape for the handoff: create `ngx.components.UIControlVariable#UIControlVariable` as a child of the `CallSequenceAction`; set its object `name` to the facade variable name such as `nom`, and set only `varValue` plus `comment`. Do not set a separate `varName` property; on current trees the variable name is the object name and `varName` may be skipped.
+- If `palette-describe` is unavailable or fails for common NGX primitives, use `palette-list` plus this canonical shape instead of abandoning the palette path. Always confirm with `databaseobject-tree-get` that the child exists as `...vr:<variableName>` and that `varValue` is in `SCRIPT`, `SOURCE`, or deliberate plain mode.
+- Failure handling: `UIActionFailureEvent` maps the action failure into page error state.
+- Success handling: prefer binding visible results from the action/facade source. Use a small `UICustomAction` after the call only when the facade still returns an awkward legacy shape that cannot be bound directly.
+
+The reference shape to emulate is:
+`Button` -> `UIControlEvent` -> optional `UICustomAction` for local validation -> `CallSequenceAction` -> `UIControlVariable`.
+
+The following shapes are non-compliant for normal HTTP search pages:
+- `scriptContent` method calls `this.c8o.callJson(...)`
+- `scriptContent` method calls `this.c8o.callJsonObject(...).async()`
+- `Begin_c8o_PageDeclaration` declares feature state such as `searchQuery`, `cityResults`, `cityTotal`, `cityLoading`, `cityError`, or `citySearched`
+- page locals are not initialized in a page-enter `UIPageEvent` with `SetLocalAction` before being read by widgets/directives
+- the search input is raw template markup with `[(ngModel)]="searchQuery"` or `[value]="searchQuery"` instead of a palette Input Binding/`DoubleBinding` sourced from Local `?.searchQuery`
+- a `UIControlVariable` for `query`, `nom`, or another search parameter reads from `document.querySelector(...)`, `event.detail.value`, or another DOM/event script instead of the Local `?.searchQuery` SmartSource
+- a custom action writes `page.local.*` or `this.local.*` directly instead of letting `SetLocalAction` own page-local state
+- one `UICustom` / `htmlTemplate` contains the input, labels, loading notes, empty/error notes, button, list, or Angular directives, even if the `CallSequenceAction` is a child of that fragment
+- raw `*ngFor` / `*ngIf` are embedded in a fragment instead of modeled with palette directives or components
+- backend URL or HTTP transport appears anywhere in the NGX page
+
 ## Data mapping with SmartTypes and picker
 
 ### Binding modes must be intentional
@@ -140,6 +226,11 @@ Rule of thumb:
 - `TS` for small local computation
 - `SC` for data already present in the current action/page context
 
+Priority rule:
+- Prefer `SC` over `TS` when sourcing data from `CallSequenceAction` output, a facade sequence source, a previous action output, an iterator item, a form control, or global/page context that the picker can address.
+- Use `TS` only when the value is not directly sourceable or when a small local expression is genuinely clearer than the picker path.
+- Do not copy a full sequence response into page TypeScript state just so the template can iterate it. Bind list/detail components directly to the facade/action source with `SC` whenever the source can be expressed in the tree.
+
 ### Contract field mapping
 Bind to stable facade contract fields:
 - `items`
@@ -164,6 +255,40 @@ Prefer:
 Why this matters:
 - the current MCP surface is simpler than Studio's picker UI
 - the guide must compensate by telling the agent when picker-backed sources are safer than handwritten expressions
+
+### Structural directives and scope
+Use palette structural directives for Angular structural behavior:
+- Use `UIControlDirective#UIControlDirective` with `directiveName=ForEach` for repeated UI.
+- Use `directiveItemName` and `directiveIndexName` so Convertigo owns the generated scope.
+- In action variables under a directive, refer to iterator values through `scope.<directiveItemName>`, not a bare local identifier.
+- In visible text/template expressions rendered inside the repeated subtree, the generated template exposes the item name directly. For `directiveItemName=city`, use `city?.name` in a `UIText` expression, not `scope.city?.name`.
+- For conditional UI, make the `UIControlDirective` with `directiveName=If` the wrapper/parent of the element it controls. The controlled component should be a child of the directive, not the other way around.
+- Do not add raw `*ngFor`, `*ngIf`, or similar Angular structural directives as generic attributes when the palette directive/control object exists.
+- If repeated results feel hard to model, build a simple non-repeated palette shell first and bind one count or first item; do not fall back to a raw `*ngFor` fragment to finish the screen.
+
+Why this matters:
+- Raw structural attributes can generate template output that looks plausible but leave action variables outside the generated TypeScript scope.
+- A common broken shape is `vars:{city: city}` in the generated action method. The correct palette-backed shape passes the iterator through the event scope, for example `vars:{city: scope.city}`.
+- A common visible-text bug is using `scope.city` in generated template bindings under the repeated row; for display-only expressions, use the directive item name directly, for example `city`.
+- A common conditional-state bug is placing `IfLoading` or `IfError` under the progress bar or note; the wrapper directive must own the conditional subtree.
+
+### Angular property bindings
+Angular property bindings must use the correct SmartType mode:
+- Binding attributes such as `[value]`, `[disabled]`, `[selectedText]`, `[interface]`, or similar dynamic Angular inputs should use `SC` when sourceable and `TS` for short local expressions.
+- When binding to page-local fields in the generated template, the expression should be the component field itself, for example `searchQuery`, `loading`, or `errorMessage`; do not prefix it with `page.`.
+- Do not set Angular property bindings in `TX`/plain mode unless the desired runtime value is truly a string literal.
+- Watch for generated output like `[value]="'searchQuery'"`, `disabled="{{loading}}"`, or `value="{{page.searchQuery}}"`; these are signs that the source object used the wrong binding mode, property, or scope.
+- Prefer the component's palette property when it models the dynamic input correctly; otherwise add a palette `UIAttribute` with the Angular binding name and an intentional `SC` or `TS` value.
+
+### Custom action output handling
+Prefer direct source bindings over response-copying code. If a small `UICustomAction` is truly needed immediately after a `CallSequenceAction`, use the generated action parameters:
+- `props.parent.out` is the parent `CallSequenceAction` output in current generated custom action functions
+- `vars` contains variables local to the custom action
+- never reference bare `out`, bare `parent`, `parent.out`, or `stack`; they are not in scope as top-level variables in generated custom action code
+- do not assign `page.local.*` from custom code; return/resolve normalized data and use palette `SetLocalAction` nodes to update local state
+- do not use browser globals such as `parent` or `parent.out`; in generated page code, `parent` resolves to `Window` and will fail TypeScript checks
+- do not assume a `stack` variable exists inside the custom action body unless generated diagnostics prove it for that exact object
+- if a failure handler needs an error message, read it from `event` defensively, for example `const message = event && event.message ? event.message : 'Erreur pendant la recherche';`
 
 ## Common page pattern for data-backed UX
 

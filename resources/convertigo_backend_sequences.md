@@ -105,6 +105,7 @@ Good practice:
 - map their output back into the stable public response
 - validate the facade, not only the inner call
 - when a facade sequence wraps a `CallTransaction`, keep the `TransactionStep` as an internal source (`output=false`) and make the shaping step such as `XMLCopyStep` or JSON steps own the public payload (`output=true`)
+- if MCP/source-picker friction makes the shaping step hard to author, stop with a documented gap or create a minimal explicit copy/JSON shape; do not silently ship a facade whose public contract is only the raw connector subtree
 
 ### Output semantics on facade helpers
 `output` controls what leaves the sequence result tree. It does **not** control whether another step can source the data.
