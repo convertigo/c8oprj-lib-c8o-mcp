@@ -1,5 +1,6 @@
 accessibility: Private
 comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
+responseTimeout: 300
 ↓Init [steps.SimpleStep-1761755111960]: 
   comment: Parse JSON-RPC request and select target sequence
   expression: |

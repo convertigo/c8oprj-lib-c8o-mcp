@@ -2,6 +2,7 @@ accessibility: Private
 comment: |
   List No Code Baserow catalog
   Authenticates with the No Code Studio token, then delegates Baserow discovery to lib_BaseRow.formscommon_ApplicationsList. Returns the workspaces, bases, and tables accessible to the authenticated No Code user.
+responseTimeout: 300
 ↓Run [steps.SimpleStep-1780200000001]: 
   expression: |
     'include("js/nocode_baserow.js");

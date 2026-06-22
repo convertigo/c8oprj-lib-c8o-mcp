@@ -2,6 +2,7 @@ accessibility: Private
 comment: |
   Apply a No Code Baserow schema
   Authenticates with the No Code Studio token, then plans or applies workspace/base/table/field/link/lookup/view/sample-row changes through lib_BaseRow requestables and its Baserow connector.
+responseTimeout: 300
 ↓Run [steps.SimpleStep-1780481728024]: 
   expression: |
     'include("js/nocode_baserow.js");
