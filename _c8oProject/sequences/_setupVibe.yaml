@@ -1,0 +1,34 @@
+accessibility: Private
+comment: |
+  Setup local Mistral Vibe onboarding for this MCP project
+  Generates or updates the convertigo-vibe-generalist skill, AGENTS.md, and config.toml under a target VIBE_HOME.
+↓IncludeHelpers [steps.SimpleStep-1782030194227]: 
+  comment: Load the local Vibe setup helper.
+  expression: include("js/setup_vibe.js");
+↓result [steps.JsonToXmlStep-1782030194229]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: setupVibeResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓vibeHome [variables.RequestableVariable-1782030194231]: 
+  comment: Optional Vibe home directory. Defaults to ~/.vibe on the local Studio machine.
+  description: Optional Vibe home directory. Defaults to ~/.vibe on the local Studio machine.
+↓mcpUrl [variables.RequestableVariable-1782030194233]: 
+  comment: Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+  description: Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+↓dryRun [variables.RequestableVariable-1782030194235]: 
+  comment: Set true to preview the generated skill, AGENTS.md, and config patch without writing files.
+  description: Set true to preview the generated skill, AGENTS.md, and config patch without writing files.
+  value: false
+↓replaceConfig [variables.RequestableVariable-1782030194237]: 
+  comment: Set true to replace config.toml with a deterministic isolated Vibe harness config. Leave false for personal Vibe homes.
+  description: Set true to replace config.toml with a deterministic isolated Vibe harness config. Leave false for personal Vibe homes.
+  value: false

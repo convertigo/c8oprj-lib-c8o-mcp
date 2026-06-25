@@ -107,6 +107,91 @@ comment: |
         executionLogsPayload = collectedLogs;
       }
     }'
+↓CaptureRequestableResponse [steps.SourceStep-1782106259080]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1763056061207
+        - java.lang.String: 
+          - ↑value: ./*/document
+  variableName: requestableResponse
+↓BuildCompactResult [steps.SimpleStep-1782106259389]: 
+  comment: Build a compact requestable-execute response for MCP clients.
+  expression: |
+    'var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+    function _node(value) {
+      if (value && typeof value.item === "function") {
+        value = value.item(0);
+      }
+      if (value && value.getNodeType && value.getNodeType() === 9 && value.getDocumentElement) {
+        value = value.getDocumentElement();
+      }
+      return value;
+    }
+    function _json(value) {
+      try {
+        var node = _node(value);
+        if (!node) {
+          return {};
+        }
+        return JSON.parse(String(XMLUtils.XmlToJson(node, true, true)));
+      } catch (e) {
+        return { error: { message: String(e) } };
+      }
+    }
+    function _shallowCopy(obj) {
+      var out = {};
+      if (!obj || typeof obj !== "object") {
+        return out;
+      }
+      var keys = Object.keys(obj);
+      for (var i = 0; i < keys.length; i++) {
+        out[keys[i]] = obj[keys[i]];
+      }
+      return out;
+    }
+    function _compactPayload(payload) {
+      var source = payload && payload.document ? payload.document : payload;
+      var out = {
+        requestable: executionPlan ? executionPlan.requestable : "",
+        status: "ok",
+        truncated: false
+      };
+      if (!source || typeof source !== "object") {
+        out.payload = source == null ? {} : source;
+        return out;
+      }
+      if (source.error) {
+        out.status = "error";
+        out.error = source.error;
+        return out;
+      }
+      var payloadCopy = _shallowCopy(source);
+      var keys = Object.keys(payloadCopy);
+      for (var k = 0; k < keys.length; k++) {
+        var key = keys[k];
+        if (payloadCopy[key] && Object.prototype.toString.call(payloadCopy[key]) === "[object Array]") {
+          out.totalItems = payloadCopy[key].length;
+          if (payloadCopy[key].length > 12) {
+            payloadCopy[key] = payloadCopy[key].slice(0, 12);
+            out.truncated = true;
+            out.truncatedField = key;
+          }
+        }
+      }
+      var jsonText = JSON.stringify(payloadCopy);
+      if (jsonText.length > 24000) {
+        out.payloadPreview = jsonText.substring(0, 24000);
+        out.payloadBytes = jsonText.length;
+        out.truncated = true;
+        return out;
+      }
+      out.payload = payloadCopy;
+      return out;
+    }
+    requestableExecutionResult = _compactPayload(_json(requestableResponse));'
 ↓result [steps.JsonObjectStep-1763066359376]: 
   key: 
     - xmlizable: 
@@ -114,15 +199,6 @@ comment: |
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-  ↓CopyPayload [steps.XMLCopyStep-1763057084997]: 
-    sourceDefinition: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
-        - com.twinsoft.convertigo.beans.common.XMLVector: 
-          - java.lang.String: 
-            - ↑value: 1763056061207
-          - java.lang.String: 
-            - ↑value: ./*/document/*
   ↓IfIncludeLogs [steps.IfStep-1772727101001]: 
     condition: executionPlan && executionPlan.includeLogs === true
     ↓logs [steps.JsonToXmlStep-1772727101002]: 
@@ -138,6 +214,19 @@ comment: |
           - SmartType: 
             - ↑mode: PLAIN
             - →→: logs
+  ↓response [steps.JsonToXmlStep-1782106259677]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: requestableExecutionResult
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: result
 ↓jIf [steps.IfStep-1763979594981]: 
   condition: recordSchema == "true"
   ↓response [steps.SourceStep-1763979641976]: 

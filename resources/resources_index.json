@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 14,
+    "revision": 15,
     "scopeTags": [
       "start",
       "onboarding",
@@ -70,6 +70,38 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-vibe-start",
+    "name": "Convertigo Vibe Start",
+    "title": "Convertigo Vibe Start",
+    "description": "Mistral Vibe adapter guide for isolated Convertigo MCP work.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_vibe_start.md",
+    "guideId": "convertigo/vibe-start",
+    "revision": 27,
+    "scopeTags": [
+      "start",
+      "vibe",
+      "adapter",
+      "mcp",
+      "headless"
+    ],
+    "prerequisites": [
+      "convertigo/start@15"
+    ],
+    "recommendedTools": [
+      "requestable-execute",
+      "project-list",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-vibe-quickstart"
+    ],
+    "guidanceLevel": "start",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
     "name": "Convertigo CRUD Edit Fast Path",
     "title": "Convertigo CRUD Edit Fast Path",
@@ -114,7 +146,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_platform_big_picture.md",
     "guideId": "convertigo/platform-big-picture",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "start",
       "platform",
@@ -264,7 +296,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_starter_extension.md",
     "guideId": "convertigo/recipe-starter-extension",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -380,7 +412,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_http_facade.md",
     "guideId": "convertigo/recipe-http-facade",
-    "revision": 3,
+    "revision": 12,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -451,7 +483,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_sql_crud.md",
     "guideId": "convertigo/recipe-sql-crud",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -729,7 +761,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_ngx_data_page.md",
     "guideId": "convertigo/recipe-ngx-data-page",
-    "revision": 19,
+    "revision": 41,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -815,7 +847,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 16,
+    "revision": 20,
     "scopeTags": [
       "domain",
       "frontend",

@@ -55,7 +55,7 @@
     "title": "Convertigo CRUD Fast Path",
     "description": "Recommended mono-agent rail for deterministic SQL CRUD plus starter NGX UI work.",
     "promptId": "convertigo/crud-fastpath",
-    "revision": 1,
+    "revision": 2,
     "roleId": "crud-fastpath",
     "modelProfile": "balanced",
     "scopeTags": [
@@ -90,6 +90,47 @@
       "actions",
       "proof",
       "route",
+      "mcpCritique"
+    ],
+    "mutatesProject": true
+  },
+  {
+    "name": "convertigo-vibe-quickstart",
+    "file": "convertigo_vibe_quickstart.md",
+    "title": "Convertigo Vibe Quickstart",
+    "description": "Bootstrap Mistral Vibe for isolated Convertigo MCP work.",
+    "promptId": "convertigo/vibe-quickstart",
+    "revision": 4,
+    "roleId": "vibe-bootstrap",
+    "modelProfile": "balanced",
+    "scopeTags": [
+      "bootstrap",
+      "vibe",
+      "mcp",
+      "headless"
+    ],
+    "guideIds": [
+      "convertigo/start@15",
+      "convertigo/vibe-start@1"
+    ],
+    "recommendedTools": [
+      "project-list",
+      "requestable-execute",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "project-save"
+    ],
+    "handoffTo": [
+      "convertigo/quickstart@6"
+    ],
+    "outputContract": [
+      "selectedGuides",
+      "mcpBootstrap",
+      "chosenRecipe",
+      "actions",
+      "proof",
+      "residualRisks",
       "mcpCritique"
     ],
     "mutatesProject": true

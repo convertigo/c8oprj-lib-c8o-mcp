@@ -12,7 +12,7 @@ Read this when implementing or changing NGX pages, bindings, actions, route logi
 ## Read this after the recipe
 If the task is a classic data-backed page, read `convertigo/recipe-ngx-data-page@19` first. Use this handbook when the page needs deeper NGX structure, action chaining, runtime proof, or event semantics beyond the recipe.
 
-For starter-based apps that display backend, HTTP, SQL, FullSync, or open-data results, this handbook is not the entry point. Stop before any page mutation unless `convertigo://resources/convertigo-recipe-ngx-data-page` has already been read in the current session.
+For starter-based apps that display backend, HTTP web-service, SQL, or FullSync results, this handbook is not the entry point. Stop before any page mutation unless `convertigo://resources/convertigo-recipe-ngx-data-page` has already been read in the current session.
 
 For data-backed pages, run the recipe's final tree-readback self-audit before any final response. If the readback shows a primary `UICustom`/`htmlTemplate` renderer, TypeScript page state, or direct `this.c8o.callJson*` transport, the page is still non-compliant even when the mobile builder is ready.
 
@@ -153,7 +153,7 @@ Canonical searchable data chain:
 6. `UICustomAction` is allowed only for true local side effects, not as the primary transport or response mapper when source bindings can consume the action output
 
 ### HTTP search page pattern
-For a search app backed by an HTTP/open-data API, use this shape:
+For a search app backed by an HTTP web service, use this shape. Open data APIs are just one example:
 - Backend: `HttpConnector` -> typed `JsonHttpTransaction` -> public facade `GenericSequence`.
 - UI search input: `UIDynamicElement#Input`; bind its Binding/`DoubleBinding` property to a page local such as `?.searchQuery` with `SC`/source mode on `Local`. Do not use `ionChange`/`InputChange` plus `SetLocalAction` only to copy the typed value.
 - Page-local UI state must live in Convertigo locals, not in TypeScript page fields. Do not declare `searchQuery`, `results`, `loading`, `error`, or similar state in `Begin_c8o_PageDeclaration`.
@@ -165,19 +165,28 @@ For a search app backed by an HTTP/open-data API, use this shape:
 ```json
 {
   "mode": "SOURCE",
-  "value": "{\"filter\":\"Local\",\"project\":\"SkillFranceCity\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.results?.items\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"
+  "value": "{\"filter\":\"Local\",\"project\":\"<ProjectName>\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.results?.items\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"
 }
 ```
 
 - Use that shape for `UIControlVariable.varValue`, `UIControlDirective.directiveSource`, `UIText.textValue`, and dynamic component properties whenever the value comes from `SetLocalAction`.
-- Keep Local SmartSource `prefix` and `suffix` empty. For visible text such as `Ville:` or `Population:`, use separate static `UIText`/`Label` objects around the bound value. Affixes on Local SmartSources can generate invalid Angular interpolation.
+- For input query binding, the same shape is known to apply cleanly as `DoubleBinding` when `path` is `?.searchQuery`. Do not stop at an "escaping is tricky" explanation and do not replace it with `ionChange`; apply the compact `SOURCE` value and read back the object.
+- For button handoff, a known-good minimal chain is `UIControlEvent#UIControlEvent(eventName:onClick)` -> `UIDynamicAction#SetLocalAction(Property:loading)` -> `UIDynamicAction#CallSequenceAction(requestable: plain:<Project>.<facade>)` -> `UIControlVariable#UIControlVariable(name:<facadeVar>, varValue:<Local SOURCE ?.searchQuery>)`.
+- Keep Local SmartSource `prefix` and `suffix` empty. For visible labels, use separate static `UIText`/`Label` objects around the bound value. Affixes on Local SmartSources can generate invalid Angular interpolation.
+- Do not stop after storing the backend result in a local. Build a visible result surface that reads local result state with SmartSource/source mode, such as a `ForEach.directiveSource` on `?.results?.items`, a counter bound to `?.results?.total`, or detail text bound to one selected/result item.
+- The facade must already expose the application fields the UI stores or binds. Do not make the NGX page parse raw `TransactionStep` internals as the final data contract; browser action output can expose only `HttpInfo`, `attr`, or other diagnostics even when backend `requestable-execute` displayed richer raw transaction data. If that happens, repair the facade contract first.
+- Treat any final page action script containing `out.transaction`, `out?.transaction`, `response?.transaction`, or `transaction.document` as non-compliant for HTTP-backed data pages. Those paths are diagnostics from the transport layer, not the page contract.
+- Result rows/details must expose real domain fields from the facade contract, including at least one recognizable label/name field and one useful differentiator when available.
+- Labels and component body text usually belong in `ngx.components.UIText#UIText` children. If `textValue` is skipped on a `UIDynamicElement#Button`, `UIDynamicElement#Paragraph`, heading, card, or similar component, add a `UIText` child instead of retrying the skipped property.
 - UI submit: `UIDynamicElement#Button` -> `UIControlEvent`.
 - Pre-call state changes use `SetLocalAction` nodes for `loading`, `error`, `empty`, and related flags. A small `UICustomAction` may only handle validation or normalization that palette actions cannot express.
 - Backend call: `UIDynamicAction#CallSequenceAction` under that event, with `requestable` set to `<Project>.<facadeSequence>`.
 - Query handoff: `UIControlVariable` under the call action, with `varValue` sourced from the local `searchQuery` via SmartSource/source mode when possible.
 - If the query does not reach the sequence during browser smoke, do not switch the variable to `script:document.querySelector(...)` and do not add an input event that copies the DOM value. Keep the input `DoubleBinding` and the `UIControlVariable.varValue` on the same Local SmartSource `?.searchQuery`, then fix the source binding shape until tree readback shows `source:{"filter":"Local",...,"path":"?.searchQuery"}` in both places.
 - Scope note: visible template/component bindings do not expose a `page` object. For state that belongs to the page, prefer Local SmartSource bindings over TypeScript component fields.
-- Exact tree-apply shape for the handoff: create `ngx.components.UIControlVariable#UIControlVariable` as a child of the `CallSequenceAction`; set its object `name` to the facade variable name such as `nom`, and set only `varValue` plus `comment`. Do not set a separate `varName` property; on current trees the variable name is the object name and `varName` may be skipped.
+- Exact tree-apply shape for the handoff: create `ngx.components.UIControlVariable#UIControlVariable` as a child of the `CallSequenceAction`; set its object `name` to the facade variable name such as `query`, and set only `varValue` plus `comment`. Do not set a separate `varName` property; on current trees the variable name is the object name and `varName` may be skipped.
+- Exact call-action property: set `CallSequenceAction.requestable` to the facade requestable, for example `plain:<ProjectName>.<FacadeSequence>`. Do not set a property named `Sequence`; current tree readback leaves `requestable` empty when `Sequence` is used.
+- Exact variable placement: `UIControlVariable` must be nested under the `CallSequenceAction`, not beside it under the `UIControlEvent`.
 - If `palette-describe` is unavailable or fails for common NGX primitives, use `palette-list` plus this canonical shape instead of abandoning the palette path. Always confirm with `databaseobject-tree-get` that the child exists as `...vr:<variableName>` and that `varValue` is in `SCRIPT`, `SOURCE`, or deliberate plain mode.
 - Failure handling: `UIActionFailureEvent` maps the action failure into page error state.
 - Success handling: prefer binding visible results from the action/facade source. Use a small `UICustomAction` after the call only when the facade still returns an awkward legacy shape that cannot be bound directly.
@@ -188,11 +197,16 @@ The reference shape to emulate is:
 The following shapes are non-compliant for normal HTTP search pages:
 - `scriptContent` method calls `this.c8o.callJson(...)`
 - `scriptContent` method calls `this.c8o.callJsonObject(...).async()`
-- `Begin_c8o_PageDeclaration` declares feature state such as `searchQuery`, `cityResults`, `cityTotal`, `cityLoading`, `cityError`, or `citySearched`
+- `Begin_c8o_PageDeclaration` declares feature state such as `searchQuery`, `results`, `total`, `loading`, `error`, or `searched`
 - page locals are not initialized in a page-enter `UIPageEvent` with `SetLocalAction` before being read by widgets/directives
 - the search input is raw template markup with `[(ngModel)]="searchQuery"` or `[value]="searchQuery"` instead of a palette Input Binding/`DoubleBinding` sourced from Local `?.searchQuery`
-- a `UIControlVariable` for `query`, `nom`, or another search parameter reads from `document.querySelector(...)`, `event.detail.value`, or another DOM/event script instead of the Local `?.searchQuery` SmartSource
+- a `UIControlVariable` for `query` or another search/filter parameter reads from `document.querySelector(...)`, `event.detail.value`, or another DOM/event script instead of the Local `?.searchQuery` SmartSource
+- a `UIControlVariable` for `query` or another search/filter parameter reads from `script:this.local?.searchQuery` instead of the Local `?.searchQuery` SmartSource
+- a `CallSequenceAction` has an empty `requestable` because the tree mutation used `Sequence` instead of `requestable`
+- a `UIControlVariable` is a sibling of `CallSequenceAction` rather than a child of it
 - a custom action writes `page.local.*` or `this.local.*` directly instead of letting `SetLocalAction` own page-local state
+- the page writes `results` but has no visible Local SmartSource/source read of `?.results`, no result row/detail fields, or only an empty/generic result placeholder
+- the page writes `results` by guessing over raw `out.transaction.document` while the facade has no shaped `items`/record contract for the page to consume
 - one `UICustom` / `htmlTemplate` contains the input, labels, loading notes, empty/error notes, button, list, or Angular directives, even if the `CallSequenceAction` is a child of that fragment
 - raw `*ngFor` / `*ngIf` are embedded in a fragment instead of modeled with palette directives or components
 - backend URL or HTTP transport appears anywhere in the NGX page
@@ -261,15 +275,16 @@ Use palette structural directives for Angular structural behavior:
 - Use `UIControlDirective#UIControlDirective` with `directiveName=ForEach` for repeated UI.
 - Use `directiveItemName` and `directiveIndexName` so Convertigo owns the generated scope.
 - In action variables under a directive, refer to iterator values through `scope.<directiveItemName>`, not a bare local identifier.
-- In visible text/template expressions rendered inside the repeated subtree, the generated template exposes the item name directly. For `directiveItemName=city`, use `city?.name` in a `UIText` expression, not `scope.city?.name`.
+- In visible text/template expressions rendered inside the repeated subtree, the generated template exposes the item name directly. For `directiveItemName=record`, use `record?.name` in a `UIText` expression, not `scope.record?.name`.
+- Do not bind iterator fields through the Local SmartSource filter. A `UIText` Local source path such as `record.name` is treated as a page-local path and generates invalid template variables. For visible row text, use a plain template expression such as `{{ record.name }}` or another field from the facade contract. Keep Local SmartSource/source mode for the repeated collection itself, for example `?.results?.items`.
 - For conditional UI, make the `UIControlDirective` with `directiveName=If` the wrapper/parent of the element it controls. The controlled component should be a child of the directive, not the other way around.
 - Do not add raw `*ngFor`, `*ngIf`, or similar Angular structural directives as generic attributes when the palette directive/control object exists.
 - If repeated results feel hard to model, build a simple non-repeated palette shell first and bind one count or first item; do not fall back to a raw `*ngFor` fragment to finish the screen.
 
 Why this matters:
 - Raw structural attributes can generate template output that looks plausible but leave action variables outside the generated TypeScript scope.
-- A common broken shape is `vars:{city: city}` in the generated action method. The correct palette-backed shape passes the iterator through the event scope, for example `vars:{city: scope.city}`.
-- A common visible-text bug is using `scope.city` in generated template bindings under the repeated row; for display-only expressions, use the directive item name directly, for example `city`.
+- A common broken shape is `vars:{record: record}` in the generated action method. The correct palette-backed shape passes the iterator through the event scope, for example `vars:{record: scope.record}`.
+- A common visible-text bug is using `scope.record` in generated template bindings under the repeated row; for display-only expressions, use the directive item name directly, for example `record`.
 - A common conditional-state bug is placing `IfLoading` or `IfError` under the progress bar or note; the wrapper directive must own the conditional subtree.
 
 ### Angular property bindings
@@ -282,7 +297,9 @@ Angular property bindings must use the correct SmartType mode:
 
 ### Custom action output handling
 Prefer direct source bindings over response-copying code. If a small `UICustomAction` is truly needed immediately after a `CallSequenceAction`, use the generated action parameters:
+- Actions that depend on the call response must be children of the `CallSequenceAction` or children of a normalizer under that call. Do not place `SetLocalAction(Value=script:out)` as a sibling of the call under the same click/page event; sibling actions are generated in a parallel `Promise.all` block and do not receive the call response.
 - `props.parent.out` is the parent `CallSequenceAction` output in current generated custom action functions
+- If the parent output lacks the application records and contains only transport diagnostics, stop normalizing in the page. The facade is incomplete; add explicit shaping there and prove it before returning to the UI.
 - `vars` contains variables local to the custom action
 - never reference bare `out`, bare `parent`, `parent.out`, or `stack`; they are not in scope as top-level variables in generated custom action code
 - do not assign `page.local.*` from custom code; return/resolve normalized data and use palette `SetLocalAction` nodes to update local state

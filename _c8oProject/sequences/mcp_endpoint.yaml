@@ -221,6 +221,90 @@ responseTimeout: 300
               - ↑value: 1761755111966
             - java.lang.String: 
               - ↑value: ./document/error
+      ↓ToolCallErrorResult [steps.IfStep-1782105694321]: 
+        condition: methodName === "tools/call"
+        ↓toolError [steps.JsonSourceStep-1782105694327]: 
+          sourceDefinition: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+              - com.twinsoft.convertigo.beans.common.XMLVector: 
+                - java.lang.String: 
+                  - ↑value: 1761755111966
+                - java.lang.String: 
+                  - ↑value: ./document/error
+          variableName: toolError
+        ↓result [steps.JsonObjectStep-1782105694329]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: result
+          ↓isError [steps.JsonFieldStep-1782105694331]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: isError
+            type: bool
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: true
+          ↓content [steps.JsonArrayStep-1782105694333]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: content
+            ↓object [steps.JsonObjectStep-1782105694335]: 
+              ↓type [steps.JsonFieldStep-1782105694337]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: type
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: text
+              ↓text [steps.JsonFieldStep-1782105694339]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: text
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: '(function (err) { err = err && err.error ? err.error : (err || {}); return JSON.stringify({ code: err.code || "", message: err.message || "Tool call failed", details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} }); })(toolError)'
+          ↓structuredContent [steps.JsonObjectStep-1782105694341]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: structuredContent
+            ↓CopyError [steps.XMLCopyStep-1782105694343]: 
+              sourceDefinition: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+                  - com.twinsoft.convertigo.beans.common.XMLVector: 
+                    - java.lang.String: 
+                      - ↑value: 1761755111966
+                    - java.lang.String: 
+                      - ↑value: ./document/error
+        ↓ReturnToolError [steps.ReturnStep-1782105694345]: 
       ↓CopyError [steps.XMLCopyStep-1761755111976]: 
         sourceDefinition: 
           - xmlizable: 
@@ -241,6 +325,90 @@ responseTimeout: 300
               - ↑value: 1761755111966
             - java.lang.String: 
               - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
+      ↓ToolCallErrorResult [steps.IfStep-1782105694650]: 
+        condition: methodName === "tools/call"
+        ↓toolError [steps.JsonSourceStep-1782105694652]: 
+          sourceDefinition: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+              - com.twinsoft.convertigo.beans.common.XMLVector: 
+                - java.lang.String: 
+                  - ↑value: 1761755111966
+                - java.lang.String: 
+                  - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
+          variableName: toolError
+        ↓result [steps.JsonObjectStep-1782105694654]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: result
+          ↓isError [steps.JsonFieldStep-1782105694656]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: isError
+            type: bool
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: true
+          ↓content [steps.JsonArrayStep-1782105694658]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: content
+            ↓object [steps.JsonObjectStep-1782105694660]: 
+              ↓type [steps.JsonFieldStep-1782105694662]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: type
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: text
+              ↓text [steps.JsonFieldStep-1782105694664]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: text
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: '(function (err) { err = err && err.error ? err.error : (err || {}); return JSON.stringify({ code: err.code || "", message: err.message || "Tool call failed", details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} }); })(toolError)'
+          ↓structuredContent [steps.JsonObjectStep-1782105694666]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: structuredContent
+            ↓CopyError [steps.XMLCopyStep-1782105694668]: 
+              sourceDefinition: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+                  - com.twinsoft.convertigo.beans.common.XMLVector: 
+                    - java.lang.String: 
+                      - ↑value: 1761755111966
+                    - java.lang.String: 
+                      - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
+        ↓ReturnToolError [steps.ReturnStep-1782105694670]: 
       ↓CopyError [steps.XMLCopyStep-1763564357216]: 
         sourceDefinition: 
           - xmlizable: 

@@ -4,11 +4,11 @@ import json
 import tempfile
 from pathlib import Path
 
-from validate_crud_tools import DEFAULT_MCP_URL, ROOT, call_tool, wait_for_mcp_ready
+from validate_crud_tools import DEFAULT_MCP_URL, call_tool, wait_for_mcp_ready
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Validate the local _setupCodex Studio sequence against temporary Codex homes.")
+    parser = argparse.ArgumentParser(description="Validate the local _setupVibe Studio sequence against temporary Vibe homes.")
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL)
     parser.add_argument("--resolved-mcp-url", default="http://localhost:18080/convertigo/api/mcp")
     return parser.parse_args()
@@ -16,7 +16,7 @@ def parse_args():
 
 def assert_true(condition, message):
     if not condition:
-      raise RuntimeError(message)
+        raise RuntimeError(message)
 
 
 def requestable_execute(mcp_url, requestable, variables):
@@ -54,43 +54,56 @@ def contains_lines(text, expected_lines):
             raise RuntimeError(f"Missing expected line: {line}")
 
 
-def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expected_config_status, resolved_mcp_url):
-    codex_home = Path(codex_home)
-    codex_home.mkdir(parents=True, exist_ok=True)
+def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_status, expected_config_status, resolved_mcp_url):
+    vibe_home = Path(vibe_home)
+    vibe_home.mkdir(parents=True, exist_ok=True)
     if initial_config is not None:
-        (codex_home / "config.toml").write_text(initial_config, encoding="utf-8")
+        (vibe_home / "config.toml").write_text(initial_config, encoding="utf-8")
 
     result = requestable_execute(
         mcp_url,
-        "ConvertigoMCP._setupCodex",
+        "ConvertigoMCP._setupVibe",
         {
-            "codexHome": str(codex_home),
+            "vibeHome": str(vibe_home),
             "mcpUrl": resolved_mcp_url,
+            "replaceConfig": replace_config,
         },
     )
 
     assert_true(result.get("skillStatus") == expected_skill_status, f"Unexpected skillStatus: {result}")
+    assert_true(result.get("agentsStatus") == expected_skill_status, f"Unexpected agentsStatus: {result}")
     assert_true(result.get("configStatus") == expected_config_status, f"Unexpected configStatus: {result}")
     assert_true(result.get("resolvedMcpUrl") == resolved_mcp_url, f"Unexpected resolvedMcpUrl: {result}")
 
     skill_path = Path(result["skillPath"])
-    config_path = codex_home / "config.toml"
+    agents_path = Path(result["agentsPath"])
+    config_path = vibe_home / "config.toml"
     assert_true(skill_path.exists(), f"Skill file missing: {skill_path}")
+    assert_true(agents_path.exists(), f"AGENTS.md missing: {agents_path}")
     assert_true(config_path.exists(), f"Config file missing: {config_path}")
 
     skill_text = load_text(skill_path)
     contains_lines(
         skill_text,
         [
-            "name: convertigo-generalist",
+            "name: convertigo-vibe-generalist",
             "`convertigo://capabilities`",
             "`convertigo://recipes/quickstart`",
             "`convertigo://resources/convertigo-start`",
-            "`convertigo://resources/convertigo-crud-fastpath`",
-            "Do not invent prefixes, suffixes, or dates.",
-            "Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
-            "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
-            "run `marketplace-import` with that exact name",
+            "`convertigo://resources/convertigo-vibe-start`",
+            "`Convertigo_requestable-execute`",
+            "Do not install or modify the Codex `convertigo-generalist` skill from this Vibe adapter.",
+            "stale incompatible properties",
+        ],
+    )
+
+    agents_text = load_text(agents_path)
+    contains_lines(
+        agents_text,
+        [
+            "use the `convertigo-vibe-generalist` skill",
+            "Provide model credentials through the process environment",
+            "`convertigo://resources/convertigo-vibe-start`",
         ],
     )
 
@@ -98,9 +111,14 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
     contains_lines(
         config_text,
         [
-            "[mcp_servers.convertigo]",
+            'enabled_skills = ["convertigo-vibe-generalist"]',
+            "[[mcp_servers]]",
+            'name = "Convertigo"',
             f'url = "{resolved_mcp_url}"',
-            "startup_timeout_sec = 60",
+            "[tools.Convertigo_project-list]",
+            "[tools.Convertigo_requestable-execute]",
+            "[tools.Convertigo_databaseobject-tree-apply]",
+            "[tools.Convertigo_project-save]",
         ],
     )
     return result
@@ -110,50 +128,52 @@ def main():
     args = parse_args()
     wait_for_mcp_ready(args.mcp_url, timeout=90)
 
-    with tempfile.TemporaryDirectory(prefix="setup_codex_") as temp_root:
+    with tempfile.TemporaryDirectory(prefix="setup_vibe_") as temp_root:
         base = Path(temp_root)
 
-        run_case(args.mcp_url, base / "empty", None, "created", "created", args.resolved_mcp_url)
+        run_case(args.mcp_url, base / "empty", None, True, "created", "created", args.resolved_mcp_url)
 
         initial_without_convertigo = "\n".join(
             [
-                'model = "gpt-5.4"',
+                'active_model = "mistral-medium-3.5"',
+                "include_prompt_detail = true",
                 "",
-                "[mcp_servers.github]",
-                'command = "npx"',
+                "[tools.read]",
+                'permission = "always"',
                 "",
             ]
         )
-        run_case(args.mcp_url, base / "append", initial_without_convertigo, "created", "updated", args.resolved_mcp_url)
+        run_case(args.mcp_url, base / "patch", initial_without_convertigo, False, "created", "updated", args.resolved_mcp_url)
 
-        initial_with_convertigo = "\n".join(
+        initial_replace = "\n".join(
             [
-                'model = "gpt-5.4"',
+                'active_model = "custom"',
                 "",
-                "[mcp_servers.convertigo]",
-                'url = "http://localhost:9999/convertigo/api/mcp"',
-                "",
-                "[mcp_servers.github]",
-                'command = "npx"',
+                "[[mcp_servers]]",
+                'name = "Other"',
+                'transport = "http"',
+                'url = "http://127.0.0.1:1234/mcp"',
                 "",
             ]
         )
-        run_case(args.mcp_url, base / "update", initial_with_convertigo, "created", "updated", args.resolved_mcp_url)
+        run_case(args.mcp_url, base / "replace", initial_replace, True, "created", "updated", args.resolved_mcp_url)
 
         stable_home = base / "idempotent"
-        run_case(args.mcp_url, stable_home, None, "created", "created", args.resolved_mcp_url)
+        run_case(args.mcp_url, stable_home, None, True, "created", "created", args.resolved_mcp_url)
         stable_second = requestable_execute(
             args.mcp_url,
-            "ConvertigoMCP._setupCodex",
+            "ConvertigoMCP._setupVibe",
             {
-                "codexHome": str(stable_home),
+                "vibeHome": str(stable_home),
                 "mcpUrl": args.resolved_mcp_url,
+                "replaceConfig": True,
             },
         )
         assert_true(stable_second.get("skillStatus") == "unchanged", f"Second skillStatus should be unchanged: {stable_second}")
+        assert_true(stable_second.get("agentsStatus") == "unchanged", f"Second agentsStatus should be unchanged: {stable_second}")
         assert_true(stable_second.get("configStatus") == "unchanged", f"Second configStatus should be unchanged: {stable_second}")
 
-    print(json.dumps({"status": "ok", "validated": "_setupCodex"}, indent=2))
+    print(json.dumps({"status": "ok", "validated": "_setupVibe"}, indent=2))
 
 
 if __name__ == "__main__":

@@ -26,8 +26,8 @@ Read this first for any MCP session that touches a Convertigo project.
 | SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | Start with the CRUD scaffold recipe, then go deeper on driver and transaction subtleties. |
 | Standard SQL CRUD + starter NGX UI | `convertigo/crud-fastpath@1` | Preferred mono-agent public path for the current recovery cycle. |
 | HTTP-backed feature | `convertigo/recipe-http-facade@1`, then `convertigo/integration-http@1` | Start with the connector and facade recipe, then go deeper on payload, schema, and handler details. |
-| NGX UI task | `convertigo/recipe-ngx-data-page@19`, then `convertigo/frontend-ngx@16` | Start with the canonical data-page pattern, then go deeper on palette, actions, and bindings. |
-| New app or starter-based POC | `convertigo/recipe-starter-extension@2`; if it displays backend/open-data results, also `convertigo/recipe-ngx-data-page@19` before page mutation | Gives the fast path for importing a starter and prevents raw fragment pages for data-backed UI. |
+| NGX UI task | `convertigo/recipe-ngx-data-page@22`, then `convertigo/frontend-ngx@17` | Start with the canonical data-page pattern, then go deeper on palette, actions, and bindings. |
+| New app or starter-based POC | `convertigo/recipe-starter-extension@3`; if it displays backend, HTTP web-service, SQL, or FullSync results, also `convertigo/recipe-ngx-data-page@22` before page mutation | Gives the fast path for importing a starter and prevents raw fragment pages for data-backed UI. |
 | Multi-track delivery across backend, integration, and UI | `convertigo/engineering-workflow@1`, then `convertigo/contract-first-delivery@1`, then the matching recipe | Planner rules, stub strategy, parallel handoff, and the first implementation pattern live there. |
 | Final closure, proof, or review | `convertigo/validation-and-evidence@1` | Save/reload discipline and final proof expectations live there. |
 | Rhino `context` or JSON step details | `convertigo/context-api@1` or `convertigo/json-quickref@1` | These are references, not primary onboarding guides. |
@@ -49,7 +49,7 @@ Read this first for any MCP session that touches a Convertigo project.
 7. If you need to create an object, confirm the allowed entry with:
    - `palette-list`
    - `palette-describe`
-8. Pick one matching recipe before the first broad mutation. For starter apps that display backend, HTTP, SQL, FullSync, or open-data results, this means both `convertigo://resources/convertigo-recipe-starter-extension` for import and `convertigo://resources/convertigo-recipe-ngx-data-page` before the first page mutation.
+8. Pick one matching recipe before the first broad mutation. For starter apps that display backend, HTTP web-service, SQL, or FullSync results, this means both `convertigo://resources/convertigo-recipe-starter-extension` for import and `convertigo://resources/convertigo-recipe-ngx-data-page` before the first page mutation.
 9. Do not call `rag-query` before the start guide and the chosen recipe were read.
 10. If the task is standard SQL CRUD + starter NGX UI, prefer `convertigo://resources/convertigo-crud-fastpath` and `convertigo-crud-fastpath` over planner/specialist routing.
 11. Decide whether the task truly fits `upsert-crud` before the first write call.
