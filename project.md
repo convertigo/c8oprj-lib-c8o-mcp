@@ -8,6 +8,16 @@ ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and a
 Endpoint:
 `http://localhost:18080/convertigo/api/mcp`
 
+## Mistral Vibe
+
+Add the Convertigo MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
+
+```toml
+[mcp_servers.convertigo]
+transport = "http"
+url = "http://localhost:18080/convertigo/api/mcp"
+```
+
 ## Codex
 
 Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
@@ -24,16 +34,6 @@ Register Convertigo as a Streamable HTTP MCP server. Ask Claude Code to call `to
 ```toml
 [mcp_servers.convertigo]
 type = "streamable-http"
-url = "http://localhost:18080/convertigo/api/mcp"
-```
-
-## Mistral Vibe
-
-Add the same MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
-
-```toml
-[mcp_servers.convertigo]
-transport = "http"
 url = "http://localhost:18080/convertigo/api/mcp"
 ```
 
@@ -328,6 +328,61 @@ Set true to preview the generated skill and config patch without writing files.
 </td>
 <td>
 Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
+<details><summary><b>_setupVibe</b> : Setup local Mistral Vibe onboarding for this MCP project</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") _setupVibe
+
+Setup local Mistral Vibe onboarding for this MCP project
+Generates or updates the convertigo-vibe-generalist skill, AGENTS.md, and config.toml under a target VIBE_HOME.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;dryRun
+</td>
+<td>
+Set true to preview the generated skill, AGENTS.md, and config patch without writing files.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;mcpUrl
+</td>
+<td>
+Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;replaceConfig
+</td>
+<td>
+Set true to replace config.toml with a deterministic isolated Vibe harness config. Leave false for personal Vibe homes.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;vibeHome
+</td>
+<td>
+Optional Vibe home directory. Defaults to ~/.vibe on the local Studio machine.
 </td>
 </tr>
 </table>

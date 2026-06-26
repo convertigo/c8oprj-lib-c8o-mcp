@@ -223,8 +223,98 @@ C8O.dbo.removeStudioProjectTreeByName = function (projectName, errors) {
   return result;
 };
 
-C8O.dbo.reloadProject = function (projectOrName, errors) {
+C8O.dbo.getReloadStudioPlugin = function () {
+  var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+  var Display = Packages.org.eclipse.swt.widgets.Display;
+  var pluginInstance = ConvertigoPlugin.getDefault();
+  if (pluginInstance == null) {
+    throw new Error("project-reload requires Convertigo Studio");
+  }
+  if (Display.getCurrent() != null) {
+    throw new Error("project-reload cannot wait reliably from the SWT UI thread");
+  }
+
+  return ConvertigoPlugin;
+};
+
+C8O.dbo.flushStudioUiQueue = function (ConvertigoPlugin) {
+  var Runnable = Packages.java.lang.Runnable;
+  ConvertigoPlugin.syncExec(new Runnable({ run: function () {} }));
+  ConvertigoPlugin.syncExec(new Runnable({ run: function () {} }));
+};
+
+C8O.dbo.getCachedProjectIdentity = function (projectName) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var System = Packages.java.lang.System;
+  var dbom = Engine.theApp.databaseObjectsManager;
+  var dbomClass = dbom.getClass();
+  while (dbomClass != null) {
+    var methods = dbomClass.getDeclaredMethods();
+    for (var i = 0; i < methods.length; i++) {
+      var method = methods[i];
+      if (String(method.getName()) !== "getCachedProject" || method.getParameterTypes().length !== 1) {
+        continue;
+      }
+      method.setAccessible(true);
+      var project = method.invoke(dbom, projectName);
+      return project == null ? 0 : System.identityHashCode(project);
+    }
+    dbomClass = dbomClass.getSuperclass();
+  }
+  throw new Error("Unable to inspect loaded project cache");
+};
+
+C8O.dbo.isStudioProjectTreeLoaded = function (ConvertigoPlugin, projectName) {
+  var Runnable = Packages.java.lang.Runnable;
+  var result = { loaded: false, error: "" };
+  ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+    try {
+      var pluginInstance = ConvertigoPlugin.getDefault();
+      var view = pluginInstance && pluginInstance.getProjectExplorerView ? pluginInstance.getProjectExplorerView() : null;
+      var treeObject = view && view.getProjectRootObject ? view.getProjectRootObject(projectName) : null;
+      result.loaded = treeObject != null &&
+        String(treeObject.getClass().getName()) === "com.twinsoft.convertigo.eclipse.views.projectexplorer.model.ProjectTreeObject";
+    } catch (treeError) {
+      result.error = String(treeError);
+      result.loaded = false;
+    }
+  }}));
+  if (result.error.length) {
+    throw new Error(result.error);
+  }
+  return result.loaded === true;
+};
+
+C8O.dbo.waitForProjectReload = function (ConvertigoPlugin, projectName, previousIdentity) {
+  var System = Packages.java.lang.System;
+  var Thread = Packages.java.lang.Thread;
+  var timeoutMs = 120000;
+  var deadline = System.currentTimeMillis() + timeoutMs;
+  var lastIdentity = 0;
+  var treeLoaded = false;
+
+  while (System.currentTimeMillis() <= deadline) {
+    lastIdentity = C8O.dbo.getCachedProjectIdentity(projectName);
+    var cacheReloaded = lastIdentity !== 0 && (previousIdentity === 0 || lastIdentity !== previousIdentity);
+
+    C8O.dbo.flushStudioUiQueue(ConvertigoPlugin);
+    treeLoaded = C8O.dbo.isStudioProjectTreeLoaded(ConvertigoPlugin, projectName);
+
+    if (cacheReloaded && treeLoaded) {
+      return;
+    }
+    Thread.sleep(250);
+  }
+
+  throw new Error(
+    "Timed out waiting for project reload completion: " + projectName +
+    " (previousIdentity=" + previousIdentity +
+    ", lastIdentity=" + lastIdentity +
+    ", treeLoaded=" + treeLoaded + ")"
+  );
+};
+
+C8O.dbo.reloadProject = function (projectOrName, errors) {
   var name = "";
   if (projectOrName != null) {
     if (typeof projectOrName === "string") {
@@ -243,7 +333,10 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
     return { reloaded: false, message: message };
   }
   try {
-    Engine.theApp.databaseObjectsManager.getStudioProjects().reloadProject(name);
+    var ConvertigoPlugin = C8O.dbo.getReloadStudioPlugin();
+    var previousIdentity = C8O.dbo.getCachedProjectIdentity(name);
+    ConvertigoPlugin.getDefault().reloadProject(name);
+    C8O.dbo.waitForProjectReload(ConvertigoPlugin, name, previousIdentity);
     return { reloaded: true, message: "" };
   } catch (reloadError) {
     var reloadMessage = String(reloadError);

@@ -10,6 +10,16 @@ ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and a
 Endpoint:
 `http://localhost:18080/convertigo/api/mcp`
 
+## Mistral Vibe
+
+Add the Convertigo MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
+
+```toml
+[mcp_servers.convertigo]
+transport = "http"
+url = "http://localhost:18080/convertigo/api/mcp"
+```
+
 ## Codex
 
 Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
@@ -26,16 +36,6 @@ Register Convertigo as a Streamable HTTP MCP server. Ask Claude Code to call `to
 ```toml
 [mcp_servers.convertigo]
 type = "streamable-http"
-url = "http://localhost:18080/convertigo/api/mcp"
-```
-
-## Mistral Vibe
-
-Add the same MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
-
-```toml
-[mcp_servers.convertigo]
-transport = "http"
 url = "http://localhost:18080/convertigo/api/mcp"
 ```
 
@@ -85,13 +85,13 @@ For more technical informations : [documentation](./project.md)
      <tr><td>To contribute</td><td>
 
      ```
-     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp.git:branch=codex
+     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
      ```
      </td></tr>
      <tr><td>To simply use</td><td>
 
      ```
-     ConvertigoMCP=https://github.com/convertigo/c8oprj-c8o-mcp/archive/codex.zip
+     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
      ```
      </td></tr>
     </table>

@@ -71,6 +71,7 @@ For a new CRUD UI project, the current public rail is:
 | `requestable-stub-set` | `tools_requestable_stub_set` | Write a requestable stub | Creates or replaces the XML stub file for a sequence or transaction using the same default filename logic as the Convertigo engine. |
 | `upsert-crud` | `tools_upsert_crud` | Create or update deterministic CRUD scaffolding | Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. |
 | `upsert-ngx-crud-kit` | `tools_upsert_ngx_crud_kit` | Create or update a deterministic NGX CRUD kit | Replaces the visible starter entry page content with a deterministic CRUD shell, staged bootstrap/final markers, shared actions, and global UI state. Prefer entity-pages for generic CRUD, keep dashboard only for compatibility, and use master-detail for the CRM rail. |
+| `yaml-lint` | `tools_yaml_lint` | YAML Lint | Runs Convertigo YAML dialect lint (`c8o_yaml_lint.py`) on a project root or selected YAML paths. |
 
 ## Resources
 
