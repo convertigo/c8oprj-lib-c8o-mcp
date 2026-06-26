@@ -1,0 +1,533 @@
+accessibility: Private
+authenticatedContextRequired: false
+comment: |
+  YAML Lint
+  Lint Convertigo YAML dialect files (c8oProject.yaml and _c8oProject/*.yaml).
+↓Init [steps.SimpleStep-1772125001001]: 
+  comment: Validate inputs and execute c8o_yaml_lint.py.
+  expression: |
+    'var trim = function(v) {
+      return v == null ? "" : String(v).trim();
+    };
+    
+    var parseBoolean = function(v, defaultValue) {
+      if (v == null) {
+        return defaultValue;
+      }
+      var text = String(v).trim().toLowerCase();
+      if (!text.length) {
+        return defaultValue;
+      }
+      return text === "true" || text === "1" || text === "yes" || text === "on";
+    };
+    
+    var parseInteger = function(v, defaultValue) {
+      if (v == null) {
+        return defaultValue;
+      }
+      var text = String(v).trim();
+      if (!text.length) {
+        return defaultValue;
+      }
+      try {
+        var parsed = parseInt(text, 10);
+        if (!isNaN(parsed)) {
+          return parsed;
+        }
+      } catch (_ignoreParseInteger) {}
+      return defaultValue;
+    };
+    
+    var appendPaths = function(target, value) {
+      if (value == null) {
+        return;
+      }
+      var typeName = Object.prototype.toString.call(value);
+      if (typeName === "[object Array]") {
+        for (var ai = 0; ai < value.length; ai++) {
+          appendPaths(target, value[ai]);
+        }
+        return;
+      }
+      var text = trim(value);
+      if (!text.length) {
+        return;
+      }
+      if (text.charAt(0) === "[") {
+        try {
+          var parsedArray = JSON.parse(text);
+          if (Object.prototype.toString.call(parsedArray) === "[object Array]") {
+            appendPaths(target, parsedArray);
+            return;
+          }
+        } catch (_ignoreParseArray) {}
+      }
+      var chunks = text.split(/[\n,;]+/);
+      for (var ci = 0; ci < chunks.length; ci++) {
+        var itemText = trim(chunks[ci]);
+        if (itemText.length) {
+          target.push(itemText);
+        }
+      }
+    };
+    
+    var startedAt = java.lang.System.currentTimeMillis();
+    var errorEntries = [];
+    var commandParts = [];
+    var normalizedPaths = [];
+    var outputText = "";
+    var truncatedFlag = false;
+    var exitCodeValue = -1;
+    
+    var statusText = "error";
+    var messageText = "";
+    var successFlag = false;
+    
+    var projectRootPath = "";
+    var scriptPath = "";
+    var pythonBin = trim(python);
+    var maxChars = parseInteger(maxOutputChars, 30000);
+    if (maxChars < 0) {
+      maxChars = 0;
+    }
+    if (!pythonBin.length) {
+      pythonBin = "python3";
+    }
+    
+    var strictFlag = parseBoolean(strict, false);
+    var checkExternalRefsFlag = parseBoolean(checkExternalRefs, true);
+    var checkReferenceGraphFlag = parseBoolean(checkReferenceGraph, true);
+    
+    var checkedFilesCount = -1;
+    var lintErrorsCount = -1;
+    var lintWarningsCount = -1;
+    
+    try {
+      var projectRootText = trim(projectRoot);
+      if (!projectRootText.length) {
+        throw new Error("projectRoot is required");
+      }
+      var projectRootFile = new java.io.File(projectRootText).getCanonicalFile();
+      if (!projectRootFile.exists()) {
+        throw new Error("projectRoot does not exist: " + projectRootText);
+      }
+      var rootYaml = new java.io.File(projectRootFile, "c8oProject.yaml");
+      if (!rootYaml.exists()) {
+        throw new Error("projectRoot must contain c8oProject.yaml: " + String(projectRootFile.getPath()));
+      }
+      projectRootPath = String(projectRootFile.getPath());
+    
+      var currentProject = context && context.project ? context.project : null;
+      if (currentProject == null) {
+        throw new Error("No project context");
+      }
+      var wrapperProjectDir = new java.io.File(currentProject.getDirPath()).getCanonicalFile();
+      var scriptFile = new java.io.File(wrapperProjectDir, "scripts/c8o_yaml_lint.py").getCanonicalFile();
+      if (!scriptFile.exists()) {
+        throw new Error("Missing script: " + String(scriptFile.getPath()));
+      }
+      scriptPath = String(scriptFile.getPath());
+    
+      appendPaths(normalizedPaths, paths);
+    
+      var command = new java.util.ArrayList();
+      command.add(pythonBin);
+      command.add(scriptPath);
+      if (normalizedPaths.length > 0) {
+        for (var pi = 0; pi < normalizedPaths.length; pi++) {
+          var rawPath = String(normalizedPaths[pi]);
+          var pathFile = new java.io.File(rawPath);
+          if (!pathFile.isAbsolute()) {
+            pathFile = new java.io.File(projectRootFile, rawPath);
+          }
+          command.add(String(pathFile.getPath()));
+        }
+      } else {
+        command.add(projectRootPath);
+      }
+      if (strictFlag) {
+        command.add("--strict");
+      }
+      if (!checkExternalRefsFlag) {
+        command.add("--no-check-external-refs");
+      }
+      if (!checkReferenceGraphFlag) {
+        command.add("--no-check-reference-graph");
+      }
+    
+      for (var k = 0; k < command.size(); k++) {
+        commandParts.push(String(command.get(k)));
+      }
+    
+      var builder = new java.lang.ProcessBuilder(command);
+      builder.redirectErrorStream(true);
+      var process = builder.start();
+    
+      var scanner = new java.util.Scanner(process.getInputStream(), "UTF-8").useDelimiter("\\A");
+      var rawOutput = scanner.hasNext() ? String(scanner.next()) : "";
+      scanner.close();
+    
+      exitCodeValue = process.waitFor();
+      outputText = rawOutput;
+      if (maxChars > 0 && outputText.length > maxChars) {
+        outputText = outputText.substring(0, maxChars) + "\n...[truncated]";
+        truncatedFlag = true;
+      }
+    
+      try {
+        var summaryMatcher = /Checked\s+(\d+)\s+file\(s\):\s+(\d+)\s+error\(s\),\s+(\d+)\s+warning\(s\)/.exec(rawOutput);
+        if (summaryMatcher) {
+          checkedFilesCount = parseInt(summaryMatcher[1], 10);
+          lintErrorsCount = parseInt(summaryMatcher[2], 10);
+          lintWarningsCount = parseInt(summaryMatcher[3], 10);
+        }
+      } catch (_ignoreSummaryParse) {}
+    
+      successFlag = exitCodeValue === 0;
+      statusText = successFlag ? "ok" : "failed";
+      messageText = successFlag
+        ? "yaml lint completed"
+        : "yaml lint exited with code " + exitCodeValue;
+    } catch (runError) {
+      var runMessage = String(runError);
+      statusText = "error";
+      messageText = runMessage;
+      successFlag = false;
+      errorEntries.push({ name: "run", message: runMessage });
+    }
+    
+    var finishedAt = java.lang.System.currentTimeMillis();
+    
+    resultStatus = statusText;
+    resultMessage = messageText;
+    resultSuccess = successFlag;
+    resultExitCode = exitCodeValue;
+    resultProjectRoot = projectRootPath;
+    resultScriptPath = scriptPath;
+    resultCommandText = commandParts.join(" ");
+    resultOutput = outputText;
+    resultTruncated = truncatedFlag;
+    resultDurationMs = finishedAt - startedAt;
+    resultTimestamp = finishedAt;
+    resultPathsCount = normalizedPaths.length;
+    resultStrict = strictFlag;
+    resultCheckExternalRefs = checkExternalRefsFlag;
+    resultCheckReferenceGraph = checkReferenceGraphFlag;
+    resultCheckedFiles = checkedFilesCount;
+    resultErrorCount = lintErrorsCount;
+    resultWarningCount = lintWarningsCount;
+    resultErrors = errorEntries;'
+↓Result [steps.JsonObjectStep-1772125001003]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1772125001005]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStatus
+  ↓message [steps.JsonFieldStep-1772125001007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultMessage
+  ↓success [steps.JsonFieldStep-1772125001009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: success
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultSuccess
+  ↓exitCode [steps.JsonFieldStep-1772125001011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: exitCode
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultExitCode
+  ↓projectRoot [steps.JsonFieldStep-1772125001013]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectRoot
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultProjectRoot
+  ↓script [steps.JsonFieldStep-1772125001015]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: script
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultScriptPath
+  ↓command [steps.JsonFieldStep-1772125001017]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: command
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultCommandText
+  ↓pathsCount [steps.JsonFieldStep-1772125001019]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: pathsCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultPathsCount
+  ↓strict [steps.JsonFieldStep-1772125001021]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: strict
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultStrict
+  ↓checkExternalRefs [steps.JsonFieldStep-1772125001023]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: checkExternalRefs
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultCheckExternalRefs
+  ↓checkReferenceGraph [steps.JsonFieldStep-1772125001025]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: checkReferenceGraph
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultCheckReferenceGraph
+  ↓checkedFiles [steps.JsonFieldStep-1772125001027]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: checkedFiles
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultCheckedFiles
+  ↓errorCount [steps.JsonFieldStep-1772125001029]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errorCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultErrorCount
+  ↓warningCount [steps.JsonFieldStep-1772125001031]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warningCount
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultWarningCount
+  ↓durationMs [steps.JsonFieldStep-1772125001033]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: durationMs
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultDurationMs
+  ↓timestamp [steps.JsonFieldStep-1772125001035]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: timestamp
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTimestamp
+  ↓truncated [steps.JsonFieldStep-1772125001037]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: truncated
+    type: bool
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultTruncated
+  ↓output [steps.JsonFieldStep-1772125001039]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: output
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: resultOutput
+  ↓errors [steps.JsonArrayStep-1772125001041]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: errors
+    ↓ErrorsIterator [steps.SimpleIteratorStep-1772125001043]: 
+      expression: resultErrors
+      ↓ErrorEntry [steps.JsonObjectStep-1772125001045]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: error
+        ↓name [steps.JsonFieldStep-1772125001047]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: name
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.name ? String(item.name) : ""'
+        ↓message [steps.JsonFieldStep-1772125001049]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: message
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'item && item.message ? String(item.message) : ""'
+↓projectRoot [variables.RequestableVariable-1772125001051]: 
+  comment: Absolute path to Convertigo project root containing c8oProject.yaml.
+  required: true
+↓paths [variables.RequestableVariable-1772125001053]: 
+  comment: Optional files/directories filter (JSON array string, array value, or comma/newline separated list).
+↓strict [variables.RequestableVariable-1772125001055]: 
+  comment: Set to true to treat warnings as errors.
+  value: false
+↓checkExternalRefs [variables.RequestableVariable-1772125001057]: 
+  comment: Set to true to validate 🗏 referenced file existence.
+  value: true
+↓checkReferenceGraph [variables.RequestableVariable-1772125001059]: 
+  comment: Set to true to validate YAML reachability from c8oProject.yaml.
+  value: true
+↓python [variables.RequestableVariable-1772125001061]: 
+  comment: Python executable path/name. Defaults to python3.
+  value: python3
+↓maxOutputChars [variables.RequestableVariable-1772125001063]: 
+  comment: Maximum output characters returned in result.output (0 = unlimited).
