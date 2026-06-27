@@ -9,15 +9,16 @@ Use this skill for Convertigo No Code Studio / C8Oforms tasks where the user wan
 
 The core rule is simple: stay on the no-code form rail. Do not use Convertigo low-code tools to compensate for missing no-code capability.
 
-## Required Token
+## No-Code Authentication
 
-No-code create, edit/update, and Baserow catalog operations require a No Code Studio bearer token.
+No-code create, edit/update, and Baserow catalog operations require the authenticated No Code Studio user.
 
-- The token must be copied by the user from No Code Studio and provided in the conversation.
-- Do not infer, search for, read from disk, extract from browser storage, or reuse a token from any other source.
-- If a token is required and the user has not provided one, ask the user to copy the token from No Code Studio and paste it into the conversation.
-- Do not call `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, or `nocode-form-update` without an explicit user-provided token.
-- Compilation and validation may be done without a token when the tool permits it.
+- In the integrated C8Oforms assistant, authentication is provided automatically by the host application and the MCP bearer session. Do not ask the user to copy or paste a token.
+- Never print, summarize, request, store in generated form content, or expose the bearer token. Treat authentication as an invisible MCP capability.
+- If a compatibility schema still exposes a `token` argument, pass an empty string. The actual credential is supplied out-of-band by MCP bearer authentication.
+- Call `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update` normally when the tool is available; the integration supplies the authentication context.
+- If a protected no-code tool still returns `missing_token`, `invalid_token`, or `expired_token`, report that the No Code assistant authentication is not ready and ask the user to retry or reconnect. Do not switch to low-code tools as a workaround.
+- Compilation and validation may be done without authentication when the tool permits it.
 
 ## Hard Tool Boundary
 
@@ -58,24 +59,24 @@ If the requested change cannot be completed with the allowed tools, stop and say
    - Use multi-column layouts when the no-code contract supports them and the fields naturally group together. Prefer `layout` fields containing related child fields. Use 2 columns on desktop/tablet and collapse to 1 column on phones. Avoid cramped columns.
    - Use `nocode-form-compile` to convert the reduced JSON.
    - Use `nocode-form-validate` if you need an explicit validation pass or if compilation returns a full form needing checks.
-   - Use `nocode-form-create` only after the user has copied the bearer token from No Code Studio and provided it in the conversation.
+   - Use `nocode-form-create` only through the integrated No Code Studio authentication context.
    - After `nocode-form-create`, inspect the returned saved `form.pages`. For app-like or multi-page forms, verify each page still has `enabledTab=true`, `positionTab=bottom`, `positionButtons=tab`, `enabledButtons=false`, a simple valid `iconName`, and known-good tab flags such as `checkMandatoryInCurrentPage=true` and `isNameDisplayed=false`.
-   - If create/compile normalized those tab settings away, dropped tab flags, or persisted icon names that are unlikely to render, and the token is already user-provided, immediately call `nocode-form-update` with a minimal `pages` merge patch restoring the intended tab settings and simple icon names, preserving each page's `name`, `pageTechName`, `desc`, and `included`.
+   - If create/compile normalized those tab settings away, dropped tab flags, or persisted icon names that are unlikely to render, immediately call `nocode-form-update` with a minimal `pages` merge patch restoring the intended tab settings and simple icon names, preserving each page's `name`, `pageTechName`, `desc`, and `included`.
    - If the tab repair update is not possible through `nocode-form-update`, report the exact no-code limitation instead of leaving the app in default page-button navigation.
    - Also inspect the saved `wallpaper` and `thumbnail` when a polished background/thumbnail was intended. If create/compile normalized them to disabled placeholders and the no-code contract exposes a supported wallpaper/thumbnail shape, immediately repair them with `nocode-form-update`; otherwise report that the current no-code contract did not provide a persistable wallpaper/thumbnail shape.
 4. For existing forms:
-   - Prefer `nocode-form-edit` for semantic edits when the document id is known and the user has provided the No Code Studio bearer token.
+   - Prefer `nocode-form-edit` for semantic edits when the document id is known and the integrated No Code Studio authentication context is available.
    - Use `nocode-form-edit` for operations such as adding, moving, or removing no-code components, adding page navigation buttons, or updating fields without replacing whole arrays like `formulaire`, `pages`, or `flows`.
    - Use `nocode-form-update` with a JSON merge patch only for small document-level patches or when `nocode-form-edit` cannot express the requested semantic operation.
    - Keep edits minimal and no-code-semantic; do not patch internal generated details that the no-code contract or semantic edit tool does not expose.
 5. For Baserow no-code catalog discovery:
    - Use `nocode-baserow-catalog-list` when the user asks to list or discover available No Code Baserow workspaces, bases, or tables for the current No Code user.
-   - The tool takes only the No Code Studio `token`
+   - The tool uses the integrated No Code Studio authentication context.
    - Treat the returned `workspaces`, `bases`, `tables`, and `counts` as the discovery source of truth for selecting Baserow-backed no-code sources.
    - Never call Baserow HTTP APIs directly and never bypass `lib_BaseRow`; this catalog tool authenticates like the form tools and delegates discovery to `lib_BaseRow.formscommon_ApplicationsList`.
 6. For Baserow no-code schema creation or updates:
    - Use `nocode-baserow-schema-apply` when the user asks to create or update No Code Baserow workspaces, bases, tables, fields, link-row relationships, lookup/reported fields, views, filters, or sample rows.
-   - The tool takes the user-provided No Code Studio `token`, `mode` (`plan` or `apply`), `create` permissions, and a canonical Baserow `schema`.
+   - The tool takes `mode` (`plan` or `apply`), `create` permissions, and a canonical Baserow `schema`; authentication is supplied by the integrated No Code Studio context.
    - Agents may read any user-provided format, such as Markdown, JSON, YAML, CSV, diagrams, PDFs, or prose, but must translate it into the tool's strict canonical JSON before calling the tool.
    - Treat Baserow relationships as fields, not SQL foreign keys: use `type:"link_row"` with `targetTable`; use `type:"lookup"` with `through` and `targetField` for reported fields.
    - For repeatable sample data updates, set `tables[].upsertKey` to a stable business field such as `ordre`, `code`, or `reference`. The tool will read existing rows through `lib_BaseRow.TableGetData`, update matches through `lib_BaseRow.TableUpdateRow`, and create only missing rows.
@@ -105,8 +106,8 @@ If the requested change cannot be completed with the allowed tools, stop and say
 - Do not invent undocumented component properties.
 - Do not directly edit full C8Oforms internals unless the no-code tool contract explicitly requires that shape.
 - When editing existing forms, prefer semantic `nocode-form-edit` operations over replacing full arrays through `nocode-form-update`.
-- Do not infer authentication tokens. If a token is required and missing, ask the user to copy it from No Code Studio and paste it into the conversation instead of switching tools.
-- For Baserow catalog discovery and schema application, use `nocode-baserow-catalog-list` or `nocode-baserow-schema-apply` with exactly the user-provided No Code Studio token. Do not ask for or use a Baserow JWT, Baserow database token, API key, or project name.
+- Do not infer or expose authentication tokens. If authentication is missing, report that the integrated No Code assistant session is not authenticated instead of switching tools.
+- For Baserow catalog discovery and schema application, use `nocode-baserow-catalog-list` or `nocode-baserow-schema-apply` through the integrated authentication context. Do not ask for or use a Baserow JWT, Baserow database token, API key, or project name.
 
 ## Sourceable Components
 

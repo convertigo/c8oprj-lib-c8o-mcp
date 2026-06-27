@@ -514,7 +514,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function nocodeFormsTokenProperty() {
     return {
       type: "string",
-      description: "No Code Studio bearer token used to authenticate protected C8Oforms API calls."
+      description: "Optional compatibility field. Leave empty in the integrated assistant; MCP bearer authentication supplies the No Code user credential out-of-band."
     };
   }
 
@@ -543,7 +543,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         token: {
           type: "string",
-          description: "No Code Studio bearer token. The tool authenticates the No Code user, then delegates Baserow discovery to lib_BaseRow."
+          description: "Optional compatibility field. Leave empty in the integrated assistant; MCP bearer authentication supplies the No Code user credential out-of-band."
         },
         includeColumns: {
           type: "boolean",
@@ -563,7 +563,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Optional Baserow table id filter. With includeColumns=true, fields are listed only for this table."
         }
       },
-      required: ["token"],
+      required: [],
       additionalProperties: false
     };
   }
@@ -684,7 +684,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         token: {
           type: "string",
-          description: "No Code Studio bearer token. The tool authenticates like the other no-code tools, then delegates Baserow operations through lib_BaseRow."
+          description: "Optional compatibility field. Leave empty in the integrated assistant; MCP bearer authentication supplies the No Code user credential out-of-band."
         },
         mode: {
           type: "string",
@@ -733,7 +733,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           ]
         }
       },
-      required: ["token", "schema"],
+      required: ["schema"],
       additionalProperties: false
     };
   }
@@ -785,7 +785,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         reduced: jsonObjectOrStringSchema("Reduced creative form JSON. To upload a generated thumbnail image, include reduced.thumbnailImage={contentType:'image/png',base64:'...'}; the tool persists it as the C8Oforms attachment named thumbnail through APIV2_updateFormulaireDocument."),
         token: nocodeFormsTokenProperty()
       },
-      required: ["reduced", "token"],
+      required: ["reduced"],
       additionalProperties: false
     };
   }
@@ -806,7 +806,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a generated thumbnail image, include patch.thumbnailImage={contentType:'image/png',base64:'...'}; it is consumed by the tool and not stored in the form JSON."),
         token: nocodeFormsTokenProperty()
       },
-      required: ["id", "patch", "token"],
+      required: ["id", "patch"],
       additionalProperties: false
     };
   }
@@ -933,7 +933,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         }),
         token: nocodeFormsTokenProperty()
       },
-      required: ["id", "token"],
+      required: ["id"],
       additionalProperties: false,
       examples: [
         {
@@ -941,13 +941,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           operations: [
             { action: "add_page", name: "Details", navigationMode: "tabs" },
             { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } }
-          ],
-          token: "ey..."
+          ]
         },
         {
           id: "1712345678901",
-          operations: { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false } } },
-          token: "ey..."
+          operations: { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false } } }
         }
       ]
     };

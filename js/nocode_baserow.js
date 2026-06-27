@@ -21,6 +21,21 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return value == null ? "" : String(value).trim();
   }
 
+  function requestBearerToken() {
+    try {
+      if (typeof context === "undefined" || !context || !context.httpServletRequest) {
+        return "";
+      }
+      var authorization = context.httpServletRequest.getHeader("Authorization");
+      var value = trimmed(authorization);
+      var prefix = "Bearer ";
+      if (value.substring(0, prefix.length).toLowerCase() === prefix.toLowerCase()) {
+        return trimmed(value.substring(prefix.length));
+      }
+    } catch (_ignoreBearer) {}
+    return "";
+  }
+
   function ensureArray(value) {
     if (value == null) {
       return [];
@@ -139,12 +154,12 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
   }
 
   function validateToken(token) {
-    var tokenValue = trimmed(token);
+    var tokenValue = trimmed(token) || requestBearerToken();
     if (!tokenValue.length) {
       return {
         status: "invalid",
         authenticated: false,
-        error: { code: "missing_token", message: "No Code token is required." }
+        error: { code: "missing_token", message: "No Code assistant authentication is required." }
       };
     }
     var response = callC8oSequence(currentMcpProjectName(), "nocode_validate_token", { token: tokenValue });

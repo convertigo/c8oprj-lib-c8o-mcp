@@ -19,6 +19,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return value == null ? "" : String(value).trim();
   }
 
+  function requestBearerToken() {
+    try {
+      if (typeof context !== "undefined" && context && context.httpServletRequest) {
+        var authorization = context.httpServletRequest.getHeader("Authorization");
+        var match = /^Bearer\s+(.+)$/i.exec(String(authorization || ""));
+        if (match && match[1] != null) {
+          return trimmed(match[1]);
+        }
+      }
+    } catch (_ignoreAuthorizationHeader) {}
+    return "";
+  }
+
   function clone(value, fallback) {
     try {
       return JSON.parse(JSON.stringify(value));
@@ -1508,12 +1521,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function validateToken(options) {
     var opts = options || {};
-    var token = trimmed(opts.token);
+    var token = trimmed(opts.token) || requestBearerToken();
     if (!token.length) {
       return {
         status: "invalid",
         authenticated: false,
-        error: { code: "missing_token", message: "No Code token is required." }
+        error: { code: "missing_token", message: "No Code assistant authentication is required." }
       };
     }
     var response = callC8oSequence(currentMcpProjectName(), "nocode_validate_token", { token: token });
