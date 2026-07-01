@@ -12,6 +12,9 @@ if (typeof C8O === "undefined") {
 if (!C8O.util || !C8O.util.parseObjectInput || !C8O.util.toBoolean) {
   include("js/util.js");
 }
+if (!C8O.guidance || !C8O.guidance.warningForToolCall) {
+  include("js/guidance_version.js");
+}
 if (!C8O.schemaOverrides || !C8O.schemaOverrides.applyInput) {
   include("js/schema_overrides.js");
 }
@@ -312,6 +315,17 @@ if (methodName === "initialize") {
 } else if (methodName === "tools/call") {
   var toolNameRaw = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
   var toolArgs = paramsObject && typeof paramsObject.arguments === "object" && !Array.isArray(paramsObject.arguments) ? paramsObject.arguments : {};
+  try {
+    mcpGuidanceWarning = C8O.guidance.warningForToolCall(
+      toolNameRaw,
+      paramsObject,
+      (typeof guidanceHeaderVersion !== "undefined") ? guidanceHeaderVersion : "",
+      toolArgs
+    );
+  } catch (_guidanceError) {
+    mcpGuidanceWarning = "";
+  }
+  toolArgs = C8O.guidance.stripToolArguments(toolArgs);
   var targetSequence = "";
   var mappingError = null;
   function sanitizeToken(value, replaceWithUnderscore) {

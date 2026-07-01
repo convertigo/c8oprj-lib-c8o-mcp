@@ -731,6 +731,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDevToolsWebSocketUrl: browserDevToolsWebSocketUrl,
       browserDevToolsTarget: browserDevToolsTarget,
       browserRemoteDebuggingPort: browserRemoteDebuggingPort,
+      browserControlHint: browserDebugUrl.length
+        ? "Use the existing Studio JxBrowser CDP target; do not create a new browser tab or page."
+        : "",
       editor: publicEditorResult,
       editorOpened: publicEditorResult.opened === true,
       browser: {

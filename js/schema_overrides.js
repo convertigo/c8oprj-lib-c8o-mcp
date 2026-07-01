@@ -1445,6 +1445,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         devtoolsFrontendUrl: { type: "string" }
       }),
       browserRemoteDebuggingPort: { type: "number" },
+      browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint." },
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
       browser: openObjectSchema({

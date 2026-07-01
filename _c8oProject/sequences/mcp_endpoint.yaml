@@ -10,10 +10,18 @@ responseTimeout: 300
     const SUPPORTED_PROTOCOL = "2025-06-18";
     
     var headerVersion = SUPPORTED_PROTOCOL;
+    var guidanceHeaderVersion = "";
     if (context.httpServletRequest != null) {
       var header = context.httpServletRequest.getHeader("MCP-Protocol-Version");
       if (header != null) {
         headerVersion = String(header);
+      }
+      var guidanceHeader = context.httpServletRequest.getHeader("X-Convertigo-Guidance-Version");
+      if (guidanceHeader == null) {
+        guidanceHeader = context.httpServletRequest.getHeader("Convertigo-Guidance-Version");
+      }
+      if (guidanceHeader != null) {
+        guidanceHeaderVersion = String(guidanceHeader);
       }
     }
     
@@ -27,6 +35,7 @@ responseTimeout: 300
     var callVariables = {};
     var responseStatus = "200";
     var responseHasBody = true;
+    var mcpGuidanceWarning = "";
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
   expression: |
@@ -304,6 +313,28 @@ responseTimeout: 300
                       - ↑value: 1761755111966
                     - java.lang.String: 
                       - ↑value: ./document/error
+          ↓GuidanceMetaIf [steps.IfStep-1782895357727]:
+            condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
+            ↓_meta [steps.JsonObjectStep-1782895357729]:
+              key:
+                - xmlizable:
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType:
+                    - ↑mode: PLAIN
+                    - →→: _meta
+              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357731]:
+                key:
+                  - xmlizable:
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType:
+                      - ↑mode: PLAIN
+                      - →→: convertigoGuidanceWarning
+                value:
+                  - xmlizable:
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType:
+                      - ↑mode: JS
+                      - →→: mcpGuidanceWarning
         ↓ReturnToolError [steps.ReturnStep-1782105694345]: 
       ↓CopyError [steps.XMLCopyStep-1761755111976]: 
         sourceDefinition: 
@@ -408,6 +439,28 @@ responseTimeout: 300
                       - ↑value: 1761755111966
                     - java.lang.String: 
                       - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
+          ↓GuidanceMetaIf [steps.IfStep-1782895357760]:
+            condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
+            ↓_meta [steps.JsonObjectStep-1782895357762]:
+              key:
+                - xmlizable:
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType:
+                    - ↑mode: PLAIN
+                    - →→: _meta
+              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357764]:
+                key:
+                  - xmlizable:
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType:
+                      - ↑mode: PLAIN
+                      - →→: convertigoGuidanceWarning
+                value:
+                  - xmlizable:
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType:
+                      - ↑mode: JS
+                      - →→: mcpGuidanceWarning
         ↓ReturnToolError [steps.ReturnStep-1782105694670]: 
       ↓CopyError [steps.XMLCopyStep-1763564357216]: 
         sourceDefinition: 
@@ -500,6 +553,28 @@ responseTimeout: 300
                       - ↑value: 1761755111966
                     - java.lang.String: 
                       - ↑value: ./document/*[@originalKeyName='result']/*
+          ↓GuidanceMetaIf [steps.IfStep-1782895357688]:
+            condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
+            ↓_meta [steps.JsonObjectStep-1782895357694]:
+              key:
+                - xmlizable:
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType:
+                    - ↑mode: PLAIN
+                    - →→: _meta
+              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357700]:
+                key:
+                  - xmlizable:
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType:
+                      - ↑mode: PLAIN
+                      - →→: convertigoGuidanceWarning
+                value:
+                  - xmlizable:
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType:
+                      - ↑mode: JS
+                      - →→: mcpGuidanceWarning
         ↓ReturnResult [steps.ReturnStep-1762256270333]: 
       ↓CopyResult [steps.XMLCopyStep-1761755111982]: 
         sourceDefinition: 

@@ -1,6 +1,7 @@
 if (typeof C8O === "undefined" || typeof C8O.util === "undefined" || typeof C8O.project === "undefined") {
   include("js/util.js");
 }
+include("js/guidance_version.js");
 include("js/catalog_loader.js");
 
 var C8O_RESOURCES_BUILTIN = [
@@ -13,6 +14,8 @@ var C8O_RESOURCES_BUILTIN = [
     text: [
       "# Convertigo MCP capabilities",
       "",
+      "- MCP guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`. Setup-generated skills declare the same `Skill guidance version`; if the installed skill differs from this value or has no version, rerun `_setupCodex` or `_setupVibe` for the current MCP endpoint before project mutation.",
+      "- Guidance handshake: compare versions during bootstrap. When the client can attach MCP request metadata, send `params._meta.convertigoGuidanceVersion` on the first guarded `tools/call`; raw HTTP clients may instead send `X-Convertigo-Guidance-Version`. The MCP only emits `_meta.convertigoGuidanceWarning` on bootstrap or mutation guard tools such as `project-list`, `databaseobject-tree-apply`, `marketplace-import`, `upsert-crud`, and `project-save`; treat it as a setup refresh signal before further project mutation.",
       "- Treat the live MCP catalog as the public source of truth: `tools/list`, `resources/list`, `prompts/list`.",
       "- Primitive authoring stays tree-first: inspect with `databaseobject-tree-get`, discover with `project-list` and `databaseobject-search`, create with `palette-list` and `palette-describe`, mutate with `databaseobject-tree-apply`, and group changes with `batch-call`.",
       "- Runtime proof uses `requestable-execute`, `crud-status`, `crud-proof`, and `log-view` when execution feedback is not enough.",
@@ -24,7 +27,7 @@ var C8O_RESOURCES_BUILTIN = [
       "- Treat `spec.relations[]`, `entities[].ui.relationFields`, and `seed.data` as first-class public CRUD inputs. Do not reverse-engineer them from the local workspace once the CRUD guides were read.",
       "- Generated CRUD facade sequences are hidden requestables that require an authenticated context. The generated `auth_login(username,password)` and `auth_logout()` skeleton sequences stay hidden, and the generated UI uses a `Login` page to establish that session once before the visible CRUD home page opens.",
       "- Prefer best-case-first generated code. Trust the standard runtime error bubble for ordinary failures instead of adding defensive wrappers by default.",
-      "- In the live dev viewer, prefer `viewerHomeUrl` or `viewerBaseUrl`. Use `mobile-builder-open(wait=false)` early for async launch, continue useful inspection or mutation while it starts, then `mobile-builder-open(stateOnly=true, wait=true)` or a normal waited call before final smoke/proof. When it returns `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, attach Playwright or browser-control MCP to that visible Studio JxBrowser endpoint for feature proof. Reserve `.../DisplayObjects/mobile/home` for production builds.",
+      "- In the live dev viewer, prefer `viewerHomeUrl` or `viewerBaseUrl`. Use `mobile-builder-open(wait=false)` early for async launch, continue useful inspection or mutation while it starts, then `mobile-builder-open(stateOnly=true, wait=true)` or a normal waited call before final smoke/proof. When it returns `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, attach Playwright or browser-control MCP to that visible Studio JxBrowser endpoint for feature proof. Studio JxBrowser exposes one visible viewer target over CDP; do not create new browser tabs or pages, reuse the current target. Reserve `.../DisplayObjects/mobile/home` for production builds.",
       "- Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. Fix the Convertigo source objects or the MCP generator instead.",
       "- Once the CRUD fast path is selected, do not fall back to `rag-query` unless the built-in guides and CRUD tools no longer answer the task."
     ].join("\n")

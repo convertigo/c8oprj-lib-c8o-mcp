@@ -87,6 +87,11 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
         skill_text,
         [
             "name: convertigo-vibe-generalist",
+            "Skill guidance version:",
+            "MCP guidance version",
+            "params._meta.convertigoGuidanceVersion",
+            "_meta.convertigoGuidanceWarning",
+            "first guarded Convertigo `tools/call`",
             "`convertigo://capabilities`",
             "`convertigo://recipes/quickstart`",
             "`convertigo://resources/convertigo-start`",
@@ -102,6 +107,10 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
         agents_text,
         [
             "use the `convertigo-vibe-generalist` skill",
+            "Skill guidance version",
+            "X-Convertigo-Guidance-Version",
+            "_meta.convertigoGuidanceWarning",
+            "first guarded Convertigo tool call",
             "Provide model credentials through the process environment",
             "`convertigo://resources/convertigo-vibe-start`",
         ],
