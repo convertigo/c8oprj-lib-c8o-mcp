@@ -182,7 +182,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         },
         tree: Object.assign(treeNodeSchema(), {
           description: "Canonical node payload using the tree-get shape. Read-only top-level fields such as qname, depth, hasChildren, directChildrenCount, subtreeCount, and priority are ignored."
-        })
+        }),
+        reveal: {
+          type: "boolean",
+          default: false,
+          description: "Set true when the host UI reveal mode is enabled, so Studio selects and reveals the patched or created object in the Project Explorer."
+        }
       },
       required: ["target", "tree"],
       additionalProperties: false
@@ -306,6 +311,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           default: false,
           description: "Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder."
+        },
+        reveal: {
+          type: "boolean",
+          default: false,
+          description: "Set true when the host UI reveal mode is enabled, so Studio can visibly focus the mobile builder/editor while the agent works."
         }
       },
       required: ["project"],
@@ -793,7 +803,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         project: nocodeFormsProjectProperty(),
         reduced: jsonObjectOrStringSchema("Reduced creative form JSON. To upload a generated thumbnail image, include reduced.thumbnailImage={contentType:'image/png',base64:'...'}; the tool persists it as the C8Oforms attachment named thumbnail through APIV2_updateFormulaireDocument."),
-        token: nocodeFormsTokenProperty()
+        token: nocodeFormsTokenProperty(),
+        reveal: {
+          type: "boolean",
+          default: false,
+          description: "Set true when the host UI reveal mode is enabled, so No Code Studio can switch to the created form editor."
+        }
       },
       required: ["reduced"],
       additionalProperties: false
@@ -814,7 +829,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Optional expected document revision. When provided, it is sent back with the patched document."
         },
         patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a generated thumbnail image, include patch.thumbnailImage={contentType:'image/png',base64:'...'}; it is consumed by the tool and not stored in the form JSON."),
-        token: nocodeFormsTokenProperty()
+        token: nocodeFormsTokenProperty(),
+        reveal: {
+          type: "boolean",
+          default: false,
+          description: "Set true when the host UI reveal mode is enabled, so No Code Studio can switch to the edited form and show the changes."
+        }
       },
       required: ["id", "patch"],
       additionalProperties: false
@@ -941,7 +961,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         operation: Object.assign(nocodeFormEditOperationSchema(), {
           description: "Alias for operations when sending a single operation object, for example {action:'add_page', name:'Details'}."
         }),
-        token: nocodeFormsTokenProperty()
+        token: nocodeFormsTokenProperty(),
+        reveal: {
+          type: "boolean",
+          default: false,
+          description: "Set true when the host UI reveal mode is enabled, so No Code Studio can switch to the edited form and show the changes."
+        }
       },
       required: ["id"],
       additionalProperties: false,
@@ -1012,6 +1037,26 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         })
       ]
     };
+  }
+
+  function revealOutputSchema() {
+    return openObjectSchema({
+      requested: { type: "boolean" },
+      status: { type: "string" },
+      action: { type: "string" },
+      target: { type: "string" },
+      qname: { type: "string" },
+      targetQName: { type: "string" },
+      project: { type: "string" },
+      formId: { type: "string" },
+      selected: { type: "boolean" },
+      revealed: { type: "boolean" },
+      editorOpened: { type: "boolean" },
+      viewerUrl: { type: "string" },
+      browserDebugUrl: { type: "string" },
+      message: { type: "string" },
+      error: { type: "string" }
+    });
   }
 
   function saveResultSchema() {
@@ -1219,7 +1264,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         type: "array",
         items: mobileBuilderMutationSchema()
       },
-      touchedQNames: stringArraySchema()
+      touchedQNames: stringArraySchema(),
+      reveal: revealOutputSchema()
     });
   }
 
@@ -1419,6 +1465,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       reusedBuild: { type: "boolean" },
       wait: { type: "boolean" },
       waited: { type: "boolean" },
+      revealWaitCapApplied: { type: "boolean" },
       stateOnly: { type: "boolean" },
       studioMode: { type: "boolean" },
       threadAlive: { type: "boolean" },
@@ -1465,7 +1512,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         type: "array",
         items: mobileBuilderLogLineSchema()
       },
-      logQuery: requestableLogQuerySchema()
+      logQuery: requestableLogQuerySchema(),
+      reveal: revealOutputSchema()
     });
   }
 

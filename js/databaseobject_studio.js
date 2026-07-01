@@ -114,6 +114,150 @@ C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   return result;
 };
 
+C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var System = java.lang.System;
+
+  var requestedQName = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(targetQName || "") : String(targetQName || "").trim();
+  var studioMode = false;
+  try {
+    studioMode = Engine.isStudioMode() === true;
+  } catch (_ignoreStudioMode) {
+    studioMode = false;
+  }
+
+  var result = {
+    requested: true,
+    status: "pending",
+    action: "studio-tree-reveal",
+    message: "Waiting for Studio reveal",
+    qname: requestedQName,
+    targetQName: "",
+    selected: false,
+    revealed: false,
+    refreshed: false,
+    studioMode: studioMode,
+    timestamp: System.currentTimeMillis(),
+    error: "",
+    executed: false
+  };
+
+  if (!studioMode) {
+    result.status = "skipped";
+    result.message = "Reveal skipped: Convertigo Studio required";
+    return result;
+  }
+
+  if (!requestedQName.length) {
+    result.status = "error";
+    result.message = "QName is required";
+    if (errors && errors.push) {
+      errors.push({ name: "__studioReveal__", message: result.message });
+    }
+    return result;
+  }
+
+  var targetObject = null;
+  try {
+    targetObject = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(requestedQName);
+  } catch (lookupError) {
+    result.status = "error";
+    result.message = "Unable to resolve QName: " + requestedQName;
+    result.error = String(lookupError);
+    if (errors && errors.push) {
+      errors.push({ name: "__studioReveal__", message: result.message, detail: result.error });
+    }
+    return result;
+  }
+
+  if (targetObject == null) {
+    result.status = "error";
+    result.message = "Database object not found: " + requestedQName;
+    if (errors && errors.push) {
+      errors.push({ name: "__studioReveal__", message: result.message });
+    }
+    return result;
+  }
+
+  try {
+    result.targetQName = String(targetObject.getQName());
+  } catch (_ignoreTargetQName) {
+    result.targetQName = requestedQName;
+  }
+
+  try {
+    var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+    var Runnable = Packages.java.lang.Runnable;
+    var pluginInstance = ConvertigoPlugin.getDefault();
+    if (pluginInstance == null) {
+      result.status = "skipped";
+      result.message = "Project Explorer view not available";
+      return result;
+    }
+
+    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      try {
+        var view = pluginInstance.getProjectExplorerView ? pluginInstance.getProjectExplorerView() : null;
+        if (view == null) {
+          result.status = "skipped";
+          result.message = "Project Explorer view not available";
+          return;
+        }
+
+        try {
+          view.reloadDatabaseObject(targetObject);
+          result.refreshed = true;
+        } catch (_ignoreReload) {}
+
+        var treeObject = null;
+        try {
+          treeObject = view.findTreeObjectByUserObject ? view.findTreeObjectByUserObject(targetObject) : null;
+        } catch (_ignoreFind) {
+          treeObject = null;
+        }
+        if (treeObject == null) {
+          result.status = "skipped";
+          result.message = "Studio tree object not found";
+          return;
+        }
+
+        try {
+          view.setSelectedTreeObject(treeObject);
+          result.selected = true;
+        } catch (selectError) {
+          result.error = String(selectError);
+        }
+
+        try {
+          if (view.viewer && view.viewer.reveal) {
+            view.viewer.reveal(treeObject);
+            result.revealed = true;
+          }
+        } catch (revealError) {
+          result.error = result.error || String(revealError);
+        }
+
+        result.executed = true;
+        result.status = result.selected || result.revealed ? "revealed" : "skipped";
+        result.message = result.status === "revealed" ? "Project Explorer selection revealed" : "Studio tree reveal could not select the target";
+      } catch (uiError) {
+        result.status = "error";
+        result.message = String(uiError);
+        result.error = String(uiError);
+      }
+    }}));
+  } catch (revealError) {
+    result.status = "error";
+    result.message = String(revealError);
+    result.error = String(revealError);
+  }
+
+  if (result.status === "error" && errors && errors.push) {
+    errors.push({ name: "__studioReveal__", message: result.message, detail: result.error });
+  }
+  return result;
+};
+
 C8O.dbo.removeStudioProjectTreeByName = function (projectName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var System = java.lang.System;

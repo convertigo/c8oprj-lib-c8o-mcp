@@ -42,3 +42,7 @@ responseTimeout: 120
   comment: Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder.
   description: Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder.
   value: false
+↓reveal [variables.RequestableVariable-1782955200201]: 
+  comment: Set true to request visible Studio focus on the mobile builder/editor when opening or polling it.
+  description: Set true to request visible Studio focus on the mobile builder/editor when opening or polling it.
+  value: false

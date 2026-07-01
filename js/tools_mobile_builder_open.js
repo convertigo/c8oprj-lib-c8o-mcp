@@ -5,6 +5,7 @@
 
 include("js/util.js");
 include("js/mobile_builder_common.js");
+include("js/ui_reveal.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -526,7 +527,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
     var waitValue = parseBoolean(opts.wait, true);
     var stateOnlyValue = parseBoolean(opts.stateOnly, false);
+    var revealValue = parseBoolean(opts.reveal, false);
     var timeoutSecValue = waitValue === true ? parseIntBounded(opts.timeoutSec, 90, 0, 600) : 0;
+    var revealWaitCapApplied = false;
+    if (stateOnlyValue === true && revealValue === true && waitValue === true && timeoutSecValue > 12) {
+      timeoutSecValue = 12;
+      revealWaitCapApplied = true;
+    }
     var logsLimitValue = parseIntBounded(opts.logsLimit, 40, 5, 200);
     var forceRestartValue = parseBoolean(opts.forceRestart, false);
     var startedAt = java.lang.System.currentTimeMillis();
@@ -712,6 +719,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       reusedBuild: reusedExistingBuilder,
       wait: waitValue,
       waited: waited,
+      revealWaitCapApplied: revealWaitCapApplied,
       stateOnly: stateOnlyValue,
       studioMode: studioMode === true,
       threadAlive: ready || status === "building" || status === "starting",
@@ -758,7 +766,11 @@ var openMobileBuilderResult = C8O.mobileBuilder.open({
   logsLimit: (typeof logsLimit !== "undefined") ? logsLimit : 40,
   forceRestart: (typeof forceRestart !== "undefined") ? forceRestart : false,
   wait: (typeof wait !== "undefined") ? wait : true,
-  stateOnly: (typeof stateOnly !== "undefined") ? stateOnly : false
+  stateOnly: (typeof stateOnly !== "undefined") ? stateOnly : false,
+  reveal: (typeof reveal !== "undefined") ? reveal : false
 });
+if (openMobileBuilderResult && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
+  openMobileBuilderResult.reveal = C8O.uiReveal.mobileBuilder(project, openMobileBuilderResult, { reveal: true });
+}
 var openMobileBuilderLogs = openMobileBuilderResult && openMobileBuilderResult.logs ? openMobileBuilderResult.logs : [];
 var openMobileBuilderLogQuery = openMobileBuilderResult && openMobileBuilderResult.logQuery ? openMobileBuilderResult.logQuery : {};

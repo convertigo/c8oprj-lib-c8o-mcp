@@ -11,7 +11,7 @@ The core rule is simple: stay on the no-code form rail. Do not use Convertigo lo
 
 ## Skill freshness
 
-- Skill guidance version: `2026-07-01.skill-sync-v2`.
+- Skill guidance version: `2026-07-01.skill-sync-v3`.
 - During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, rerun `_setupCodex` for the current MCP endpoint before using no-code mutation tools.
 - When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. The MCP only warns on bootstrap or mutation guard tools, so treat `_meta.convertigoGuidanceWarning` as a setup refresh signal before further no-code mutation.
 
@@ -30,6 +30,12 @@ No-code create, edit/update, and Baserow catalog operations require the authenti
 
 - Expected MCP endpoint: `http://localhost:18082/convertigo/api/mcp`.
 - Prefer the no-code MCP tools listed below over filesystem edits or low-code project mutations.
+
+## Optional UI reveal mode
+
+- If the integrated assistant or host context says Convertigo reveal mode is enabled, pass `reveal:true` only on supported no-code mutation tools that should visibly move No Code Studio while you work: `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update`.
+- Do not add `reveal:true` to read-only calls such as contract, compile, validate, catalog, or log tools.
+- Treat a `result.reveal.status` of `skipped`, `unsupported`, or `intent` as a UI hint result, not as a no-code mutation failure.
 
 ## Hard Tool Boundary
 

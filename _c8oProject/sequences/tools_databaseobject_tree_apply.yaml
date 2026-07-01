@@ -316,6 +316,19 @@ comment: |
         - SmartType: 
           - ↑mode: PLAIN
           - →→: touchedQNames
+  ↓reveal [steps.JsonToXmlStep-1782955200101]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'treeApplyResult && treeApplyResult.reveal ? treeApplyResult.reveal : {}'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: reveal
 ↓target [variables.RequestableVariable-1772628058546]: 
   comment: Existing QName. Case-sensitive. Patched when at=self; used as the anchor when at=inside, before, or after.
   description: Existing QName. Case-sensitive. Patched when at=self; used as the anchor when at=inside, before, or after.
@@ -359,4 +372,8 @@ comment: |
 ↓dryRun [variables.RequestableVariable-1772628059686]: 
   comment: Set true to compute the report without mutating the project.
   description: Set true to compute the report without mutating the project.
+  value: false
+↓reveal [variables.RequestableVariable-1782955200102]: 
+  comment: Set true to select and reveal the patched or created object in the Studio Project Explorer.
+  description: Set true to select and reveal the patched or created object in the Studio Project Explorer.
   value: false

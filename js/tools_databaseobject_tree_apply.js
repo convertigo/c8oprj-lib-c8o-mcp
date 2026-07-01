@@ -2,6 +2,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
   include("js/databaseobject.js");
 }
 include("js/databaseobject_batch.js");
+include("js/ui_reveal.js");
 
 function _treeApplyRequireHelper(name) {
   if (!C8O.dbo || typeof C8O.dbo[name] !== "function") {
@@ -41,6 +42,7 @@ var executionIdInput = (typeof executionId !== "undefined") ? executionId : null
 var dryRunInput = (typeof dryRun !== "undefined") ? dryRun : false;
 var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
 var triggerMobileBuilderInput = (typeof triggerMobileBuilder !== "undefined") ? triggerMobileBuilder : true;
+var revealInput = (typeof reveal !== "undefined") ? reveal : false;
 
 var targetInput = asTrimmed(target);
 if (!targetInput.length) {
@@ -171,6 +173,50 @@ if (treeApplyRefreshRequested) {
 }
 if (treeApplyRefreshRequested && treeApplyRefreshQName.length > 0 && treeApplyResult && treeApplyResult.dryRun !== true) {
   treeApplyStudioRefresh = C8O.dbo.refreshStudioTreeByQName(treeApplyRefreshQName, treeApplyResult.errors);
+}
+
+function treeApplyRevealQName(result, fallbackQName) {
+  if (result && result.touchedQNames && result.touchedQNames.length > 0) {
+    for (var rqi = result.touchedQNames.length - 1; rqi >= 0; rqi--) {
+      var touched = asTrimmed(result.touchedQNames[rqi]);
+      if (touched.length) {
+        return touched;
+      }
+    }
+  }
+  if (result && result.operations && result.operations.length > 0) {
+    for (var roi = result.operations.length - 1; roi >= 0; roi--) {
+      var opReport = result.operations[roi] || {};
+      var candidates = [
+        opReport.qname,
+        opReport.targetQName,
+        opReport.createdQName
+      ];
+      for (var ci = 0; ci < candidates.length; ci++) {
+        var candidate = asTrimmed(candidates[ci]);
+        if (candidate.length) {
+          return candidate;
+        }
+      }
+      if (opReport.applied && opReport.applied.length > 0) {
+        for (var ai = opReport.applied.length - 1; ai >= 0; ai--) {
+          var applied = opReport.applied[ai] || {};
+          var appliedQName = asTrimmed(applied.qname || applied.targetQName || applied.createdQName);
+          if (appliedQName.length) {
+            return appliedQName;
+          }
+        }
+      }
+    }
+  }
+  return asTrimmed(fallbackQName || targetInput);
+}
+
+if (treeApplyResult && C8O.uiReveal && C8O.uiReveal.enabled(revealInput, false) === true && treeApplyResult.dryRun !== true) {
+  treeApplyResult.reveal = C8O.uiReveal.databaseObject(treeApplyRevealQName(treeApplyResult, treeApplyRefreshQName), {
+    reveal: true,
+    errors: treeApplyResult.errors
+  });
 }
 
 treeApplyStop = treeApplyResult && treeApplyResult.stop ? treeApplyResult.stop : null;

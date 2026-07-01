@@ -2,7 +2,7 @@ accessibility: Private
 comment: |
   'Edit a No Code form through C8Oforms APIs
   Use this for incremental edits to an existing form when the user asks to add, update, delete, or move pages, components, flows, or flow elements. It is safer than nocode-form-update for structural edits because it applies semantic operations and repairs C8Oforms references such as childrenRefs and parentRef. The tool fetches the form through C8Oforms.APIV2_getDocument, applies operations in order, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
-  Typical operations:
+  Typical operations: 
   - add_page: {action:"add_page", name:"Details", index:1, navigationMode:"tabs"}
   - update_page: {action:"update_page", pageName:"Details", patch:{iconName:"people", enabledTab:true}}
   - add_field/add_component: {action:"add_field", pageName:"Details", fieldObject:{type:"text", name:"child_name", description:"Child name", mandatory:true}}
@@ -15,6 +15,7 @@ comment: |
 ↓Run [steps.SimpleStep-1780100000601]: 
   expression: |
     'include("js/nocode_forms.js");
+    include("js/ui_reveal.js");
     try {
       var rawOperations = typeof operations !== "undefined" ? operations : null;
       if ((rawOperations == null || String(rawOperations).trim() === "") && typeof operation !== "undefined") {
@@ -25,6 +26,9 @@ comment: |
       }
       var operationsArray = C8O.nocodeForms.parseOperations(rawOperations, "operations", []);
       result = C8O.nocodeForms.edit(id, operationsArray, { project: project, rev: rev, token: token });
+      if (result && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
+        result.reveal = C8O.uiReveal.nocodeForm("nocode-form-edit-reveal", result, { project: project });
+      }
     }
     catch (e) {
       result = { status: "error", saved: false, error: { code: "invalid_operations", message: String(e && e.message ? e.message : e) } };
@@ -62,3 +66,7 @@ comment: |
 ↓token [variables.RequestableVariable-1780100000607]: 
   comment: No Code Studio bearer token used to authenticate the C8Oforms API calls.
   description: No Code Studio bearer token used to authenticate the C8Oforms API calls.
+↓reveal [variables.RequestableVariable-1782955200601]: 
+  comment: Set true to request visible No Code Studio reveal after the form is edited.
+  description: Set true to request visible No Code Studio reveal after the form is edited.
+  value: false

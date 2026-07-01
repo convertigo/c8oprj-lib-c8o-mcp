@@ -5,8 +5,12 @@ comment: |
 ↓Run [steps.SimpleStep-1780100000301]: 
   expression: |
     'include("js/nocode_forms.js");
+    include("js/ui_reveal.js");
     var reducedObject = C8O.nocodeForms.parseObject(reduced, "reduced", {});
-    result = C8O.nocodeForms.create(reducedObject, { project: project, token: token });'
+    result = C8O.nocodeForms.create(reducedObject, { project: project, token: token });
+    if (result && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
+      result.reveal = C8O.uiReveal.nocodeForm("nocode-form-create-reveal", result, { project: project });
+    }'
 ↓result [steps.JsonToXmlStep-1780100000302]: 
   jsonObject: 
     - xmlizable: 
@@ -31,3 +35,7 @@ comment: |
 ↓token [variables.RequestableVariable-1779908983911]: 
   comment: No Code Studio bearer token used to authenticate the C8Oforms API call.
   description: No Code Studio bearer token used to authenticate the C8Oforms API call.
+↓reveal [variables.RequestableVariable-1782955200301]: 
+  comment: Set true to request visible No Code Studio reveal after the form is created.
+  description: Set true to request visible No Code Studio reveal after the form is created.
+  value: false

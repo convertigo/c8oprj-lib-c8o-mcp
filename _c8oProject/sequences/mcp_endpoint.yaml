@@ -313,26 +313,26 @@ responseTimeout: 300
                       - ↑value: 1761755111966
                     - java.lang.String: 
                       - ↑value: ./document/error
-          ↓GuidanceMetaIf [steps.IfStep-1782895357727]:
+          ↓GuidanceMetaIf [steps.IfStep-1782895357727]: 
             condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
-            ↓_meta [steps.JsonObjectStep-1782895357729]:
-              key:
-                - xmlizable:
+            ↓_meta [steps.JsonObjectStep-1782895357729]: 
+              key: 
+                - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                  - SmartType:
+                  - SmartType: 
                     - ↑mode: PLAIN
                     - →→: _meta
-              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357731]:
-                key:
-                  - xmlizable:
+              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357731]: 
+                key: 
+                  - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType:
+                    - SmartType: 
                       - ↑mode: PLAIN
                       - →→: convertigoGuidanceWarning
-                value:
-                  - xmlizable:
+                value: 
+                  - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType:
+                    - SmartType: 
                       - ↑mode: JS
                       - →→: mcpGuidanceWarning
         ↓ReturnToolError [steps.ReturnStep-1782105694345]: 
@@ -439,26 +439,26 @@ responseTimeout: 300
                       - ↑value: 1761755111966
                     - java.lang.String: 
                       - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
-          ↓GuidanceMetaIf [steps.IfStep-1782895357760]:
+          ↓GuidanceMetaIf [steps.IfStep-1782895357760]: 
             condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
-            ↓_meta [steps.JsonObjectStep-1782895357762]:
-              key:
-                - xmlizable:
+            ↓_meta [steps.JsonObjectStep-1782895357762]: 
+              key: 
+                - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                  - SmartType:
+                  - SmartType: 
                     - ↑mode: PLAIN
                     - →→: _meta
-              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357764]:
-                key:
-                  - xmlizable:
+              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357764]: 
+                key: 
+                  - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType:
+                    - SmartType: 
                       - ↑mode: PLAIN
                       - →→: convertigoGuidanceWarning
-                value:
-                  - xmlizable:
+                value: 
+                  - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType:
+                    - SmartType: 
                       - ↑mode: JS
                       - →→: mcpGuidanceWarning
         ↓ReturnToolError [steps.ReturnStep-1782105694670]: 
@@ -553,26 +553,26 @@ responseTimeout: 300
                       - ↑value: 1761755111966
                     - java.lang.String: 
                       - ↑value: ./document/*[@originalKeyName='result']/*
-          ↓GuidanceMetaIf [steps.IfStep-1782895357688]:
+          ↓GuidanceMetaIf [steps.IfStep-1782895357688]: 
             condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
-            ↓_meta [steps.JsonObjectStep-1782895357694]:
-              key:
-                - xmlizable:
+            ↓_meta [steps.JsonObjectStep-1782895357694]: 
+              key: 
+                - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                  - SmartType:
+                  - SmartType: 
                     - ↑mode: PLAIN
                     - →→: _meta
-              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357700]:
-                key:
-                  - xmlizable:
+              ↓convertigoGuidanceWarning [steps.JsonFieldStep-1782895357700]: 
+                key: 
+                  - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType:
+                    - SmartType: 
                       - ↑mode: PLAIN
                       - →→: convertigoGuidanceWarning
-                value:
-                  - xmlizable:
+                value: 
+                  - xmlizable: 
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-                    - SmartType:
+                    - SmartType: 
                       - ↑mode: JS
                       - →→: mcpGuidanceWarning
         ↓ReturnResult [steps.ReturnStep-1762256270333]: 
