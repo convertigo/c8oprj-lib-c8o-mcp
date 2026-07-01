@@ -64,12 +64,12 @@ If some fields are missing, ask only for the missing CRUD spec items.
 2. If it does not, stop and redirect to the exploratory path instead of improvising.
 3. Build one explicit `spec` object.
 4. If the target project does not exist yet and the task includes UI, run `marketplace-import` with `template_ngxBuilderIonic` and the exact requested project name.
-5. If the target project does not exist yet and the task includes UI, call `mobile-builder-open` immediately after the starter import and keep `viewerHomeUrl` or `viewerBaseUrl` for the live dev app.
+5. If the target project does not exist yet and the task includes UI, call `mobile-builder-open(wait=false)` immediately after the starter import so the viewer opens asynchronously. Keep `viewerHomeUrl` or `viewerBaseUrl` when already available for the live dev app.
 6. If the target project already exists and `crud-status` confirms a green deterministic CRUD rail, stay on the existing-project edit fast path instead of replaying the new-project bootstrap.
 7. Run `upsert-crud`.
 8. Run `crud-proof` with backend requestables.
 9. If proof fails, stop and report the exact missing proof items.
-10. For a new project UI pass, run `upsert-ngx-crud-kit` with `stage=bootstrap`, probe `mobile-builder-open`, then run `stage=final`.
+10. For a new project UI pass, run `upsert-ngx-crud-kit` with `stage=bootstrap`, probe with `mobile-builder-open(stateOnly=true, wait=true)`, then run `stage=final`.
 11. For an existing green project UI pass, run only one `upsert-ngx-crud-kit` with `stage=final`.
 12. Run `crud-proof` with `expectUiShell=true` and pass the live `viewerUrl` from `mobile-builder-open`.
 13. Save with `project-save` when the target project was mutated and save proof is still needed.

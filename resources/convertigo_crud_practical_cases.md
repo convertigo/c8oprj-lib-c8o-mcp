@@ -5,7 +5,7 @@ Always validate on a fresh disposable project instead of a project already pollu
 
 ## HSQLDB starter NGX
 1. Import `template_ngxBuilderIonic` with `marketplace-import` and the exact disposable project name.
-2. Open the live dev app immediately with `mobile-builder-open` and keep `viewerHomeUrl` or `viewerBaseUrl`.
+2. Open the live dev app immediately with `mobile-builder-open(wait=false)` and keep `viewerHomeUrl` or `viewerBaseUrl` if already available.
 3. Call `upsert-crud` with `sequence=true`, `ui=false`.
 4. Call `crud-proof` with backend proof requestables such as:
    - `init_schema`
@@ -14,9 +14,9 @@ Always validate on a fresh disposable project instead of a project already pollu
    - `list_companies`
    - `count_companies`
 5. Call `upsert-ngx-crud-kit` with `stage=bootstrap`.
-6. Call `mobile-builder-open` again. If it returns `compile_error`, fix the Convertigo source path or MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated frontend files.
+6. Call `mobile-builder-open(stateOnly=true, wait=true)` again. If it returns `compile_error`, fix the Convertigo source path or MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated frontend files.
 7. Call `upsert-ngx-crud-kit` again with `stage=final`.
-8. Call `crud-proof` again with `expectUiShell=true` and the returned `viewerUrl`, then confirm:
+8. Call `crud-proof` again with `expectUiShell=true` and the returned `viewerUrl`. If the builder returns a JxBrowser debug endpoint, also smoke the visible Studio viewer through Playwright or browser-control MCP, then confirm:
    - `ui.starterDominant == false`
    - `ui.visibleShellPresent == true`
    - `ui.viewerProbe.ok == true`

@@ -290,12 +290,22 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: { type: "string", description: "Existing NGX project name. Use the exact project technical name; do not invent prefixes or date suffixes." },
-        timeoutSec: { type: "integer", minimum: 5, maximum: 600, default: 90, description: "Seconds to wait for a live-reload URL. Default 90; max 600." },
+        timeoutSec: { type: "integer", minimum: 0, maximum: 600, default: 90, description: "Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. Default 90; max 600." },
         logsLimit: { type: "integer", minimum: 5, maximum: 200, default: 40, description: "Maximum builder log lines returned for diagnostics. Default 40; max 200." },
         forceRestart: {
           type: "boolean",
           default: false,
-          description: "Set true to restart an already running builder before waiting for readiness."
+          description: "Set true to restart an already running builder. Use only when the current builder is stuck or on the wrong state."
+        },
+        wait: {
+          type: "boolean",
+          default: true,
+          description: "Set false to request/open the viewer and return immediately with the current state. Default true preserves the synchronous readiness wait."
+        },
+        stateOnly: {
+          type: "boolean",
+          default: false,
+          description: "Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder."
         }
       },
       required: ["project"],
@@ -1392,6 +1402,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       requested: { type: "boolean" },
       opened: { type: "boolean" },
       builderLaunchRequested: { type: "boolean" },
+      stateOnly: { type: "boolean" },
       message: { type: "string" },
       error: { type: "string" }
     });
@@ -1404,7 +1415,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       message: { type: "string" },
       ready: { type: "boolean" },
       launched: { type: "boolean" },
+      launchRequested: { type: "boolean" },
       reusedBuild: { type: "boolean" },
+      wait: { type: "boolean" },
+      waited: { type: "boolean" },
+      stateOnly: { type: "boolean" },
       studioMode: { type: "boolean" },
       threadAlive: { type: "boolean" },
       timeoutSec: { type: "number" },
@@ -1418,6 +1433,18 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       viewerHomeUrl: { type: "string" },
       port: { type: "number" },
       nodeUrl: { type: "string" },
+      browserDebugUrl: { type: "string", description: "JxBrowser remote debugging base URL for the Studio mobile viewer, when available." },
+      browserDevToolsJsonUrl: { type: "string", description: "JxBrowser /json DevTools endpoint listing controllable pages, when available." },
+      browserDevToolsWebSocketUrl: { type: "string", description: "DevTools WebSocket URL for the visible Studio mobile viewer page, when available." },
+      browserDevToolsTarget: openObjectSchema({
+        id: { type: "string" },
+        type: { type: "string" },
+        title: { type: "string" },
+        url: { type: "string" },
+        webSocketDebuggerUrl: { type: "string" },
+        devtoolsFrontendUrl: { type: "string" }
+      }),
+      browserRemoteDebuggingPort: { type: "number" },
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
       browser: openObjectSchema({

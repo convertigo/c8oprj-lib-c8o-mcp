@@ -340,7 +340,21 @@ Retry must re-enter the data-loading action path. A structural marker is not eno
 ## Mobile builder: use it early, not at the end
 
 ### Start it early on UX work
-For any task that includes UI work, start `mobile-builder-open` early in the implementation path.
+For any task that includes UI work, start `mobile-builder-open` early in the implementation path. Prefer an async warm-up call first:
+
+```json
+{"project":"<ProjectName>","wait":false}
+```
+
+That opens or reconnects the Studio viewer and returns the current state without blocking on the initial build. Continue backend work, tree inspection, or NGX mutations while the builder starts. Before browser smoke or final proof, call `mobile-builder-open` again with either the normal default wait or a state-only wait:
+
+```json
+{"project":"<ProjectName>","stateOnly":true,"wait":true}
+```
+
+Use `stateOnly=true` when you only need the current viewer URLs and readiness and do not want to reopen, start, or restart the builder.
+
+When the waited/state-only result includes `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, use that endpoint for browser automation proof of the visible Studio JxBrowser viewer. A complete UI loop is: start with `mobile-builder-open(wait=false)`, keep inspecting or mutating while the builder may still be `building`, poll with `mobile-builder-open(stateOnly=true, wait=true)`, then attach Playwright or the browser-control MCP to the returned JxBrowser debug endpoint and verify the actual feature in that viewer. Do not replace this with a separate browser tab when the Studio JxBrowser endpoint is available.
 
 Why this is the right way:
 - the user in Studio sees the application evolve live
@@ -349,7 +363,7 @@ Why this is the right way:
 
 ### What to do when the viewer is unreachable
 If `viewerUrl` is unreachable or browser smoke fails:
-1. inspect the builder logs returned by `mobile-builder-open`
+1. inspect the builder logs returned by the latest waited `mobile-builder-open`
 2. if still unclear, call `log-view`
 3. decide whether:
    - the build failed
@@ -429,7 +443,7 @@ For a credible NGX data page:
 - empty state exists
 - error state exists
 - retry is a real action path
-- mobile builder was started early enough to expose real build issues
+- mobile builder was started early enough, preferably with `wait=false`, to expose real build issues while work continues
 - logs were checked when the viewer/build path failed
 - latest UI mutations were saved
 
@@ -456,7 +470,7 @@ For a credible NGX data page:
 - The page uses deliberate NGX structure and action placement.
 - Bindings target stable facade fields.
 - Loading, empty, error, and retry states are all real.
-- `mobile-builder-open` was started early on UX work.
+- `mobile-builder-open(wait=false)` was started early on UX work, then a waited/status call was used for proof.
 - Builder or log evidence was read when runtime smoke failed.
 - The page is saved only after structural and runtime/build evidence are consistent.
 - A data-backed page is not implemented mainly through one large `UICustom` fragment.

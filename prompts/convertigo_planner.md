@@ -56,7 +56,7 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
    - use `project-reload` only when you intentionally want rollback-to-disk proof
    - never call `project-reload` on the active MCP server project; use `project-save` there
 10. Save with `project-save` after the proof passes.
-11. If the task includes UX, tell the frontend specialist to start `mobile-builder-open` early so the app becomes visible in Studio while work is progressing.
+11. If the task includes UX, tell the frontend specialist to start `mobile-builder-open(wait=false)` early so the app opens in Studio while work is progressing, then use a waited/state-only call before final proof and, when available, Playwright/browser-control MCP against the returned JxBrowser debug endpoint.
 12. If the task includes UX, require the frontend specialist to replace the starter/default page content with a visible shell on the first pass:
    - real page title or header
    - at least one visible section tied to the target feature

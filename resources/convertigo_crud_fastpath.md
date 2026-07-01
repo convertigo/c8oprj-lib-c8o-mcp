@@ -60,13 +60,13 @@ Default assumptions for the fast path:
 
 ## Deterministic rail
 1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
-2. Open the app immediately with `mobile-builder-open` and keep the returned live dev URL. Prefer `viewerHomeUrl` or `viewerBaseUrl`; reserve `.../DisplayObjects/mobile/home` for production builds.
+2. Open the app immediately with `mobile-builder-open(wait=false)` so the viewer starts asynchronously while backend work continues. Keep the returned live dev URL if it is already available. Prefer `viewerHomeUrl` or `viewerBaseUrl`; reserve `.../DisplayObjects/mobile/home` for production builds.
 3. Call `upsert-crud` with a complete `spec`.
 4. Call `crud-proof` for backend evidence.
 5. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
-6. Call `mobile-builder-open` again after the bootstrap shell exists. If it returns `compile_error`, fix the Convertigo source path or the MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated files.
+6. Call `mobile-builder-open(stateOnly=true, wait=true)` again after the bootstrap shell exists. If it returns `compile_error`, fix the Convertigo source path or the MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated files.
 7. Call `upsert-ngx-crud-kit` again with `stage=final`.
-8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`.
+8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`. When the waited builder result exposes `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, also use Playwright or browser-control MCP against that JxBrowser endpoint for the visible Studio viewer smoke proof.
 9. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
 10. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
 
@@ -77,7 +77,7 @@ If the target is already a deterministic CRUD project and the UI is already gree
 3. Run `upsert-crud` with `sequence=true` and `ui=false`.
 4. Run backend `crud-proof`.
 5. Run one `upsert-ngx-crud-kit stage=final`.
-6. Run `mobile-builder-open`.
+6. Run `mobile-builder-open(stateOnly=true, wait=true)`.
 7. Run final `crud-proof(expectUiShell=true, viewerUrl=...)`.
 8. Save with `project-save` if needed, then stop.
 
