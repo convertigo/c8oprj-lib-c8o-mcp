@@ -340,6 +340,39 @@ C8O.setupCodex = C8O.setupCodex || {};
     ]).join("\n");
   }
 
+  function buildNoCodeSkillMarkdown(mcpUrl) {
+    var text = String(c8oReadCatalogFile("resources", "convertigo-nocode/SKILL.md"));
+    var versionLine = "- Skill guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`.";
+    var endpointLine = "- Expected MCP endpoint: `" + trim(mcpUrl) + "`.";
+
+    if (/^- Skill guidance version: `[^`]*`\./m.test(text)) {
+      text = text.replace(/^- Skill guidance version: `[^`]*`\./m, versionLine);
+    } else {
+      text = text.replace(
+        "The core rule is simple: stay on the no-code form rail. Do not use Convertigo low-code tools to compensate for missing no-code capability.",
+        "The core rule is simple: stay on the no-code form rail. Do not use Convertigo low-code tools to compensate for missing no-code capability.\n\n" +
+        "## Skill freshness\n\n" +
+        versionLine + "\n" +
+        "- During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, rerun `_setupCodex` for the current MCP endpoint before using no-code mutation tools.\n" +
+        "- When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. The MCP only warns on bootstrap or mutation guard tools, so treat `_meta.convertigoGuidanceWarning` as a setup refresh signal before further no-code mutation."
+      );
+    }
+
+    if (/^- Expected MCP endpoint: `[^`]*`\./m.test(text)) {
+      text = text.replace(/^- Expected MCP endpoint: `[^`]*`\./m, endpointLine);
+    } else {
+      text = text.replace(
+        "## Workflow",
+        "## Convertigo MCP entry\n\n" +
+        endpointLine + "\n" +
+        "- Prefer the no-code MCP tools listed below over filesystem edits or low-code project mutations.\n\n" +
+        "## Workflow"
+      );
+    }
+
+    return text.replace(/\n*$/g, "\n");
+  }
+
   function writeManagedFile(file, content, dryRun) {
     var existed = file.isFile();
     var previous = readTextIfExists(file);
@@ -359,6 +392,26 @@ C8O.setupCodex = C8O.setupCodex || {};
     };
   }
 
+  function combineSkillStatuses(statuses) {
+    var hasCreated = false;
+    var hasUpdated = false;
+    for (var i = 0; i < statuses.length; i++) {
+      var status = trim(statuses[i]);
+      if (status === "created") {
+        hasCreated = true;
+      } else if (status === "updated") {
+        hasUpdated = true;
+      }
+    }
+    if (hasCreated) {
+      return "created";
+    }
+    if (hasUpdated) {
+      return "updated";
+    }
+    return "unchanged";
+  }
+
   C8O.setupCodex.run = function (options) {
     var File = Packages.java.io.File;
     var opts = options || {};
@@ -367,11 +420,16 @@ C8O.setupCodex = C8O.setupCodex || {};
     var codexHome = resolveCodexHome(opts.codexHome);
     var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
     var skillsDir = new File(codexHome, "skills");
-    var skillDir = new File(skillsDir, "convertigo-generalist");
-    var skillFile = new File(skillDir, "SKILL.md");
+    var generalistSkillDir = new File(skillsDir, "convertigo-generalist");
+    var generalistSkillFile = new File(generalistSkillDir, "SKILL.md");
+    var noCodeSkillDir = new File(skillsDir, "convertigo-nocode");
+    var noCodeSkillFile = new File(noCodeSkillDir, "SKILL.md");
     var configFile = new File(codexHome, "config.toml");
-    var skillContent = buildSkillMarkdown(resolvedMcpUrl);
-    var skillWrite = writeManagedFile(skillFile, skillContent, dryRun);
+    var generalistSkillContent = buildSkillMarkdown(resolvedMcpUrl);
+    var noCodeSkillContent = buildNoCodeSkillMarkdown(resolvedMcpUrl);
+    var generalistSkillWrite = writeManagedFile(generalistSkillFile, generalistSkillContent, dryRun);
+    var noCodeSkillWrite = writeManagedFile(noCodeSkillFile, noCodeSkillContent, dryRun);
+    var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeSkillWrite.status]);
 
     var existingConfig = readTextIfExists(configFile);
     var patchedConfig = patchConfigToml(existingConfig, resolvedMcpUrl);
@@ -380,16 +438,32 @@ C8O.setupCodex = C8O.setupCodex || {};
     }
 
     return {
-      skillStatus: skillWrite.status,
+      skillStatus: combinedSkillStatus,
       configStatus: patchedConfig.status,
       resolvedCodexHome: String(codexHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
-      skillPath: String(skillFile.getAbsolutePath()),
+      skillPath: String(generalistSkillFile.getAbsolutePath()),
+      skillPaths: {
+        generalist: String(generalistSkillFile.getAbsolutePath()),
+        nocode: String(noCodeSkillFile.getAbsolutePath())
+      },
+      skills: {
+        generalist: {
+          slug: "convertigo-generalist",
+          status: generalistSkillWrite.status,
+          path: String(generalistSkillFile.getAbsolutePath())
+        },
+        nocode: {
+          slug: "convertigo-nocode",
+          status: noCodeSkillWrite.status,
+          path: String(noCodeSkillFile.getAbsolutePath())
+        }
+      },
       warnings: warnings,
       nextSteps: [
         "Restart Codex to pick up the updated skill list.",
         "Start a fresh Codex session in the Convertigo workspace.",
-        "Use the generated convertigo-generalist skill for general Convertigo work."
+        "Use the generated convertigo-generalist or convertigo-nocode skill for the current Convertigo surface."
       ],
       dryRun: dryRun
     };

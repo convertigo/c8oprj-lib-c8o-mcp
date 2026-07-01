@@ -48,6 +48,13 @@ def load_text(path):
     return Path(path).read_text(encoding="utf-8")
 
 
+def skill_result(result, key):
+    skills = result.get("skills")
+    if isinstance(skills, dict) and isinstance(skills.get(key), dict):
+        return skills[key]
+    return {}
+
+
 def contains_lines(text, expected_lines):
     for line in expected_lines:
         if line not in text:
@@ -72,10 +79,14 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
     assert_true(result.get("skillStatus") == expected_skill_status, f"Unexpected skillStatus: {result}")
     assert_true(result.get("configStatus") == expected_config_status, f"Unexpected configStatus: {result}")
     assert_true(result.get("resolvedMcpUrl") == resolved_mcp_url, f"Unexpected resolvedMcpUrl: {result}")
+    assert_true(skill_result(result, "generalist").get("status") == expected_skill_status, f"Unexpected generalist skill status: {result}")
+    assert_true(skill_result(result, "nocode").get("status") == expected_skill_status, f"Unexpected nocode skill status: {result}")
 
     skill_path = Path(result["skillPath"])
+    nocode_skill_path = Path(result["skillPaths"]["nocode"])
     config_path = codex_home / "config.toml"
     assert_true(skill_path.exists(), f"Skill file missing: {skill_path}")
+    assert_true(nocode_skill_path.exists(), f"NoCode skill file missing: {nocode_skill_path}")
     assert_true(config_path.exists(), f"Config file missing: {config_path}")
 
     skill_text = load_text(skill_path)
@@ -97,6 +108,24 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "Do not create new browser tabs or pages",
             "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
             "run `marketplace-import` with that exact name",
+        ],
+    )
+
+    nocode_skill_text = load_text(nocode_skill_path)
+    contains_lines(
+        nocode_skill_text,
+        [
+            "name: convertigo-nocode",
+            "Skill guidance version:",
+            "MCP guidance version",
+            "params._meta.convertigoGuidanceVersion",
+            "_meta.convertigoGuidanceWarning",
+            f"Expected MCP endpoint: `{resolved_mcp_url}`",
+            "`nocode-form-contract-get`",
+            "`nocode-form-edit`",
+            "`nocode-form-update`",
+            "`nocode-baserow-catalog-list`",
+            "Do not use Convertigo low-code tools to compensate for missing no-code capability.",
         ],
     )
 
@@ -157,6 +186,8 @@ def main():
             },
         )
         assert_true(stable_second.get("skillStatus") == "unchanged", f"Second skillStatus should be unchanged: {stable_second}")
+        assert_true(skill_result(stable_second, "generalist").get("status") == "unchanged", f"Second generalist status should be unchanged: {stable_second}")
+        assert_true(skill_result(stable_second, "nocode").get("status") == "unchanged", f"Second nocode status should be unchanged: {stable_second}")
         assert_true(stable_second.get("configStatus") == "unchanged", f"Second configStatus should be unchanged: {stable_second}")
 
     print(json.dumps({"status": "ok", "validated": "_setupCodex"}, indent=2))

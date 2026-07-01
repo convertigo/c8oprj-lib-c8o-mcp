@@ -9,6 +9,12 @@ Use this skill for Convertigo No Code Studio / C8Oforms tasks where the user wan
 
 The core rule is simple: stay on the no-code form rail. Do not use Convertigo low-code tools to compensate for missing no-code capability.
 
+## Skill freshness
+
+- Skill guidance version: `2026-07-01.skill-sync-v2`.
+- During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, rerun `_setupCodex` for the current MCP endpoint before using no-code mutation tools.
+- When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. The MCP only warns on bootstrap or mutation guard tools, so treat `_meta.convertigoGuidanceWarning` as a setup refresh signal before further no-code mutation.
+
 ## No-Code Authentication
 
 No-code create, edit/update, and Baserow catalog operations require the authenticated No Code Studio user.
@@ -19,6 +25,11 @@ No-code create, edit/update, and Baserow catalog operations require the authenti
 - Call `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update` normally when the tool is available; the integration supplies the authentication context.
 - If a protected no-code tool still returns `missing_token`, `invalid_token`, or `expired_token`, report that the No Code assistant authentication is not ready and ask the user to retry or reconnect. Do not switch to low-code tools as a workaround.
 - Compilation and validation may be done without authentication when the tool permits it.
+
+## Convertigo MCP entry
+
+- Expected MCP endpoint: `http://localhost:18082/convertigo/api/mcp`.
+- Prefer the no-code MCP tools listed below over filesystem edits or low-code project mutations.
 
 ## Hard Tool Boundary
 
