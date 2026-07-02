@@ -102,6 +102,42 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-vibe-http-ngx-fastpath",
+    "name": "Convertigo Vibe HTTP NGX Fast Path",
+    "title": "Convertigo Vibe HTTP NGX Fast Path",
+    "description": "Compact headless path for fresh NGX apps backed by HTTP web-service records.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_vibe_http_ngx_fastpath.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath",
+    "revision": 1,
+    "scopeTags": [
+      "workflow",
+      "recipe",
+      "vibe",
+      "headless",
+      "http",
+      "ngx",
+      "fast-path"
+    ],
+    "prerequisites": [
+      "convertigo/vibe-start@27"
+    ],
+    "recommendedTools": [
+      "marketplace-import",
+      "mobile-builder-open",
+      "requestable-execute",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "databaseobject-delete",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-vibe-quickstart"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
     "name": "Convertigo CRUD Edit Fast Path",
     "title": "Convertigo CRUD Edit Fast Path",
