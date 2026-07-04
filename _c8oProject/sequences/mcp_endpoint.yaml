@@ -536,7 +536,7 @@ responseTimeout: 300
                       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                       - SmartType: 
                         - ↑mode: JS
-                        - →→: JSON.stringify(result)
+                        - →→: '(function (value, warning) { if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning)'
           ↓structuredContent [steps.JsonObjectStep-1762256231591]: 
             key: 
               - xmlizable: 

@@ -383,6 +383,19 @@ if (methodName === "initialize") {
       }
     }
   }
+  if (!mappingError) {
+    if (String(toolNameRaw || "").trim().toLowerCase() === "requestable-execute") {
+      var nestedRequestable = toolArgs && toolArgs.requestable != null ? String(toolArgs.requestable).trim() : "";
+      if (/^(ConvertigoMCP\.)?mcp_endpoint$/i.test(nestedRequestable)) {
+        mappingError = {
+          status: "400",
+          code: "-32602",
+          message: "Refusing recursive MCP endpoint execution",
+          data: { requestable: nestedRequestable }
+        };
+      }
+    }
+  }
   if (mappingError) {
     callSequence = "mcp_error_response";
     responseStatus = mappingError.status;
