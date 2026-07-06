@@ -2262,7 +2262,7 @@ No Code Studio bearer token used to authenticate the C8Oforms API call.
 
 Edit a No Code form through C8Oforms APIs
 Use this for incremental edits to an existing form when the user asks to add, update, delete, or move pages, components, flows, or flow elements. It is safer than nocode-form-update for structural edits because it applies semantic operations and repairs C8Oforms references such as childrenRefs and parentRef. The tool fetches the form through C8Oforms.APIV2_getDocument, applies operations in order, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
-Typical operations:
+Typical operations: 
 - add_page: {action:"add_page", name:"Details", index:1, navigationMode:"tabs"}
 - update_page: {action:"update_page", pageName:"Details", patch:{iconName:"people", enabledTab:true}}
 - add_field/add_component: {action:"add_field", pageName:"Details", fieldObject:{type:"text", name:"child_name", description:"Child name", mandatory:true}}
@@ -2890,7 +2890,7 @@ Question sent to the Convertigo knowledge base.
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_report_create
 
 Create a field feedback report
-Writes one structured field-feedback report under feedback/inbox/YYYY/MM/. Available only when benchmark resolves to suggest or benchmark.
+Writes one structured field-feedback report under feedback/inbox/YYYY/MM/. Available only when off resolves to suggest or benchmark.
 
 <span style="color:DarkGoldenRod">Variables</span>
 

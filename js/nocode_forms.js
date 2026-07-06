@@ -826,11 +826,41 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         placeholder: { type: "string", optional: true },
         mandatory: { type: "boolean", optional: true },
         disabled: { type: "boolean", optional: true },
+        componentDisabled: { type: "boolean", optional: true, mapsTo: "config.componentDisabled", description: "Disables the component as if it did not exist in the viewer." },
+        disabledIf: { type: "object", optional: true, mapsTo: "conditions.buttonStateIf", description: "Button-only shorthand: disables the button when the condition group evaluates to true." },
         short: { type: "boolean", optional: true },
+        boxStyle: { type: "object", optional: true, mapsTo: "config.boxStyle", description: "Container style overrides. Empty values keep the C8Oforms defaults." },
+        questionBoxStyle: { type: "object", optional: true, mapsTo: "config.questionBoxStyle", description: "Question/header part style overrides when the component exposes a question part." },
+        componentBoxStyle: { type: "object", optional: true, mapsTo: "config.componentBoxStyle", description: "Inner component part style overrides when available." },
+        layoutChildrenStyle: { type: "object", optional: true, mapsTo: "config.layoutChildrenStyle", description: "Layout/group child style overrides by scope: default, first, last." },
+        conditions: { type: "object", optional: true, description: "C8Oforms condition groups: visibleIf, goToPageIf, and buttonStateIf." },
         config: { type: "object", optional: true, description: "Merged onto the component config for advanced supported properties." },
         sources: { type: "object", optional: true, description: "Advanced C8Oforms source configuration; prefer contract/actions from GetSequences before using." },
         actions: { type: "object", optional: true, description: "Advanced C8Oforms action configuration; prefer flows for ordinary buttons." },
         flow: { type: "string", optional: true, description: "For button fields, references a flows[].id." }
+      },
+      styleObjectFields: {
+        margin: { type: "string", optional: true, example: "0 0 10px 0" },
+        padding: { type: "string", optional: true, example: "20px 27px" },
+        backgroundColor: { type: "string", optional: true, example: "#FFFFFF" },
+        textColor: { type: "string", optional: true, example: "#202124" },
+        textColorMode: { type: "string", optional: true, enum: ["", "auto", "custom", "none"] },
+        border: { type: "string", optional: true, example: "1px solid #E5E7EB" },
+        borderWidth: { type: "string", optional: true, example: "1px" },
+        borderStyle: { type: "string", optional: true, example: "solid" },
+        borderColor: { type: "string", optional: true, example: "#E5E7EB" },
+        borderRadius: { type: "string", optional: true, example: "10px" },
+        borderTop: { type: "string", optional: true },
+        borderRight: { type: "string", optional: true },
+        borderBottom: { type: "string", optional: true },
+        borderLeft: { type: "string", optional: true },
+        verticalAlign: { type: "string", optional: true, enum: ["", "start", "center", "end", "stretch"], description: "Mostly used for children inside a layout." }
+      },
+      conditionFields: {
+        visibleIf: { type: "object", optional: true, description: "Visibility condition group." },
+        goToPageIf: { type: "object", optional: true, description: "Navigation authorization condition group." },
+        buttonStateIf: { type: "object", optional: true, description: "Button enabled/disabled condition group." },
+        disabledIf: { type: "object", optional: true, description: "Reduced authoring alias for buttonStateIf with __uiMode=button_state_disabled_when_condition." }
       },
       dynamicReferences: dynamicReferenceContract(),
       componentAuthoring: {
@@ -1083,11 +1113,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       "align",
       "checkMandatoryInCurrentPage"
     ]);
+    copyConfigValues(target, field, [
+      "componentDisabled",
+      "boxStyle",
+      "questionBoxStyle",
+      "componentBoxStyle",
+      "layoutChildrenStyle"
+    ]);
     if (field.mandatory != null && target.config.mandatory != null) {
       target.config.mandatory = field.mandatory === true || String(field.mandatory) === "true";
     }
     if (field.disabled != null && target.config.disabled != null) {
       target.config.disabled = field.disabled === true || String(field.disabled) === "true";
+    }
+    if (field.componentDisabled != null) {
+      target.config.componentDisabled = field.componentDisabled === true || String(field.componentDisabled) === "true";
     }
     if (field.short != null && target.config.short != null) {
       target.config.short = field.short === true || String(field.short) === "true";
@@ -1106,6 +1146,28 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         if (Object.prototype.hasOwnProperty.call(field.config, key)) {
           target.config[key] = field.config[key];
         }
+      }
+    }
+    if (field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)) {
+      target.conditions = clone(field.conditions, {});
+    }
+    if (field.visibleIf != null || field.goToPageIf != null || field.buttonStateIf != null || field.disabledIf != null) {
+      target.conditions = target.conditions && typeof target.conditions === "object" && !Array.isArray(target.conditions) ? target.conditions : {};
+      if (field.visibleIf != null) {
+        target.conditions.visibleIf = clone(field.visibleIf, field.visibleIf);
+      }
+      if (field.goToPageIf != null) {
+        target.conditions.goToPageIf = clone(field.goToPageIf, field.goToPageIf);
+      }
+      if (field.buttonStateIf != null) {
+        target.conditions.buttonStateIf = clone(field.buttonStateIf, field.buttonStateIf);
+      }
+      if (field.disabledIf != null) {
+        var disabledIf = clone(field.disabledIf, field.disabledIf);
+        if (disabledIf && typeof disabledIf === "object" && !Array.isArray(disabledIf)) {
+          disabledIf.__uiMode = "button_state_disabled_when_condition";
+        }
+        target.conditions.buttonStateIf = disabledIf;
       }
     }
   }
@@ -1130,6 +1192,35 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     }
     return out;
+  }
+
+  function ensureButtonFlows(doc) {
+    if (doc == null) {
+      return;
+    }
+    doc.flows = ensureArray(doc.flows);
+    var known = {};
+    for (var i = 0; i < doc.flows.length; i++) {
+      if (doc.flows[i] && doc.flows[i].id != null) {
+        known[String(doc.flows[i].id)] = true;
+      }
+    }
+    var fields = ensureArray(doc.formulaire);
+    for (var f = 0; f < fields.length; f++) {
+      var field = fields[f];
+      if (field == null || field.type !== "button") {
+        continue;
+      }
+      var flowId = trimmed(field.flow);
+      if (!flowId.length) {
+        flowId = "flow_" + (field.id != null ? field.id : nextId());
+        field.flow = flowId;
+      }
+      if (!known[flowId]) {
+        doc.flows.push({ id: flowId, name: "Flow " + (trimmed(field.name) || flowId), elements: [] });
+        known[flowId] = true;
+      }
+    }
   }
 
   function compileFlowElement(element, catalogByType) {
@@ -1189,6 +1280,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       out.parentRef = parentId;
     }
     applyCommonFieldConfig(out, field, pageTechName);
+    if (type === "button" && !trimmed(field.flow).length) {
+      out.flow = "flow_" + out.id;
+    }
     if (type === "layout") {
       out.childrenRefs = [];
       if (field.cols) {
@@ -1312,6 +1406,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (input.subTag != null) {
       doc.subTag = Array.isArray(input.subTag) ? input.subTag : [String(input.subTag)];
     }
+    ensureButtonFlows(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
     return {
@@ -2251,6 +2346,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     for (var i = 0; i < ops.length; i++) {
       applyEditOperation(edited, ops[i], catalogByType, summary);
     }
+    ensureButtonFlows(edited);
     return { form: edited, operations: summary, allTypesPath: contract.file };
   }
 
