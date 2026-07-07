@@ -99,6 +99,10 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
             "`Convertigo_requestable-execute`",
             "Do not install or modify the Codex `convertigo-generalist` skill from this Vibe adapter.",
             "stale incompatible properties",
+            "Optional project review route",
+            "project review, audit, expertise report, security/quality review",
+            "absent `authenticatedContextRequired` means effectively `false`",
+            "client synthesis",
         ],
     )
 
