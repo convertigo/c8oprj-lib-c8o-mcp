@@ -108,6 +108,9 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "Do not create new browser tabs or pages",
             "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
             "run `marketplace-import` with that exact name",
+            "Project review, audit, expertise note, client synthesis, hardening plan, recommendations, or V1/V2 comparison",
+            "`convertigo://resources/convertigo-project-review`",
+            "Convertigo Project Review Guide",
         ],
     )
 

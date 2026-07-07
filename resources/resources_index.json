@@ -138,6 +138,40 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-project-review",
+    "name": "Convertigo Project Review Guide",
+    "title": "Convertigo Project Review Guide",
+    "description": "Static review route for Convertigo backend/frontend audits, client syntheses, and V1/V2 progress comparisons.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_project_review.md",
+    "guideId": "convertigo/project-review",
+    "revision": 1,
+    "scopeTags": [
+      "workflow",
+      "review",
+      "audit",
+      "security",
+      "quality",
+      "frontend",
+      "backend",
+      "governance"
+    ],
+    "prerequisites": [
+      "convertigo/start@15"
+    ],
+    "recommendedTools": [
+      "project-list",
+      "databaseobject-tree-get",
+      "databaseobject-search"
+    ],
+    "promptNames": [
+      "convertigo-critic",
+      "convertigo-maintainer"
+    ],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
     "name": "Convertigo CRUD Edit Fast Path",
     "title": "Convertigo CRUD Edit Fast Path",
