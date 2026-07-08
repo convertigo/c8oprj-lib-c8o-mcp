@@ -316,6 +316,74 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return state;
   }
 
+  function browserHasVisibleDocument(browserState) {
+    if (!browserState || browserState.hasBrowser !== true) {
+      return false;
+    }
+    var currentUrl = lower(browserState.currentUrl || browserState.locationHref || "");
+    return (
+      (currentUrl.length > 0 && currentUrl !== "about:blank") ||
+      compactText(browserState.bodyTextSample || "").length > 0 ||
+      compactText(browserState.statusText || "").length > 0 ||
+      browserState.progress > 0
+    );
+  }
+
+  function waitForEditorStartupSignal(editorRef, maxWaitMs) {
+    var maxWait = parseIntBounded(maxWaitMs, 0, 0, 5000);
+    var deadline = java.lang.System.currentTimeMillis() + maxWait;
+    var currentEditorState = readEditorState(editorRef);
+    var currentBrowserState = readBrowserState(editorRef);
+    while (
+      editorRef != null &&
+      maxWait > 0 &&
+      java.lang.System.currentTimeMillis() < deadline &&
+      !browserHasVisibleDocument(currentBrowserState)
+    ) {
+      try {
+        java.lang.Thread.sleep(150);
+      } catch (_ignoreStartupSleep) {}
+      currentEditorState = readEditorState(editorRef);
+      currentBrowserState = readBrowserState(editorRef);
+    }
+    return {
+      editorState: currentEditorState,
+      browserState: currentBrowserState
+    };
+  }
+
+  function browserControlTargetUrl(editorState, browserState) {
+    var target = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
+    var targetUrl = target && target.url ? trim(target.url) : "";
+    if (targetUrl.length) {
+      return targetUrl;
+    }
+    if (browserState && browserState.currentUrl) {
+      return trim(browserState.currentUrl);
+    }
+    if (browserState && browserState.locationHref) {
+      return trim(browserState.locationHref);
+    }
+    return "";
+  }
+
+  function isBrowserControlReady(editorState, browserState, viewerBaseUrl) {
+    var debugUrl = editorState && editorState.browserDebugUrl ? trim(editorState.browserDebugUrl) : "";
+    if (!debugUrl.length) {
+      return false;
+    }
+    var targetUrl = browserControlTargetUrl(editorState, browserState);
+    var targetLower = lower(targetUrl);
+    if (!targetLower.length || targetLower === "about:blank") {
+      return false;
+    }
+    var viewerBaseLower = lower(normalizeEndpoint(viewerBaseUrl || ""));
+    if (viewerBaseLower.length && normalizeEndpoint(targetLower).indexOf(viewerBaseLower) !== 0) {
+      return false;
+    }
+    return true;
+  }
+
   function ensureNgxProject(projectRef, projectName) {
     var application = null;
     try {
@@ -566,6 +634,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       startBuildWithWsBuilder(projectName, endpoint);
       launchRequested = true;
     }
+    var startupSignal = null;
+    if (stateOnlyValue !== true && waitValue !== true && launchRequested === true && editorRef != null) {
+      startupSignal = waitForEditorStartupSignal(editorRef, 1800);
+    }
 
     var deadline = startedAt + (timeoutSecValue * 1000);
     var failureGraceMs = 8000;
@@ -580,8 +652,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       lines: [],
       query: {}
     };
-    var editorState = readEditorState(editorRef);
-    var browserState = readBrowserState(editorRef);
+    var editorState = startupSignal && startupSignal.editorState ? startupSignal.editorState : readEditorState(editorRef);
+    var browserState = startupSignal && startupSignal.browserState ? startupSignal.browserState : readBrowserState(editorRef);
 
     function refreshCurrentState() {
       snapshot = collectBuilderLogs(projectName, startedAt, logsLimitValue);
@@ -665,6 +737,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var browserDevToolsWebSocketUrl = editorState && editorState.browserDevToolsWebSocketUrl ? editorState.browserDevToolsWebSocketUrl : "";
     var browserDevToolsTarget = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
     var browserRemoteDebuggingPort = editorState && editorState.browserRemoteDebuggingPort ? editorState.browserRemoteDebuggingPort : parsePortFromUrl(browserDebugUrl);
+    var browserControlReady = isBrowserControlReady(editorState, browserState, viewerBaseUrl);
+    var browserControlUrl = browserControlTargetUrl(editorState, browserState);
 
     var waited = waitValue === true && timeoutSecValue > 0;
     var status = ready
@@ -739,8 +813,12 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDevToolsWebSocketUrl: browserDevToolsWebSocketUrl,
       browserDevToolsTarget: browserDevToolsTarget,
       browserRemoteDebuggingPort: browserRemoteDebuggingPort,
+      browserControlReady: browserControlReady,
+      browserControlTargetUrl: browserControlUrl,
       browserControlHint: browserDebugUrl.length
-        ? "Use the existing Studio JxBrowser CDP target; do not create a new browser tab or page."
+        ? (browserControlReady
+          ? "Use the existing Studio JxBrowser CDP target through Playwright/browser-control MCP; do not create a new browser tab/page or run ad hoc Node/CDP scripts. If those MCP tools are unavailable or stale, report the configuration problem."
+          : "Studio JxBrowser CDP exists, but the current target is still the loader/about:blank. Poll mobile-builder-open with stateOnly=true and wait=true before using Playwright/browser-control.")
         : "",
       editor: publicEditorResult,
       editorOpened: publicEditorResult.opened === true,

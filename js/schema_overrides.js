@@ -1492,7 +1492,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         devtoolsFrontendUrl: { type: "string" }
       }),
       browserRemoteDebuggingPort: { type: "number" },
-      browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint." },
+      browserControlReady: { type: "boolean", description: "True only when the Studio JxBrowser CDP target is on the live viewer URL and can be used by Playwright/browser-control." },
+      browserControlTargetUrl: { type: "string", description: "Current URL of the visible JxBrowser CDP target, often about:blank while the loader is still building." },
+      browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint, including the requirement to use configured MCP tools rather than ad hoc scripts." },
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
       browser: openObjectSchema({

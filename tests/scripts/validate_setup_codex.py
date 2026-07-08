@@ -106,6 +106,8 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "Do not invent prefixes, suffixes, or dates.",
             "Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
             "Do not create new browser tabs or pages",
+            "An `about:blank` browser target during a non-ready builder state is not a configuration failure by itself",
+            "managed Playwright MCP configuration must be refreshed",
             "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
             "run `marketplace-import` with that exact name",
             "Project review, audit, expertise note, client synthesis, hardening plan, recommendations, or V1/V2 comparison",

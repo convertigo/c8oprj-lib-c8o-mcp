@@ -16,7 +16,7 @@ Always validate on a fresh disposable project instead of a project already pollu
 5. Call `upsert-ngx-crud-kit` with `stage=bootstrap`.
 6. Call `mobile-builder-open(stateOnly=true, wait=true)` again. If it returns `compile_error`, fix the Convertigo source path or MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated frontend files.
 7. Call `upsert-ngx-crud-kit` again with `stage=final`.
-8. Call `crud-proof` again with `expectUiShell=true` and the returned `viewerUrl`. If the builder returns a JxBrowser debug endpoint, also smoke the visible Studio viewer through Playwright or browser-control MCP, then confirm:
+8. Call `crud-proof` again with `expectUiShell=true` and the returned `viewerUrl`. If the builder reports `browserControlReady:true`, also smoke the visible Studio viewer through Playwright or browser-control MCP; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser. Then confirm:
    - `ui.starterDominant == false`
    - `ui.visibleShellPresent == true`
    - `ui.viewerProbe.ok == true`

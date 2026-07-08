@@ -30,7 +30,7 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
 4. Run backend `crud-proof`.
 5. If the task includes UI, run `upsert-ngx-crud-kit` once with `stage=final`.
 6. Run `mobile-builder-open(stateOnly=true, wait=true)` if the viewer was already warmed up, or a normal waited `mobile-builder-open` otherwise.
-7. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl`. When the waited builder result exposes a JxBrowser debug endpoint, use Playwright or browser-control MCP against that endpoint for visible Studio viewer smoke proof.
+7. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl`. When the waited builder result reports `browserControlReady:true`, use Playwright or browser-control MCP against that endpoint for visible Studio viewer smoke proof; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 8. Save with `project-save` if a final save is still needed.
 9. Stop after the first final green proof.
 
