@@ -307,6 +307,18 @@ Prefer direct source bindings over response-copying code. If a small `UICustomAc
 - do not assume a `stack` variable exists inside the custom action body unless generated diagnostics prove it for that exact object
 - if a failure handler needs an error message, read it from `event` defensively, for example `const message = event && event.message ? event.message : 'Erreur pendant la recherche';`
 
+### Shared actions with NPM dependencies
+When a shared action/custom action needs an npm package:
+- declare npm packages on the action object with `package_dependencies`
+- declare TypeScript imports through the Convertigo import vector consumed by the generated target; for shared action custom code emitted into `actionbeans.service.ts`, use `app_ts_imports`
+- use `UICustomAsyncAction` when the action code contains `await`; do not put top-level `await` in a plain `UICustomAction`
+- keep import rows structurally nested as `[importClause, moduleName]`; for example `{ loadStripe }` from `@stripe/stripe-js`
+- keep dependency rows structurally nested as `[packageName, version]`; for example `@stripe/stripe-js` and `9.9.0`
+
+The tree view may display these rows compactly as `[{ loadStripe }, @stripe/stripe-js]` or `[@stripe/stripe-js, 9.9.0]`. That compact display is not the source format: in YAML/XML, these properties must remain XMLVector-of-XMLVector rows, not one comma-separated `java.lang.String`.
+
+If compilation fails after changing imports or dependencies, reload/regenerate the project through Convertigo and reopen the mobile builder. Do not repair `_private/ionic`, generated package files, or generated TypeScript directly.
+
 ## Common page pattern for data-backed UX
 
 ### Canonical order
