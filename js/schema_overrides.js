@@ -302,6 +302,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: false,
           description: "Set true to restart an already running builder. Use only when the current builder is stuck or on the wrong state."
         },
+        browserDebugPort: {
+          type: "integer",
+          minimum: 1024,
+          maximum: 65535,
+          description: "Optional exact JxBrowser CDP port reserved by the managed agent host. The integrated MCP transport supplies it automatically."
+        },
         wait: {
           type: "boolean",
           default: true,
@@ -1492,9 +1498,19 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         devtoolsFrontendUrl: { type: "string" }
       }),
       browserRemoteDebuggingPort: { type: "number" },
+      browserDebugPortRequested: { type: "number" },
+      browserDebugPortApplied: { type: "boolean" },
+      browserDebugPortMatched: { type: "boolean" },
       browserControlReady: { type: "boolean", description: "True only when the Studio JxBrowser CDP target is on the live viewer URL and can be used by Playwright/browser-control." },
       browserControlTargetUrl: { type: "string", description: "Current URL of the visible JxBrowser CDP target, often about:blank while the loader is still building." },
       browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint, including the requirement to use configured MCP tools rather than ad hoc scripts." },
+      nextAction: nullableSchema(closedObjectSchema({
+        tool: { type: "string" },
+        arguments: {
+          type: "object",
+          additionalProperties: true
+        }
+      })),
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
       browser: openObjectSchema({

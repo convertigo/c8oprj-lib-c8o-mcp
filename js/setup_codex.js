@@ -143,7 +143,26 @@ C8O.setupCodex = C8O.setupCodex || {};
     var range = findSectionRange(lines, "mcp_servers.convertigo");
     var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
     var timeoutLine = "startup_timeout_sec = 60";
+    var guidanceHeaderEntry = '"X-Convertigo-Guidance-Version" = "' + tomlEscape(C8O.MCP_GUIDANCE_VERSION) + '"';
+    var guidanceHeadersLine = "http_headers = { " + guidanceHeaderEntry + " }";
     var status = "unchanged";
+
+    var mergeGuidanceHeader = function (line) {
+      var source = String(line || "");
+      var open = source.indexOf("{");
+      var close = source.lastIndexOf("}");
+      if (open < 0 || close <= open) {
+        return guidanceHeadersLine;
+      }
+      var body = trim(source.substring(open + 1, close));
+      var guidancePattern = /(["']X-Convertigo-Guidance-Version["']\s*=\s*)["'][^"']*["']/;
+      if (guidancePattern.test(body)) {
+        body = body.replace(guidancePattern, guidanceHeaderEntry);
+      } else {
+        body = body.length ? body + ", " + guidanceHeaderEntry : guidanceHeaderEntry;
+      }
+      return "http_headers = { " + body + " }";
+    };
 
     if (!range.found) {
       if (lines.length && trim(lines[lines.length - 1]).length) {
@@ -152,6 +171,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       lines.push("[mcp_servers.convertigo]");
       lines.push(urlLine);
       lines.push(timeoutLine);
+      lines.push(guidanceHeadersLine);
       status = text.length ? "updated" : "created";
       return {
         status: status,
@@ -162,6 +182,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var sectionLines = lines.slice(range.start, range.end);
     var replacedUrl = false;
     var replacedTimeout = false;
+    var replacedGuidanceHeaders = false;
     for (var i = 1; i < sectionLines.length; i++) {
       if (/^\s*url\s*=/.test(sectionLines[i])) {
         if (trim(sectionLines[i]) !== urlLine) {
@@ -177,6 +198,15 @@ C8O.setupCodex = C8O.setupCodex || {};
           status = "updated";
         }
         replacedTimeout = true;
+        continue;
+      }
+      if (/^\s*http_headers\s*=/.test(sectionLines[i])) {
+        var mergedGuidanceHeaders = mergeGuidanceHeader(sectionLines[i]);
+        if (trim(sectionLines[i]) !== mergedGuidanceHeaders) {
+          sectionLines[i] = mergedGuidanceHeaders;
+          status = "updated";
+        }
+        replacedGuidanceHeaders = true;
       }
     }
     if (!replacedUrl) {
@@ -185,6 +215,10 @@ C8O.setupCodex = C8O.setupCodex || {};
     }
     if (!replacedTimeout) {
       sectionLines.splice(replacedUrl ? 2 : 2, 0, timeoutLine);
+      status = "updated";
+    }
+    if (!replacedGuidanceHeaders) {
+      sectionLines.push(guidanceHeadersLine);
       status = "updated";
     }
     var newLines = lines.slice(0, range.start).concat(sectionLines).concat(lines.slice(range.end));
@@ -266,25 +300,38 @@ C8O.setupCodex = C8O.setupCodex || {};
       "",
       "- Skill guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`.",
       "- During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, treat the installed skill and MCP endpoint as out of sync; rerun `_setupCodex` for the current MCP endpoint or ask before project mutation.",
-      "- When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. The MCP only warns on bootstrap or mutation guard tools, so treat `_meta.convertigoGuidanceWarning` as a setup refresh signal before further project mutation.",
+      "- When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. An `_meta.convertigoGuidanceWarning` mismatch requires setup refresh before project mutation. A missing-version warning is advisory when this skill version already matches `convertigo://capabilities`: continue the current task and let the managed host refresh its transport configuration.",
       "",
       "## Mandatory bootstrap",
       "",
-      "1. Call `resources/list`.",
-      "2. If the caller surface exposes it, call `prompts/list`.",
-      "3. Read `convertigo://capabilities`.",
-      "4. Verify the skill freshness rule above against the `MCP guidance version` from capabilities.",
-      "5. Read `convertigo://recipes/quickstart`.",
-      "6. Read `convertigo://resources/convertigo-start`.",
-      "7. Only then decide the route:",
+      "1. Read `convertigo://capabilities` directly and verify the skill freshness rule above.",
+      "2. Do not call `resources/list`, `resources/templates/list`, or `prompts/list` when this skill already names the required URI or tool. Use catalog discovery only when the task cannot be routed from this skill, a named resource is missing, or the MCP reports a guidance mismatch.",
+      "3. Select the smallest matching route and read only its entry recipe before mutation:",
       "   - Project review, audit, expertise note, client synthesis, hardening plan, recommendations, or V1/V2 comparison: read `convertigo://resources/convertigo-project-review` before inspecting or reporting.",
       "   - Standard SQL CRUD + starter NGX UI: read `convertigo://resources/convertigo-crud-fastpath` and use `convertigo-crud-fastpath`.",
       "   - Existing deterministic CRUD project edits: also read `convertigo://resources/convertigo-crud-edit-fastpath`, then stay on the CRUD rail without replaying the new-project bootstrap.",
       "   - New starter NGX app outside the CRUD rail: read `convertigo://resources/convertigo-recipe-starter-extension` before import, then if the app has backend or open-data results, read `convertigo://resources/convertigo-recipe-ngx-data-page` before any page mutation.",
-      "   - NGX / Ionic UI creation or edits outside the CRUD rail: read `convertigo://resources/convertigo-recipe-ngx-data-page` first for data-backed pages, then `convertigo://resources/convertigo-frontend-ngx` before UI mutations.",
-      "   - Non-CRUD work or tasks outside the deterministic rail: stay exploratory and follow `convertigo-quickstart`.",
-      "8. Do not call `rag-query` before the start guide and the chosen recipe were read.",
-      "9. If the user explicitly wants MCP-only work or the starting workspace is empty/non-relevant, do not inspect the local shell workspace before the MCP route decision is made.",
+      "   - NGX / Ionic UI creation or edits outside the CRUD rail: read `convertigo://resources/convertigo-recipe-ngx-data-page` for data-backed pages. Read `convertigo://resources/convertigo-frontend-ngx` only when the recipe and live palette contract leave an implementation question.",
+      "   - Other tasks: read `convertigo://resources/convertigo-start`, then the smallest matching recipe. Read `convertigo://recipes/quickstart` only when route selection remains ambiguous.",
+      "4. Do not call `rag-query` before the chosen recipe was tried.",
+      "5. If the user explicitly wants MCP-only work or the starting workspace is empty/non-relevant, do not inspect the local shell workspace before the MCP route decision is made.",
+      "",
+      "## Tool economy and convergence",
+      "",
+      "- Treat every tool round trip and large response as part of the task cost. Prefer targeted reads and request only the depth, properties, logs, or detail needed for the next decision.",
+      "- Do not repeat catalog, guide, palette, tree, builder, or browser reads whose answer is already present in the current conversation.",
+      "- Use `palette-list` to locate an unfamiliar object type and `palette-describe` only for properties that remain uncertain. Group independent descriptions when the caller can do so safely.",
+      "- Build one coherent mutation plan before the first write. Prefer one optimized `batch-call` for independent or ordered source-object changes, followed by one targeted readback.",
+      "- Start the viewer asynchronously once UI work is known. Finish the source mutations while it builds, then perform one readiness check and one acceptance-oriented browser proof. Add another cycle only when the proof identifies a concrete defect.",
+      "- A browser proof should evaluate all relevant acceptance criteria together when practical: visible content, layout/style, interaction or timed state, and console/runtime errors.",
+      "- Stop after the requested behavior is green. Do not add an unsolicited polish pass or repeat proof that cannot change the conclusion.",
+      "",
+      "## NGX authoring invariants",
+      "",
+      "- Use the exact SmartType shape reported by the live palette or a successful readback. Do not invent aliases such as `JS`, `SCRIPT`, `PLAIN`, `expression`, or `value` interchangeably.",
+      "- For page state changed outside an Angular/Ionic event, such as timers, external callbacks, or third-party subscriptions, ensure Angular change detection is triggered through the supported page context before claiming live updates.",
+      "- Scope page CSS to the element that actually paints the visible area. Do not assume a class or CSS variable crosses an Ionic shadow boundary; include background coverage in the first browser proof.",
+      "- When a mutation result reports skipped or normalized properties, repair them before browser proof instead of relying on runtime trial and error.",
       "",
       "## CRUD routing",
       "",
@@ -322,6 +369,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       "## Project naming",
       "",
       "- Use exactly the project name requested by the user when it is technically valid.",
+      "- If no project is selected and the user explicitly asks to create a new project or application without giving a technical name, derive one concise valid name from the requested product or function, check `project-list` for collisions, then proceed without asking the user to select a project.",
       "- Do not invent prefixes, suffixes, or dates.",
       "- If the requested name collides with an existing project, surface the collision explicitly instead of renaming it.",
       "",
@@ -329,10 +377,11 @@ C8O.setupCodex = C8O.setupCodex || {};
       "",
       "- In dev, `mobile-builder-open` serves the live app from the viewer root. Prefer `viewerHomeUrl`, or fall back to `viewerBaseUrl`.",
       "- For frontend work, call `mobile-builder-open` with `wait=false` as soon as the UI project is known, continue other work while it starts, then call `mobile-builder-open(stateOnly=true, wait=true)` or a normal waited call before browser smoke or final proof.",
-      "- Use Playwright or browser-control MCP only after a waited `mobile-builder-open` result reports `browserControlReady:true`. If `browserControlTargetUrl` is `about:blank`, the Studio loader is still building; poll `mobile-builder-open(stateOnly=true, wait=true)` instead of opening a separate browser, tab, page, Node script, or raw CDP workaround.",
-      "- Studio JxBrowser exposes one visible viewer target over CDP. Do not create new browser tabs or pages; reuse the current target returned by Playwright/browser-control.",
-      "- Before browser smoke, inspect the current target with the available Playwright/browser-control MCP tools and confirm it is already the Studio viewer returned by `mobile-builder-open`.",
-      "- An `about:blank` browser target during a non-ready builder state is not a configuration failure by itself; keep polling `mobile-builder-open(stateOnly=true, wait=true)` until the waited result is ready or times out.",
+      "- If a state-only call returns `status:\"stopped\"`, do not poll it again: immediately call `mobile-builder-open(stateOnly=false, wait=false)` once, continue other work while it starts, then poll readiness.",
+      "- Use Playwright MCP only after `mobile-builder-open` reports both `browserDebugPortMatched:true` and `browserControlReady:true`.",
+      "- Studio JxBrowser exposes one existing visible page over CDP, not a normal multi-tab browser. Do not create, open, close, select, or navigate tabs/pages; reuse the current page.",
+      "- Known-good fast check on this JxBrowser target: call `playwright.browser_tabs` only to list and confirm the single current viewer URL, use `playwright.browser_find` for visible UI, and use `playwright.browser_evaluate` only when DOM state or timing must be measured. Do not probe unsupported browser features before this minimal check.",
+      "- An `about:blank` target means the loader is not ready. If the builder status is `building`, poll `mobile-builder-open(stateOnly=true, wait=true)`; if it is `stopped`, launch it asynchronously as described above.",
       "- If a waited `mobile-builder-open` result reports `browserControlReady:true` but Playwright/browser-control MCP tools are missing, disabled, stale, or still attached to another URL, stop the browser proof and tell the user that the managed Playwright MCP configuration must be refreshed. Do not work around it with Node scripts, raw CDP, or a new browser.",
       "- Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
       "- In prod, the application URL is `.../DisplayObjects/mobile/home`.",
@@ -386,7 +435,7 @@ C8O.setupCodex = C8O.setupCodex || {};
         "## Skill freshness\n\n" +
         versionLine + "\n" +
         "- During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, rerun `_setupCodex` for the current MCP endpoint before using no-code mutation tools.\n" +
-        "- When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. The MCP only warns on bootstrap or mutation guard tools, so treat `_meta.convertigoGuidanceWarning` as a setup refresh signal before further no-code mutation."
+        "- When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. An `_meta.convertigoGuidanceWarning` mismatch requires setup refresh before no-code mutation. A missing-version warning is advisory when this skill version already matches `convertigo://capabilities`: continue the current task and let the managed host refresh its transport configuration."
       );
     }
 

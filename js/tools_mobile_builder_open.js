@@ -411,11 +411,14 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
   }
 
-  function openStudioNgxEditor(projectRef, forceRestart, stateOnly) {
+  function openStudioNgxEditor(projectRef, forceRestart, stateOnly, browserDebugPort) {
     var result = {
       requested: false,
       opened: false,
       builderLaunchRequested: false,
+      browserDebugPortRequested: browserDebugPort > 0 ? browserDebugPort : 0,
+      browserDebugPortApplied: false,
+      browserDebugPortMatched: browserDebugPort > 0 ? false : true,
       stateOnly: stateOnly === true,
       editorRef: null,
       editorState: {
@@ -456,6 +459,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
 
     try {
       var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      var C8oBrowser = Packages.com.twinsoft.convertigo.eclipse.swt.C8oBrowser;
       var NgxApplicationComponentTreeObject = Packages.com.twinsoft.convertigo.eclipse.views.projectexplorer.model.NgxApplicationComponentTreeObject;
       var Runnable = Packages.java.lang.Runnable;
       var plugin = ConvertigoPlugin.getDefault();
@@ -489,15 +493,29 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
 
           try {
             if (treeObject instanceof NgxApplicationComponentTreeObject) {
+              if (browserDebugPort > 0) {
+                C8oBrowser.setPreferredDebugPort(projectRef, browserDebugPort);
+              }
               var editor = treeObject.activeEditor(false);
               if (editor != null) {
                 result.editorRef = editor;
                 result.editorState = readEditorState(editor);
+                if (browserDebugPort > 0 && result.editorState.browserRemoteDebuggingPort !== browserDebugPort) {
+                  editor.setBrowserDebugPort(browserDebugPort);
+                  result.browserDebugPortApplied = true;
+                  result.editorState = readEditorState(editor);
+                }
               }
+              result.browserDebugPortMatched = browserDebugPort <= 0 ||
+                result.editorState.browserRemoteDebuggingPort === browserDebugPort;
               if (stateOnly === true) {
                 result.opened = editor != null;
                 result.message = editor != null
-                  ? "Existing NGX editor state read; no launch requested"
+                  ? (result.browserDebugPortApplied
+                    ? "Existing NGX editor state read; browser debug port reconciled without restarting the builder"
+                    : (result.browserDebugPortMatched
+                      ? "Existing NGX editor state read; no builder launch requested"
+                      : "Existing NGX editor uses another browser debug port"))
                   : "No active NGX editor found; no launch requested";
                 return;
               }
@@ -538,6 +556,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                   if (fallbackEditor != null) {
                     result.editorRef = fallbackEditor;
                     result.editorState = readEditorState(fallbackEditor);
+                    result.browserDebugPortMatched = browserDebugPort <= 0 ||
+                      result.editorState.browserRemoteDebuggingPort === browserDebugPort;
                   }
                 }
               } catch (_ignoreFallbackEditor) {}
@@ -604,6 +624,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
     var logsLimitValue = parseIntBounded(opts.logsLimit, 40, 5, 200);
     var forceRestartValue = parseBoolean(opts.forceRestart, false);
+    var browserDebugPortValue = parseInt(String(opts.browserDebugPort || "0"), 10);
+    if (isNaN(browserDebugPortValue)) {
+      browserDebugPortValue = 0;
+    }
+    if (browserDebugPortValue !== 0 && (browserDebugPortValue < 1024 || browserDebugPortValue > 65535)) {
+      throw new Error("browserDebugPort must be between 1024 and 65535");
+    }
     var startedAt = java.lang.System.currentTimeMillis();
     var studioMode = isStudioRuntime(Engine);
 
@@ -613,7 +640,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       throw new Error("Target project not found: " + projectName);
     }
     ensureNgxProject(projectRef, projectName);
-    var editorResult = openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue);
+    var editorResult = openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue, browserDebugPortValue);
     var editorRef = editorResult && editorResult.editorRef ? editorResult.editorRef : null;
 
     var hasReusableEditor = false;
@@ -669,10 +696,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         snapshot.openUrl = browserState.currentUrl;
       }
       if (!snapshot.building && (
-        snapshot.lines.length > 0 ||
         (editorState && editorState.hasEditor && (editorState.port > 0 || editorState.viewerUrl.length > 0 || lower(editorState.currentUrl || "") !== "about:blank")) ||
         (stateOnlyValue !== true && editorResult && editorResult.opened === true) ||
-        browserState.hasBrowser === true ||
+        browserHasVisibleDocument(browserState) ||
         browserState.progress > 0
       )) {
         snapshot.building = true;
@@ -688,12 +714,18 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         });
       }
       var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
-      return candidateUrl.length && urlReachable(candidateUrl, 1500) && hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
+      return candidateUrl.length > 0 &&
+        urlReachable(candidateUrl, 1500) &&
+        hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "") === true;
     }
 
     ready = refreshCurrentState();
+    var stateOnlyStopped = stateOnlyValue === true &&
+      ready !== true &&
+      snapshot.failed !== true &&
+      snapshot.building !== true;
 
-    while (waitValue === true && !ready && java.lang.System.currentTimeMillis() < deadline) {
+    while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
       ready = refreshCurrentState();
       if (ready) {
         break;
@@ -737,7 +769,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var browserDevToolsWebSocketUrl = editorState && editorState.browserDevToolsWebSocketUrl ? editorState.browserDevToolsWebSocketUrl : "";
     var browserDevToolsTarget = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
     var browserRemoteDebuggingPort = editorState && editorState.browserRemoteDebuggingPort ? editorState.browserRemoteDebuggingPort : parsePortFromUrl(browserDebugUrl);
-    var browserControlReady = isBrowserControlReady(editorState, browserState, viewerBaseUrl);
+    var browserDebugPortMatched = browserDebugPortValue <= 0 || browserRemoteDebuggingPort === browserDebugPortValue;
+    var browserControlReady = browserDebugPortMatched && isBrowserControlReady(editorState, browserState, viewerBaseUrl);
     var browserControlUrl = browserControlTargetUrl(editorState, browserState);
 
     var waited = waitValue === true && timeoutSecValue > 0;
@@ -770,7 +803,17 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             ? "Mobile builder launch requested; returning without waiting for readiness."
             : (status === "stopped"
               ? "No running mobile builder viewer was detected."
-              : "Mobile builder start timed out before detecting the browser URL."))));
+            : "Mobile builder start timed out before detecting the browser URL."))));
+    var nextAction = status === "stopped"
+      ? {
+        tool: "mobile-builder-open",
+        arguments: {
+          project: projectName,
+          stateOnly: false,
+          wait: false
+        }
+      }
+      : null;
     if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
@@ -813,13 +856,21 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDevToolsWebSocketUrl: browserDevToolsWebSocketUrl,
       browserDevToolsTarget: browserDevToolsTarget,
       browserRemoteDebuggingPort: browserRemoteDebuggingPort,
+      browserDebugPortRequested: browserDebugPortValue,
+      browserDebugPortApplied: editorResult && editorResult.browserDebugPortApplied === true,
+      browserDebugPortMatched: browserDebugPortMatched,
       browserControlReady: browserControlReady,
       browserControlTargetUrl: browserControlUrl,
-      browserControlHint: browserDebugUrl.length
-        ? (browserControlReady
-          ? "Use the existing Studio JxBrowser CDP target through Playwright/browser-control MCP; do not create a new browser tab/page or run ad hoc Node/CDP scripts. If those MCP tools are unavailable or stale, report the configuration problem."
-          : "Studio JxBrowser CDP exists, but the current target is still the loader/about:blank. Poll mobile-builder-open with stateOnly=true and wait=true before using Playwright/browser-control.")
-        : "",
+      browserControlHint: status === "stopped"
+        ? "No builder runtime is active. Call mobile-builder-open once with stateOnly=false and wait=false, continue other work, then poll readiness."
+        : (browserDebugUrl.length
+        ? (!browserDebugPortMatched
+          ? "Studio JxBrowser is not using the managed CDP port yet. Retry mobile-builder-open after the Studio classes are updated; do not use Playwright until browserDebugPortMatched is true."
+          : (browserControlReady
+            ? "Use the existing Studio JxBrowser CDP target through Playwright/browser-control MCP; do not create a new browser tab/page or run ad hoc Node/CDP scripts. If those MCP tools are unavailable or stale, report the configuration problem."
+            : "Studio JxBrowser CDP exists, but the current target is still the loader/about:blank. Poll mobile-builder-open with stateOnly=true and wait=true before using Playwright/browser-control."))
+        : ""),
+      nextAction: nextAction,
       editor: publicEditorResult,
       editorOpened: publicEditorResult.opened === true,
       browser: {
@@ -843,6 +894,7 @@ var openMobileBuilderResult = C8O.mobileBuilder.open({
   timeoutSec: (typeof timeoutSec !== "undefined") ? timeoutSec : 90,
   logsLimit: (typeof logsLimit !== "undefined") ? logsLimit : 40,
   forceRestart: (typeof forceRestart !== "undefined") ? forceRestart : false,
+  browserDebugPort: (typeof browserDebugPort !== "undefined") ? browserDebugPort : 0,
   wait: (typeof wait !== "undefined") ? wait : true,
   stateOnly: (typeof stateOnly !== "undefined") ? stateOnly : false,
   reveal: (typeof reveal !== "undefined") ? reveal : false

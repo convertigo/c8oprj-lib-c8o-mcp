@@ -7,20 +7,18 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 15,
+  "revision": 16,
     "scopeTags": [
       "start",
       "onboarding",
       "tree-authoring"
     ],
     "prerequisites": [],
-    "recommendedTools": [
-      "resources/list",
-      "prompts/list",
-      "databaseobject-tree-get",
-      "requestable-execute",
-      "project-save"
-    ],
+  "recommendedTools": [
+    "databaseobject-tree-get",
+    "requestable-execute",
+    "project-save"
+  ],
     "promptNames": [
       "convertigo-quickstart",
       "convertigo-crud-fastpath",

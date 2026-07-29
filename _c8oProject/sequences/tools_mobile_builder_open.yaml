@@ -46,3 +46,7 @@ responseTimeout: 120
   comment: Set true to request visible Studio focus on the mobile builder/editor when opening or polling it.
   description: Set true to request visible Studio focus on the mobile builder/editor when opening or polling it.
   value: false
+↓browserDebugPort [variables.RequestableVariable-1785330155549]: 
+  comment: Optional exact JxBrowser CDP port reserved by the managed agent host.
+  description: Optional exact JxBrowser CDP port reserved by the managed agent host.
+  value: 0

@@ -281,35 +281,36 @@ def require_before(left_event, right_event, message):
 
 def check_call_order(events):
     discovery = {}
-    discovery["listResources"] = require_event(
-        events,
-        lambda event: event["server"] in ("convertigo", "codex") and event["name"] == "list_mcp_resources",
-        "Fresh session did not call resources/list before mutations.",
-    )
-    discovery["listTemplates"] = first_event(
-        events,
-        lambda event: event["server"] in ("convertigo", "codex") and event["name"] == "list_mcp_resource_templates",
-    )
     discovery["capabilities"] = require_event(
         events,
         lambda event: event["server"] == "convertigo" and event["name"] == "read_mcp_resource" and str((event["args"] or {}).get("uri") or "") == "convertigo://capabilities",
         "Fresh session did not read convertigo://capabilities.",
-    )
-    discovery["quickstart"] = require_event(
-        events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "read_mcp_resource" and str((event["args"] or {}).get("uri") or "") == "convertigo://recipes/quickstart",
-        "Fresh session did not read convertigo://recipes/quickstart.",
-    )
-    discovery["startGuide"] = require_event(
-        events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "read_mcp_resource" and str((event["args"] or {}).get("uri") or "") == "convertigo://resources/convertigo-start",
-        "Fresh session did not read convertigo://resources/convertigo-start.",
     )
     discovery["fastPathGuide"] = require_event(
         events,
         lambda event: event["server"] == "convertigo" and event["name"] == "read_mcp_resource" and str((event["args"] or {}).get("uri") or "") == "convertigo://resources/convertigo-crud-fastpath",
         "Fresh session did not read convertigo://resources/convertigo-crud-fastpath.",
     )
+    redundant_bootstrap = first_event(
+        events,
+        lambda event: (
+            event["server"] in ("convertigo", "codex")
+            and event["name"] in ("list_mcp_resources", "list_mcp_resource_templates", "list_mcp_prompts")
+        ) or (
+            event["server"] == "convertigo"
+            and event["name"] == "read_mcp_resource"
+            and str((event["args"] or {}).get("uri") or "") in (
+                "convertigo://recipes/quickstart",
+                "convertigo://resources/convertigo-start",
+                "convertigo://resources/convertigo-platform-big-picture",
+            )
+        ),
+    )
+    if redundant_bootstrap:
+        raise RuntimeError(
+            "Known CRUD route replayed broad discovery instead of reading its entry recipe directly: %s."
+            % event_label(redundant_bootstrap)
+        )
 
     workflow = {}
     workflow["marketplaceImport"] = require_event(
@@ -355,10 +356,8 @@ def check_call_order(events):
         "Run never called final crud-proof expectUiShell=true.",
     )
 
-    for key in ("listResources", "capabilities", "quickstart", "startGuide", "fastPathGuide"):
+    for key in ("capabilities", "fastPathGuide"):
         require_before(discovery[key], workflow["marketplaceImport"], f"{key} happened after marketplace-import.")
-    if discovery["listTemplates"]:
-        require_before(discovery["listTemplates"], workflow["marketplaceImport"], "listTemplates happened after marketplace-import.")
 
     rag_before_discovery = first_event(
         events,
