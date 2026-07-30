@@ -99,6 +99,8 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "params._meta.convertigoGuidanceVersion",
             "_meta.convertigoGuidanceWarning",
             "first guarded Convertigo `tools/call`",
+            "once per agent conversation",
+            "On follow-up turns",
             "`convertigo://capabilities`",
             "`convertigo://recipes/quickstart`",
             "`convertigo://resources/convertigo-start`",
@@ -150,7 +152,7 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "[mcp_servers.convertigo]",
             f'url = "{resolved_mcp_url}"',
             "startup_timeout_sec = 60",
-            'http_headers = { "X-Convertigo-Guidance-Version" = "2026-07-29.convergent-workflow-v3" }',
+            'http_headers = { "X-Convertigo-Guidance-Version" = "2026-07-30.conversation-bootstrap-v4" }',
         ],
     )
     return result

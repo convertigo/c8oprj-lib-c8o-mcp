@@ -92,6 +92,8 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
             "params._meta.convertigoGuidanceVersion",
             "_meta.convertigoGuidanceWarning",
             "first guarded Convertigo `tools/call`",
+            "once per agent conversation",
+            "On follow-up turns",
             "`convertigo://capabilities`",
             "`convertigo://recipes/quickstart`",
             "`convertigo://resources/convertigo-start`",

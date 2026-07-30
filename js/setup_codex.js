@@ -304,6 +304,8 @@ C8O.setupCodex = C8O.setupCodex || {};
       "",
       "## Mandatory bootstrap",
       "",
+      "Bootstrap is required once per agent conversation for a given MCP endpoint and guidance version, not once per user message. On follow-up turns, reuse the skill, capabilities, and route guides already present in the conversation context. Do not reopen this `SKILL.md`, reread `convertigo://capabilities`, or reread an already-used guide unless the MCP endpoint changed, the MCP reports a guidance-version mismatch, or the required bootstrap context is explicitly unavailable.",
+      "",
       "1. Read `convertigo://capabilities` directly and verify the skill freshness rule above.",
       "2. Do not call `resources/list`, `resources/templates/list`, or `prompts/list` when this skill already names the required URI or tool. Use catalog discovery only when the task cannot be routed from this skill, a named resource is missing, or the MCP reports a guidance mismatch.",
       "3. Select the smallest matching route and read only its entry recipe before mutation:",
