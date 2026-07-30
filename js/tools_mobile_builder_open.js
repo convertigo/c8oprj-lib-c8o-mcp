@@ -31,6 +31,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var urlReachable = helper.urlReachable;
   var parseOpenUrl = helper.readiness.parseOpenUrl;
   var collectBuilderLogs = helper.readiness.collectBuilderLogs;
+  var BUILD_CYCLE_SETTLE_MS = 1200;
 
   function isStudioRuntime(Engine) {
     try {
@@ -411,6 +412,57 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
   }
 
+  function liveBuildJobName(projectRef, projectName) {
+    var appName = trim(projectName);
+    try {
+      var mobileApplication = projectRef.getMobileApplication();
+      var appComponent = mobileApplication != null ? mobileApplication.getApplicationComponent() : null;
+      var parent = appComponent != null ? appComponent.getParent() : null;
+      var computedName = parent != null && parent.getComputedApplicationName
+        ? trim(parent.getComputedApplicationName())
+        : "";
+      if (computedName.length) {
+        appName = computedName;
+      }
+    } catch (_ignoreBuildJobName) {}
+    return "Live build for " + appName;
+  }
+
+  function readLiveBuildJob(jobName) {
+    var state = {
+      supported: false,
+      jobName: trim(jobName),
+      active: false,
+      state: "none"
+    };
+    try {
+      var Job = Packages.org.eclipse.core.runtime.jobs.Job;
+      var manager = Job.getJobManager();
+      var jobs = manager.find(null);
+      state.supported = true;
+      for (var i = 0; i < jobs.length; i++) {
+        var job = jobs[i];
+        if (job == null || trim(job.getName()) !== state.jobName) {
+          continue;
+        }
+        var jobState = Number(job.getState());
+        if (jobState === Number(Job.RUNNING)) {
+          state.active = true;
+          state.state = "running";
+          break;
+        }
+        if (jobState === Number(Job.WAITING)) {
+          state.active = true;
+          state.state = "waiting";
+        } else if (jobState === Number(Job.SLEEPING) && state.state === "none") {
+          state.active = true;
+          state.state = "sleeping";
+        }
+      }
+    } catch (_ignoreBuildJobState) {}
+    return state;
+  }
+
   function openStudioNgxEditor(projectRef, forceRestart, stateOnly, browserDebugPort) {
     var result = {
       requested: false,
@@ -640,7 +692,22 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       throw new Error("Target project not found: " + projectName);
     }
     ensureNgxProject(projectRef, projectName);
-    var editorResult = openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue, browserDebugPortValue);
+    var buildJobNameValue = liveBuildJobName(projectRef, projectName);
+    var editorResult = studioMode
+      ? openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue, browserDebugPortValue)
+      : {
+        requested: false,
+        opened: false,
+        builderLaunchRequested: false,
+        browserDebugPortRequested: browserDebugPortValue,
+        browserDebugPortApplied: false,
+        browserDebugPortMatched: browserDebugPortValue <= 0,
+        stateOnly: stateOnlyValue,
+        editorRef: null,
+        editorState: {},
+        message: "Studio mode is disabled; no Studio editor interaction was attempted.",
+        error: ""
+      };
     var editorRef = editorResult && editorResult.editorRef ? editorResult.editorRef : null;
 
     var hasReusableEditor = false;
@@ -656,7 +723,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     } catch (_ignoreReusableReachable) {}
     var reusedExistingBuilder = stateOnlyValue !== true && hasReusableEditor && reusableEditorReachable && !forceRestartValue && !launchedFromEditor;
     var launchRequested = launchedFromEditor === true;
-    if (stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder) {
+    if (studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder) {
       MobileBuilder.initBuilder(projectRef);
       startBuildWithWsBuilder(projectName, endpoint);
       launchRequested = true;
@@ -681,11 +748,113 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     };
     var editorState = startupSignal && startupSignal.editorState ? startupSignal.editorState : readEditorState(editorRef);
     var browserState = startupSignal && startupSignal.browserState ? startupSignal.browserState : readBrowserState(editorRef);
+    var buildJobState = studioMode
+      ? readLiveBuildJob(buildJobNameValue)
+      : { supported: false, jobName: buildJobNameValue, active: false, state: "none" };
+    var buildJobObserved = buildJobState.active === true;
+    var previousBuildJobActive = buildJobState.active === true;
+    var buildJobFinishedObservedAt = 0;
+    var generationState = C8O.mobileBuilderCycle.readState(projectName);
+    var pendingBuildCycleId = generationState.id || 0;
+    var pendingBuildTimestamp = (
+      generationState.status === "pending" ||
+      generationState.status === "changed"
+    ) ? generationState.startedAt : 0;
+    var pendingBuildRequestedAt = generationState.startedAt || 0;
+    var generationNoChange = generationState.status === "no_change";
+    var generationFailed = generationState.status === "failed";
+    var terminalBuildObserved = false;
+    var buildSettleDeadline = waitValue === true
+      ? Math.min(deadline, startedAt + BUILD_CYCLE_SETTLE_MS)
+      : startedAt;
+
+    function syncGenerationState() {
+      var current = C8O.mobileBuilderCycle.readState(projectName);
+      if (!(current.id > 0)) {
+        return;
+      }
+      if (current.id !== pendingBuildCycleId) {
+        pendingBuildCycleId = current.id;
+        pendingBuildRequestedAt = current.startedAt || 0;
+        terminalBuildObserved = false;
+        buildJobObserved = buildJobState.active === true;
+        buildJobFinishedObservedAt = 0;
+      }
+      generationState = current;
+      generationNoChange = current.status === "no_change";
+      generationFailed = current.status === "failed";
+      pendingBuildTimestamp = (
+        current.status === "pending" ||
+        current.status === "changed"
+      ) ? current.startedAt : 0;
+      if (generationNoChange || generationFailed) {
+        C8O.mobileBuilderCycle.clear(projectName, current.id);
+      }
+    }
 
     function refreshCurrentState() {
-      snapshot = collectBuilderLogs(projectName, startedAt, logsLimitValue);
+      syncGenerationState();
+      snapshot = collectBuilderLogs(
+        projectName,
+        pendingBuildTimestamp > 0 ? pendingBuildTimestamp : startedAt,
+        logsLimitValue,
+        pendingBuildTimestamp > 0
+      );
       editorState = readEditorState(editorRef);
       browserState = readBrowserState(editorRef);
+      buildJobState = studioMode
+        ? readLiveBuildJob(buildJobNameValue)
+        : { supported: false, jobName: buildJobNameValue, active: false, state: "none" };
+      var buildJobActive = buildJobState.active === true;
+      if (pendingBuildTimestamp > 0 && snapshot.terminal === true) {
+        terminalBuildObserved = true;
+        buildJobObserved = true;
+      }
+      if (buildJobActive) {
+        buildJobObserved = true;
+      } else if (previousBuildJobActive && buildJobFinishedObservedAt === 0) {
+        buildJobFinishedObservedAt = java.lang.System.currentTimeMillis();
+      }
+      previousBuildJobActive = buildJobActive;
+      if (pendingBuildTimestamp > 0 && (
+        terminalBuildObserved === true ||
+        (buildJobObserved === true && buildJobActive !== true)
+      )) {
+        var clearedPendingBuild = C8O.mobileBuilderCycle.clear(projectName, pendingBuildCycleId);
+        if (clearedPendingBuild) {
+          pendingBuildTimestamp = 0;
+        } else {
+          var newerGenerationState = C8O.mobileBuilderCycle.readState(projectName);
+          if (newerGenerationState.id > 0 && newerGenerationState.id !== pendingBuildCycleId) {
+            generationState = newerGenerationState;
+            pendingBuildCycleId = newerGenerationState.id;
+            pendingBuildTimestamp = newerGenerationState.startedAt;
+            pendingBuildRequestedAt = newerGenerationState.startedAt;
+            terminalBuildObserved = false;
+            buildJobObserved = buildJobActive;
+            buildJobFinishedObservedAt = 0;
+          } else {
+            pendingBuildTimestamp = 0;
+          }
+        }
+      }
+      var waitingForScheduledCycle = buildJobState.supported === true &&
+        waitValue === true &&
+        generationNoChange !== true &&
+        java.lang.System.currentTimeMillis() < buildSettleDeadline &&
+        buildJobObserved !== true;
+      var waitingForGeneration = generationState.supported === true &&
+        generationState.status === "pending";
+      var waitingForPendingCycle = studioMode === true &&
+        pendingBuildTimestamp > 0 &&
+        (
+          generationState.supported !== true ||
+          generationState.status === "changed"
+        ) &&
+        terminalBuildObserved !== true &&
+        buildJobObserved !== true;
+      var waitingForViewerReload = buildJobFinishedObservedAt > 0 &&
+        java.lang.System.currentTimeMillis() < buildJobFinishedObservedAt + 500;
       if (!snapshot.openUrl.length && editorState.viewerUrl.length) {
         snapshot.openUrl = editorState.viewerUrl;
       }
@@ -695,7 +864,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (browserState.currentUrl.length && !snapshot.openUrl.length && lower(browserState.currentUrl) !== "about:blank") {
         snapshot.openUrl = browserState.currentUrl;
       }
-      if (!snapshot.building && (
+      if (buildJobState.supported !== true && !snapshot.building && (
         (editorState && editorState.hasEditor && (editorState.port > 0 || editorState.viewerUrl.length > 0 || lower(editorState.currentUrl || "") !== "about:blank")) ||
         (stateOnlyValue !== true && editorResult && editorResult.opened === true) ||
         browserHasVisibleDocument(browserState) ||
@@ -703,7 +872,23 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       )) {
         snapshot.building = true;
       }
-      if (browserState.hasError === true) {
+      if (generationFailed) {
+        snapshot.failed = true;
+        snapshot.building = false;
+        pushCompileError(snapshot, {
+          time: "",
+          level: "ERROR",
+          category: "MobileBuilder",
+          message: generationState.error || "Mobile source generation failed.",
+          extra: ""
+        });
+      } else if (buildJobActive || waitingForGeneration || waitingForScheduledCycle || waitingForPendingCycle || waitingForViewerReload) {
+        snapshot.building = true;
+        snapshot.failed = false;
+      } else if (buildJobState.supported === true && launchRequested === true && buildJobObserved !== true) {
+        snapshot.building = true;
+      }
+      if (browserState.hasError === true && !buildJobActive && !waitingForGeneration && !waitingForScheduledCycle && !waitingForPendingCycle && !waitingForViewerReload) {
         snapshot.failed = true;
         pushCompileError(snapshot, {
           time: "",
@@ -714,7 +899,14 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         });
       }
       var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
-      return candidateUrl.length > 0 &&
+      return !buildJobActive &&
+        !waitingForGeneration &&
+        !waitingForScheduledCycle &&
+        !waitingForPendingCycle &&
+        !waitingForViewerReload &&
+        snapshot.building !== true &&
+        snapshot.failed !== true &&
+        candidateUrl.length > 0 &&
         urlReachable(candidateUrl, 1500) &&
         hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "") === true;
     }
@@ -731,6 +923,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         break;
       }
       if (snapshot.failed === true) {
+        if (snapshot.terminal === true) {
+          break;
+        }
         if (!(firstFailureAt > 0)) {
           firstFailureAt = java.lang.System.currentTimeMillis();
         } else if ((java.lang.System.currentTimeMillis() - firstFailureAt) >= failureGraceMs) {
@@ -881,6 +1076,27 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         errorText: browserState && browserState.errorText ? browserState.errorText : "",
         bodyTextSample: browserState && browserState.bodyTextSample ? browserState.bodyTextSample : "",
         progress: browserState && browserState.progress ? browserState.progress : 0
+      },
+      build: {
+        supported: buildJobState && buildJobState.supported === true,
+        jobName: buildJobNameValue,
+        active: buildJobState && buildJobState.active === true,
+        state: buildJobState && buildJobState.state ? buildJobState.state : "none",
+        observed: buildJobObserved === true,
+        finishedAtObserved: buildJobFinishedObservedAt,
+        requestedAt: pendingBuildRequestedAt,
+        terminalObserved: terminalBuildObserved === true,
+        generation: {
+          supported: generationState && generationState.supported === true,
+          id: generationState && generationState.id ? generationState.id : 0,
+          status: generationState && generationState.status ? generationState.status : "none",
+          startedAt: generationState && generationState.startedAt ? generationState.startedAt : 0,
+          completedAt: generationState && generationState.completedAt ? generationState.completedAt : 0,
+          changedFileCount: generationState && generationState.changedFileCount ? generationState.changedFileCount : 0,
+          noChange: generationNoChange === true,
+          failed: generationFailed === true,
+          error: generationState && generationState.error ? generationState.error : ""
+        }
       },
       compileErrors: snapshot.compileErrors || [],
       logs: snapshot.lines || [],

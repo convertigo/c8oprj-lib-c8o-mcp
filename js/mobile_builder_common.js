@@ -1,5 +1,6 @@
 include("js/util.js");
 include("js/requestable_logs.js");
+include("js/mobile_builder_cycle.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -319,6 +320,7 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       compiled: false,
       failed: false,
       building: false,
+      terminal: false,
       compileErrors: [],
       relevant: []
     };
@@ -361,21 +363,33 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
           } catch (_ignoreParsePort) {}
         }
       }
-      if (merged.indexOf("compiled") !== -1 && merged.indexOf("success") !== -1) {
-        result.compiled = true;
-      }
-      if (merged.indexOf("application bundle generation complete") !== -1) {
-        result.compiled = true;
-      }
       if (merged.indexOf("building") !== -1 || merged.indexOf("rebuilding") !== -1 || merged.indexOf("bundle generation") !== -1) {
         result.building = true;
       }
       if (merged.indexOf("application source files updated") !== -1 || merged.indexOf("autobuild mode set to") !== -1) {
         result.building = true;
       }
+      if (merged.indexOf("compiled") !== -1 && merged.indexOf("success") !== -1) {
+        result.compiled = true;
+        result.failed = false;
+        result.building = false;
+        result.terminal = true;
+        result.compileErrors = [];
+      }
+      if (merged.indexOf("application bundle generation complete") !== -1) {
+        result.compiled = true;
+        result.failed = false;
+        result.building = false;
+        result.terminal = true;
+        result.compileErrors = [];
+      }
       if (isCompileErrorMessage(message, extra, line.level)) {
         result.failed = true;
         pushCompileError(result, line);
+      }
+      if (merged.indexOf("failed to compile") !== -1 || merged.indexOf("application bundle generation failed") !== -1) {
+        result.building = false;
+        result.terminal = true;
       }
 
       var isRelevant = containsAny(merged, signals);
@@ -398,12 +412,13 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     return result;
   }
 
-  function collectBuilderLogs(projectName, startedAt, logsLimit) {
+  function collectBuilderLogs(projectName, startedAt, logsLimit, exactStart) {
     var now = java.lang.System.currentTimeMillis();
     var fetchLimit = Math.max(logsLimit * 8, 120);
     var maxScan = Math.max(fetchLimit * 40, 2000);
     var raw = C8O.requestableLogs.collect({
-      startTime: startedAt - 1000,
+      category: "Studio",
+      startTime: startedAt - (exactStart === true ? 0 : 1000),
       endTime: now + 1000,
       limit: fetchLimit,
       maxScan: maxScan,
@@ -420,6 +435,7 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       compiled: parsed.compiled,
       failed: parsed.failed,
       building: parsed.building,
+      terminal: parsed.terminal,
       compileErrors: parsed.compileErrors || [],
       lines: relevant,
       query: raw && raw.query ? raw.query : {}

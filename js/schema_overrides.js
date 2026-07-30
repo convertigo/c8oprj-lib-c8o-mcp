@@ -311,12 +311,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         wait: {
           type: "boolean",
           default: true,
-          description: "Set false to request/open the viewer and return immediately with the current state. Default true preserves the synchronous readiness wait."
+          description: "Set false to request/open the viewer and return immediately. With true, wait for the portable Engine source-generation cycle and, in Studio only, the optional HMR compile cycle."
         },
         stateOnly: {
           type: "boolean",
           default: false,
-          description: "Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder."
+          description: "Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder. Combine with wait=true after frontend mutations to wait for source generation and, in Studio, HMR success or compile_error."
         },
         reveal: {
           type: "boolean",
@@ -1388,6 +1388,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
   function requestableLogQuerySchema() {
     return closedObjectSchema({
+      category: { type: "string" },
       contextId: { type: "string" },
       project: { type: "string" },
       requestable: { type: "string" },
@@ -1521,6 +1522,27 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         errorText: { type: "string" },
         bodyTextSample: { type: "string" },
         progress: { type: "number" }
+      }),
+      build: closedObjectSchema({
+        supported: { type: "boolean", description: "True when the optional Studio Eclipse live-build job can be inspected." },
+        jobName: { type: "string" },
+        active: { type: "boolean" },
+        state: { type: "string", description: "Current Eclipse job state: none, waiting, sleeping, or running." },
+        observed: { type: "boolean", description: "True when this waited call observed the live-build job." },
+        finishedAtObserved: { type: "number" },
+        requestedAt: { type: "number", description: "Timestamp of the pending HMR request consumed by this call, or zero." },
+        terminalObserved: { type: "boolean", description: "True when this call observed the terminal compiler signal for the pending HMR cycle." },
+        generation: closedObjectSchema({
+          supported: { type: "boolean", description: "True when the Convertigo Engine exposes portable source-generation cycles." },
+          id: { type: "number" },
+          status: { type: "string", enum: ["none", "pending", "no_change", "changed", "failed"] },
+          startedAt: { type: "number" },
+          completedAt: { type: "number" },
+          changedFileCount: { type: "number" },
+          noChange: { type: "boolean" },
+          failed: { type: "boolean" },
+          error: { type: "string" }
+        })
       }),
       compileErrors: {
         type: "array",

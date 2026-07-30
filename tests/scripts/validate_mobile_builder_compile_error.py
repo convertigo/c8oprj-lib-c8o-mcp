@@ -39,6 +39,19 @@ def broken_page_script():
     )
 
 
+def valid_page_script():
+    return (
+        "/*Begin_c8o_PageImport*/\n"
+        "/*End_c8o_PageImport*/\n"
+        "/*Begin_c8o_PageDeclaration*/\n"
+        "/*End_c8o_PageDeclaration*/\n"
+        "/*Begin_c8o_PageConstructor*/\n"
+        "/*End_c8o_PageConstructor*/\n"
+        "/*Begin_c8o_PageFunction*/\n"
+        "/*End_c8o_PageFunction*/\n"
+    )
+
+
 def main():
     args = parse_args()
     artifacts_dir = Path(args.artifacts_dir)
@@ -89,7 +102,7 @@ def main():
             args.mcp_url,
             "databaseobject-tree-apply",
             {
-                "target": f"{project}.Application.NgxApp.Home",
+                "target": f"{project}.Application.NgxApp.Page",
                 "at": "self",
                 "mode": "merge",
                 "tree": {
@@ -107,16 +120,104 @@ def main():
             "mobile-builder-open",
             {
                 "project": project,
+                "stateOnly": True,
+                "wait": True,
                 "timeoutSec": 45,
                 "logsLimit": 80,
-                "forceRestart": True,
             },
             timeout=90,
         )
-        artifact["steps"].append({"tool": "mobile-builder-open", "result": mobile_builder})
+        artifact["steps"].append({"tool": "mobile-builder-open-hmr-error", "result": mobile_builder})
 
         assert_true(mobile_builder.get("status") == "compile_error", f"Expected compile_error, got {mobile_builder.get('status')}: {mobile_builder.get('message')}")
         assert_true(bool(mobile_builder.get("compileErrors") or []), "compile_error status did not return compileErrors.")
+        if mobile_builder.get("build", {}).get("supported") is True:
+            assert_true(mobile_builder.get("build", {}).get("observed") is True, "The failing HMR Eclipse build job was not observed.")
+            assert_true(mobile_builder.get("build", {}).get("active") is False, "The failing HMR Eclipse build job is still active.")
+
+        repair = call_tool(
+            args.mcp_url,
+            "databaseobject-tree-apply",
+            {
+                "target": f"{project}.Application.NgxApp.Page",
+                "at": "self",
+                "mode": "merge",
+                "tree": {
+                    "properties": {
+                        "scriptContent": valid_page_script()
+                    }
+                },
+            },
+            timeout=180,
+        )
+        artifact["steps"].append({"tool": "databaseobject-tree-apply-repair", "result": repair})
+
+        repaired_builder = call_tool(
+            args.mcp_url,
+            "mobile-builder-open",
+            {
+                "project": project,
+                "stateOnly": True,
+                "wait": True,
+                "timeoutSec": 45,
+                "logsLimit": 80,
+            },
+            timeout=90,
+        )
+        artifact["steps"].append({"tool": "mobile-builder-open-hmr-repair", "result": repaired_builder})
+        assert_true(
+            repaired_builder.get("status") == "ready",
+            f"Expected ready after HMR repair, got {repaired_builder.get('status')}: {repaired_builder.get('message')}",
+        )
+        if repaired_builder.get("build", {}).get("supported") is True:
+            assert_true(repaired_builder.get("build", {}).get("observed") is True, "The repaired HMR Eclipse build job was not observed.")
+            assert_true(repaired_builder.get("build", {}).get("active") is False, "The repaired HMR Eclipse build job is still active.")
+
+        no_change_apply = call_tool(
+            args.mcp_url,
+            "databaseobject-tree-apply",
+            {
+                "target": f"{project}.Application.NgxApp.Page",
+                "at": "self",
+                "mode": "merge",
+                "tree": {
+                    "properties": {
+                        "scriptContent": valid_page_script()
+                    }
+                },
+            },
+            timeout=180,
+        )
+        artifact["steps"].append({"tool": "databaseobject-tree-apply-no-change", "result": no_change_apply})
+
+        no_change_started = time.monotonic()
+        no_change_builder = call_tool(
+            args.mcp_url,
+            "mobile-builder-open",
+            {
+                "project": project,
+                "stateOnly": True,
+                "wait": True,
+                "timeoutSec": 30,
+                "logsLimit": 40,
+            },
+            timeout=60,
+        )
+        no_change_elapsed = time.monotonic() - no_change_started
+        artifact["steps"].append({
+            "tool": "mobile-builder-open-no-change",
+            "elapsedSeconds": no_change_elapsed,
+            "result": no_change_builder,
+        })
+        assert_true(
+            no_change_builder.get("status") == "ready",
+            f"Expected ready after a no-change generation, got {no_change_builder.get('status')}: {no_change_builder.get('message')}",
+        )
+        generation = no_change_builder.get("build", {}).get("generation", {})
+        assert_true(generation.get("supported") is True, "Portable Engine source-generation tracking is unavailable.")
+        assert_true(generation.get("noChange") is True, f"Expected a no_change generation, got {generation}.")
+        assert_true(generation.get("changedFileCount") == 0, f"No-change generation reported changed files: {generation}.")
+        assert_true(no_change_elapsed < 10, f"No-change generation took too long to settle: {no_change_elapsed:.2f}s.")
         artifact["status"] = "PASS"
     finally:
         (artifacts_dir / "artifact.json").write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")

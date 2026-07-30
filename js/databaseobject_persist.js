@@ -3,6 +3,7 @@ if (typeof C8O === "undefined") {
 }
 
 C8O.dbo = C8O.dbo || {};
+include("js/mobile_builder_cycle.js");
 
 C8O.dbo.saveProject = function (project, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
@@ -304,7 +305,19 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
 
   var batchStarted = false;
   var batchStopped = false;
+  var pendingProjectName = "";
+  var pendingBuildTimestamp = 0;
   try {
+    try {
+      var refreshProject = dbo.getProject ? dbo.getProject() : null;
+      pendingProjectName = refreshProject && refreshProject.getName ? String(refreshProject.getName()) : "";
+      if (pendingProjectName.length) {
+        pendingBuildTimestamp = C8O.mobileBuilderCycle.mark(pendingProjectName);
+      }
+    } catch (_ignorePendingBuildMarker) {
+      pendingProjectName = "";
+      pendingBuildTimestamp = 0;
+    }
     mb.prepareBatchBuild();
     BatchOperationHelper.start();
     batchStarted = true;
@@ -330,12 +343,16 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
       mb.appChanged();
       result.strategy = "builder.appChanged";
     }
+    C8O.mobileBuilderCycle.completeAfterBatch(pendingProjectName, pendingBuildTimestamp);
     BatchOperationHelper.stop();
     batchStopped = true;
 
     result.triggered = true;
     result.message = "Mobile builder refresh triggered via " + result.strategy;
   } catch (builderError) {
+    if (pendingProjectName.length && pendingBuildTimestamp > 0) {
+      C8O.mobileBuilderCycle.fail(pendingProjectName, pendingBuildTimestamp, String(builderError));
+    }
     var builderMessage = "Unable to trigger mobile builder refresh: " + String(builderError);
     result.message = builderMessage;
     if (errors && errors.push) {

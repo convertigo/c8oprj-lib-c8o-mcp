@@ -3,6 +3,7 @@ if (typeof C8O === "undefined") {
 }
 
 C8O.crudUiRefresh = C8O.crudUiRefresh || {};
+include("js/mobile_builder_cycle.js");
 
 (function () {
   if (C8O.crudUiRefresh._initialized === true) {
@@ -90,7 +91,19 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
         }
         var batchStarted = false;
         var batchStopped = false;
+        var pendingProjectName = "";
+        var pendingBuildTimestamp = 0;
         try {
+          try {
+            var refreshProject = dbo.getProject ? dbo.getProject() : null;
+            pendingProjectName = refreshProject && refreshProject.getName ? String(refreshProject.getName()) : "";
+            if (pendingProjectName.length) {
+              pendingBuildTimestamp = C8O.mobileBuilderCycle.mark(pendingProjectName);
+            }
+          } catch (_ignorePendingBuildMarker) {
+            pendingProjectName = "";
+            pendingBuildTimestamp = 0;
+          }
           mb.prepareBatchBuild();
           BatchOperationHelper.start();
           batchStarted = true;
@@ -111,6 +124,7 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
             mb.appChanged();
             strategies.push("builder.appChanged");
           }
+          C8O.mobileBuilderCycle.completeAfterBatch(pendingProjectName, pendingBuildTimestamp);
           BatchOperationHelper.stop();
           batchStopped = true;
           targetResult.triggered = true;
@@ -120,6 +134,11 @@ C8O.crudUiRefresh = C8O.crudUiRefresh || {};
             strategySet[strategies[strategyIndex]] = true;
           }
           summary.triggered = true;
+        } catch (builderError) {
+          if (pendingProjectName.length && pendingBuildTimestamp > 0) {
+            C8O.mobileBuilderCycle.fail(pendingProjectName, pendingBuildTimestamp, String(builderError));
+          }
+          throw builderError;
         } finally {
           if (batchStarted && !batchStopped) {
             try {
