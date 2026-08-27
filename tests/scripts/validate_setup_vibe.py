@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -54,6 +55,15 @@ def contains_lines(text, expected_lines):
             raise RuntimeError(f"Missing expected line: {line}")
 
 
+def configured_mcp_url(url):
+    base, marker, fragment = url.partition("#")
+    if re.search(r"(^|[?&])jsonOnly=[^&]*", base, flags=re.IGNORECASE):
+        base = re.sub(r"(^|[?&])jsonOnly=[^&]*", r"\1jsonOnly=true", base, count=1, flags=re.IGNORECASE)
+    else:
+        base += ("&" if "?" in base else "?") + "jsonOnly=true"
+    return base + (marker + fragment if marker else "")
+
+
 def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_status, expected_config_status, resolved_mcp_url):
     vibe_home = Path(vibe_home)
     vibe_home.mkdir(parents=True, exist_ok=True)
@@ -74,6 +84,7 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
     assert_true(result.get("agentsStatus") == expected_skill_status, f"Unexpected agentsStatus: {result}")
     assert_true(result.get("configStatus") == expected_config_status, f"Unexpected configStatus: {result}")
     assert_true(result.get("resolvedMcpUrl") == resolved_mcp_url, f"Unexpected resolvedMcpUrl: {result}")
+    assert_true(result.get("configuredMcpUrl") == configured_mcp_url(resolved_mcp_url), f"Unexpected configuredMcpUrl: {result}")
 
     skill_path = Path(result["skillPath"])
     agents_path = Path(result["agentsPath"])
@@ -128,7 +139,7 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
             'enabled_skills = ["convertigo-vibe-generalist"]',
             "[[mcp_servers]]",
             'name = "Convertigo"',
-            f'url = "{resolved_mcp_url}"',
+            f'url = "{configured_mcp_url(resolved_mcp_url)}"',
             "[tools.Convertigo_project-list]",
             "[tools.Convertigo_requestable-execute]",
             "[tools.Convertigo_databaseobject-tree-apply]",
@@ -171,6 +182,16 @@ def main():
             ]
         )
         run_case(args.mcp_url, base / "replace", initial_replace, True, "created", "updated", args.resolved_mcp_url)
+
+        run_case(
+            args.mcp_url,
+            base / "query",
+            None,
+            True,
+            "created",
+            "created",
+            args.resolved_mcp_url + "?transport=managed&jsonOnly=false",
+        )
 
         stable_home = base / "idempotent"
         run_case(args.mcp_url, stable_home, None, True, "created", "created", args.resolved_mcp_url)

@@ -103,6 +103,22 @@ C8O.setupVibe = C8O.setupVibe || {};
     return "http://localhost:18080/convertigo/api/mcp";
   }
 
+  function configuredMcpUrl(url) {
+    var text = trim(url);
+    var fragment = "";
+    var hash = text.indexOf("#");
+    if (hash >= 0) {
+      fragment = text.substring(hash);
+      text = text.substring(0, hash);
+    }
+    if (/(^|[?&])jsonOnly=[^&]*/i.test(text)) {
+      text = text.replace(/(^|[?&])jsonOnly=[^&]*/i, "$1jsonOnly=true");
+    } else {
+      text += (text.indexOf("?") >= 0 ? "&" : "?") + "jsonOnly=true";
+    }
+    return text + fragment;
+  }
+
   function tomlEscape(value) {
     return String(value == null ? "" : value)
       .replace(/\\/g, "\\\\")
@@ -619,6 +635,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     var replaceConfig = C8O.util.toBoolean(opts.replaceConfig, false) === true;
     var vibeHome = resolveVibeHome(opts.vibeHome);
     var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
+    var compactMcpUrl = configuredMcpUrl(resolvedMcpUrl);
     var skillsDir = new File(vibeHome, "skills");
     var skillDir = new File(skillsDir, "convertigo-vibe-generalist");
     var skillFile = new File(skillDir, "SKILL.md");
@@ -630,7 +647,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     var agentsWrite = writeManagedFile(agentsFile, agentsContent, dryRun);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, resolvedMcpUrl, replaceConfig, warnings);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, replaceConfig, warnings);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
@@ -641,6 +658,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       configStatus: patchedConfig.status,
       resolvedVibeHome: String(vibeHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
+      configuredMcpUrl: compactMcpUrl,
       skillPath: String(skillFile.getAbsolutePath()),
       agentsPath: String(agentsFile.getAbsolutePath()),
       configPath: String(configFile.getAbsolutePath()),

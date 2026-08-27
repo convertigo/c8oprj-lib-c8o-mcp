@@ -223,13 +223,14 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     return normalizeEndpoint(text);
   }
 
-  function deriveViewerHomeUrl(viewerBaseUrl, viewerUrl) {
+  function deriveViewerHomeUrl(viewerBaseUrl, viewerUrl, rootPageSegment) {
     var base = normalizeEndpoint(viewerBaseUrl);
+    var segment = trim(rootPageSegment || "home").replace(/^\/+|\/+$/g, "");
     if (base.length) {
-      return base + "/home";
+      return base + "/" + (segment.length ? segment : "home");
     }
     var raw = stripQueryAndHash(viewerUrl || "");
-    if (/\/home$/i.test(raw)) {
+    if (segment.length && lower(raw).slice(-(segment.length + 1)) === "/" + lower(segment)) {
       return raw;
     }
     return raw.length ? raw : "";
@@ -237,6 +238,9 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
 
   function browserShowsInstaller(browserState) {
     var merged = lower(
+      (browserState && browserState.title ? browserState.title : "") + " " +
+      (browserState && browserState.currentUrl ? browserState.currentUrl : "") + " " +
+      (browserState && browserState.locationHref ? browserState.locationHref : "") + " " +
       (browserState && browserState.statusText ? browserState.statusText : "") + " " +
       (browserState && browserState.errorText ? browserState.errorText : "") + " " +
       (browserState && browserState.bodyTextSample ? browserState.bodyTextSample : "")
@@ -247,7 +251,10 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     return (
       merged.indexOf("your application will be displayed here") !== -1 ||
       merged.indexOf("install angular and ionic npm dependencies") !== -1 ||
-      merged.indexOf("visual app viewer") !== -1
+      merged.indexOf("visual app viewer") !== -1 ||
+      merged.indexOf("convertigo flashupdate") !== -1 ||
+      merged.indexOf("launching application") !== -1 ||
+      merged.indexOf("checking for updates") !== -1
     );
   }
 
@@ -276,6 +283,49 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       return true;
     }
     return false;
+  }
+
+  function classifyReadiness(options) {
+    var opts = options || {};
+    var viewerReady = opts.viewerReady === true;
+    var browserControlReady = opts.browserControlReady === true;
+    var failed = opts.failed === true;
+    var compileSucceeded = opts.compileSucceeded === true;
+    var generationNoChange = opts.generationNoChange === true;
+    var explicitBuildWait = opts.buildActive === true ||
+      opts.waitingForGeneration === true ||
+      opts.waitingForScheduledCycle === true ||
+      opts.waitingForPendingCycle === true ||
+      opts.waitingForViewerReload === true;
+    var inferredBuildWait = opts.reportedBuilding === true &&
+      browserControlReady !== true &&
+      compileSucceeded !== true &&
+      generationNoChange !== true;
+    var compileBlocking = explicitBuildWait || inferredBuildWait;
+    var compileState = failed
+      ? "failed"
+      : (compileBlocking
+        ? "building"
+        : (compileSucceeded
+          ? "success"
+          : (generationNoChange ? "not_required" : "unknown")));
+    var ready = viewerReady && failed !== true && compileBlocking !== true;
+    var readyReason = "";
+    if (ready) {
+      readyReason = compileState === "success"
+        ? "compiled"
+        : (compileState === "not_required"
+          ? "generation_no_change"
+          : (browserControlReady ? "browser_control_ready" : "viewer_ready"));
+    }
+    return {
+      ready: ready,
+      viewerReady: viewerReady,
+      browserControlReady: browserControlReady,
+      compileBlocking: compileBlocking,
+      compileState: compileState,
+      readyReason: readyReason
+    };
   }
 
   function urlReachable(url, timeoutMs) {
@@ -454,7 +504,9 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
   C8O.mobileBuilderCommon.normalizeEndpoint = normalizeEndpoint;
   C8O.mobileBuilderCommon.deriveViewerBaseUrl = deriveViewerBaseUrl;
   C8O.mobileBuilderCommon.deriveViewerHomeUrl = deriveViewerHomeUrl;
+  C8O.mobileBuilderCommon.browserShowsInstaller = browserShowsInstaller;
   C8O.mobileBuilderCommon.hasViewerReadyEvidence = hasViewerReadyEvidence;
+  C8O.mobileBuilderCommon.classifyReadiness = classifyReadiness;
   C8O.mobileBuilderCommon.urlReachable = urlReachable;
   C8O.mobileBuilderCommon.readiness = {
     parseOpenUrl: parseOpenUrl,

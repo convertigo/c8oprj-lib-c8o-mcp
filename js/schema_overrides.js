@@ -117,7 +117,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         properties: propertiesInputSchema(),
         children: {
           type: "array",
-          description: "Child nodes to create or upsert in the same call.",
+          description: "Child nodes to create or upsert below this node. When at=inside/before/after, tree itself must be the single node to create and include className and name; do not submit a children-only wrapper. Use separate batch-call entries to create siblings.",
           items: { type: "object", additionalProperties: true }
         }
       },
@@ -136,6 +136,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           maximum: 20,
           default: 1,
           description: "Descendant levels to include. 0 returns only the target; default 1; max 20."
+        },
+        depth: {
+          type: "integer",
+          minimum: 0,
+          maximum: 20,
+          description: "Compatibility alias for childrenDepth. Prefer childrenDepth."
         },
         properties: {
           type: "string",
@@ -1466,7 +1472,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       status: { type: "string" },
       project: { type: "string" },
       message: { type: "string" },
-      ready: { type: "boolean" },
+      ready: { type: "boolean", description: "True when the live viewer is usable and no currently observed build signal still blocks it. This does not imply compileState=success." },
+      viewerReady: { type: "boolean", description: "True when a reachable live viewer has non-loader readiness evidence." },
+      compileState: { type: "string", enum: ["unknown", "building", "success", "failed", "not_required"], description: "Compilation evidence observed by this call, independent from viewer/browser readiness." },
+      buildObserved: { type: "boolean", description: "True when this call observed a Studio live-build job or terminal compiler signal." },
+      readyReason: { type: "string", enum: ["", "compiled", "generation_no_change", "browser_control_ready", "viewer_ready"], description: "Evidence that allowed the call to stop waiting." },
       launched: { type: "boolean" },
       launchRequested: { type: "boolean" },
       reusedBuild: { type: "boolean" },

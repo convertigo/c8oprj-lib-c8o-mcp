@@ -27,11 +27,54 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var normalizeEndpoint = helper.normalizeEndpoint;
   var deriveViewerBaseUrl = helper.deriveViewerBaseUrl;
   var deriveViewerHomeUrl = helper.deriveViewerHomeUrl;
+  var browserShowsInstaller = helper.browserShowsInstaller;
   var hasViewerReadyEvidence = helper.hasViewerReadyEvidence;
+  var classifyReadiness = helper.classifyReadiness;
   var urlReachable = helper.urlReachable;
   var parseOpenUrl = helper.readiness.parseOpenUrl;
   var collectBuilderLogs = helper.readiness.collectBuilderLogs;
   var BUILD_CYCLE_SETTLE_MS = 1200;
+  var BUILDER_STARTUP_GRACE_MS = 120000;
+  var BUILDER_LAUNCH_PREFIX = "convertigo.mcp.mobileBuilder.launch.";
+
+  function builderLaunchKey(projectName) {
+    return BUILDER_LAUNCH_PREFIX + String(projectName || "");
+  }
+
+  function builderLaunchObservedKey(projectName) {
+    return builderLaunchKey(projectName) + ".processObserved";
+  }
+
+  function readBuilderLaunchState(projectName) {
+    var value = java.lang.System.getProperty(builderLaunchKey(projectName));
+    var requestedAt = value == null ? 0 : parseInt(String(value), 10);
+    if (!(requestedAt > 0)) {
+      return null;
+    }
+    return {
+      requestedAt: requestedAt,
+      processObserved: java.lang.System.getProperty(builderLaunchObservedKey(projectName)) === "true"
+    };
+  }
+
+  function markBuilderLaunch(projectName) {
+    var requestedAt = Number(java.lang.System.currentTimeMillis());
+    java.lang.System.setProperty(builderLaunchKey(projectName), String(requestedAt));
+    java.lang.System.clearProperty(builderLaunchObservedKey(projectName));
+    return { requestedAt: requestedAt, processObserved: false };
+  }
+
+  function markBuilderProcessObserved(projectName, launchState) {
+    if (launchState != null && launchState.processObserved !== true) {
+      launchState.processObserved = true;
+      java.lang.System.setProperty(builderLaunchObservedKey(projectName), "true");
+    }
+  }
+
+  function clearBuilderLaunch(projectName) {
+    java.lang.System.clearProperty(builderLaunchKey(projectName));
+    java.lang.System.clearProperty(builderLaunchObservedKey(projectName));
+  }
 
   function isStudioRuntime(Engine) {
     try {
@@ -83,7 +126,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDevToolsJsonUrl: "",
       browserDevToolsWebSocketUrl: "",
       browserDevToolsTarget: null,
-      browserRemoteDebuggingPort: 0
+      browserRemoteDebuggingPort: 0,
+      builderProcessAlive: false
     };
     if (editorRef == null) {
       return state;
@@ -103,6 +147,18 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       var rawBaseUrl = readPrivateField(editorRef, "baseUrl");
       state.baseUrl = trim(rawBaseUrl);
     } catch (_ignoreBaseField) {}
+
+    try {
+      var processes = readPrivateField(editorRef, "processes");
+      var iterator = processes && processes.iterator ? processes.iterator() : null;
+      while (iterator != null && iterator.hasNext()) {
+        var process = iterator.next();
+        if (process != null && process.isAlive && process.isAlive()) {
+          state.builderProcessAlive = true;
+          break;
+        }
+      }
+    } catch (_ignoreBuilderProcesses) {}
 
     try {
       if (editorRef.getCurrentUrl) {
@@ -273,17 +329,22 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 "var l1=document.getElementById('l1');" +
                 "var pre=document.querySelector('pre');" +
                 "var message=document.getElementById('Message');" +
+                "var viteOverlay=document.querySelector('vite-error-overlay');" +
                 "var text=l1&&l1.textContent?String(l1.textContent):'';" +
                 "var preText=pre&&pre.textContent?String(pre.textContent):'';" +
                 "var bodyText=document.body&&document.body.innerText?String(document.body.innerText):'';" +
+                "var overlayText='';" +
+                "try{overlayText=viteOverlay&&viteOverlay.shadowRoot?String(viteOverlay.shadowRoot.textContent||''):'';}catch(overlayError){}" +
+                "var diagnosticText=overlayText||preText;" +
+                "if(!diagnosticText&&(/\\b(?:NG|TS)[0-9]{4}\\b|\\[ERROR\\]|application bundle generation failed|failed to compile|plugin angular-compiler/i).test(bodyText)){diagnosticText=bodyText.substring(0,4000);}" +
                 "var progress=0;" +
                 "try{progress=Number(window._last_doProgress||0)||0;}catch(progressError){}" +
-                "var loaderHasError=!!(typeof window._loaderHasError!=='undefined'&&window._loaderHasError);" +
+                "var loaderHasError=!!viteOverlay||!!(typeof window._loaderHasError!=='undefined'&&window._loaderHasError);" +
                 "return JSON.stringify({" +
                   "locationHref:String(location.href||'')," +
                   "title:String(document.title||'')," +
                   "statusText:String(text||'')," +
-                  "errorText:String(preText||text||'')," +
+                  "errorText:String(diagnosticText||text||'')," +
                   "bodyTextSample:String(bodyText||'').substring(0,800)," +
                   "loaderHasError:!!loaderHasError," +
                   "progress:progress," +
@@ -378,6 +439,15 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     if (!targetLower.length || targetLower === "about:blank") {
       return false;
     }
+    var target = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
+    var targetTitle = lower(target && target.title ? target.title : "");
+    if (
+      browserShowsInstaller(browserState) ||
+      targetTitle.indexOf("convertigo flashupdate") !== -1 ||
+      targetTitle.indexOf("launching application") !== -1
+    ) {
+      return false;
+    }
     var viewerBaseLower = lower(normalizeEndpoint(viewerBaseUrl || ""));
     if (viewerBaseLower.length && normalizeEndpoint(targetLower).indexOf(viewerBaseLower) !== 0) {
       return false;
@@ -409,6 +479,18 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
     if (appClass.indexOf("com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent") !== 0) {
       throw new Error("Project '" + projectName + "' is not an NGX application project.");
+    }
+  }
+
+  function rootPageSegment(projectRef) {
+    try {
+      var mobileApplication = projectRef.getMobileApplication();
+      var appComponent = mobileApplication != null ? mobileApplication.getApplicationComponent() : null;
+      var rootPage = appComponent != null && appComponent.getRootPage ? appComponent.getRootPage() : null;
+      var segment = rootPage != null && rootPage.getSegment ? trim(rootPage.getSegment()) : "";
+      return segment.replace(/^\/+|\/+$/g, "");
+    } catch (_ignoreRootPageSegment) {
+      return "";
     }
   }
 
@@ -471,6 +553,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDebugPortRequested: browserDebugPort > 0 ? browserDebugPort : 0,
       browserDebugPortApplied: false,
       browserDebugPortMatched: browserDebugPort > 0 ? false : true,
+      rootPageSegment: rootPageSegment(projectRef),
       stateOnly: stateOnly === true,
       editorRef: null,
       editorState: {
@@ -552,29 +635,31 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
               if (editor != null) {
                 result.editorRef = editor;
                 result.editorState = readEditorState(editor);
-                if (browserDebugPort > 0 && result.editorState.browserRemoteDebuggingPort !== browserDebugPort) {
-                  editor.setBrowserDebugPort(browserDebugPort);
-                  result.browserDebugPortApplied = true;
-                  result.editorState = readEditorState(editor);
-                }
               }
               result.browserDebugPortMatched = browserDebugPort <= 0 ||
                 result.editorState.browserRemoteDebuggingPort === browserDebugPort;
               if (stateOnly === true) {
                 result.opened = editor != null;
                 result.message = editor != null
-                  ? (result.browserDebugPortApplied
-                    ? "Existing NGX editor state read; browser debug port reconciled without restarting the builder"
-                    : (result.browserDebugPortMatched
-                      ? "Existing NGX editor state read; no builder launch requested"
-                      : "Existing NGX editor uses another browser debug port"))
+                  ? (result.browserDebugPortMatched
+                    ? "Existing NGX editor state read; no builder launch requested"
+                    : "Existing NGX editor uses another browser debug port; a non-state-only call is required to reconcile it")
                   : "No active NGX editor found; no launch requested";
                 return;
               }
               if (editor != null) {
+                if (result.rootPageSegment.length && editor.selectPage) {
+                  editor.selectPage(result.rootPageSegment);
+                }
+                if (browserDebugPort > 0 && result.editorState.browserRemoteDebuggingPort !== browserDebugPort) {
+                  editor.setBrowserDebugPort(browserDebugPort);
+                  result.browserDebugPortApplied = true;
+                  result.editorState = readEditorState(editor);
+                  result.browserDebugPortMatched = result.editorState.browserRemoteDebuggingPort === browserDebugPort;
+                }
                 var alreadyRunning = result.editorState.port > 0 || result.editorState.viewerUrl.length > 0;
                 var editorReachable = urlReachable(result.editorState.viewerUrl || result.editorState.nodeUrl, 1500);
-                var shouldLaunch = forceRestart === true || !alreadyRunning || !editorReachable;
+                var shouldLaunch = result.browserDebugPortApplied === true || forceRestart === true || !alreadyRunning || !editorReachable;
                 if (shouldLaunch) {
                   editor.launchBuilder(false, false);
                   result.builderLaunchRequested = true;
@@ -606,6 +691,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 if (treeObject.activeEditor) {
                   var fallbackEditor = treeObject.activeEditor(false);
                   if (fallbackEditor != null) {
+                    if (result.rootPageSegment.length && fallbackEditor.selectPage) {
+                      fallbackEditor.selectPage(result.rootPageSegment);
+                    }
                     result.editorRef = fallbackEditor;
                     result.editorState = readEditorState(fallbackEditor);
                     result.browserDebugPortMatched = browserDebugPort <= 0 ||
@@ -692,6 +780,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       throw new Error("Target project not found: " + projectName);
     }
     ensureNgxProject(projectRef, projectName);
+    var rootPageSegmentValue = rootPageSegment(projectRef);
     var buildJobNameValue = liveBuildJobName(projectRef, projectName);
     var editorResult = studioMode
       ? openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue, browserDebugPortValue)
@@ -727,6 +816,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       MobileBuilder.initBuilder(projectRef);
       startBuildWithWsBuilder(projectName, endpoint);
       launchRequested = true;
+    }
+    var launchState = readBuilderLaunchState(projectName);
+    if (launchRequested === true) {
+      launchState = markBuilderLaunch(projectName);
     }
     var startupSignal = null;
     if (stateOnlyValue !== true && waitValue !== true && launchRequested === true && editorRef != null) {
@@ -764,6 +857,14 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var generationNoChange = generationState.status === "no_change";
     var generationFailed = generationState.status === "failed";
     var terminalBuildObserved = false;
+    var readinessDecision = {
+      ready: false,
+      viewerReady: false,
+      browserControlReady: false,
+      compileBlocking: false,
+      compileState: "unknown",
+      readyReason: ""
+    };
     var buildSettleDeadline = waitValue === true
       ? Math.min(deadline, startedAt + BUILD_CYCLE_SETTLE_MS)
       : startedAt;
@@ -847,6 +948,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         generationState.status === "pending";
       var waitingForPendingCycle = studioMode === true &&
         pendingBuildTimestamp > 0 &&
+        java.lang.System.currentTimeMillis() < buildSettleDeadline &&
         (
           generationState.supported !== true ||
           generationState.status === "changed"
@@ -855,6 +957,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         buildJobObserved !== true;
       var waitingForViewerReload = buildJobFinishedObservedAt > 0 &&
         java.lang.System.currentTimeMillis() < buildJobFinishedObservedAt + 500;
+      var builderProcessAlive = editorState && editorState.builderProcessAlive === true;
+      if (builderProcessAlive && launchState != null) {
+        markBuilderProcessObserved(projectName, launchState);
+      }
+      var waitingForRecentLaunch = launchState != null &&
+        launchState.processObserved !== true &&
+        java.lang.System.currentTimeMillis() < launchState.requestedAt + BUILDER_STARTUP_GRACE_MS;
       if (!snapshot.openUrl.length && editorState.viewerUrl.length) {
         snapshot.openUrl = editorState.viewerUrl;
       }
@@ -882,7 +991,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
           message: generationState.error || "Mobile source generation failed.",
           extra: ""
         });
-      } else if (buildJobActive || waitingForGeneration || waitingForScheduledCycle || waitingForPendingCycle || waitingForViewerReload) {
+      } else if (builderProcessAlive || waitingForRecentLaunch || buildJobActive || waitingForGeneration || waitingForScheduledCycle || waitingForPendingCycle || waitingForViewerReload) {
         snapshot.building = true;
         snapshot.failed = false;
       } else if (buildJobState.supported === true && launchRequested === true && buildJobObserved !== true) {
@@ -894,21 +1003,35 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
           time: "",
           level: "ERROR",
           category: "Loader",
-          message: browserState.errorText || browserState.statusText || "Compilation failed, please fix this error and reload the page.",
+          message: browserState.errorText || browserState.statusText || browserState.bodyTextSample || "Compilation failed, please fix this error and reload the page.",
           extra: browserState.title || browserState.locationHref || browserState.currentUrl || ""
         });
       }
-      var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
-      return !buildJobActive &&
-        !waitingForGeneration &&
-        !waitingForScheduledCycle &&
-        !waitingForPendingCycle &&
-        !waitingForViewerReload &&
-        snapshot.building !== true &&
-        snapshot.failed !== true &&
-        candidateUrl.length > 0 &&
+      var candidateNodeUrl = (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "";
+      var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : candidateNodeUrl;
+      var candidateViewerBaseUrl = deriveViewerBaseUrl(candidateUrl, candidateNodeUrl);
+      var currentDebugPort = editorState && editorState.browserRemoteDebuggingPort
+        ? Number(editorState.browserRemoteDebuggingPort)
+        : parsePortFromUrl(editorState && editorState.browserDebugUrl ? editorState.browserDebugUrl : "");
+      var currentDebugPortMatched = browserDebugPortValue <= 0 || currentDebugPort === browserDebugPortValue;
+      var currentBrowserControlReady = currentDebugPortMatched && isBrowserControlReady(editorState, browserState, candidateViewerBaseUrl);
+      var currentViewerReady = candidateUrl.length > 0 &&
         urlReachable(candidateUrl, 1500) &&
-        hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "") === true;
+        hasViewerReadyEvidence(snapshot, editorState, browserState, candidateNodeUrl) === true;
+      readinessDecision = classifyReadiness({
+        viewerReady: currentViewerReady,
+        browserControlReady: currentBrowserControlReady,
+        failed: snapshot.failed === true,
+        compileSucceeded: snapshot.compiled === true,
+        generationNoChange: generationNoChange === true,
+        buildActive: buildJobActive,
+        waitingForGeneration: waitingForGeneration,
+        waitingForScheduledCycle: waitingForScheduledCycle,
+        waitingForPendingCycle: waitingForPendingCycle,
+        waitingForViewerReload: waitingForViewerReload,
+        reportedBuilding: snapshot.building === true
+      });
+      return readinessDecision.ready === true;
     }
 
     ready = refreshCurrentState();
@@ -920,6 +1043,12 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
       ready = refreshCurrentState();
       if (ready) {
+        break;
+      }
+      stateOnlyStopped = stateOnlyValue === true &&
+        snapshot.failed !== true &&
+        snapshot.building !== true;
+      if (stateOnlyStopped) {
         break;
       }
       if (snapshot.failed === true) {
@@ -942,6 +1071,17 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     if (!ready) {
       ready = refreshCurrentState();
     }
+    if (ready || snapshot.failed === true || (
+      launchState != null &&
+      launchState.processObserved === true &&
+      !(editorState && editorState.builderProcessAlive === true)
+    ) || (
+      launchState != null &&
+      java.lang.System.currentTimeMillis() >= launchState.requestedAt + BUILDER_STARTUP_GRACE_MS
+    )) {
+      clearBuilderLaunch(projectName);
+      launchState = null;
+    }
 
     var finishedAt = java.lang.System.currentTimeMillis();
     var elapsedMs = finishedAt - startedAt;
@@ -955,7 +1095,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       viewerUrl = nodeUrl;
     }
     var viewerBaseUrl = deriveViewerBaseUrl(viewerUrl, nodeUrl);
-    var viewerHomeUrl = deriveViewerHomeUrl(viewerBaseUrl, viewerUrl);
+    var viewerHomeUrl = deriveViewerHomeUrl(viewerBaseUrl, viewerUrl, rootPageSegmentValue);
     if (!viewerUrl.length && viewerHomeUrl.length) {
       viewerUrl = viewerHomeUrl;
     }
@@ -967,6 +1107,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var browserDebugPortMatched = browserDebugPortValue <= 0 || browserRemoteDebuggingPort === browserDebugPortValue;
     var browserControlReady = browserDebugPortMatched && isBrowserControlReady(editorState, browserState, viewerBaseUrl);
     var browserControlUrl = browserControlTargetUrl(editorState, browserState);
+    var viewerReady = readinessDecision && readinessDecision.viewerReady === true;
+    var compileState = readinessDecision && readinessDecision.compileState ? readinessDecision.compileState : "unknown";
+    var readyReason = readinessDecision && readinessDecision.readyReason ? readinessDecision.readyReason : "";
 
     var waited = waitValue === true && timeoutSecValue > 0;
     var status = ready
@@ -979,7 +1122,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             ? (waited ? "timeout" : "starting")
             : "stopped")));
     var message = ready
-      ? (snapshot.openUrl.length ? "Mobile builder is ready." : "Mobile builder Node listener detected.")
+      ? (compileState === "success"
+        ? "Mobile builder compilation and viewer are ready."
+        : (compileState === "not_required"
+          ? "Mobile builder viewer is ready; source generation reported no changes."
+          : (browserControlReady
+            ? "Mobile builder viewer and browser control are ready; compilation completion was not observed."
+            : "Mobile builder viewer is ready; compilation completion was not observed.")))
       : (status === "compile_error"
         ? (
           snapshot.compileErrors && snapshot.compileErrors.length
@@ -991,7 +1140,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             browserState && compactText(browserState.statusText || "").length
               ? ("Mobile builder is still building: " + compactText(browserState.statusText))
               : (waitValue === true
-                ? "Mobile builder is still building and did not expose the browser URL before the timeout."
+                ? (viewerHomeUrl.length
+                  ? "Mobile builder is still building; the viewer URL is available, but compilation did not reach a terminal state before the timeout."
+                  : "Mobile builder is still building and did not expose the browser URL before the timeout.")
                 : "Mobile builder is building; call again with wait=true or stateOnly=true to poll readiness.")
           )
           : (status === "starting"
@@ -1026,6 +1177,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       project: projectName,
       message: message,
       ready: ready,
+      viewerReady: viewerReady,
+      compileState: compileState,
+      buildObserved: buildJobObserved === true || terminalBuildObserved === true,
+      readyReason: readyReason,
       launched: stateOnlyValue !== true,
       launchRequested: launchRequested,
       reusedBuild: reusedExistingBuilder,
@@ -1082,6 +1237,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         jobName: buildJobNameValue,
         active: buildJobState && buildJobState.active === true,
         state: buildJobState && buildJobState.state ? buildJobState.state : "none",
+        processAlive: editorState && editorState.builderProcessAlive === true,
+        launchRequestedAt: launchState && launchState.requestedAt ? launchState.requestedAt : 0,
         observed: buildJobObserved === true,
         finishedAtObserved: buildJobFinishedObservedAt,
         requestedAt: pendingBuildRequestedAt,

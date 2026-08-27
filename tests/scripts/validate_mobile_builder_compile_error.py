@@ -79,14 +79,51 @@ def main():
         artifact["steps"].append({"tool": "marketplace-import", "result": starter_import})
         assert_true(project_exists(args.mcp_url, project), f"marketplace-import did not load {project}")
 
+        stopped_probe = call_tool(
+            args.mcp_url,
+            "mobile-builder-open",
+            {
+                "project": project,
+                "stateOnly": True,
+                "wait": False,
+                "timeoutSec": 0,
+                "logsLimit": 20,
+            },
+            timeout=60,
+        )
+        artifact["steps"].append({"tool": "mobile-builder-open-stopped-probe", "result": stopped_probe})
+        assert_true(
+            stopped_probe.get("status") == "stopped",
+            f"Fresh temporary project should have a stopped viewer, got {stopped_probe.get('status')}: {stopped_probe.get('message')}",
+        )
+
+        async_start = call_tool(
+            args.mcp_url,
+            "mobile-builder-open",
+            {
+                "project": project,
+                "wait": False,
+                "timeoutSec": 0,
+                "logsLimit": 20,
+            },
+            timeout=60,
+        )
+        artifact["steps"].append({"tool": "mobile-builder-open-async-start", "result": async_start})
+        assert_true(async_start.get("launched") is True, f"Stopped viewer was not launched: {async_start}")
+        assert_true(
+            async_start.get("status") in ("building", "ready"),
+            f"Asynchronous viewer launch returned an unexpected status: {async_start.get('status')}",
+        )
+
         warm_builder = call_tool(
             args.mcp_url,
             "mobile-builder-open",
             {
                 "project": project,
+                "stateOnly": True,
                 "timeoutSec": 180,
                 "logsLimit": 60,
-                "forceRestart": True,
+                "forceRestart": False,
             },
             timeout=240,
         )
@@ -96,6 +133,36 @@ def main():
             f"Warmup mobile builder did not reach a usable non-error state for {project}: {warm_builder.get('message')}",
         )
         assert_true(not (warm_builder.get("compileErrors") or []), f"Warmup mobile builder exposed compile errors for {project}")
+
+        ready_probe_started = time.monotonic()
+        ready_probe = call_tool(
+            args.mcp_url,
+            "mobile-builder-open",
+            {
+                "project": project,
+                "stateOnly": True,
+                "wait": True,
+                "timeoutSec": 30,
+                "logsLimit": 40,
+            },
+            timeout=60,
+        )
+        ready_probe_elapsed = time.monotonic() - ready_probe_started
+        artifact["steps"].append({
+            "tool": "mobile-builder-open-ready-probe",
+            "elapsedSeconds": ready_probe_elapsed,
+            "result": ready_probe,
+        })
+        if ready_probe.get("browserControlReady") is True:
+            assert_true(ready_probe.get("viewerReady") is True, "Browser control was ready without viewerReady.")
+            assert_true(
+                ready_probe_elapsed < 10,
+                f"A browser-ready viewer consumed too much of the waited timeout: {ready_probe_elapsed:.2f}s.",
+            )
+            assert_true(
+                ready_probe.get("compileState") in ("unknown", "success", "not_required"),
+                f"Unexpected compile state for a browser-ready viewer: {ready_probe.get('compileState')}",
+            )
 
         bad_script = broken_page_script()
         tree_apply = call_tool(

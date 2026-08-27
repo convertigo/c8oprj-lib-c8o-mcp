@@ -105,6 +105,22 @@ C8O.setupCodex = C8O.setupCodex || {};
     return "http://localhost:18080/convertigo/api/mcp";
   }
 
+  function configuredMcpUrl(url) {
+    var text = trim(url);
+    var fragment = "";
+    var hash = text.indexOf("#");
+    if (hash >= 0) {
+      fragment = text.substring(hash);
+      text = text.substring(0, hash);
+    }
+    if (/(^|[?&])jsonOnly=[^&]*/i.test(text)) {
+      text = text.replace(/(^|[?&])jsonOnly=[^&]*/i, "$1jsonOnly=true");
+    } else {
+      text += (text.indexOf("?") >= 0 ? "&" : "?") + "jsonOnly=true";
+    }
+    return text + fragment;
+  }
+
   function tomlEscape(value) {
     return String(value == null ? "" : value)
       .replace(/\\/g, "\\\\")
@@ -324,6 +340,13 @@ C8O.setupCodex = C8O.setupCodex || {};
       "- Do not repeat catalog, guide, palette, tree, builder, or browser reads whose answer is already present in the current conversation.",
       "- Use `palette-list` to locate an unfamiliar object type and `palette-describe` only for properties that remain uncertain. Group independent descriptions when the caller can do so safely.",
       "- Build one coherent mutation plan before the first write. Prefer one optimized `batch-call` for independent or ordered source-object changes, followed by one targeted readback.",
+      "- A class/property shape already used successfully in the current conversation or returned by a targeted tree read is a confirmed contract. Do not reconfirm it through palette calls or tool-metadata inspection.",
+      "- Common NGX contracts that do not require palette discovery are `UIStyle#UIStyle.styleContent`, `UIAttribute#UIAttribute.attrName/attrValue`, `UIDynamicElement#TextItem`, and `UIText#UIText.textValue`.",
+      "- For one intent spanning independent targets, call `batch-call` with `{calls:[{tool:\"databaseobject-tree-apply\",arguments:{...}}],onError:\"stop\",optimizeMutations:true}`. The optimized batch performs one final refresh, save, and mobile-builder notification.",
+      "- Named core tools in this skill are already routed. Do not inspect `ALL_TOOLS` merely to rediscover the signatures of `batch-call`, `mobile-builder-open`, or Playwright snapshot/find/evaluate calls.",
+      "- For `databaseobject-tree-get`, use `childrenDepth` for recursive descendants and request the needed subtree once instead of walking one QName level per call. `depth` is accepted only as a compatibility alias.",
+      "- For `databaseobject-tree-apply` with `at:\"inside\"`, `tree` is the one child being created and must include its own `className` and `name`; never submit a children-only wrapper. Put sibling creations in separate optimized `batch-call` entries.",
+      "- For an unfamiliar NGX object, call `palette-list` with the exact intended parent QName as `target`, then pass its returned logical `className` unchanged to `palette-describe`. Do not list at project scope and guess a `#logicalId`.",
       "- Start the viewer asynchronously once UI work is known. Finish the source mutations while it builds, then perform one readiness check and one acceptance-oriented browser proof. Add another cycle only when the proof identifies a concrete defect.",
       "- A browser proof should evaluate all relevant acceptance criteria together when practical: visible content, layout/style, interaction or timed state, and console/runtime errors.",
       "- Stop after the requested behavior is green. Do not add an unsolicited polish pass or repeat proof that cannot change the conclusion.",
@@ -344,6 +367,8 @@ C8O.setupCodex = C8O.setupCodex || {};
       "- For a new UI project, validate the name, run `marketplace-import` with that exact name, open the viewer immediately with `mobile-builder-open(wait=false)`, then continue with `upsert-crud` and the staged UI kit while the builder warms up.",
       "- For an existing deterministic CRUD project that is already green, use the edit rail: `crud-status` -> optional early `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open(stateOnly=true, wait=true)` -> final `crud-proof(viewerUrl)` -> optional `project-save`.",
       "- For a low-detail CRUD prompt, stop after the first green scaffold + demo data: starter import, viewer open, `upsert-crud`, backend proof, `upsert-ngx-crud-kit` bootstrap/final, final UI proof, optional `project-save`, then return.",
+      "- The low-detail stop rule applies only when the user requested generic CRUD. Before mutation, list the explicit acceptance behaviors from the request. Filters, counters, domain actions, dashboards, or other named interactions are not proven by the presence of fields or a generic list/detail/form shell; implement and validate each one before claiming completion.",
+      "- If the CRUD kit has no declarative hint for an explicit interaction, treat the generated kit as a starting point and perform one focused source-object extension before the final builder and browser proof.",
       "- When relations are obvious, declare them explicitly in `spec.relations[]` instead of relying only on flat FK fields. Prefer entity UI hints such as `ui.relationFields` over direct edits on generated CRUD-kit components.",
       "- Prefer `seed.data` for explicit business demo rows. Do not patch `init_schema` manually after generation when `seed.data` can express the dataset in the spec.",
       "- Once the CRUD guides already documented the contract, do not grep the local workspace to rediscover the shapes of `relations[]`, `ui.relationFields`, or `seed.data`.",
@@ -502,6 +527,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var dryRun = C8O.util.toBoolean(opts.dryRun, false) === true;
     var codexHome = resolveCodexHome(opts.codexHome);
     var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
+    var compactMcpUrl = configuredMcpUrl(resolvedMcpUrl);
     var skillsDir = new File(codexHome, "skills");
     var generalistSkillDir = new File(skillsDir, "convertigo-generalist");
     var generalistSkillFile = new File(generalistSkillDir, "SKILL.md");
@@ -515,7 +541,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeSkillWrite.status]);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, resolvedMcpUrl);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
@@ -525,6 +551,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       configStatus: patchedConfig.status,
       resolvedCodexHome: String(codexHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
+      configuredMcpUrl: compactMcpUrl,
       skillPath: String(generalistSkillFile.getAbsolutePath()),
       skillPaths: {
         generalist: String(generalistSkillFile.getAbsolutePath()),
