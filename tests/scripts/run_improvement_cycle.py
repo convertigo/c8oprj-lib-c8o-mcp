@@ -532,7 +532,7 @@ def selected_finding_for_cycle(root, baseline_campaign_dir, baseline_manifest, b
     feedback_finding = find_feedback_finding(consolidation, finding_id)
     if feedback_finding is None:
         raise RuntimeError(f"Feedback consolidation does not contain finding id: {finding_id}")
-    if feedback_finding.get("targetRepo") != "c8oprj-c8o-mcp":
+    if feedback_finding.get("targetRepo") != "c8oprj-lib-c8o-mcp":
         raise RuntimeError(f"Finding {finding_id} is not owned by this repo.")
     if canonical_owner(feedback_finding.get("recommendedOwner")) not in {"tool", "guide", "prompt", "scenario", "fixture"}:
         raise RuntimeError(f"Finding {finding_id} is not owned by a maintainer-eligible area.")

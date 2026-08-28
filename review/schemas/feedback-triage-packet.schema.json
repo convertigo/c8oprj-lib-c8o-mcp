@@ -99,7 +99,7 @@
           "repoHint": {
             "type": "string",
             "enum": [
-              "c8oprj-c8o-mcp",
+              "c8oprj-lib-c8o-mcp",
               "codex-cli-multiagent",
               "unknown"
             ]

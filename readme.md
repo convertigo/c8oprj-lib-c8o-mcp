@@ -85,13 +85,13 @@ For more technical informations : [documentation](./project.md)
      <tr><td>To contribute</td><td>
 
      ```
-     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
+     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-lib-c8o-mcp.git:branch=codex
      ```
      </td></tr>
      <tr><td>To simply use</td><td>
 
      ```
-     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
+     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-lib-c8o-mcp/archive/codex.zip
      ```
      </td></tr>
     </table>
