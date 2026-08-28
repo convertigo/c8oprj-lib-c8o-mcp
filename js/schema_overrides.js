@@ -67,6 +67,17 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           description: "Default true. Defers refresh, save, and mobile-builder finalization until the batch ends.",
           default: true
+        },
+        reveal: {
+          type: "boolean",
+          description: "Set true when host UI reveal mode is enabled. The batch propagates reveal to supported calls and, for optimized tree mutations, reveals the final touched object after the deferred Studio refresh.",
+          default: false
+        },
+        responseDetail: {
+          type: "string",
+          enum: ["compact", "full"],
+          description: "Default compact. Compact keeps complete call payloads for reads, summarizes mutation payloads, and emits lightweight reference pointers instead of duplicating results. Use full only for detailed diagnostics.",
+          default: "compact"
         }
       },
       required: ["calls"],
@@ -1062,6 +1073,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       project: { type: "string" },
       formId: { type: "string" },
       selected: { type: "boolean" },
+      expanded: { type: "boolean" },
       revealed: { type: "boolean" },
       editorOpened: { type: "boolean" },
       viewerUrl: { type: "string" },
@@ -1191,6 +1203,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       touchedQNames: stringArraySchema(),
       refreshQName: { type: "string" },
       studioRefresh: nullableSchema(studioRefreshSchema()),
+      reveal: nullableSchema(revealOutputSchema()),
       mobileBuilder: {
         type: "array",
         items: mobileBuilderMutationSchema()
@@ -1210,6 +1223,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return closedObjectSchema({
       status: { type: "string" },
       message: { type: "string" },
+      responseDetail: { type: "string" },
       onError: { type: "string" },
       saved: { type: "boolean" },
       durationMs: { type: "number" },
@@ -1538,6 +1552,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         jobName: { type: "string" },
         active: { type: "boolean" },
         state: { type: "string", description: "Current Eclipse job state: none, waiting, sleeping, or running." },
+        processAlive: { type: "boolean", description: "True when the mobile builder process is currently alive." },
+        launchRequestedAt: { type: "number", description: "Timestamp of the most recent builder launch request, or zero." },
         observed: { type: "boolean", description: "True when this waited call observed the live-build job." },
         finishedAtObserved: { type: "number" },
         requestedAt: { type: "number", description: "Timestamp of the pending HMR request consumed by this call, or zero." },

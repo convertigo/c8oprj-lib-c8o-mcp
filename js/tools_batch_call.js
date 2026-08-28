@@ -152,6 +152,18 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return text === "continue" ? "continue" : "stop";
   }
 
+  function normalizeResponseDetail(rawDetail) {
+    return asTrimmed(rawDetail).toLowerCase() === "full" ? "full" : "compact";
+  }
+
+  function isRevealSequence(sequenceName) {
+    return sequenceName === "tools_databaseobject_tree_apply" ||
+      sequenceName === "tools_mobile_builder_open" ||
+      sequenceName === "tools_nocode_form_create" ||
+      sequenceName === "tools_nocode_form_edit" ||
+      sequenceName === "tools_nocode_form_update";
+  }
+
   function parseResumeFrom(rawValue) {
     if (rawValue === null || rawValue === undefined) {
       return 0;
@@ -394,6 +406,89 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     }
   }
 
+  function compactMutationPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return payload;
+    }
+    var compact = {};
+    var keys = [
+      "status", "message", "targetQName", "qname", "parentQName", "newQName",
+      "summary", "warnings", "errors", "touchedQNames"
+    ];
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      if (payload[key] !== undefined) {
+        compact[key] = payload[key];
+      }
+    }
+    return compact;
+  }
+
+  function outputPayload(sequenceName, payload, responseDetail) {
+    if (responseDetail === "full" || !isMutationSequence(sequenceName)) {
+      return payload;
+    }
+    return compactMutationPayload(payload);
+  }
+
+  function outputReports(reports, responseDetail) {
+    if (responseDetail === "full") {
+      return reports;
+    }
+    var compactReports = [];
+    for (var i = 0; i < reports.length; i++) {
+      var report = reports[i] || {};
+      var compact = {
+        index: report.index,
+        callId: report.callId,
+        tool: report.tool,
+        sequence: report.sequence,
+        status: report.status,
+        warnings: report.warnings || [],
+        errors: report.errors || []
+      };
+      if (report.phase !== undefined) {
+        compact.phase = report.phase;
+      }
+      if (report.optimizedMutation === true) {
+        compact.optimizedMutation = true;
+      }
+      if (report.payload !== undefined) {
+        compact.payload = outputPayload(report.sequence, report.payload, responseDetail);
+      }
+      compactReports.push(compact);
+    }
+    return compactReports;
+  }
+
+  function outputRefs(refs, reports, responseDetail) {
+    if (responseDetail === "full") {
+      return refs;
+    }
+    var reportsById = {};
+    for (var i = 0; i < reports.length; i++) {
+      var report = reports[i] || {};
+      reportsById[report.callId] = report;
+    }
+    var compactRefs = {};
+    var ids = Object.keys(refs);
+    for (var j = 0; j < ids.length; j++) {
+      var id = ids[j];
+      var matchingReport = reportsById[id] || {};
+      var referencedPayload = refs[id] || {};
+      compactRefs[id] = {
+        callIndex: matchingReport.index,
+        status: matchingReport.status || classifyPayloadStatus(referencedPayload)
+      };
+      if (referencedPayload.targetQName !== undefined) {
+        compactRefs[id].targetQName = referencedPayload.targetQName;
+      } else if (referencedPayload.qname !== undefined) {
+        compactRefs[id].qname = referencedPayload.qname;
+      }
+    }
+    return compactRefs;
+  }
+
   function registerRef(refs, callId, payload) {
     var id = asTrimmed(callId);
     if (!id.length) {
@@ -572,11 +667,13 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var errors = [];
     var calls = parseCallsInput(params.calls, errors);
     var onError = normalizeOnError(params.onError);
+    var responseDetail = normalizeResponseDetail(params.responseDetail);
     var resumeFrom = parseResumeFrom(params.resumeFrom);
     var optimizeMutations = true;
     if (params.optimizeMutations !== undefined) {
       optimizeMutations = C8O.util.toBoolean(params.optimizeMutations, true) === true;
     }
+    var revealRequested = C8O.util.toBoolean(params.reveal, false) === true;
 
     var executionId = asTrimmed(params.executionId);
     if (!executionId.length) {
@@ -642,6 +739,14 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         }
 
         var callArguments = resolveRefsInValue(refs, normalized.arguments);
+        if (
+          revealRequested &&
+          isRevealSequence(sequenceName) &&
+          callArguments.reveal === undefined &&
+          !(optimizeMutations && sequenceName === "tools_databaseobject_tree_apply")
+        ) {
+          callArguments.reveal = true;
+        }
         if (optimizeMutations && isMutationSequence(sequenceName)) {
           callArguments = optimizeMutationArgs(sequenceName, callArguments);
           optimizedMutationCalls += 1;
@@ -737,7 +842,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     if (status === "failed") {
       message = "Batch call stopped on error.";
     } else if (status === "partial") {
-      message = "Batch call completed with errors.";
+      message = summary.failedCalls > 0 || errors.length > 0
+        ? "Batch call completed with errors."
+        : "Batch call completed with warnings.";
     }
 
     var resumeFromIndex = calls.length;
@@ -747,6 +854,8 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var remaining = Math.max(0, calls.length - resumeFromIndex);
 
     var finishedAt = nowMillis();
+    var resultReports = outputReports(reports, responseDetail);
+    var resultRefs = outputRefs(refs, reports, responseDetail);
 
     var mutationFinalize = {
       optimized: optimizeMutations,
@@ -754,6 +863,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       touchedQNames: mutationTouchedQNames,
       refreshQName: "",
       studioRefresh: null,
+      reveal: null,
       mobileBuilder: [],
       saveResults: [],
       errors: []
@@ -791,6 +901,17 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       } catch (finalizeError) {
         mutationFinalize.errors.push({ code: "finalize_error", message: String(finalizeError) });
       }
+
+      if (revealRequested && mutationTouchedQNames.length > 0) {
+        try {
+          mutationFinalize.reveal = C8O.dbo.revealStudioTreeByQName(
+            mutationTouchedQNames[mutationTouchedQNames.length - 1],
+            mutationFinalize.errors
+          );
+        } catch (revealError) {
+          mutationFinalize.errors.push({ code: "reveal_error", message: String(revealError) });
+        }
+      }
     }
 
     if (mutationFinalize.errors.length > 0) {
@@ -803,6 +924,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return {
       status: status,
       message: message,
+      responseDetail: responseDetail,
       targetQName: "",
       onError: onError,
       strict: false,
@@ -811,9 +933,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       saved: false,
       summary: summary,
       touchedQNames: mutationTouchedQNames,
-      refs: refs,
-      operations: reports,
-      calls: reports,
+      refs: resultRefs,
+      operations: resultReports,
+      calls: resultReports,
       errors: errors,
       stop: stop,
       resume: {

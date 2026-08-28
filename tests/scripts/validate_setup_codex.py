@@ -167,7 +167,7 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "[mcp_servers.convertigo]",
             f'url = "{configured_mcp_url(resolved_mcp_url)}"',
             "startup_timeout_sec = 60",
-            'http_headers = { "X-Convertigo-Guidance-Version" = "2026-07-30.conversation-bootstrap-v4" }',
+            'http_headers = { "X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2" }',
         ],
     )
     return result

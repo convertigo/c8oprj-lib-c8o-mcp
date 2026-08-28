@@ -95,6 +95,18 @@ def main():
         f"Mismatch warning mismatch: {mismatch}",
     )
 
+    descriptor_url = (
+        args.mcp_url
+        + ("&" if "?" in args.mcp_url else "?")
+        + "descriptorVersion=old-guidance"
+    )
+    descriptor_mismatch = call_mcp(descriptor_url, tool_call_payload())
+    assert_true(
+        guidance_warning(descriptor_mismatch)
+        == f"mcp_guidance_version_mismatch expected={version} got=old-guidance",
+        f"Descriptor-version warning mismatch: {descriptor_mismatch}",
+    )
+
     meta_ok = call_mcp(
         args.mcp_url,
         tool_call_payload(meta={"convertigoGuidanceVersion": version}),

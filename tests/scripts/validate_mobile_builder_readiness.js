@@ -8,6 +8,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "../..");
 const source = fs.readFileSync(path.join(root, "js/mobile_builder_common.js"), "utf8");
 const openSource = fs.readFileSync(path.join(root, "js/tools_mobile_builder_open.js"), "utf8");
+const schemaSource = fs.readFileSync(path.join(root, "js/schema_overrides.js"), "utf8");
 const sandbox = {
   C8O: {},
   include() {},
@@ -45,6 +46,10 @@ assert.match(openSource, /viteOverlay&&viteOverlay\.shadowRoot/,
   "Angular/Vite compiler overlays must be inspected through their shadow DOM");
 assert.match(openSource, /loaderHasError=!!viteOverlay/,
   "a visible Vite overlay must classify the viewer as failed");
+assert.match(schemaSource, /processAlive:\s*\{ type: "boolean"/,
+  "the mobile-builder output schema must expose the runtime process state returned by the tool");
+assert.match(schemaSource, /launchRequestedAt:\s*\{ type: "number"/,
+  "the mobile-builder output schema must expose the launch timestamp returned by the tool");
 
 assert.strictEqual(
   deriveViewerHomeUrl("http://localhost:4200", "http://localhost:4200/index.html", "dashboard"),

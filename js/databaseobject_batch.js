@@ -1419,7 +1419,9 @@ include("js/crud_ui_refresh.js");
     if (status === "failed") {
       message = "Batch apply stopped on error.";
     } else if (status === "partial") {
-      message = "Batch apply completed with errors.";
+      message = ctx.summary.failedOps > 0 || globalErrors.length > 0
+        ? "Batch apply completed with errors."
+        : "Batch apply completed with warnings.";
     }
 
     var savedFlag = false;

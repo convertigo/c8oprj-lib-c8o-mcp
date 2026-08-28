@@ -50,7 +50,7 @@ Read this when a managed skill cannot route the task directly, or when the agent
 9. Decide whether the task truly fits `upsert-crud` before the first write call.
 10. Use the exact project name requested by the user when it is technically valid. Do not invent prefixes, suffixes, or dates.
 11. Build the mutation plan before the first write call.
-12. Apply changes with `databaseobject-tree-apply` or `batch-call`.
+12. Apply changes with `databaseobject-tree-apply` or `batch-call`. When host reveal mode is enabled, pass top-level `reveal:true` to `batch-call`; optimized batches reveal the final touched object after their deferred Studio refresh.
    - In `databaseobject-tree-apply`, `tree.properties` must be a JSON object/map, not an array of `{name,value}` entries.
    - Correct: `"properties":{"comment":"...","output":"true"}`.
    - Wrong: `"properties":[{"name":"comment","value":"..."},{"name":"output","value":"true"}]`.
@@ -146,7 +146,7 @@ Correct escalation for a multi-track feature:
 - `project-save`
 
 ## Anti-patterns / do not do
-- Do not edit `_c8oProject` YAML as the normal authoring path.
+- Never read or edit `c8oProject.yaml`, `_c8oProject/**/*.yaml`, or `project.xml` as an authoring fallback. If a required MCP operation still fails after one targeted retry, stop and report the blocker without mutating project files.
 - Do not use the removed CRUD-era flow (`children`, `create`, `properties-get/set`).
 - Do not guess QNames, class names, or NGX palette entries.
 - Do not start with RAG when tool metadata and tracked guides already answer the question.

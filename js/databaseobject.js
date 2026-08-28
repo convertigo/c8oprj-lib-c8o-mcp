@@ -1431,8 +1431,11 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
   if (modeToken) {
     try {
       mode = Mode.valueOf(modeToken.trim().toUpperCase());
-    } catch (_ignoreMode) {
-      mode = Mode.PLAIN;
+    } catch (_invalidMode) {
+      throw new Error(
+        "Invalid NGX SmartType mode \"" + modeToken +
+        "\". Use PLAIN, SCRIPT, or SOURCE; JavaScript expressions use SCRIPT, not JS."
+      );
     }
   }
 
@@ -1449,6 +1452,20 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
     }
   }
   smart.setSmartValue(smartValue);
+  if (mode === Mode.SOURCE) {
+    var computedSource = "";
+    try {
+      computedSource = String(smart.getValue());
+    } catch (_sourceComputeError) {
+      computedSource = "";
+    }
+    if (!computedSource.length) {
+      throw new Error(
+        "Invalid NGX SOURCE SmartType: the source resolves to an empty Angular expression. " +
+        "Check the smart-source JSON or use SCRIPT with an explicit component expression such as this.local?.property."
+      );
+    }
+  }
   return smart;
 };
 
@@ -2384,7 +2401,7 @@ C8O.dbo._buildDynamicPropertyHint = function (dynamicMeta, ionBean) {
   return {
     name: dynamicMeta.name,
     displayName: dynamicMeta.label || dynamicMeta.name,
-    description: "",
+    description: "NGX SmartType value. Use {mode:\"PLAIN\",value:\"text\"}, {mode:\"SCRIPT\",value:\"expression\"}, or {mode:\"SOURCE\",value:\"smart-source-json\"}. JavaScript expressions use SCRIPT, not JS.",
     type: "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType",
     kind: "smartType",
     hidden: false,

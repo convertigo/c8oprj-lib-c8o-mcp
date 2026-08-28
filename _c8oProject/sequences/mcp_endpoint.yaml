@@ -23,6 +23,12 @@ responseTimeout: 300
       if (guidanceHeader != null) {
         guidanceHeaderVersion = String(guidanceHeader);
       }
+      if (!guidanceHeaderVersion.length) {
+        var descriptorVersion = context.httpServletRequest.getParameter("descriptorVersion");
+        if (descriptorVersion != null) {
+          guidanceHeaderVersion = String(descriptorVersion);
+        }
+      }
     }
     
     var requestIdJson = null;

@@ -134,6 +134,7 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
     qname: requestedQName,
     targetQName: "",
     selected: false,
+    expanded: false,
     revealed: false,
     refreshed: false,
     studioMode: studioMode,
@@ -222,7 +223,21 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
         }
 
         try {
-          view.setSelectedTreeObject(treeObject);
+          if (view.viewer && view.viewer.expandToLevel) {
+            view.viewer.expandToLevel(treeObject, 1);
+            result.expanded = true;
+          }
+        } catch (expandError) {
+          result.error = String(expandError);
+        }
+
+        try {
+          var StructuredSelection = Packages.org.eclipse.jface.viewers.StructuredSelection;
+          if (view.viewer && view.viewer.setSelection) {
+            view.viewer.setSelection(new StructuredSelection(treeObject), true);
+          } else {
+            view.setSelectedTreeObject(treeObject);
+          }
           result.selected = true;
         } catch (selectError) {
           result.error = String(selectError);
@@ -239,7 +254,7 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
 
         result.executed = true;
         result.status = result.selected || result.revealed ? "revealed" : "skipped";
-        result.message = result.status === "revealed" ? "Project Explorer selection revealed" : "Studio tree reveal could not select the target";
+        result.message = result.status === "revealed" ? "Project Explorer target expanded and revealed" : "Studio tree reveal could not select the target";
       } catch (uiError) {
         result.status = "error";
         result.message = String(uiError);

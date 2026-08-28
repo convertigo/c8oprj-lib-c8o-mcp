@@ -53,6 +53,7 @@ Convertigo MCP remains tree-first at the primitive level, with one supported det
 - Inspect with `databaseobject-tree-get`
 - Mutate with `databaseobject-tree-apply`
 - Group operations with `batch-call`
+- When host reveal mode is enabled, pass top-level `reveal:true` to `batch-call`; optimized batches reveal the final touched object after their deferred Studio refresh.
 - Validate behavior with `requestable-execute`
 - Persist with `project-save`
 
@@ -73,7 +74,7 @@ Do not present planner/specialist routing, benchmark flows, or manual YAML editi
 ## Maintainer Rules
 
 - Prefer MCP-native edits when changing MCP-managed objects.
-- Do not hand-edit `_c8oProject/**/*.yaml` unless there is no safe MCP or Studio path yet, and call that gap out explicitly.
+- Convertigo project descriptors are MCP-owned. Never read or hand-edit `c8oProject.yaml`, `_c8oProject/**/*.yaml`, or `project.xml` as an authoring fallback. If the required MCP operation still fails after one targeted retry, stop and report the blocker without mutating project files.
 - Keep tool names, titles, descriptions, and schemas aligned with the live behavior.
 - Keep autodoc high-signal:
   - no boilerplate
