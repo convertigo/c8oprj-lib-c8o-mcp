@@ -944,7 +944,7 @@ C8O.crud = C8O.crud || {};
 
   function callInternalSequence(sequenceName, argsMap) {
     var request = new HashMap();
-    request.put("__project", "ConvertigoMCP");
+    request.put("__project", "lib_ConvertigoMCP");
     request.put("__sequence", sequenceName);
     request.put("__nolog", "true");
     var keys = Object.keys(argsMap || {});

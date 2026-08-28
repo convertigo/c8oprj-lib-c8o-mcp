@@ -1,5 +1,5 @@
 /*
- * Shared helpers for ConvertigoMCP sequences.
+ * Shared helpers for lib_ConvertigoMCP sequences.
  * These functions run in the Rhino context used by Convertigo sequences.
  */
 

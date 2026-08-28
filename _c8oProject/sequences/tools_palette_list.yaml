@@ -494,7 +494,7 @@ comment: |
   description: Opaque cursor from a previous response. Internal pagination token.
 ↓Sequence [core.TestCase-1763471055163]: 
   ↓target [variables.TestCaseVariable-1763471055980]: 
-    value: ConvertigoMCP.sq:internal_list_tools_info
+    value: lib_ConvertigoMCP.sq:internal_list_tools_info
   ↓includeBuiltIn [variables.TestCaseVariable-1772554478599]: 
     value: true
   ↓includeShared [variables.TestCaseVariable-1772554479375]: 

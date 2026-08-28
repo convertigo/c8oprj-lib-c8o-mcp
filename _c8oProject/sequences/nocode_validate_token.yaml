@@ -89,7 +89,7 @@ comment: |
             fail("unsupported_token_type", "No Code token must be a JWT.");
           } else if (String(payload.iss || "") !== "C8Oforms") {
             fail("invalid_token_issuer", "No Code token issuer is invalid.");
-          } else if (String(payload.aud || "") !== "ConvertigoMCP") {
+          } else if (String(payload.aud || "") !== "lib_ConvertigoMCP") {
             fail("invalid_token_audience", "No Code token audience is invalid.");
           } else {
             var nowSeconds = Math.floor(new Date().getTime() / 1000);

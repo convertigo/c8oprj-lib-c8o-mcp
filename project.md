@@ -1,9 +1,9 @@
 
-# ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/core/images/project_color_16x16.png?raw=true "Project") ConvertigoMCP
+# ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/core/images/project_color_16x16.png?raw=true "Project") lib_ConvertigoMCP
 
 # Convertigo MCP Usage Guide
 
-ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
+lib_ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
 
 Endpoint:
 `http://localhost:18080/convertigo/api/mcp`
@@ -20,7 +20,7 @@ url = "http://localhost:18080/convertigo/api/mcp"
 
 ## Codex
 
-Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
+Run the `lib_ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
 
 ```toml
 [mcp_servers.convertigo]
@@ -201,12 +201,12 @@ comment
 <details><summary><span style="color:DarkGoldenRod"><i>Sequences</i></span></summary><blockquote><p>
 
 
-<details><summary><b>_refreshCrudUiTemplates</b> : Refresh internal CRUD UI templates in the ConvertigoMCP NGX app</summary><blockquote><p>
+<details><summary><b>_refreshCrudUiTemplates</b> : Refresh internal CRUD UI templates in the lib_ConvertigoMCP NGX app</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") _refreshCrudUiTemplates
 
-Refresh internal CRUD UI templates in the ConvertigoMCP NGX app
+Refresh internal CRUD UI templates in the lib_ConvertigoMCP NGX app
 Creates or updates the maintainer-only Templates page and the shared component templates used as the visual source of truth for CRUD UI generation.
 
 <span style="color:DarkGoldenRod">Variables</span>
@@ -241,7 +241,7 @@ Templates page name. Defaults to Templates.
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
 </td>
 <td>
-Optional target project. Defaults to ConvertigoMCP.
+Optional target project. Defaults to lib_ConvertigoMCP.
 </td>
 </tr>
 </table>
@@ -272,7 +272,7 @@ comment
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;docsRoot
 </td>
 <td>
-Optional output root. Defaults to the ConvertigoMCP project root.
+Optional output root. Defaults to the lib_ConvertigoMCP project root.
 </td>
 </tr>
 <tr>

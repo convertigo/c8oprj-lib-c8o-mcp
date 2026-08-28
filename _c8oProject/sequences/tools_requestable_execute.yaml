@@ -65,10 +65,10 @@ comment: |
     condition: executionPlan && executionPlan.isSequence === true
     ↓Then [steps.ThenStep-1763056351508]: 
       ↓CallSequence [steps.SequenceStep-1763056380581]: 
-        sourceSequence: ConvertigoMCP.internal_call_stub
+        sourceSequence: lib_ConvertigoMCP.internal_call_stub
     ↓Else [steps.ElseStep-1763056367864]: 
       ↓CallTransaction [steps.TransactionStep-1763056393878]: 
-        sourceTransaction: ConvertigoMCP.void.void
+        sourceTransaction: lib_ConvertigoMCP.void.void
 ↓CollectExecutionLogs [steps.SimpleStep-1772727101000]: 
   comment: Optionally capture execution logs for this requestable execution.
   expression: |

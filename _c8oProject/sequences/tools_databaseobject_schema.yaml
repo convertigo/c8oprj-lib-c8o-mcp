@@ -139,25 +139,25 @@ comment: |
     value: false
 ↓projectListJson [core.TestCase-1763731509433]: 
   ↓qname [variables.TestCaseVariable-1763731510572]: 
-    value: ConvertigoMCP.tools_project_list
+    value: lib_ConvertigoMCP.tools_project_list
   ↓type [variables.TestCaseVariable-1763731510574]: 
     value: json
   ↓internal [variables.TestCaseVariable-1763731510576]: 
 ↓projectListStepJson [core.TestCase-1763731509433]: 
   ↓qname [variables.TestCaseVariable-1763740758567]: 
-    value: ConvertigoMCP.tools_project_list.Result.Projects.ProjectsIterator.Project
+    value: lib_ConvertigoMCP.tools_project_list.Result.Projects.ProjectsIterator.Project
   ↓type [variables.TestCaseVariable-1763740758570]: 
     value: json
   ↓internal [variables.TestCaseVariable-1763740758573]: 
 ↓projectListStepXml [core.TestCase-1763731509433]: 
   ↓qname [variables.TestCaseVariable-1763740874862]: 
-    value: ConvertigoMCP.tools_project_list.Result.Projects.ProjectsIterator.Project
+    value: lib_ConvertigoMCP.tools_project_list.Result.Projects.ProjectsIterator.Project
   ↓type [variables.TestCaseVariable-1763740874865]: 
     value: xml
   ↓internal [variables.TestCaseVariable-1763740874868]: 
 ↓projectListXml [core.TestCase-1763731509433]: 
   ↓qname [variables.TestCaseVariable-1763731611612]: 
-    value: ConvertigoMCP.tools_project_list.Result.Projects
+    value: lib_ConvertigoMCP.tools_project_list.Result.Projects
   ↓type [variables.TestCaseVariable-1763731611615]: 
     value: xml
   ↓internal [variables.TestCaseVariable-1763731611618]: 

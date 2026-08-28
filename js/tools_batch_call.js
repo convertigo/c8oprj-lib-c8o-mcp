@@ -234,9 +234,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
   function resolveSequence(sequenceName) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
+    var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP");
     if (!project) {
-      throw new Error("Project ConvertigoMCP is not available.");
+      throw new Error("Project lib_ConvertigoMCP is not available.");
     }
     return project.getSequenceByName(sequenceName);
   }
@@ -296,7 +296,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var HashMap = Packages.java.util.HashMap;
 
     var request = new HashMap();
-    request.put("__project", "ConvertigoMCP");
+    request.put("__project", "lib_ConvertigoMCP");
     request.put("__sequence", sequenceName);
     request.put("__nolog", "true");
 

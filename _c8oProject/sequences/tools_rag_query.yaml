@@ -19,7 +19,7 @@ responseTimeout: 120
     startedAt = java.lang.System.currentTimeMillis();'
 ↓CallRag [steps.TransactionStep-1764181200003]: 
   comment: Call LRagQuery through Convertigo HTTP connector
-  sourceTransaction: ConvertigoMCP.rag.query_lrag
+  sourceTransaction: lib_ConvertigoMCP.rag.query_lrag
   ↓Question [variables.StepVariable-1764181200005]: 
   ↓stream [variables.StepVariable-1764181200007]: 
   ↓History [variables.StepVariable-1764181200009]: 

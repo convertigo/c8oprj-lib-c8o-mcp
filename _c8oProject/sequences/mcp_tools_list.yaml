@@ -117,7 +117,7 @@ comment: Handles MCP tools/list calls
       ↓jIf [steps.IfStep-1761842731840]: 
         condition: toolItemValid
         ↓Call_InternalListToolsInfo [steps.SequenceStep-1761842731843]: 
-          sourceSequence: ConvertigoMCP.internal_list_tools_info
+          sourceSequence: lib_ConvertigoMCP.internal_list_tools_info
           ↓sequence [variables.StepVariable-1761842731846]: 
           ↓includeOutputSchema [variables.StepVariable-1762253398095]: 
             comment: Set to true to append JSON schema metadata.

@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Maintain the `ConvertigoMCP` project as the tool and onboarding layer for AI-driven Convertigo development.
+Maintain the `lib_ConvertigoMCP` project as the tool and onboarding layer for AI-driven Convertigo development.
 
 This file is for maintainers working on the MCP itself, not for end users of the tools.
 

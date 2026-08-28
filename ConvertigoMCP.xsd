@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ConvertigoMCP_ns="http://www.convertigo.com/convertigo/projects/ConvertigoMCP" attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://www.convertigo.com/convertigo/projects/ConvertigoMCP">
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:lib_ConvertigoMCP_ns="http://www.convertigo.com/convertigo/projects/lib_ConvertigoMCP" attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://www.convertigo.com/convertigo/projects/lib_ConvertigoMCP">
     <xsd:complexType name="ConvertigoError">
         <xsd:sequence>
-            <xsd:element name="context" type="ConvertigoMCP_ns:ConvertigoErrorContext"/>
+            <xsd:element name="context" type="lib_ConvertigoMCP_ns:ConvertigoErrorContext"/>
             <xsd:element name="exception" type="xsd:string"/>
             <xsd:element name="message" type="xsd:string"/>
             <xsd:element name="stacktrace" type="xsd:string"/>
@@ -14,17 +14,17 @@
     </xsd:complexType>
     <xsd:complexType name="ConvertigoErrorContext">
         <xsd:sequence>
-            <xsd:element maxOccurs="unbounded" minOccurs="0" name="variable" type="ConvertigoMCP_ns:ConvertigoErrorContextVariable"/>
+            <xsd:element maxOccurs="unbounded" minOccurs="0" name="variable" type="lib_ConvertigoMCP_ns:ConvertigoErrorContextVariable"/>
         </xsd:sequence>
     </xsd:complexType>
     <xsd:complexType name="void__DefaultTransactionResponseData"/>
-    <xsd:element name="void__DefaultTransaction" type="ConvertigoMCP_ns:void__DefaultTransactionRequestData">
+    <xsd:element name="void__DefaultTransaction" type="lib_ConvertigoMCP_ns:void__DefaultTransactionRequestData">
         <xsd:annotation/>
     </xsd:element>
     <xsd:element name="void__DefaultTransactionResponse">
         <xsd:complexType>
             <xsd:sequence>
-                <xsd:element name="response" type="ConvertigoMCP_ns:void__DefaultTransactionResponseData"/>
+                <xsd:element name="response" type="lib_ConvertigoMCP_ns:void__DefaultTransactionResponseData"/>
             </xsd:sequence>
         </xsd:complexType>
     </xsd:element>

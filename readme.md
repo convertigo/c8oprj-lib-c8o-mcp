@@ -1,11 +1,11 @@
 
 
 
-# ConvertigoMCP
+# lib_ConvertigoMCP
 
 # Convertigo MCP Usage Guide
 
-ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
+lib_ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
 
 Endpoint:
 `http://localhost:18080/convertigo/api/mcp`
@@ -22,7 +22,7 @@ url = "http://localhost:18080/convertigo/api/mcp"
 
 ## Codex
 
-Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
+Run the `lib_ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
 
 ```toml
 [mcp_servers.convertigo]
@@ -85,17 +85,17 @@ For more technical informations : [documentation](./project.md)
      <tr><td>To contribute</td><td>
 
      ```
-     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
+     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp.git:branch=codex
      ```
      </td></tr>
      <tr><td>To simply use</td><td>
 
      ```
-     ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
+     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-c8o-mcp/archive/codex.zip
      ```
      </td></tr>
     </table>
-3. Click the `Finish` button. This will automatically import the __ConvertigoMCP__ project
+3. Click the `Finish` button. This will automatically import the __lib_ConvertigoMCP__ project
 
 
 ## Rest Web Service

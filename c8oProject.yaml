@@ -1,9 +1,9 @@
 ↑convertigo: 8.4.0.m006
-↓ConvertigoMCP [core.Project]: 
+↓lib_ConvertigoMCP [core.Project]: 
   comment: |
     '# Convertigo MCP Usage Guide
     
-    ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
+    lib_ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
     
     Endpoint:
     `http://localhost:18080/convertigo/api/mcp`
@@ -20,7 +20,7 @@
     
     ## Codex
     
-    Run the `ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
+    Run the `lib_ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
     
     ```toml
     [mcp_servers.convertigo]
@@ -40,7 +40,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 600
-  version: 0.0.43
+  version: 0.1.0
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml

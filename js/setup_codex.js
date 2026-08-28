@@ -446,7 +446,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       "## Local MCP endpoint",
       "",
       "- Expected local MCP entry: `" + trim(mcpUrl) + "`",
-      "- If Codex is not yet configured for Convertigo, run the local Studio sequence `_setupCodex` from the ConvertigoMCP project.",
+      "- If Codex is not yet configured for Convertigo, run the local Studio sequence `_setupCodex` from the lib_ConvertigoMCP project.",
       ""
     ]).join("\n");
   }

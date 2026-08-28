@@ -72,7 +72,7 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
 
     result = requestable_execute(
         mcp_url,
-        "ConvertigoMCP._setupVibe",
+        "lib_ConvertigoMCP._setupVibe",
         {
             "vibeHome": str(vibe_home),
             "mcpUrl": resolved_mcp_url,
@@ -197,7 +197,7 @@ def main():
         run_case(args.mcp_url, stable_home, None, True, "created", "created", args.resolved_mcp_url)
         stable_second = requestable_execute(
             args.mcp_url,
-            "ConvertigoMCP._setupVibe",
+            "lib_ConvertigoMCP._setupVibe",
             {
                 "vibeHome": str(stable_home),
                 "mcpUrl": args.resolved_mcp_url,

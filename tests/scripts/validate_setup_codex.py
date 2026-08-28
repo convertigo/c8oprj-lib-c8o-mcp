@@ -79,7 +79,7 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
 
     result = requestable_execute(
         mcp_url,
-        "ConvertigoMCP._setupCodex",
+        "lib_ConvertigoMCP._setupCodex",
         {
             "codexHome": str(codex_home),
             "mcpUrl": resolved_mcp_url,
@@ -220,7 +220,7 @@ def main():
         run_case(args.mcp_url, stable_home, None, "created", "created", args.resolved_mcp_url)
         stable_second = requestable_execute(
             args.mcp_url,
-            "ConvertigoMCP._setupCodex",
+            "lib_ConvertigoMCP._setupCodex",
             {
                 "codexHome": str(stable_home),
                 "mcpUrl": args.resolved_mcp_url,

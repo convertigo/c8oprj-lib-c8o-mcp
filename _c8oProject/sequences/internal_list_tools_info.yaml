@@ -128,7 +128,7 @@ accessibility: Private
           - ↑mode: JS
           - →→: tool_description
   ↓Call_InternalJsonSchema [steps.SequenceStep-1761747876802]: 
-    sourceSequence: ConvertigoMCP.internal_json_schema
+    sourceSequence: lib_ConvertigoMCP.internal_json_schema
     ↓sequence [variables.StepVariable-1761747876804]: 
     ↓__nocache [variables.StepVariable-1772704636824]: 
       value: true

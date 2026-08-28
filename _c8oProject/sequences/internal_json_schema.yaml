@@ -14,9 +14,9 @@ responseExpiryDate: absolute,600
     var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
     var JSONArray = Packages.org.codehaus.jettison.json.JSONArray;
     var QName = Packages.javax.xml.namespace.QName;
-    var targetProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
+    var targetProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP");
     if (!targetProject) {
-      throw new Error("Project ConvertigoMCP not found");
+      throw new Error("Project lib_ConvertigoMCP not found");
     }
     var requestableObject = targetProject.getSequenceByName(sequence);
     if (!requestableObject) {

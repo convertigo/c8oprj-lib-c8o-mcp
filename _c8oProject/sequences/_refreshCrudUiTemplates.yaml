@@ -1,6 +1,6 @@
 accessibility: Private
 comment: |
-  Refresh internal CRUD UI templates in the ConvertigoMCP NGX app
+  Refresh internal CRUD UI templates in the lib_ConvertigoMCP NGX app
   Creates or updates the maintainer-only Templates page and the shared component templates used as the visual source of truth for CRUD UI generation.
 ↓IncludeHelpers [steps.SimpleStep-1773935187465]: 
   comment: Load deterministic CRUD helpers including the template refresh helper.
@@ -27,9 +27,9 @@ comment: |
         - ↑mode: PLAIN
         - →→: result
 ↓project [variables.RequestableVariable-1773935187474]: 
-  comment: Optional target project. Defaults to ConvertigoMCP.
-  description: Optional target project. Defaults to ConvertigoMCP.
-  value: ConvertigoMCP
+  comment: Optional target project. Defaults to lib_ConvertigoMCP.
+  description: Optional target project. Defaults to lib_ConvertigoMCP.
+  value: lib_ConvertigoMCP
 ↓pageName [variables.RequestableVariable-1773935187480]: 
   comment: Templates page name. Defaults to Templates.
   description: Templates page name. Defaults to Templates.

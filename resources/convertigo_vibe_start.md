@@ -9,7 +9,7 @@ This guide is only the Vibe adapter layer. It does not replace the shared Conver
 All constraints in this adapter are technical invariants: MCP call ordering, object creation, readback, proof, binding modes, error handling, and generated-artifact boundaries. Do not treat benchmark scenarios as reusable product guidance, and do not add provider-, dataset-, country-, language-, or feature-specific requirements to the skill unless the current user task explicitly asks for them.
 
 ## Setup sequence
-Run `ConvertigoMCP._setupVibe` once for the target Vibe home.
+Run `lib_ConvertigoMCP._setupVibe` once for the target Vibe home.
 
 Recommended variables for benchmark and skill-adjustment loops:
 
@@ -30,9 +30,9 @@ For a personal Vibe home, omit `replaceConfig` so the setup patches missing Conv
 2. Use the MCP server named `Convertigo`.
 3. If Vibe exposes MCP resources and prompts directly, list them first.
 4. If Vibe only exposes MCP tools, call `Convertigo_requestable-execute` to run:
-   - `ConvertigoMCP.mcp_resources_list` with no `uri` argument
-   - `ConvertigoMCP.mcp_prompts_list` with no `name` argument
-   - `ConvertigoMCP.mcp_resources_read` with `variables.uri` for each exact guide URI
+   - `lib_ConvertigoMCP.mcp_resources_list` with no `uri` argument
+   - `lib_ConvertigoMCP.mcp_prompts_list` with no `name` argument
+   - `lib_ConvertigoMCP.mcp_resources_read` with `variables.uri` for each exact guide URI
 5. Read:
    - `convertigo://capabilities`
    - `convertigo://recipes/quickstart`
@@ -41,10 +41,10 @@ For a personal Vibe home, omit `replaceConfig` so the setup patches missing Conv
 6. Pick the smallest matching shared recipe before mutation.
 
 ## MCP call discipline
-- Use `Convertigo_requestable-execute` only for existing Convertigo requestables such as `ConvertigoMCP.mcp_resources_read`.
-- Do not invent requestable names such as `ConvertigoMCP.resources/templates/list`.
+- Use `Convertigo_requestable-execute` only for existing Convertigo requestables such as `lib_ConvertigoMCP.mcp_resources_read`.
+- Do not invent requestable names such as `lib_ConvertigoMCP.resources/templates/list`.
 - Do not pass a guide URI to `mcp_resources_list`; list is for catalog discovery, read is for one URI.
-- When a guide URI is already known, skip list retries and call `ConvertigoMCP.mcp_resources_read` directly.
+- When a guide URI is already known, skip list retries and call `lib_ConvertigoMCP.mcp_resources_read` directly.
 - Treat a `status:"partial"`, skipped property, or failed palette creation as a failed mutation to correct before continuing.
 - In Vibe, multiple MCP tool calls in one assistant message are executed concurrently. Use parallel calls only for independent reads. In headless benchmark loops, avoid parallel MCP mutations entirely, even when they look independent; direct sequential mutations are easier to validate and recover. Delete then recreate, create then patch, patch then execute, create directive then add children, and save/open/readback sequences must always be separate awaited steps. If an object name changes because create raced with delete, clean it up before continuing.
 - In headless mode, never end with an assistant message that only says work will continue in a later message. If the next step is a mutation, issue the MCP tool call in the same message. If you cannot continue, save if useful and provide a final answer that clearly says the run is incomplete and names the missing proof.

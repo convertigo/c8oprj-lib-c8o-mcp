@@ -73,7 +73,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplCrudPageHeader [ngx.components.UIUseShared-1775818420192]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
           ↓Title [ngx.components.UIUseVariable-1775818422154]: 
             varValue: 
               - xmlizable: 
@@ -83,7 +83,7 @@ title: CRUD Templates
             varValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Real shared components stored inside ConvertigoMCP.'
+                - MobileSmartSourceType: script:'Real shared components stored inside lib_ConvertigoMCP.'
     ↓InfoRow [ngx.components.UIDynamicElement-1775818422158]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
@@ -91,7 +91,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplWorkInProgressCard [ngx.components.UIUseShared-1775818422162]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
     ↓StateRow [ngx.components.UIDynamicElement-1775818422164]: 
       beanData: '{"ionBean":"GridRow"}'
       tagName: ion-row
@@ -99,7 +99,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplDashboardStatCard [ngx.components.UIUseShared-1775818422168]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplDashboardStatCard
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplDashboardStatCard
           ↓Title [ngx.components.UIUseVariable-1775818422170]: 
             varValue: 
               - xmlizable: 
@@ -119,7 +119,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplCrudLoadingState [ngx.components.UIUseShared-1775818422178]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
           ↓Message [ngx.components.UIUseVariable-1775818422180]: 
             varValue: 
               - xmlizable: 
@@ -129,7 +129,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplCrudErrorRetryState [ngx.components.UIUseShared-1775818422184]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
           ↓Message [ngx.components.UIUseVariable-1775818422186]: 
             varValue: 
               - xmlizable: 
@@ -142,7 +142,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplEntityListPanel [ngx.components.UIUseShared-1775818422192]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityListPanel
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityListPanel
           ↓Title [ngx.components.UIUseVariable-1775818422194]: 
             varValue: 
               - xmlizable: 
@@ -172,7 +172,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplEntityDetailCard [ngx.components.UIUseShared-1775818422206]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
           ↓Title [ngx.components.UIUseVariable-1775818422208]: 
             varValue: 
               - xmlizable: 
@@ -197,7 +197,7 @@ title: CRUD Templates
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓UseTplEntityEditForm [ngx.components.UIUseShared-1775818422218]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityEditForm
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityEditForm
           ↓EntityKey [ngx.components.UIUseVariable-1775818422220]: 
             varValue: 
               - xmlizable: 

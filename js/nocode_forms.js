@@ -1573,7 +1573,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         return String(context.project.getName());
       }
     } catch (_ignoreProjectName) {}
-    return "ConvertigoMCP";
+    return "lib_ConvertigoMCP";
   }
 
   function unwrapSequenceResult(response) {
