@@ -2,9 +2,7 @@ comment: Reorders direct children of a database object by assigning new prioriti
 ↓reorder [steps.SimpleStep-1760700423001]:
   expression: |
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-
     var response;
-
     function toMessage(err) {
       if (!err) {
         return "Unknown error";
@@ -18,7 +16,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
       }
       return String(err);
     }
-
     function ensureArray(value) {
       if (value === null || value === undefined) {
         return null;
@@ -38,10 +35,8 @@ comment: Reorders direct children of a database object by assigning new prioriti
       }
       return null;
     }
-
     var parentQName = parent != null ? String(parent) : "";
     var orderText = order != null ? String(order) : "";
-
     try {
       if (!parentQName) {
         throw new Packages.java.lang.IllegalArgumentException("Missing 'parent' variable");
@@ -49,7 +44,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
       if (!orderText) {
         throw new Packages.java.lang.IllegalArgumentException("Missing 'order' variable");
       }
-
       var manager = Engine.theApp.databaseObjectsManager;
       var parentDbo = manager.getDatabaseObjectByQName(parentQName);
       if (parentDbo == null) {
@@ -57,7 +51,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
           "Database object '" + parentQName + "' cannot be found"
         );
       }
-
       var parsed;
       try {
         parsed = JSON.parse(orderText);
@@ -68,7 +61,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
       if (requested == null) {
         throw new Packages.java.lang.IllegalArgumentException("Order payload must be a JSON array of qnames");
       }
-
       var children = parentDbo.getDatabaseObjectChildren();
       var iterator = children.iterator();
       var direct = [];
@@ -81,7 +73,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
           lookup[qn] = child;
         }
       }
-
       var newOrder = [];
       var seen = {};
       var missing = [];
@@ -107,7 +98,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
           "Unknown child qname(s): " + missing.join(", ")
         );
       }
-
       for (var j = 0; j < direct.length; j++) {
         var candidate = direct[j];
         var candidateQName = String(candidate.getQName());
@@ -115,7 +105,6 @@ comment: Reorders direct children of a database object by assigning new prioriti
           newOrder.push(candidate);
         }
       }
-
       var applied = [];
       for (var k = 0; k < newOrder.length; k++) {
         var item = newOrder[k];
@@ -128,14 +117,12 @@ comment: Reorders direct children of a database object by assigning new prioriti
           priority: Number(newPriority)
         });
       }
-
       parentDbo.hasChanged = true;
       var project = parentDbo.getProject();
       if (project != null) {
         project.hasChanged = true;
         Engine.theApp.databaseObjectsManager.exportProject(project);
       }
-
       response = {
         status: "ok",
         parent: parentQName,

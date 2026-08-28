@@ -6,9 +6,7 @@ comment: Provides metadata and current values for a database object's editable p
     var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
     var Array = Packages.java.lang.reflect.Array;
     var Collection = Packages.java.util.Collection;
-
     var response;
-
     function toMessage(err) {
       if (!err) {
         return "Unknown error";
@@ -22,11 +20,9 @@ comment: Provides metadata and current values for a database object's editable p
       }
       return String(err);
     }
-
     function safeString(value) {
       return value != null ? String(value) : "";
     }
-
     function describeValue(value) {
       if (value === null || value === undefined) {
         return { kind: "null", value: null, display: null, javaClass: "" };
@@ -84,7 +80,6 @@ comment: Provides metadata and current values for a database object's editable p
       }
       return { kind: "object", value: null, display: String(value), javaClass: javaClass };
     }
-
     function flagValue(descriptor, key) {
       try {
         var flag = descriptor.getValue(key);
@@ -99,9 +94,7 @@ comment: Provides metadata and current values for a database object's editable p
         return null;
       }
     }
-
     var qnameValue = qname != null ? String(qname) : "";
-
     try {
       if (!qnameValue) {
         throw new Packages.java.lang.IllegalArgumentException("Missing 'qname' variable");

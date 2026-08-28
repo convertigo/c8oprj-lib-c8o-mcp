@@ -5,7 +5,6 @@ comment: List database object classes that can be created under a parent
     var FolderType = Packages.com.twinsoft.convertigo.engine.enums.FolderType;
     var DatabaseObjectsManager = Packages.com.twinsoft.convertigo.engine.DatabaseObjectsManager;
     var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
-
     if (!parentQName || String(parentQName).trim().length === 0) {
       throw new Error("Missing parentQName");
     }

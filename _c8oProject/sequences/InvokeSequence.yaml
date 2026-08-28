@@ -15,7 +15,6 @@ comment: Execute a sequence via the internal requester
         return fallback;
       }
     }
-
     function merge(into, from) {
       if (!from) {
         return;

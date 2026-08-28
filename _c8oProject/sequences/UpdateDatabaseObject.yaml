@@ -2,7 +2,6 @@ comment: Update properties of a database object
 ↓Update [steps.SimpleStep-1760712703676]: 
   expression: |
     var ClassUtils = Packages.org.apache.commons.lang3.ClassUtils;
-
     function parseJson(text, fallback) {
       if (text == null) {
         return fallback;
@@ -17,7 +16,6 @@ comment: Update properties of a database object
         return fallback;
       }
     }
-
     function convertValue(type, value) {
       if (value === null || value === undefined) {
         return null;
@@ -47,7 +45,6 @@ comment: Update properties of a database object
       }
       return String(value);
     }
-
     function applyProperties(dbo, properties) {
       if (!properties) {
         return [];
@@ -85,7 +82,6 @@ comment: Update properties of a database object
       }
       return updated;
     }
-
     var data = parseJson(payload, {});
     var target = data.qname || data.id;
     if (!target || String(target).trim().length === 0) {

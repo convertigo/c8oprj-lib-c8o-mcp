@@ -5,9 +5,7 @@ comment: Updates writable properties of a database object using values supplied 
     var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
     var JSONObject = Packages.org.json.JSONObject;
     var JSONArray = Packages.org.json.JSONArray;
-
     var response;
-
     function toMessage(err) {
       if (!err) {
         return "Unknown error";
@@ -21,7 +19,6 @@ comment: Updates writable properties of a database object using values supplied 
       }
       return String(err);
     }
-
     function describeValue(value) {
       if (value === null || value === undefined) {
         return null;
@@ -68,7 +65,6 @@ comment: Updates writable properties of a database object using values supplied 
       }
       return String(value);
     }
-
     function convertPrimitive(type, text) {
       if (type.equals(Packages.java.lang.Boolean.TYPE)) {
         return Packages.java.lang.Boolean.valueOf(String(text).toLowerCase() === "true");
@@ -99,7 +95,6 @@ comment: Updates writable properties of a database object using values supplied 
       }
       return null;
     }
-
     function convertValue(propertyType, rawValue) {
       if (rawValue === undefined) {
         return undefined;
@@ -177,10 +172,8 @@ comment: Updates writable properties of a database object using values supplied 
       }
       return rawValue;
     }
-
     var qnameValue = qname != null ? String(qname) : "";
     var payloadText = properties != null ? String(properties) : "";
-
     try {
       if (!qnameValue) {
         throw new Packages.java.lang.IllegalArgumentException("Missing 'qname' variable");
@@ -188,7 +181,6 @@ comment: Updates writable properties of a database object using values supplied 
       if (!payloadText) {
         throw new Packages.java.lang.IllegalArgumentException("Missing 'properties' variable");
       }
-
       var manager = Engine.theApp.databaseObjectsManager;
       var dbo = manager.getDatabaseObjectByQName(qnameValue);
       if (dbo == null) {
@@ -206,7 +198,6 @@ comment: Updates writable properties of a database object using values supplied 
           descriptorMap[String(descriptor.getName())] = descriptor;
         }
       }
-
       var updates;
       try {
         updates = JSON.parse(payloadText);
@@ -216,7 +207,6 @@ comment: Updates writable properties of a database object using values supplied 
       if (updates === null || typeof updates !== 'object' || Array.isArray(updates)) {
         throw new Packages.java.lang.IllegalArgumentException("JSON payload must be an object with property names");
       }
-
       var applied = [];
       var failed = [];
       for (var key in updates) {
@@ -262,7 +252,6 @@ comment: Updates writable properties of a database object using values supplied 
           failed.push({ name: key, message: toMessage(applyError) });
         }
       }
-
       if (applied.length > 0) {
         dbo.hasChanged = true;
         var parent = dbo.getParent();
@@ -274,7 +263,6 @@ comment: Updates writable properties of a database object using values supplied 
           Engine.theApp.databaseObjectsManager.exportProject(project);
         }
       }
-
       response = {
         status: failed.length === 0 ? "ok" : (applied.length > 0 ? "partial" : "error"),
         qname: qnameValue,

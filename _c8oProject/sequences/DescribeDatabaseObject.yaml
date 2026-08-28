@@ -68,7 +68,6 @@ comment: Describe a database object and optional descendants
       }
       return node;
     }
-
     if (!qname || String(qname).trim().length === 0) {
       throw new Error("Missing qname");
     }
