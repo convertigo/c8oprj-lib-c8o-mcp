@@ -111,3 +111,13 @@
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
   ↓Application [core.MobileApplication-1773933153815]: 
     ↓NgxApp [ngx.components.ApplicationComponent-1773933165318]: 🗏 mobileNgxApp.yaml
+  ↓CreateDatabaseObject [sequences.GenericSequence]: 🗏 sequences/CreateDatabaseObject.yaml
+  ↓DescribeDatabaseObject [sequences.GenericSequence]: 🗏 sequences/DescribeDatabaseObject.yaml
+  ↓EngineMetrics [sequences.GenericSequence]: 🗏 sequences/EngineMetrics.yaml
+  ↓EXEC [sequences.GenericSequence]: 🗏 sequences/EXEC.yaml
+  ↓InvokeSequence [sequences.GenericSequence]: 🗏 sequences/InvokeSequence.yaml
+  ↓ListDatabaseObjectCandidates [sequences.GenericSequence]: 🗏 sequences/ListDatabaseObjectCandidates.yaml
+  ↓ListProjects [sequences.GenericSequence]: 🗏 sequences/ListProjects.yaml
+  ↓ListProjectSequences [sequences.GenericSequence]: 🗏 sequences/ListProjectSequences.yaml
+  ↓ReorderDatabaseObject [sequences.GenericSequence]: 🗏 sequences/ReorderDatabaseObject.yaml
+  ↓UpdateDatabaseObject [sequences.GenericSequence]: 🗏 sequences/UpdateDatabaseObject.yaml

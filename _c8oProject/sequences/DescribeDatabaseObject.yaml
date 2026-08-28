@@ -1,0 +1,106 @@
+comment: Describe a database object and optional descendants
+↓Describe [steps.SimpleStep-1760712703662]: 
+  expression: |
+    function describeDatabaseObject(dbo, depth) {
+      var node = {
+        qname: dbo.getQName(),
+        fullQName: dbo.getFullQName(),
+        name: dbo.getName(),
+        type: dbo.getDatabaseType(),
+        className: dbo.getClass().getName(),
+        comment: dbo.getComment(),
+        priority: Number(dbo.priority)
+      };
+      var parent = dbo.getParent();
+      node.parentQName = parent != null ? parent.getFullQName() : null;
+      if (Packages.com.twinsoft.convertigo.beans.core.IEnableAble.class.isInstance(dbo)) {
+        node.enabled = dbo.isEnabled();
+      }
+      try {
+        node.hasChildren = dbo.hasDatabaseObjectChildren();
+      } catch (eHas) {
+        node.hasChildren = false;
+        node.childrenError = String(eHas);
+      }
+      try {
+        var beanInfo = Packages.java.beans.Introspector.getBeanInfo(dbo.getClass());
+        var descriptors = beanInfo.getPropertyDescriptors();
+        var props = [];
+        for (var i = 0; i < descriptors.length; i++) {
+          var pd = descriptors[i];
+          var propName = pd.getName();
+          if (propName === "class" || propName === "parent") {
+            continue;
+          }
+          var getter = pd.getReadMethod();
+          var setter = pd.getWriteMethod();
+          if (getter == null || setter == null) {
+            continue;
+          }
+          var value = null;
+          try {
+            var v = getter.invoke(dbo, null);
+            if (v != null) {
+              value = String(v);
+            }
+          } catch (eGet) {
+            value = "<error>";
+          }
+          props.push({ name: propName, type: pd.getPropertyType().getName(), value: value });
+        }
+        node.properties = props;
+      } catch (eInfo) {
+        node.propertiesError = String(eInfo);
+      }
+      if (depth > 0) {
+        try {
+          var childNodes = [];
+          var children = dbo.getDatabaseObjectChildren();
+          var it = children.iterator();
+          while (it.hasNext()) {
+            var child = it.next();
+            childNodes.push(describeDatabaseObject(child, depth - 1));
+          }
+          node.children = childNodes;
+        } catch (eChildren) {
+          node.childrenError = String(eChildren);
+        }
+      }
+      return node;
+    }
+
+    if (!qname || String(qname).trim().length === 0) {
+      throw new Error("Missing qname");
+    }
+    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    var dbo = manager.getDatabaseObjectByQName(String(qname));
+    if (dbo == null) {
+      throw new Error("Database object not found: " + qname);
+    }
+    var depthValue = 1;
+    if (depth && String(depth).length > 0) {
+      try {
+        depthValue = java.lang.Integer.parseInt(String(depth));
+      } catch (eDepth) {
+      }
+    }
+    var result = { node: describeDatabaseObject(dbo, depthValue) };
+↓Json1 [steps.JsonToXmlStep-1760712703664]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: node
+↓qname [variables.RequestableVariable-1760712703658]: 
+  comment: Qualified name of the database object
+  wsdl: false
+↓depth [variables.RequestableVariable-1760712703660]: 
+  comment: Depth of child traversal
+  wsdl: false

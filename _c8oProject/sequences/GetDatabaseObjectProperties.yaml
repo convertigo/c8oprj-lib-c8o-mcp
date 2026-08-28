@@ -1,0 +1,191 @@
+comment: Provides metadata and current values for a database object's editable properties.
+↓collect [steps.SimpleStep-1760700420001]:
+  expression: |
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
+    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
+    var Array = Packages.java.lang.reflect.Array;
+    var Collection = Packages.java.util.Collection;
+
+    var response;
+
+    function toMessage(err) {
+      if (!err) {
+        return "Unknown error";
+      }
+      if (err.javaException) {
+        var javaMessage = err.javaException.getMessage();
+        return String(javaMessage != null ? javaMessage : err.javaException.toString());
+      }
+      if (err.message) {
+        return String(err.message);
+      }
+      return String(err);
+    }
+
+    function safeString(value) {
+      return value != null ? String(value) : "";
+    }
+
+    function describeValue(value) {
+      if (value === null || value === undefined) {
+        return { kind: "null", value: null, display: null, javaClass: "" };
+      }
+      var javaClass = "";
+      try {
+        javaClass = String(value.getClass().getName());
+      } catch (classError) {
+      }
+      if (value instanceof Packages.java.lang.Boolean) {
+        var boolValue = Boolean(value.booleanValue());
+        return { kind: "boolean", value: boolValue, display: String(boolValue), javaClass: javaClass };
+      }
+      if (value instanceof Packages.java.lang.Number) {
+        var numberValue;
+        if (value instanceof Packages.java.lang.Integer || value instanceof Packages.java.lang.Long
+            || value instanceof Packages.java.lang.Short || value instanceof Packages.java.lang.Byte) {
+          numberValue = Number(value.longValue());
+        } else {
+          numberValue = Number(value.doubleValue());
+        }
+        return { kind: "number", value: numberValue, display: String(value), javaClass: javaClass };
+      }
+      if (value instanceof Packages.java.lang.Character) {
+        var charValue = String(value.charValue());
+        return { kind: "string", value: charValue, display: charValue, javaClass: javaClass };
+      }
+      try {
+        if (value.getClass != null) {
+          var cls = value.getClass();
+          if (cls.isEnum && cls.isEnum()) {
+            var enumValue = String(value.name());
+            return { kind: "enum", value: enumValue, display: enumValue, javaClass: javaClass };
+          }
+          if (cls.isArray && cls.isArray()) {
+            var length = Array.getLength(value);
+            var arr = [];
+            for (var i = 0; i < length; i++) {
+              var entry = Array.get(value, i);
+              arr.push(entry != null ? String(entry) : null);
+            }
+            return { kind: "array", value: arr, display: JSON.stringify(arr), javaClass: javaClass };
+          }
+        }
+      } catch (valueClassError) {
+      }
+      if (value instanceof Collection) {
+        var iterator = value.iterator();
+        var collected = [];
+        while (iterator.hasNext()) {
+          var nextValue = iterator.next();
+          collected.push(nextValue != null ? String(nextValue) : null);
+        }
+        return { kind: "collection", value: collected, display: JSON.stringify(collected), javaClass: javaClass };
+      }
+      return { kind: "object", value: null, display: String(value), javaClass: javaClass };
+    }
+
+    function flagValue(descriptor, key) {
+      try {
+        var flag = descriptor.getValue(key);
+        if (flag === null || flag === undefined) {
+          return null;
+        }
+        if (flag instanceof Packages.java.lang.Boolean) {
+          return Boolean(flag.booleanValue());
+        }
+        return Boolean(flag);
+      } catch (flagError) {
+        return null;
+      }
+    }
+
+    var qnameValue = qname != null ? String(qname) : "";
+
+    try {
+      if (!qnameValue) {
+        throw new Packages.java.lang.IllegalArgumentException("Missing 'qname' variable");
+      }
+      var manager = Engine.theApp.databaseObjectsManager;
+      var dbo = manager.getDatabaseObjectByQName(qnameValue);
+      if (dbo == null) {
+        throw new Packages.com.twinsoft.convertigo.engine.EngineException(
+          "Database object '" + qnameValue + "' cannot be found"
+        );
+      }
+      var beanInfo = CachedIntrospector.getBeanInfo(dbo);
+      var descriptors = beanInfo.getPropertyDescriptors();
+      var properties = [];
+      for (var i = 0; i < descriptors.length; i++) {
+        var descriptor = descriptors[i];
+        if (descriptor == null) {
+          continue;
+        }
+        var propertyName = String(descriptor.getName());
+        if (propertyName === "class") {
+          continue;
+        }
+        var readMethod = descriptor.getReadMethod();
+        if (readMethod == null) {
+          continue;
+        }
+        var propertyType = descriptor.getPropertyType();
+        var valueDetails = null;
+        try {
+          var rawValue = readMethod.invoke(dbo, null);
+          valueDetails = describeValue(rawValue);
+        } catch (readError) {
+          valueDetails = { kind: "error", value: null, display: toMessage(readError), javaClass: "" };
+        }
+        var writeMethod = descriptor.getWriteMethod();
+        var propertyInfo = {
+          name: propertyName,
+          displayName: safeString(descriptor.getDisplayName()),
+          description: safeString(descriptor.getShortDescription()),
+          category: safeString(descriptor.getValue(MySimpleBeanInfo.CATEGORY)),
+          propertyType: propertyType != null ? String(propertyType.getName()) : "",
+          writable: writeMethod != null,
+          editorClass: descriptor.getPropertyEditorClass() != null
+            ? String(descriptor.getPropertyEditorClass().getName())
+            : "",
+          nillable: flagValue(descriptor, MySimpleBeanInfo.NILLABLE),
+          scriptable: flagValue(descriptor, MySimpleBeanInfo.SCRIPTABLE),
+          multiline: flagValue(descriptor, MySimpleBeanInfo.MULTILINE),
+          disabled: flagValue(descriptor, MySimpleBeanInfo.DISABLE),
+          valueKind: valueDetails != null ? valueDetails.kind : "unknown",
+          valueJavaClass: valueDetails != null ? valueDetails.javaClass : "",
+          value: valueDetails != null ? valueDetails.value : null,
+          valuePreview: valueDetails != null ? valueDetails.display : null
+        };
+        properties.push(propertyInfo);
+      }
+      response = {
+        status: "ok",
+        qname: qnameValue,
+        beanClass: String(dbo.getClass().getName()),
+        project: dbo.getProject() != null ? String(dbo.getProject().getName()) : "",
+        propertyCount: properties.length,
+        properties: properties
+      };
+    } catch (e) {
+      response = {
+        status: "error",
+        qname: qnameValue,
+        message: toMessage(e)
+      };
+    }
+↓result [steps.JsonToXmlStep-1760700420002]:
+  jsonObject:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: JS
+        - →→: response
+  key:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: PLAIN
+        - →→: response
+↓qname [variables.RequestableVariable-1760700420003]:
+  comment: Qualified name of the database object to inspect.

@@ -1,0 +1,14 @@
+path: /mcp/object
+↓DescribeObject [rest.GetOperation]: 
+  targetRequestable: lib_ConvertigoMCP.DescribeDatabaseObject
+  ↓qname [rest.QueryParameter-1760712703707]: 
+    mappedVariableName: qname
+    required: true
+  ↓depth [rest.QueryParameter-1760712703709]: 
+    mappedVariableName: depth
+↓UpdateObject [rest.PostOperation]: 
+  targetRequestable: lib_ConvertigoMCP.UpdateDatabaseObject
+  ↓payload [rest.BodyParameter-1760712703712]: 
+    inputContent: noConvert
+    mappedVariableName: payload
+    required: true

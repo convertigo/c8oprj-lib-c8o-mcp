@@ -1,0 +1,120 @@
+comment: Update properties of a database object
+↓Update [steps.SimpleStep-1760712703676]: 
+  expression: |
+    var ClassUtils = Packages.org.apache.commons.lang3.ClassUtils;
+
+    function parseJson(text, fallback) {
+      if (text == null) {
+        return fallback;
+      }
+      var s = String(text);
+      if (s.length === 0) {
+        return fallback;
+      }
+      try {
+        return JSON.parse(s);
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function convertValue(type, value) {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      var cls = type;
+      if (cls.isPrimitive()) {
+        cls = ClassUtils.primitiveToWrapper(cls);
+      }
+      var name = cls.getName();
+      if (name === "java.lang.String") {
+        return String(value);
+      }
+      if (name === "java.lang.Boolean") {
+        return java.lang.Boolean.valueOf(String(value));
+      }
+      if (name === "java.lang.Integer") {
+        return java.lang.Integer.valueOf(String(value));
+      }
+      if (name === "java.lang.Long") {
+        return java.lang.Long.valueOf(String(value));
+      }
+      if (name === "java.lang.Double" || name === "java.lang.Float") {
+        return java.lang.Double.valueOf(String(value));
+      }
+      if (cls.isEnum()) {
+        return java.lang.Enum.valueOf(cls, String(value));
+      }
+      return String(value);
+    }
+
+    function applyProperties(dbo, properties) {
+      if (!properties) {
+        return [];
+      }
+      var updated = [];
+      var beanInfo = Packages.java.beans.Introspector.getBeanInfo(dbo.getClass());
+      var descriptors = beanInfo.getPropertyDescriptors();
+      var descriptorMap = {};
+      for (var i = 0; i < descriptors.length; i++) {
+        descriptorMap[descriptors[i].getName()] = descriptors[i];
+      }
+      for (var key in properties) {
+        if (!properties.hasOwnProperty(key)) {
+          continue;
+        }
+        var descriptor = descriptorMap[key];
+        if (!descriptor) {
+          continue;
+        }
+        var setter = descriptor.getWriteMethod();
+        if (setter == null) {
+          continue;
+        }
+        var propertyType = descriptor.getPropertyType();
+        var converted = convertValue(propertyType, properties[key]);
+        try {
+          setter.invoke(dbo, [converted]);
+          updated.push(key);
+        } catch (eSet) {
+          updated.push(key + "<error>");
+        }
+      }
+      if (updated.length > 0) {
+        dbo.hasChanged = true;
+      }
+      return updated;
+    }
+
+    var data = parseJson(payload, {});
+    var target = data.qname || data.id;
+    if (!target || String(target).trim().length === 0) {
+      throw new Error("Missing qname");
+    }
+    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    var dbo = manager.getDatabaseObjectByQName(String(target));
+    if (dbo == null) {
+      throw new Error("Database object not found");
+    }
+    var updated = applyProperties(dbo, data.properties || {});
+    var parent = dbo.getParent();
+    if (parent != null) {
+      parent.hasChanged = true;
+    }
+    var result = { qname: dbo.getFullQName(), updated: updated };
+↓Json1 [steps.JsonToXmlStep-1760712703678]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: update
+↓payload [variables.RequestableVariable-1760712703674]: 
+  comment: JSON payload with qname and properties
+  wsdl: false

@@ -1,0 +1,168 @@
+comment: Reorders direct children of a database object by assigning new priorities.
+↓reorder [steps.SimpleStep-1760700423001]:
+  expression: |
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+
+    var response;
+
+    function toMessage(err) {
+      if (!err) {
+        return "Unknown error";
+      }
+      if (err.javaException) {
+        var javaMessage = err.javaException.getMessage();
+        return String(javaMessage != null ? javaMessage : err.javaException.toString());
+      }
+      if (err.message) {
+        return String(err.message);
+      }
+      return String(err);
+    }
+
+    function ensureArray(value) {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      if (Array.isArray && Array.isArray(value)) {
+        return value;
+      }
+      try {
+        if (value instanceof Packages.org.json.JSONArray) {
+          var list = [];
+          for (var i = 0; i < value.length(); i++) {
+            list.push(value.isNull(i) ? null : String(value.get(i)));
+          }
+          return list;
+        }
+      } catch (jsonError) {
+      }
+      return null;
+    }
+
+    var parentQName = parent != null ? String(parent) : "";
+    var orderText = order != null ? String(order) : "";
+
+    try {
+      if (!parentQName) {
+        throw new Packages.java.lang.IllegalArgumentException("Missing 'parent' variable");
+      }
+      if (!orderText) {
+        throw new Packages.java.lang.IllegalArgumentException("Missing 'order' variable");
+      }
+
+      var manager = Engine.theApp.databaseObjectsManager;
+      var parentDbo = manager.getDatabaseObjectByQName(parentQName);
+      if (parentDbo == null) {
+        throw new Packages.com.twinsoft.convertigo.engine.EngineException(
+          "Database object '" + parentQName + "' cannot be found"
+        );
+      }
+
+      var parsed;
+      try {
+        parsed = JSON.parse(orderText);
+      } catch (parseError) {
+        throw new Packages.java.lang.IllegalArgumentException("Invalid JSON payload: " + parseError.message);
+      }
+      var requested = ensureArray(parsed);
+      if (requested == null) {
+        throw new Packages.java.lang.IllegalArgumentException("Order payload must be a JSON array of qnames");
+      }
+
+      var children = parentDbo.getDatabaseObjectChildren();
+      var iterator = children.iterator();
+      var direct = [];
+      var lookup = {};
+      while (iterator.hasNext()) {
+        var child = iterator.next();
+        if (child.getParent() === parentDbo) {
+          var qn = String(child.getQName());
+          direct.push(child);
+          lookup[qn] = child;
+        }
+      }
+
+      var newOrder = [];
+      var seen = {};
+      var missing = [];
+      for (var i = 0; i < requested.length; i++) {
+        var key = requested[i];
+        if (key === null || key === undefined) {
+          continue;
+        }
+        var qnameValue = String(key);
+        if (seen[qnameValue]) {
+          continue;
+        }
+        var childRef = lookup[qnameValue];
+        if (!childRef) {
+          missing.push(qnameValue);
+          continue;
+        }
+        seen[qnameValue] = true;
+        newOrder.push(childRef);
+      }
+      if (missing.length > 0) {
+        throw new Packages.java.lang.IllegalArgumentException(
+          "Unknown child qname(s): " + missing.join(", ")
+        );
+      }
+
+      for (var j = 0; j < direct.length; j++) {
+        var candidate = direct[j];
+        var candidateQName = String(candidate.getQName());
+        if (!seen[candidateQName]) {
+          newOrder.push(candidate);
+        }
+      }
+
+      var applied = [];
+      for (var k = 0; k < newOrder.length; k++) {
+        var item = newOrder[k];
+        var newPriority = item.getNewOrderValue();
+        item.priority = newPriority;
+        item.hasChanged = true;
+        applied.push({
+          qname: String(item.getQName()),
+          name: String(item.getName()),
+          priority: Number(newPriority)
+        });
+      }
+
+      parentDbo.hasChanged = true;
+      var project = parentDbo.getProject();
+      if (project != null) {
+        project.hasChanged = true;
+        Engine.theApp.databaseObjectsManager.exportProject(project);
+      }
+
+      response = {
+        status: "ok",
+        parent: parentQName,
+        appliedCount: applied.length,
+        order: applied
+      };
+    } catch (e) {
+      response = {
+        status: "error",
+        parent: parentQName,
+        message: toMessage(e)
+      };
+    }
+↓result [steps.JsonToXmlStep-1760700423002]:
+  jsonObject:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: JS
+        - →→: response
+  key:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: PLAIN
+        - →→: response
+↓parent [variables.RequestableVariable-1760700423003]:
+  comment: Qualified name of the parent whose children should be reordered.
+↓order [variables.RequestableVariable-1760700423004]:
+  comment: JSON array listing child qnames in the desired order.

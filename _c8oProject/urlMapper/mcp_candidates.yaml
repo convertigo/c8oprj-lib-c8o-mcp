@@ -1,0 +1,8 @@
+path: /mcp/candidates
+↓GetCandidates [rest.GetOperation]: 
+  targetRequestable: lib_ConvertigoMCP.ListDatabaseObjectCandidates
+  ↓parent [rest.QueryParameter-1760712703715]: 
+    mappedVariableName: parentQName
+    required: true
+  ↓folderType [rest.QueryParameter-1760712703717]: 
+    mappedVariableName: folderType

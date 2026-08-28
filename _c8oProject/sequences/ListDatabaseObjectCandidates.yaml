@@ -1,0 +1,168 @@
+comment: List database object classes that can be created under a parent
+↓BuildCandidates [steps.SimpleStep-1760712703670]: 
+  expression: |
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var FolderType = Packages.com.twinsoft.convertigo.engine.enums.FolderType;
+    var DatabaseObjectsManager = Packages.com.twinsoft.convertigo.engine.DatabaseObjectsManager;
+    var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
+
+    if (!parentQName || String(parentQName).trim().length === 0) {
+      throw new Error("Missing parentQName");
+    }
+    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    var parent = manager.getDatabaseObjectByQName(String(parentQName));
+    if (parent == null) {
+      throw new Error("Parent database object not found");
+    }
+    var filter = null;
+    if (folderType && String(folderType).length > 0) {
+      try {
+        filter = FolderType.parse(String(folderType));
+      } catch (eFt) {
+        filter = null;
+      }
+    }
+    var categories = [];
+    var explorer = Engine.theApp.getDboExplorerManager();
+    var groups = explorer.getGroups();
+    var itGroup = groups.iterator();
+    while (itGroup.hasNext()) {
+      var group = itGroup.next();
+      var itCategory = group.getCategories().iterator();
+      while (itCategory.hasNext()) {
+        var category = itCategory.next();
+        var categoryName = category.getName();
+        if (categoryName == null || categoryName.length() === 0) {
+          categoryName = group.getName();
+        }
+        var itBeansGroup = category.getBeans().iterator();
+        while (itBeansGroup.hasNext()) {
+          var beansGroup = itBeansGroup.next();
+          var label = beansGroup.getName();
+          if (label == null || label.length() === 0) {
+            label = categoryName;
+          }
+          var items = [];
+          var itBean = beansGroup.getBeans().iterator();
+          while (itBean.hasNext()) {
+            var bean = itBean.next();
+            if (!bean.isEnable()) {
+              continue;
+            }
+            var className = bean.getClassName();
+            if ((className.startsWith("com.twinsoft.convertigo.beans.ngx.components.") || className.startsWith("com.twinsoft.convertigo.beans.mobile.components."))
+              && className.endsWith("PageComponent")) {
+              continue;
+            }
+            var allowed = false;
+            try {
+              var force = false;
+              if (Packages.com.twinsoft.convertigo.beans.core.Sequence.class.isInstance(parent)) {
+                force = className.startsWith("com.twinsoft.convertigo.beans.steps.")
+                  || className.startsWith("com.twinsoft.convertigo.beans.variables.Step");
+              }
+              if (force || DatabaseObjectsManager.checkParent(parent.getClass(), bean)) {
+                if (filter != null) {
+                  var childFolder = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject.getFolderType(java.lang.Class.forName(className));
+                  allowed = filter.equals(childFolder);
+                } else {
+                  allowed = true;
+                }
+              }
+            } catch (eAllow) {
+              allowed = false;
+            }
+            if (!allowed) {
+              continue;
+            }
+            try {
+              var beanInfoClass = java.lang.Class.forName(className + "BeanInfo");
+              var beanInfo = beanInfoClass.getDeclaredConstructor().newInstance();
+              var descriptor = beanInfo.getBeanDescriptor();
+              var description = bean.isDocumented() ? descriptor.getShortDescription() : "Not yet documented";
+              var icon = MySimpleBeanInfo.getIconName(beanInfo, java.beans.BeanInfo.ICON_COLOR_32x32);
+              items.push({
+                className: className,
+                displayName: descriptor.getDisplayName(),
+                description: description,
+                icon: icon,
+                documented: bean.isDocumented(),
+                builtin: bean.isDefault()
+              });
+            } catch (eInfo) {
+              items.push({ className: className, displayName: className, error: String(eInfo) });
+            }
+          }
+          if (items.length > 0) {
+            categories.push({ name: label, items: items });
+          }
+        }
+      }
+    }
+    try {
+      var cm = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager.of(parent);
+      var groupsNgx = cm.getGroups();
+      var itNgx = groupsNgx.iterator();
+      while (itNgx.hasNext()) {
+        var groupName = itNgx.next();
+        var itemsNgx = [];
+        var components = cm.getComponents();
+        var itComponent = components.iterator();
+        while (itComponent.hasNext()) {
+          var component = itComponent.next();
+          if (!component.getGroup().equals(groupName)) {
+            continue;
+          }
+          var allowedNgx = component.isAllowedIn(parent);
+          if (filter != null && allowedNgx) {
+            try {
+              var compClass = cm.createBean(component).getClass();
+              var childFolder = Packages.com.twinsoft.convertigo.beans.core.DatabaseObject.getFolderType(compClass);
+              allowedNgx = filter.equals(childFolder);
+            } catch (eNgx) {
+              allowedNgx = false;
+            }
+          }
+          if (!allowedNgx) {
+            continue;
+          }
+          var classNameNgx = "";
+          try {
+            classNameNgx = cm.createBean(component).getClass().getCanonicalName();
+          } catch (eClass) {
+          }
+          itemsNgx.push({
+            className: classNameNgx,
+            displayName: component.getLabel(),
+            description: component.getDescription(),
+            icon: component.getImagePath(),
+            builtin: component.isBuiltIn(),
+            additional: component.isAdditional()
+          });
+        }
+        if (itemsNgx.length > 0) {
+          categories.push({ name: groupName, items: itemsNgx });
+        }
+      }
+    } catch (eNgxMgr) {
+    }
+    var result = { parent: parent.getFullQName(), categories: categories };
+↓Json1 [steps.JsonToXmlStep-1760712703672]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: candidates
+↓parentQName [variables.RequestableVariable-1760712703666]: 
+  comment: Qualified name of the parent database object
+  wsdl: false
+↓folderType [variables.RequestableVariable-1760712703668]: 
+  comment: Optional folder type filter
+  wsdl: false

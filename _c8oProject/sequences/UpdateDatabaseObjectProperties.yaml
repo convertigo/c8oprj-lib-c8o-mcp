@@ -1,0 +1,309 @@
+comment: Updates writable properties of a database object using values supplied as JSON.
+↓apply [steps.SimpleStep-1760700421001]:
+  expression: |
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    var CachedIntrospector = Packages.com.twinsoft.convertigo.engine.util.CachedIntrospector;
+    var JSONObject = Packages.org.json.JSONObject;
+    var JSONArray = Packages.org.json.JSONArray;
+
+    var response;
+
+    function toMessage(err) {
+      if (!err) {
+        return "Unknown error";
+      }
+      if (err.javaException) {
+        var javaMessage = err.javaException.getMessage();
+        return String(javaMessage != null ? javaMessage : err.javaException.toString());
+      }
+      if (err.message) {
+        return String(err.message);
+      }
+      return String(err);
+    }
+
+    function describeValue(value) {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      if (value instanceof Packages.java.lang.Boolean) {
+        return Boolean(value.booleanValue());
+      }
+      if (value instanceof Packages.java.lang.Number) {
+        if (value instanceof Packages.java.lang.Integer || value instanceof Packages.java.lang.Long
+            || value instanceof Packages.java.lang.Short || value instanceof Packages.java.lang.Byte) {
+          return Number(value.longValue());
+        }
+        return Number(value.doubleValue());
+      }
+      if (value instanceof Packages.java.lang.Character) {
+        return String(value.charValue());
+      }
+      try {
+        var cls = value.getClass();
+        if (cls != null) {
+          if (cls.isEnum && cls.isEnum()) {
+            return String(value.name());
+          }
+          if (cls.isArray && cls.isArray()) {
+            var Array = Packages.java.lang.reflect.Array;
+            var length = Array.getLength(value);
+            var arr = [];
+            for (var i = 0; i < length; i++) {
+              arr.push(String(Array.get(value, i)));
+            }
+            return arr;
+          }
+        }
+      } catch (describeError) {
+      }
+      if (value instanceof Packages.java.util.Collection) {
+        var iterator = value.iterator();
+        var list = [];
+        while (iterator.hasNext()) {
+          var entry = iterator.next();
+          list.push(entry != null ? String(entry) : null);
+        }
+        return list;
+      }
+      return String(value);
+    }
+
+    function convertPrimitive(type, text) {
+      if (type.equals(Packages.java.lang.Boolean.TYPE)) {
+        return Packages.java.lang.Boolean.valueOf(String(text).toLowerCase() === "true");
+      }
+      if (type.equals(Packages.java.lang.Integer.TYPE)) {
+        return Packages.java.lang.Integer.valueOf(String(text));
+      }
+      if (type.equals(Packages.java.lang.Long.TYPE)) {
+        return Packages.java.lang.Long.valueOf(String(text));
+      }
+      if (type.equals(Packages.java.lang.Short.TYPE)) {
+        return Packages.java.lang.Short.valueOf(String(text));
+      }
+      if (type.equals(Packages.java.lang.Byte.TYPE)) {
+        return Packages.java.lang.Byte.valueOf(String(text));
+      }
+      if (type.equals(Packages.java.lang.Float.TYPE)) {
+        return Packages.java.lang.Float.valueOf(String(text));
+      }
+      if (type.equals(Packages.java.lang.Double.TYPE)) {
+        return Packages.java.lang.Double.valueOf(String(text));
+      }
+      if (type.equals(Packages.java.lang.Character.TYPE)) {
+        var str = String(text);
+        return str.length > 0
+          ? Packages.java.lang.Character.valueOf(str.charAt(0))
+          : Packages.java.lang.Character.valueOf('\u0000');
+      }
+      return null;
+    }
+
+    function convertValue(propertyType, rawValue) {
+      if (rawValue === undefined) {
+        return undefined;
+      }
+      if (rawValue === null) {
+        if (propertyType != null && propertyType.isPrimitive && propertyType.isPrimitive()) {
+          return convertPrimitive(propertyType, "0");
+        }
+        return null;
+      }
+      if (propertyType == null) {
+        return rawValue;
+      }
+      if (propertyType.isAssignableFrom && propertyType.isAssignableFrom(rawValue.getClass ? rawValue.getClass() : null)) {
+        return rawValue;
+      }
+      if (propertyType.isEnum && propertyType.isEnum()) {
+        return Packages.java.lang.Enum.valueOf(propertyType, String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.String.class)) {
+        return String(rawValue);
+      }
+      if (propertyType.equals(Packages.java.lang.Boolean.class)) {
+        if (typeof rawValue === 'boolean') {
+          return Packages.java.lang.Boolean.valueOf(rawValue);
+        }
+        return Packages.java.lang.Boolean.valueOf(String(rawValue).toLowerCase() === "true");
+      }
+      if (propertyType.equals(Packages.java.lang.Integer.class)) {
+        return Packages.java.lang.Integer.valueOf(String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.Long.class)) {
+        return Packages.java.lang.Long.valueOf(String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.Short.class)) {
+        return Packages.java.lang.Short.valueOf(String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.Byte.class)) {
+        return Packages.java.lang.Byte.valueOf(String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.Float.class)) {
+        return Packages.java.lang.Float.valueOf(String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.Double.class)) {
+        return Packages.java.lang.Double.valueOf(String(rawValue));
+      }
+      if (propertyType.equals(Packages.java.lang.Character.class)) {
+        var asString = String(rawValue);
+        return asString.length > 0 ? Packages.java.lang.Character.valueOf(asString.charAt(0)) : null;
+      }
+      if (Packages.java.util.List.class.isAssignableFrom(propertyType)) {
+        if (Array.isArray && Array.isArray(rawValue)) {
+          var list = new Packages.java.util.ArrayList();
+          for (var i = 0; i < rawValue.length; i++) {
+            list.add(rawValue[i] != null ? String(rawValue[i]) : null);
+          }
+          return list;
+        }
+        if (rawValue instanceof JSONArray) {
+          var listFromJson = new Packages.java.util.ArrayList();
+          for (var j = 0; j < rawValue.length(); j++) {
+            listFromJson.add(rawValue.isNull(j) ? null : String(rawValue.get(j)));
+          }
+          return listFromJson;
+        }
+      }
+      if (propertyType.equals(Packages.org.json.JSONObject.class) && rawValue instanceof JSONObject) {
+        return rawValue;
+      }
+      if (propertyType.equals(Packages.org.json.JSONArray.class) && rawValue instanceof JSONArray) {
+        return rawValue;
+      }
+      if (propertyType.isPrimitive && propertyType.isPrimitive()) {
+        return convertPrimitive(propertyType, rawValue);
+      }
+      return rawValue;
+    }
+
+    var qnameValue = qname != null ? String(qname) : "";
+    var payloadText = properties != null ? String(properties) : "";
+
+    try {
+      if (!qnameValue) {
+        throw new Packages.java.lang.IllegalArgumentException("Missing 'qname' variable");
+      }
+      if (!payloadText) {
+        throw new Packages.java.lang.IllegalArgumentException("Missing 'properties' variable");
+      }
+
+      var manager = Engine.theApp.databaseObjectsManager;
+      var dbo = manager.getDatabaseObjectByQName(qnameValue);
+      if (dbo == null) {
+        throw new Packages.com.twinsoft.convertigo.engine.EngineException(
+          "Database object '" + qnameValue + "' cannot be found"
+        );
+      }
+      var project = dbo.getProject();
+      var beanInfo = CachedIntrospector.getBeanInfo(dbo);
+      var descriptors = beanInfo.getPropertyDescriptors();
+      var descriptorMap = {};
+      for (var i = 0; i < descriptors.length; i++) {
+        var descriptor = descriptors[i];
+        if (descriptor != null) {
+          descriptorMap[String(descriptor.getName())] = descriptor;
+        }
+      }
+
+      var updates;
+      try {
+        updates = JSON.parse(payloadText);
+      } catch (parseError) {
+        throw new Packages.java.lang.IllegalArgumentException("Invalid JSON payload: " + parseError.message);
+      }
+      if (updates === null || typeof updates !== 'object' || Array.isArray(updates)) {
+        throw new Packages.java.lang.IllegalArgumentException("JSON payload must be an object with property names");
+      }
+
+      var applied = [];
+      var failed = [];
+      for (var key in updates) {
+        if (!Object.prototype.hasOwnProperty.call(updates, key)) {
+          continue;
+        }
+        var descriptor = descriptorMap[key];
+        if (!descriptor) {
+          failed.push({ name: key, message: "Unknown property" });
+          continue;
+        }
+        var writeMethod = descriptor.getWriteMethod();
+        if (writeMethod == null) {
+          failed.push({ name: key, message: "Property is read-only" });
+          continue;
+        }
+        var propertyType = descriptor.getPropertyType();
+        var rawValue = updates[key];
+        var converted;
+        try {
+          if (rawValue === null) {
+            converted = null;
+          } else {
+            converted = convertValue(propertyType, rawValue);
+          }
+        } catch (conversionError) {
+          failed.push({ name: key, message: toMessage(conversionError) });
+          continue;
+        }
+        try {
+          if (converted === undefined) {
+            continue;
+          }
+          if (converted === null && propertyType != null && propertyType.isPrimitive && propertyType.isPrimitive()) {
+            failed.push({ name: key, message: "Cannot assign null to primitive property" });
+            continue;
+          }
+          writeMethod.invoke(dbo, converted);
+          var readMethod = descriptor.getReadMethod();
+          var newValue = readMethod != null ? describeValue(readMethod.invoke(dbo, null)) : null;
+          applied.push({ name: key, value: newValue });
+        } catch (applyError) {
+          failed.push({ name: key, message: toMessage(applyError) });
+        }
+      }
+
+      if (applied.length > 0) {
+        dbo.hasChanged = true;
+        var parent = dbo.getParent();
+        if (parent != null) {
+          parent.hasChanged = true;
+        }
+        if (project != null) {
+          project.hasChanged = true;
+          Engine.theApp.databaseObjectsManager.exportProject(project);
+        }
+      }
+
+      response = {
+        status: failed.length === 0 ? "ok" : (applied.length > 0 ? "partial" : "error"),
+        qname: qnameValue,
+        updatedCount: applied.length,
+        failedCount: failed.length,
+        applied: applied,
+        errors: failed
+      };
+    } catch (e) {
+      response = {
+        status: "error",
+        qname: qnameValue,
+        message: toMessage(e)
+      };
+    }
+↓result [steps.JsonToXmlStep-1760700421002]:
+  jsonObject:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: JS
+        - →→: response
+  key:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: PLAIN
+        - →→: response
+↓qname [variables.RequestableVariable-1760700421003]:
+  comment: Qualified name of the database object to update.
+↓properties [variables.RequestableVariable-1760700421004]:
+  comment: JSON object describing property updates (e.g. {"comment":"Hello"}).

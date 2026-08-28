@@ -1,0 +1,115 @@
+comment: Execute a sequence via the internal requester
+↓Invoke [steps.SimpleStep-1760712703654]: 
+  expression: |
+    function parseJson(text, fallback) {
+      if (text == null) {
+        return fallback;
+      }
+      var s = String(text);
+      if (s.length === 0) {
+        return fallback;
+      }
+      try {
+        return JSON.parse(s);
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function merge(into, from) {
+      if (!from) {
+        return;
+      }
+      for (var key in from) {
+        if (from.hasOwnProperty(key)) {
+          into[key] = from[key];
+        }
+      }
+    }
+    var payloadData = parseJson(payload, {});
+    var inlineParams = parseJson(parameters, {});
+    var targetProject = payloadData.project || payloadData.projectName || project;
+    var targetSequence = payloadData.sequence || payloadData.sequenceName || sequence;
+    if (!targetProject || String(targetProject).trim().length === 0) {
+      throw new Error("Missing project identifier");
+    }
+    if (!targetSequence || String(targetSequence).trim().length === 0) {
+      throw new Error("Missing sequence identifier");
+    }
+    var merged = {};
+    merge(merged, payloadData.parameters);
+    merge(merged, inlineParams);
+    var request = new Packages.java.util.HashMap();
+    var Parameter = Packages.com.twinsoft.convertigo.engine.enums.Parameter;
+    request.put(Parameter.Project.getName(), String(targetProject));
+    request.put(Parameter.Sequence.getName(), String(targetSequence));
+    for (var pname in merged) {
+      if (!merged.hasOwnProperty(pname)) {
+        continue;
+      }
+      var pvalue = merged[pname];
+      if (pvalue === null || pvalue === undefined) {
+        continue;
+      }
+      if (pvalue instanceof Array) {
+        var arr = [];
+        for (var i = 0; i < pvalue.length; i++) {
+          arr.push(pvalue[i] === null || pvalue[i] === undefined ? null : String(pvalue[i]));
+        }
+        request.put(pname, Java.to(arr, Packages.java.lang.String[]));
+      } else {
+        request.put(pname, String(pvalue));
+      }
+    }
+    var InternalRequester = Packages.com.twinsoft.convertigo.engine.requesters.InternalRequester;
+    var requester = new InternalRequester(request);
+    var response = requester.processRequest();
+    try {
+      requester.getHttpServletRequest().getSession(true).invalidate();
+    } catch (eClose) {
+    }
+    var payloadOut = null;
+    var contentType = "text/plain";
+    var DocumentClass = Packages.org.w3c.dom.Document;
+    if (response != null) {
+      if (DocumentClass.isInstance(response)) {
+        payloadOut = Packages.com.twinsoft.convertigo.engine.util.XMLUtils.prettyPrintDOM(response);
+        contentType = "application/xml";
+      } else if (response.getClass && response.getClass().isArray()) {
+        payloadOut = new java.lang.String(response, "UTF-8");
+        contentType = "application/octet-stream";
+      } else {
+        payloadOut = String(response);
+      }
+    }
+    var result = {
+      project: String(targetProject),
+      sequence: String(targetSequence),
+      contentType: contentType,
+      payload: payloadOut
+    };
+↓Json1 [steps.JsonToXmlStep-1760712703656]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: response
+↓project [variables.RequestableVariable-1760712703646]: 
+  comment: Optional project override
+  wsdl: false
+↓sequence [variables.RequestableVariable-1760712703648]: 
+  comment: Optional sequence override
+  wsdl: false
+↓parameters [variables.RequestableVariable-1760712703650]: 
+  comment: Optional JSON-encoded parameter map
+  wsdl: false
+↓payload [variables.RequestableVariable-1760712703652]: 
+  comment: Optional JSON payload containing project, sequence and parameters
+  wsdl: false

@@ -1,0 +1,12 @@
+path: /mcp/sequences/invoke
+↓InvokeSequence [rest.PostOperation]: 
+  targetRequestable: lib_ConvertigoMCP.InvokeSequence
+  ↓project [rest.QueryParameter-1760712703698]: 
+    mappedVariableName: project
+  ↓sequence [rest.QueryParameter-1760712703700]: 
+    mappedVariableName: sequence
+  ↓parameters [rest.QueryParameter-1760712703702]: 
+    mappedVariableName: parameters
+  ↓payload [rest.BodyParameter-1760712703704]: 
+    inputContent: noConvert
+    mappedVariableName: payload

@@ -1,0 +1,59 @@
+comment: Return runtime metrics for the Convertigo engine
+↓CollectMetrics [steps.SimpleStep-1760712703632]: 
+  expression: |
+    var runtime = java.lang.Runtime.getRuntime();
+    var mb = 1024 * 1024;
+    var EngineStatistics = Packages.com.twinsoft.convertigo.engine.EngineStatistics;
+    var HttpSessionListener = Packages.com.twinsoft.convertigo.engine.requesters.HttpSessionListener;
+    var KeyManager = Packages.com.twinsoft.tas.KeyManager;
+    var Session = Packages.com.twinsoft.api.Session;
+    var RequestableObject = Packages.com.twinsoft.convertigo.beans.core.RequestableObject;
+    var contexts = 0;
+    try {
+      contexts = Packages.com.twinsoft.convertigo.engine.Engine.isStarted
+        ? Packages.com.twinsoft.convertigo.engine.Engine.theApp.contextManager.getNumberOfContexts()
+        : 0;
+    } catch (e) {
+    }
+    var sessionCount = HttpSessionListener.countSessions();
+    var sessionMax = 0;
+    try {
+      sessionMax = KeyManager.getMaxCV(Session.EmulIDSE);
+    } catch (e2) {
+    }
+    var start = Packages.com.twinsoft.convertigo.engine.Engine.startStopDate;
+    var startTimeValue = null;
+    if (start != null) {
+      if (start instanceof java.util.Date) {
+        startTimeValue = start.getTime();
+      } else {
+        startTimeValue = Number(start);
+      }
+    }
+    var result = {
+      memoryMaximal: Number(runtime.maxMemory() / mb),
+      memoryTotal: Number(runtime.totalMemory() / mb),
+      memoryUsed: Number((runtime.totalMemory() - runtime.freeMemory()) / mb),
+      threads: Number(RequestableObject.nbCurrentWorkerThreads),
+      sessions: Number(sessionCount),
+      sessionMaxCV: Number(sessionMax),
+      availableSessions: Number(sessionMax > 0 ? sessionMax - sessionCount : 0),
+      contexts: Number(contexts),
+      requests: Number(Math.max(EngineStatistics.getAverage(EngineStatistics.REQUEST), 0)),
+      engineState: Packages.com.twinsoft.convertigo.engine.Engine.isStarted,
+      startTime: startTimeValue,
+      time: java.lang.System.currentTimeMillis()
+    };
+↓Json1 [steps.JsonToXmlStep-1760712703634]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: metrics

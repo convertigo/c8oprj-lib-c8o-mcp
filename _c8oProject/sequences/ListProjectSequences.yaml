@@ -1,0 +1,57 @@
+comment: List sequences for one or all projects
+↓BuildSequences [steps.SimpleStep-1760712703642]: 
+  expression: |
+    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    var targets = [];
+    if (project && String(project).trim().length > 0) {
+      targets.push(String(project).trim());
+    } else {
+      var names = manager.getAllProjectNamesList(true);
+      var itNames = names.iterator();
+      while (itNames.hasNext()) {
+        targets.push(String(itNames.next()));
+      }
+    }
+    var list = [];
+    for (var i = 0; i < targets.length; i++) {
+      var name = targets[i];
+      var entry = { name: name, sequences: [] };
+      try {
+        var proj = manager.getOriginalProjectByName(name);
+        if (proj != null) {
+          var seqs = proj.getSequencesList();
+          var itSeqs = seqs.iterator();
+          while (itSeqs.hasNext()) {
+            var seq = itSeqs.next();
+            entry.sequences.push({
+              name: seq.getName(),
+              comment: seq.getComment() == null ? null : String(seq.getComment()),
+              qname: seq.getFullQName(),
+              enabled: seq.isEnabled ? seq.isEnabled() : true
+            });
+          }
+        } else {
+          entry.error = "Project not available";
+        }
+      } catch (eSeq) {
+        entry.error = String(eSeq);
+      }
+      list.push(entry);
+    }
+    var result = { projects: list };
+↓Json1 [steps.JsonToXmlStep-1760712703644]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: projects
+↓project [variables.RequestableVariable-1760712703640]: 
+  comment: Optional project name to filter
+  wsdl: false

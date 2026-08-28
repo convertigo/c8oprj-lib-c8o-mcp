@@ -1,0 +1,81 @@
+comment: Reorder or move a database object
+↓Reorder [steps.SimpleStep-1760712703688]: 
+  expression: |
+    var IContainerOrdered = Packages.com.twinsoft.convertigo.beans.core.IContainerOrdered;
+
+    function parseJson(text, fallback) {
+      if (text == null) {
+        return fallback;
+      }
+      var s = String(text);
+      if (s.length === 0) {
+        return fallback;
+      }
+      try {
+        return JSON.parse(s);
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    var data = parseJson(payload, {});
+    var target = data.qname || data.id;
+    if (!target || String(target).trim().length === 0) {
+      throw new Error("Missing qname");
+    }
+    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    var dbo = manager.getDatabaseObjectByQName(String(target));
+    if (dbo == null) {
+      throw new Error("Database object not found");
+    }
+    var desiredParent = data.parent ? manager.getDatabaseObjectByQName(String(data.parent)) : dbo.getParent();
+    if (desiredParent == null) {
+      throw new Error("Unable to resolve target parent");
+    }
+    var afterValue = null;
+    if (data.after) {
+      var afterObj = manager.getDatabaseObjectByQName(String(data.after));
+      if (afterObj != null) {
+        afterValue = java.lang.Long.valueOf(afterObj.priority);
+      }
+    }
+    if (data.before && afterValue == null) {
+      var beforeObj = manager.getDatabaseObjectByQName(String(data.before));
+      if (beforeObj != null) {
+        var previous = beforeObj.getPreviousSiblingInFolder();
+        afterValue = previous == null ? java.lang.Long.valueOf(0) : java.lang.Long.valueOf(previous.priority);
+      }
+    }
+    var previousParent = dbo.getParent();
+    dbo.delete();
+    if (IContainerOrdered.class.isInstance(desiredParent)) {
+      desiredParent.add(dbo, afterValue);
+    } else {
+      desiredParent.add(dbo);
+    }
+    dbo.hasChanged = true;
+    desiredParent.hasChanged = true;
+    if (previousParent != null && !previousParent.equals(desiredParent)) {
+      previousParent.hasChanged = true;
+    }
+    var result = {
+      qname: dbo.getFullQName(),
+      parent: desiredParent.getFullQName(),
+      after: afterValue == null ? null : Number(afterValue)
+    };
+↓Json1 [steps.JsonToXmlStep-1760712703690]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: reordered
+↓payload [variables.RequestableVariable-1760712703686]: 
+  comment: JSON payload with qname, parent, before, after
+  wsdl: false

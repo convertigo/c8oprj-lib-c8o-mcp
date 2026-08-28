@@ -1,0 +1,7 @@
+path: /mcp/object/reorder
+↓ReorderObject [rest.PostOperation]: 
+  targetRequestable: lib_ConvertigoMCP.ReorderDatabaseObject
+  ↓payload [rest.BodyParameter-1760712703723]: 
+    inputContent: noConvert
+    mappedVariableName: payload
+    required: true

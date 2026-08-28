@@ -1,0 +1,7 @@
+path: /mcp/object/create
+↓CreateObject [rest.PostOperation]: 
+  targetRequestable: lib_ConvertigoMCP.CreateDatabaseObject
+  ↓payload [rest.BodyParameter-1760712703720]: 
+    inputContent: noConvert
+    mappedVariableName: payload
+    required: true
