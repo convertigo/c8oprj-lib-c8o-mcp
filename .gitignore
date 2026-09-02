@@ -6,6 +6,7 @@
 
 /DisplayObjects/mobile/*
 !/DisplayObjects/mobile/assets
+/DisplayObjects/mobile/assets/css/animate.min.css
 
 /oas2/
 /oas3/
