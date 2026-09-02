@@ -1,0 +1,25 @@
+accessibility: Hidden
+authenticatedContextRequired: true
+comment: Revoke a durable MCP token by moving its metadata out of the active token set.
+↓Execute [steps.SimpleStep-1788357809658]: 
+  comment: Revoke a durable MCP token by moving its metadata out of the active token set.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpTokenResult = C8O.mcpAuth.revoke(context, tokenId);
+↓Result [steps.JsonToXmlStep-1788357809676]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpTokenResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓tokenId [variables.RequestableVariable-1788357809693]: 
+  comment: Durable MCP token identifier.
+  description: Durable MCP token identifier.
+  required: true

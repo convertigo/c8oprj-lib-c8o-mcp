@@ -42,10 +42,25 @@ responseTimeout: 300
     var responseStatus = "200";
     var responseHasBody = true;
     var mcpGuidanceWarning = "";
+    var mcpAuthentication = null;
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
   expression: |
-    'if (("" + request).trim().length === 0) {
+    'include("js/mcp_auth.js");
+    mcpAuthentication = C8O.mcpAuth.authenticateRequest(context);
+    if (!mcpAuthentication || mcpAuthentication.authenticated !== true) {
+      var authenticationError = mcpAuthentication && mcpAuthentication.error ? mcpAuthentication.error : {};
+      parseError = {
+        status: "401",
+        code: -32001,
+        message: authenticationError.message || "MCP bearer authentication is required",
+        data: { code: authenticationError.code || "unauthorized" }
+      };
+      try {
+        context.httpServletResponse.setHeader("WWW-Authenticate", "Bearer realm=\"Convertigo MCP\"");
+      } catch (_ignoreAuthenticationHeader) {}
+    } else {
+    if (("" + request).trim().length === 0) {
       parseError = { status: "400", code: -32700, message: "Empty request body" };
     } else {
       try {
@@ -90,8 +105,9 @@ responseTimeout: 300
           }
         }
       } catch (e) {
-        parseError = { status: "400", code: -32700, message: "Invalid JSON", data: { message: String(e) } };
+        parseError = { status: "400", code: -32700, message: "Invalid JSON", data: { message: String(e) }};
       }
+    }
     }
     '
 ↓ifParseError [steps.IfThenElseStep-1762187846551]: 

@@ -1,7 +1,7 @@
 comment: List database object classes that can be created under a parent
 ↓BuildCandidates [steps.SimpleStep-1760712703670]: 
   expression: |
-    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var FolderType = Packages.com.twinsoft.convertigo.engine.enums.FolderType;
     var DatabaseObjectsManager = Packages.com.twinsoft.convertigo.engine.DatabaseObjectsManager;
     var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
@@ -145,7 +145,7 @@ comment: List database object classes that can be created under a parent
       }
     } catch (eNgxMgr) {
     }
-    var result = { parent: parent.getFullQName(), categories: categories };
+    var result = { parent: parent.getFullQName(), categories: categories };'
 ↓Json1 [steps.JsonToXmlStep-1760712703672]: 
   jsonObject: 
     - xmlizable: 

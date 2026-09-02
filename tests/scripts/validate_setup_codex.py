@@ -71,25 +71,38 @@ def configured_mcp_url(url):
     return base + (marker + fragment if marker else "")
 
 
-def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expected_config_status, resolved_mcp_url):
+def run_case(
+    mcp_url,
+    codex_home,
+    initial_config,
+    expected_skill_status,
+    expected_config_status,
+    resolved_mcp_url,
+    mcp_token=None,
+):
     codex_home = Path(codex_home)
     codex_home.mkdir(parents=True, exist_ok=True)
     if initial_config is not None:
         (codex_home / "config.toml").write_text(initial_config, encoding="utf-8")
 
+    variables = {
+        "codexHome": str(codex_home),
+        "mcpUrl": resolved_mcp_url,
+    }
+    if mcp_token is not None:
+        variables["mcpToken"] = mcp_token
+
     result = requestable_execute(
         mcp_url,
         "lib_ConvertigoMCP._setupCodex",
-        {
-            "codexHome": str(codex_home),
-            "mcpUrl": resolved_mcp_url,
-        },
+        variables,
     )
 
     assert_true(result.get("skillStatus") == expected_skill_status, f"Unexpected skillStatus: {result}")
     assert_true(result.get("configStatus") == expected_config_status, f"Unexpected configStatus: {result}")
     assert_true(result.get("resolvedMcpUrl") == resolved_mcp_url, f"Unexpected resolvedMcpUrl: {result}")
     assert_true(result.get("configuredMcpUrl") == configured_mcp_url(resolved_mcp_url), f"Unexpected configuredMcpUrl: {result}")
+    assert_true(bool(result.get("tokenConfigured")) == bool(mcp_token), f"Unexpected tokenConfigured: {result}")
     assert_true(skill_result(result, "generalist").get("status") == expected_skill_status, f"Unexpected generalist skill status: {result}")
     assert_true(skill_result(result, "nocode").get("status") == expected_skill_status, f"Unexpected nocode skill status: {result}")
 
@@ -167,9 +180,13 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "[mcp_servers.convertigo]",
             f'url = "{configured_mcp_url(resolved_mcp_url)}"',
             "startup_timeout_sec = 60",
-            'http_headers = { "X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2" }',
+            "[mcp_servers.convertigo.http_headers]",
+            '"X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2"',
         ],
     )
+    if mcp_token:
+        contains_lines(config_text, [f'Authorization = "Bearer {mcp_token}"'])
+        assert_true("[mcp_servers.convertigo.env_http_headers]" not in config_text, config_text)
     return result
 
 
@@ -214,6 +231,30 @@ def main():
             "created",
             "created",
             args.resolved_mcp_url + "?transport=managed&jsonOnly=false",
+        )
+
+        malformed_token = "eyJhbGciOiJIUzI1NiJ9.invalid.signature"
+        malformed_config = "\n".join(
+            [
+                "[mcp_servers.convertigo]",
+                f'url = "{configured_mcp_url(args.resolved_mcp_url)}"',
+                "",
+                "[mcp_servers.convertigo.http_headers]",
+                'X-Convertigo-Guidance-Version = "old"',
+                "",
+                "[mcp_servers.convertigo.env_http_headers]",
+                f'CONVERTIGO_MCP_TOKEN = "{malformed_token}"',
+                "",
+            ]
+        )
+        run_case(
+            args.mcp_url,
+            base / "token",
+            malformed_config,
+            "created",
+            "updated",
+            args.resolved_mcp_url,
+            mcp_token=malformed_token,
         )
 
         stable_home = base / "idempotent"

@@ -23,6 +23,7 @@ comment: Handles MCP tools/list calls
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var feedbackMode = String(C8O.reporting.resolveMode());
+    var mcpAuthKind = typeof authKind === "undefined" || authKind === null ? "" : String(authKind);
     var limitText = limit == null ? "" : String(limit).trim();
     var maxLimit = 500;
     var limitValue = 0;
@@ -64,6 +65,9 @@ comment: Handles MCP tools/list calls
         try {
           var seqName = seq.getName();
           if (seqName && seqName.startsWith("tools_")) {
+            if (mcpAuthKind === "nocode" && seqName.indexOf("tools_nocode_") !== 0) {
+              continue;
+            }
             if (feedbackMode == "off" && seqName == "tools_report_create") {
               continue;
             }
@@ -248,3 +252,6 @@ comment: Handles MCP tools/list calls
   comment: Optional maximum number of tools to return (default 0 = no limit).
 ↓_nextCursor [variables.RequestableVariable-1762960860944]: 
   comment: Opaque cursor forwarded from MCP _meta.nextCursor (internal).
+↓authKind [variables.RequestableVariable-1788357910006]: 
+  comment: Authenticated MCP token kind used to filter the visible tool catalog.
+  description: Authenticated MCP token kind used to filter the visible tool catalog.

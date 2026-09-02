@@ -1,7 +1,7 @@
 comment: Describe a database object and optional descendants
 ↓Describe [steps.SimpleStep-1760712703662]: 
   expression: |
-    function describeDatabaseObject(dbo, depth) {
+    'function describeDatabaseObject(dbo, depth) {
       var node = {
         qname: dbo.getQName(),
         fullQName: dbo.getFullQName(),
@@ -83,7 +83,7 @@ comment: Describe a database object and optional descendants
       } catch (eDepth) {
       }
     }
-    var result = { node: describeDatabaseObject(dbo, depthValue) };
+    var result = { node: describeDatabaseObject(dbo, depthValue) };'
 ↓Json1 [steps.JsonToXmlStep-1760712703664]: 
   jsonObject: 
     - xmlizable: 

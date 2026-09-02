@@ -1,6 +1,0 @@
-path: /mcp/properties
-↓GetProperties [rest.GetOperation-1760700424001]:
-  targetRequestable: lib_ConvertigoMCP.GetDatabaseObjectProperties
-  ↓qname [rest.QueryParameter-1760700424002]:
-    mappedVariableName: qname
-    required: true

@@ -26,13 +26,17 @@ TEST_PROJECT_PATTERNS = (
 
 
 def call_mcp(url, payload, timeout=60):
+    headers = {
+        "Content-Type": "application/json",
+        "MCP-Protocol-Version": PROTOCOL_VERSION,
+    }
+    token = os.environ.get("CONVERTIGO_MCP_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = "Bearer " + token
     request = Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "MCP-Protocol-Version": PROTOCOL_VERSION,
-        },
+        headers=headers,
         method="POST",
     )
     with urlopen(request, timeout=timeout) as response:

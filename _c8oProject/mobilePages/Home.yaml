@@ -1,4 +1,5 @@
-icon: home
+↑isRoot: true
+icon: key
 preloadPriority: high
 scriptContent: 
   - xmlizable: 
@@ -15,243 +16,1101 @@ scriptContent:
         /*End_c8o_PageFunction*/
         
 segment: home
-title: CRUD Templates
-↓PageEvent [ngx.components.UIPageEvent-1775818423378]: 
-  comment: Seed preview global state for the template gallery.
-  viewEvent: onWillLoad
-  ↓SeedTemplatePreview [ngx.components.UICustomAsyncAction-1775818423380]: 
-    actionValue: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
-        - com.twinsoft.convertigo.beans.common.FormatedContent: 
-          →: |
-            'page.global = Object.assign({}, page.global || {}, {
-              crudBuildStage: ''bootstrap'',
-              crudLoading: false,
-              crudError: ''Preview retry state for maintainers.'',
-              crudStatus: ''ok'',
-              crudRows: {
-                templateitems: [
-                  { ID: 1, name: ''Oak specimen'', city: ''Lyon'' },
-                  { ID: 2, name: ''River reed'', city: ''Nantes'' },
-                  { ID: 3, name: ''Granite fern'', city: ''Annecy'' }
-                ]
-              },
-              crudCounts: { templateitems: 3 },
-              crudSamples: { templateitems: { ID: 1, name: ''Oak specimen'', city: ''Lyon'' } },
-              crudSelected: { templateitems: { ID: 1, name: ''Oak specimen'', city: ''Lyon'' } },
-              crudDrafts: { templateitems: { name: ''Oak specimen'', city: ''Lyon'' } },
-              crudModes: { templateitems: ''update'' },
-              crudEntityStatus: { templateitems: ''ready'' },
-              crudEntityErrors: { templateitems: '''' }
-            });
-            page.ref.markForCheck();
-            return page.global;'
-    comment: Seed maintainers-only preview state for CRUD templates.
-↓Header [ngx.components.UIDynamicElement-1775818423382]: 
+title: MCP access tokens
+↓AdminStyles [ngx.components.UIStyle-1788364318568]: 
+  styleContent: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
+      - com.twinsoft.convertigo.beans.common.FormatedContent: 
+        →: |
+          '
+          :host {
+            color-scheme: light dark;
+            --admin-bg: #f5f7fb;
+            --admin-surface: #ffffff;
+            --admin-ink: #172033;
+            --admin-muted: #657189;
+            --admin-line: #d9e0ea;
+            --admin-accent: #079bbb;
+            --admin-shadow: rgba(23,32,51,.07);
+            --ion-background-color: var(--admin-bg);
+            --ion-text-color: var(--admin-ink);
+          }
+          ion-header, ion-toolbar {
+            --background: var(--admin-surface);
+            --color: var(--admin-ink);
+            color: var(--admin-ink);
+          }
+          ion-header { border-bottom: 1px solid var(--admin-line); }
+          ion-content {
+            --background: var(--admin-bg);
+            --color: var(--admin-ink);
+            color: var(--admin-ink);
+          }
+          .admin-shell { width: min(1080px, 100%); margin: 0 auto; padding: 24px 18px 48px; }
+          .admin-hero { margin-bottom: 20px; }
+          .admin-eyebrow { color: var(--admin-accent); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+          .admin-title { margin: 6px 0; color: var(--admin-ink); font-size: 30px; font-weight: 750; }
+          .admin-copy, .admin-meta { color: var(--admin-muted); line-height: 1.5; }
+          .admin-card, .admin-token-card {
+            --background: var(--admin-surface);
+            color: var(--admin-ink);
+            border: 1px solid var(--admin-line);
+            border-radius: 8px;
+          }
+          .admin-card { margin: 0 0 16px; box-shadow: 0 8px 24px var(--admin-shadow); }
+          .admin-card ion-card-title,
+          .admin-card ion-card-subtitle,
+          .admin-token-card ion-card-title,
+          .admin-token-card ion-card-subtitle,
+          .admin-token-card h3 { color: var(--admin-ink); }
+          .admin-card ion-card-subtitle { color: var(--admin-muted); }
+          .admin-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+          .admin-form-grid { display: grid; grid-template-columns: minmax(240px,1fr) minmax(160px,220px); gap: 12px; margin-bottom: 14px; }
+          .admin-form-grid ion-input,
+          .admin-secret ion-textarea {
+            --background: var(--admin-surface);
+            --color: var(--admin-ink);
+            --placeholder-color: var(--admin-muted);
+            --border-color: var(--admin-line);
+          }
+          .admin-secret { border-left: 4px solid var(--admin-accent); }
+          .admin-secret ion-textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+          .admin-token-card { box-shadow: none; }
+          .admin-token-status { color: var(--admin-accent); font-weight: 700; text-transform: uppercase; }
+          .admin-error { color: #e05252; font-weight: 650; }
+          .admin-empty { padding: 18px 4px; color: var(--admin-muted); }
+          @media (prefers-color-scheme: dark) {
+            :host {
+              --admin-bg: #050b18;
+              --admin-surface: #0e1728;
+              --admin-ink: #edf3fb;
+              --admin-muted: #9aa8bc;
+              --admin-line: #2a394f;
+              --admin-accent: #19c2df;
+              --admin-shadow: rgba(0,0,0,.3);
+            }
+          }
+          @media (max-width: 680px) {
+            .admin-form-grid { grid-template-columns: 1fr; }
+            .admin-title { font-size: 24px; }
+          }
+          '
+↓PageEvent [ngx.components.UIPageEvent-1788364318570]: 
+  comment: Initialize and load MCP token administration
+  ↓LoadError [ngx.components.UIActionErrorEvent-1788364320164]: 
+    ↓StoreLoadUnauthorized [ngx.components.UIDynamicAction-1788364321718]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:authorized",
+         "Value": "script:false"
+        }'
+    ↓ClearLoadError [ngx.components.UIDynamicAction-1788364321720]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:errorMessage",
+         "Value": "script:''''"
+        }'
+    ↓StopLoadError [ngx.components.UIDynamicAction-1788364321722]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:loading",
+         "Value": "script:false"
+        }'
+  ↓InitTokenName [ngx.components.UIDynamicAction-1788364321724]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:tokenName",
+       "Value": "script:''Convertigo MCP''"
+      }'
+  ↓InitTokenDays [ngx.components.UIDynamicAction-1788364321726]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:tokenDays",
+       "Value": "script:365"
+      }'
+  ↓InitTokens [ngx.components.UIDynamicAction-1788364321728]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:tokens",
+       "Value": "script:[]"
+      }'
+  ↓InitEndpoint [ngx.components.UIDynamicAction-1788364321730]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:endpoint",
+       "Value": "script:''''"
+      }'
+  ↓InitAuthorized [ngx.components.UIDynamicAction-1788364321732]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:authorized",
+       "Value": "script:false"
+      }'
+  ↓InitCreatedToken [ngx.components.UIDynamicAction-1788364321734]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:createdToken",
+       "Value": "script:''''"
+      }'
+  ↓InitErrorMessage [ngx.components.UIDynamicAction-1788364321736]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:errorMessage",
+       "Value": "script:''''"
+      }'
+  ↓InitLoading [ngx.components.UIDynamicAction-1788364321738]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:loading",
+       "Value": "script:true"
+      }'
+  ↓InitLocalSetupAvailable [ngx.components.UIDynamicAction-1788367990824]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:localSetupAvailable",
+       "Value": "script:false"
+      }'
+  ↓InitSetupMessage [ngx.components.UIDynamicAction-1788367992418]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:setupMessage",
+       "Value": "script:''''"
+      }'
+  ↓LoadAdminStatus [ngx.components.UIDynamicAction-1788364321740]: 
+    beanData: |
+      '{
+       "ionBean": "CallSequenceAction",
+       "requestable": "plain:lib_ConvertigoMCP.McpAdminStatus",
+       "noLoading": "plain:true"
+      }'
+    ↓Unauthorized [ngx.components.UIActionFailureEvent-1788364323354]: 
+      ↓StoreUnauthorized [ngx.components.UIDynamicAction-1788364324908]: 
+        beanData: |
+          '{
+           "ionBean": "SetLocalAction",
+           "Property": "plain:authorized",
+           "Value": "script:false"
+          }'
+      ↓ClearUnauthorizedError [ngx.components.UIDynamicAction-1788364324910]: 
+        beanData: |
+          '{
+           "ionBean": "SetLocalAction",
+           "Property": "plain:errorMessage",
+           "Value": "script:''''"
+          }'
+      ↓StopUnauthorizedLoading [ngx.components.UIDynamicAction-1788364324912]: 
+        beanData: |
+          '{
+           "ionBean": "SetLocalAction",
+           "Property": "plain:loading",
+           "Value": "script:false"
+          }'
+    ↓StoreAuthorized [ngx.components.UIDynamicAction-1788364324914]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:authorized",
+         "Value": "script:(out && out.result ? out.result : (out || {})).authorized === true || String((out && out.result ? out.result : (out || {})).authorized) === ''true''"
+        }'
+    ↓StoreEndpoint [ngx.components.UIDynamicAction-1788364324916]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:endpoint",
+         "Value": "script:(out && out.result ? out.result : (out || {})).mcpUrl || ''''"
+        }'
+    ↓StoreTokens [ngx.components.UIDynamicAction-1788364324918]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:tokens",
+         "Value": "script:Array.isArray((out && out.result ? out.result : (out || {})).tokens) ? (out && out.result ? out.result : (out || {})).tokens : []"
+        }'
+    ↓StoreStatusError [ngx.components.UIDynamicAction-1788364324920]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:errorMessage",
+         "Value": "script:''''"
+        }'
+    ↓StopStatusLoading [ngx.components.UIDynamicAction-1788364324922]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:loading",
+         "Value": "script:false"
+        }'
+    ↓StoreLocalSetupAvailable [ngx.components.UIDynamicAction-1788367994032]: 
+      beanData: |
+        '{
+         "ionBean": "SetLocalAction",
+         "Property": "plain:localSetupAvailable",
+         "Value": "script:(out && out.result ? out.result : (out || {})).localSetupAvailable === true || String((out && out.result ? out.result : (out || {})).localSetupAvailable) === ''true''"
+        }'
+↓Header [ngx.components.UIDynamicElement-1788364324924]: 
   beanData: '{"ionBean":"Header"}'
   tagName: ion-header
-  ↓ToolBar [ngx.components.UIDynamicElement-1775818423384]: 
+  ↓ToolBar [ngx.components.UIDynamicElement-1788364329150]: 
     beanData: '{"ionBean":"ToolBar"}'
     tagName: ion-toolbar
-    ↓BarTitle [ngx.components.UIDynamicElement-1775818423386]: 
+    ↓BarTitle [ngx.components.UIDynamicElement-1788364329152]: 
       beanData: '{"ionBean":"BarTitle"}'
       tagName: ion-title
-      ↓Text [ngx.components.UIText-1775818423388]: 
+      ↓Text [ngx.components.UIText-1788364329154]: 
         textValue: 
           - xmlizable: 
             - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-            - MobileSmartSourceType: plain:CRUD Templates
-↓Content [ngx.components.UIDynamicElement-1775818423390]: 
-  beanData: '{"ionBean":"Content"}'
+            - MobileSmartSourceType: plain:MCP access tokens
+↓Content [ngx.components.UIDynamicElement-1788364329156]: 
+  beanData: '{"ionBean":"Content","Padding":"plain:ion-no-padding"}'
   tagName: ion-content
-  ↓TemplatesGrid [ngx.components.UIDynamicElement-1775818423392]: 
-    beanData: '{"ionBean":"Grid"}'
-    tagName: ion-grid
-    ↓HeaderRow [ngx.components.UIDynamicElement-1775818423394]: 
-      beanData: '{"ionBean":"GridRow"}'
-      tagName: ion-row
-      ↓HeaderCol [ngx.components.UIDynamicElement-1775818423396]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplCrudPageHeader [ngx.components.UIUseShared-1775818423398]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
-          ↓Title [ngx.components.UIUseVariable-1775818423400]: 
-            varValue: 
+  ↓Shell [ngx.components.UIDynamicElement-1788364329158]: 
+    beanData: '{"ionBean":"DivTag"}'
+    tagName: div
+    ↓Class [ngx.components.UIAttribute-1788364329160]: 
+      attrName: class
+      attrValue: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+          - MobileSmartSourceType: plain:admin-shell
+    ↓Hero [ngx.components.UIDynamicElement-1788364329162]: 
+      beanData: '{"ionBean":"DivTag"}'
+      tagName: div
+      ↓Class [ngx.components.UIAttribute-1788364329164]: 
+        attrName: class
+        attrValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: plain:admin-hero
+      ↓Eyebrow [ngx.components.UIDynamicElement-1788364329166]: 
+        beanData: '{"ionBean":"Paragraph"}'
+        tagName: p
+        ↓Class [ngx.components.UIAttribute-1788364329168]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-eyebrow
+        ↓Text [ngx.components.UIText-1788364329170]: 
+          textValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:Convertigo security
+      ↓Title [ngx.components.UIDynamicElement-1788364329172]: 
+        beanData: '{"ionBean":"Heading1"}'
+        tagName: h1
+        ↓Class [ngx.components.UIAttribute-1788364329174]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-title
+        ↓Text [ngx.components.UIText-1788364329176]: 
+          textValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:Manage MCP access
+      ↓Intro [ngx.components.UIDynamicElement-1788364329178]: 
+        beanData: '{"ionBean":"Paragraph"}'
+        tagName: p
+        ↓Class [ngx.components.UIAttribute-1788364329180]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-copy
+        ↓Text [ngx.components.UIText-1788364329182]: 
+          textValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:Create named credentials for Codex, Claude Code and other MCP clients. Revoke access instantly without restarting the server.
+    ↓ErrorIf [ngx.components.UIControlDirective-1788364329184]: 
+      directiveExpression: '!!local?.errorMessage'
+      directiveName: If
+      ↓ErrorCard [ngx.components.UIDynamicElement-1788364333410]: 
+        beanData: '{"ionBean":"Card"}'
+        tagName: ion-card
+        ↓Class [ngx.components.UIAttribute-1788364333412]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-card
+        ↓Header [ngx.components.UIDynamicElement-1788364333414]: 
+          beanData: '{"ionBean":"CardHeader"}'
+          tagName: ion-card-header
+          ↓Title [ngx.components.UIDynamicElement-1788364333416]: 
+            beanData: '{"ionBean":"CardTitle"}'
+            tagName: ion-card-title
+            ↓Text [ngx.components.UIText-1788364333418]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Request failed
+        ↓Content [ngx.components.UIDynamicElement-1788364333420]: 
+          beanData: '{"ionBean":"CardContent"}'
+          tagName: ion-card-content
+          ↓Message [ngx.components.UIDynamicElement-1788364333422]: 
+            beanData: '{"ionBean":"Paragraph"}'
+            tagName: p
+            ↓Class [ngx.components.UIAttribute-1788364333424]: 
+              attrName: class
+              attrValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:admin-error
+            ↓Text [ngx.components.UIText-1788364333426]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.errorMessage","prefix":"","suffix":"","custom":"","useCustom":false}}
+    ↓LoadingIf [ngx.components.UIControlDirective-1788364333428]: 
+      directiveExpression: local?.loading === true
+      directiveName: If
+      ↓LoadingCard [ngx.components.UIDynamicElement-1788364333430]: 
+        beanData: '{"ionBean":"Card"}'
+        tagName: ion-card
+        ↓Class [ngx.components.UIAttribute-1788364333432]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-card
+        ↓Header [ngx.components.UIDynamicElement-1788364333434]: 
+          beanData: '{"ionBean":"CardHeader"}'
+          tagName: ion-card-header
+          ↓Title [ngx.components.UIDynamicElement-1788364333436]: 
+            beanData: '{"ionBean":"CardTitle"}'
+            tagName: ion-card-title
+            ↓Text [ngx.components.UIText-1788364333438]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Refreshing token state
+        ↓Content [ngx.components.UIDynamicElement-1788364333440]: 
+          beanData: '{"ionBean":"CardContent"}'
+          tagName: ion-card-content
+          ↓Text [ngx.components.UIText-1788364333442]: 
+            textValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'CRUD template gallery'
-          ↓Subtitle [ngx.components.UIUseVariable-1775818423402]: 
-            varValue: 
+                - MobileSmartSourceType: plain:Please wait...
+    ↓AdminIf [ngx.components.UIControlDirective-1788364333444]: 
+      directiveExpression: local?.authorized === true
+      directiveName: If
+      ↓EndpointCard [ngx.components.UIDynamicElement-1788364333446]: 
+        beanData: '{"ionBean":"Card"}'
+        tagName: ion-card
+        ↓Class [ngx.components.UIAttribute-1788364333448]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-card
+        ↓Header [ngx.components.UIDynamicElement-1788364333450]: 
+          beanData: '{"ionBean":"CardHeader"}'
+          tagName: ion-card-header
+          ↓Title [ngx.components.UIDynamicElement-1788364333452]: 
+            beanData: '{"ionBean":"CardTitle"}'
+            tagName: ion-card-title
+            ↓Text [ngx.components.UIText-1788364333454]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Authenticated endpoint
+          ↓Subtitle [ngx.components.UIDynamicElement-1788364333456]: 
+            beanData: '{"ionBean":"CardSubTitle"}'
+            tagName: ion-card-subtitle
+            ↓Text [ngx.components.UIText-1788364333458]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Use this URL with the CONVERTIGO_MCP_TOKEN environment variable.
+        ↓Content [ngx.components.UIDynamicElement-1788364333460]: 
+          beanData: '{"ionBean":"CardContent"}'
+          tagName: ion-card-content
+          ↓Endpoint [ngx.components.UIDynamicElement-1788364333462]: 
+            beanData: '{"ionBean":"Paragraph"}'
+            tagName: p
+            ↓Class [ngx.components.UIAttribute-1788364333464]: 
+              attrName: class
+              attrValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:admin-meta
+            ↓Text [ngx.components.UIText-1788364333466]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.endpoint","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓Refresh [ngx.components.UIDynamicElement-1788364333468]: 
+            beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
+            tagName: ion-button
+            ↓Text [ngx.components.UIText-1788364333470]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Refresh
+            ↓RefreshClick [ngx.components.UIControlEvent-1788364333472]: 
+              ↓StartRefresh [ngx.components.UIDynamicAction-1788364335066]: 
+                beanData: |
+                  '{
+                   "ionBean": "SetLocalAction",
+                   "Property": "plain:loading",
+                   "Value": "script:true"
+                  }'
+              ↓ClearRefreshError [ngx.components.UIDynamicAction-1788364335068]: 
+                beanData: |
+                  '{
+                   "ionBean": "SetLocalAction",
+                   "Property": "plain:errorMessage",
+                   "Value": "script:''''"
+                  }'
+              ↓RefreshAdminStatus [ngx.components.UIDynamicAction-1788364335070]: 
+                beanData: |
+                  '{
+                   "ionBean": "CallSequenceAction",
+                   "requestable": "plain:lib_ConvertigoMCP.McpAdminStatus",
+                   "noLoading": "plain:true"
+                  }'
+                ↓Unauthorized [ngx.components.UIActionFailureEvent-1788364335072]: 
+                  ↓StoreUnauthorized [ngx.components.UIDynamicAction-1788364335074]: 
+                    beanData: |
+                      '{
+                       "ionBean": "SetLocalAction",
+                       "Property": "plain:authorized",
+                       "Value": "script:false"
+                      }'
+                  ↓ClearUnauthorizedError [ngx.components.UIDynamicAction-1788364335076]: 
+                    beanData: |
+                      '{
+                       "ionBean": "SetLocalAction",
+                       "Property": "plain:errorMessage",
+                       "Value": "script:''''"
+                      }'
+                  ↓StopUnauthorizedLoading [ngx.components.UIDynamicAction-1788364335078]: 
+                    beanData: |
+                      '{
+                       "ionBean": "SetLocalAction",
+                       "Property": "plain:loading",
+                       "Value": "script:false"
+                      }'
+                ↓StoreAuthorized [ngx.components.UIDynamicAction-1788364335080]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:authorized",
+                     "Value": "script:(out && out.result ? out.result : (out || {})).authorized === true || String((out && out.result ? out.result : (out || {})).authorized) === ''true''"
+                    }'
+                ↓StoreEndpoint [ngx.components.UIDynamicAction-1788364335082]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:endpoint",
+                     "Value": "script:(out && out.result ? out.result : (out || {})).mcpUrl || ''''"
+                    }'
+                ↓StoreTokens [ngx.components.UIDynamicAction-1788364335084]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:tokens",
+                     "Value": "script:Array.isArray((out && out.result ? out.result : (out || {})).tokens) ? (out && out.result ? out.result : (out || {})).tokens : []"
+                    }'
+                ↓StoreStatusError [ngx.components.UIDynamicAction-1788364335086]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:errorMessage",
+                     "Value": "script:''''"
+                    }'
+                ↓StopStatusLoading [ngx.components.UIDynamicAction-1788364335088]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:loading",
+                     "Value": "script:false"
+                    }'
+      ↓CreateCard [ngx.components.UIDynamicElement-1788364335090]: 
+        beanData: '{"ionBean":"Card"}'
+        tagName: ion-card
+        ↓Class [ngx.components.UIAttribute-1788364335092]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-card
+        ↓Header [ngx.components.UIDynamicElement-1788364335094]: 
+          beanData: '{"ionBean":"CardHeader"}'
+          tagName: ion-card-header
+          ↓Title [ngx.components.UIDynamicElement-1788364335096]: 
+            beanData: '{"ionBean":"CardTitle"}'
+            tagName: ion-card-title
+            ↓Text [ngx.components.UIText-1788364335098]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Create a durable token
+          ↓Subtitle [ngx.components.UIDynamicElement-1788364335100]: 
+            beanData: '{"ionBean":"CardSubTitle"}'
+            tagName: ion-card-subtitle
+            ↓Text [ngx.components.UIText-1788364335102]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:The secret is displayed once. Store it in your client configuration or secret manager.
+        ↓Content [ngx.components.UIDynamicElement-1788364335104]: 
+          beanData: '{"ionBean":"CardContent"}'
+          tagName: ion-card-content
+          ↓FormGrid [ngx.components.UIDynamicElement-1788364335106]: 
+            beanData: '{"ionBean":"DivTag"}'
+            tagName: div
+            ↓Class [ngx.components.UIAttribute-1788364335108]: 
+              attrName: class
+              attrValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:admin-form-grid
+            ↓Name [ngx.components.UIDynamicElement-1788364335110]: 
+              beanData: |
+                '{
+                 "ionBean": "Input",
+                 "ControlName": "plain:name1788364335110",
+                 "DoubleBinding": "source:{\"filter\":\"Local\",\"project\":\"lib_ConvertigoMCP\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.tokenName\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}",
+                 "Fill": "plain:outline",
+                 "Label": "plain:Token name",
+                 "Placeholder": "plain:Developer workstation",
+                 "Required": "plain:true"
+                }'
+              tagName: ion-input
+            ↓Days [ngx.components.UIDynamicElement-1788364335112]: 
+              beanData: |
+                '{
+                 "ionBean": "Input",
+                 "ControlName": "plain:name1788364335112",
+                 "DoubleBinding": "source:{\"filter\":\"Local\",\"project\":\"lib_ConvertigoMCP\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.tokenDays\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}",
+                 "Fill": "plain:outline",
+                 "InputMode": "plain:numeric",
+                 "Label": "plain:Validity in days",
+                 "Placeholder": "plain:365"
+                }'
+              tagName: ion-input
+              ↓Type [ngx.components.UIAttribute-1788364335114]: 
+                attrName: type
+                attrValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:number
+          ↓Create [ngx.components.UIDynamicElement-1788364335116]: 
+            beanData: |
+              '{
+               "ionBean": "Button",
+               "Disabled": "script:local?.loading === true || !local?.tokenName",
+               "IonColor": "plain:primary"
+              }'
+            tagName: ion-button
+            ↓Text [ngx.components.UIText-1788364335118]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Create token
+            ↓CreateClick [ngx.components.UIControlEvent-1788364335120]: 
+              ↓StartCreate [ngx.components.UIDynamicAction-1788364335122]: 
+                beanData: |
+                  '{
+                   "ionBean": "SetLocalAction",
+                   "Property": "plain:loading",
+                   "Value": "script:true"
+                  }'
+              ↓ClearCreateError [ngx.components.UIDynamicAction-1788364335124]: 
+                beanData: |
+                  '{
+                   "ionBean": "SetLocalAction",
+                   "Property": "plain:errorMessage",
+                   "Value": "script:''''"
+                  }'
+              ↓CreateToken [ngx.components.UIDynamicAction-1788364335126]: 
+                beanData: |
+                  '{
+                   "ionBean": "CallSequenceAction",
+                   "requestable": "plain:lib_ConvertigoMCP.McpTokenCreate",
+                   "noLoading": "plain:true"
+                  }'
+                ↓Failure [ngx.components.UIActionFailureEvent-1788364335128]: 
+                  ↓StoreFailure [ngx.components.UIDynamicAction-1788364335130]: 
+                    beanData: |
+                      '{
+                       "ionBean": "SetLocalAction",
+                       "Property": "plain:errorMessage",
+                       "Value": "script:(event && (event.message || (event.error && event.error.message))) || \"Unable to create the MCP token.\""
+                      }'
+                  ↓StopLoadingOnFailure [ngx.components.UIDynamicAction-1788364335132]: 
+                    beanData: |
+                      '{
+                       "ionBean": "SetLocalAction",
+                       "Property": "plain:loading",
+                       "Value": "script:false"
+                      }'
+                ↓name [ngx.components.UIControlVariable-1788364335134]: 
+                  varValue: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                      - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.tokenName","prefix":"","suffix":"","custom":"","useCustom":false}}
+                ↓expiresInDays [ngx.components.UIControlVariable-1788364335136]: 
+                  varValue: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                      - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.tokenDays","prefix":"","suffix":"","custom":"","useCustom":false}}
+                ↓StoreCreatedToken [ngx.components.UIDynamicAction-1788364335138]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:createdToken",
+                     "Value": "script:(out && out.result ? out.result : (out || {})).token || ''''"
+                    }'
+                ↓StoreCreatedTokens [ngx.components.UIDynamicAction-1788364335140]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:tokens",
+                     "Value": "script:Array.isArray((out && out.result ? out.result : (out || {})).tokens) ? (out && out.result ? out.result : (out || {})).tokens : []"
+                    }'
+                ↓StoreCreateError [ngx.components.UIDynamicAction-1788364335142]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:errorMessage",
+                     "Value": "script:(out && out.result ? out.result : (out || {})).error && (out && out.result ? out.result : (out || {})).error.message ? (out && out.result ? out.result : (out || {})).error.message : ''''"
+                    }'
+                ↓StopCreateLoading [ngx.components.UIDynamicAction-1788364335144]: 
+                  beanData: |
+                    '{
+                     "ionBean": "SetLocalAction",
+                     "Property": "plain:loading",
+                     "Value": "script:false"
+                    }'
+      ↓SecretIf [ngx.components.UIControlDirective-1788364335146]: 
+        directiveExpression: '!!local?.createdToken'
+        directiveName: If
+        ↓SecretCard [ngx.components.UIDynamicElement-1788364335148]: 
+          beanData: '{"ionBean":"Card"}'
+          tagName: ion-card
+          ↓Class [ngx.components.UIAttribute-1788364335150]: 
+            attrName: class
+            attrValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Preview gallery served from the root maintainer page.'
-    ↓InfoRow [ngx.components.UIDynamicElement-1775818423404]: 
-      beanData: '{"ionBean":"GridRow"}'
-      tagName: ion-row
-      ↓InfoCol [ngx.components.UIDynamicElement-1775818423406]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplWorkInProgressCard [ngx.components.UIUseShared-1775818423408]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
-    ↓StateRow [ngx.components.UIDynamicElement-1775818423410]: 
-      beanData: '{"ionBean":"GridRow"}'
-      tagName: ion-row
-      ↓StatCol [ngx.components.UIDynamicElement-1775818423412]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplDashboardStatCard [ngx.components.UIUseShared-1775818423414]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplDashboardStatCard
-          ↓Title [ngx.components.UIUseVariable-1775818423416]: 
-            varValue: 
+                - MobileSmartSourceType: plain:admin-card admin-secret
+          ↓Header [ngx.components.UIDynamicElement-1788364335152]: 
+            beanData: '{"ionBean":"CardHeader"}'
+            tagName: ion-card-header
+            ↓Title [ngx.components.UIDynamicElement-1788364335154]: 
+              beanData: '{"ionBean":"CardTitle"}'
+              tagName: ion-card-title
+              ↓Text [ngx.components.UIText-1788364335156]: 
+                textValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:Copy this token now
+            ↓Subtitle [ngx.components.UIDynamicElement-1788364335158]: 
+              beanData: '{"ionBean":"CardSubTitle"}'
+              tagName: ion-card-subtitle
+              ↓Text [ngx.components.UIText-1788364335160]: 
+                textValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: 'plain:The token is shown once. Copying it is not enough: the MCP client must send it as an Authorization: Bearer header.'
+          ↓Content [ngx.components.UIDynamicElement-1788364335162]: 
+            beanData: '{"ionBean":"CardContent"}'
+            tagName: ion-card-content
+            ↓Secret [ngx.components.UIDynamicElement-1788364335164]: 
+              beanData: |
+                '{
+                 "ionBean": "TextArea",
+                 "ControlName": "plain:name1788364335164",
+                 "DoubleBinding": "source:{\"filter\":\"Local\",\"project\":\"lib_ConvertigoMCP\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.createdToken\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}",
+                 "AutoGrow": "plain:true",
+                 "Readonly": "plain:true",
+                 "Rows": "plain:5"
+                }'
+              tagName: ion-textarea
+            ↓Actions [ngx.components.UIDynamicElement-1788364335166]: 
+              beanData: '{"ionBean":"DivTag"}'
+              tagName: div
+              ↓Class [ngx.components.UIAttribute-1788364335168]: 
+                attrName: class
+                attrValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:admin-actions
+              ↓Copy [ngx.components.UIDynamicElement-1788364335170]: 
+                beanData: '{"ionBean":"Button"}'
+                tagName: ion-button
+                ↓Text [ngx.components.UIText-1788364335172]: 
+                  textValue: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                      - MobileSmartSourceType: plain:Copy token
+                ↓CopyClick [ngx.components.UIControlEvent-1788364335174]: 
+                  ↓CopyToClipboard [ngx.components.UICustomAsyncAction-1788364335176]: 
+                    actionValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
+                        - com.twinsoft.convertigo.beans.common.FormatedContent: 
+                          →: |
+                            await navigator.clipboard.writeText((page.local && page.local.createdToken) || '');
+                            return true;
+              ↓Dismiss [ngx.components.UIDynamicElement-1788364335178]: 
+                beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
+                tagName: ion-button
+                ↓Text [ngx.components.UIText-1788364335180]: 
+                  textValue: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                      - MobileSmartSourceType: plain:Hide
+                ↓DismissClick [ngx.components.UIControlEvent-1788364335182]: 
+                  ↓ClearCreatedToken [ngx.components.UIDynamicAction-1788364335184]: 
+                    beanData: |
+                      '{
+                       "ionBean": "SetLocalAction",
+                       "Property": "plain:createdToken",
+                       "Value": "script:''''"
+                      }'
+              ↓LocalSetupIf [ngx.components.UIControlDirective-1788368010936]: 
+                directiveExpression: local?.localSetupAvailable === true
+                directiveName: If
+                ↓SetupCodex [ngx.components.UIDynamicElement-1788368015162]: 
+                  beanData: '{"ionBean":"Button"}'
+                  tagName: ion-button
+                  ↓Text [ngx.components.UIText-1788368019388]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: plain:Configure local Codex
+                  ↓SetupClick [ngx.components.UIControlEvent-1788368023614]: 
+                    ↓CallLocalSetup [ngx.components.UIDynamicAction-1788368025208]: 
+                      beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:lib_ConvertigoMCP.McpLocalAgentSetup"}'
+                      ↓agent [ngx.components.UIControlVariable-1788368026822]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: plain:codex
+                      ↓mcpToken [ngx.components.UIControlVariable-1788368028436]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.createdToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+                      ↓StoreSetupMessage [ngx.components.UIDynamicAction-1788368030050]: 
+                        beanData: |
+                          '{
+                           "ionBean": "SetLocalAction",
+                           "Property": "plain:setupMessage",
+                           "Value": "script:(out && out.result ? out.result : (out || {})).error ? (out && out.result ? out.result : (out || {})).error.message : ((out && out.result ? out.result : (out || {})).message || ''Codex configuration updated.'')"
+                          }'
+                ↓SetupVibe [ngx.components.UIDynamicElement-1788368034276]: 
+                  beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
+                  tagName: ion-button
+                  ↓Text [ngx.components.UIText-1788368038502]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: plain:Configure local Vibe
+                  ↓SetupClick [ngx.components.UIControlEvent-1788368042728]: 
+                    ↓CallLocalSetup [ngx.components.UIDynamicAction-1788368044322]: 
+                      beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:lib_ConvertigoMCP.McpLocalAgentSetup"}'
+                      ↓agent [ngx.components.UIControlVariable-1788368045936]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: plain:vibe
+                      ↓mcpToken [ngx.components.UIControlVariable-1788368047550]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.createdToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+                      ↓StoreSetupMessage [ngx.components.UIDynamicAction-1788368049164]: 
+                        beanData: |
+                          '{
+                           "ionBean": "SetLocalAction",
+                           "Property": "plain:setupMessage",
+                           "Value": "script:(out && out.result ? out.result : (out || {})).error ? (out && out.result ? out.result : (out || {})).error.message : ((out && out.result ? out.result : (out || {})).message || ''Vibe configuration updated.'')"
+                          }'
+            ↓SetupHelp [ngx.components.UIDynamicElement-1788367998258]: 
+              beanData: '{"ionBean":"DivTag"}'
+              tagName: div
+              ↓Class [ngx.components.UIAttribute-1788368002484]: 
+                attrName: class
+                attrValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:admin-setup-help
+              ↓Text [ngx.components.UIText-1788368006710]: 
+                textValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: |
+                        'plain:Codex Desktop: set Bearer token environment variable to CONVERTIGO_MCP_TOKEN and define that environment variable before starting Codex. Do not paste the token into Environment-variable headers.
+                        Static configuration: add Authorization = "Bearer <copied token>" under [mcp_servers.convertigo.http_headers].
+                        Vibe: configure the same Authorization header on the Convertigo MCP server.'
+            ↓SetupMessageIf [ngx.components.UIControlDirective-1788368053390]: 
+              directiveExpression: '!!local?.setupMessage'
+              directiveName: If
+              ↓Message [ngx.components.UIDynamicElement-1788368057616]: 
+                beanData: '{"ionBean":"DivTag"}'
+                tagName: div
+                ↓Class [ngx.components.UIAttribute-1788368061842]: 
+                  attrName: class
+                  attrValue: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                      - MobileSmartSourceType: plain:admin-setup-message
+                ↓Text [ngx.components.UIText-1788368066068]: 
+                  textValue: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                      - MobileSmartSourceType: script:local?.setupMessage || ''
+      ↓TokensCard [ngx.components.UIDynamicElement-1788364335186]: 
+        beanData: '{"ionBean":"Card"}'
+        tagName: ion-card
+        ↓Class [ngx.components.UIAttribute-1788364335188]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-card
+        ↓Header [ngx.components.UIDynamicElement-1788364335190]: 
+          beanData: '{"ionBean":"CardHeader"}'
+          tagName: ion-card-header
+          ↓Title [ngx.components.UIDynamicElement-1788364335192]: 
+            beanData: '{"ionBean":"CardTitle"}'
+            tagName: ion-card-title
+            ↓Text [ngx.components.UIText-1788364335194]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Issued tokens
+          ↓Subtitle [ngx.components.UIDynamicElement-1788364335196]: 
+            beanData: '{"ionBean":"CardSubTitle"}'
+            tagName: ion-card-subtitle
+            ↓Text [ngx.components.UIText-1788364335198]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Active, expired and revoked durable credentials stored in the Convertigo workspace.
+        ↓Content [ngx.components.UIDynamicElement-1788364335200]: 
+          beanData: '{"ionBean":"CardContent"}'
+          tagName: ion-card-content
+          ↓Count [ngx.components.UIDynamicElement-1788364335202]: 
+            beanData: '{"ionBean":"Paragraph"}'
+            tagName: p
+            ↓Label [ngx.components.UIText-1788364335204]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: 'plain:Total: '
+            ↓Value [ngx.components.UIText-1788364335206]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.tokens?.length","prefix":"","suffix":"","custom":"","useCustom":false}}
+          ↓EmptyIf [ngx.components.UIControlDirective-1788364335208]: 
+            directiveExpression: '!local?.tokens || local.tokens.length === 0'
+            directiveName: If
+            ↓Empty [ngx.components.UIDynamicElement-1788364335210]: 
+              beanData: '{"ionBean":"Paragraph"}'
+              tagName: p
+              ↓Class [ngx.components.UIAttribute-1788364335212]: 
+                attrName: class
+                attrValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:admin-empty
+              ↓Text [ngx.components.UIText-1788364335214]: 
+                textValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:No durable token has been created yet.
+          ↓TokensForEach [ngx.components.UIControlDirective-1788364335216]: 
+            directiveIndexName: tokenIndex
+            directiveItemName: token
+            directiveSource: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Template items'
-          ↓Count [ngx.components.UIUseVariable-1775818423418]: 
-            varValue: 
+                - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.tokens","prefix":"","suffix":"","custom":"","useCustom":false}}
+            ↓TokenCard [ngx.components.UIDynamicElement-1788364335218]: 
+              beanData: '{"ionBean":"Card"}'
+              tagName: ion-card
+              ↓Class [ngx.components.UIAttribute-1788364335220]: 
+                attrName: class
+                attrValue: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                    - MobileSmartSourceType: plain:admin-token-card
+              ↓Content [ngx.components.UIDynamicElement-1788364335228]: 
+                beanData: '{"ionBean":"CardContent"}'
+                tagName: ion-card-content
+                ↓TokenName [ngx.components.UIDynamicElement-1788364335230]: 
+                  beanData: '{"ionBean":"Heading3"}'
+                  tagName: h3
+                  ↓Text [ngx.components.UIText-1788364335232]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: script:token.name || token.id
+                ↓Status [ngx.components.UIDynamicElement-1788364335234]: 
+                  beanData: '{"ionBean":"Paragraph"}'
+                  tagName: p
+                  ↓Class [ngx.components.UIAttribute-1788364335236]: 
+                    attrName: class
+                    attrValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: plain:admin-token-status
+                  ↓Text [ngx.components.UIText-1788364335238]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: script:token.status
+                ↓Meta [ngx.components.UIDynamicElement-1788364335240]: 
+                  beanData: '{"ionBean":"Paragraph"}'
+                  tagName: p
+                  ↓Class [ngx.components.UIAttribute-1788364335242]: 
+                    attrName: class
+                    attrValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: plain:admin-meta
+                  ↓Text [ngx.components.UIText-1788364335244]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: script:'Created ' + (token.createdAt || 'unknown') + ' · expires ' + (token.expiresAt || 'never') + ' · last used ' + (token.lastUsedAt || 'never')
+                ↓Revoke [ngx.components.UIDynamicElement-1788364335246]: 
+                  beanData: |
+                    '{
+                     "ionBean": "Button",
+                     "Disabled": "script:token.status !== ''active'' || local?.loading === true",
+                     "IonColor": "plain:danger",
+                     "IonFill": "plain:outline"
+                    }'
+                  tagName: ion-button
+                  ↓Text [ngx.components.UIText-1788364335248]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: plain:Revoke
+                  ↓RevokeClick [ngx.components.UIControlEvent-1788364335250]: 
+                    ↓StartRevoke [ngx.components.UIDynamicAction-1788364335252]: 
+                      beanData: |
+                        '{
+                         "ionBean": "SetLocalAction",
+                         "Property": "plain:loading",
+                         "Value": "script:true"
+                        }'
+                    ↓ClearRevokeError [ngx.components.UIDynamicAction-1788364335254]: 
+                      beanData: |
+                        '{
+                         "ionBean": "SetLocalAction",
+                         "Property": "plain:errorMessage",
+                         "Value": "script:''''"
+                        }'
+                    ↓RevokeToken [ngx.components.UIDynamicAction-1788364335256]: 
+                      beanData: |
+                        '{
+                         "ionBean": "CallSequenceAction",
+                         "requestable": "plain:lib_ConvertigoMCP.McpTokenRevoke",
+                         "noLoading": "plain:true"
+                        }'
+                      ↓Failure [ngx.components.UIActionFailureEvent-1788364335258]: 
+                        ↓StoreFailure [ngx.components.UIDynamicAction-1788364335260]: 
+                          beanData: |
+                            '{
+                             "ionBean": "SetLocalAction",
+                             "Property": "plain:errorMessage",
+                             "Value": "script:(event && (event.message || (event.error && event.error.message))) || \"Unable to revoke the MCP token.\""
+                            }'
+                        ↓StopLoadingOnFailure [ngx.components.UIDynamicAction-1788364335262]: 
+                          beanData: |
+                            '{
+                             "ionBean": "SetLocalAction",
+                             "Property": "plain:loading",
+                             "Value": "script:false"
+                            }'
+                      ↓tokenId [ngx.components.UIControlVariable-1788364335264]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: script:scope.token.id
+                      ↓StoreRevokedTokens [ngx.components.UIDynamicAction-1788364335266]: 
+                        beanData: |
+                          '{
+                           "ionBean": "SetLocalAction",
+                           "Property": "plain:tokens",
+                           "Value": "script:Array.isArray((out && out.result ? out.result : (out || {})).tokens) ? (out && out.result ? out.result : (out || {})).tokens : []"
+                          }'
+                      ↓StoreRevokeError [ngx.components.UIDynamicAction-1788364335268]: 
+                        beanData: |
+                          '{
+                           "ionBean": "SetLocalAction",
+                           "Property": "plain:errorMessage",
+                           "Value": "script:(out && out.result ? out.result : (out || {})).error && (out && out.result ? out.result : (out || {})).error.message ? (out && out.result ? out.result : (out || {})).error.message : ''''"
+                          }'
+                      ↓StopRevokeLoading [ngx.components.UIDynamicAction-1788364335270]: 
+                        beanData: |
+                          '{
+                           "ionBean": "SetLocalAction",
+                           "Property": "plain:loading",
+                           "Value": "script:false"
+                          }'
+    ↓UnauthorizedIf [ngx.components.UIControlDirective-1788364335272]: 
+      directiveExpression: local?.loading !== true && local?.authorized !== true
+      directiveName: If
+      ↓UnauthorizedCard [ngx.components.UIDynamicElement-1788364335274]: 
+        beanData: '{"ionBean":"Card"}'
+        tagName: ion-card
+        ↓Class [ngx.components.UIAttribute-1788364335276]: 
+          attrName: class
+          attrValue: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+              - MobileSmartSourceType: plain:admin-card
+        ↓Header [ngx.components.UIDynamicElement-1788364335278]: 
+          beanData: '{"ionBean":"CardHeader"}'
+          tagName: ion-card-header
+          ↓Title [ngx.components.UIDynamicElement-1788364335280]: 
+            beanData: '{"ionBean":"CardTitle"}'
+            tagName: ion-card-title
+            ↓Text [ngx.components.UIText-1788364335282]: 
+              textValue: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                  - MobileSmartSourceType: plain:Administrator session required
+        ↓Content [ngx.components.UIDynamicElement-1788364335284]: 
+          beanData: '{"ionBean":"CardContent"}'
+          tagName: ion-card-content
+          ↓Text [ngx.components.UIText-1788364335286]: 
+            textValue: 
               - xmlizable: 
                 - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'3'
-          ↓Caption [ngx.components.UIUseVariable-1775818423420]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Preview data in page.global'
-      ↓LoadingCol [ngx.components.UIDynamicElement-1775818423422]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplCrudLoadingState [ngx.components.UIUseShared-1775818423424]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
-          ↓Message [ngx.components.UIUseVariable-1775818423426]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Loading template preview...'
-      ↓ErrorCol [ngx.components.UIDynamicElement-1775818423428]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplCrudErrorRetryState [ngx.components.UIUseShared-1775818423430]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
-          ↓Message [ngx.components.UIUseVariable-1775818423432]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Preview retry state for maintainers.'
-    ↓EntityRow [ngx.components.UIDynamicElement-1775818423434]: 
-      beanData: '{"ionBean":"GridRow"}'
-      tagName: ion-row
-      ↓ListCol [ngx.components.UIDynamicElement-1775818423436]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplEntityListPanel [ngx.components.UIUseShared-1775818423438]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityListPanel
-          ↓Title [ngx.components.UIUseVariable-1775818423440]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Template items'
-          ↓EntityKey [ngx.components.UIUseVariable-1775818423442]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'templateitems'
-          ↓PrimaryField [ngx.components.UIUseVariable-1775818423444]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'name'
-          ↓SecondaryField [ngx.components.UIUseVariable-1775818423446]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'city'
-          ↓ActionLabel [ngx.components.UIUseVariable-1775818423448]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Create preview item'
-      ↓DetailCol [ngx.components.UIDynamicElement-1775818423450]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplEntityDetailCard [ngx.components.UIUseShared-1775818423452]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
-          ↓Title [ngx.components.UIUseVariable-1775818423454]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Template item detail'
-          ↓EntityKey [ngx.components.UIUseVariable-1775818423456]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'templateitems'
-          ↓PrimaryField [ngx.components.UIUseVariable-1775818423458]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'name'
-          ↓SecondaryField [ngx.components.UIUseVariable-1775818423460]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'city'
-      ↓FormCol [ngx.components.UIDynamicElement-1775818423462]: 
-        beanData: '{"ionBean":"GridCol"}'
-        tagName: ion-col
-        ↓UseTplEntityEditForm [ngx.components.UIUseShared-1775818423464]: 
-          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityEditForm
-          ↓EntityKey [ngx.components.UIUseVariable-1775818423466]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'templateitems'
-          ↓PrimaryField [ngx.components.UIUseVariable-1775818423468]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'name'
-          ↓PrimaryFieldLabel [ngx.components.UIUseVariable-1775818423470]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Specimen name'
-          ↓PrimaryFieldRequired [ngx.components.UIUseVariable-1775818423472]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'true'
-          ↓SecondaryField [ngx.components.UIUseVariable-1775818423474]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'city'
-          ↓SecondaryFieldLabel [ngx.components.UIUseVariable-1775818423476]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'City'
-          ↓SecondaryFieldRequired [ngx.components.UIUseVariable-1775818423478]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'false'
-          ↓ActionLabel [ngx.components.UIUseVariable-1775818423480]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Save preview item'
-          ↓CreateTitle [ngx.components.UIUseVariable-1775818423482]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Create preview item'
-          ↓EditTitle [ngx.components.UIUseVariable-1775818423484]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Edit preview item'
-          ↓DeleteLabel [ngx.components.UIUseVariable-1775818423486]: 
-            varValue: 
-              - xmlizable: 
-                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                - MobileSmartSourceType: script:'Delete preview item'
+                - MobileSmartSourceType: plain:Open this application from the Convertigo administration dashboard while authenticated as WEB_ADMIN.
+↓SetupStyles [ngx.components.UIStyle-1788368070242]: 
+  styleContent: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.FormatedContent
+      - com.twinsoft.convertigo.beans.common.FormatedContent: 
+        →: |
+          '.admin-setup-help { margin: 14px 0; padding: 12px; border: 1px solid var(--admin-line); border-radius: 6px; color: var(--admin-muted); line-height: 1.55; white-space: pre-line; }
+          .admin-setup-message { margin-top: 12px; color: var(--admin-accent); font-weight: 650; }'

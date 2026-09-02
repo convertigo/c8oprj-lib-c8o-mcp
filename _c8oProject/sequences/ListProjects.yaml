@@ -1,7 +1,7 @@
 comment: List available Convertigo projects
 ↓BuildProjects [steps.SimpleStep-1760712703636]: 
   expression: |
-    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    'var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
     var names = manager.getAllProjectNamesList(true);
     var iterator = names.iterator();
     var projects = [];
@@ -25,7 +25,7 @@ comment: List available Convertigo projects
       }
       projects.push(entry);
     }
-    var result = { projects: projects };
+    var result = { projects: projects };'
 ↓Json1 [steps.JsonToXmlStep-1760712703638]: 
   jsonObject: 
     - xmlizable: 

@@ -1,0 +1,29 @@
+accessibility: Hidden
+authenticatedContextRequired: true
+comment: Create a durable, named and revocable MCP bearer token. The raw token is returned once.
+↓Execute [steps.SimpleStep-1788357809581]: 
+  comment: Create a durable, named and revocable MCP bearer token. The raw token is returned once.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpTokenResult = C8O.mcpAuth.createDurable(context, name, expiresInDays);
+↓Result [steps.JsonToXmlStep-1788357809598]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpTokenResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓name [variables.RequestableVariable-1788357809617]: 
+  comment: User-visible token label.
+  description: User-visible token label.
+  required: true
+↓expiresInDays [variables.RequestableVariable-1788357809638]: 
+  comment: Token lifetime in days, from 1 to 3650.
+  description: Token lifetime in days, from 1 to 3650.
+  value: 365

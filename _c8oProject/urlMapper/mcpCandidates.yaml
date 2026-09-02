@@ -1,3 +1,0 @@
-path: /mcp/candidates
-↓GetCandidates [rest.GetOperation-1760700411001]:
-  targetRequestable: lib_ConvertigoMCP.ListDatabaseObjectCandidates

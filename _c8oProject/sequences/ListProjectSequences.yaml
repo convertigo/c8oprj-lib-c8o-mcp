@@ -1,7 +1,7 @@
 comment: List sequences for one or all projects
 ↓BuildSequences [steps.SimpleStep-1760712703642]: 
   expression: |
-    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    'var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
     var targets = [];
     if (project && String(project).trim().length > 0) {
       targets.push(String(project).trim());
@@ -38,7 +38,7 @@ comment: List sequences for one or all projects
       }
       list.push(entry);
     }
-    var result = { projects: list };
+    var result = { projects: list };'
 ↓Json1 [steps.JsonToXmlStep-1760712703644]: 
   jsonObject: 
     - xmlizable: 

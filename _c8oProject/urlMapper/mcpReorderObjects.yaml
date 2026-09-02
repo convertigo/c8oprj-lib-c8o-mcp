@@ -1,9 +1,0 @@
-path: /mcp/objects/reorder
-↓ReorderObjects [rest.PostOperation-1760700424005]:
-  targetRequestable: lib_ConvertigoMCP.ReorderDatabaseObjects
-  ↓parent [rest.FormParameter-1760700424012]:
-    mappedVariableName: parent
-    required: true
-  ↓order [rest.FormParameter-1760700424013]:
-    mappedVariableName: order
-    required: true

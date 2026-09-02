@@ -1,6 +1,6 @@
+↓exec [rest.PathMapping]: 🗏 urlMapper/exec.yaml
 ↓ApiMcp [rest.PathMapping]: 🗏 urlMapper/ApiMcp.yaml
 ↓ApiMcp1 [rest.PathMapping]: 🗏 urlMapper/ApiMcp1.yaml
-↓exec [rest.PathMapping]: 🗏 urlMapper/exec.yaml
 ↓mcp_candidates [rest.PathMapping]: 🗏 urlMapper/mcp_candidates.yaml
 ↓mcp_object [rest.PathMapping]: 🗏 urlMapper/mcp_object.yaml
 ↓mcp_object_create [rest.PathMapping]: 🗏 urlMapper/mcp_object_create.yaml

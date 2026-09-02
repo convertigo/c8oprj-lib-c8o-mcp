@@ -1,0 +1,29 @@
+accessibility: Hidden
+authenticatedContextRequired: true
+comment: Create a short-lived stateless MCP bearer token for the trusted integrated Assistant and Agent Bridge.
+↓Execute [steps.SimpleStep-1788357809715]: 
+  comment: Create a short-lived stateless MCP bearer token for the trusted integrated Assistant and Agent Bridge.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpTokenResult = C8O.mcpAuth.createManaged(context, label, ttlSeconds);
+↓Result [steps.JsonToXmlStep-1788357809734]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpTokenResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓label [variables.RequestableVariable-1788357809752]: 
+  comment: Diagnostic label embedded in the managed token.
+  description: Diagnostic label embedded in the managed token.
+  value: Convertigo Assistant
+↓ttlSeconds [variables.RequestableVariable-1788357809770]: 
+  comment: Managed token lifetime in seconds, from 300 to 86400.
+  description: Managed token lifetime in seconds, from 300 to 86400.
+  value: 7200

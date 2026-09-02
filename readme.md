@@ -1,37 +1,107 @@
+# Convertigo MCP
 
+`lib_ConvertigoMCP` is the secure Streamable HTTP MCP server for Convertigo.
+It exposes structured tools, prompts, resources, setup helpers, and authoring
+guides to Codex, Mistral Vibe, Claude Code, and other MCP clients.
 
+## Highlights
 
-# lib_ConvertigoMCP
+- Discovers, creates, edits, validates, saves, and reloads Convertigo projects.
+- Provides purpose-built recipes and skills instead of relying on raw project
+  file edits.
+- Protects every MCP request with a bearer token.
+- Includes a WEB_ADMIN application to create, list, and revoke durable tokens.
+- Supplies short-lived managed credentials to the integrated Tigo Assistant
+  without exposing bearer tokens to the browser or conversation history.
+- Configures local Codex and Vibe profiles directly when running in Convertigo
+  Studio.
 
-# Convertigo MCP Usage Guide
+## Requirements
 
-lib_ConvertigoMCP exposes Convertigo tools, prompts, resources, setup helpers, and authoring guides through the local Streamable HTTP MCP endpoint.
+- Convertigo Studio or Server 8.4.x.
+- A `WEB_ADMIN` session to administer durable MCP tokens.
+- An MCP client supporting Streamable HTTP and bearer authentication.
 
 Endpoint:
 `http://localhost:18080/convertigo/api/mcp`
+
+## Authentication
+
+Every request to `/api/mcp` requires a bearer token in the `Authorization`
+header. Open the `lib_ConvertigoMCP` NGX application from the Convertigo
+administration dashboard while signed in as a `WEB_ADMIN` to create, list, or
+revoke durable tokens. The project root redirects to
+`DisplayObjects/mobile/`. A token is shown only once when it is created.
+
+When this application runs from Convertigo Studio on the same workstation as
+the MCP client, use **Configure local Codex** or **Configure local Vibe** after
+creating the token. The application updates the matching local profile and
+keeps the token variable masked in the Convertigo execution logs. Restart the
+client after setup.
+
+Set the token in the client process environment:
+
+```text
+CONVERTIGO_MCP_TOKEN=<token>
+```
+
+Durable token metadata and the signing key are stored below
+`$WORKSPACE/mcp`. Each token has its own metadata file so the directory can be
+shared by several Convertigo nodes through an RWX volume without requiring a
+database. Revocation takes effect on every node sharing that directory.
+
+Tigo does not create durable entries for integrated Studio sessions. The
+authenticated Assistant requests a short-lived managed token and passes only
+an opaque in-memory handle to the Agent Bridge. The Bridge injects the token
+into the local CLI environment and restarts the resident agent transparently
+when the token is renewed.
 
 ## Mistral Vibe
 
 Add the Convertigo MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
 
 ```toml
-[mcp_servers.convertigo]
+[[mcp_servers]]
+name = "Convertigo"
 transport = "http"
 url = "http://localhost:18080/convertigo/api/mcp"
+
+[mcp_servers.auth]
+type = "static"
+api_key_env = "CONVERTIGO_MCP_TOKEN"
+api_key_header = "Authorization"
+api_key_format = "Bearer {token}"
 ```
 
 ## Codex
 
 Run the `lib_ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
 
+`bearer_token_env_var` is the **name** of an environment variable, not the
+token itself. Define `CONVERTIGO_MCP_TOKEN` before starting Codex. Do not put
+the token in `env_http_headers`: that table maps HTTP header names to
+environment variable names.
+
 ```toml
 [mcp_servers.convertigo]
 url = "http://localhost:18080/convertigo/api/mcp"
+bearer_token_env_var = "CONVERTIGO_MCP_TOKEN"
+```
+
+For a local static configuration, `_setupCodex` and the administration
+application instead write the bearer credential as a protected HTTP header:
+
+```toml
+[mcp_servers.convertigo.http_headers]
+Authorization = "Bearer <token>"
 ```
 
 ## Claude Code
 
-Register Convertigo as a Streamable HTTP MCP server. Ask Claude Code to call `tools/list`, `resources/list`, and `prompts/list`, then use the exposed MCP tools for project tree edits, validation, save, and runtime checks.
+Register Convertigo as a Streamable HTTP MCP server and provide the bearer
+token through an `Authorization` header. Ask Claude Code to call `tools/list`,
+`resources/list`, and `prompts/list`, then use the exposed MCP tools for project
+tree edits, validation, save, and runtime checks.
 
 ```toml
 [mcp_servers.convertigo]
@@ -85,13 +155,13 @@ For more technical informations : [documentation](./project.md)
      <tr><td>To contribute</td><td>
 
      ```
-     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-lib-c8o-mcp.git:branch=codex
+     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-lib-c8o-mcp.git:branch=main
      ```
      </td></tr>
      <tr><td>To simply use</td><td>
 
      ```
-     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-lib-c8o-mcp/archive/codex.zip
+     lib_ConvertigoMCP=git@github.com:convertigo/c8oprj-lib-c8o-mcp/archive/main.zip
      ```
      </td></tr>
     </table>
@@ -381,6 +451,3 @@ Template source for the bootstrap work-in-progress card.
 <td>Message</td><td></td>
 </tr>
 </table>
-
-
-

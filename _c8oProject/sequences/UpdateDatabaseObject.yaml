@@ -1,7 +1,7 @@
 comment: Update properties of a database object
 ↓Update [steps.SimpleStep-1760712703676]: 
   expression: |
-    var ClassUtils = Packages.org.apache.commons.lang3.ClassUtils;
+    'var ClassUtils = Packages.org.apache.commons.lang3.ClassUtils;
     function parseJson(text, fallback) {
       if (text == null) {
         return fallback;
@@ -97,7 +97,7 @@ comment: Update properties of a database object
     if (parent != null) {
       parent.hasChanged = true;
     }
-    var result = { qname: dbo.getFullQName(), updated: updated };
+    var result = { qname: dbo.getFullQName(), updated: updated };'
 ↓Json1 [steps.JsonToXmlStep-1760712703678]: 
   jsonObject: 
     - xmlizable: 

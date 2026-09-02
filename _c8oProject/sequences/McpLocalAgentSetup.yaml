@@ -1,0 +1,33 @@
+accessibility: Hidden
+authenticatedContextRequired: true
+comment: Configure a local Codex or Vibe client from an authenticated Studio WEB_ADMIN session.
+↓Execute [steps.SimpleStep-1788367781807]: 
+  comment: Validate the admin session and token, then configure the selected local agent.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpLocalAgentSetupResult = C8O.mcpAuth.setupLocalAgent(context, agent, mcpToken);
+↓Result [steps.JsonToXmlStep-1788367781848]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpLocalAgentSetupResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓agent [variables.RequestableVariable-1788367781877]: 
+  comment: 'Local agent to configure: codex or vibe.'
+  description: 'Local agent to configure: codex or vibe.'
+  required: true
+  value: codex
+↓mcpToken [variables.RequestableVariable-1788367781906]: 
+  comment: Bearer token to validate and install in the local agent configuration.
+  description: Bearer token to validate and install in the local agent configuration.
+  required: true
+  value: 
+    - ↑traceable: false
+  visibility: 1

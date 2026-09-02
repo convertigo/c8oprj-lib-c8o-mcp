@@ -1,0 +1,21 @@
+accessibility: Hidden
+authenticatedContextRequired: true
+comment: Report MCP token administration availability for the current WEB_ADMIN session.
+↓Execute [steps.SimpleStep-1788357809507]: 
+  comment: Report MCP token administration availability for the current WEB_ADMIN session.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpTokenResult = C8O.mcpAuth.adminStatus(context);
+↓Result [steps.JsonToXmlStep-1788357809525]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpTokenResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result

@@ -1,0 +1,21 @@
+accessibility: Hidden
+authenticatedContextRequired: true
+comment: List durable MCP token metadata for the current WEB_ADMIN session without exposing secrets.
+↓Execute [steps.SimpleStep-1788357809543]: 
+  comment: List durable MCP token metadata for the current WEB_ADMIN session without exposing secrets.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpTokenResult = C8O.mcpAuth.list(context);
+↓Result [steps.JsonToXmlStep-1788357809561]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpTokenResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result

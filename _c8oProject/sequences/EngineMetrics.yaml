@@ -1,7 +1,7 @@
 comment: Return runtime metrics for the Convertigo engine
 ↓CollectMetrics [steps.SimpleStep-1760712703632]: 
   expression: |
-    var runtime = java.lang.Runtime.getRuntime();
+    'var runtime = java.lang.Runtime.getRuntime();
     var mb = 1024 * 1024;
     var EngineStatistics = Packages.com.twinsoft.convertigo.engine.EngineStatistics;
     var HttpSessionListener = Packages.com.twinsoft.convertigo.engine.requesters.HttpSessionListener;
@@ -43,7 +43,7 @@ comment: Return runtime metrics for the Convertigo engine
       engineState: Packages.com.twinsoft.convertigo.engine.Engine.isStarted,
       startTime: startTimeValue,
       time: java.lang.System.currentTimeMillis()
-    };
+    };'
 ↓Json1 [steps.JsonToXmlStep-1760712703634]: 
   jsonObject: 
     - xmlizable: 

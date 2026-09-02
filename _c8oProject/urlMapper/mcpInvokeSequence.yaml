@@ -1,3 +1,0 @@
-path: /mcp/sequences/invoke
-↓Invoke [rest.PostOperation-1760700405002]:
-  targetRequestable: lib_ConvertigoMCP.InvokeSequence

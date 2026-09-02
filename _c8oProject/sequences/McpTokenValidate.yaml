@@ -1,0 +1,27 @@
+accessibility: Private
+comment: Validate a Convertigo MCP bearer token and return its non-secret authorization context.
+↓Execute [steps.SimpleStep-1788357809789]: 
+  comment: Validate a Convertigo MCP bearer token and return its non-secret authorization context.
+  expression: |
+    include("js/mcp_auth.js");
+    mcpTokenResult = C8O.mcpAuth.validate(token, context);
+↓Result [steps.JsonToXmlStep-1788357809806]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mcpTokenResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1788357809822]: 
+  comment: MCP bearer token to validate.
+  description: MCP bearer token to validate.
+  required: true
+  value: 
+    - ↑traceable: false
+  visibility: 1

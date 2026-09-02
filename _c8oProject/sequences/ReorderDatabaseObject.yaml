@@ -1,7 +1,7 @@
 comment: Reorder or move a database object
 ↓Reorder [steps.SimpleStep-1760712703688]: 
   expression: |
-    var IContainerOrdered = Packages.com.twinsoft.convertigo.beans.core.IContainerOrdered;
+    'var IContainerOrdered = Packages.com.twinsoft.convertigo.beans.core.IContainerOrdered;
     function parseJson(text, fallback) {
       if (text == null) {
         return fallback;
@@ -60,7 +60,7 @@ comment: Reorder or move a database object
       qname: dbo.getFullQName(),
       parent: desiredParent.getFullQName(),
       after: afterValue == null ? null : Number(afterValue)
-    };
+    };'
 ↓Json1 [steps.JsonToXmlStep-1760712703690]: 
   jsonObject: 
     - xmlizable: 

@@ -1,9 +1,0 @@
-path: /mcp/properties/update
-↓UpdateProperties [rest.PostOperation-1760700424003]:
-  targetRequestable: lib_ConvertigoMCP.UpdateDatabaseObjectProperties
-  ↓qname [rest.FormParameter-1760700424006]:
-    mappedVariableName: qname
-    required: true
-  ↓properties [rest.FormParameter-1760700424007]:
-    mappedVariableName: properties
-    required: true

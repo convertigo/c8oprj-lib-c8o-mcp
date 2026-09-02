@@ -64,20 +64,33 @@ def configured_mcp_url(url):
     return base + (marker + fragment if marker else "")
 
 
-def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_status, expected_config_status, resolved_mcp_url):
+def run_case(
+    mcp_url,
+    vibe_home,
+    initial_config,
+    replace_config,
+    expected_skill_status,
+    expected_config_status,
+    resolved_mcp_url,
+    mcp_token=None,
+):
     vibe_home = Path(vibe_home)
     vibe_home.mkdir(parents=True, exist_ok=True)
     if initial_config is not None:
         (vibe_home / "config.toml").write_text(initial_config, encoding="utf-8")
 
+    variables = {
+        "vibeHome": str(vibe_home),
+        "mcpUrl": resolved_mcp_url,
+        "replaceConfig": replace_config,
+    }
+    if mcp_token is not None:
+        variables["mcpToken"] = mcp_token
+
     result = requestable_execute(
         mcp_url,
         "lib_ConvertigoMCP._setupVibe",
-        {
-            "vibeHome": str(vibe_home),
-            "mcpUrl": resolved_mcp_url,
-            "replaceConfig": replace_config,
-        },
+        variables,
     )
 
     assert_true(result.get("skillStatus") == expected_skill_status, f"Unexpected skillStatus: {result}")
@@ -85,6 +98,7 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
     assert_true(result.get("configStatus") == expected_config_status, f"Unexpected configStatus: {result}")
     assert_true(result.get("resolvedMcpUrl") == resolved_mcp_url, f"Unexpected resolvedMcpUrl: {result}")
     assert_true(result.get("configuredMcpUrl") == configured_mcp_url(resolved_mcp_url), f"Unexpected configuredMcpUrl: {result}")
+    assert_true(bool(result.get("tokenConfigured")) == bool(mcp_token), f"Unexpected tokenConfigured: {result}")
 
     skill_path = Path(result["skillPath"])
     agents_path = Path(result["agentsPath"])
@@ -140,12 +154,15 @@ def run_case(mcp_url, vibe_home, initial_config, replace_config, expected_skill_
             "[[mcp_servers]]",
             'name = "Convertigo"',
             f'url = "{configured_mcp_url(resolved_mcp_url)}"',
+            '"X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2"',
             "[tools.Convertigo_project-list]",
             "[tools.Convertigo_requestable-execute]",
             "[tools.Convertigo_databaseobject-tree-apply]",
             "[tools.Convertigo_project-save]",
         ],
     )
+    if mcp_token:
+        contains_lines(config_text, [f'Authorization = "Bearer {mcp_token}"'])
     return result
 
 
@@ -191,6 +208,17 @@ def main():
             "created",
             "created",
             args.resolved_mcp_url + "?transport=managed&jsonOnly=false",
+        )
+
+        run_case(
+            args.mcp_url,
+            base / "token",
+            None,
+            True,
+            "created",
+            "created",
+            args.resolved_mcp_url,
+            mcp_token="eyJhbGciOiJIUzI1NiJ9.invalid.signature",
         )
 
         stable_home = base / "idempotent"

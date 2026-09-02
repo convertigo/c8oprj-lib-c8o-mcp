@@ -1,7 +1,7 @@
 comment: Execute a sequence via the internal requester
 ↓Invoke [steps.SimpleStep-1760712703654]: 
   expression: |
-    function parseJson(text, fallback) {
+    'function parseJson(text, fallback) {
       if (text == null) {
         return fallback;
       }
@@ -86,7 +86,7 @@ comment: Execute a sequence via the internal requester
       sequence: String(targetSequence),
       contentType: contentType,
       payload: payloadOut
-    };
+    };'
 ↓Json1 [steps.JsonToXmlStep-1760712703656]: 
   jsonObject: 
     - xmlizable: 

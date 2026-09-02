@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Setup local Mistral Vibe onboarding for this MCP project
-  Generates or updates the convertigo-vibe-generalist skill, AGENTS.md, and config.toml under a target VIBE_HOME.
+  Generates or updates the skill, AGENTS.md, and config.toml, including an optional MCP bearer token.
 ↓IncludeHelpers [steps.SimpleStep-1782030194227]: 
   comment: Load the local Vibe setup helper.
   expression: include("js/setup_vibe.js");
@@ -32,3 +32,9 @@ comment: |
   comment: Set true to replace config.toml with a deterministic isolated Vibe harness config. Leave false for personal Vibe homes.
   description: Set true to replace config.toml with a deterministic isolated Vibe harness config. Leave false for personal Vibe homes.
   value: false
+↓mcpToken [variables.RequestableVariable-1788367781745]: 
+  comment: Optional MCP bearer token written as an Authorization header. Keep this value secret.
+  description: Optional MCP bearer token written as an Authorization header. Keep this value secret.
+  value: 
+    - ↑traceable: false
+  visibility: 1

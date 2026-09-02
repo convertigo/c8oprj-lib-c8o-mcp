@@ -524,7 +524,150 @@ C8O.setupVibe = C8O.setupVibe || {};
     ];
   }
 
-  function buildFullConfig(mcpUrl) {
+  function inlineMapEntries(line) {
+    var source = String(line || "");
+    var open = source.indexOf("{");
+    var close = source.lastIndexOf("}");
+    if (open < 0 || close <= open) {
+      return [];
+    }
+    var body = source.substring(open + 1, close);
+    var entries = [];
+    var start = 0;
+    var quote = "";
+    var escaped = false;
+    for (var i = 0; i <= body.length; i++) {
+      var character = i < body.length ? body.charAt(i) : ",";
+      if (escaped) {
+        escaped = false;
+      } else if (quote.length && character === "\\") {
+        escaped = true;
+      } else if (character === '"' || character === "'") {
+        quote = quote === character ? "" : (quote.length ? quote : character);
+      } else if (!quote.length && character === ",") {
+        var entry = trim(body.substring(start, i));
+        if (entry.length) {
+          entries.push(entry);
+        }
+        start = i + 1;
+      }
+    }
+    return entries;
+  }
+
+  function assignmentKey(line) {
+    var match = /^\s*([^=]+?)\s*=/.exec(String(line || ""));
+    if (!match) {
+      return "";
+    }
+    return trim(match[1]).replace(/^["']|["']$/g, "").toLowerCase();
+  }
+
+  function mcpHeadersLine(existingLine, mcpToken) {
+    var entries = inlineMapEntries(existingLine);
+    var byKey = {};
+    var order = [];
+    for (var i = 0; i < entries.length; i++) {
+      var key = assignmentKey(entries[i]);
+      if (key.length && !Object.prototype.hasOwnProperty.call(byKey, key)) {
+        order.push(key);
+      }
+      if (key.length) {
+        byKey[key] = entries[i];
+      }
+    }
+    var guidanceKey = "x-convertigo-guidance-version";
+    if (!Object.prototype.hasOwnProperty.call(byKey, guidanceKey)) {
+      order.push(guidanceKey);
+    }
+    byKey[guidanceKey] = '"X-Convertigo-Guidance-Version" = "' + tomlEscape(C8O.MCP_GUIDANCE_VERSION) + '"';
+    var token = trim(mcpToken);
+    if (token.length) {
+      var authorizationKey = "authorization";
+      if (!Object.prototype.hasOwnProperty.call(byKey, authorizationKey)) {
+        order.push(authorizationKey);
+      }
+      byKey[authorizationKey] = 'Authorization = "Bearer ' + tomlEscape(token) + '"';
+    }
+    var merged = [];
+    for (var orderIndex = 0; orderIndex < order.length; orderIndex++) {
+      merged.push(byKey[order[orderIndex]]);
+    }
+    return "headers = { " + merged.join(", ") + " }";
+  }
+
+  function findConvertigoMcpServerRange(lines) {
+    for (var i = 0; i < lines.length; i++) {
+      if (trim(lines[i]) !== "[[mcp_servers]]") {
+        continue;
+      }
+      var end = lines.length;
+      for (var j = i + 1; j < lines.length; j++) {
+        if (/^\s*\[.+\]\s*$/.test(lines[j])) {
+          end = j;
+          break;
+        }
+      }
+      var isConvertigo = false;
+      for (var itemIndex = i + 1; itemIndex < end; itemIndex++) {
+        if (/^\s*name\s*=\s*["']Convertigo["']\s*$/.test(lines[itemIndex])) {
+          isConvertigo = true;
+          break;
+        }
+      }
+      if (isConvertigo) {
+        return { found: true, start: i, end: end };
+      }
+    }
+    return { found: false, start: -1, end: -1 };
+  }
+
+  function patchConvertigoMcpServer(lines, mcpUrl, mcpToken) {
+    var range = findConvertigoMcpServerRange(lines);
+    if (!range.found) {
+      if (lines.length && trim(lines[lines.length - 1]).length) {
+        lines.push("");
+      }
+      lines.push("[[mcp_servers]]");
+      lines.push('name = "Convertigo"');
+      lines.push('transport = "http"');
+      lines.push('url = "' + tomlEscape(mcpUrl) + '"');
+      lines.push("tool_timeout_sec = 180");
+      lines.push(mcpHeadersLine("", mcpToken));
+      lines.push("");
+      return lines;
+    }
+    var section = lines.slice(range.start, range.end);
+    var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
+    var timeoutLine = "tool_timeout_sec = 180";
+    var hasUrl = false;
+    var hasTimeout = false;
+    var hasHeaders = false;
+    for (var i = 1; i < section.length; i++) {
+      if (/^\s*url\s*=/.test(section[i])) {
+        section[i] = urlLine;
+        hasUrl = true;
+      } else if (/^\s*tool_timeout_sec\s*=/.test(section[i])) {
+        section[i] = timeoutLine;
+        hasTimeout = true;
+      } else if (/^\s*headers\s*=/.test(section[i])) {
+        section[i] = mcpHeadersLine(section[i], mcpToken);
+        hasHeaders = true;
+      }
+    }
+    if (!hasUrl) {
+      section.push(urlLine);
+    }
+    if (!hasTimeout) {
+      section.push(timeoutLine);
+    }
+    if (!hasHeaders) {
+      section.push(mcpHeadersLine("", mcpToken));
+    }
+    return lines.slice(0, range.start).concat(section).concat(lines.slice(range.end));
+  }
+
+  function buildFullConfig(mcpUrl, mcpToken) {
     var lines = [
       'active_model = "mistral-medium-3.5"',
       "include_prompt_detail = true",
@@ -535,6 +678,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       'transport = "http"',
       'url = "' + tomlEscape(mcpUrl) + '"',
       "tool_timeout_sec = 180",
+      mcpHeadersLine("", mcpToken),
       ""
     ];
     var tools = vibeToolNames();
@@ -562,7 +706,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     return false;
   }
 
-  function patchExistingConfig(existingText, mcpUrl, warnings) {
+  function patchExistingConfig(existingText, mcpUrl, mcpToken, warnings) {
     var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
     var lines = splitLines(text);
 
@@ -572,17 +716,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       warnings.push("Existing enabled_skills does not include convertigo-vibe-generalist; left unchanged to avoid rewriting user skill filters.");
     }
 
-    if (!hasConvertigoMcpServer(text)) {
-      if (lines.length && trim(lines[lines.length - 1]).length) {
-        lines.push("");
-      }
-      lines.push("[[mcp_servers]]");
-      lines.push('name = "Convertigo"');
-      lines.push('transport = "http"');
-      lines.push('url = "' + tomlEscape(mcpUrl) + '"');
-      lines.push("tool_timeout_sec = 180");
-      lines.push("");
-    }
+    lines = patchConvertigoMcpServer(lines, mcpUrl, mcpToken);
 
     var next = lines.join("\n").replace(/\n+$/, "\n");
     var tools = vibeToolNames();
@@ -597,11 +731,11 @@ C8O.setupVibe = C8O.setupVibe || {};
     return next.replace(/\n+$/, "\n");
   }
 
-  function patchConfigToml(existingText, mcpUrl, replaceConfig, warnings) {
+  function patchConfigToml(existingText, mcpUrl, mcpToken, replaceConfig, warnings) {
     var existing = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
     var next = (replaceConfig === true || trim(existing).length === 0)
-      ? buildFullConfig(mcpUrl)
-      : patchExistingConfig(existing, mcpUrl, warnings);
+      ? buildFullConfig(mcpUrl, mcpToken)
+      : patchExistingConfig(existing, mcpUrl, mcpToken, warnings);
     var normalizedExisting = existing.replace(/\n+$/, "\n");
     var normalizedNext = next.replace(/\n+$/, "\n");
     return {
@@ -649,7 +783,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     var agentsWrite = writeManagedFile(agentsFile, agentsContent, dryRun);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, replaceConfig, warnings);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, replaceConfig, warnings);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
@@ -661,6 +795,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       resolvedVibeHome: String(vibeHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
+      tokenConfigured: trim(opts.mcpToken).length > 0,
       skillPath: String(skillFile.getAbsolutePath()),
       agentsPath: String(agentsFile.getAbsolutePath()),
       configPath: String(configFile.getAbsolutePath()),
@@ -680,6 +815,7 @@ C8O.setupVibe = C8O.setupVibe || {};
 var setupVibeResult = C8O.setupVibe.run({
   vibeHome: (typeof vibeHome !== "undefined") ? vibeHome : "",
   mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
+  mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
   dryRun: (typeof dryRun !== "undefined") ? dryRun : false,
   replaceConfig: (typeof replaceConfig !== "undefined") ? replaceConfig : false
 });

@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Setup local Codex onboarding for this MCP project
-  Generates or updates the local convertigo-generalist skill under ~/.codex/skills and minimally patches ~/.codex/config.toml to register the convertigo MCP server.
+  Generates or updates the local Convertigo skills and config.toml, including an optional MCP bearer token.
 ↓IncludeHelpers [steps.SimpleStep-1773653288527]: 
   comment: Load the local Codex setup helper.
   expression: include("js/setup_codex.js");
@@ -28,3 +28,9 @@ comment: |
   comment: Set true to preview the generated skill and config patch without writing files.
   description: Set true to preview the generated skill and config patch without writing files.
   value: false
+↓mcpToken [variables.RequestableVariable-1788367781676]: 
+  comment: Optional MCP bearer token written as an Authorization header. Keep this value secret.
+  description: Optional MCP bearer token written as an Authorization header. Keep this value secret.
+  value: 
+    - ↑traceable: false
+  visibility: 1

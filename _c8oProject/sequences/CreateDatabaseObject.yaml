@@ -1,7 +1,7 @@
 comment: Create a new database object under a parent
 ↓Create [steps.SimpleStep-1760712703682]: 
   expression: |
-    var ClassUtils = Packages.org.apache.commons.lang3.ClassUtils;
+    'var ClassUtils = Packages.org.apache.commons.lang3.ClassUtils;
     var IContainerOrdered = Packages.com.twinsoft.convertigo.beans.core.IContainerOrdered;
     function parseJson(text, fallback) {
       if (text == null) {
@@ -130,7 +130,7 @@ comment: Create a new database object under a parent
       name: dbo.getName(),
       className: className,
       updated: updated
-    };
+    };'
 ↓Json1 [steps.JsonToXmlStep-1760712703684]: 
   jsonObject: 
     - xmlizable: 

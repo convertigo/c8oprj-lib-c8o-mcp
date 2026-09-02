@@ -153,32 +153,95 @@ C8O.setupCodex = C8O.setupCodex || {};
     return { found: true, start: start, end: end };
   }
 
-  function patchConfigToml(existingText, mcpUrl) {
+  function inlineMapEntries(line) {
+    var source = String(line || "");
+    var open = source.indexOf("{");
+    var close = source.lastIndexOf("}");
+    if (open < 0 || close <= open) {
+      return [];
+    }
+    var body = source.substring(open + 1, close);
+    var entries = [];
+    var start = 0;
+    var quote = "";
+    var escaped = false;
+    for (var i = 0; i <= body.length; i++) {
+      var character = i < body.length ? body.charAt(i) : ",";
+      if (escaped) {
+        escaped = false;
+      } else if (quote.length && character === "\\") {
+        escaped = true;
+      } else if (character === '"' || character === "'") {
+        quote = quote === character ? "" : (quote.length ? quote : character);
+      } else if (!quote.length && character === ",") {
+        var entry = trim(body.substring(start, i));
+        if (entry.length) {
+          entries.push(entry);
+        }
+        start = i + 1;
+      }
+    }
+    return entries;
+  }
+
+  function assignmentKey(line) {
+    var match = /^\s*([^=]+?)\s*=/.exec(String(line || ""));
+    if (!match) {
+      return "";
+    }
+    return trim(match[1]).replace(/^["']|["']$/g, "").toLowerCase();
+  }
+
+  function removeMisconfiguredTokenHeader(lines, warnings) {
+    var range = findSectionRange(lines, "mcp_servers.convertigo.env_http_headers");
+    if (!range.found) {
+      return lines;
+    }
+    var section = lines.slice(range.start, range.end);
+    var removed = false;
+    var kept = [section[0]];
+    for (var i = 1; i < section.length; i++) {
+      if (assignmentKey(section[i]) === "convertigo_mcp_token" && /=\s*["']eyJ[A-Za-z0-9_-]*\./.test(section[i])) {
+        removed = true;
+      } else {
+        kept.push(section[i]);
+      }
+    }
+    if (!removed) {
+      return lines;
+    }
+    if (warnings && warnings.push) {
+      warnings.push("Removed a token incorrectly stored in env_http_headers; Codex treats those values as environment variable names, not credentials.");
+    }
+    var hasAssignments = false;
+    for (var j = 1; j < kept.length; j++) {
+      if (assignmentKey(kept[j]).length) {
+        hasAssignments = true;
+        break;
+      }
+    }
+    var replacement = hasAssignments ? kept : [];
+    return lines.slice(0, range.start).concat(replacement).concat(lines.slice(range.end));
+  }
+
+  function upsertHeader(section, key, line) {
+    var expectedKey = String(key).toLowerCase();
+    for (var i = 1; i < section.length; i++) {
+      if (assignmentKey(section[i]) === expectedKey) {
+        section[i] = line;
+        return;
+      }
+    }
+    section.push(line);
+  }
+
+  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings) {
     var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
-    var lines = splitLines(text);
+    var lines = removeMisconfiguredTokenHeader(splitLines(text), warnings);
     var range = findSectionRange(lines, "mcp_servers.convertigo");
     var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
     var timeoutLine = "startup_timeout_sec = 60";
-    var guidanceHeaderEntry = '"X-Convertigo-Guidance-Version" = "' + tomlEscape(C8O.MCP_GUIDANCE_VERSION) + '"';
-    var guidanceHeadersLine = "http_headers = { " + guidanceHeaderEntry + " }";
-    var status = "unchanged";
-
-    var mergeGuidanceHeader = function (line) {
-      var source = String(line || "");
-      var open = source.indexOf("{");
-      var close = source.lastIndexOf("}");
-      if (open < 0 || close <= open) {
-        return guidanceHeadersLine;
-      }
-      var body = trim(source.substring(open + 1, close));
-      var guidancePattern = /(["']X-Convertigo-Guidance-Version["']\s*=\s*)["'][^"']*["']/;
-      if (guidancePattern.test(body)) {
-        body = body.replace(guidancePattern, guidanceHeaderEntry);
-      } else {
-        body = body.length ? body + ", " + guidanceHeaderEntry : guidanceHeaderEntry;
-      }
-      return "http_headers = { " + body + " }";
-    };
+    var token = trim(mcpToken);
 
     if (!range.found) {
       if (lines.length && trim(lines[lines.length - 1]).length) {
@@ -187,64 +250,83 @@ C8O.setupCodex = C8O.setupCodex || {};
       lines.push("[mcp_servers.convertigo]");
       lines.push(urlLine);
       lines.push(timeoutLine);
-      lines.push(guidanceHeadersLine);
-      status = text.length ? "updated" : "created";
-      return {
-        status: status,
-        text: lines.join("\n").replace(/\n+$/, "\n")
-      };
+      range = findSectionRange(lines, "mcp_servers.convertigo");
+    } else {
+      var sectionLines = lines.slice(range.start, range.end);
+      var replacedUrl = false;
+      var replacedTimeout = false;
+      for (var i = 1; i < sectionLines.length; i++) {
+        if (/^\s*url\s*=/.test(sectionLines[i])) {
+          sectionLines[i] = urlLine;
+          replacedUrl = true;
+        } else if (/^\s*startup_timeout_sec\s*=/.test(sectionLines[i])) {
+          sectionLines[i] = timeoutLine;
+          replacedTimeout = true;
+        }
+      }
+      if (!replacedUrl) {
+        sectionLines.splice(1, 0, urlLine);
+      }
+      if (!replacedTimeout) {
+        sectionLines.splice(2, 0, timeoutLine);
+      }
+      lines = lines.slice(0, range.start).concat(sectionLines).concat(lines.slice(range.end));
+      range = findSectionRange(lines, "mcp_servers.convertigo");
     }
 
-    var sectionLines = lines.slice(range.start, range.end);
-    var replacedUrl = false;
-    var replacedTimeout = false;
-    var replacedGuidanceHeaders = false;
-    for (var i = 1; i < sectionLines.length; i++) {
-      if (/^\s*url\s*=/.test(sectionLines[i])) {
-        if (trim(sectionLines[i]) !== urlLine) {
-          sectionLines[i] = urlLine;
-          status = "updated";
-        }
-        replacedUrl = true;
-        continue;
-      }
-      if (/^\s*startup_timeout_sec\s*=/.test(sectionLines[i])) {
-        if (trim(sectionLines[i]) !== timeoutLine) {
-          sectionLines[i] = timeoutLine;
-          status = "updated";
-        }
-        replacedTimeout = true;
-        continue;
-      }
-      if (/^\s*http_headers\s*=/.test(sectionLines[i])) {
-        var mergedGuidanceHeaders = mergeGuidanceHeader(sectionLines[i]);
-        if (trim(sectionLines[i]) !== mergedGuidanceHeaders) {
-          sectionLines[i] = mergedGuidanceHeaders;
-          status = "updated";
-        }
-        replacedGuidanceHeaders = true;
+    var migratedHeaders = [];
+    var parent = lines.slice(range.start, range.end);
+    var parentWithoutInlineHeaders = [];
+    for (var parentIndex = 0; parentIndex < parent.length; parentIndex++) {
+      if (/^\s*http_headers\s*=/.test(parent[parentIndex])) {
+        migratedHeaders = migratedHeaders.concat(inlineMapEntries(parent[parentIndex]));
+      } else {
+        parentWithoutInlineHeaders.push(parent[parentIndex]);
       }
     }
-    if (!replacedUrl) {
-      sectionLines.splice(1, 0, urlLine);
-      status = "updated";
+    lines = lines.slice(0, range.start).concat(parentWithoutInlineHeaders).concat(lines.slice(range.end));
+
+    var headersRange = findSectionRange(lines, "mcp_servers.convertigo.http_headers");
+    var headersSection;
+    if (headersRange.found) {
+      headersSection = lines.slice(headersRange.start, headersRange.end);
+    } else {
+      headersSection = ["[mcp_servers.convertigo.http_headers]"];
+      var refreshedParent = findSectionRange(lines, "mcp_servers.convertigo");
+      lines = lines.slice(0, refreshedParent.end).concat(headersSection).concat(lines.slice(refreshedParent.end));
+      headersRange = findSectionRange(lines, "mcp_servers.convertigo.http_headers");
+      headersSection = lines.slice(headersRange.start, headersRange.end);
     }
-    if (!replacedTimeout) {
-      sectionLines.splice(replacedUrl ? 2 : 2, 0, timeoutLine);
-      status = "updated";
+
+    for (var migratedIndex = 0; migratedIndex < migratedHeaders.length; migratedIndex++) {
+      var migratedKey = assignmentKey(migratedHeaders[migratedIndex]);
+      var exists = false;
+      for (var headerIndex = 1; headerIndex < headersSection.length; headerIndex++) {
+        if (assignmentKey(headersSection[headerIndex]) === migratedKey) {
+          exists = true;
+          break;
+        }
+      }
+      if (migratedKey.length && !exists) {
+        headersSection.push(migratedHeaders[migratedIndex]);
+      }
     }
-    if (!replacedGuidanceHeaders) {
-      sectionLines.push(guidanceHeadersLine);
-      status = "updated";
+    upsertHeader(
+      headersSection,
+      "X-Convertigo-Guidance-Version",
+      '"X-Convertigo-Guidance-Version" = "' + tomlEscape(C8O.MCP_GUIDANCE_VERSION) + '"'
+    );
+    if (token.length) {
+      upsertHeader(headersSection, "Authorization", 'Authorization = "Bearer ' + tomlEscape(token) + '"');
     }
-    var newLines = lines.slice(0, range.start).concat(sectionLines).concat(lines.slice(range.end));
-    var nextText = newLines.join("\n").replace(/\n+$/, "\n");
-    if (nextText === text.replace(/\n+$/, "\n")) {
-      status = "unchanged";
-    }
+    lines = lines.slice(0, headersRange.start).concat(headersSection).concat(lines.slice(headersRange.end));
+
+    var nextText = lines.join("\n").replace(/\n+$/, "\n");
+    var normalizedExisting = text.replace(/\n+$/, "\n");
     return {
-      status: status,
-      text: nextText
+      status: nextText === normalizedExisting ? "unchanged" : (trim(text).length ? "updated" : "created"),
+      text: nextText,
+      tokenConfigured: token.length > 0
     };
   }
 
@@ -544,7 +626,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeSkillWrite.status]);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, warnings);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
@@ -555,6 +637,8 @@ C8O.setupCodex = C8O.setupCodex || {};
       resolvedCodexHome: String(codexHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
+      tokenConfigured: patchedConfig.tokenConfigured,
+      configPath: String(configFile.getAbsolutePath()),
       skillPath: String(generalistSkillFile.getAbsolutePath()),
       skillPaths: {
         generalist: String(generalistSkillFile.getAbsolutePath()),
@@ -586,5 +670,6 @@ C8O.setupCodex = C8O.setupCodex || {};
 var setupCodexResult = C8O.setupCodex.run({
   codexHome: (typeof codexHome !== "undefined") ? codexHome : "",
   mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
+  mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
   dryRun: (typeof dryRun !== "undefined") ? dryRun : false
 });

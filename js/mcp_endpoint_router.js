@@ -322,7 +322,12 @@ if (methodName === "initialize") {
   }
 } else if (methodName === "tools/list") {
   callSequence = "mcp_tools_list";
-  callVariables = { paramsJson: paramsJson };
+  callVariables = {
+    paramsJson: paramsJson,
+    authKind: typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind
+      ? String(mcpAuthentication.kind)
+      : ""
+  };
   injectMeta(callVariables);
 } else if (methodName === "tools/call") {
   var toolNameRaw = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
@@ -340,6 +345,17 @@ if (methodName === "initialize") {
   toolArgs = C8O.guidance.stripToolArguments(toolArgs);
   var targetSequence = "";
   var mappingError = null;
+  var normalizedRequestedTool = String(toolNameRaw || "").trim().toLowerCase();
+  if (typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind === "nocode"
+      && normalizedRequestedTool.indexOf("nocode-") !== 0
+      && normalizedRequestedTool.indexOf("nocode.") !== 0) {
+    mappingError = {
+      status: "403",
+      code: "-32003",
+      message: "This token is restricted to Convertigo No Code tools",
+      data: { name: toolNameRaw, scope: mcpAuthentication.scope || "forms:write" }
+    };
+  }
   function sanitizeToken(value, replaceWithUnderscore) {
     var token = String(value || "").toLowerCase();
     if (replaceWithUnderscore) {
@@ -353,9 +369,9 @@ if (methodName === "initialize") {
     token = token.replace(/^[-_]+|[-_]+$/g, "");
     return token;
   }
-  if (!toolNameRaw || String(toolNameRaw).trim().length === 0) {
+  if (!mappingError && (!toolNameRaw || String(toolNameRaw).trim().length === 0)) {
     mappingError = { status: "400", code: "-32602", message: "Missing tool name" };
-  } else {
+  } else if (!mappingError) {
     var normalizedName = String(toolNameRaw).trim();
     if (normalizedName.indexOf('.') !== -1) {
       var dotParts = normalizedName.split('.');

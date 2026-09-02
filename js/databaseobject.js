@@ -517,6 +517,62 @@ C8O.dbo._getDescriptorMap = function (dbo) {
   return map;
 };
 
+C8O.dbo._isPageRootField = function (dbo, propertyName) {
+  if (!dbo || C8O.util.toTrimmedString(propertyName).toLowerCase() !== "isroot") {
+    return false;
+  }
+  try {
+    return /\.PageComponent$/.test(String(dbo.getClass().getName()));
+  } catch (_ignorePageRootClass) {
+    return false;
+  }
+};
+
+C8O.dbo._pageRootValue = function (dbo) {
+  try {
+    return dbo.isRoot === true || java.lang.Boolean.TRUE.equals(dbo.isRoot);
+  } catch (_ignorePageRootRead) {
+    return false;
+  }
+};
+
+C8O.dbo._applyPageRootValue = function (dbo, rawValue) {
+  var enabled = rawValue === true || java.lang.Boolean.TRUE.equals(rawValue) || C8O.util.toTrimmedString(rawValue).toLowerCase() === "true";
+  var previous = C8O.dbo._pageRootValue(dbo);
+  var application = dbo.getParent ? dbo.getParent() : null;
+
+  if (enabled) {
+    if (!application || typeof application.setRootPage !== "function") {
+      throw new Error("The page does not belong to an application that can select a root page.");
+    }
+    application.setRootPage(dbo);
+  } else if (previous) {
+    throw new Error("A current root page cannot be cleared directly; set isRoot=true on its replacement page.");
+  } else {
+    dbo.isRoot = false;
+  }
+
+  try {
+    dbo.hasChanged = true;
+  } catch (_ignorePageRootDirty) {}
+  try {
+    if (application) {
+      application.hasChanged = true;
+    }
+  } catch (_ignoreApplicationRootDirty) {}
+  try {
+    var project = dbo.getProject ? dbo.getProject() : null;
+    if (project) {
+      project.hasChanged = true;
+    }
+  } catch (_ignoreProjectRootDirty) {}
+
+  return {
+    previousValue: previous,
+    newValue: enabled
+  };
+};
+
 C8O.dbo._toJsArray = function (javaArrayLike) {
   var list = [];
   if (!javaArrayLike) {
@@ -1190,6 +1246,20 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         });
       } catch (applyDynamicError) {
         errors.push({ name: dynamicMeta.name, message: String(applyDynamicError) });
+      }
+      continue;
+    }
+
+    if (!pd && C8O.dbo._isPageRootField(dbo, requestedName)) {
+      try {
+        var pageRootUpdate = C8O.dbo._applyPageRootValue(dbo, rawSpec);
+        applied.push({
+          name: "isRoot",
+          previousValue: pageRootUpdate.previousValue,
+          newValue: pageRootUpdate.newValue
+        });
+      } catch (pageRootError) {
+        errors.push({ name: "isRoot", message: String(pageRootError) });
       }
       continue;
     }
@@ -2672,6 +2742,9 @@ C8O.dbo.getDefaultPropertiesMap = function (dbo, options) {
     }
     map[String(hint.name)] = hint.defaultValue;
   }
+  if (C8O.dbo._isPageRootField(dbo, "isRoot")) {
+    map.isRoot = false;
+  }
   return map;
 };
 
@@ -2780,6 +2853,10 @@ C8O.dbo.getCurrentPropertiesMap = function (dbo, options) {
       }
       map[String(dynamicMetaExtra.name)] = normalizedExtra;
     }
+  }
+
+  if (C8O.dbo._isPageRootField(dbo, "isRoot")) {
+    map.isRoot = C8O.dbo._pageRootValue(dbo);
   }
 
   return map;
