@@ -121,6 +121,14 @@ C8O.setupCodex = C8O.setupCodex || {};
     return text + fragment;
   }
 
+  function flowMcpUrl(url) {
+    var text = trim(url);
+    if (/\/api\/mcp(?=\?|#|$)/i.test(text)) {
+      return text.replace(/\/api\/mcp(?=\?|#|$)/i, "/api/flow-mcp");
+    }
+    return text;
+  }
+
   function tomlEscape(value) {
     return String(value == null ? "" : value)
       .replace(/\\/g, "\\\\")
@@ -192,8 +200,8 @@ C8O.setupCodex = C8O.setupCodex || {};
     return trim(match[1]).replace(/^["']|["']$/g, "").toLowerCase();
   }
 
-  function removeMisconfiguredTokenHeader(lines, warnings) {
-    var range = findSectionRange(lines, "mcp_servers.convertigo.env_http_headers");
+  function removeMisconfiguredTokenHeader(lines, serverName, warnings) {
+    var range = findSectionRange(lines, "mcp_servers." + serverName + ".env_http_headers");
     if (!range.found) {
       return lines;
     }
@@ -235,10 +243,10 @@ C8O.setupCodex = C8O.setupCodex || {};
     section.push(line);
   }
 
-  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings) {
-    var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
-    var lines = removeMisconfiguredTokenHeader(splitLines(text), warnings);
-    var range = findSectionRange(lines, "mcp_servers.convertigo");
+  function patchMcpServer(lines, serverName, mcpUrl, mcpToken, warnings) {
+    lines = removeMisconfiguredTokenHeader(lines, serverName, warnings);
+    var sectionName = "mcp_servers." + serverName;
+    var range = findSectionRange(lines, sectionName);
     var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
     var timeoutLine = "startup_timeout_sec = 60";
     var token = trim(mcpToken);
@@ -247,10 +255,10 @@ C8O.setupCodex = C8O.setupCodex || {};
       if (lines.length && trim(lines[lines.length - 1]).length) {
         lines.push("");
       }
-      lines.push("[mcp_servers.convertigo]");
+      lines.push("[" + sectionName + "]");
       lines.push(urlLine);
       lines.push(timeoutLine);
-      range = findSectionRange(lines, "mcp_servers.convertigo");
+      range = findSectionRange(lines, sectionName);
     } else {
       var sectionLines = lines.slice(range.start, range.end);
       var replacedUrl = false;
@@ -271,7 +279,7 @@ C8O.setupCodex = C8O.setupCodex || {};
         sectionLines.splice(2, 0, timeoutLine);
       }
       lines = lines.slice(0, range.start).concat(sectionLines).concat(lines.slice(range.end));
-      range = findSectionRange(lines, "mcp_servers.convertigo");
+      range = findSectionRange(lines, sectionName);
     }
 
     var migratedHeaders = [];
@@ -286,15 +294,16 @@ C8O.setupCodex = C8O.setupCodex || {};
     }
     lines = lines.slice(0, range.start).concat(parentWithoutInlineHeaders).concat(lines.slice(range.end));
 
-    var headersRange = findSectionRange(lines, "mcp_servers.convertigo.http_headers");
+    var headersSectionName = sectionName + ".http_headers";
+    var headersRange = findSectionRange(lines, headersSectionName);
     var headersSection;
     if (headersRange.found) {
       headersSection = lines.slice(headersRange.start, headersRange.end);
     } else {
-      headersSection = ["[mcp_servers.convertigo.http_headers]"];
-      var refreshedParent = findSectionRange(lines, "mcp_servers.convertigo");
+      headersSection = ["[" + headersSectionName + "]"];
+      var refreshedParent = findSectionRange(lines, sectionName);
       lines = lines.slice(0, refreshedParent.end).concat(headersSection).concat(lines.slice(refreshedParent.end));
-      headersRange = findSectionRange(lines, "mcp_servers.convertigo.http_headers");
+      headersRange = findSectionRange(lines, headersSectionName);
       headersSection = lines.slice(headersRange.start, headersRange.end);
     }
 
@@ -320,6 +329,15 @@ C8O.setupCodex = C8O.setupCodex || {};
       upsertHeader(headersSection, "Authorization", 'Authorization = "Bearer ' + tomlEscape(token) + '"');
     }
     lines = lines.slice(0, headersRange.start).concat(headersSection).concat(lines.slice(headersRange.end));
+
+    return lines;
+  }
+
+  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings) {
+    var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
+    var lines = splitLines(text);
+    lines = patchMcpServer(lines, "convertigo", mcpUrl, mcpToken, warnings);
+    lines = patchMcpServer(lines, "convertigo-flow", flowMcpUrl(mcpUrl), mcpToken, warnings);
 
     var nextText = lines.join("\n").replace(/\n+$/, "\n");
     var normalizedExisting = text.replace(/\n+$/, "\n");
@@ -637,6 +655,8 @@ C8O.setupCodex = C8O.setupCodex || {};
       resolvedCodexHome: String(codexHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
+      resolvedFlowMcpUrl: flowMcpUrl(resolvedMcpUrl),
+      configuredFlowMcpUrl: flowMcpUrl(compactMcpUrl),
       tokenConfigured: patchedConfig.tokenConfigured,
       configPath: String(configFile.getAbsolutePath()),
       skillPath: String(generalistSkillFile.getAbsolutePath()),

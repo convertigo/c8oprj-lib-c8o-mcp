@@ -71,6 +71,10 @@ def configured_mcp_url(url):
     return base + (marker + fragment if marker else "")
 
 
+def flow_mcp_url(url):
+    return re.sub(r"/api/mcp(?=\?|#|$)", "/api/flow-mcp", url, count=1, flags=re.IGNORECASE)
+
+
 def run_case(
     mcp_url,
     codex_home,
@@ -182,11 +186,15 @@ def run_case(
             "startup_timeout_sec = 60",
             "[mcp_servers.convertigo.http_headers]",
             '"X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2"',
+            "[mcp_servers.convertigo-flow]",
+            f'url = "{flow_mcp_url(configured_mcp_url(resolved_mcp_url))}"',
+            "[mcp_servers.convertigo-flow.http_headers]",
         ],
     )
     if mcp_token:
-        contains_lines(config_text, [f'Authorization = "Bearer {mcp_token}"'])
+        assert_true(config_text.count(f'Authorization = "Bearer {mcp_token}"') == 2, config_text)
         assert_true("[mcp_servers.convertigo.env_http_headers]" not in config_text, config_text)
+        assert_true("[mcp_servers.convertigo-flow.env_http_headers]" not in config_text, config_text)
     return result
 
 
