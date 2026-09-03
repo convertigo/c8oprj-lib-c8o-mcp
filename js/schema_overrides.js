@@ -101,7 +101,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
   function propertiesInputSchema() {
     return {
-      description: "Property updates as either a simple name/value map or an array of property entries from tree-get.",
+      description: "Property updates as either a simple name/value map or an array of property entries from tree-get. UI identifier values must be valid TypeScript identifiers (for example clockDisplay, never clock-display). scriptContent is one atomic string: mode=merge does not merge its internal Begin/End sections, so preserve the complete value returned by tree-get and edit only the intended sections.",
       oneOf: [
         {
           type: "object",
@@ -195,7 +195,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           enum: ["merge", "replace"],
           default: "merge",
-          description: "Allowed values: merge or replace. replace also removes children missing from the patched scope."
+          description: "Allowed values: merge or replace. replace also removes children missing from the patched scope. merge combines object properties, but string properties such as scriptContent are still replaced atomically."
         },
         tree: Object.assign(treeNodeSchema(), {
           description: "Canonical node payload using the tree-get shape. Read-only top-level fields such as qname, depth, hasChildren, directChildrenCount, subtreeCount, and priority are ignored."
@@ -299,8 +299,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        project: { type: "string", description: "Marketplace project name." },
-        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template." }
+        project: { type: "string", description: "Marketplace project name. For the standard NGX starter use template_ngxBuilderIonic." },
+        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template. Canonical standard NGX call: {project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"}." }
       },
       required: ["project"],
       additionalProperties: false
@@ -490,7 +490,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         target: { type: "string", description: "Parent QName. Append :FolderType only when you need a specific logical folder view." },
         includeBuiltIn: booleanFlagSchema(true, "Default true. Set false to hide built-in entries."),
         includeShared: booleanFlagSchema(true, "Default true. Set false to hide shared library entries."),
-        filter: { type: "string", description: "Case-insensitive filter on category and item names." },
+        filter: { type: "string", description: "Case-insensitive substring filter on category and item names. Use one specific term; a space-separated value is not an OR query." },
         limit: integerSchema(0, null, 0, "Maximum items returned. Leave empty or 0 for no limit.")
       },
       additionalProperties: false
@@ -1487,7 +1487,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       project: { type: "string" },
       message: { type: "string" },
       ready: { type: "boolean", description: "True when the live viewer is usable and no currently observed build signal still blocks it. This does not imply compileState=success." },
-      viewerReady: { type: "boolean", description: "True when a reachable live viewer has non-loader readiness evidence." },
+      viewerReady: { type: "boolean", description: "True when a reachable live viewer has rendered DOM evidence; a responding URL with an empty app-root is not ready." },
+      viewerHydrating: { type: "boolean", description: "True when the live URL responds but the Studio viewer application DOM is still empty." },
       compileState: { type: "string", enum: ["unknown", "building", "success", "failed", "not_required"], description: "Compilation evidence observed by this call, independent from viewer/browser readiness." },
       buildObserved: { type: "boolean", description: "True when this call observed a Studio live-build job or terminal compiler signal." },
       readyReason: { type: "string", enum: ["", "compiled", "generation_no_change", "browser_control_ready", "viewer_ready"], description: "Evidence that allowed the call to stop waiting." },
@@ -1526,7 +1527,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       browserDebugPortRequested: { type: "number" },
       browserDebugPortApplied: { type: "boolean" },
       browserDebugPortMatched: { type: "boolean" },
-      browserControlReady: { type: "boolean", description: "True only when the Studio JxBrowser CDP target is on the live viewer URL and can be used by Playwright/browser-control." },
+      browserControlReady: { type: "boolean", description: "True only when the Studio JxBrowser CDP target is on the live viewer URL and its application DOM is hydrated for Playwright/browser-control." },
       browserControlTargetUrl: { type: "string", description: "Current URL of the visible JxBrowser CDP target, often about:blank while the loader is still building." },
       browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint, including the requirement to use configured MCP tools rather than ad hoc scripts." },
       nextAction: nullableSchema(closedObjectSchema({
@@ -1545,6 +1546,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         statusText: { type: "string" },
         errorText: { type: "string" },
         bodyTextSample: { type: "string" },
+        appRootHydrated: { type: "boolean", description: "True when the Angular app-root contains rendered child elements." },
+        appRootChildCount: { type: "number" },
         progress: { type: "number" }
       }),
       build: closedObjectSchema({

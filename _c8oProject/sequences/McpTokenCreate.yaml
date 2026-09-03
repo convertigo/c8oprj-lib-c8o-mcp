@@ -4,6 +4,7 @@ comment: Create a durable, named and revocable MCP bearer token. The raw token i
 ↓Execute [steps.SimpleStep-1788357809581]: 
   comment: Create a durable, named and revocable MCP bearer token. The raw token is returned once.
   expression: |
+    org.apache.log4j.MDC.put("nolog", true);
     include("js/mcp_auth.js");
     mcpTokenResult = C8O.mcpAuth.createDurable(context, name, expiresInDays);
 ↓Result [steps.JsonToXmlStep-1788357809598]: 

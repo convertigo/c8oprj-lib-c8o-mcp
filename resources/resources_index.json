@@ -214,7 +214,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_platform_big_picture.md",
     "guideId": "convertigo/platform-big-picture",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "start",
       "platform",
@@ -876,7 +876,7 @@
       "fast-path"
     ],
     "prerequisites": [
-      "convertigo/recipe-starter-extension@1",
+      "convertigo/recipe-starter-extension@4",
       "convertigo/recipe-ngx-data-page@19"
     ],
     "recommendedTools": [

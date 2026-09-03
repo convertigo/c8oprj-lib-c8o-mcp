@@ -19,12 +19,16 @@ vm.runInNewContext(source, sandbox, { filename: "mobile_builder_common.js" });
 
 const classify = sandbox.C8O.mobileBuilderCommon.classifyReadiness;
 const isCompileErrorMessage = sandbox.C8O.mobileBuilderCommon.isCompileErrorMessage;
+const pushCompileError = sandbox.C8O.mobileBuilderCommon.pushCompileError;
 const hasViewerReadyEvidence = sandbox.C8O.mobileBuilderCommon.hasViewerReadyEvidence;
+const browserHasRenderedDocument = sandbox.C8O.mobileBuilderCommon.browserHasRenderedDocument;
 const deriveViewerHomeUrl = sandbox.C8O.mobileBuilderCommon.deriveViewerHomeUrl;
 
 assert.strictEqual(typeof classify, "function");
 assert.strictEqual(typeof isCompileErrorMessage, "function");
+assert.strictEqual(typeof pushCompileError, "function");
 assert.strictEqual(typeof hasViewerReadyEvidence, "function");
+assert.strictEqual(typeof browserHasRenderedDocument, "function");
 
 const stateOnlyGuard = openSource.indexOf("if (stateOnly === true)");
 const debugPortMutation = openSource.indexOf("editor.setBrowserDebugPort(browserDebugPort)");
@@ -57,12 +61,43 @@ assert.strictEqual(
   "viewerHomeUrl must follow the actual root page segment"
 );
 
+const oversizedCompileResult = { compileErrors: [] };
+for (let index = 0; index < 8; index += 1) {
+  pushCompileError(oversizedCompileResult, {
+    level: "error",
+    category: "Studio",
+    message: `TS2339-${index} ` + "x".repeat(12000),
+    extra: "y".repeat(4000)
+  });
+}
+assert.strictEqual(oversizedCompileResult.compileErrors.length, 4,
+  "compile diagnostics must be capped to protect the agent context");
+assert.ok(oversizedCompileResult.compileErrors[0].message.length <= 6000);
+assert.ok(oversizedCompileResult.compileErrors[0].extra.length <= 1500);
+assert.match(oversizedCompileResult.compileErrors[0].message, /diagnostic truncated/);
+
 assert.strictEqual(hasViewerReadyEvidence({}, {}, {
   hasBrowser: true,
   currentUrl: "http://localhost:4200/index.html",
   title: "Convertigo FlashUpdate",
   bodyTextSample: "Launching Application"
 }, "http://localhost:4200"), false, "the transient Studio loader is not viewer-ready evidence");
+
+assert.strictEqual(hasViewerReadyEvidence({}, {}, {
+  hasBrowser: true,
+  currentUrl: "http://localhost:4200/home",
+  title: "Clock",
+  bodyTextSample: "",
+  appRootHydrated: false
+}, "http://localhost:4200"), false, "a viewer URL with an empty app-root must not be reported ready");
+
+assert.strictEqual(hasViewerReadyEvidence({}, {}, {
+  hasBrowser: true,
+  currentUrl: "http://localhost:4200/home",
+  title: "Clock",
+  bodyTextSample: "",
+  appRootHydrated: true
+}, "http://localhost:4200"), true, "a hydrated app-root is sufficient for a visual app without text");
 
 assert.strictEqual(
   isCompileErrorMessage("", "NG5002: Parser Error: Unexpected token Intl [plugin angular-compiler]", "error"),
@@ -116,5 +151,12 @@ assert.strictEqual(classify({
   generationNoChange: true,
   reportedBuilding: true
 }).compileState, "not_required");
+
+assert.strictEqual(classify({
+  viewerReady: false,
+  browserControlReady: false,
+  generationNoChange: true,
+  waitingForViewerHydration: true
+}).ready, false, "generation_no_change must not bypass viewer hydration");
 
 console.log("mobile builder readiness decision tests passed");

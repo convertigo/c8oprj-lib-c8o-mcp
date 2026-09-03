@@ -4,7 +4,7 @@ if (typeof C8O === "undefined") {
 
 // Bump this value whenever setup-generated skills or mandatory MCP onboarding
 // guidance changes in a way agents should detect before mutating projects.
-C8O.MCP_GUIDANCE_VERSION = "2026-08-28.batch-reveal-v2";
+C8O.MCP_GUIDANCE_VERSION = "2026-09-03.viewer-hydration-v1";
 
 C8O.guidance = C8O.guidance || {};
 

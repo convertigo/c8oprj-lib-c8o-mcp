@@ -56,6 +56,44 @@ if (!treeObject) {
   throw new Error("tree is required and must be a JSON object.");
 }
 
+function treeApplyPropertyValue(properties, propertyName) {
+  if (!properties) {
+    return null;
+  }
+  if (!Array.isArray(properties)) {
+    return Object.prototype.hasOwnProperty.call(properties, propertyName) ? properties[propertyName] : null;
+  }
+  for (var propertyIndex = 0; propertyIndex < properties.length; propertyIndex++) {
+    var propertyEntry = properties[propertyIndex] || {};
+    var entryName = asTrimmed(propertyEntry.name || propertyEntry.key || propertyEntry.property);
+    if (entryName === propertyName) {
+      return propertyEntry.value !== undefined ? propertyEntry.value : propertyEntry.newValue;
+    }
+  }
+  return null;
+}
+
+function validateTreeApplyIdentifiers(node, path) {
+  if (!node || typeof node !== "object") {
+    return;
+  }
+  var identifier = treeApplyPropertyValue(node.properties, "identifier");
+  var identifierText = asTrimmed(identifier);
+  if (identifierText.length && !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(identifierText)) {
+    treeApplyInputErrors.push(path + ".properties.identifier must be a valid TypeScript identifier (for example clockDisplay, never clock-display). Got: " + identifierText);
+  }
+  if (Array.isArray(node.children)) {
+    for (var childIndex = 0; childIndex < node.children.length; childIndex++) {
+      validateTreeApplyIdentifiers(node.children[childIndex], path + ".children[" + childIndex + "]");
+    }
+  }
+}
+
+validateTreeApplyIdentifiers(treeObject, "tree");
+if (treeApplyInputErrors.length > 0) {
+  throw new Error(treeApplyInputErrors.join(" "));
+}
+
 var treeQName = asTrimmed(treeObject.qname);
 if (treeQName.length) {
   var normalizedTargetQName = "";

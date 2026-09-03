@@ -4,6 +4,7 @@ comment: Create a short-lived stateless MCP bearer token for the trusted integra
 ↓Execute [steps.SimpleStep-1788357809715]: 
   comment: Create a short-lived stateless MCP bearer token for the trusted integrated Assistant and Agent Bridge.
   expression: |
+    org.apache.log4j.MDC.put("nolog", true);
     include("js/mcp_auth.js");
     mcpTokenResult = C8O.mcpAuth.createManaged(context, label, ttlSeconds);
 ↓Result [steps.JsonToXmlStep-1788357809734]: 

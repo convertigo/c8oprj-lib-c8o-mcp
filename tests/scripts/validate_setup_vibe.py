@@ -154,7 +154,7 @@ def run_case(
             "[[mcp_servers]]",
             'name = "Convertigo"',
             f'url = "{configured_mcp_url(resolved_mcp_url)}"',
-            '"X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2"',
+            '"X-Convertigo-Guidance-Version" = "2026-09-03.viewer-hydration-v1"',
             "[tools.Convertigo_project-list]",
             "[tools.Convertigo_requestable-execute]",
             "[tools.Convertigo_databaseobject-tree-apply]",

@@ -28,6 +28,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var deriveViewerBaseUrl = helper.deriveViewerBaseUrl;
   var deriveViewerHomeUrl = helper.deriveViewerHomeUrl;
   var browserShowsInstaller = helper.browserShowsInstaller;
+  var browserHasRenderedDocument = helper.browserHasRenderedDocument;
   var hasViewerReadyEvidence = helper.hasViewerReadyEvidence;
   var classifyReadiness = helper.classifyReadiness;
   var urlReachable = helper.urlReachable;
@@ -302,6 +303,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       statusText: "",
       errorText: "",
       bodyTextSample: "",
+      appRootHydrated: false,
+      appRootChildCount: 0,
       hasError: false,
       progress: 0
     };
@@ -333,6 +336,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 "var text=l1&&l1.textContent?String(l1.textContent):'';" +
                 "var preText=pre&&pre.textContent?String(pre.textContent):'';" +
                 "var bodyText=document.body&&document.body.innerText?String(document.body.innerText):'';" +
+                "var appRoot=document.querySelector('app-root');" +
+                "var appRootChildCount=appRoot&&appRoot.childElementCount?Number(appRoot.childElementCount):0;" +
                 "var overlayText='';" +
                 "try{overlayText=viteOverlay&&viteOverlay.shadowRoot?String(viteOverlay.shadowRoot.textContent||''):'';}catch(overlayError){}" +
                 "var diagnosticText=overlayText||preText;" +
@@ -346,6 +351,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                   "statusText:String(text||'')," +
                   "errorText:String(diagnosticText||text||'')," +
                   "bodyTextSample:String(bodyText||'').substring(0,800)," +
+                  "appRootHydrated:!!(appRoot&&appRootChildCount>0)," +
+                  "appRootChildCount:appRootChildCount," +
                   "loaderHasError:!!loaderHasError," +
                   "progress:progress," +
                   "messageHidden:!!(message&&message.style&&message.style.display==='none')" +
@@ -362,6 +369,15 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
           state.statusText = trim(parsed.statusText || "");
           state.errorText = trim(parsed.errorText || "");
           state.bodyTextSample = trim(parsed.bodyTextSample || "");
+          state.appRootHydrated = parsed.appRootHydrated === true;
+          try {
+            state.appRootChildCount = parseInt(String(parsed.appRootChildCount), 10);
+            if (isNaN(state.appRootChildCount) || state.appRootChildCount < 0) {
+              state.appRootChildCount = 0;
+            }
+          } catch (_ignoreAppRootChildCount) {
+            state.appRootChildCount = 0;
+          }
           state.hasError = parsed.loaderHasError === true || isCompileErrorMessage(parsed.errorText || "", parsed.statusText || "", "error");
           try {
             state.progress = parseInt(String(parsed.progress), 10);
@@ -446,6 +462,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       targetTitle.indexOf("convertigo flashupdate") !== -1 ||
       targetTitle.indexOf("launching application") !== -1
     ) {
+      return false;
+    }
+    if (browserState && browserState.hasBrowser === true && browserHasRenderedDocument(browserState) !== true) {
       return false;
     }
     var viewerBaseLower = lower(normalizeEndpoint(viewerBaseUrl || ""));
@@ -857,6 +876,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var generationNoChange = generationState.status === "no_change";
     var generationFailed = generationState.status === "failed";
     var terminalBuildObserved = false;
+    var viewerHydrating = false;
     var readinessDecision = {
       ready: false,
       viewerReady: false,
@@ -1015,9 +1035,19 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         : parsePortFromUrl(editorState && editorState.browserDebugUrl ? editorState.browserDebugUrl : "");
       var currentDebugPortMatched = browserDebugPortValue <= 0 || currentDebugPort === browserDebugPortValue;
       var currentBrowserControlReady = currentDebugPortMatched && isBrowserControlReady(editorState, browserState, candidateViewerBaseUrl);
-      var currentViewerReady = candidateUrl.length > 0 &&
-        urlReachable(candidateUrl, 1500) &&
+      var candidateReachable = candidateUrl.length > 0 && urlReachable(candidateUrl, 1500);
+      var currentViewerReady = candidateReachable &&
         hasViewerReadyEvidence(snapshot, editorState, browserState, candidateNodeUrl) === true;
+      var waitingForViewerHydration = waitValue === true &&
+        candidateReachable &&
+        browserState && browserState.hasBrowser === true &&
+        browserState.hasError !== true &&
+        browserShowsInstaller(browserState) !== true &&
+        browserHasRenderedDocument(browserState) !== true;
+      viewerHydrating = waitingForViewerHydration;
+      if (waitingForViewerHydration) {
+        snapshot.building = true;
+      }
       readinessDecision = classifyReadiness({
         viewerReady: currentViewerReady,
         browserControlReady: currentBrowserControlReady,
@@ -1029,6 +1059,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         waitingForScheduledCycle: waitingForScheduledCycle,
         waitingForPendingCycle: waitingForPendingCycle,
         waitingForViewerReload: waitingForViewerReload,
+        waitingForViewerHydration: waitingForViewerHydration,
         reportedBuilding: snapshot.building === true
       });
       return readinessDecision.ready === true;
@@ -1137,13 +1168,15 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         )
         : (status === "building"
           ? (
-            browserState && compactText(browserState.statusText || "").length
+            viewerHydrating
+              ? "Mobile builder is reachable, but the application DOM is still loading in the Studio viewer."
+              : (browserState && compactText(browserState.statusText || "").length
               ? ("Mobile builder is still building: " + compactText(browserState.statusText))
               : (waitValue === true
                 ? (viewerHomeUrl.length
                   ? "Mobile builder is still building; the viewer URL is available, but compilation did not reach a terminal state before the timeout."
                   : "Mobile builder is still building and did not expose the browser URL before the timeout.")
-                : "Mobile builder is building; call again with wait=true or stateOnly=true to poll readiness.")
+                : "Mobile builder is building; call again with wait=true or stateOnly=true to poll readiness."))
           )
           : (status === "starting"
             ? "Mobile builder launch requested; returning without waiting for readiness."
@@ -1178,6 +1211,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       message: message,
       ready: ready,
       viewerReady: viewerReady,
+      viewerHydrating: viewerHydrating,
       compileState: compileState,
       buildObserved: buildJobObserved === true || terminalBuildObserved === true,
       readyReason: readyReason,
@@ -1230,6 +1264,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         statusText: browserState && browserState.statusText ? browserState.statusText : "",
         errorText: browserState && browserState.errorText ? browserState.errorText : "",
         bodyTextSample: browserState && browserState.bodyTextSample ? browserState.bodyTextSample : "",
+        appRootHydrated: browserState && browserState.appRootHydrated === true,
+        appRootChildCount: browserState && browserState.appRootChildCount ? browserState.appRootChildCount : 0,
         progress: browserState && browserState.progress ? browserState.progress : 0
       },
       build: {

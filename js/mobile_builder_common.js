@@ -69,6 +69,14 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     return trim(value).replace(/\s+/g, " ");
   }
 
+  function boundedDiagnosticText(value, maxLength) {
+    var text = value == null ? "" : String(value);
+    if (text.length <= maxLength) {
+      return text;
+    }
+    return text.substring(0, Math.max(0, maxLength - 32)) + "\n...[diagnostic truncated]";
+  }
+
   function parseJsonText(value) {
     var text = trim(value);
     if (!text.length) {
@@ -126,12 +134,19 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     if (!result.compileErrors) {
       result.compileErrors = [];
     }
-    var entry = {
+    var rawEntry = {
       time: line.time == null ? "" : String(line.time),
       level: line.level == null ? "" : String(line.level),
       category: line.category == null ? "" : String(line.category),
       message: line.message == null ? "" : String(line.message),
       extra: line.extra == null ? "" : String(line.extra)
+    };
+    var entry = {
+      time: rawEntry.time,
+      level: rawEntry.level,
+      category: rawEntry.category,
+      message: boundedDiagnosticText(rawEntry.message, 6000),
+      extra: boundedDiagnosticText(rawEntry.extra, 1500)
     };
     var fingerprint = compactText(entry.level + " " + entry.category + " " + entry.message + " " + entry.extra);
     if (!fingerprint.length) {
@@ -148,6 +163,9 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       if (existingFingerprint === fingerprint) {
         return;
       }
+    }
+    if (result.compileErrors.length >= 4) {
+      return;
     }
     result.compileErrors.push(entry);
   }
@@ -258,19 +276,24 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     );
   }
 
+  function browserHasRenderedDocument(browserState) {
+    if (!browserState || browserState.hasBrowser !== true) {
+      return false;
+    }
+    if (browserState.hasError === true || browserShowsInstaller(browserState)) {
+      return false;
+    }
+    if (isBlankBrowserUrl(browserState.currentUrl || browserState.locationHref)) {
+      return false;
+    }
+    return browserState.appRootHydrated === true ||
+      compactText(browserState.bodyTextSample || "").length > 0;
+  }
+
   function hasViewerReadyEvidence(snapshot, editorState, browserState, nodeUrl) {
     var browserPresent = !!(browserState && browserState.hasBrowser === true);
     if (browserPresent) {
-      if (browserState.hasError === true) {
-        return false;
-      }
-      if (browserShowsInstaller(browserState)) {
-        return false;
-      }
-      if (isBlankBrowserUrl(browserState.currentUrl || browserState.locationHref)) {
-        return false;
-      }
-      return true;
+      return browserHasRenderedDocument(browserState);
     }
     if (snapshot && snapshot.compiled === true) {
       return true;
@@ -296,7 +319,8 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       opts.waitingForGeneration === true ||
       opts.waitingForScheduledCycle === true ||
       opts.waitingForPendingCycle === true ||
-      opts.waitingForViewerReload === true;
+      opts.waitingForViewerReload === true ||
+      opts.waitingForViewerHydration === true;
     var inferredBuildWait = opts.reportedBuilding === true &&
       browserControlReady !== true &&
       compileSucceeded !== true &&
@@ -433,7 +457,8 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
         result.terminal = true;
         result.compileErrors = [];
       }
-      if (isCompileErrorMessage(message, extra, line.level)) {
+      var compileErrorLine = isCompileErrorMessage(message, extra, line.level);
+      if (compileErrorLine) {
         result.failed = true;
         pushCompileError(result, line);
       }
@@ -449,13 +474,13 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       if (isRelevant && lower(line.category) === "context" && !openCandidate.length && result.port <= 0 && !containsAny(merged, signals)) {
         isRelevant = false;
       }
-      if (isRelevant) {
+      if (isRelevant && !compileErrorLine) {
         result.relevant.push({
           time: line.time == null ? "" : String(line.time),
           level: line.level == null ? "" : String(line.level),
           category: line.category == null ? "" : String(line.category),
-          message: message,
-          extra: extra
+          message: boundedDiagnosticText(message, 1200),
+          extra: boundedDiagnosticText(extra, 800)
         });
       }
     }
@@ -497,6 +522,7 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
   C8O.mobileBuilderCommon.lower = lower;
   C8O.mobileBuilderCommon.trim = trim;
   C8O.mobileBuilderCommon.compactText = compactText;
+  C8O.mobileBuilderCommon.boundedDiagnosticText = boundedDiagnosticText;
   C8O.mobileBuilderCommon.parseJsonText = parseJsonText;
   C8O.mobileBuilderCommon.isCompileErrorMessage = isCompileErrorMessage;
   C8O.mobileBuilderCommon.pushCompileError = pushCompileError;
@@ -505,6 +531,7 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
   C8O.mobileBuilderCommon.deriveViewerBaseUrl = deriveViewerBaseUrl;
   C8O.mobileBuilderCommon.deriveViewerHomeUrl = deriveViewerHomeUrl;
   C8O.mobileBuilderCommon.browserShowsInstaller = browserShowsInstaller;
+  C8O.mobileBuilderCommon.browserHasRenderedDocument = browserHasRenderedDocument;
   C8O.mobileBuilderCommon.hasViewerReadyEvidence = hasViewerReadyEvidence;
   C8O.mobileBuilderCommon.classifyReadiness = classifyReadiness;
   C8O.mobileBuilderCommon.urlReachable = urlReachable;

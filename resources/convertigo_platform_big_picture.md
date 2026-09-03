@@ -174,7 +174,7 @@ It should not force the agent to invent Convertigo from scratch.
 | HTTP-backed feature | `convertigo/recipe-http-facade@1`, then `convertigo/integration-http@1` | First get the pattern, then the connector subtleties. |
 | SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | First get the CRUD/facade path, then driver and typing subtleties. |
 | NGX data page | `convertigo/recipe-ngx-data-page@1`, then `convertigo/frontend-ngx@1` | First get the page pattern, then deeper UI rules. |
-| New project or POC from a starter | `convertigo/recipe-starter-extension@1` | This is the fastest high-signal path for many demos. |
+| New project or POC from a starter | `convertigo/recipe-starter-extension@4` | This is the fastest high-signal path for many demos. |
 
 ## Recommended MCP tools
 - `project-list`
