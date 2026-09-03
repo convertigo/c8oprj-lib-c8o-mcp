@@ -344,7 +344,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     return {
       status: nextText === normalizedExisting ? "unchanged" : (trim(text).length ? "updated" : "created"),
       text: nextText,
-      tokenConfigured: token.length > 0
+      tokenConfigured: trim(mcpToken).length > 0
     };
   }
 
