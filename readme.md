@@ -9,7 +9,7 @@ guides to Codex, Mistral Vibe, Claude Code, and other MCP clients.
 - Discovers, creates, edits, validates, saves, and reloads Convertigo projects.
 - Provides purpose-built recipes and skills instead of relying on raw project
   file edits.
-- Protects every MCP request with a bearer token.
+- Protects every MCP request with a bearer token shared with Flow MCP.
 - Includes a WEB_ADMIN application to create, list, and revoke durable tokens.
 - Supplies short-lived managed credentials to the integrated Tigo Assistant
   without exposing bearer tokens to the browser or conversation history.
@@ -46,9 +46,12 @@ CONVERTIGO_MCP_TOKEN=<token>
 ```
 
 Durable token metadata and the signing key are stored below
-`$WORKSPACE/mcp`. Each token has its own metadata file so the directory can be
-shared by several Convertigo nodes through an RWX volume without requiring a
-database. Revocation takes effect on every node sharing that directory.
+`$WORKSPACE/jwt/mcp`. Existing records below the former `$WORKSPACE/mcp`
+location remain readable and its signing key is adopted automatically on first
+use. Each token has its own metadata file so the directory can be shared by
+several Convertigo nodes through an RWX volume without requiring a database.
+Revocation takes effect on every node sharing that directory. The same token
+authenticates both `/api/mcp` and `/api/flow-mcp`.
 
 Tigo does not create durable entries for integrated Studio sessions. The
 authenticated Assistant requests a short-lived managed token and passes only

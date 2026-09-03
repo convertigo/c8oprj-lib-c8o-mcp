@@ -110,19 +110,35 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   }
 
   function rootDirectory() {
-    return new File(String(Engine.USER_WORKSPACE_PATH), "mcp");
+    var override = trim(Packages.java.lang.System.getProperty("convertigo.mcp.jwt.path"));
+    return override.length
+      ? new File(override)
+      : new File(new File(String(Engine.USER_WORKSPACE_PATH), "jwt"), "mcp");
   }
 
-  function keysDirectory() {
-    return new File(rootDirectory(), "keys");
+  function legacyRootDirectory() {
+    var override = trim(Packages.java.lang.System.getProperty("convertigo.mcp.jwt.path"));
+    return override.length ? rootDirectory() : new File(String(Engine.USER_WORKSPACE_PATH), "mcp");
   }
 
-  function activeDirectory() {
-    return new File(new File(rootDirectory(), "tokens"), "active");
+  function keysDirectory(root) {
+    return new File(root || rootDirectory(), "keys");
   }
 
-  function revokedDirectory() {
-    return new File(new File(rootDirectory(), "tokens"), "revoked");
+  function activeDirectory(root) {
+    return new File(new File(root || rootDirectory(), "tokens"), "active");
+  }
+
+  function revokedDirectory(root) {
+    return new File(new File(root || rootDirectory(), "tokens"), "revoked");
+  }
+
+  function tokenRoots() {
+    var canonical = rootDirectory();
+    var legacy = legacyRootDirectory();
+    return String(canonical.getAbsolutePath()) === String(legacy.getAbsolutePath())
+      ? [canonical]
+      : [canonical, legacy];
   }
 
   function ensureDirectory(directory) {
@@ -205,7 +221,16 @@ C8O.mcpAuth = C8O.mcpAuth || {};
       throw new Error("The MCP signing key is invalid.");
     }
     ensureDirectory(keysDirectory());
-    var candidate = randomBase64Url(64);
+    var candidate = "";
+    var legacyFile = new File(keysDirectory(legacyRootDirectory()), "signing-current.key");
+    if (legacyFile.isFile()) {
+      candidate = trim(readText(legacyFile));
+      if (candidate.length < 32) {
+        throw new Error("The legacy MCP signing key is invalid.");
+      }
+    } else {
+      candidate = randomBase64Url(64);
+    }
     try {
       writeCreateOnly(file, candidate + "\n");
       return candidate;
@@ -454,17 +479,22 @@ C8O.mcpAuth = C8O.mcpAuth || {};
 
   function listRecords() {
     var byId = {};
-    var directories = [activeDirectory(), revokedDirectory()];
+    var roots = tokenRoots();
+    var directories = [];
+    for (var rootIndex = 0; rootIndex < roots.length; rootIndex++) {
+      directories.push(activeDirectory(roots[rootIndex]));
+      directories.push(revokedDirectory(roots[rootIndex]));
+    }
     for (var d = 0; d < directories.length; d++) {
       var files = filesIn(directories[d]);
       for (var i = 0; i < files.length; i++) {
         try {
           var record = parseJsonFile(files[i]);
-          if (d === 1 && !trim(record.revokedAt).length) {
+          if (d % 2 === 1 && !trim(record.revokedAt).length) {
             record.revokedAt = isoDate(files[i].lastModified());
           }
           var item = publicRecord(record);
-          if (item.id.length && (!byId[item.id] || d === 1)) {
+          if (item.id.length && (!byId[item.id] || d % 2 === 1)) {
             byId[item.id] = item;
           }
         } catch (_invalidRecord) {}
@@ -517,10 +547,21 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   function revoke(contextObject, tokenId) {
     try {
       requireWebAdmin(contextObject);
-      var active = tokenFile(activeDirectory(), tokenId);
-      if (!active.isFile()) {
-        var revokedExisting = tokenFile(revokedDirectory(), tokenId);
-        if (revokedExisting.isFile()) {
+      var roots = tokenRoots();
+      var active = null;
+      var revokedExisting = null;
+      for (var rootIndex = 0; rootIndex < roots.length; rootIndex++) {
+        var activeCandidate = tokenFile(activeDirectory(roots[rootIndex]), tokenId);
+        var revokedCandidate = tokenFile(revokedDirectory(roots[rootIndex]), tokenId);
+        if (active === null && activeCandidate.isFile()) {
+          active = activeCandidate;
+        }
+        if (revokedExisting === null && revokedCandidate.isFile()) {
+          revokedExisting = revokedCandidate;
+        }
+      }
+      if (active === null) {
+        if (revokedExisting !== null) {
           return {
             status: "ok",
             token: publicRecord(parseJsonFile(revokedExisting)),
@@ -742,20 +783,22 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     if (!tokenId.length || !jti.length) {
       return invalid("missing_token_identifier", "The MCP bearer token identifier is missing.");
     }
-    var file;
+    var file = null;
     try {
-      file = tokenFile(activeDirectory(), tokenId);
+      var roots = tokenRoots();
+      for (var rootIndex = 0; rootIndex < roots.length; rootIndex++) {
+        if (tokenFile(revokedDirectory(roots[rootIndex]), tokenId).isFile()) {
+          return invalid("revoked_token", "The MCP bearer token has been revoked.");
+        }
+        var candidate = tokenFile(activeDirectory(roots[rootIndex]), tokenId);
+        if (file === null && candidate.isFile()) {
+          file = candidate;
+        }
+      }
     } catch (identifierError) {
       return invalid("invalid_token_identifier", String(identifierError.message || identifierError));
     }
-    try {
-      if (tokenFile(revokedDirectory(), tokenId).isFile()) {
-        return invalid("revoked_token", "The MCP bearer token has been revoked.");
-      }
-    } catch (revokedLookupError) {
-      return invalid("invalid_token_identifier", String(revokedLookupError.message || revokedLookupError));
-    }
-    if (!file.isFile()) {
+    if (file === null) {
       return invalid("revoked_or_unknown_token", "The MCP bearer token is revoked or unknown.");
     }
     try {
