@@ -178,21 +178,28 @@ def run_case(
     )
 
     config_text = load_text(config_path)
-    contains_lines(
-        config_text,
-        [
-            "[mcp_servers.convertigo]",
-            f'url = "{configured_mcp_url(resolved_mcp_url)}"',
-            "startup_timeout_sec = 60",
-            "[mcp_servers.convertigo.http_headers]",
-            '"X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2"',
-            "[mcp_servers.convertigo-flow]",
-            f'url = "{flow_mcp_url(configured_mcp_url(resolved_mcp_url))}"',
-            "[mcp_servers.convertigo-flow.http_headers]",
-        ],
-    )
+    expected_lines = [
+        "[mcp_servers.convertigo]",
+        f'url = "{configured_mcp_url(resolved_mcp_url)}"',
+        "startup_timeout_sec = 60",
+        "[mcp_servers.convertigo.http_headers]",
+        '"X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2"',
+    ]
+    flow_enabled = bool(result.get("configuredFlowMcpUrl"))
+    if flow_enabled:
+        expected_lines.extend(
+            [
+                "[mcp_servers.convertigo-flow]",
+                f'url = "{flow_mcp_url(configured_mcp_url(resolved_mcp_url))}"',
+                "[mcp_servers.convertigo-flow.http_headers]",
+            ]
+        )
+    contains_lines(config_text, expected_lines)
+    if not flow_enabled:
+        assert_true("convertigo-flow" not in config_text, config_text)
     if mcp_token:
-        assert_true(config_text.count(f'Authorization = "Bearer {mcp_token}"') == 2, config_text)
+        expected_token_count = 2 if flow_enabled else 1
+        assert_true(config_text.count(f'Authorization = "Bearer {mcp_token}"') == expected_token_count, config_text)
         assert_true("[mcp_servers.convertigo.env_http_headers]" not in config_text, config_text)
         assert_true("[mcp_servers.convertigo-flow.env_http_headers]" not in config_text, config_text)
     return result

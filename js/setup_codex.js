@@ -9,8 +9,63 @@ if (typeof C8O === "undefined") {
 C8O.setupCodex = C8O.setupCodex || {};
 
 (function () {
+  var FLOW_MINIMUM_CONVERTIGO_VERSION = "8.4.0";
+  var FLOW_REQUIRED_PROJECTS = ["lib_flow_engine", "lib_flow_mcp"];
+
   function trim(value) {
     return value == null ? "" : String(value).trim();
+  }
+
+  function numericVersionParts(value) {
+    var match = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(trim(value));
+    if (match === null) {
+      return null;
+    }
+    return [Number(match[1] || 0), Number(match[2] || 0), Number(match[3] || 0)];
+  }
+
+  function versionAtLeast(value, minimum) {
+    var actual = numericVersionParts(value);
+    var required = numericVersionParts(minimum);
+    if (actual === null || required === null) {
+      return false;
+    }
+    for (var i = 0; i < 3; i++) {
+      if (actual[i] !== required[i]) {
+        return actual[i] > required[i];
+      }
+    }
+    return true;
+  }
+
+  function loadedProjectDirectory(projectName) {
+    try {
+      var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+      var project = manager.getOriginalProjectByName(String(projectName));
+      if (project === null || typeof project === "undefined") {
+        project = manager.getProjectByName(String(projectName));
+      }
+      var dir = project && project.getDirFile ? project.getDirFile() : null;
+      return dir !== null && typeof dir !== "undefined" && dir.isDirectory() === true;
+    } catch (_ignoreLoadedProjectDirectory) {
+      return false;
+    }
+  }
+
+  function flowCapabilityAvailable() {
+    var engineVersion = "";
+    try {
+      engineVersion = trim(Packages.com.twinsoft.convertigo.engine.Version.version);
+    } catch (_ignoreEngineProductVersion) {}
+    if (!versionAtLeast(engineVersion, FLOW_MINIMUM_CONVERTIGO_VERSION)) {
+      return false;
+    }
+    for (var i = 0; i < FLOW_REQUIRED_PROJECTS.length; i++) {
+      if (!loadedProjectDirectory(FLOW_REQUIRED_PROJECTS[i])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   function ensureTrailingPath(base, suffix) {
@@ -159,6 +214,11 @@ C8O.setupCodex = C8O.setupCodex || {};
       }
     }
     return { found: true, start: start, end: end };
+  }
+
+  function removeSection(lines, sectionName) {
+    var range = findSectionRange(lines, sectionName);
+    return range.found ? lines.slice(0, range.start).concat(lines.slice(range.end)) : lines;
   }
 
   function inlineMapEntries(line) {
@@ -333,13 +393,19 @@ C8O.setupCodex = C8O.setupCodex || {};
     return lines;
   }
 
-  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings) {
+  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings, enableFlow) {
     var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
     var lines = splitLines(text);
     lines = patchMcpServer(lines, "convertigo", mcpUrl, mcpToken, warnings);
-    lines = patchMcpServer(lines, "convertigo-flow", flowMcpUrl(mcpUrl), mcpToken, warnings);
+    if (enableFlow === true) {
+      lines = patchMcpServer(lines, "convertigo-flow", flowMcpUrl(mcpUrl), mcpToken, warnings);
+    } else {
+      lines = removeSection(lines, "mcp_servers.convertigo-flow.env_http_headers");
+      lines = removeSection(lines, "mcp_servers.convertigo-flow.http_headers");
+      lines = removeSection(lines, "mcp_servers.convertigo-flow");
+    }
 
-    var nextText = lines.join("\n").replace(/\n+$/, "\n");
+    var nextText = lines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/\n+$/, "\n");
     var normalizedExisting = text.replace(/\n+$/, "\n");
     return {
       status: nextText === normalizedExisting ? "unchanged" : (trim(text).length ? "updated" : "created"),
@@ -631,6 +697,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var codexHome = resolveCodexHome(opts.codexHome);
     var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
     var compactMcpUrl = configuredMcpUrl(resolvedMcpUrl);
+    var enableFlow = flowCapabilityAvailable();
     var skillsDir = new File(codexHome, "skills");
     var generalistSkillDir = new File(skillsDir, "convertigo-generalist");
     var generalistSkillFile = new File(generalistSkillDir, "SKILL.md");
@@ -644,19 +711,17 @@ C8O.setupCodex = C8O.setupCodex || {};
     var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeSkillWrite.status]);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, warnings);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, warnings, enableFlow);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
 
-    return {
+    var result = {
       skillStatus: combinedSkillStatus,
       configStatus: patchedConfig.status,
       resolvedCodexHome: String(codexHome.getAbsolutePath()),
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
-      resolvedFlowMcpUrl: flowMcpUrl(resolvedMcpUrl),
-      configuredFlowMcpUrl: flowMcpUrl(compactMcpUrl),
       tokenConfigured: patchedConfig.tokenConfigured,
       configPath: String(configFile.getAbsolutePath()),
       skillPath: String(generalistSkillFile.getAbsolutePath()),
@@ -684,6 +749,11 @@ C8O.setupCodex = C8O.setupCodex || {};
       ],
       dryRun: dryRun
     };
+    if (enableFlow) {
+      result.resolvedFlowMcpUrl = flowMcpUrl(resolvedMcpUrl);
+      result.configuredFlowMcpUrl = flowMcpUrl(compactMcpUrl);
+    }
+    return result;
   };
 })();
 
