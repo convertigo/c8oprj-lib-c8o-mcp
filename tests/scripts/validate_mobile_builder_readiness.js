@@ -31,9 +31,13 @@ assert.strictEqual(typeof hasViewerReadyEvidence, "function");
 assert.strictEqual(typeof browserHasRenderedDocument, "function");
 
 const stateOnlyGuard = openSource.indexOf("if (stateOnly === true)");
+const treeReload = openSource.indexOf("view.reloadDatabaseObject(appComponent)");
+const activeEditorLookup = openSource.indexOf("treeObject.activeEditor(false)");
 const debugPortMutation = openSource.indexOf("editor.setBrowserDebugPort(browserDebugPort)");
-assert.ok(stateOnlyGuard >= 0 && debugPortMutation > stateOnlyGuard,
-  "state-only probes must not recreate the Studio browser while reconciling the managed debug port");
+assert.ok(stateOnlyGuard >= 0 && treeReload > stateOnlyGuard && activeEditorLookup > stateOnlyGuard && debugPortMutation > stateOnlyGuard,
+  "state-only probes must return before refreshing the tree or opening the Studio editor");
+assert.match(openSource, /editorRefs\[editorIndex\]\.getEditor\(false\)[\s\S]*?No active NGX editor found; no launch requested[\s\S]*?return;[\s\S]*?view\.reloadDatabaseObject\(appComponent\)/,
+  "state-only probes must inspect only already-open editors");
 assert.match(openSource, /pendingBuildTimestamp > 0 &&\s*java\.lang\.System\.currentTimeMillis\(\) < buildSettleDeadline/,
   "an unobserved generated source cycle must stop blocking after the build settle window");
 assert.match(openSource, /stateOnlyStopped = stateOnlyValue === true &&\s*snapshot\.failed !== true &&\s*snapshot\.building !== true;/,

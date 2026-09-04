@@ -630,6 +630,38 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             return;
           }
 
+          if (stateOnly === true) {
+            var workbenchWindow = Packages.org.eclipse.ui.PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+            var activePage = workbenchWindow != null ? workbenchWindow.getActivePage() : null;
+            var existingEditor = null;
+            if (activePage != null) {
+              var ApplicationComponentEditorInput = Packages.com.twinsoft.convertigo.eclipse.editors.ngx.ApplicationComponentEditorInput;
+              var editorRefs = activePage.getEditorReferences();
+              for (var editorIndex = 0; editorIndex < editorRefs.length; editorIndex++) {
+                try {
+                  var editorInput = editorRefs[editorIndex].getEditorInput();
+                  if (editorInput instanceof ApplicationComponentEditorInput && editorInput.is(appComponent)) {
+                    existingEditor = editorRefs[editorIndex].getEditor(false);
+                    break;
+                  }
+                } catch (_ignoreExistingEditor) {}
+              }
+            }
+            if (existingEditor != null) {
+              result.editorRef = existingEditor;
+              result.editorState = readEditorState(existingEditor);
+            }
+            result.browserDebugPortMatched = browserDebugPort <= 0 ||
+              result.editorState.browserRemoteDebuggingPort === browserDebugPort;
+            result.opened = existingEditor != null;
+            result.message = existingEditor != null
+              ? (result.browserDebugPortMatched
+                ? "Existing NGX editor state read; no builder launch requested"
+                : "Existing NGX editor uses another browser debug port; a non-state-only call is required to reconcile it")
+              : "No active NGX editor found; no launch requested";
+            return;
+          }
+
           try {
             view.reloadDatabaseObject(appComponent);
           } catch (_ignoreReloadTree) {}
@@ -657,15 +689,6 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
               }
               result.browserDebugPortMatched = browserDebugPort <= 0 ||
                 result.editorState.browserRemoteDebuggingPort === browserDebugPort;
-              if (stateOnly === true) {
-                result.opened = editor != null;
-                result.message = editor != null
-                  ? (result.browserDebugPortMatched
-                    ? "Existing NGX editor state read; no builder launch requested"
-                    : "Existing NGX editor uses another browser debug port; a non-state-only call is required to reconcile it")
-                  : "No active NGX editor found; no launch requested";
-                return;
-              }
               if (editor != null) {
                 if (result.rootPageSegment.length && editor.selectPage) {
                   editor.selectPage(result.rootPageSegment);
@@ -696,11 +719,6 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             }
           } catch (activeError) {
             result.error = String(activeError);
-          }
-
-          if (stateOnly === true) {
-            result.message = "No active NGX editor found; no launch requested";
-            return;
           }
 
           try {
