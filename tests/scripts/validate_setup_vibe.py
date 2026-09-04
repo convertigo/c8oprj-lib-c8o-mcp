@@ -167,6 +167,9 @@ def run_case(
             "[[mcp_servers]]",
             'name = "Convertigo"',
             f'url = "{configured_mcp_url(resolved_mcp_url)}"',
+            "[mcp_servers.auth]",
+            'type = "static"',
+            "headers = { ",
             '"X-Convertigo-Guidance-Version" = "2026-09-04.vibe-serial-transport-v1"',
             "[tools.Convertigo_project-list]",
             "[tools.Convertigo_requestable-execute]",
@@ -176,6 +179,8 @@ def run_case(
     )
     if mcp_token:
         contains_lines(config_text, [f'Authorization = "Bearer {mcp_token}"'])
+    assert_true("[mcp_servers.headers]" not in config_text, "Legacy MCP headers table must be migrated under auth")
+    assert_true("[mcp_servers.auth.headers]" not in config_text, "MCP headers should use one deterministic inline auth map")
     return result
 
 
@@ -242,6 +247,48 @@ def main():
             "created",
             args.resolved_mcp_url,
             mcp_token="eyJhbGciOiJIUzI1NiJ9.invalid.signature",
+        )
+
+        invalid_vibe_225_config = "\n".join(
+            [
+                'active_model = "vibe-thinking"',
+                "",
+                "[[mcp_servers]]",
+                'name = "Convertigo"',
+                'transport = "http"',
+                'url = "http://localhost:18080/convertigo/api/mcp?jsonOnly=true"',
+                "tool_timeout_sec = 180",
+                "",
+                "[mcp_servers.headers]",
+                'X-Custom-Header = "preserved"',
+                'X-Convertigo-Guidance-Version = "old"',
+                "",
+                "[mcp_servers.auth]",
+                'type = "static"',
+                'api_key_env = "CONVERTIGO_MCP_TOKEN"',
+                'api_key_header = "Authorization"',
+                'api_key_format = "Bearer {token}"',
+                "",
+            ]
+        )
+        migrated = run_case(
+            args.mcp_url,
+            base / "vibe-225-migration",
+            invalid_vibe_225_config,
+            False,
+            "created",
+            "updated",
+            args.resolved_mcp_url,
+        )
+        migrated_config = load_text(migrated["configPath"])
+        contains_lines(
+            migrated_config,
+            [
+                'api_key_env = "CONVERTIGO_MCP_TOKEN"',
+                'api_key_header = "Authorization"',
+                'api_key_format = "Bearer {token}"',
+                'X-Custom-Header = "preserved"',
+            ],
         )
 
         stable_home = base / "idempotent"

@@ -692,13 +692,18 @@ C8O.setupVibe = C8O.setupVibe || {};
       }
       var end = lines.length;
       for (var j = i + 1; j < lines.length; j++) {
-        if (/^\s*\[.+\]\s*$/.test(lines[j])) {
+        var sectionName = trim(lines[j]);
+        var nestedConvertigoSection = sectionName === "[mcp_servers.headers]" ||
+          sectionName === "[mcp_servers.auth]" ||
+          sectionName === "[mcp_servers.auth.headers]";
+        if (/^\[\[.+\]\]$/.test(sectionName) ||
+            (/^\[.+\]$/.test(sectionName) && !nestedConvertigoSection)) {
           end = j;
           break;
         }
       }
       var isConvertigo = false;
-      for (var itemIndex = i + 1; itemIndex < end; itemIndex++) {
+      for (var itemIndex = i + 1; itemIndex < end && !/^\[.+\]$/.test(trim(lines[itemIndex])); itemIndex++) {
         if (/^\s*name\s*=\s*["']Convertigo["']\s*$/.test(lines[itemIndex])) {
           isConvertigo = true;
           break;
@@ -709,6 +714,86 @@ C8O.setupVibe = C8O.setupVibe || {};
       }
     }
     return { found: false, start: -1, end: -1 };
+  }
+
+  function collectHeaderEntries(entries, line) {
+    var inlineEntries = inlineMapEntries(line);
+    if (inlineEntries.length) {
+      for (var inlineIndex = 0; inlineIndex < inlineEntries.length; inlineIndex++) {
+        entries.push(inlineEntries[inlineIndex]);
+      }
+      return;
+    }
+    if (/^\s*[^#=]+\s*=/.test(String(line || ""))) {
+      entries.push(trim(line));
+    }
+  }
+
+  function normalizeConvertigoMcpAuth(section, mcpToken) {
+    var headerEntries = [];
+    var normalized = [];
+    var skippedHeaderSection = false;
+    var authStart = -1;
+    var authEnd = -1;
+
+    for (var i = 0; i < section.length; i++) {
+      var value = trim(section[i]);
+      if (value === "[mcp_servers.headers]" || value === "[mcp_servers.auth.headers]") {
+        skippedHeaderSection = true;
+        continue;
+      }
+      if (skippedHeaderSection && /^\[.+\]$/.test(value)) {
+        skippedHeaderSection = false;
+      }
+      if (skippedHeaderSection) {
+        collectHeaderEntries(headerEntries, section[i]);
+        continue;
+      }
+      if (/^\s*headers\s*=/.test(section[i])) {
+        collectHeaderEntries(headerEntries, section[i]);
+        continue;
+      }
+      normalized.push(section[i]);
+    }
+
+    for (var normalizedIndex = 0; normalizedIndex < normalized.length; normalizedIndex++) {
+      if (trim(normalized[normalizedIndex]) === "[mcp_servers.auth]") {
+        authStart = normalizedIndex;
+        authEnd = normalized.length;
+        for (var authIndex = authStart + 1; authIndex < normalized.length; authIndex++) {
+          if (/^\[.+\]$/.test(trim(normalized[authIndex]))) {
+            authEnd = authIndex;
+            break;
+          }
+        }
+        break;
+      }
+    }
+
+    var headersLine = mcpHeadersLine("headers = { " + headerEntries.join(", ") + " }", mcpToken);
+    if (authStart < 0) {
+      if (normalized.length && trim(normalized[normalized.length - 1]).length) {
+        normalized.push("");
+      }
+      normalized.push("[mcp_servers.auth]");
+      normalized.push('type = "static"');
+      normalized.push(headersLine);
+      return normalized;
+    }
+
+    var hasType = false;
+    for (var authLineIndex = authStart + 1; authLineIndex < authEnd; authLineIndex++) {
+      if (/^\s*type\s*=/.test(normalized[authLineIndex])) {
+        hasType = true;
+        break;
+      }
+    }
+    var additions = [];
+    if (!hasType) {
+      additions.push('type = "static"');
+    }
+    additions.push(headersLine);
+    return normalized.slice(0, authEnd).concat(additions).concat(normalized.slice(authEnd));
   }
 
   function patchConvertigoMcpServer(lines, mcpUrl, mcpToken) {
@@ -722,6 +807,9 @@ C8O.setupVibe = C8O.setupVibe || {};
       lines.push('transport = "http"');
       lines.push('url = "' + tomlEscape(mcpUrl) + '"');
       lines.push("tool_timeout_sec = 180");
+      lines.push("");
+      lines.push("[mcp_servers.auth]");
+      lines.push('type = "static"');
       lines.push(mcpHeadersLine("", mcpToken));
       lines.push("");
       return lines;
@@ -731,7 +819,6 @@ C8O.setupVibe = C8O.setupVibe || {};
     var timeoutLine = "tool_timeout_sec = 180";
     var hasUrl = false;
     var hasTimeout = false;
-    var hasHeaders = false;
     for (var i = 1; i < section.length; i++) {
       if (/^\s*url\s*=/.test(section[i])) {
         section[i] = urlLine;
@@ -739,9 +826,6 @@ C8O.setupVibe = C8O.setupVibe || {};
       } else if (/^\s*tool_timeout_sec\s*=/.test(section[i])) {
         section[i] = timeoutLine;
         hasTimeout = true;
-      } else if (/^\s*headers\s*=/.test(section[i])) {
-        section[i] = mcpHeadersLine(section[i], mcpToken);
-        hasHeaders = true;
       }
     }
     if (!hasUrl) {
@@ -750,9 +834,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     if (!hasTimeout) {
       section.push(timeoutLine);
     }
-    if (!hasHeaders) {
-      section.push(mcpHeadersLine("", mcpToken));
-    }
+    section = normalizeConvertigoMcpAuth(section, mcpToken);
     return lines.slice(0, range.start).concat(section).concat(lines.slice(range.end));
   }
 
@@ -767,6 +849,9 @@ C8O.setupVibe = C8O.setupVibe || {};
       'transport = "http"',
       'url = "' + tomlEscape(mcpUrl) + '"',
       "tool_timeout_sec = 180",
+      "",
+      "[mcp_servers.auth]",
+      'type = "static"',
       mcpHeadersLine("", mcpToken),
       ""
     ];
