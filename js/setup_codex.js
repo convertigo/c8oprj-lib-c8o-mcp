@@ -9,7 +9,7 @@ if (typeof C8O === "undefined") {
 C8O.setupCodex = C8O.setupCodex || {};
 
 (function () {
-  var FLOW_MINIMUM_CONVERTIGO_VERSION = "8.4.0";
+  var FLOW_MINIMUM_CONVERTIGO_VERSION = "8.5.0";
   var FLOW_REQUIRED_PROJECTS = ["lib_flow_engine", "lib_flow_mcp"];
 
   function trim(value) {

@@ -51,7 +51,7 @@ location remain readable and its signing key is adopted automatically on first
 use. Each token has its own metadata file so the directory can be shared by
 several Convertigo nodes through an RWX volume without requiring a database.
 Revocation takes effect on every node sharing that directory. On Convertigo
-8.4.0 or newer, when both experimental libraries `lib_flow_engine` and
+8.5.0 or newer, when both experimental libraries `lib_flow_engine` and
 `lib_flow_mcp` are loaded, the same token also authenticates their MCP
 endpoint. That alpha capability is otherwise neither configured nor required.
 
