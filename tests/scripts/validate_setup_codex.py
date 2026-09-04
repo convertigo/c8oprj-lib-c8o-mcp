@@ -137,13 +137,19 @@ def run_case(
             "## Tool economy and convergence",
             "already used successfully in the current conversation",
             "Common NGX contracts that do not require palette discovery",
+            "Skip `palette-list` and `palette-describe`",
             "UIPageEvent#UIPageEvent.viewEvent",
             "optimizeMutations:true",
             "Do not inspect `ALL_TOOLS`",
             "target QName in `target`, never in `qname`",
+            "Property patches also belong under `tree`",
+            "Keep structural proof compact",
             "one readiness check and one acceptance-oriented browser proof",
+            "implemented but functionally unvalidated",
             "## NGX authoring invariants",
             "trigger Angular change detection through the supported page context in the same callback",
+            "Every normal `UICustomAction` completion path must call `resolve(...)` or `reject(...)`",
+            "Never use `this.c8o.page.detectChanges()`",
             "preserve the complete existing string and every `Begin_c8o_...`",
             "Never recursively search a drive root, user profile, workspace root",
             "stateOnly:true, wait:true, timeoutSec:180",
@@ -189,7 +195,7 @@ def run_case(
         f'url = "{configured_mcp_url(resolved_mcp_url)}"',
         "startup_timeout_sec = 60",
         "[mcp_servers.convertigo.http_headers]",
-        '"X-Convertigo-Guidance-Version" = "2026-09-03.viewer-hydration-v1"',
+        '"X-Convertigo-Guidance-Version" = "2026-09-04.vibe-serial-transport-v1"',
     ]
     flow_enabled = bool(result.get("configuredFlowMcpUrl"))
     if flow_enabled:

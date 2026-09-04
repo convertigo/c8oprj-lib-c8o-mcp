@@ -21,6 +21,20 @@ Read this for new POCs, demos, or benchmarks that start from a marketplace start
 8. After useful mutations are complete, make one waited state check. If the first launch reports Node download, npm install, or a cold Angular build, use `mobile-builder-open({"project":"<targetProject>","stateOnly":true,"wait":true,"timeoutSec":180})` instead of repeated 30-second polls.
 9. Validate runtime and save.
 
+Do not combine a builder check with another MCP read in the same parallel tool turn unless the client explicitly guarantees concurrent calls on one MCP session. The portable default is sequential calls. Do not replace builder polling with shell `sleep`; the waited builder call owns readiness and timeout reporting.
+
+### Local-state UI fast path
+Use this shorter path when the new starter application only needs static content or local page state, with no backend, HTTP, SQL, or FullSync data:
+
+1. Import the starter and launch `mobile-builder-open({"project":"<targetProject>","wait":false})`.
+2. Read the exact entry page once with `databaseobject-tree-get({"target":"<targetProject>.Application.NgxApp.pg:Page","childrenDepth":4,"properties":"all"})`.
+3. Reuse the returned starter QNames and the common NGX contracts below. Do not call `palette-list` or `palette-describe` for them.
+4. Apply one coherent mutation plan. A property patch must use `tree.properties`, for example `databaseobject-tree-apply({"target":"<qname>","mode":"merge","tree":{"properties":{"isEnabled":false}}})`; top-level `properties` is invalid.
+5. Keep `batch-call` at its default compact response. A corrected argument-shape mistake is not a reason to request `responseDetail:"full"`.
+6. Read back only the changed root with `childrenDepth:2, properties:"changed"`, then perform one waited builder check and one acceptance-oriented browser proof as separate calls.
+
+Known contracts for this path are `UIStyle#UIStyle.styleContent`, `UIAttribute#UIAttribute.attrName/attrValue`, `UIDynamicElement#DivTag`, `UIText#UIText.textValue`, `UIPageEvent#UIPageEvent.viewEvent`, and `UICustomAction#UICustomAction.actionValue`. Palette discovery is only needed when the requested object type or property is outside this list and is not already present in the entry-page tree.
+
 ### What the starter is for
 The starter gives you:
 - a valid project structure
@@ -40,9 +54,12 @@ When no starter is explicitly named, use `template_ngxBuilderIonic`. Do not gues
 - Before changing a page `scriptContent`, read it with `properties:"all"`, preserve the complete existing string and every `Begin_c8o_...` / `End_c8o_...` section, then edit only the intended section. `mode:"merge"` replaces the whole string property; it does not merge script sections. Erasing template imports or generated event functions causes broad compile failures.
 - Every non-empty NGX `identifier` becomes an Angular/TypeScript reference and must match `[A-Za-z_$][A-Za-z0-9_$]*`, for example `clockDisplay`, never `clock-display`.
 - `databaseobject-tree-apply` takes its target QName in `target`, never in `qname`.
-- Common periodic-state objects do not require palette rediscovery: use `UIPageEvent#UIPageEvent.viewEvent` with `UICustomAction#UICustomAction.actionValue`, keep state in `page.local`, update change detection in the same callback, and clean up through a supported page-leave event.
+- Common periodic-state objects do not require palette rediscovery: use `UIPageEvent#UIPageEvent.viewEvent` with `UICustomAction#UICustomAction.actionValue`, keep state in `page.local`, call `page.ref.detectChanges()` in timer/subscription callbacks, and clean up through a supported page-leave event. Every normal `UICustomAction` completion path must call `resolve(...)` or `reject(...)`; its generated Promise otherwise remains pending and blocks the action chain.
+- Keep page-state syntax tied to its execution surface: generated Angular templates use `local.clockTime` or `{{ local.clockTime }}`; page `scriptContent` methods use `this.local.clockTime`; `UICustomAction.actionValue` callbacks use `page.local.clockTime`. Do not use `page.local` in a template or page `scriptContent`, and do not use `this.local` inside an action callback unless that callback contract explicitly binds `this`.
+- `UIPageEvent.viewEvent` accepts only these exact enum values: `onWillLoad`, `onDidLoad`, `onWillEnter`, `onDidEnter`, `onWillLeave`, `onDidLeave`, and `onWillUnload`. Do not use Ionic method-like guesses such as `onViewLoaded`, `onViewWillLeave`, `ionViewDidEnter`, or `ngOnDestroy`; an invalid property can otherwise leave the newly created event at its default value.
+- For periodic local state, start the timer/subscription from `onDidEnter` (or `onDidLoad` only when initialization must happen once after first render) and clean it up from `onWillLeave` or `onDidLeave`. Read back both event objects with `properties:"all"` and require two distinct accepted `viewEvent` values before saving. A start and cleanup action on the same lifecycle event is a failed implementation because cleanup may run immediately after startup.
 - Do not declare framework lifecycle methods such as `ngOnDestroy` in page `scriptContent` unless the live Convertigo contract explicitly provides that extension point. Use a supported page event for cleanup instead of guessing a generated method name.
-- When a timer, subscription, or external callback changes page state, mutate the state and call the supported page change detector in the same callback before claiming the UI updates live.
+- When a timer, subscription, or external callback changes page state, mutate the state and call `page.ref.detectChanges()` in the same callback before claiming the UI updates live. Never use `this.c8o.page.detectChanges()`.
 - Keep contracts, not starter internals, as the long-term reference.
 - For facade-backed pages, the starter recipe is only the project bootstrap. The page implementation rules come from the NGX data-page recipe, and that recipe overrides any temptation to use one `UICustom` fragment or page `scriptContent` transport.
 - A starter page that searches or displays content from an HTTP web service must call the facade through `UIDynamicAction#CallSequenceAction` and pass query/filter values with `UIControlVariable`. Open data APIs are only one example. Do not implement the search by adding a page method that calls `this.c8o.callJsonObject(...).async()` or `this.c8o.callJson(...)`.
@@ -79,6 +96,9 @@ When no starter is explicitly named, use `template_ngxBuilderIonic`. Do not gues
 - Agent spends too long discovering projects instead of using the prepared starter.
 - Agent guesses a marketplace starter name instead of importing `template_ngxBuilderIonic` or using `marketplace-list`.
 - Agent checks an inactive viewer before launching it, then repeats short readiness polls during a cold Node/npm build.
+- Agent performs broad palette discovery even though the entry-page tree and known primitive contracts already provide every required object shape.
+- Agent sends a property patch as top-level `properties` instead of `tree.properties`, causing an avoidable failed mutation cycle.
+- Agent combines a deep full-property tree read with a long builder wait, creating a very large response that slows every remaining model turn.
 - Agent overwrites the starter page `scriptContent`, removing template imports or event functions.
 - Agent uses HTML-style dashed values in NGX `identifier` properties and breaks generated TypeScript.
 - New work leaks into the wrong workspace project.
@@ -91,6 +111,7 @@ When no starter is explicitly named, use `template_ngxBuilderIonic`. Do not gues
 - Project import or project existence is explicit.
 - The target project name is used consistently in writes and validation.
 - Runtime proof shows the new behavior in the imported project, not in an unrelated workspace project.
+- Timers, live updates, and interactions require two observations showing the expected change or an equivalent browser-control assertion. Without that proof, report the implementation as functionally unvalidated rather than successful, even when compilation and server logs are green.
 - For backend-backed UI, tree readback shows `CallSequenceAction` and `UIControlVariable` under a real page event.
 - Tree readback does not show the primary data page body as `ngx.components.UICustom#UICustom` or `htmlTemplate`.
 

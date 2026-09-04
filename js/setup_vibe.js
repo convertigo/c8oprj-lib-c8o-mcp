@@ -182,7 +182,93 @@ C8O.setupVibe = C8O.setupVibe || {};
     return lines;
   }
 
+  function loadVibeRouteCatalog() {
+    var entry = c8oFindResourceByUri("convertigo://resources/convertigo-task-routes");
+    if (!entry) {
+      throw new Error("Missing Convertigo task route resource.");
+    }
+    var catalog = JSON.parse(c8oReadResourceFile(entry));
+    if (!catalog || !Array.isArray(catalog.routes) || !catalog.routes.length) {
+      throw new Error("Convertigo task route resource has no routes.");
+    }
+    for (var i = 0; i < catalog.routes.length; i++) {
+      var route = catalog.routes[i] || {};
+      var uris = (route.required || []).concat(route.fallback || []);
+      if (!trim(route.id).length || !trim(route.match).length || !Array.isArray(route.required) || !route.required.length) {
+        throw new Error("Invalid Convertigo task route at index " + i + ".");
+      }
+      for (var j = 0; j < uris.length; j++) {
+        if (!c8oFindResourceByUri(uris[j])) {
+          throw new Error("Convertigo task route " + route.id + " references an unknown resource: " + uris[j]);
+        }
+      }
+    }
+    return catalog;
+  }
+
+  function routeList(values) {
+    var items = Array.isArray(values) ? values : [];
+    var formatted = [];
+    for (var i = 0; i < items.length; i++) {
+      formatted.push("`" + trim(items[i]) + "`");
+    }
+    return formatted.join(" -> ");
+  }
+
+  function buildRoutedVibeSkillMarkdown(mcpUrl) {
+    var catalog = loadVibeRouteCatalog();
+    var routeLines = [];
+    for (var i = 0; i < catalog.routes.length; i++) {
+      var route = catalog.routes[i];
+      var line = "- `" + route.id + "`: " + trim(route.match) + ". Read " + routeList(route.required) + ".";
+      if (route.fallback && route.fallback.length) {
+        line += " Only if blocked, continue with " + routeList(route.fallback) + ".";
+      }
+      routeLines.push(line);
+    }
+    return [
+      "---",
+      "name: convertigo-vibe-generalist",
+      "description: Route Mistral Vibe Convertigo work to the smallest provider-neutral MCP resource set and keep all project authoring inside Convertigo MCP tools.",
+      "---",
+      "",
+      "# Convertigo Vibe Generalist",
+      "",
+      "This is a thin Vibe adapter. Convertigo MCP resources are the source of truth for platform knowledge and authoring contracts.",
+      "",
+      "## Bootstrap",
+      "",
+      "- Skill guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`.",
+      "- Once per conversation and MCP endpoint, read `convertigo://capabilities` and compare its `MCP guidance version`. Reuse that result on follow-up turns.",
+      "- Select exactly one primary route below before mutation. Read only its required resources in order. Read fallback resources only for a concrete unresolved question.",
+      "- Read an exact URI directly. When Vibe does not expose native MCP resource reads, call `Convertigo_requestable-execute` with `requestable:\"lib_ConvertigoMCP.mcp_resources_read\"` and `variables:{uri:\"<exact-uri>\"}`. Never list catalogs when the route already provides the URI.",
+      "",
+      "## Task routes",
+      ""
+    ].concat(routeLines).concat([
+      "",
+      "## Vibe adapter rules",
+      "",
+      "- Use the configured MCP server named `Convertigo`; its Vibe tool names use the `Convertigo_` prefix.",
+      "- Do not read repository `AGENT.md` or `TOOLS.md`, run shell or PowerShell discovery, scan the workspace, or edit project YAML and generated artifacts. Use the selected MCP resource and callable tool schemas.",
+      "- Keep the exact requested project name. Inspect and mutate only that project unless the user explicitly names a reference project.",
+      "- MCP arguments are structured values, not JSON strings. Treat the Convertigo MCP transport as serial: issue exactly one `Convertigo_*` tool call per assistant message, including reads. Concurrent calls can reset the shared Vibe MCP transport and turn otherwise independent operations into long `TaskGroup` failures.",
+      "- Never wait for Convertigo with shell `sleep`, PowerShell delays, or repeated short probes. Launch the builder once with `wait:false`, continue useful mutations, then make one serial `mobile-builder-open` call with `stateOnly:true`, `wait:true`, and a sufficient timeout.",
+      "- Treat `partial`, skipped properties, stale incompatible properties, failed operations, and failed readback as failures to repair before continuing.",
+      "- Save once after successful targeted readback. Use one final builder/runtime proof appropriate to the selected resource.",
+      "- Dynamic behavior requires an observation that proves the change over time or interaction. If browser control is unavailable, report it as implemented but functionally unvalidated.",
+      "- Do not use `Convertigo_rag-query` until the required route resource was read and still leaves a concrete gap.",
+      "",
+      "## Local MCP endpoint",
+      "",
+      "- Expected local MCP entry: `" + trim(mcpUrl) + "`",
+      "- Rerun `_setupVibe` when the endpoint or guidance version changes.",
+      ""
+    ]).join("\n");
+  }
+
   function buildSkillMarkdown(mcpUrl) {
+    return buildRoutedVibeSkillMarkdown(mcpUrl);
     var referenceLines = buildReferenceLines();
     return [
       "---",
@@ -219,6 +305,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "- For HTTP-backed apps, prove the application contract before choosing a provider or mutating the project: requested record/entity class, user-facing query/filter, collection shape, fields that prove each item is a real requested record, and adjacent artifacts that would not satisfy the request. Structured JSON alone is not proof if it contains only labels, suggestions, documents, metadata, or generic lookup results.",
       "- Do not install or modify the Codex `convertigo-generalist` skill from this Vibe adapter.",
       "- Keep the exact requested project name when technically valid.",
+      "- MCP arguments are structured values, not JSON text. Pass `databaseobject-tree-apply.tree` as an object and `batch-call.calls` as an array; never serialize either value into a string.",
       "- When restricting tools with `--enabled-tools`, repeat the flag once per tool. Do not pass a comma-separated list.",
       "- Work through Convertigo MCP source-object tools; never edit `_private/ionic`, `DisplayObjects`, `dist`, or generated artifacts.",
       "- Do not probe public HTTP URLs through guessed lib_ConvertigoMCP helpers such as `mcp_http_get`. Prove HTTP APIs only by creating a typed Convertigo HTTP transaction and executing that transaction.",
@@ -226,7 +313,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "- After the guide read, every project QName you inspect or mutate must start with the requested target project name, except the single `marketplace-import` template id and `lib_ConvertigoMCP.*` resource reads. Do not target generic roots such as `Convertigo`, `WorkSpace`, `Projects`, `C8O`, or another project. Do not create a project manually with `databaseobject-tree-apply`; project creation must come from `marketplace-import`.",
       "- Treat `status:\"partial\"`, skipped properties, stale incompatible properties, failed operations, child patch errors, failed palette creation, or metadata-only runtime output as failed proof to repair before continuing. If a partial create touched the UI tree, read back the affected root and delete/recreate the malformed child before adding more objects.",
       "- Never choose an HTTP API that requires credentials, API keys, tokens, usernames, demo accounts, or quota-limited sample access. Do not hide those values in backend defaults; choose a no-credential direct record endpoint or report proof incomplete.",
-      "- In Vibe, MCP tool calls in one assistant message may run concurrently. Use parallel calls only for independent reads; keep dependent mutations sequential.",
+      "- Treat Convertigo MCP calls as serial in Vibe. Issue exactly one `Convertigo_*` tool call per assistant message, including independent reads; concurrent calls can reset the shared transport.",
       "- Avoid broad `log-view` and broad deep `databaseobject-tree-get` in headless loops. Prefer targeted readback of the object just created or edited.",
       "- Stop after first green backend proof, final project save, and mobile-builder proof. External callers may perform independent validation.",
       "- After a green proof, readback, or successful delete, continue with the next required MCP mutation immediately. Keep reasoning short; do not spend a turn restating evidence or composing optional UI when the guide already gives the next required object.",
@@ -251,6 +338,8 @@ C8O.setupVibe = C8O.setupVibe || {};
       "## Core Rails",
       "",
       "- Fresh NGX app: import `template_ngxBuilderIonic` exactly once with the exact requested project name as imported project name, then mutate the visible entry page. Open the mobile builder only once, after backend, UI, save, and targeted readback are complete, as the final proof step.",
+      "- Fresh local-state NGX app: after import, read `<Project>.Application.NgxApp.pg:Page` once with the depth needed to capture the visible starter content. Reuse the returned QNames and the known contracts `UIStyle#UIStyle.styleContent`, `UIDynamicElement#DivTag.identifier`, and `UIText#UIText.textValue`; skip `project-list`, `palette-list`, and `palette-describe` unless the requested object type is genuinely outside those contracts.",
+      "- For a local-state page, keep dependent mutations sequential and compact: replace the visible starter content with one complete subtree, merge the page script while preserving every existing `Begin_c8o_` section, add one page style, perform one targeted readback, save once, then perform the final viewer check.",
       "- HTTP data app: keep `HttpConnector` + typed HTTP transaction + public facade sequence. Do not replace live web-service integration with stubs, hard-coded records, `SimpleStep`, or `JavaScriptStep` after proof failures.",
       "- Direct HTTP and facade proofs are green only when the live payload contains records that satisfy the application contract. If the payload is structured but represents adjacent artifacts, keep the rail and report proof incomplete instead of moving to UI work or switching provider.",
       "- If the first direct HTTP proof is metadata-only, empty, or malformed, repair only the same connector/transaction shape first: read back `server`, `baseDir`, `subDir`, and request-variable `httpName`, then retry the alternate slash shape before adding fixed technical variables, guessed headers, extra query variables, or changing provider.",
@@ -262,6 +351,8 @@ C8O.setupVibe = C8O.setupVibe || {};
       "- Every primary visible trigger must have a direct `UIText` child with a non-empty plain label before final save. A compiled empty button is a failed UI proof.",
       "- Facade output consumed by UI must be a public application contract such as `array`, `items`, `features`, or `{items,total,query}`; final UI must not read `out.transaction`, `transaction.document`, `HttpInfo`, or headers.",
       "- After deleting starter content, do not pause to design a large custom UI. Immediately create the page-enter local initializers, then the minimum visible data page: heading, query input bound with Local SmartSource, primary trigger with `UIText`, call action chain, result list, save, builder proof.",
+      "- A single hydrated DOM sample proves only that the viewer rendered that state. For timers, live updates, interactions, or other changing behavior, require two observations showing the expected change or an equivalent browser-control assertion. If those tools are unavailable, report the result as implemented but functionally unvalidated; do not say the application was created successfully or that the behavior is correct merely because compilation and server logs are green.",
+      "- Every normal `UICustomAction` completion path must call `resolve(...)` or `reject(...)`; Convertigo wraps `actionValue` in a Promise and an unsettled action blocks its event chain even when TypeScript compilation is green. In timer/subscription callbacks, update `page.local` and call `page.ref.detectChanges()`. Never use `this.c8o.page.detectChanges()`.",
       "",
       "## Important Guide URIs",
       "",
@@ -327,7 +418,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "- The active skill text is already in conversation context. Do not use shell, grep, or file-reading tools to rediscover installed skill files after bootstrap; read a named MCP guide directly only when the current task needs it.",
       "- Treat a `status:\"partial\"`, skipped property, or failed palette creation as a failed mutation to correct before continuing.",
       "- Never choose an HTTP API that requires credentials, API keys, tokens, usernames, demo accounts, or quota-limited sample access. Do not hide those values in backend defaults; choose a no-credential direct record endpoint or report proof incomplete.",
-      "- In Vibe, multiple MCP tool calls in one assistant message are executed concurrently. Use parallel calls only for independent reads. In headless automation loops, avoid parallel MCP mutations entirely; direct sequential mutations are easier to validate and recover.",
+      "- In Vibe, multiple MCP tool calls in one assistant message are executed concurrently. Issue exactly one `Convertigo_*` tool call per assistant message, including reads; direct serial calls avoid shared-transport resets and are easier to validate and recover.",
       "- Convertigo project descriptors are MCP-owned. Never read or edit `c8oProject.yaml`, `_c8oProject/**/*.yaml`, or `project.xml` as an authoring fallback. If a required MCP operation still fails after one targeted retry, stop and report the blocker without mutating project files.",
       "",
       "## Vibe isolation",
@@ -475,10 +566,8 @@ C8O.setupVibe = C8O.setupVibe || {};
       "",
       "- For Convertigo tasks, use the `convertigo-vibe-generalist` skill.",
       "- Use the `Convertigo` MCP server at `" + trim(mcpUrl) + "`.",
-      "- Compare the skill `Skill guidance version` with `MCP guidance version` in `convertigo://capabilities`; rerun `_setupVibe` if they differ.",
-      "- Pass `params._meta.convertigoGuidanceVersion` on the first guarded Convertigo tool call when the MCP client supports request metadata, or `X-Convertigo-Guidance-Version` for raw HTTP calls. Refresh setup on an `_meta.convertigoGuidanceWarning` version mismatch; a missing-version warning is advisory when the skill and capability versions already match.",
-      "- Read the MCP guides before project mutation; start with `convertigo://resources/convertigo-start` and `convertigo://resources/convertigo-vibe-start`.",
-      "- For fresh HTTP-backed NGX data apps, read `convertigo://resources/convertigo-vibe-http-ngx-fastpath` directly before mutation; use the broader start guides only as fallback.",
+      "- Let the skill route the task to the smallest required MCP resource set. Do not preload the general start guides.",
+      "- Compare the skill `Skill guidance version` with `MCP guidance version` in `convertigo://capabilities` once per conversation; rerun `_setupVibe` if they differ.",
       "- Keep benchmark runs isolated. Do not rely on global skills or Codex setup state.",
       "- Provide model credentials through the process environment, for example `MISTRAL_API_KEY`; do not copy secrets into this isolated home.",
       "- Do not edit generated Convertigo artifacts; mutate source objects through MCP tools.",

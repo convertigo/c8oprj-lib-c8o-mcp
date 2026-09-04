@@ -73,6 +73,42 @@ function treeApplyPropertyValue(properties, propertyName) {
   return null;
 }
 
+function treeApplyCodeText(value) {
+  if (value === null || typeof value === "undefined") {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (_ignoreCodeStringify) {
+    return String(value);
+  }
+}
+
+function treeApplyIsNgxCustomAction(node) {
+  var className = asTrimmed(node && node.className).toLowerCase();
+  return className === "uicustomaction" || /(?:^|[.#])uicustomaction$/.test(className);
+}
+
+function treeApplyIsNgxPageEvent(node) {
+  var className = asTrimmed(node && node.className).toLowerCase();
+  return className === "uipageevent" || /(?:^|[.#])uipageevent$/.test(className);
+}
+
+function treeApplyScalarText(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (value.value !== undefined) {
+      return asTrimmed(value.value);
+    }
+    if (value.text !== undefined) {
+      return asTrimmed(value.text);
+    }
+  }
+  return asTrimmed(value);
+}
+
 function validateTreeApplyIdentifiers(node, path) {
   if (!node || typeof node !== "object") {
     return;
@@ -81,6 +117,31 @@ function validateTreeApplyIdentifiers(node, path) {
   var identifierText = asTrimmed(identifier);
   if (identifierText.length && !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(identifierText)) {
     treeApplyInputErrors.push(path + ".properties.identifier must be a valid TypeScript identifier (for example clockDisplay, never clock-display). Got: " + identifierText);
+  }
+  if (treeApplyIsNgxCustomAction(node)) {
+    var actionValue = treeApplyPropertyValue(node.properties, "actionValue");
+    var actionCode = treeApplyCodeText(actionValue);
+    if (actionCode.length && !/(^|[^.$A-Za-z0-9_])(?:resolve|reject)\s*\(/.test(actionCode)) {
+      treeApplyInputErrors.push(path + ".properties.actionValue must call resolve(...) or reject(...) on every completion path. NGX UICustomAction wraps this code in a Promise; leaving it unsettled blocks the action chain.");
+    }
+    if (/\bthis\.c8o\.page\.detectChanges\s*\(/.test(actionCode)) {
+      treeApplyInputErrors.push(path + ".properties.actionValue must use page.ref.detectChanges(), not this.c8o.page.detectChanges(). The latter is not a supported NGX custom-action page context.");
+    }
+  }
+  if (treeApplyIsNgxPageEvent(node)) {
+    var viewEvent = treeApplyScalarText(treeApplyPropertyValue(node.properties, "viewEvent"));
+    var allowedViewEvents = {
+      onWillLoad: true,
+      onDidLoad: true,
+      onWillEnter: true,
+      onDidEnter: true,
+      onWillLeave: true,
+      onDidLeave: true,
+      onWillUnload: true
+    };
+    if (viewEvent.length && allowedViewEvents[viewEvent] !== true) {
+      treeApplyInputErrors.push(path + ".properties.viewEvent must be one of onWillLoad, onDidLoad, onWillEnter, onDidEnter, onWillLeave, onDidLeave, or onWillUnload. Got: " + viewEvent);
+    }
   }
   if (Array.isArray(node.children)) {
     for (var childIndex = 0; childIndex < node.children.length; childIndex++) {

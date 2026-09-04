@@ -64,5 +64,69 @@ assert.throws(
 );
 assert.equal(run({ properties: { identifier: "clockDisplay" } }), 1);
 assert.equal(run({ properties: { identifier: "" } }), 1);
+assert.throws(
+  () => run({
+    className: "ngx.components.UICustomAction",
+    name: "StartClock",
+    properties: {
+      actionValue: {
+        mode: "SCRIPT",
+        value: "page.local.clock = new Date();"
+      }
+    }
+  }),
+  /must call resolve\(\.\.\.\) or reject\(\.\.\.\)/
+);
+assert.throws(
+  () => run({
+    className: "ngx.components.UICustomAction#UICustomAction",
+    name: "StartClock",
+    properties: {
+      actionValue: "this.c8o.page.detectChanges(); resolve();"
+    }
+  }),
+  /must use page\.ref\.detectChanges\(\)/
+);
+assert.equal(run({
+  className: "ngx.components.UICustomAction",
+  name: "StartClock",
+  properties: {
+    actionValue: "page.local.clock = new Date(); page.ref.detectChanges(); resolve();"
+  }
+}), 1);
+assert.throws(
+  () => run({
+    className: "ngx.components.UIPageEvent#UIPageEvent",
+    name: "StartClock",
+    properties: {
+      viewEvent: "onViewLoaded"
+    }
+  }),
+  /viewEvent must be one of/
+);
+assert.throws(
+  () => run({
+    className: "ngx.components.UIPageEvent#UIPageEvent",
+    name: "StopClock",
+    properties: {
+      viewEvent: { mode: "PLAIN", value: "onViewWillLeave" }
+    }
+  }),
+  /Got: onViewWillLeave/
+);
+assert.equal(run({
+  className: "ngx.components.UIPageEvent#UIPageEvent",
+  name: "StartClock",
+  properties: {
+    viewEvent: "onDidEnter"
+  }
+}), 1);
+assert.equal(run({
+  className: "ngx.components.UIPageEvent#UIPageEvent",
+  name: "StopClock",
+  properties: {
+    viewEvent: "onWillLeave"
+  }
+}), 1);
 
 console.log("databaseobject-tree-apply input contract OK");

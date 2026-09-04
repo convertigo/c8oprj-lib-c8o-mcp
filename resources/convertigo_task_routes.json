@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "rules": {
+    "selection": "Choose exactly one primary route before mutation and read only its required resources.",
+    "fallback": "Read fallback resources only when the required recipe leaves a concrete unresolved question.",
+    "unknown": "Use the unknown route only when no specific route matches."
+  },
+  "routes": [
+    {
+      "id": "new-ngx-local-state",
+      "match": "New NGX application using static content, local state, timers, subscriptions, or interactions without backend data",
+      "required": [
+        "convertigo://resources/convertigo-recipe-starter-extension"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-frontend-ngx"
+      ]
+    },
+    {
+      "id": "new-ngx-http-data",
+      "match": "New NGX application backed by a public HTTP web service",
+      "required": [
+        "convertigo://resources/convertigo-vibe-http-ngx-fastpath"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-recipe-http-facade",
+        "convertigo://resources/convertigo-recipe-ngx-data-page"
+      ]
+    },
+    {
+      "id": "existing-ngx-ui",
+      "match": "Create or modify an NGX page in an existing project",
+      "required": [
+        "convertigo://resources/convertigo-recipe-ngx-data-page"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-frontend-ngx"
+      ]
+    },
+    {
+      "id": "http-backend",
+      "match": "Create or modify an HTTP connector, transaction, or facade without a new UI",
+      "required": [
+        "convertigo://resources/convertigo-recipe-http-facade"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-integration-http",
+        "convertigo://resources/convertigo-backend-sequences"
+      ]
+    },
+    {
+      "id": "sql-feature",
+      "match": "Create or modify SQL integration or a SQL-backed feature",
+      "required": [
+        "convertigo://resources/convertigo-recipe-sql-crud"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-integration-sql"
+      ]
+    },
+    {
+      "id": "new-standard-crud",
+      "match": "Create a new standard SQL CRUD application",
+      "required": [
+        "convertigo://resources/convertigo-crud-fastpath"
+      ],
+      "fallback": []
+    },
+    {
+      "id": "existing-standard-crud",
+      "match": "Modify an existing deterministic CRUD application",
+      "required": [
+        "convertigo://resources/convertigo-crud-edit-fastpath"
+      ],
+      "fallback": []
+    },
+    {
+      "id": "backend-sequence",
+      "match": "Create or modify a sequence or facade without HTTP or SQL integration",
+      "required": [
+        "convertigo://resources/convertigo-recipe-facade-stub"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-backend-sequences"
+      ]
+    },
+    {
+      "id": "project-review",
+      "match": "Review, audit, expertise report, hardening plan, recommendations, or version comparison",
+      "required": [
+        "convertigo://resources/convertigo-project-review"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-validation-and-evidence"
+      ]
+    },
+    {
+      "id": "unknown",
+      "match": "Convertigo task that does not match a route above",
+      "required": [
+        "convertigo://resources/convertigo-start"
+      ],
+      "fallback": [
+        "convertigo://recipes/quickstart"
+      ]
+    }
+  ]
+}

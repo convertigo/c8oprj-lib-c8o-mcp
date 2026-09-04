@@ -8,6 +8,9 @@ from pathlib import Path
 from validate_crud_tools import DEFAULT_MCP_URL, call_tool, wait_for_mcp_ready
 
 
+ROOT = Path(__file__).resolve().parents[2]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Validate the local _setupVibe Studio sequence against temporary Vibe homes.")
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL)
@@ -112,25 +115,37 @@ def run_case(
         skill_text,
         [
             "name: convertigo-vibe-generalist",
+            "thin Vibe adapter",
             "Skill guidance version:",
             "MCP guidance version",
-            "params._meta.convertigoGuidanceVersion",
-            "_meta.convertigoGuidanceWarning",
-            "first guarded Convertigo `tools/call`",
-            "once per agent conversation",
-            "On follow-up turns",
             "`convertigo://capabilities`",
+            "Select exactly one primary route",
+            "`new-ngx-local-state`",
+            "`new-ngx-http-data`",
+            "`existing-ngx-ui`",
+            "`http-backend`",
+            "`sql-feature`",
+            "`new-standard-crud`",
+            "`existing-standard-crud`",
+            "`backend-sequence`",
+            "`project-review`",
+            "`unknown`",
             "`convertigo://recipes/quickstart`",
             "`convertigo://resources/convertigo-start`",
-            "`convertigo://resources/convertigo-vibe-start`",
+            "`convertigo://resources/convertigo-recipe-starter-extension`",
+            "`convertigo://resources/convertigo-vibe-http-ngx-fastpath`",
             "`Convertigo_requestable-execute`",
-            "Do not install or modify the Codex `convertigo-generalist` skill from this Vibe adapter.",
+            "MCP arguments are structured values",
+            "Treat the Convertigo MCP transport as serial",
+            "Never wait for Convertigo with shell `sleep`",
+            "implemented but functionally unvalidated",
             "stale incompatible properties",
-            "project review, audit, expertise note, client synthesis, hardening plan, recommendations, or V1/V2 comparison",
             "`convertigo://resources/convertigo-project-review`",
-            "Convertigo Project Review Guide",
         ],
     )
+    assert_true(len(skill_text.splitlines()) < 80, "Vibe routing skill should stay compact")
+    assert_true("## Core Rails" not in skill_text, "Domain guidance leaked into the Vibe adapter")
+    assert_true("## Optional project review route" not in skill_text, "Review guidance leaked into the Vibe adapter")
 
     agents_text = load_text(agents_path)
     contains_lines(
@@ -138,11 +153,9 @@ def run_case(
         [
             "use the `convertigo-vibe-generalist` skill",
             "Skill guidance version",
-            "X-Convertigo-Guidance-Version",
-            "_meta.convertigoGuidanceWarning",
-            "first guarded Convertigo tool call",
+            "smallest required MCP resource set",
+            "Do not preload the general start guides",
             "Provide model credentials through the process environment",
-            "`convertigo://resources/convertigo-vibe-start`",
         ],
     )
 
@@ -154,7 +167,7 @@ def run_case(
             "[[mcp_servers]]",
             'name = "Convertigo"',
             f'url = "{configured_mcp_url(resolved_mcp_url)}"',
-            '"X-Convertigo-Guidance-Version" = "2026-09-03.viewer-hydration-v1"',
+            '"X-Convertigo-Guidance-Version" = "2026-09-04.vibe-serial-transport-v1"',
             "[tools.Convertigo_project-list]",
             "[tools.Convertigo_requestable-execute]",
             "[tools.Convertigo_databaseobject-tree-apply]",
@@ -168,6 +181,16 @@ def run_case(
 
 def main():
     args = parse_args()
+    route_catalog = json.loads((ROOT / "resources" / "convertigo_task_routes.json").read_text(encoding="utf-8"))
+    resource_index = json.loads((ROOT / "resources" / "resources_index.json").read_text(encoding="utf-8"))
+    known_uris = {item.get("uri") for item in resource_index}
+    known_uris.update({"convertigo://capabilities", "convertigo://recipes/quickstart"})
+    assert_true(route_catalog.get("version") == 1, "Unexpected route catalog version")
+    assert_true(len(route_catalog.get("routes", [])) >= 10, "Route catalog is incomplete")
+    for route in route_catalog["routes"]:
+        assert_true(route.get("id") and route.get("match") and route.get("required"), f"Invalid route: {route}")
+        for uri in route.get("required", []) + route.get("fallback", []):
+            assert_true(uri in known_uris, f"Unknown route resource: {uri}")
     wait_for_mcp_ready(args.mcp_url, timeout=90)
 
     with tempfile.TemporaryDirectory(prefix="setup_vibe_") as temp_root:

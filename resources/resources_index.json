@@ -364,7 +364,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_starter_extension.md",
     "guideId": "convertigo/recipe-starter-extension",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -1038,5 +1038,30 @@
     ],
     "guidanceLevel": "reference",
     "fallbackToRag": true
+  },
+  {
+    "uri": "convertigo://resources/convertigo-task-routes",
+    "name": "Convertigo Task Routes",
+    "title": "Convertigo Task Routes",
+    "description": "Provider-neutral routing table from task shapes to the smallest required Convertigo MCP resources.",
+    "mimeType": "application/json",
+    "file": "convertigo_task_routes.json",
+    "guideId": "convertigo/task-routes",
+    "revision": 1,
+    "scopeTags": [
+      "routing",
+      "bootstrap",
+      "skills",
+      "provider-neutral"
+    ],
+    "prerequisites": [],
+    "recommendedTools": [
+      "resources/read"
+    ],
+    "promptNames": [
+      "convertigo-vibe-quickstart"
+    ],
+    "guidanceLevel": "routing",
+    "fallbackToRag": false
   }
 ]
