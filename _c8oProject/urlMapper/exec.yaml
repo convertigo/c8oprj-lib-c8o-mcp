@@ -1,0 +1,8 @@
+path: /exec
+↓Exec [rest.PostOperation]: 
+  targetRequestable: lib_ConvertigoMCP.EXEC
+  ↓script [rest.BodyParameter-1760691753802]: 
+    inputContent: noConvert
+    mappedVariableName: script
+    required: true
+    value: return null

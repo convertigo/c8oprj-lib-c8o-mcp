@@ -1,5 +1,5 @@
 /*
- * Shared helpers for ConvertigoMCP sequences.
+ * Shared helpers for lib_ConvertigoMCP sequences.
  * These functions run in the Rhino context used by Convertigo sequences.
  */
 
@@ -854,7 +854,18 @@ C8O.dbo._normalizeXMLVector = function (xmlVector) {
   }
   var list = [];
   for (var i = 0; i < xmlVector.size(); i++) {
-    list.push(String(xmlVector.get(i)));
+    var item = xmlVector.get(i);
+    try {
+      var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
+      if (item instanceof NativeJavaObject) {
+        item = item.unwrap();
+      }
+    } catch (_ignoreNestedVectorUnwrap) {}
+    if (item instanceof XMLVector) {
+      list.push(C8O.dbo._normalizeXMLVector(item));
+    } else {
+      list.push(String(item));
+    }
   }
   return list;
 };
@@ -943,9 +954,24 @@ C8O.dbo.normalizeValue = function (pd, value) {
 C8O.dbo._buildXMLVector = function (items) {
   var XMLVector = Packages.com.twinsoft.convertigo.beans.common.XMLVector;
   var vector = new XMLVector();
-  if (Array.isArray(items)) {
-    for (var i = 0; i < items.length; i++) {
-      vector.add(String(items[i]));
+  var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
+  if (items instanceof NativeJavaObject) {
+    items = items.unwrap();
+  }
+  var isArray = Array.isArray(items);
+  var isJavaList = !isArray && items instanceof Packages.java.util.List;
+  var size = isArray ? items.length : (isJavaList ? items.size() : 0);
+  for (var i = 0; i < size; i++) {
+    var item = isArray ? items[i] : items.get(i);
+    if (item instanceof NativeJavaObject) {
+      item = item.unwrap();
+    }
+    if (Array.isArray(item) || item instanceof Packages.java.util.List) {
+      vector.add(C8O.dbo._buildXMLVector(item));
+    } else if (item instanceof XMLVector) {
+      vector.add(item);
+    } else {
+      vector.add(String(item));
     }
   }
   return vector;
@@ -1405,8 +1431,11 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
   if (modeToken) {
     try {
       mode = Mode.valueOf(modeToken.trim().toUpperCase());
-    } catch (_ignoreMode) {
-      mode = Mode.PLAIN;
+    } catch (_invalidMode) {
+      throw new Error(
+        "Invalid NGX SmartType mode \"" + modeToken +
+        "\". Use PLAIN, SCRIPT, or SOURCE; JavaScript expressions use SCRIPT, not JS."
+      );
     }
   }
 
@@ -1423,6 +1452,20 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
     }
   }
   smart.setSmartValue(smartValue);
+  if (mode === Mode.SOURCE) {
+    var computedSource = "";
+    try {
+      computedSource = String(smart.getValue());
+    } catch (_sourceComputeError) {
+      computedSource = "";
+    }
+    if (!computedSource.length) {
+      throw new Error(
+        "Invalid NGX SOURCE SmartType: the source resolves to an empty Angular expression. " +
+        "Check the smart-source JSON or use SCRIPT with an explicit component expression such as this.local?.property."
+      );
+    }
+  }
   return smart;
 };
 
@@ -2358,7 +2401,7 @@ C8O.dbo._buildDynamicPropertyHint = function (dynamicMeta, ionBean) {
   return {
     name: dynamicMeta.name,
     displayName: dynamicMeta.label || dynamicMeta.name,
-    description: "",
+    description: "NGX SmartType value. Use {mode:\"PLAIN\",value:\"text\"}, {mode:\"SCRIPT\",value:\"expression\"}, or {mode:\"SOURCE\",value:\"smart-source-json\"}. JavaScript expressions use SCRIPT, not JS.",
     type: "com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType",
     kind: "smartType",
     hidden: false,

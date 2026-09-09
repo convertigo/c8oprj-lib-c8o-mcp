@@ -9,7 +9,7 @@ This guide is only the Vibe adapter layer. It does not replace the shared Conver
 All constraints in this adapter are technical invariants: MCP call ordering, object creation, readback, proof, binding modes, error handling, and generated-artifact boundaries. Do not treat benchmark scenarios as reusable product guidance, and do not add provider-, dataset-, country-, language-, or feature-specific requirements to the skill unless the current user task explicitly asks for them.
 
 ## Setup sequence
-Run `ConvertigoMCP._setupVibe` once for the target Vibe home.
+Run `lib_ConvertigoMCP._setupVibe` once for the target Vibe home.
 
 Recommended variables for benchmark and skill-adjustment loops:
 
@@ -30,9 +30,9 @@ For a personal Vibe home, omit `replaceConfig` so the setup patches missing Conv
 2. Use the MCP server named `Convertigo`.
 3. If Vibe exposes MCP resources and prompts directly, list them first.
 4. If Vibe only exposes MCP tools, call `Convertigo_requestable-execute` to run:
-   - `ConvertigoMCP.mcp_resources_list` with no `uri` argument
-   - `ConvertigoMCP.mcp_prompts_list` with no `name` argument
-   - `ConvertigoMCP.mcp_resources_read` with `variables.uri` for each exact guide URI
+   - `lib_ConvertigoMCP.mcp_resources_list` with no `uri` argument
+   - `lib_ConvertigoMCP.mcp_prompts_list` with no `name` argument
+   - `lib_ConvertigoMCP.mcp_resources_read` with `variables.uri` for each exact guide URI
 5. Read:
    - `convertigo://capabilities`
    - `convertigo://recipes/quickstart`
@@ -41,10 +41,10 @@ For a personal Vibe home, omit `replaceConfig` so the setup patches missing Conv
 6. Pick the smallest matching shared recipe before mutation.
 
 ## MCP call discipline
-- Use `Convertigo_requestable-execute` only for existing Convertigo requestables such as `ConvertigoMCP.mcp_resources_read`.
-- Do not invent requestable names such as `ConvertigoMCP.resources/templates/list`.
+- Use `Convertigo_requestable-execute` only for existing Convertigo requestables such as `lib_ConvertigoMCP.mcp_resources_read`.
+- Do not invent requestable names such as `lib_ConvertigoMCP.resources/templates/list`.
 - Do not pass a guide URI to `mcp_resources_list`; list is for catalog discovery, read is for one URI.
-- When a guide URI is already known, skip list retries and call `ConvertigoMCP.mcp_resources_read` directly.
+- When a guide URI is already known, skip list retries and call `lib_ConvertigoMCP.mcp_resources_read` directly.
 - Treat a `status:"partial"`, skipped property, or failed palette creation as a failed mutation to correct before continuing.
 - In Vibe, multiple MCP tool calls in one assistant message are executed concurrently. Use parallel calls only for independent reads. In headless benchmark loops, avoid parallel MCP mutations entirely, even when they look independent; direct sequential mutations are easier to validate and recover. Delete then recreate, create then patch, patch then execute, create directive then add children, and save/open/readback sequences must always be separate awaited steps. If an object name changes because create raced with delete, clean it up before continuing.
 - In headless mode, never end with an assistant message that only says work will continue in a later message. If the next step is a mutation, issue the MCP tool call in the same message. If you cannot continue, save if useful and provide a final answer that clearly says the run is incomplete and names the missing proof.
@@ -83,7 +83,7 @@ The JSON output includes `reasoning_content`, tool calls, tool results, and the 
 ## Fresh starter app rail
 - For a fresh NGX app, after reading `convertigo://resources/convertigo-recipe-starter-extension`, import `template_ngxBuilderIonic` with `Convertigo_marketplace-import` and the exact requested project name.
 - Do not guess marketplace names such as `NGXAppStarter`.
-- Open the mobile builder early with `Convertigo_mobile-builder-open wait=false`, continue other backend or UI work while it starts, then call `Convertigo_mobile-builder-open stateOnly=true wait=true` before live proof. If that result includes `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, attach Playwright or browser-control MCP to that Studio JxBrowser endpoint and verify the visible feature there.
+- Open the mobile builder early with `Convertigo_mobile-builder-open wait=false`, continue other backend or UI work while it starts, then call `Convertigo_mobile-builder-open stateOnly=true wait=true` before live proof. Attach Playwright or browser-control MCP only when that result reports `browserControlReady:true`; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 - For any app that consumes an HTTP web service, read `convertigo://resources/convertigo-recipe-http-facade` before creating the connector, transaction, or facade sequence. This applies to HTTP-backed data flows regardless of provider, dataset, or requested contract.
 - The chosen HTTP provider must satisfy the requested data contract. If the app is about searchable records, the endpoint must return records with useful fields for that contract, not only generic article titles, URLs, autocomplete suggestions, or documentation text. If the first provider fails because of malformed paths, DNS, TLS, missing credentials, quota, or provider errors, either fix the connector settings or choose another public endpoint that still returns records for the requested contract. Otherwise keep the HTTP rail and mark the live proof incomplete.
 - For data-backed pages, including pages backed by HTTP web services, read `convertigo://resources/convertigo-recipe-ngx-data-page` before the first UI mutation.

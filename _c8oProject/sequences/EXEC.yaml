@@ -1,0 +1,16 @@
+accessibility: Hidden
+↓output [steps.JsonToXmlStep-1760689597694]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: eval("(function(){" + script + "})()")
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: output
+↓script [variables.RequestableVariable-1760689532318]: 
+  value: return null

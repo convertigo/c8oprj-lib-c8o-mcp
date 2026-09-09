@@ -23,6 +23,12 @@ responseTimeout: 300
       if (guidanceHeader != null) {
         guidanceHeaderVersion = String(guidanceHeader);
       }
+      if (!guidanceHeaderVersion.length) {
+        var descriptorVersion = context.httpServletRequest.getParameter("descriptorVersion");
+        if (descriptorVersion != null) {
+          guidanceHeaderVersion = String(descriptorVersion);
+        }
+      }
     }
     
     var requestIdJson = null;
@@ -155,7 +161,7 @@ responseTimeout: 300
         _variables = JSON.stringify(callVariables);
         
     ↓Call_InternalCall [steps.SequenceStep-1761755111966]: 
-      sourceSequence: ConvertigoMCP.internal_call
+      sourceSequence: lib_ConvertigoMCP.internal_call
       ↓_sequence [variables.StepVariable-1761755111968]: 
       ↓_variables [variables.StepVariable-1761755111970]: 
     ↓ErrorJsonrpc [steps.JsonFieldStep-1761755202001]: 

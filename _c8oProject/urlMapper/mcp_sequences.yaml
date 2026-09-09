@@ -1,0 +1,5 @@
+path: /mcp/sequences
+↓GetSequences [rest.GetOperation]: 
+  targetRequestable: lib_ConvertigoMCP.ListProjectSequences
+  ↓project [rest.QueryParameter-1760712703695]: 
+    mappedVariableName: project

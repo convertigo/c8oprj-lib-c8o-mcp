@@ -31,6 +31,18 @@ if (typeof C8O !== "undefined" && C8O.util) {
 var metaObject = paramsObject && typeof paramsObject._meta === "object" ? paramsObject._meta : null;
 var metaNextCursor = metaObject && metaObject.nextCursor !== undefined ? metaObject.nextCursor : null;
 var metaProgressToken = metaObject && metaObject.progressToken !== undefined ? metaObject.progressToken : null;
+var managedViewerDebugPort = 0;
+try {
+  var managedViewerDebugPortHeader = context && context.httpServletRequest
+    ? context.httpServletRequest.getHeader("X-Convertigo-Viewer-Debug-Port")
+    : null;
+  managedViewerDebugPort = parseInt(String(managedViewerDebugPortHeader || "0"), 10);
+  if (isNaN(managedViewerDebugPort) || managedViewerDebugPort < 1024 || managedViewerDebugPort > 65535) {
+    managedViewerDebugPort = 0;
+  }
+} catch (_ignoreManagedViewerDebugPort) {
+  managedViewerDebugPort = 0;
+}
 
 function getSchemaType(schema) {
   if (!schema || typeof schema !== "object") {
@@ -386,7 +398,7 @@ if (methodName === "initialize") {
   if (!mappingError) {
     if (String(toolNameRaw || "").trim().toLowerCase() === "requestable-execute") {
       var nestedRequestable = toolArgs && toolArgs.requestable != null ? String(toolArgs.requestable).trim() : "";
-      if (/^(ConvertigoMCP\.)?mcp_endpoint$/i.test(nestedRequestable)) {
+      if (/^(lib_ConvertigoMCP\.)?mcp_endpoint$/i.test(nestedRequestable)) {
         mappingError = {
           status: "400",
           code: "-32602",
@@ -407,7 +419,7 @@ if (methodName === "initialize") {
       requestIdJson: requestIdJson
     };
   } else {
-    var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("ConvertigoMCP");
+    var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP");
     var requestable = projectRef ? projectRef.getSequenceByName(targetSequence) : null;
     if (requestable == null) {
       callSequence = "mcp_error_response";
@@ -423,6 +435,9 @@ if (methodName === "initialize") {
       callSequence = targetSequence;
       responseStatus = "200";
       callVariables = coerceToolArguments(toolArgs || {}, targetSequence, requestable);
+      if (targetSequence === "tools_mobile_builder_open" && managedViewerDebugPort > 0) {
+        callVariables.browserDebugPort = managedViewerDebugPort;
+      }
       injectMeta(callVariables);
     }
   }

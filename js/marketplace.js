@@ -1,5 +1,5 @@
 /*
- * Marketplace helpers for ConvertigoMCP tools.
+ * Marketplace helpers for lib_ConvertigoMCP tools.
  * Handles catalog fetch and project import in workspace.
  */
 
@@ -242,7 +242,7 @@ C8O.marketplace.callConnector = function (payload) {
   var HashMap = Packages.java.util.HashMap;
 
   var request = new HashMap();
-  request.put("__project", "ConvertigoMCP");
+  request.put("__project", "lib_ConvertigoMCP");
   request.put("__connector", "marketplace");
   request.put("__transaction", "list_apply_kd_tree_js");
   request.put("__nolog", "true");

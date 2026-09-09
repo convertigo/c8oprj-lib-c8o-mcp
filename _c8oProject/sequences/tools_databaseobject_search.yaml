@@ -210,7 +210,7 @@ comment: |
   description: Opaque cursor from a previous response. Internal pagination token.
 ↓ByPriority [core.TestCase-1763465053816]: 
   ↓qname [variables.TestCaseVariable-1763465054743]: 
-    value: ConvertigoMCP
+    value: lib_ConvertigoMCP
   ↓filter [variables.TestCaseVariable-1763465054745]: 
     value: 1762941254770
   ↓limit [variables.TestCaseVariable-1763465054747]: 

@@ -27,7 +27,7 @@ Then read the smallest matching shared recipe before mutation:
 
 ## Mandatory workflow
 1. Confirm the `Convertigo` MCP server is available by calling a lightweight tool such as `Convertigo_project-list`.
-2. If direct resource APIs are unavailable, use `Convertigo_requestable-execute` to call `ConvertigoMCP.mcp_resources_list` and `ConvertigoMCP.mcp_prompts_list` without URI/name arguments, then `ConvertigoMCP.mcp_resources_read` with `variables.uri` for known guide URIs.
+2. If direct resource APIs are unavailable, use `Convertigo_requestable-execute` to call `lib_ConvertigoMCP.mcp_resources_list` and `lib_ConvertigoMCP.mcp_prompts_list` without URI/name arguments, then `lib_ConvertigoMCP.mcp_resources_read` with `variables.uri` for known guide URIs.
 3. Read the required startup guides.
 4. Select one shared recipe.
 5. Inspect the target project or confirm it is absent before creation.
@@ -41,7 +41,7 @@ Then read the smallest matching shared recipe before mutation:
 - Ask for input only when credentials, destructive ambiguity, or missing external services make progress impossible.
 - Do not modify Codex setup files, Codex skills, or generated Convertigo artifacts.
 - In CLI harnesses, repeat `--enabled-tools` once per allowed tool. A comma-separated value is treated as one tool pattern.
-- Do not invent Convertigo requestables. For guide content, call `ConvertigoMCP.mcp_resources_read` with the exact guide URI.
+- Do not invent Convertigo requestables. For guide content, call `lib_ConvertigoMCP.mcp_resources_read` with the exact guide URI.
 - For a fresh NGX starter app, import `template_ngxBuilderIonic` with the exact requested project name after reading the starter recipe.
 - For any app that consumes an HTTP web service, read `convertigo-recipe-http-facade` before creating the connector, transaction, or facade sequence. Open data APIs are only one example of this HTTP-backed rail.
 - Mutate the visible entry page first; do not leave the starter home dominant while creating only a secondary page.

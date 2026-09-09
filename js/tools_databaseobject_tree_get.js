@@ -42,11 +42,15 @@ function normalizeTarget() {
 }
 
 function normalizeChildrenDepth() {
-  if (typeof childrenDepth !== "undefined" && childrenDepth !== null) {
-    return parseIntBounded(childrenDepth, 1, 0, 20);
+  // Compatibility alias used by older clients and common generated calls.
+  if (typeof depth !== "undefined" && depth !== null) {
+    return parseIntBounded(depth, 1, 0, 20);
   }
   if (typeof maxDepth !== "undefined" && maxDepth !== null) {
     return parseIntBounded(maxDepth, 1, 0, 20);
+  }
+  if (typeof childrenDepth !== "undefined" && childrenDepth !== null) {
+    return parseIntBounded(childrenDepth, 1, 0, 20);
   }
   return 1;
 }

@@ -28,7 +28,7 @@ comment: used for internal call
       delete _variables;
     }'
 ↓Call [steps.SequenceStep-1761735196040]: 
-  sourceSequence: ConvertigoMCP.internal_call_stub
+  sourceSequence: lib_ConvertigoMCP.internal_call_stub
 ↓Copy [steps.XMLCopyStep-1761735196043]: 
   sourceDefinition: 
     - xmlizable: 

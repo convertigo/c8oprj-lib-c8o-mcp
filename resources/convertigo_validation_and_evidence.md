@@ -53,7 +53,7 @@ Never reload the active MCP server project itself; use `project-save` there beca
 - UI:
   - structure readback
   - runtime evidence when the builder is healthy
-  - when `mobile-builder-open` returns a JxBrowser debug endpoint, browser smoke should attach Playwright or the browser-control MCP to that endpoint and verify the visible Studio viewer
+  - browser smoke should attach Playwright or the browser-control MCP only when `mobile-builder-open` reports `browserControlReady:true`; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building; if those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser
   - if a waited `mobile-builder-open` reports `compile_error`, treat that as the canonical compile proof and fix the source objects or MCP generator path, not the generated frontend artifacts
   - if browser smoke fails, inspect builder logs with the latest waited `mobile-builder-open` output and `log-view` before deciding whether the build failed
   - explicit loading, empty, error, and retry presence when the page depends on data

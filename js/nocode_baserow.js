@@ -1,5 +1,5 @@
 /*
- * No Code Baserow helpers for ConvertigoMCP.
+ * No Code Baserow helpers for lib_ConvertigoMCP.
  * Baserow access stays delegated to lib_BaseRow requestables.
  */
 
@@ -106,7 +106,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         return String(context.project.getName());
       }
     } catch (_ignoreProjectName) {}
-    return "ConvertigoMCP";
+    return "lib_ConvertigoMCP";
   }
 
   function unwrapSequenceResult(response) {

@@ -27,10 +27,54 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var normalizeEndpoint = helper.normalizeEndpoint;
   var deriveViewerBaseUrl = helper.deriveViewerBaseUrl;
   var deriveViewerHomeUrl = helper.deriveViewerHomeUrl;
+  var browserShowsInstaller = helper.browserShowsInstaller;
   var hasViewerReadyEvidence = helper.hasViewerReadyEvidence;
+  var classifyReadiness = helper.classifyReadiness;
   var urlReachable = helper.urlReachable;
   var parseOpenUrl = helper.readiness.parseOpenUrl;
   var collectBuilderLogs = helper.readiness.collectBuilderLogs;
+  var BUILD_CYCLE_SETTLE_MS = 1200;
+  var BUILDER_STARTUP_GRACE_MS = 120000;
+  var BUILDER_LAUNCH_PREFIX = "convertigo.mcp.mobileBuilder.launch.";
+
+  function builderLaunchKey(projectName) {
+    return BUILDER_LAUNCH_PREFIX + String(projectName || "");
+  }
+
+  function builderLaunchObservedKey(projectName) {
+    return builderLaunchKey(projectName) + ".processObserved";
+  }
+
+  function readBuilderLaunchState(projectName) {
+    var value = java.lang.System.getProperty(builderLaunchKey(projectName));
+    var requestedAt = value == null ? 0 : parseInt(String(value), 10);
+    if (!(requestedAt > 0)) {
+      return null;
+    }
+    return {
+      requestedAt: requestedAt,
+      processObserved: java.lang.System.getProperty(builderLaunchObservedKey(projectName)) === "true"
+    };
+  }
+
+  function markBuilderLaunch(projectName) {
+    var requestedAt = Number(java.lang.System.currentTimeMillis());
+    java.lang.System.setProperty(builderLaunchKey(projectName), String(requestedAt));
+    java.lang.System.clearProperty(builderLaunchObservedKey(projectName));
+    return { requestedAt: requestedAt, processObserved: false };
+  }
+
+  function markBuilderProcessObserved(projectName, launchState) {
+    if (launchState != null && launchState.processObserved !== true) {
+      launchState.processObserved = true;
+      java.lang.System.setProperty(builderLaunchObservedKey(projectName), "true");
+    }
+  }
+
+  function clearBuilderLaunch(projectName) {
+    java.lang.System.clearProperty(builderLaunchKey(projectName));
+    java.lang.System.clearProperty(builderLaunchObservedKey(projectName));
+  }
 
   function isStudioRuntime(Engine) {
     try {
@@ -82,7 +126,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDevToolsJsonUrl: "",
       browserDevToolsWebSocketUrl: "",
       browserDevToolsTarget: null,
-      browserRemoteDebuggingPort: 0
+      browserRemoteDebuggingPort: 0,
+      builderProcessAlive: false
     };
     if (editorRef == null) {
       return state;
@@ -102,6 +147,18 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       var rawBaseUrl = readPrivateField(editorRef, "baseUrl");
       state.baseUrl = trim(rawBaseUrl);
     } catch (_ignoreBaseField) {}
+
+    try {
+      var processes = readPrivateField(editorRef, "processes");
+      var iterator = processes && processes.iterator ? processes.iterator() : null;
+      while (iterator != null && iterator.hasNext()) {
+        var process = iterator.next();
+        if (process != null && process.isAlive && process.isAlive()) {
+          state.builderProcessAlive = true;
+          break;
+        }
+      }
+    } catch (_ignoreBuilderProcesses) {}
 
     try {
       if (editorRef.getCurrentUrl) {
@@ -272,17 +329,22 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 "var l1=document.getElementById('l1');" +
                 "var pre=document.querySelector('pre');" +
                 "var message=document.getElementById('Message');" +
+                "var viteOverlay=document.querySelector('vite-error-overlay');" +
                 "var text=l1&&l1.textContent?String(l1.textContent):'';" +
                 "var preText=pre&&pre.textContent?String(pre.textContent):'';" +
                 "var bodyText=document.body&&document.body.innerText?String(document.body.innerText):'';" +
+                "var overlayText='';" +
+                "try{overlayText=viteOverlay&&viteOverlay.shadowRoot?String(viteOverlay.shadowRoot.textContent||''):'';}catch(overlayError){}" +
+                "var diagnosticText=overlayText||preText;" +
+                "if(!diagnosticText&&(/\\b(?:NG|TS)[0-9]{4}\\b|\\[ERROR\\]|application bundle generation failed|failed to compile|plugin angular-compiler/i).test(bodyText)){diagnosticText=bodyText.substring(0,4000);}" +
                 "var progress=0;" +
                 "try{progress=Number(window._last_doProgress||0)||0;}catch(progressError){}" +
-                "var loaderHasError=!!(typeof window._loaderHasError!=='undefined'&&window._loaderHasError);" +
+                "var loaderHasError=!!viteOverlay||!!(typeof window._loaderHasError!=='undefined'&&window._loaderHasError);" +
                 "return JSON.stringify({" +
                   "locationHref:String(location.href||'')," +
                   "title:String(document.title||'')," +
                   "statusText:String(text||'')," +
-                  "errorText:String(preText||text||'')," +
+                  "errorText:String(diagnosticText||text||'')," +
                   "bodyTextSample:String(bodyText||'').substring(0,800)," +
                   "loaderHasError:!!loaderHasError," +
                   "progress:progress," +
@@ -316,6 +378,83 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return state;
   }
 
+  function browserHasVisibleDocument(browserState) {
+    if (!browserState || browserState.hasBrowser !== true) {
+      return false;
+    }
+    var currentUrl = lower(browserState.currentUrl || browserState.locationHref || "");
+    return (
+      (currentUrl.length > 0 && currentUrl !== "about:blank") ||
+      compactText(browserState.bodyTextSample || "").length > 0 ||
+      compactText(browserState.statusText || "").length > 0 ||
+      browserState.progress > 0
+    );
+  }
+
+  function waitForEditorStartupSignal(editorRef, maxWaitMs) {
+    var maxWait = parseIntBounded(maxWaitMs, 0, 0, 5000);
+    var deadline = java.lang.System.currentTimeMillis() + maxWait;
+    var currentEditorState = readEditorState(editorRef);
+    var currentBrowserState = readBrowserState(editorRef);
+    while (
+      editorRef != null &&
+      maxWait > 0 &&
+      java.lang.System.currentTimeMillis() < deadline &&
+      !browserHasVisibleDocument(currentBrowserState)
+    ) {
+      try {
+        java.lang.Thread.sleep(150);
+      } catch (_ignoreStartupSleep) {}
+      currentEditorState = readEditorState(editorRef);
+      currentBrowserState = readBrowserState(editorRef);
+    }
+    return {
+      editorState: currentEditorState,
+      browserState: currentBrowserState
+    };
+  }
+
+  function browserControlTargetUrl(editorState, browserState) {
+    var target = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
+    var targetUrl = target && target.url ? trim(target.url) : "";
+    if (targetUrl.length) {
+      return targetUrl;
+    }
+    if (browserState && browserState.currentUrl) {
+      return trim(browserState.currentUrl);
+    }
+    if (browserState && browserState.locationHref) {
+      return trim(browserState.locationHref);
+    }
+    return "";
+  }
+
+  function isBrowserControlReady(editorState, browserState, viewerBaseUrl) {
+    var debugUrl = editorState && editorState.browserDebugUrl ? trim(editorState.browserDebugUrl) : "";
+    if (!debugUrl.length) {
+      return false;
+    }
+    var targetUrl = browserControlTargetUrl(editorState, browserState);
+    var targetLower = lower(targetUrl);
+    if (!targetLower.length || targetLower === "about:blank") {
+      return false;
+    }
+    var target = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
+    var targetTitle = lower(target && target.title ? target.title : "");
+    if (
+      browserShowsInstaller(browserState) ||
+      targetTitle.indexOf("convertigo flashupdate") !== -1 ||
+      targetTitle.indexOf("launching application") !== -1
+    ) {
+      return false;
+    }
+    var viewerBaseLower = lower(normalizeEndpoint(viewerBaseUrl || ""));
+    if (viewerBaseLower.length && normalizeEndpoint(targetLower).indexOf(viewerBaseLower) !== 0) {
+      return false;
+    }
+    return true;
+  }
+
   function ensureNgxProject(projectRef, projectName) {
     var application = null;
     try {
@@ -343,11 +482,78 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
   }
 
-  function openStudioNgxEditor(projectRef, forceRestart, stateOnly) {
+  function rootPageSegment(projectRef) {
+    try {
+      var mobileApplication = projectRef.getMobileApplication();
+      var appComponent = mobileApplication != null ? mobileApplication.getApplicationComponent() : null;
+      var rootPage = appComponent != null && appComponent.getRootPage ? appComponent.getRootPage() : null;
+      var segment = rootPage != null && rootPage.getSegment ? trim(rootPage.getSegment()) : "";
+      return segment.replace(/^\/+|\/+$/g, "");
+    } catch (_ignoreRootPageSegment) {
+      return "";
+    }
+  }
+
+  function liveBuildJobName(projectRef, projectName) {
+    var appName = trim(projectName);
+    try {
+      var mobileApplication = projectRef.getMobileApplication();
+      var appComponent = mobileApplication != null ? mobileApplication.getApplicationComponent() : null;
+      var parent = appComponent != null ? appComponent.getParent() : null;
+      var computedName = parent != null && parent.getComputedApplicationName
+        ? trim(parent.getComputedApplicationName())
+        : "";
+      if (computedName.length) {
+        appName = computedName;
+      }
+    } catch (_ignoreBuildJobName) {}
+    return "Live build for " + appName;
+  }
+
+  function readLiveBuildJob(jobName) {
+    var state = {
+      supported: false,
+      jobName: trim(jobName),
+      active: false,
+      state: "none"
+    };
+    try {
+      var Job = Packages.org.eclipse.core.runtime.jobs.Job;
+      var manager = Job.getJobManager();
+      var jobs = manager.find(null);
+      state.supported = true;
+      for (var i = 0; i < jobs.length; i++) {
+        var job = jobs[i];
+        if (job == null || trim(job.getName()) !== state.jobName) {
+          continue;
+        }
+        var jobState = Number(job.getState());
+        if (jobState === Number(Job.RUNNING)) {
+          state.active = true;
+          state.state = "running";
+          break;
+        }
+        if (jobState === Number(Job.WAITING)) {
+          state.active = true;
+          state.state = "waiting";
+        } else if (jobState === Number(Job.SLEEPING) && state.state === "none") {
+          state.active = true;
+          state.state = "sleeping";
+        }
+      }
+    } catch (_ignoreBuildJobState) {}
+    return state;
+  }
+
+  function openStudioNgxEditor(projectRef, forceRestart, stateOnly, browserDebugPort) {
     var result = {
       requested: false,
       opened: false,
       builderLaunchRequested: false,
+      browserDebugPortRequested: browserDebugPort > 0 ? browserDebugPort : 0,
+      browserDebugPortApplied: false,
+      browserDebugPortMatched: browserDebugPort > 0 ? false : true,
+      rootPageSegment: rootPageSegment(projectRef),
       stateOnly: stateOnly === true,
       editorRef: null,
       editorState: {
@@ -388,6 +594,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
 
     try {
       var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      var C8oBrowser = Packages.com.twinsoft.convertigo.eclipse.swt.C8oBrowser;
       var NgxApplicationComponentTreeObject = Packages.com.twinsoft.convertigo.eclipse.views.projectexplorer.model.NgxApplicationComponentTreeObject;
       var Runnable = Packages.java.lang.Runnable;
       var plugin = ConvertigoPlugin.getDefault();
@@ -421,22 +628,38 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
 
           try {
             if (treeObject instanceof NgxApplicationComponentTreeObject) {
+              if (browserDebugPort > 0) {
+                C8oBrowser.setPreferredDebugPort(projectRef, browserDebugPort);
+              }
               var editor = treeObject.activeEditor(false);
               if (editor != null) {
                 result.editorRef = editor;
                 result.editorState = readEditorState(editor);
               }
+              result.browserDebugPortMatched = browserDebugPort <= 0 ||
+                result.editorState.browserRemoteDebuggingPort === browserDebugPort;
               if (stateOnly === true) {
                 result.opened = editor != null;
                 result.message = editor != null
-                  ? "Existing NGX editor state read; no launch requested"
+                  ? (result.browserDebugPortMatched
+                    ? "Existing NGX editor state read; no builder launch requested"
+                    : "Existing NGX editor uses another browser debug port; a non-state-only call is required to reconcile it")
                   : "No active NGX editor found; no launch requested";
                 return;
               }
               if (editor != null) {
+                if (result.rootPageSegment.length && editor.selectPage) {
+                  editor.selectPage(result.rootPageSegment);
+                }
+                if (browserDebugPort > 0 && result.editorState.browserRemoteDebuggingPort !== browserDebugPort) {
+                  editor.setBrowserDebugPort(browserDebugPort);
+                  result.browserDebugPortApplied = true;
+                  result.editorState = readEditorState(editor);
+                  result.browserDebugPortMatched = result.editorState.browserRemoteDebuggingPort === browserDebugPort;
+                }
                 var alreadyRunning = result.editorState.port > 0 || result.editorState.viewerUrl.length > 0;
                 var editorReachable = urlReachable(result.editorState.viewerUrl || result.editorState.nodeUrl, 1500);
-                var shouldLaunch = forceRestart === true || !alreadyRunning || !editorReachable;
+                var shouldLaunch = result.browserDebugPortApplied === true || forceRestart === true || !alreadyRunning || !editorReachable;
                 if (shouldLaunch) {
                   editor.launchBuilder(false, false);
                   result.builderLaunchRequested = true;
@@ -468,8 +691,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 if (treeObject.activeEditor) {
                   var fallbackEditor = treeObject.activeEditor(false);
                   if (fallbackEditor != null) {
+                    if (result.rootPageSegment.length && fallbackEditor.selectPage) {
+                      fallbackEditor.selectPage(result.rootPageSegment);
+                    }
                     result.editorRef = fallbackEditor;
                     result.editorState = readEditorState(fallbackEditor);
+                    result.browserDebugPortMatched = browserDebugPort <= 0 ||
+                      result.editorState.browserRemoteDebuggingPort === browserDebugPort;
                   }
                 }
               } catch (_ignoreFallbackEditor) {}
@@ -536,6 +764,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
     var logsLimitValue = parseIntBounded(opts.logsLimit, 40, 5, 200);
     var forceRestartValue = parseBoolean(opts.forceRestart, false);
+    var browserDebugPortValue = parseInt(String(opts.browserDebugPort || "0"), 10);
+    if (isNaN(browserDebugPortValue)) {
+      browserDebugPortValue = 0;
+    }
+    if (browserDebugPortValue !== 0 && (browserDebugPortValue < 1024 || browserDebugPortValue > 65535)) {
+      throw new Error("browserDebugPort must be between 1024 and 65535");
+    }
     var startedAt = java.lang.System.currentTimeMillis();
     var studioMode = isStudioRuntime(Engine);
 
@@ -545,7 +780,23 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       throw new Error("Target project not found: " + projectName);
     }
     ensureNgxProject(projectRef, projectName);
-    var editorResult = openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue);
+    var rootPageSegmentValue = rootPageSegment(projectRef);
+    var buildJobNameValue = liveBuildJobName(projectRef, projectName);
+    var editorResult = studioMode
+      ? openStudioNgxEditor(projectRef, forceRestartValue, stateOnlyValue, browserDebugPortValue)
+      : {
+        requested: false,
+        opened: false,
+        builderLaunchRequested: false,
+        browserDebugPortRequested: browserDebugPortValue,
+        browserDebugPortApplied: false,
+        browserDebugPortMatched: browserDebugPortValue <= 0,
+        stateOnly: stateOnlyValue,
+        editorRef: null,
+        editorState: {},
+        message: "Studio mode is disabled; no Studio editor interaction was attempted.",
+        error: ""
+      };
     var editorRef = editorResult && editorResult.editorRef ? editorResult.editorRef : null;
 
     var hasReusableEditor = false;
@@ -561,10 +812,18 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     } catch (_ignoreReusableReachable) {}
     var reusedExistingBuilder = stateOnlyValue !== true && hasReusableEditor && reusableEditorReachable && !forceRestartValue && !launchedFromEditor;
     var launchRequested = launchedFromEditor === true;
-    if (stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder) {
+    if (studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder) {
       MobileBuilder.initBuilder(projectRef);
       startBuildWithWsBuilder(projectName, endpoint);
       launchRequested = true;
+    }
+    var launchState = readBuilderLaunchState(projectName);
+    if (launchRequested === true) {
+      launchState = markBuilderLaunch(projectName);
+    }
+    var startupSignal = null;
+    if (stateOnlyValue !== true && waitValue !== true && launchRequested === true && editorRef != null) {
+      startupSignal = waitForEditorStartupSignal(editorRef, 1800);
     }
 
     var deadline = startedAt + (timeoutSecValue * 1000);
@@ -580,13 +839,131 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       lines: [],
       query: {}
     };
-    var editorState = readEditorState(editorRef);
-    var browserState = readBrowserState(editorRef);
+    var editorState = startupSignal && startupSignal.editorState ? startupSignal.editorState : readEditorState(editorRef);
+    var browserState = startupSignal && startupSignal.browserState ? startupSignal.browserState : readBrowserState(editorRef);
+    var buildJobState = studioMode
+      ? readLiveBuildJob(buildJobNameValue)
+      : { supported: false, jobName: buildJobNameValue, active: false, state: "none" };
+    var buildJobObserved = buildJobState.active === true;
+    var previousBuildJobActive = buildJobState.active === true;
+    var buildJobFinishedObservedAt = 0;
+    var generationState = C8O.mobileBuilderCycle.readState(projectName);
+    var pendingBuildCycleId = generationState.id || 0;
+    var pendingBuildTimestamp = (
+      generationState.status === "pending" ||
+      generationState.status === "changed"
+    ) ? generationState.startedAt : 0;
+    var pendingBuildRequestedAt = generationState.startedAt || 0;
+    var generationNoChange = generationState.status === "no_change";
+    var generationFailed = generationState.status === "failed";
+    var terminalBuildObserved = false;
+    var readinessDecision = {
+      ready: false,
+      viewerReady: false,
+      browserControlReady: false,
+      compileBlocking: false,
+      compileState: "unknown",
+      readyReason: ""
+    };
+    var buildSettleDeadline = waitValue === true
+      ? Math.min(deadline, startedAt + BUILD_CYCLE_SETTLE_MS)
+      : startedAt;
+
+    function syncGenerationState() {
+      var current = C8O.mobileBuilderCycle.readState(projectName);
+      if (!(current.id > 0)) {
+        return;
+      }
+      if (current.id !== pendingBuildCycleId) {
+        pendingBuildCycleId = current.id;
+        pendingBuildRequestedAt = current.startedAt || 0;
+        terminalBuildObserved = false;
+        buildJobObserved = buildJobState.active === true;
+        buildJobFinishedObservedAt = 0;
+      }
+      generationState = current;
+      generationNoChange = current.status === "no_change";
+      generationFailed = current.status === "failed";
+      pendingBuildTimestamp = (
+        current.status === "pending" ||
+        current.status === "changed"
+      ) ? current.startedAt : 0;
+      if (generationNoChange || generationFailed) {
+        C8O.mobileBuilderCycle.clear(projectName, current.id);
+      }
+    }
 
     function refreshCurrentState() {
-      snapshot = collectBuilderLogs(projectName, startedAt, logsLimitValue);
+      syncGenerationState();
+      snapshot = collectBuilderLogs(
+        projectName,
+        pendingBuildTimestamp > 0 ? pendingBuildTimestamp : startedAt,
+        logsLimitValue,
+        pendingBuildTimestamp > 0
+      );
       editorState = readEditorState(editorRef);
       browserState = readBrowserState(editorRef);
+      buildJobState = studioMode
+        ? readLiveBuildJob(buildJobNameValue)
+        : { supported: false, jobName: buildJobNameValue, active: false, state: "none" };
+      var buildJobActive = buildJobState.active === true;
+      if (pendingBuildTimestamp > 0 && snapshot.terminal === true) {
+        terminalBuildObserved = true;
+        buildJobObserved = true;
+      }
+      if (buildJobActive) {
+        buildJobObserved = true;
+      } else if (previousBuildJobActive && buildJobFinishedObservedAt === 0) {
+        buildJobFinishedObservedAt = java.lang.System.currentTimeMillis();
+      }
+      previousBuildJobActive = buildJobActive;
+      if (pendingBuildTimestamp > 0 && (
+        terminalBuildObserved === true ||
+        (buildJobObserved === true && buildJobActive !== true)
+      )) {
+        var clearedPendingBuild = C8O.mobileBuilderCycle.clear(projectName, pendingBuildCycleId);
+        if (clearedPendingBuild) {
+          pendingBuildTimestamp = 0;
+        } else {
+          var newerGenerationState = C8O.mobileBuilderCycle.readState(projectName);
+          if (newerGenerationState.id > 0 && newerGenerationState.id !== pendingBuildCycleId) {
+            generationState = newerGenerationState;
+            pendingBuildCycleId = newerGenerationState.id;
+            pendingBuildTimestamp = newerGenerationState.startedAt;
+            pendingBuildRequestedAt = newerGenerationState.startedAt;
+            terminalBuildObserved = false;
+            buildJobObserved = buildJobActive;
+            buildJobFinishedObservedAt = 0;
+          } else {
+            pendingBuildTimestamp = 0;
+          }
+        }
+      }
+      var waitingForScheduledCycle = buildJobState.supported === true &&
+        waitValue === true &&
+        generationNoChange !== true &&
+        java.lang.System.currentTimeMillis() < buildSettleDeadline &&
+        buildJobObserved !== true;
+      var waitingForGeneration = generationState.supported === true &&
+        generationState.status === "pending";
+      var waitingForPendingCycle = studioMode === true &&
+        pendingBuildTimestamp > 0 &&
+        java.lang.System.currentTimeMillis() < buildSettleDeadline &&
+        (
+          generationState.supported !== true ||
+          generationState.status === "changed"
+        ) &&
+        terminalBuildObserved !== true &&
+        buildJobObserved !== true;
+      var waitingForViewerReload = buildJobFinishedObservedAt > 0 &&
+        java.lang.System.currentTimeMillis() < buildJobFinishedObservedAt + 500;
+      var builderProcessAlive = editorState && editorState.builderProcessAlive === true;
+      if (builderProcessAlive && launchState != null) {
+        markBuilderProcessObserved(projectName, launchState);
+      }
+      var waitingForRecentLaunch = launchState != null &&
+        launchState.processObserved !== true &&
+        java.lang.System.currentTimeMillis() < launchState.requestedAt + BUILDER_STARTUP_GRACE_MS;
       if (!snapshot.openUrl.length && editorState.viewerUrl.length) {
         snapshot.openUrl = editorState.viewerUrl;
       }
@@ -596,37 +973,88 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (browserState.currentUrl.length && !snapshot.openUrl.length && lower(browserState.currentUrl) !== "about:blank") {
         snapshot.openUrl = browserState.currentUrl;
       }
-      if (!snapshot.building && (
-        snapshot.lines.length > 0 ||
+      if (buildJobState.supported !== true && !snapshot.building && (
         (editorState && editorState.hasEditor && (editorState.port > 0 || editorState.viewerUrl.length > 0 || lower(editorState.currentUrl || "") !== "about:blank")) ||
         (stateOnlyValue !== true && editorResult && editorResult.opened === true) ||
-        browserState.hasBrowser === true ||
+        browserHasVisibleDocument(browserState) ||
         browserState.progress > 0
       )) {
         snapshot.building = true;
       }
-      if (browserState.hasError === true) {
+      if (generationFailed) {
+        snapshot.failed = true;
+        snapshot.building = false;
+        pushCompileError(snapshot, {
+          time: "",
+          level: "ERROR",
+          category: "MobileBuilder",
+          message: generationState.error || "Mobile source generation failed.",
+          extra: ""
+        });
+      } else if (builderProcessAlive || waitingForRecentLaunch || buildJobActive || waitingForGeneration || waitingForScheduledCycle || waitingForPendingCycle || waitingForViewerReload) {
+        snapshot.building = true;
+        snapshot.failed = false;
+      } else if (buildJobState.supported === true && launchRequested === true && buildJobObserved !== true) {
+        snapshot.building = true;
+      }
+      if (browserState.hasError === true && !buildJobActive && !waitingForGeneration && !waitingForScheduledCycle && !waitingForPendingCycle && !waitingForViewerReload) {
         snapshot.failed = true;
         pushCompileError(snapshot, {
           time: "",
           level: "ERROR",
           category: "Loader",
-          message: browserState.errorText || browserState.statusText || "Compilation failed, please fix this error and reload the page.",
+          message: browserState.errorText || browserState.statusText || browserState.bodyTextSample || "Compilation failed, please fix this error and reload the page.",
           extra: browserState.title || browserState.locationHref || browserState.currentUrl || ""
         });
       }
-      var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : ((snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
-      return candidateUrl.length && urlReachable(candidateUrl, 1500) && hasViewerReadyEvidence(snapshot, editorState, browserState, (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "");
+      var candidateNodeUrl = (snapshot.port != null && snapshot.port > 0) ? ("http://localhost:" + snapshot.port) : "";
+      var candidateUrl = snapshot.openUrl.length ? snapshot.openUrl : candidateNodeUrl;
+      var candidateViewerBaseUrl = deriveViewerBaseUrl(candidateUrl, candidateNodeUrl);
+      var currentDebugPort = editorState && editorState.browserRemoteDebuggingPort
+        ? Number(editorState.browserRemoteDebuggingPort)
+        : parsePortFromUrl(editorState && editorState.browserDebugUrl ? editorState.browserDebugUrl : "");
+      var currentDebugPortMatched = browserDebugPortValue <= 0 || currentDebugPort === browserDebugPortValue;
+      var currentBrowserControlReady = currentDebugPortMatched && isBrowserControlReady(editorState, browserState, candidateViewerBaseUrl);
+      var currentViewerReady = candidateUrl.length > 0 &&
+        urlReachable(candidateUrl, 1500) &&
+        hasViewerReadyEvidence(snapshot, editorState, browserState, candidateNodeUrl) === true;
+      readinessDecision = classifyReadiness({
+        viewerReady: currentViewerReady,
+        browserControlReady: currentBrowserControlReady,
+        failed: snapshot.failed === true,
+        compileSucceeded: snapshot.compiled === true,
+        generationNoChange: generationNoChange === true,
+        buildActive: buildJobActive,
+        waitingForGeneration: waitingForGeneration,
+        waitingForScheduledCycle: waitingForScheduledCycle,
+        waitingForPendingCycle: waitingForPendingCycle,
+        waitingForViewerReload: waitingForViewerReload,
+        reportedBuilding: snapshot.building === true
+      });
+      return readinessDecision.ready === true;
     }
 
     ready = refreshCurrentState();
+    var stateOnlyStopped = stateOnlyValue === true &&
+      ready !== true &&
+      snapshot.failed !== true &&
+      snapshot.building !== true;
 
-    while (waitValue === true && !ready && java.lang.System.currentTimeMillis() < deadline) {
+    while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
       ready = refreshCurrentState();
       if (ready) {
         break;
       }
+      stateOnlyStopped = stateOnlyValue === true &&
+        snapshot.failed !== true &&
+        snapshot.building !== true;
+      if (stateOnlyStopped) {
+        break;
+      }
       if (snapshot.failed === true) {
+        if (snapshot.terminal === true) {
+          break;
+        }
         if (!(firstFailureAt > 0)) {
           firstFailureAt = java.lang.System.currentTimeMillis();
         } else if ((java.lang.System.currentTimeMillis() - firstFailureAt) >= failureGraceMs) {
@@ -643,6 +1071,17 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     if (!ready) {
       ready = refreshCurrentState();
     }
+    if (ready || snapshot.failed === true || (
+      launchState != null &&
+      launchState.processObserved === true &&
+      !(editorState && editorState.builderProcessAlive === true)
+    ) || (
+      launchState != null &&
+      java.lang.System.currentTimeMillis() >= launchState.requestedAt + BUILDER_STARTUP_GRACE_MS
+    )) {
+      clearBuilderLaunch(projectName);
+      launchState = null;
+    }
 
     var finishedAt = java.lang.System.currentTimeMillis();
     var elapsedMs = finishedAt - startedAt;
@@ -656,7 +1095,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       viewerUrl = nodeUrl;
     }
     var viewerBaseUrl = deriveViewerBaseUrl(viewerUrl, nodeUrl);
-    var viewerHomeUrl = deriveViewerHomeUrl(viewerBaseUrl, viewerUrl);
+    var viewerHomeUrl = deriveViewerHomeUrl(viewerBaseUrl, viewerUrl, rootPageSegmentValue);
     if (!viewerUrl.length && viewerHomeUrl.length) {
       viewerUrl = viewerHomeUrl;
     }
@@ -665,6 +1104,12 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var browserDevToolsWebSocketUrl = editorState && editorState.browserDevToolsWebSocketUrl ? editorState.browserDevToolsWebSocketUrl : "";
     var browserDevToolsTarget = editorState && editorState.browserDevToolsTarget ? editorState.browserDevToolsTarget : null;
     var browserRemoteDebuggingPort = editorState && editorState.browserRemoteDebuggingPort ? editorState.browserRemoteDebuggingPort : parsePortFromUrl(browserDebugUrl);
+    var browserDebugPortMatched = browserDebugPortValue <= 0 || browserRemoteDebuggingPort === browserDebugPortValue;
+    var browserControlReady = browserDebugPortMatched && isBrowserControlReady(editorState, browserState, viewerBaseUrl);
+    var browserControlUrl = browserControlTargetUrl(editorState, browserState);
+    var viewerReady = readinessDecision && readinessDecision.viewerReady === true;
+    var compileState = readinessDecision && readinessDecision.compileState ? readinessDecision.compileState : "unknown";
+    var readyReason = readinessDecision && readinessDecision.readyReason ? readinessDecision.readyReason : "";
 
     var waited = waitValue === true && timeoutSecValue > 0;
     var status = ready
@@ -677,7 +1122,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             ? (waited ? "timeout" : "starting")
             : "stopped")));
     var message = ready
-      ? (snapshot.openUrl.length ? "Mobile builder is ready." : "Mobile builder Node listener detected.")
+      ? (compileState === "success"
+        ? "Mobile builder compilation and viewer are ready."
+        : (compileState === "not_required"
+          ? "Mobile builder viewer is ready; source generation reported no changes."
+          : (browserControlReady
+            ? "Mobile builder viewer and browser control are ready; compilation completion was not observed."
+            : "Mobile builder viewer is ready; compilation completion was not observed.")))
       : (status === "compile_error"
         ? (
           snapshot.compileErrors && snapshot.compileErrors.length
@@ -689,14 +1140,26 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             browserState && compactText(browserState.statusText || "").length
               ? ("Mobile builder is still building: " + compactText(browserState.statusText))
               : (waitValue === true
-                ? "Mobile builder is still building and did not expose the browser URL before the timeout."
+                ? (viewerHomeUrl.length
+                  ? "Mobile builder is still building; the viewer URL is available, but compilation did not reach a terminal state before the timeout."
+                  : "Mobile builder is still building and did not expose the browser URL before the timeout.")
                 : "Mobile builder is building; call again with wait=true or stateOnly=true to poll readiness.")
           )
           : (status === "starting"
             ? "Mobile builder launch requested; returning without waiting for readiness."
             : (status === "stopped"
               ? "No running mobile builder viewer was detected."
-              : "Mobile builder start timed out before detecting the browser URL."))));
+            : "Mobile builder start timed out before detecting the browser URL."))));
+    var nextAction = status === "stopped"
+      ? {
+        tool: "mobile-builder-open",
+        arguments: {
+          project: projectName,
+          stateOnly: false,
+          wait: false
+        }
+      }
+      : null;
     if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
@@ -714,6 +1177,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       project: projectName,
       message: message,
       ready: ready,
+      viewerReady: viewerReady,
+      compileState: compileState,
+      buildObserved: buildJobObserved === true || terminalBuildObserved === true,
+      readyReason: readyReason,
       launched: stateOnlyValue !== true,
       launchRequested: launchRequested,
       reusedBuild: reusedExistingBuilder,
@@ -739,9 +1206,21 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDevToolsWebSocketUrl: browserDevToolsWebSocketUrl,
       browserDevToolsTarget: browserDevToolsTarget,
       browserRemoteDebuggingPort: browserRemoteDebuggingPort,
-      browserControlHint: browserDebugUrl.length
-        ? "Use the existing Studio JxBrowser CDP target; do not create a new browser tab or page."
-        : "",
+      browserDebugPortRequested: browserDebugPortValue,
+      browserDebugPortApplied: editorResult && editorResult.browserDebugPortApplied === true,
+      browserDebugPortMatched: browserDebugPortMatched,
+      browserControlReady: browserControlReady,
+      browserControlTargetUrl: browserControlUrl,
+      browserControlHint: status === "stopped"
+        ? "No builder runtime is active. Call mobile-builder-open once with stateOnly=false and wait=false, continue other work, then poll readiness."
+        : (browserDebugUrl.length
+        ? (!browserDebugPortMatched
+          ? "Studio JxBrowser is not using the managed CDP port yet. Retry mobile-builder-open after the Studio classes are updated; do not use Playwright until browserDebugPortMatched is true."
+          : (browserControlReady
+            ? "Use the existing Studio JxBrowser CDP target through Playwright/browser-control MCP; do not create a new browser tab/page or run ad hoc Node/CDP scripts. If those MCP tools are unavailable or stale, report the configuration problem."
+            : "Studio JxBrowser CDP exists, but the current target is still the loader/about:blank. Poll mobile-builder-open with stateOnly=true and wait=true before using Playwright/browser-control."))
+        : ""),
+      nextAction: nextAction,
       editor: publicEditorResult,
       editorOpened: publicEditorResult.opened === true,
       browser: {
@@ -752,6 +1231,29 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         errorText: browserState && browserState.errorText ? browserState.errorText : "",
         bodyTextSample: browserState && browserState.bodyTextSample ? browserState.bodyTextSample : "",
         progress: browserState && browserState.progress ? browserState.progress : 0
+      },
+      build: {
+        supported: buildJobState && buildJobState.supported === true,
+        jobName: buildJobNameValue,
+        active: buildJobState && buildJobState.active === true,
+        state: buildJobState && buildJobState.state ? buildJobState.state : "none",
+        processAlive: editorState && editorState.builderProcessAlive === true,
+        launchRequestedAt: launchState && launchState.requestedAt ? launchState.requestedAt : 0,
+        observed: buildJobObserved === true,
+        finishedAtObserved: buildJobFinishedObservedAt,
+        requestedAt: pendingBuildRequestedAt,
+        terminalObserved: terminalBuildObserved === true,
+        generation: {
+          supported: generationState && generationState.supported === true,
+          id: generationState && generationState.id ? generationState.id : 0,
+          status: generationState && generationState.status ? generationState.status : "none",
+          startedAt: generationState && generationState.startedAt ? generationState.startedAt : 0,
+          completedAt: generationState && generationState.completedAt ? generationState.completedAt : 0,
+          changedFileCount: generationState && generationState.changedFileCount ? generationState.changedFileCount : 0,
+          noChange: generationNoChange === true,
+          failed: generationFailed === true,
+          error: generationState && generationState.error ? generationState.error : ""
+        }
       },
       compileErrors: snapshot.compileErrors || [],
       logs: snapshot.lines || [],
@@ -765,6 +1267,7 @@ var openMobileBuilderResult = C8O.mobileBuilder.open({
   timeoutSec: (typeof timeoutSec !== "undefined") ? timeoutSec : 90,
   logsLimit: (typeof logsLimit !== "undefined") ? logsLimit : 40,
   forceRestart: (typeof forceRestart !== "undefined") ? forceRestart : false,
+  browserDebugPort: (typeof browserDebugPort !== "undefined") ? browserDebugPort : 0,
   wait: (typeof wait !== "undefined") ? wait : true,
   stateOnly: (typeof stateOnly !== "undefined") ? stateOnly : false,
   reveal: (typeof reveal !== "undefined") ? reveal : false

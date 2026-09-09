@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -61,6 +62,15 @@ def contains_lines(text, expected_lines):
             raise RuntimeError(f"Missing expected line: {line}")
 
 
+def configured_mcp_url(url):
+    base, marker, fragment = url.partition("#")
+    if re.search(r"(^|[?&])jsonOnly=[^&]*", base, flags=re.IGNORECASE):
+        base = re.sub(r"(^|[?&])jsonOnly=[^&]*", r"\1jsonOnly=true", base, count=1, flags=re.IGNORECASE)
+    else:
+        base += ("&" if "?" in base else "?") + "jsonOnly=true"
+    return base + (marker + fragment if marker else "")
+
+
 def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expected_config_status, resolved_mcp_url):
     codex_home = Path(codex_home)
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -69,7 +79,7 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
 
     result = requestable_execute(
         mcp_url,
-        "ConvertigoMCP._setupCodex",
+        "lib_ConvertigoMCP._setupCodex",
         {
             "codexHome": str(codex_home),
             "mcpUrl": resolved_mcp_url,
@@ -79,6 +89,7 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
     assert_true(result.get("skillStatus") == expected_skill_status, f"Unexpected skillStatus: {result}")
     assert_true(result.get("configStatus") == expected_config_status, f"Unexpected configStatus: {result}")
     assert_true(result.get("resolvedMcpUrl") == resolved_mcp_url, f"Unexpected resolvedMcpUrl: {result}")
+    assert_true(result.get("configuredMcpUrl") == configured_mcp_url(resolved_mcp_url), f"Unexpected configuredMcpUrl: {result}")
     assert_true(skill_result(result, "generalist").get("status") == expected_skill_status, f"Unexpected generalist skill status: {result}")
     assert_true(skill_result(result, "nocode").get("status") == expected_skill_status, f"Unexpected nocode skill status: {result}")
 
@@ -99,15 +110,35 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
             "params._meta.convertigoGuidanceVersion",
             "_meta.convertigoGuidanceWarning",
             "first guarded Convertigo `tools/call`",
+            "once per agent conversation",
+            "On follow-up turns",
             "`convertigo://capabilities`",
             "`convertigo://recipes/quickstart`",
             "`convertigo://resources/convertigo-start`",
             "`convertigo://resources/convertigo-crud-fastpath`",
+            "Do not call `resources/list`, `resources/templates/list`, or `prompts/list`",
+            "## Tool economy and convergence",
+            "already used successfully in the current conversation",
+            "Common NGX contracts that do not require palette discovery",
+            "optimizeMutations:true",
+            "Do not inspect `ALL_TOOLS`",
+            "one readiness check and one acceptance-oriented browser proof",
+            "## NGX authoring invariants",
+            "ensure Angular change detection is triggered",
+            "If no project is selected and the user explicitly asks to create a new project or application",
             "Do not invent prefixes, suffixes, or dates.",
             "Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
-            "Do not create new browser tabs or pages",
+            "If a state-only call returns `status:\"stopped\"`, do not poll it again",
+            "Studio JxBrowser exposes one existing visible page over CDP, not a normal multi-tab browser",
+            "`playwright.browser_tabs` only to list and confirm the single current viewer URL",
+            "`playwright.browser_find` for visible UI",
+            "`playwright.browser_evaluate` only when DOM state or timing must be measured",
+            "managed Playwright MCP configuration must be refreshed",
             "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
             "run `marketplace-import` with that exact name",
+            "Project review, audit, expertise note, client synthesis, hardening plan, recommendations, or V1/V2 comparison",
+            "`convertigo://resources/convertigo-project-review`",
+            "Convertigo Project Review Guide",
         ],
     )
 
@@ -134,8 +165,9 @@ def run_case(mcp_url, codex_home, initial_config, expected_skill_status, expecte
         config_text,
         [
             "[mcp_servers.convertigo]",
-            f'url = "{resolved_mcp_url}"',
+            f'url = "{configured_mcp_url(resolved_mcp_url)}"',
             "startup_timeout_sec = 60",
+            'http_headers = { "X-Convertigo-Guidance-Version" = "2026-08-28.batch-reveal-v2" }',
         ],
     )
     return result
@@ -175,11 +207,20 @@ def main():
         )
         run_case(args.mcp_url, base / "update", initial_with_convertigo, "created", "updated", args.resolved_mcp_url)
 
+        run_case(
+            args.mcp_url,
+            base / "query",
+            None,
+            "created",
+            "created",
+            args.resolved_mcp_url + "?transport=managed&jsonOnly=false",
+        )
+
         stable_home = base / "idempotent"
         run_case(args.mcp_url, stable_home, None, "created", "created", args.resolved_mcp_url)
         stable_second = requestable_execute(
             args.mcp_url,
-            "ConvertigoMCP._setupCodex",
+            "lib_ConvertigoMCP._setupCodex",
             {
                 "codexHome": str(stable_home),
                 "mcpUrl": args.resolved_mcp_url,

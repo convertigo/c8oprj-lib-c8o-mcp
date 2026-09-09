@@ -4,7 +4,7 @@ Use this compact path for a fresh Convertigo NGX app that queries, lists, or dis
 
 ## Hard Rules
 - Import `template_ngxBuilderIonic` exactly once with the exact requested project name as the imported project name. Do not call `mobile-builder-open` immediately after import; mutate backend and UI first, save, then call `mobile-builder-open` once as the final builder proof.
-- After the guide read, every project QName you inspect or mutate must start with the requested target project name, except the single `marketplace-import` template id and `ConvertigoMCP.*` resource reads. Do not target generic roots such as `Convertigo`, `WorkSpace`, `Projects`, `C8O`, or another project. Do not create a project manually with `databaseobject-tree-apply`; project creation must come from `marketplace-import`.
+- After the guide read, every project QName you inspect or mutate must start with the requested target project name, except the single `marketplace-import` template id and `lib_ConvertigoMCP.*` resource reads. Do not target generic roots such as `Convertigo`, `WorkSpace`, `Projects`, `C8O`, or another project. Do not create a project manually with `databaseobject-tree-apply`; project creation must come from `marketplace-import`.
 - Do not call `project-list`, inspect unrelated local projects, or copy another project unless the user explicitly names a reference project.
 - Do not edit `_private/ionic`, `DisplayObjects`, generated files, or YAML directly. Use MCP source objects.
 - Send MCP writes sequentially. Do not send multiple `databaseobject-tree-apply`, `databaseobject-delete`, or `project-save` calls in one assistant message.
@@ -48,7 +48,7 @@ A static file endpoint such as a raw `.json`, `.csv`, `.ndjson`, or repository-h
 
 An endpoint whose result contract is selected by a technical query variable such as `dataset`, `table`, `source`, `index`, `catalog`, `collection`, `resource`, or equivalent is a catalog-style endpoint, not a direct record endpoint. Do not use that shape for this fast path unless the user explicitly supplied the exact dataset/resource identifier in the task.
 
-Do not test public HTTP URLs through Convertigo MCP resource readers or non-existent helper requestables. `ConvertigoMCP.mcp_resources_read` reads MCP guide resources only, not arbitrary URLs; `ConvertigoMCP.mcp_http_get` is not a generic probe. The only valid live HTTP proof in this fast path is the typed Convertigo HTTP transaction you create, executed through `requestable-execute`.
+Do not test public HTTP URLs through Convertigo MCP resource readers or non-existent helper requestables. `lib_ConvertigoMCP.mcp_resources_read` reads MCP guide resources only, not arbitrary URLs; `lib_ConvertigoMCP.mcp_http_get` is not a generic probe. The only valid live HTTP proof in this fast path is the typed Convertigo HTTP transaction you create, executed through `requestable-execute`.
 
 1. Create one `connectors.HttpConnector`:
    - `server`: host only

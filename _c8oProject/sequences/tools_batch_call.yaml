@@ -22,7 +22,9 @@ comment: |
       onError: onErrorInput,
       resumeFrom: resumeFromInput,
       executionId: executionIdInput,
-      optimizeMutations: (typeof optimizeMutations !== "undefined") ? optimizeMutations : true
+      optimizeMutations: (typeof optimizeMutations !== "undefined") ? optimizeMutations : true,
+      reveal: (typeof reveal !== "undefined") ? reveal : false,
+      responseDetail: (typeof responseDetail !== "undefined") ? responseDetail : "compact"
     });
     
     batchStop = batchResult && batchResult.stop ? batchResult.stop : null;
@@ -40,6 +42,7 @@ comment: |
       touchedQNames: [],
       refreshQName: "",
       studioRefresh: null,
+      reveal: null,
       mobileBuilder: [],
       saveResults: [],
       errors: []
@@ -280,6 +283,19 @@ comment: |
         - SmartType: 
           - ↑mode: PLAIN
           - →→: mutationFinalize
+  ↓responseDetail [steps.JsonFieldStep-1787920649708]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: responseDetail
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'batchResult && batchResult.responseDetail ? batchResult.responseDetail : "compact"'
 ↓calls [variables.RequestableVariable-1772625373495]: 
   comment: Ordered tool calls. Each item uses {tool, arguments?, id?}; ids can be referenced later in the batch.
   description: Ordered tool calls. Each item uses {tool, arguments?, id?}; ids can be referenced later in the batch.
@@ -297,3 +313,11 @@ comment: |
   comment: Default true. Defers refresh, save, and mobile-builder finalization until the batch ends.
   description: Default true. Defers refresh, save, and mobile-builder finalization until the batch ends.
   value: true
+↓reveal [variables.RequestableVariable-1787920649883]: 
+  comment: Set true when host UI reveal mode is enabled. Supported calls inherit reveal and optimized tree mutations reveal the final touched object after refresh.
+  description: Set true when host UI reveal mode is enabled. Supported calls inherit reveal and optimized tree mutations reveal the final touched object after refresh.
+  value: false
+↓responseDetail [variables.RequestableVariable-1787920650055]: 
+  comment: 'Allowed values: compact or full. compact keeps read call payloads, summarizes mutations, and avoids duplicated reference results; full is intended for diagnostics.'
+  description: 'Allowed values: compact or full. compact keeps read call payloads, summarizes mutations, and avoids duplicated reference results; full is intended for diagnostics.'
+  value: compact

@@ -987,14 +987,14 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(page_touch_refresh.get("status") == "ok", f"UI source touch refresh failed for {project}: {page_touch_refresh}")
     if variant == "entity-pages":
         assert_true(final_runtime.get("templateDriven") is True, f"Entity-pages UI did not use source templates for {project}")
-        assert_true(str(final_runtime.get("templateSourceProject") or "") == "ConvertigoMCP", f"Unexpected template source project for {project}: {final_runtime.get('templateSourceProject')}")
+        assert_true(str(final_runtime.get("templateSourceProject") or "") == "lib_ConvertigoMCP", f"Unexpected template source project for {project}: {final_runtime.get('templateSourceProject')}")
         template_sources = set(final_runtime.get("templateSourceQNames") or [])
         assert_true(bool(template_sources), f"Entity-pages UI did not report template source qnames for {project}")
         assert_true(
-            "ConvertigoMCP.Application.NgxApp.TplCrudPageHeader" in template_sources and
-            "ConvertigoMCP.Application.NgxApp.TplEntityListPanel" in template_sources and
-            "ConvertigoMCP.Application.NgxApp.TplEntityDetailCard" in template_sources and
-            "ConvertigoMCP.Application.NgxApp.TplEntityEditForm" in template_sources,
+            "lib_ConvertigoMCP.Application.NgxApp.TplCrudPageHeader" in template_sources and
+            "lib_ConvertigoMCP.Application.NgxApp.TplEntityListPanel" in template_sources and
+            "lib_ConvertigoMCP.Application.NgxApp.TplEntityDetailCard" in template_sources and
+            "lib_ConvertigoMCP.Application.NgxApp.TplEntityEditForm" in template_sources,
             f"Entity-pages UI did not report the expected template sources for {project}: {sorted(template_sources)}",
         )
         expected_page_names = ["Login", entry_page] + [f"{pascalize_name(entity.get('plural') or generated_entity_name(entity))}Page" for entity in entities]

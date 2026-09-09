@@ -19,8 +19,8 @@ comment: |
         - ↑mode: PLAIN
         - →→: result
 ↓docsRoot [variables.RequestableVariable-1773672208737]: 
-  comment: Optional output root. Defaults to the ConvertigoMCP project root.
-  description: Optional output root. Defaults to the ConvertigoMCP project root.
+  comment: Optional output root. Defaults to the lib_ConvertigoMCP project root.
+  description: Optional output root. Defaults to the lib_ConvertigoMCP project root.
 ↓dryRun [variables.RequestableVariable-1773672208751]: 
   comment: Set true to render the generated files without writing them.
   description: Set true to render the generated files without writing them.

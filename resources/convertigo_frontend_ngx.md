@@ -307,6 +307,18 @@ Prefer direct source bindings over response-copying code. If a small `UICustomAc
 - do not assume a `stack` variable exists inside the custom action body unless generated diagnostics prove it for that exact object
 - if a failure handler needs an error message, read it from `event` defensively, for example `const message = event && event.message ? event.message : 'Erreur pendant la recherche';`
 
+### Shared actions with NPM dependencies
+When a shared action/custom action needs an npm package:
+- declare npm packages on the action object with `package_dependencies`
+- declare TypeScript imports through the Convertigo import vector consumed by the generated target; for shared action custom code emitted into `actionbeans.service.ts`, use `app_ts_imports`
+- use `UICustomAsyncAction` when the action code contains `await`; do not put top-level `await` in a plain `UICustomAction`
+- keep import rows structurally nested as `[importClause, moduleName]`; for example `{ loadStripe }` from `@stripe/stripe-js`
+- keep dependency rows structurally nested as `[packageName, version]`; for example `@stripe/stripe-js` and `9.9.0`
+
+The tree view may display these rows compactly as `[{ loadStripe }, @stripe/stripe-js]` or `[@stripe/stripe-js, 9.9.0]`. That compact display is not the source format: in YAML/XML, these properties must remain XMLVector-of-XMLVector rows, not one comma-separated `java.lang.String`.
+
+If compilation fails after changing imports or dependencies, reload/regenerate the project through Convertigo and reopen the mobile builder. Do not repair `_private/ionic`, generated package files, or generated TypeScript directly.
+
 ## Common page pattern for data-backed UX
 
 ### Canonical order
@@ -354,7 +366,7 @@ That opens or reconnects the Studio viewer and returns the current state without
 
 Use `stateOnly=true` when you only need the current viewer URLs and readiness and do not want to reopen, start, or restart the builder.
 
-When the waited/state-only result includes `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, use that endpoint for browser automation proof of the visible Studio JxBrowser viewer. A complete UI loop is: start with `mobile-builder-open(wait=false)`, keep inspecting or mutating while the builder may still be `building`, poll with `mobile-builder-open(stateOnly=true, wait=true)`, then attach Playwright or the browser-control MCP to the returned JxBrowser debug endpoint and verify the actual feature in that viewer. Do not replace this with a separate browser tab when the Studio JxBrowser endpoint is available.
+Use Playwright or browser-control MCP only when the waited/state-only result reports `browserControlReady:true`. A complete UI loop is: start with `mobile-builder-open(wait=false)`, keep inspecting or mutating while the builder may still be `building`, poll with `mobile-builder-open(stateOnly=true, wait=true)`, then attach Playwright or the browser-control MCP to the returned JxBrowser debug endpoint and verify the actual feature in that viewer. If `browserControlTargetUrl` is `about:blank`, the Studio loader is still building; keep polling instead of using browser automation. Before browser smoke, inspect the current browser target and confirm it is the returned viewer, not `about:blank` or another URL. Do not replace this with a separate browser tab when the Studio JxBrowser endpoint is available. If the MCP browser tools are unavailable, disabled, stale, or attached to another endpoint, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 
 Why this is the right way:
 - the user in Studio sees the application evolve live

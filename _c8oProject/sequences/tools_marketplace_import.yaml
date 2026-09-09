@@ -69,7 +69,7 @@ comment: |
       }
       qname = marketplaceImportTargetQName;'
   ↓CallRefreshTarget [steps.SequenceStep-1764302001004]: 
-    sourceSequence: ConvertigoMCP.internal_studio_refresh
+    sourceSequence: lib_ConvertigoMCP.internal_studio_refresh
     ↓qname [variables.StepVariable-1764302001005]: 
   ↓CleanupRefreshTarget [steps.SimpleStep-1764302001006]: 
     expression: |

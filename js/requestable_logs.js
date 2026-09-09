@@ -131,6 +131,10 @@ C8O.requestableLogs = C8O.requestableLogs || {};
   }
 
   function matches(entry, options) {
+    var categoryFilter = lower(options.category);
+    if (categoryFilter.length && !containsToken(entry.category, categoryFilter)) {
+      return false;
+    }
     var contextIdFilter = lower(options.contextId);
     if (contextIdFilter.length) {
       var entryContextId = entry.extrasLower.contextid || "";
@@ -246,6 +250,7 @@ C8O.requestableLogs = C8O.requestableLogs || {};
       lineCount: lines.length,
       hasMore: hasMore,
       query: {
+        category: opts.category == null ? "" : String(opts.category),
         contextId: opts.contextId == null ? "" : String(opts.contextId),
         project: opts.project == null ? "" : String(opts.project),
         requestable: opts.requestable == null ? "" : String(opts.requestable),

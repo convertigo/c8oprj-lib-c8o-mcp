@@ -82,7 +82,7 @@
       "uri": "convertigo://resources/convertigo-overview",
       "name": "Convertigo MCP Overview",
       "title": "Convertigo MCP Project Overview",
-      "description": "High-level structure and canonical MCP tool surface for ConvertigoMCP.",
+      "description": "High-level structure and canonical MCP tool surface for lib_ConvertigoMCP.",
       "mimeType": "text/markdown"
     },
     {

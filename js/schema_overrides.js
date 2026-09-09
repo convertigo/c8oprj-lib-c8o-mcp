@@ -67,6 +67,17 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           description: "Default true. Defers refresh, save, and mobile-builder finalization until the batch ends.",
           default: true
+        },
+        reveal: {
+          type: "boolean",
+          description: "Set true when host UI reveal mode is enabled. The batch propagates reveal to supported calls and, for optimized tree mutations, reveals the final touched object after the deferred Studio refresh.",
+          default: false
+        },
+        responseDetail: {
+          type: "string",
+          enum: ["compact", "full"],
+          description: "Default compact. Compact keeps complete call payloads for reads, summarizes mutation payloads, and emits lightweight reference pointers instead of duplicating results. Use full only for detailed diagnostics.",
+          default: "compact"
         }
       },
       required: ["calls"],
@@ -117,7 +128,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         properties: propertiesInputSchema(),
         children: {
           type: "array",
-          description: "Child nodes to create or upsert in the same call.",
+          description: "Child nodes to create or upsert below this node. When at=inside/before/after, tree itself must be the single node to create and include className and name; do not submit a children-only wrapper. Use separate batch-call entries to create siblings.",
           items: { type: "object", additionalProperties: true }
         }
       },
@@ -136,6 +147,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           maximum: 20,
           default: 1,
           description: "Descendant levels to include. 0 returns only the target; default 1; max 20."
+        },
+        depth: {
+          type: "integer",
+          minimum: 0,
+          maximum: 20,
+          description: "Compatibility alias for childrenDepth. Prefer childrenDepth."
         },
         properties: {
           type: "string",
@@ -302,15 +319,21 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: false,
           description: "Set true to restart an already running builder. Use only when the current builder is stuck or on the wrong state."
         },
+        browserDebugPort: {
+          type: "integer",
+          minimum: 1024,
+          maximum: 65535,
+          description: "Optional exact JxBrowser CDP port reserved by the managed agent host. The integrated MCP transport supplies it automatically."
+        },
         wait: {
           type: "boolean",
           default: true,
-          description: "Set false to request/open the viewer and return immediately with the current state. Default true preserves the synchronous readiness wait."
+          description: "Set false to request/open the viewer and return immediately. With true, wait for the portable Engine source-generation cycle and, in Studio only, the optional HMR compile cycle."
         },
         stateOnly: {
           type: "boolean",
           default: false,
-          description: "Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder."
+          description: "Set true to read the current viewer/editor state and URLs without opening, starting, or restarting the builder. Combine with wait=true after frontend mutations to wait for source generation and, in Studio, HMR success or compile_error."
         },
         reveal: {
           type: "boolean",
@@ -1050,6 +1073,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       project: { type: "string" },
       formId: { type: "string" },
       selected: { type: "boolean" },
+      expanded: { type: "boolean" },
       revealed: { type: "boolean" },
       editorOpened: { type: "boolean" },
       viewerUrl: { type: "string" },
@@ -1179,6 +1203,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       touchedQNames: stringArraySchema(),
       refreshQName: { type: "string" },
       studioRefresh: nullableSchema(studioRefreshSchema()),
+      reveal: nullableSchema(revealOutputSchema()),
       mobileBuilder: {
         type: "array",
         items: mobileBuilderMutationSchema()
@@ -1198,6 +1223,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return closedObjectSchema({
       status: { type: "string" },
       message: { type: "string" },
+      responseDetail: { type: "string" },
       onError: { type: "string" },
       saved: { type: "boolean" },
       durationMs: { type: "number" },
@@ -1382,6 +1408,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
   function requestableLogQuerySchema() {
     return closedObjectSchema({
+      category: { type: "string" },
       contextId: { type: "string" },
       project: { type: "string" },
       requestable: { type: "string" },
@@ -1459,7 +1486,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       status: { type: "string" },
       project: { type: "string" },
       message: { type: "string" },
-      ready: { type: "boolean" },
+      ready: { type: "boolean", description: "True when the live viewer is usable and no currently observed build signal still blocks it. This does not imply compileState=success." },
+      viewerReady: { type: "boolean", description: "True when a reachable live viewer has non-loader readiness evidence." },
+      compileState: { type: "string", enum: ["unknown", "building", "success", "failed", "not_required"], description: "Compilation evidence observed by this call, independent from viewer/browser readiness." },
+      buildObserved: { type: "boolean", description: "True when this call observed a Studio live-build job or terminal compiler signal." },
+      readyReason: { type: "string", enum: ["", "compiled", "generation_no_change", "browser_control_ready", "viewer_ready"], description: "Evidence that allowed the call to stop waiting." },
       launched: { type: "boolean" },
       launchRequested: { type: "boolean" },
       reusedBuild: { type: "boolean" },
@@ -1492,7 +1523,19 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         devtoolsFrontendUrl: { type: "string" }
       }),
       browserRemoteDebuggingPort: { type: "number" },
-      browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint." },
+      browserDebugPortRequested: { type: "number" },
+      browserDebugPortApplied: { type: "boolean" },
+      browserDebugPortMatched: { type: "boolean" },
+      browserControlReady: { type: "boolean", description: "True only when the Studio JxBrowser CDP target is on the live viewer URL and can be used by Playwright/browser-control." },
+      browserControlTargetUrl: { type: "string", description: "Current URL of the visible JxBrowser CDP target, often about:blank while the loader is still building." },
+      browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio JxBrowser debug endpoint, including the requirement to use configured MCP tools rather than ad hoc scripts." },
+      nextAction: nullableSchema(closedObjectSchema({
+        tool: { type: "string" },
+        arguments: {
+          type: "object",
+          additionalProperties: true
+        }
+      })),
       editor: mobileBuilderEditorSchema(),
       editorOpened: { type: "boolean" },
       browser: openObjectSchema({
@@ -1503,6 +1546,29 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         errorText: { type: "string" },
         bodyTextSample: { type: "string" },
         progress: { type: "number" }
+      }),
+      build: closedObjectSchema({
+        supported: { type: "boolean", description: "True when the optional Studio Eclipse live-build job can be inspected." },
+        jobName: { type: "string" },
+        active: { type: "boolean" },
+        state: { type: "string", description: "Current Eclipse job state: none, waiting, sleeping, or running." },
+        processAlive: { type: "boolean", description: "True when the mobile builder process is currently alive." },
+        launchRequestedAt: { type: "number", description: "Timestamp of the most recent builder launch request, or zero." },
+        observed: { type: "boolean", description: "True when this waited call observed the live-build job." },
+        finishedAtObserved: { type: "number" },
+        requestedAt: { type: "number", description: "Timestamp of the pending HMR request consumed by this call, or zero." },
+        terminalObserved: { type: "boolean", description: "True when this call observed the terminal compiler signal for the pending HMR cycle." },
+        generation: closedObjectSchema({
+          supported: { type: "boolean", description: "True when the Convertigo Engine exposes portable source-generation cycles." },
+          id: { type: "number" },
+          status: { type: "string", enum: ["none", "pending", "no_change", "changed", "failed"] },
+          startedAt: { type: "number" },
+          completedAt: { type: "number" },
+          changedFileCount: { type: "number" },
+          noChange: { type: "boolean" },
+          failed: { type: "boolean" },
+          error: { type: "string" }
+        })
       }),
       compileErrors: {
         type: "array",

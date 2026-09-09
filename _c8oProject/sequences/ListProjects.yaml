@@ -1,0 +1,41 @@
+comment: List available Convertigo projects
+↓BuildProjects [steps.SimpleStep-1760712703636]: 
+  expression: |
+    var manager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    var names = manager.getAllProjectNamesList(true);
+    var iterator = names.iterator();
+    var projects = [];
+    while (iterator.hasNext()) {
+      var name = String(iterator.next());
+      var entry = { name: name };
+      try {
+        var proj = manager.getOriginalProjectByName(name);
+        entry.loaded = proj != null;
+        if (proj != null) {
+          entry.comment = proj.getComment() == null ? null : String(proj.getComment());
+          try {
+            var def = proj.getDefaultConnector();
+            entry.defaultConnector = def == null ? null : def.getName();
+          } catch (eDef) {
+            entry.defaultConnector = null;
+          }
+        }
+      } catch (eProj) {
+        entry.error = String(eProj);
+      }
+      projects.push(entry);
+    }
+    var result = { projects: projects };
+↓Json1 [steps.JsonToXmlStep-1760712703638]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: projects

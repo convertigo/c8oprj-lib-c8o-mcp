@@ -4,7 +4,7 @@ if (typeof C8O === "undefined" || typeof C8O.project === "undefined") {
 
 function c8oResolveCatalogDirectory(folderName) {
   var File = Packages.java.io.File;
-  var projectDir = C8O.project.resolveProjectDirectory({ projectName: "ConvertigoMCP" });
+  var projectDir = C8O.project.resolveProjectDirectory({ projectName: "lib_ConvertigoMCP" });
   return new File(projectDir, String(folderName || ""));
 }
 

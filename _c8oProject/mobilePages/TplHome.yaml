@@ -31,7 +31,7 @@ title: Template Home
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓PageHeader [ngx.components.UIUseShared-1775818422290]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
           ↓Title [ngx.components.UIUseVariable-1775818422292]: 
             varValue: 
               - xmlizable: 
@@ -55,7 +55,7 @@ title: Template Home
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: source:{"filter":"Global","project":"__PROJECT_NAME__","input":"","model":{"data":[{"sharedObject":"router.sharedObject"}],"path":"?.crudBuildStage","prefix":"","suffix":" !== 'final'","custom":"","useCustom":false}}
           ↓Bootstrap [ngx.components.UIUseShared-1775818422302]: 
-            sharedcomponent: ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
+            sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplWorkInProgressCard
             ↓Message [ngx.components.UIUseVariable-1775818422304]: 
               varValue: 
                 - xmlizable: 
@@ -80,7 +80,7 @@ title: Template Home
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: source:{"filter":"Global","project":"__PROJECT_NAME__","input":"","model":{"data":[{"sharedObject":"router.sharedObject"}],"path":"?.crudLoading","prefix":"","suffix":" === true","custom":"","useCustom":false}}
           ↓Loading [ngx.components.UIUseShared-1775818422316]: 
-            sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
+            sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudLoadingState
             ↓Message [ngx.components.UIUseVariable-1775818422318]: 
               varValue: 
                 - xmlizable: 
@@ -99,7 +99,7 @@ title: Template Home
               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
               - MobileSmartSourceType: source:{"filter":"Global","project":"__PROJECT_NAME__","input":"","model":{"data":[{"sharedObject":"router.sharedObject"}],"path":"?.crudError","prefix":"","suffix":"","custom":"","useCustom":false}}
           ↓Error [ngx.components.UIUseShared-1775818422326]: 
-            sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
+            sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudErrorRetryState
             ↓Message [ngx.components.UIUseVariable-1775818422328]: 
               varValue: 
                 - xmlizable: 
@@ -117,7 +117,7 @@ title: Template Home
                   }'
                 ↓InvokeEnsureSession [ngx.components.UIDynamicInvoke-1775818422334]: 
                   beanData: '{"ionBean":"InvokeAction"}'
-                  stack: ConvertigoMCP.Application.NgxApp.crud_ensure_session
+                  stack: lib_ConvertigoMCP.Application.NgxApp.crud_ensure_session
                   ↓InvokeBootstrapDashboard [ngx.components.UIDynamicInvoke-1775818423282]: 
                     beanData: '{"ionBean":"InvokeAction"}'
-                    stack: ConvertigoMCP.Application.NgxApp.crud_bootstrap_dashboard
+                    stack: lib_ConvertigoMCP.Application.NgxApp.crud_bootstrap_dashboard

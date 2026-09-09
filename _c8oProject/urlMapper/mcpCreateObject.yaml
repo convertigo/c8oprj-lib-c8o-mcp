@@ -1,0 +1,13 @@
+path: /mcp/objects
+↓CreateObject [rest.PostOperation-1760700424004]:
+  targetRequestable: lib_ConvertigoMCP.CreateDatabaseObject
+  ↓parent [rest.FormParameter-1760700424008]:
+    mappedVariableName: parent
+    required: true
+  ↓className [rest.FormParameter-1760700424009]:
+    mappedVariableName: className
+    required: true
+  ↓newName [rest.FormParameter-1760700424010]:
+    mappedVariableName: newName
+  ↓properties [rest.FormParameter-1760700424011]:
+    mappedVariableName: properties

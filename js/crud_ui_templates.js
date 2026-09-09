@@ -10,7 +10,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   }
   C8O.crudUiTemplates._initialized = true;
 
-  var TEMPLATE_PROJECT = "ConvertigoMCP";
+  var TEMPLATE_PROJECT = "lib_ConvertigoMCP";
   var TEMPLATE_PAGE = "Templates";
   var TOKENS = {
     PROJECT_NAME: "__PROJECT_NAME__",
@@ -1626,7 +1626,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   function galleryPageShellTree(ctx, projectName, options) {
     var currentOptions = options || {};
     var headerTitle = trimmed(ctx, currentOptions.headerTitle) || "CRUD template gallery";
-    var headerSubtitle = trimmed(ctx, currentOptions.headerSubtitle) || "Real shared components stored inside ConvertigoMCP.";
+    var headerSubtitle = trimmed(ctx, currentOptions.headerSubtitle) || "Real shared components stored inside lib_ConvertigoMCP.";
     var statTitle = trimmed(ctx, currentOptions.statTitle) || "Template items";
     var statCaption = trimmed(ctx, currentOptions.statCaption) || "Preview data in page.global";
     var detailTitle = trimmed(ctx, currentOptions.detailTitle) || "Template item detail";
@@ -1786,7 +1786,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         galleryPageHeaderTree(ctx, "CRUD Templates"),
         galleryPageShellTree(ctx, projectName, {
           headerTitle: "CRUD template gallery",
-          headerSubtitle: "Real shared components stored inside ConvertigoMCP."
+          headerSubtitle: "Real shared components stored inside lib_ConvertigoMCP."
         })
       ]
     };

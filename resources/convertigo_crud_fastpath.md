@@ -66,7 +66,7 @@ Default assumptions for the fast path:
 5. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
 6. Call `mobile-builder-open(stateOnly=true, wait=true)` again after the bootstrap shell exists. If it returns `compile_error`, fix the Convertigo source path or the MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated files.
 7. Call `upsert-ngx-crud-kit` again with `stage=final`.
-8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`. When the waited builder result exposes `browserDebugUrl`, `browserDevToolsJsonUrl`, or `browserDevToolsWebSocketUrl`, also use Playwright or browser-control MCP against that JxBrowser endpoint for the visible Studio viewer smoke proof.
+8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`. When the waited builder result reports `browserControlReady:true`, also use Playwright or browser-control MCP against that JxBrowser endpoint for the visible Studio viewer smoke proof; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 9. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
 10. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
 

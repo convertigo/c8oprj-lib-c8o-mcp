@@ -1,5 +1,5 @@
 /*
- * Generic utility helpers shared across ConvertigoMCP scripts.
+ * Generic utility helpers shared across lib_ConvertigoMCP scripts.
  * Can be safely included multiple times (idempotent definitions).
  */
 
@@ -15,7 +15,7 @@ C8O.project.resolveProjectDirectory = function (options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
   var projectInstance = null;
-  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "ConvertigoMCP";
+  var projectName = opts.projectName || (context && context.projectName) || (context && context.project) || "lib_ConvertigoMCP";
   if (opts.project) {
     projectInstance = opts.project;
   } else if (opts.projectName) {

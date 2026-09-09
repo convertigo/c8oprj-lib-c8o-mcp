@@ -21,7 +21,7 @@ ALLOWED_DISPOSITIONS = [
     "ROUTE_EXTERNAL",
     "DUPLICATE",
 ]
-TARGET_REPOS = {"c8oprj-c8o-mcp", "codex-cli-multiagent", "unknown"}
+TARGET_REPOS = {"c8oprj-lib-c8o-mcp", "codex-cli-multiagent", "unknown"}
 
 
 def repo_root():
@@ -171,7 +171,7 @@ def infer_repo_hint(report):
     ):
         return "codex-cli-multiagent"
     if report.get("finding", {}).get("area") in {"tool", "guide", "prompt", "scenario", "fixture"}:
-        return "c8oprj-c8o-mcp"
+        return "c8oprj-lib-c8o-mcp"
     return "unknown"
 
 
@@ -437,7 +437,7 @@ def build_consolidation(batch_id, packet, critic_report):
             subject_id = (((packet_item or {}).get("finding") or {}).get("subjectId") or "")
             if subject_id == "parser-status-missing-tree-apply-mobile-builder-open":
                 decision["disposition"] = "CLOSED_ALREADY_FIXED"
-                decision["targetRepo"] = "c8oprj-c8o-mcp"
+                decision["targetRepo"] = "c8oprj-lib-c8o-mcp"
                 decision["notes"] = (
                     "Current campaign reports show databaseobject-tree-apply/mobile-builder-open runs "
                     "without the old unresolved-status warning. Keep the broader parser backlog separate "

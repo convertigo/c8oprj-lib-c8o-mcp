@@ -17,7 +17,7 @@ SCHEMA_VERSION = "1.1.0"
 DEFAULT_MCP_URL = os.environ.get("CONVERTIGO_MCP_URL", "http://localhost:18080/convertigo/api/mcp")
 DEFAULT_ADMIN_USER = os.environ.get("CONVERTIGO_ADMIN_USER", "admin")
 DEFAULT_ADMIN_PASSWORD = os.environ.get("CONVERTIGO_ADMIN_PASSWORD", "admin")
-DEFAULT_RUNTIME_PROJECT = os.environ.get("CONVERTIGO_RUNTIME_PROJECT", "ConvertigoMCP")
+DEFAULT_RUNTIME_PROJECT = os.environ.get("CONVERTIGO_RUNTIME_PROJECT", "lib_ConvertigoMCP")
 MAINTAINER_PROMPT_NAME = "convertigo-maintainer"
 PROTOCOL_VERSION = "2025-06-18"
 FINDING_SPECS = {
@@ -532,7 +532,7 @@ def selected_finding_for_cycle(root, baseline_campaign_dir, baseline_manifest, b
     feedback_finding = find_feedback_finding(consolidation, finding_id)
     if feedback_finding is None:
         raise RuntimeError(f"Feedback consolidation does not contain finding id: {finding_id}")
-    if feedback_finding.get("targetRepo") != "c8oprj-c8o-mcp":
+    if feedback_finding.get("targetRepo") != "c8oprj-lib-c8o-mcp":
         raise RuntimeError(f"Finding {finding_id} is not owned by this repo.")
     if canonical_owner(feedback_finding.get("recommendedOwner")) not in {"tool", "guide", "prompt", "scenario", "fixture"}:
         raise RuntimeError(f"Finding {finding_id} is not owned by a maintainer-eligible area.")

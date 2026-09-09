@@ -108,7 +108,7 @@
     "rationale": "One-off scratch surface removed in this cleanup."
   },
   {
-    "surface": "ConvertigoMCP.xsd",
+    "surface": "lib_ConvertigoMCP.xsd",
     "classification": "historical/generated-metadata",
     "decision": "keep-for-now",
     "rationale": "Likely engine-exported metadata; not public product truth but may still be expected by Convertigo tooling."

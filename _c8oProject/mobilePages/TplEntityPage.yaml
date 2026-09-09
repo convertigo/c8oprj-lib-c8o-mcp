@@ -30,7 +30,7 @@ title: __DISPLAY_LABEL__
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓PageHeader [ngx.components.UIUseShared-1775818423294]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplCrudPageHeader
           ↓Title [ngx.components.UIUseVariable-1775818423296]: 
             varValue: 
               - xmlizable: 
@@ -63,7 +63,7 @@ title: __DISPLAY_LABEL__
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓ListPanel [ngx.components.UIUseShared-1775818423308]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityListPanel
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityListPanel
           ↓Title [ngx.components.UIUseVariable-1775818423310]: 
             varValue: 
               - xmlizable: 
@@ -130,7 +130,7 @@ title: __DISPLAY_LABEL__
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓DetailCard [ngx.components.UIUseShared-1775818423336]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityDetailCard
           ↓Title [ngx.components.UIUseVariable-1775818423338]: 
             varValue: 
               - xmlizable: 
@@ -153,7 +153,7 @@ title: __DISPLAY_LABEL__
         beanData: '{"ionBean":"GridCol"}'
         tagName: ion-col
         ↓EditForm [ngx.components.UIUseShared-1775818423348]: 
-          sharedcomponent: ConvertigoMCP.Application.NgxApp.TplEntityEditForm
+          sharedcomponent: lib_ConvertigoMCP.Application.NgxApp.TplEntityEditForm
           ↓SelectedId [ngx.components.UIUseVariable-1775818423350]: 
             varValue: 
               - xmlizable: 

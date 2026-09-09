@@ -30,7 +30,7 @@ C8O.maintainerDocs = C8O.maintainerDocs || {};
   }
 
   function resolveProjectRoot() {
-    return C8O.project.resolveProjectDirectory({ projectName: "ConvertigoMCP" });
+    return C8O.project.resolveProjectDirectory({ projectName: "lib_ConvertigoMCP" });
   }
 
   function resolveOutputRoot(input) {
@@ -91,7 +91,7 @@ C8O.maintainerDocs = C8O.maintainerDocs || {};
 
   function internalSequence(sequenceName, argsMap) {
     var request = new HashMap();
-    request.put("__project", "ConvertigoMCP");
+    request.put("__project", "lib_ConvertigoMCP");
     request.put("__sequence", sequenceName);
     request.put("__nolog", "true");
 

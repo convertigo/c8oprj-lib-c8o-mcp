@@ -1,9 +1,9 @@
 path: /mcp
 ↓Get [rest.GetOperation-1761839223002]: 
-  targetRequestable: ConvertigoMCP.mcp_ping
+  targetRequestable: lib_ConvertigoMCP.mcp_ping
 ↓Post [rest.PostOperation]: 
   comment: Streamable HTTP entry point for MCP requests
-  targetRequestable: ConvertigoMCP.mcp_endpoint
+  targetRequestable: lib_ConvertigoMCP.mcp_endpoint
   ↓request [rest.BodyParameter-1761203524284]: 
     comment: JSON-RPC request body
     inputContent: noConvert
