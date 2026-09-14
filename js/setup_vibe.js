@@ -828,11 +828,28 @@ C8O.setupVibe = C8O.setupVibe || {};
         hasTimeout = true;
       }
     }
+    // Insert missing server-level keys before the first nested table
+    // ([mcp_servers.auth], [mcp_servers.auth.headers], ...): appending them at
+    // the end of the range would place them inside that nested table.
+    var insertAt = section.length;
+    for (var nestedIndex = 1; nestedIndex < section.length; nestedIndex++) {
+      if (/^\[.+\]$/.test(trim(section[nestedIndex]))) {
+        insertAt = nestedIndex;
+        break;
+      }
+    }
+    while (insertAt > 1 && !trim(section[insertAt - 1]).length) {
+      insertAt--;
+    }
+    var missing = [];
     if (!hasUrl) {
-      section.push(urlLine);
+      missing.push(urlLine);
     }
     if (!hasTimeout) {
-      section.push(timeoutLine);
+      missing.push(timeoutLine);
+    }
+    if (missing.length) {
+      section = section.slice(0, insertAt).concat(missing).concat(section.slice(insertAt));
     }
     section = normalizeConvertigoMcpAuth(section, mcpToken);
     return lines.slice(0, range.start).concat(section).concat(lines.slice(range.end));

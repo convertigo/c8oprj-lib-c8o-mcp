@@ -1,0 +1,40 @@
+accessibility: Private
+comment: |
+  Setup local Claude Code onboarding for this MCP project
+  Generates or updates the local Convertigo skills in a CLAUDE_CONFIG_DIR and, when configureMcp is true, declares the Convertigo MCP server in that home's .claude.json, including an optional MCP bearer token.
+↓IncludeHelpers [steps.SimpleStep-1789369711882]: 
+  comment: Load the local Claude Code setup helper.
+  expression: include("js/setup_claude.js");
+↓result [steps.JsonToXmlStep-1789369711884]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: setupClaudeResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓claudeHome [variables.RequestableVariable-1789369711887]: 
+  comment: Optional Claude Code config directory (CLAUDE_CONFIG_DIR). Defaults to ~/.claude on the local Studio machine.
+  description: Optional Claude Code config directory (CLAUDE_CONFIG_DIR). Defaults to ~/.claude on the local Studio machine.
+↓mcpUrl [variables.RequestableVariable-1789369711889]: 
+  comment: Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+  description: Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+↓dryRun [variables.RequestableVariable-1789369711891]: 
+  comment: Set true to preview the generated skills and .claude.json patch without writing files.
+  description: Set true to preview the generated skills and .claude.json patch without writing files.
+  value: false
+↓configureMcp [variables.RequestableVariable-1789369711893]: 
+  comment: Set false to only generate skills without touching .claude.json (used by lib_ConvertigoAgentBridge managed homes).
+  description: Set false to only generate skills without touching .claude.json (used by lib_ConvertigoAgentBridge managed homes).
+  value: true
+↓mcpToken [variables.RequestableVariable-1789369711895]: 
+  comment: Optional MCP bearer token written as an Authorization header. Keep this value secret.
+  description: Optional MCP bearer token written as an Authorization header. Keep this value secret.
+  value: 
+    - ↑traceable: false
+  visibility: 1

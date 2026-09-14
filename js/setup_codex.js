@@ -768,11 +768,29 @@ C8O.setupCodex = C8O.setupCodex || {};
     }
     return result;
   };
+
+  // Shared helpers reused by sibling setup scripts such as setup_claude.js.
+  C8O.setupCodex._helpers = {
+    trim: trim,
+    userHomeDirectory: userHomeDirectory,
+    readTextIfExists: readTextIfExists,
+    writeText: writeText,
+    deriveMcpUrl: deriveMcpUrl,
+    configuredMcpUrl: configuredMcpUrl,
+    flowMcpUrl: flowMcpUrl,
+    flowCapabilityAvailable: flowCapabilityAvailable,
+    buildSkillMarkdown: buildSkillMarkdown,
+    buildNoCodeSkillMarkdown: buildNoCodeSkillMarkdown,
+    writeManagedFile: writeManagedFile,
+    combineSkillStatuses: combineSkillStatuses
+  };
 })();
 
-var setupCodexResult = C8O.setupCodex.run({
-  codexHome: (typeof codexHome !== "undefined") ? codexHome : "",
-  mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
-  mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
-  dryRun: (typeof dryRun !== "undefined") ? dryRun : false
-});
+if (C8O.setupCodex.autoRun !== false) {
+  var setupCodexResult = C8O.setupCodex.run({
+    codexHome: (typeof codexHome !== "undefined") ? codexHome : "",
+    mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
+    mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
+    dryRun: (typeof dryRun !== "undefined") ? dryRun : false
+  });
+}

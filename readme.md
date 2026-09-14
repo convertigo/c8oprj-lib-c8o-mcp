@@ -82,6 +82,8 @@ api_key_format = "Bearer {token}"
 
 Run the `lib_ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
 
+For Claude Code, run `lib_ConvertigoMCP._setupClaude` once for the target `CLAUDE_CONFIG_DIR` (default `~/.claude`). It writes the `convertigo-generalist` and `convertigo-nocode` skills and, unless `configureMcp=false`, declares the `convertigo` http server in that home's `.claude.json` with the optional bearer token. The WEB_ADMIN token page offers the same one-click setup for Claude Code.
+
 `bearer_token_env_var` is the **name** of an environment variable, not the
 token itself. Define `CONVERTIGO_MCP_TOKEN` before starting Codex. Do not put
 the token in `env_http_headers`: that table maps HTTP header names to

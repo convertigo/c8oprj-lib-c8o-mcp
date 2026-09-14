@@ -651,8 +651,12 @@ C8O.mcpAuth = C8O.mcpAuth || {};
       } else if (normalizedAgent === "vibe") {
         sequence = "_setupVibe";
         variables.replaceConfig = false;
+      } else if (normalizedAgent === "claude" || normalizedAgent === "claude-code") {
+        normalizedAgent = "claude";
+        sequence = "_setupClaude";
+        variables.configureMcp = true;
       } else {
-        return createResultError("unsupported_agent", "Choose Codex or Vibe for local setup.");
+        return createResultError("unsupported_agent", "Choose Codex, Vibe, or Claude for local setup.");
       }
       var setup = callSequence(contextObject, "lib_ConvertigoMCP", sequence, variables) || {};
       if (String(setup.status || "").toLowerCase() === "error") {
@@ -667,7 +671,9 @@ C8O.mcpAuth = C8O.mcpAuth || {};
         warnings: setup.warnings || [],
         message: normalizedAgent === "codex"
           ? "Codex is configured. Restart Codex before using the Convertigo MCP server."
-          : "Vibe is configured. Restart Vibe before using the Convertigo MCP server."
+          : (normalizedAgent === "claude"
+            ? "Claude Code is configured. Start a new Claude Code session before using the Convertigo MCP server."
+            : "Vibe is configured. Restart Vibe before using the Convertigo MCP server.")
       };
     } catch (error) {
       return createResultError(error.code || "local_setup_failed", String(error.message || error));

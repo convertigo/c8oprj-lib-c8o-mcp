@@ -11,11 +11,12 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 600
-  version: 0.2.5
+  version: 0.2.6
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
   ↓_refreshMaintainerDocs [sequences.GenericSequence]: 🗏 sequences/_refreshMaintainerDocs.yaml
+  ↓_setupClaude [sequences.GenericSequence]: 🗏 sequences/_setupClaude.yaml
   ↓_setupCodex [sequences.GenericSequence]: 🗏 sequences/_setupCodex.yaml
   ↓_setupVibe [sequences.GenericSequence]: 🗏 sequences/_setupVibe.yaml
   ↓CreateDatabaseObject [sequences.GenericSequence]: 🗏 sequences/CreateDatabaseObject.yaml

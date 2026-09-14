@@ -848,6 +848,34 @@ title: MCP access tokens
                            "Property": "plain:setupMessage",
                            "Value": "script:(out && out.result ? out.result : (out || {})).error ? (out && out.result ? out.result : (out || {})).error.message : ((out && out.result ? out.result : (out || {})).message || ''Vibe configuration updated.'')"
                           }'
+                ↓SetupClaude [ngx.components.UIDynamicElement-1789370051521]: 
+                  beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
+                  tagName: ion-button
+                  ↓Text [ngx.components.UIText-1789370055747]: 
+                    textValue: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                        - MobileSmartSourceType: plain:Configure local Claude Code
+                  ↓SetupClick [ngx.components.UIControlEvent-1789370055749]: 
+                    ↓CallLocalSetup [ngx.components.UIDynamicAction-1789370057343]: 
+                      beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:lib_ConvertigoMCP.McpLocalAgentSetup"}'
+                      ↓agent [ngx.components.UIControlVariable-1789370058957]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: plain:claude
+                      ↓mcpToken [ngx.components.UIControlVariable-1789370058959]: 
+                        varValue: 
+                          - xmlizable: 
+                            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                            - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.createdToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+                      ↓StoreSetupMessage [ngx.components.UIDynamicAction-1789370058961]: 
+                        beanData: |
+                          '{
+                           "ionBean": "SetLocalAction",
+                           "Property": "plain:setupMessage",
+                           "Value": "script:(out && out.result ? out.result : (out || {})).error ? (out && out.result ? out.result : (out || {})).error.message : ((out && out.result ? out.result : (out || {})).message || ''Claude Code configuration updated.'')"
+                          }'
             ↓SetupHelp [ngx.components.UIDynamicElement-1788367998258]: 
               beanData: '{"ionBean":"DivTag"}'
               tagName: div
@@ -864,7 +892,8 @@ title: MCP access tokens
                     - MobileSmartSourceType: |
                         'plain:Codex Desktop: set Bearer token environment variable to CONVERTIGO_MCP_TOKEN and define that environment variable before starting Codex. Do not paste the token into Environment-variable headers.
                         Static configuration: add Authorization = "Bearer <copied token>" under [mcp_servers.convertigo.http_headers].
-                        Vibe: configure the same Authorization header on the Convertigo MCP server.'
+                        Vibe: configure the same Authorization header on the Convertigo MCP server.
+                        Claude Code: declare an http server named convertigo in ~/.claude.json mcpServers with the same Authorization header, or use the local one-click setup.'
             ↓SetupMessageIf [ngx.components.UIControlDirective-1788368053390]: 
               directiveExpression: '!!local?.setupMessage'
               directiveName: If

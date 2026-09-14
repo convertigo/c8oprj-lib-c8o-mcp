@@ -8,7 +8,7 @@ tools, prompts, resources, setup helpers, and authoring guides to AI agents.
 
 The project includes a WEB_ADMIN application for durable token management,
 short-lived managed credentials for the integrated Tigo Assistant, and
-one-click local setup for Codex and Mistral Vibe.
+one-click local setup for Codex, Mistral Vibe, and Claude Code.
 
 Endpoint:
 `http://localhost:18080/convertigo/api/mcp`
