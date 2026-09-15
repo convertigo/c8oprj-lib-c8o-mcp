@@ -3,56 +3,11 @@
 
 # Convertigo MCP
 
-Secure Streamable HTTP MCP server for Convertigo. It exposes structured project
-tools, prompts, resources, setup helpers, and authoring guides to AI agents.
+Secure Streamable HTTP MCP server for Convertigo. It exposes structured project tools, prompts, resources, setup helpers, and authoring guides to AI agents.
 
-The project includes a WEB_ADMIN application for durable token management,
-short-lived managed credentials for the integrated Tigo Assistant, and
-one-click local setup for Codex, Mistral Vibe, and Claude Code.
+The project includes a WEB_ADMIN application for durable token management, short-lived managed credentials for the integrated Tigo Assistant, and one-click local setup for Codex and Mistral Vibe.
 
-Endpoint:
-`http://localhost:18080/convertigo/api/mcp`
-
-## Mistral Vibe
-
-Add the Convertigo MCP endpoint in the Vibe MCP configuration. Start each task by reading `convertigo-start` and the selected recipe. Create, validate, save, and reload Convertigo projects through MCP tools.
-
-```toml
-[[mcp_servers]]
-name = "Convertigo"
-transport = "http"
-url = "http://localhost:18080/convertigo/api/mcp"
-
-[mcp_servers.auth]
-type = "static"
-api_key_env = "CONVERTIGO_MCP_TOKEN"
-api_key_header = "Authorization"
-api_key_format = "Bearer {token}"
-```
-
-## Codex
-
-Run the `lib_ConvertigoMCP._setupCodex` sequence once for the target `CODEX_HOME`, then ask Codex to use the `convertigo-generalist` skill. Codex must discover the MCP catalog first, read `convertigo://resources/convertigo-start`, then read the relevant recipe before creating or editing projects.
-
-```toml
-[mcp_servers.convertigo]
-url = "http://localhost:18080/convertigo/api/mcp"
-bearer_token_env_var = "CONVERTIGO_MCP_TOKEN"
-```
-
-## Claude Code
-
-Register Convertigo as a Streamable HTTP MCP server with an `Authorization`
-bearer header. Ask Claude Code to call `tools/list`, `resources/list`, and
-`prompts/list`, then use the exposed MCP tools for project tree edits,
-validation, save, and runtime checks.
-
-```toml
-[mcp_servers.convertigo]
-type = "streamable-http"
-url = "http://localhost:18080/convertigo/api/mcp"
-```
-
+Endpoint: `http://localhost:18080/convertigo/api/mcp`
 
 <details><summary><span style="color:DarkGoldenRod"><i>References</i></span></summary><blockquote><p>
 
@@ -303,6 +258,69 @@ Set true to render the generated files without writing them.
 
 </p></blockquote></details>
 
+<details><summary><b>_setupClaude</b> : Setup local Claude Code onboarding for this MCP project</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") _setupClaude
+
+Setup local Claude Code onboarding for this MCP project
+Generates or updates the local Convertigo skills in a CLAUDE_CONFIG_DIR and, when configureMcp is true, declares the Convertigo MCP server in that home's .claude.json, including an optional MCP bearer token.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;claudeHome
+</td>
+<td>
+Optional Claude Code config directory (CLAUDE_CONFIG_DIR). Defaults to ~/.claude on the local Studio machine.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;configureMcp
+</td>
+<td>
+Set false to only generate skills without touching .claude.json (used by lib_ConvertigoAgentBridge managed homes).
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;dryRun
+</td>
+<td>
+Set true to preview the generated skills and .claude.json patch without writing files.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;mcpToken
+</td>
+<td>
+Optional MCP bearer token written as an Authorization header. Keep this value secret.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;mcpUrl
+</td>
+<td>
+Optional MCP URL override. Defaults to the locally resolved Convertigo MCP endpoint.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>_setupCodex</b> : Setup local Codex onboarding for this MCP project</summary><blockquote><p>
 
 
@@ -415,112 +433,6 @@ Set true to replace config.toml with a deterministic isolated Vibe harness confi
 </td>
 <td>
 Optional Vibe home directory. Defaults to ~/.vibe on the local Studio machine.
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>CreateDatabaseObject</b> : Create a new database object under a parent</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") CreateDatabaseObject
-
-Create a new database object under a parent
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;payload
-</td>
-<td>
-JSON payload with parent, className, optional name, properties, before/after
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>DescribeDatabaseObject</b> : Describe a database object and optional descendants</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") DescribeDatabaseObject
-
-Describe a database object and optional descendants
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;depth
-</td>
-<td>
-Depth of child traversal
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;qname
-</td>
-<td>
-Qualified name of the database object
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>EngineMetrics</b> : Return runtime metrics for the Convertigo engine</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") EngineMetrics
-
-Return runtime metrics for the Convertigo engine
-</p></blockquote></details>
-
-<details><summary><b>EXEC</b></summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") EXEC
-
-
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;script
-</td>
-<td>
-
 </td>
 </tr>
 </table>
@@ -673,136 +585,6 @@ comment
 </td>
 <td>
 Database object QName to refresh inside the Studio Project Explorer
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>InvokeSequence</b> : Execute a sequence via the internal requester</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") InvokeSequence
-
-Execute a sequence via the internal requester
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;parameters
-</td>
-<td>
-Optional JSON-encoded parameter map
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;payload
-</td>
-<td>
-Optional JSON payload containing project, sequence and parameters
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
-</td>
-<td>
-Optional project override
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;sequence
-</td>
-<td>
-Optional sequence override
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>ListDatabaseObjectCandidates</b> : List database object classes that can be created under a parent</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") ListDatabaseObjectCandidates
-
-List database object classes that can be created under a parent
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;folderType
-</td>
-<td>
-Optional folder type filter
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;parentQName
-</td>
-<td>
-Qualified name of the parent database object
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>ListProjects</b> : List available Convertigo projects</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") ListProjects
-
-List available Convertigo projects
-</p></blockquote></details>
-
-<details><summary><b>ListProjectSequences</b> : List sequences for one or all projects</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") ListProjectSequences
-
-List sequences for one or all projects
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;project
-</td>
-<td>
-Optional project name to filter
 </td>
 </tr>
 </table>
@@ -1374,36 +1156,6 @@ comment
 </td>
 <td>
 No Code Studio bearer token to validate.
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>ReorderDatabaseObject</b> : Reorder or move a database object</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") ReorderDatabaseObject
-
-Reorder or move a database object
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;payload
-</td>
-<td>
-JSON payload with qname, parent, before, after
 </td>
 </tr>
 </table>
@@ -2864,6 +2616,53 @@ No Code Studio bearer token used to authenticate the C8Oforms API calls.
 
 </p></blockquote></details>
 
+<details><summary><b>tools_nocode_form_get</b> : Read an existing No Code form without modifying it</summary><blockquote><p>
+
+
+## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_nocode_form_get
+
+Read an existing No Code form without modifying it
+Use before auditing, proposing improvements, or editing a form identified by its document id. Reads the latest saved form through C8Oforms.APIV2_getDocument with the authenticated No Code bearer user and existing ACLs. Returns status, fetched and form on success; auth_required for token failures or unavailable when the form is missing or inaccessible. Never use an empty edit/update to read. The token is supplied out-of-band by the integrated host.
+
+<span style="color:DarkGoldenRod">Variables</span>
+
+<table>
+<tr>
+<th>
+name
+</th>
+<th>
+comment
+</th>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;id
+</td>
+<td>
+Form document id.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;rev
+</td>
+<td>
+Optional revision. Empty reads latest.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;token
+</td>
+<td>
+Optional compatibility field; bearer credential supplied by the host.
+</td>
+</tr>
+</table>
+
+</p></blockquote></details>
+
 <details><summary><b>tools_nocode_form_update</b> : Update a No Code form through C8Oforms APIs</summary><blockquote><p>
 
 
@@ -3410,7 +3209,7 @@ Question sent to the Convertigo knowledge base.
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_report_create
 
 Create a field feedback report
-Writes one structured field-feedback report under feedback/inbox/YYYY/MM/. Available only when benchmark resolves to suggest or benchmark.
+Writes one structured field-feedback report under feedback/inbox/YYYY/MM/. Available only when off resolves to suggest or benchmark.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -3784,36 +3583,6 @@ UI assembly stage. Use bootstrap for the first visible shell, then final after p
 </td>
 <td>
 UI variant, for example dashboard, list-form, or master-detail.
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>UpdateDatabaseObject</b> : Update properties of a database object</summary><blockquote><p>
-
-
-## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") UpdateDatabaseObject
-
-Update properties of a database object
-
-<span style="color:DarkGoldenRod">Variables</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;payload
-</td>
-<td>
-JSON payload with qname and properties
 </td>
 </tr>
 </table>
@@ -4345,44 +4114,6 @@ comment
 <details><summary><span style="color:DarkGoldenRod"><i>Mappings</i></span></summary><blockquote><p>
 
 
-<details><summary><b>/exec</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /exec
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") Exec
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/bodyparameter_color_16x16.png?raw=true "  alt="BodyParameter" >&nbsp;script
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-
 <details><summary><b>/mcp</b></summary><blockquote><p>
 
 
@@ -4496,340 +4227,6 @@ JSON-RPC request body
 </table>
 
 </p></blockquote></details>
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/candidates</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/candidates
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") GetCandidates
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;folderType
-</td>
-<td>
-
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;parent
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/object</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/object
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-<details><summary><b>DescribeObject</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") DescribeObject
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;depth
-</td>
-<td>
-
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;qname
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-
-<details><summary><b>UpdateObject</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") UpdateObject
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/bodyparameter_color_16x16.png?raw=true "  alt="BodyParameter" >&nbsp;payload
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/object/create</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/object/create
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") CreateObject
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/bodyparameter_color_16x16.png?raw=true "  alt="BodyParameter" >&nbsp;payload
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/object/reorder</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/object/reorder
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") ReorderObject
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/bodyparameter_color_16x16.png?raw=true "  alt="BodyParameter" >&nbsp;payload
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/projects</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/projects
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") GetProjects
-
-
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/sequences</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/sequences
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") GetSequences
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;project
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/mcp/sequences/invoke</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /mcp/sequences/invoke
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/postoperation_color_16x16.png?raw=true "PostOperation") InvokeSequence
-
-
-
-<span style="color:DarkGoldenRod">Parameters</span>
-
-<table>
-<tr>
-<th>
-name
-</th>
-<th>
-comment
-</th>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;parameters
-</td>
-<td>
-
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/bodyparameter_color_16x16.png?raw=true "  alt="BodyParameter" >&nbsp;payload
-</td>
-<td>
-
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;project
-</td>
-<td>
-
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/queryparameter_color_16x16.png?raw=true "  alt="QueryParameter" >&nbsp;sequence
-</td>
-<td>
-
-</td>
-</tr>
-</table>
-
-</p></blockquote></details>
-</p></blockquote></details>
-
-<details><summary><b>/metrics</b></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/pathmapping_color_16x16.png?raw=true "PathMapping") /metrics
-
-
-
-<details><summary><span style="color:DarkGoldenRod"><i>Operations</i></span></summary><blockquote><p>
-
-
-### ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/rest/images/getoperation_color_16x16.png?raw=true "GetOperation") GetMetrics
-
-
 </p></blockquote></details>
 </p></blockquote></details>
 </p></blockquote></details>
