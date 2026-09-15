@@ -197,9 +197,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           ]
         }
       ],
-      flows: [
-        { id: "submit", elements: [{ type: "submit" }, { type: "toast", message: "Thanks!" }] }
-      ]
+      flows: []
     };
   }
 
@@ -518,18 +516,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       formsConfig: {
         noCodeStudioIdentityRule: {
-          requiredForEveryBaserowSource: ["form_id", "source_id", "source_owner"],
+          requiredAtRuntime: ["form_id", "source_id", "source_owner"],
+          managedDuringCreation: "Omit form_id/source_id/source_owner in new reduced input. Compilation assigns source_id; nocode-form-create fills real saved identities and the authenticated owner automatically, then verifies readback. Do not block creation because these values are initially unavailable.",
           requiredTogether: ["table_id", "table_id_int"],
           form_id: "The C8Oforms document id that owns the component.",
           source_id: "Must exactly match the id of the component carrying this source. formscommon_CheckConfig uses it to find the saved component and compare forms_config identity.",
           source_owner: "The No Code Studio owner/user email stored with the source.",
           table_id: "The UI path string, for example Workspace~>Database~>Table. Keep it even when table_id_int is present.",
           table_id_int: "The numeric Baserow table id.",
-          outsideContract: "table_id_int alone, or any config missing form_id/source_id/source_owner, can pass low-level validation but is not a robust No Code Studio runtime source configuration."
+          outsideContract: "table_id_int alone is not a full source configuration: supply the discovered table path and requested columns too. Runtime identity fields are automatic for new creation; existing saved bindings must contain verified identities."
         },
-        tableData: { required: ["table_id", "table_id_int", "columns", "form_id", "source_id", "source_owner"], optional: ["view_id", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], form_id: "1780132303501", source_id: 1780132310205, source_owner: "user@example.com", link_row_table_id: [] } },
-        selectData: { required: ["table_id", "table_id_int", "columns", "form_id", "source_id", "source_owner"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], form_id: "1780132303501", source_id: 1780132310206, source_owner: "user@example.com", link_row_table_id: [] } },
-        fieldValues: { required: ["table_id", "columns", "form_id", "source_id", "source_owner"], example: { table_id: 123, columns: ["Status"], form_id: "1780132303501", source_id: 1780132310207, source_owner: "user@example.com" } }
+        tableData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], link_row_table_id: [] } },
+        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], link_row_table_id: [] } },
+        fieldValues: { required: ["table_id", "columns"], example: { table_id: 123, columns: ["Status"] } }
       },
       filter: {
         variablesBySource: {
@@ -718,6 +717,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       uiAuthoredRule: "Preserve the UI-authored action variable objects exactly. Backend action vars can contain SmartSource envelopes and the same { str, html:false } encoding rules as source variables.",
       identityRule: {
+        creation: "For new reduced input, omit form_id/source_id/source_owner from forms_config. nocode-form-create binds these automatically from the authoritative saved form and authenticated creator. Never copy identity values from these illustrative saved-document examples.",
         form_id: "The C8Oforms document id that owns the submit action.",
         source_id: "The id of the submit/action element carrying the backend action.",
         source_owner: "The No Code Studio owner/user email stored with the action config.",
@@ -777,6 +777,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
+      contractVersion: "2026-09-14.visible-labels-v8",
+      contextualDefaults: contextualDefaultsContract(),
+      creationLifecycle: {
+        baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
+        compile: "bindingFinalization.status=pending_creation and baserow_identity_pending_creation are expected, nonblocking before create. Do not stop or fabricate ids.",
+        complete: "saved=true and bindingFinalization.status=ready mean saved identities were verified, not that the business flow was executed or Baserow permissions tested.",
+        recovery: "If saved=true with status=partial and bindingFinalization.status=pending, the form already exists. Follow bindingFinalization.recovery: nocode-form-edit with [{action:'finalize_baserow_bindings'}] on the returned id. Do not call create again. This idempotent operation is restricted to the authenticated creator and does not change a different source owner's account."
+      },
+      editingLifecycle: {
+        baserow: "New or changed bindings receive the existing form id and actual component id in the edit save. New bindings use the authenticated caller; existing binding owners are preserved. Unchanged legacy bindings are not rewritten.",
+        concurrency: "Existing-form writes are conditional on the revision read. A conflict requires a fresh read and reconsideration of the edit, never a blind retry or a new create. This requires C8Oforms APIV2_updateFormulaireDocument with form_write_guard.js support.",
+        navigation: "add_page inherits the adjacent page navigation unless navigationMode is explicit. custom disables automatic tabs and buttons; author entry/return flows."
+      },
+      bindingValidation: "Before saving new or changed own-account connections, the tool reads the selected table's columns. Source columns and explicit mappings must use real names; forms_AddRow needs at least one input technical name matching a column. Use forms_AddRowFromData otherwise. Compile alone cannot prove catalog access, runtime SmartSource values or successful business writes. Existing other-owner connections retain their owner and report column verification pending.",
       forbiddenFields: ["_id", "_rev", "_c8oMeta", "creator", "~c8oAcl", "c8oGrp", "formulaire", "pageTechName", "creationDate", "lastMofification", "__importAttachments"],
       rootFields: {
         name: { type: "string", required: true, description: "Visible form name." },
@@ -788,7 +802,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         tag: { oneOf: ["string", "string[]"], optional: true },
         subTag: { oneOf: ["string", "string[]"], optional: true },
         appLike: { type: "boolean", optional: true, description: "When true, pages default to persisted tab navigation." },
-        navigationMode: { type: "string", enum: ["tabs", "buttons"], default: "tabs for multi-page forms, buttons for single-page forms" },
+        navigationMode: { type: "string", enum: ["tabs", "buttons", "custom"], default: "Legacy fallback: tabs for multi-page forms, buttons for single-page forms. Explicitly choose custom for an application with home/action buttons." },
         config: { type: "object", optional: true, description: "Advanced root responsive sizing. Omit unless needed." },
         pages: { type: "array", required: true },
         flows: { type: "array", optional: true, description: "Only include when a button, automation, formula, or submit behavior needs it." }
@@ -804,6 +818,46 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           "custom wallpaper binary/base64 uploads",
           "external image-search prompts"
         ]
+      },
+      generationQuality: {
+        labels: {
+          rule: "Every visible question needs a domain-appropriate label or rich description. name is technical and defaultFrom supplies the answer, not the question. Resolve prototype_question_label warnings before delivery.",
+          mapping: "label populates the plain label and escaped HTML for HTML-backed questions. description supplies rich question HTML, not separate help text. Explicit config.label/config.html and config.personalized take precedence. Unrelated edits preserve existing rich content."
+        },
+        navigation: {
+          custom: "Disables automatic tabs and page buttons. Create native button fields linked to named flows containing push_page. Every page needs a reachable entry and a return path.",
+          targetPage: "Use the unique page name in reduced flow targetPage; compilation resolves it to the generated pageTechName. Saved documents use pageTechName. Special targets: __c8o_back, __c8o_next, __c8o_previous.",
+          example: { button: { type: "button", name: "open_requests", label: "My requests", icon: "list", flow: "open_requests" }, flow: { id: "open_requests", name: "Open my requests", elements: [{ type: "push_page", targetPage: "My requests" }] } }
+        },
+        styles: {
+          rule: "Native spacing and grouping are a required design pass for generated applications, not an optional decoration. Assign every visible block a spacing role and write its actual style objects or deliberate parent-provided spacing. Use HTML for content, not duplicate container padding. Never overwrite styles on an existing component unless requested.",
+          scopes: { boxStyle: "Outer component container: margin separates components, padding separates content from its border.", questionBoxStyle: "Question/header only, when that component has one.", componentBoxStyle: "Inner control only, when supported.", layoutChildrenStyle: "Child containers by default/first/last scope; not the layout container itself." },
+          values: "CSS strings: lengths include units (px, rem, %, etc.) except 0. Margin/padding accept 1-4 values. Empty strings preserve Forms defaults. Explicit config overrides shorthand. Individual border properties can override border shorthand: avoid conflicting settings.",
+          spacingScale: { close: "8px", normal: "16px", section: "24px", major: "32px" },
+          cardExample: { boxStyle: { margin: "0 0 24px 0", padding: "16px", border: "1px solid #E2E8F0", borderRadius: "12px", backgroundColor: "#FFFFFF" } },
+          recipes: {
+            usage: "Copy/adapt these literal native objects; recipe names are documentation, not extra reduced JSON properties. Keep the user's existing theme and responsive root gutters. Zero or inherited spacing is intentional when it avoids double spacing.",
+            welcome: { boxStyle: { margin: "0 0 24px 0", padding: "24px", border: "1px solid #E2E8F0", borderRadius: "12px" } },
+            section: { boxStyle: { margin: "0 0 24px 0", padding: "16px", border: "1px solid #E2E8F0", borderRadius: "12px" } },
+            fieldInsideSection: { boxStyle: { margin: "0 0 8px 0", padding: "0", border: "0", backgroundColor: "transparent" } },
+            dataView: { boxStyle: { margin: "0 0 24px 0", padding: "16px", border: "1px solid #E2E8F0", borderRadius: "12px" } },
+            actionGroup: { boxStyle: { margin: "16px 0 24px 0", padding: "0", border: "0", backgroundColor: "transparent" } },
+            standaloneButton: { boxStyle: { margin: "8px 0 16px 0", padding: "0", border: "0", backgroundColor: "transparent" } },
+            buttonInsideGroup: { boxStyle: { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }
+          },
+          nesting: "One surface per logical group. Use boxStyle for outer margin/padding, questionBoxStyle only for the header and componentBoxStyle only for the inner control. Child boxStyle can override layoutChildrenStyle: do not double-pad or combine conflicting shorthand and per-side values. Preserve native input affordances.",
+          review: "Review all visible blocks, including inputs, grids and action groups, not only the welcome card. Use a consistent spacing scale (for example 8/16/24px), verify mobile overflow and desktop density. Empty spacing alone is not an error.",
+          actionGroups: "Put related buttons in a native layout: two columns on desktop/tablet, one on phones. Keep group spacing on the layout and avoid a separate full-width card per button. Do not group unrelated actions automatically.",
+          buttonSurfaces: "Standalone buttons and action-only layouts use explicit boxStyle.backgroundColor=transparent and border=0 by default, not a white full-width card. Empty or omitted values may keep the white Forms default. Check parent layout and layoutChildrenStyle surfaces too. This is the wrapper only: preserve the clickable button's own backgroundColor/config.backgroundColor and readable text. Keep a surrounding content card only when semantically intended or requested.",
+          acceptance: ["Check every page: introduction, section groups, inputs, data views and action groups, including nested children.", "Verify margin/padding/borders survived saved-form readback. Color/radius alone is not spacing; defaults or parent-provided spacing must be deliberate.", "Resolve partial_page_styling and ungrouped_adjacent_buttons warnings by reviewing the actual design, not by applying one card style everywhere.", "When browser access is authorized, check desktop/mobile gaps, field widths, button wrapping and overflow. Otherwise report visual verification pending."]
+        },
+        data: {
+          local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
+          connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application, then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
+          unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
+          tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control."
+        },
+        completion: ["Read the saved form and validate it after create/edit.", "Check every requested capability against actual components/actions; report unsupported or unconnected functionality explicitly.", "Test navigation, required fields, success/failure feedback and record persistence after reload using an authorized test record. Do not claim visual/runtime checks without a browser capability.", "New compile/create rejects incomplete toasts, empty button flows and unconfigured submit/source grids. Full-document validation reports these as warnings so existing drafts can still be edited; structural reference errors always block."]
       },
       pageFields: {
         name: { type: "string", required: true },
@@ -821,9 +875,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       commonFieldFields: {
         name: { type: "string", required: true, description: "Stable technical name used by formulas as fields.<name>." },
         type: { type: "string", required: true, enum: types },
-        description: { type: "string", html: true, optional: true, mapsTo: "config.html" },
-        label: { type: "string", optional: true },
+        description: { type: "string", html: true, optional: true, mapsTo: "config.html", description: "Rich question/content text, not secondary help text. Takes precedence over label for HTML display; explicit config.html takes precedence over both." },
+        label: { type: "string", optional: true, description: "Visible plain-text question/button label. For HTML-backed questions, also replaces the prototype HTML with escaped text. Explicit description/config.html are preserved. Card labels target config.title." },
         placeholder: { type: "string", optional: true },
+        defaultFrom: { type: "object", optional: true, description: "Context-derived value. See contextualDefaults for sources, initial/reactive modes and availability. Supported on text, slider, datetime, time and barcode; use native choice defaults for choices." },
         mandatory: { type: "boolean", optional: true },
         disabled: { type: "boolean", optional: true },
         componentDisabled: { type: "boolean", optional: true, mapsTo: "config.componentDisabled", description: "Disables the component as if it did not exist in the viewer." },
@@ -867,7 +922,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         layout: {
           fields: ["name", "cols", "tablet", "phoneL", "phoneP", "children"],
           description: "Responsive row/container. children are nested fields; compiler creates childrenRefs and parentRef.",
-          colsExample: [{ size: 3 }, { size: 3 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }]
+          colsExample: [{ size: 3 }, { size: 3 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }],
+          actionGroupExample: { type: "layout", name: "request_actions", cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], tablet: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneL: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneP: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], boxStyle: { margin: "0 0 16px 0", padding: "0" }, children: [{ type: "button", name: "open_requests", label: "My requests", flow: "open_requests" }, { type: "button", name: "return_home", label: "Home", flow: "return_home" }] }
         },
         description: { fields: ["name", "description"], note: "Use HTML for headings, dashboards, explanatory bands, and visual grouping." },
         text: { fields: ["name", "description", "placeholder", "mandatory", "short", "config"] },
@@ -894,12 +950,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       flowAuthoring: {
         rule: "Use flows only when referenced by a button, when formulas/business logic are needed, or when a submit step must execute backend actions.",
         formulas: "Put business_logic elements in the flow with id formulas.",
-        buttonFlow: "A button field may set flow to a custom flow id.",
+        buttonFlow: "A button field sets flow to the stable flow id. Set a meaningful visible flow.name in the user's language; do not confuse it with the id. Missing names fall back to the unique triggering button label or a humanized id. Explicit names also apply to the built-in formulas/submit flows.",
         backendActions: "Attach backend sequence actions to submit elements through submit.actions; see authoringContract.backendActions.",
+        toast: "message is translated into sources.self.vars.selfVar.str (text, html=false). Explicit sources take precedence. position, duration (seconds), color and closeBtn map into config.",
+        gridActions: "targetGrid accepts a unique grid field name in reduced JSON, resolved to the component id. add_row_to_local_grid accepts row as a literal JSON object or an explicit object-valued SmartSource. Local insertions are not persistent saves.",
         elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"],
         examples: [
-          { id: "flow_save", elements: [{ type: "submit" }, { type: "toast", message: "Saved" }] },
-          { id: "formulas", elements: [{ name: "full_name", type: "business_logic", expression: "fields.first_name + ' ' + fields.last_name" }] }
+          { id: "open_requests", name: "Open my requests", elements: [{ type: "push_page", targetPage: "My requests" }] },
+          { id: "refresh_requests", name: "Refresh requests", elements: [{ type: "refresh_grid", targetGrid: "requests" }] },
+          { id: "formulas", name: "Computed values", elements: [{ name: "full_name", type: "business_logic", expression: "fields.first_name + ' ' + fields.last_name" }] }
         ]
       },
       editTool: {
@@ -909,6 +968,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         requiredInputs: ["id", "operations", "token"],
         operationsShape: "Pass operations as an array for multiple edits or as one operation object for a single edit.",
         commonOperations: [
+          { action: "finalize_baserow_bindings", note: "Only operation in the call. Resume an already saved creation by returned id; do not manually patch identity fields or recreate the form." },
           { action: "add_page", required: ["name"], optional: ["index", "navigationMode", "iconName"], example: { action: "add_page", name: "Details", index: 1, navigationMode: "tabs" } },
           { action: "update_page", requiredOneOf: ["pageTechName", "pageName"], required: ["patch"], example: { action: "update_page", pageName: "Details", patch: { iconName: "people", enabledTab: true } } },
           { action: "add_field", aliases: ["add_component", "add_element"], requiredOneOf: ["pageTechName", "pageName"], required: ["fieldObject"], example: { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } } },
@@ -1071,18 +1131,42 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  function labelToHtml(value) {
+    // SmartSource envelopes are parsed by Forms; keep their JSON intact while
+    // escaping literal text, including markup-looking user labels.
+    return String(value).split(/(\$\$START\d+\{[\s\S]*?\}END\d+\$\$)/g).map(function (part, index) {
+      return index % 2 ? part : part.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }).join("");
+  }
+
+  function applyFieldLabel(target, field) {
+    var explicit = field.config || {};
+    var config = target.config || (target.config = {});
+    var plainKey = "label";
+    if (target.type === "ion-card") {
+      explicit = explicit.title || {};
+      config = config.title || (config.title = {});
+      plainKey = "text";
+    }
+    var hasLabel = explicit[plainKey] != null || field.label != null;
+    var label = explicit[plainKey] != null ? explicit[plainKey] : field.label;
+    var hasRichText = explicit.html != null || (target.type !== "ion-card" && field.description != null);
+    if (hasLabel) { config[plainKey] = String(label); }
+    if (hasRichText) {
+      config.html = String(explicit.html != null ? explicit.html : field.description);
+      if (!hasOwn(explicit, "personalized")) { config.personalized = true; }
+      if (!hasLabel && field.description != null) { config[plainKey] = String(field.description).replace(/<[^>]*>/g, ""); }
+    } else if (hasLabel && (hasOwn(config, "html") || hasOwn(config, "personalized") || target.type === "description")) {
+      config.html = labelToHtml(label);
+      // Keep the HTML question renderer (also used for disabled inputs).
+      // An explicit plain/rich mode remains authoritative.
+      if (!hasOwn(explicit, "personalized")) { config.personalized = true; }
+    }
+  }
+
   function applyCommonFieldConfig(target, field, pageTechName) {
     target.config = target.config && typeof target.config === "object" ? target.config : {};
     target.config.page = pageTechName;
-    if (field.description != null && target.type !== "ion-card") {
-      target.config.html = String(field.description);
-      target.config.personalized = true;
-    }
-    if (field.label != null) {
-      target.config.label = String(field.label);
-    } else if (field.description != null && target.config.label != null) {
-      target.config.label = String(field.description).replace(/<[^>]*>/g, "");
-    }
     if (field.placeholder != null && target.config.placeholder != null) {
       target.config.placeholder = String(field.placeholder);
     }
@@ -1148,6 +1232,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       }
     }
+    applyFieldLabel(target, field);
     if (field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)) {
       target.conditions = clone(field.conditions, {});
     }
@@ -1223,6 +1308,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
   }
 
+  function flowDisplayName(flow, fields) {
+    if (trimmed(flow.name)) { return trimmed(flow.name); }
+    var buttons = ensureArray(fields).filter(function (field) { return field && field.type === "button" && String(field.flow) === String(flow.id); });
+    var label = buttons.length === 1 && buttons[0].config && buttons[0].config.label;
+    if (typeof label === "string" && label.indexOf("$$START") < 0 && trimmed(label.replace(/<[^>]*>/g, ""))) {
+      return trimmed(label.replace(/<[^>]*>/g, ""));
+    }
+    var name = trimmed(flow.id).replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+    return name.charAt(0).toUpperCase() + name.substring(1);
+  }
+
   function compileFlowElement(element, catalogByType) {
     if (!element || typeof element !== "object") {
       return null;
@@ -1233,9 +1329,6 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     out.type = type;
     out.id = element.id != null ? element.id : nextId();
     out.name = trimmed(element.name) || (type + out.id);
-    if (type === "toast") {
-      out.message = trimmed(element.message) || trimmed(element.text) || "Done";
-    }
     if (type === "submit" && element.actions) {
       out.actions = element.actions;
     }
@@ -1258,9 +1351,104 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       }
     }
-    copyObjectValues(out, element, ["sources", "actions", "children", "childrenRefs", "vars"]);
+    copyObjectValues(out, element, ["sources", "actions", "children", "childrenRefs", "childrenRefsElse", "parentRef", "vars"]);
     copyConfigValues(out, element, ["condition", "operator", "message", "target", "page", "flow", "delay", "loopSource", "itemName"]);
+    copyConfigValues(out, element, ["targetPage", "targetGrid", "position", "duration", "color", "closeBtn"]);
+    if (type === "toast") {
+      // The viewer reads selfVar, not message/config.message. Explicit sources win.
+      if (!hasOwn(element, "sources")) {
+        var message = hasOwn(element, "message") ? element.message : (hasOwn(element, "text") ? element.text : element.config && element.config.message);
+        out.sources = { self: { enabled: true, vars: { selfVar: { str: message == null ? "" : String(message), type: "text", html: false } } } };
+      }
+      delete out.message;
+      if (out.config) { delete out.config.message; }
+    }
+    if (type === "push_page" && !hasOwn(element, "targetPage") && !(element.config && hasOwn(element.config, "targetPage"))) {
+      out.config.targetPage = element.target || element.page || "";
+    }
+    if (type === "add_row_to_local_grid" && hasOwn(element, "row") && !hasOwn(element, "sources")) {
+      // A literal JSON object is evaluated by the existing Forms expression engine.
+      out.sources = { self: { enabled: true, vars: { selfVar: { str: "(" + JSON.stringify(element.row) + ")", type: "ts", html: false } } } };
+    }
     return out;
+  }
+
+  function resolveAuthoringReferences(doc) {
+    function resolve(value, collection, idKey) {
+      var text = trimmed(value);
+      var matches = collection.filter(function (item) { return String(item[idKey]) === text; });
+      if (!matches.length) { matches = collection.filter(function (item) { return item.name === text; }); }
+      // Keep invalid/ambiguous references visible to validation rather than guessing.
+      return matches.length === 1 ? matches[0][idKey] : value;
+    }
+    var grids = doc.formulaire.filter(function (item) { return item.type === "grid"; });
+    doc.flows.forEach(function (flow) {
+      ensureArray(flow.elements).forEach(function (element) {
+        var config = element.config || {};
+        if (element.type === "push_page") { config.targetPage = resolve(config.targetPage, doc.pages, "pageTechName"); }
+        if (["add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"].indexOf(element.type) >= 0) {
+          config.targetGrid = resolve(config.targetGrid, grids, "id");
+        }
+      });
+    });
+  }
+
+  function baserowBindings(form, includeDisabled) {
+    var bindings = [];
+    function visit(item, path) {
+      if (!item || typeof item !== "object") { return; }
+      ["sources", "sourcesMarkers", "sourcesCircles", "sourcesPolygons", "actions"].forEach(function (group) {
+        Object.keys(item[group] || {}).forEach(function (key) {
+          var entry = item[group][key];
+          if (!/^lib_BaseRow\.(formssource_|forms_)/.test(key) || !entry || (!includeDisabled && !boolLike(entry.enabled))) { return; }
+          var variable = entry.vars && entry.vars.forms_config;
+          var config;
+          try { config = JSON.parse(variable && variable.str); } catch (_invalidConfig) { config = null; }
+          bindings.push({ item: item, entry: entry, key: String(item.id) + "/" + group + "/" + key, variable: variable, config: config && typeof config === "object" && !Array.isArray(config) ? config : null, path: path + "/" + group + "/" + key });
+        });
+      });
+      ensureArray(item.children).forEach(function (child, index) { visit(child, path + "/children/" + index); });
+    }
+    ensureArray(form.formulaire).forEach(function (item, index) { visit(item, "/formulaire/" + index); });
+    ensureArray(form.flows).forEach(function (flow, index) {
+      ensureArray(flow && flow.elements).forEach(function (item, ei) { visit(item, "/flows/" + index + "/elements/" + ei); });
+    });
+    return bindings;
+  }
+
+  function prepareNewBaserowBindings(form) {
+    var bindings = baserowBindings(form);
+    bindings.forEach(function (binding) {
+      if (!binding.config) { return; }
+      // These identities belong to the new document, never to a model-supplied
+      // example or to the output of a previous compile call.
+      binding.config.source_id = binding.item.id;
+      delete binding.config.form_id;
+      delete binding.config.source_owner;
+      binding.variable.str = JSON.stringify(binding.config);
+    });
+    return bindings.length;
+  }
+
+  function prepareEditedBaserowBindings(current, edited, user) {
+    var previous = {};
+    baserowBindings(current, true).forEach(function (binding) { previous[binding.key] = binding; });
+    var paths = [];
+    baserowBindings(edited).forEach(function (binding) {
+      var old = previous[binding.key];
+      if (old && JSON.stringify(old.entry) === JSON.stringify(binding.entry)) { return; }
+      paths.push(binding.path);
+      if (!binding.config) { return; } // Validation will reject the touched binding.
+      var owner = old && old.config && trimmed(old.config.source_owner);
+      if (old && !owner && trimmed(current.creator) !== user) {
+        throw new Error("The creator must repair this existing Baserow connection before another user can edit it");
+      }
+      binding.config.form_id = String(current._id);
+      binding.config.source_id = binding.item.id;
+      binding.config.source_owner = owner || user;
+      binding.variable.str = JSON.stringify(binding.config);
+    });
+    return paths;
   }
 
   function compileField(field, pageTechName, catalogByType, formulaire, parentId) {
@@ -1272,6 +1460,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!proto) {
       throw new Error("Unsupported form component type: " + type);
     }
+    if (type === "grid" && (hasOwn(field, "rows") || hasOwn(field, "sampleRows") || hasOwn(field, "data"))) {
+      throw new Error("Unsupported grid seed property: bind business data to a real source; rows/sampleRows/data would not be rendered. Local row actions are only for transient UI state");
+    }
     var out = clone(proto, {});
     out.type = type;
     out.id = field.id != null ? field.id : nextId();
@@ -1280,15 +1471,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       out.parentRef = parentId;
     }
     applyCommonFieldConfig(out, field, pageTechName);
+    if (type === "button") {
+      out.config.boxStyle = out.config.boxStyle || {};
+      // Only new buttons receive these defaults; explicit custom surfaces win.
+      if (!trimmed(out.config.boxStyle.backgroundColor)) { out.config.boxStyle.backgroundColor = "transparent"; }
+      if (!trimmed(out.config.boxStyle.border)) { out.config.boxStyle.border = "0"; }
+    }
     if (type === "button" && !trimmed(field.flow).length) {
       out.flow = "flow_" + out.id;
     }
     if (type === "layout") {
       out.childrenRefs = [];
-      if (field.cols) {
-        out.config.cols = field.cols;
-      }
-      copyConfigValues(out, field, ["tablet", "phoneL", "phoneP"]);
+      ["cols", "tablet", "phoneL", "phoneP"].forEach(function (key) {
+        if (hasOwn(field, key) && !(field.config && hasOwn(field.config, key))) { out.config[key] = field[key]; }
+      });
       var children = ensureArray(field.children || field.fields);
       formulaire.push(out);
       for (var i = 0; i < children.length; i++) {
@@ -1322,8 +1518,120 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (field.flow) {
       out.flow = field.flow;
     }
+    applyContextDefault(out, field);
     formulaire.push(out);
     return out;
+  }
+
+  function contextualDefaultsContract() {
+    return {
+      rule: "Before asking for a value, check whether the runtime context can supply it reliably and appropriately. Do not infer an identity binding from a field label alone. Never embed the app author's identity as an end-user default.",
+      fieldExample: { type: "text", name: "requester_email", label: "Email address", defaultFrom: { source: "user", property: "email", fallback: "" } },
+      shape: { source: "user | clock | field | query | expression | literal", mode: "initial (default) | reactive", fallback: "Optional JSON value used for null/undefined only; false, 0 and empty string are preserved." },
+      sources: {
+        user: { property: ["name", "email", "authenticatedUserID", "groups", "authenticated"], example: { source: "user", property: "email", fallback: "" }, availability: "Authenticated runtime respondent, not the MCP caller. name is the display name; separate first/last names are not exposed. Do not split it or guess from email. Profile values may be missing." },
+        clock: { property: ["today", "now"], example: { source: "clock", property: "today" }, availability: "Browser clock at evaluation. today is a local YYYY-MM-DD date; now is an ISO instant. Neither is an authoritative server audit timestamp." },
+        field: { example: { source: "field", field: "selected_request", path: ["Reference", "value"], fallback: "" }, availability: "Existing unique component technical name. Reads its runtime value through fields; optional path is an array of literal keys/indexes, not JS. Inspect actual grid cell shape. Selection/data must already be available for initial mode. Formula results use actions in an expression." },
+        query: { example: { source: "query", parameter: "request_ref", fallback: "" }, availability: "Explicit navigation query parameter, a string or null. Untrusted input, never proof of identity or permission. No query values are fetched during compilation." },
+        expression: { example: { source: "expression", expression: "fields.quantity * fields.unit_price", mode: "reactive" }, availability: "Existing Forms TS expression context: fields, actions, api. Use verified sources and correct return types, not guessed globals. Expressions must be side-effect free. Dynamic/computed references and backend availability cannot be proven by compilation." },
+        literal: { example: { source: "literal", value: 0 }, availability: "Explicit business default, including false or 0; not fabricated personal information or business records." }
+      },
+      modes: {
+        initial: "Applies at source initialization only; preserves response edits, same-field URL values and an already entered value. Later dependency changes do not reapply it. If prerequisite data is unavailable, use a fallback and manual input; do not promise late auto-fill.",
+        reactive: "Explicit derived value: recomputes when Forms observes field/SmartSource dependencies. Use for calculations, usually with a disabled control, not editable identity defaults. Clock and user context are not polling subscriptions."
+      },
+      native: "defaultFrom compiles into sources.self.vars.selfVar (type=ts, html=false) and config.contextValueMode. Requires a Forms viewer supporting contextValueMode; deploy Forms and MCP together. Existing native sources and drafts without this mode keep their behavior. Conflicting explicit sources/defaults are rejected, not overwritten.",
+      otherComponents: "For select/radio/checkbox and groups, use existing sources.self default expressions/config.defaultValuesMode with the actual choice values. External choice options and selected defaults are distinct. Grids/data views use real source connections, never scalar defaultFrom. Location needs user permission; files/signatures must not be fabricated.",
+      review: ["For each field choose user input, initial context value, reactive calculation or backend-managed value.", "Preserve existing answers and intentional defaults, including empty strings, false and 0.", "Check auth/profile absence, required fields, record switching, source readiness and expression result type.", "Keep identity/ownership/access checks server-side. Do not populate identifying fields in anonymous/anonymized journeys without explicit intent."]
+    };
+  }
+
+  function applyContextDefault(target, field) {
+    if (!hasOwn(field, "defaultFrom")) { return; }
+    var spec = field.defaultFrom;
+    if (!spec || typeof spec !== "object" || Array.isArray(spec)) { throw new Error("defaultFrom must be an object"); }
+    if (["text", "slider", "datetime", "time", "barcode"].indexOf(target.type) < 0) { throw new Error("defaultFrom is not supported on " + target.type + "; use the component's native default/source contract"); }
+    if (hasOwn(field, "sources") || hasOwn(field, "defaultValue") || (field.config && ["defaultValue", "defaultvalue", "defaultValueJs", "defaultValuesJs", "contextValueMode"].some(function (key) { return hasOwn(field.config, key); }))) {
+      throw new Error("defaultFrom conflicts with an explicit source/default; choose one rather than overwriting it");
+    }
+    var mode = spec.mode == null ? "initial" : spec.mode;
+    if (["initial", "reactive"].indexOf(mode) < 0) { throw new Error("defaultFrom.mode must be initial or reactive"); }
+    var expression;
+    var allowed = ["source", "mode", "fallback"];
+    if (spec.source === "user") {
+      allowed.push("property");
+      if (["name", "email", "authenticatedUserID", "groups", "authenticated"].indexOf(spec.property) < 0) { throw new Error("Unknown runtime user property in defaultFrom"); }
+      expression = spec.property === "authenticated" ? "!!(api.user && api.user.authenticated)" : "(api.user && api.user.authenticated === true ? api.user[" + JSON.stringify(spec.property) + "] : undefined)";
+    } else if (spec.source === "clock") {
+      allowed.push("property");
+      if (["today", "now"].indexOf(spec.property) < 0) { throw new Error("defaultFrom clock property must be today or now"); }
+      expression = spec.property === "now" ? "new Date().toISOString()" : '(function () { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); })()';
+    } else if (spec.source === "field") {
+      allowed.push("field", "path");
+      if (typeof spec.field !== "string" || !trimmed(spec.field)) { throw new Error("defaultFrom.field must be a technical name"); }
+      var keys = spec.path == null ? [] : spec.path;
+      if (!Array.isArray(keys) || keys.some(function (key) { return (typeof key !== "string" && !(typeof key === "number" && isFinite(key) && key >= 0 && Math.floor(key) === key)) || ["__proto__", "constructor", "prototype"].indexOf(String(key)) >= 0; })) { throw new Error("defaultFrom.path must contain literal property names or nonnegative indexes"); }
+      expression = "fields[" + JSON.stringify(spec.field) + "]";
+      if (keys.length) { expression = "(function (v) { var keys = " + JSON.stringify(keys) + "; for (var i = 0; i < keys.length; i++) { if (v == null) { return undefined; } v = v[keys[i]]; } return v; })(" + expression + ")"; }
+    } else if (spec.source === "query") {
+      allowed.push("parameter");
+      if (typeof spec.parameter !== "string" || !trimmed(spec.parameter)) { throw new Error("defaultFrom.parameter must be a query parameter name"); }
+      expression = "(page.local.urlParams ? page.local.urlParams.get(" + JSON.stringify(spec.parameter) + ") : undefined)";
+    } else if (spec.source === "expression") {
+      allowed.push("expression");
+      if (typeof spec.expression !== "string" || !trimmed(spec.expression)) { throw new Error("defaultFrom.expression must be a non-empty Forms expression"); }
+      expression = "(" + spec.expression + "\n)";
+    } else if (spec.source === "literal") {
+      allowed.push("value");
+      if (!hasOwn(spec, "value")) { throw new Error("defaultFrom literal requires value"); }
+      expression = "(" + JSON.stringify(spec.value) + ")";
+    } else { throw new Error("Unknown defaultFrom.source"); }
+    Object.keys(spec).forEach(function (key) { if (allowed.indexOf(key) < 0) { throw new Error("Unknown defaultFrom property: " + key); } });
+    if (hasOwn(spec, "fallback")) { expression = "(function (v) { return v == null ? " + JSON.stringify(spec.fallback) + " : v; })(" + expression + ")"; }
+    target.sources = { self: { enabled: true, vars: { selfVar: { str: expression, type: "ts", html: false } } } };
+    target.config.contextValueMode = mode;
+    // Keep only declarative provenance, never the resolved runtime value.
+    target.config.contextDefault = clone(spec, {});
+    delete target.defaultFrom;
+  }
+
+  function validateContextDefaults(form, issue, warning) {
+    var fields = ensureArray(form.formulaire);
+    var links = Object.create(null);
+    fields.forEach(function (item, index) {
+      if (!item || !item.config) { return; }
+      var config = item.config;
+      var spec = config.contextDefault;
+      var path = "/formulaire/" + index + "/config/contextDefault";
+      if (!spec && config.contextValueMode == null) { return; }
+      if (["initial", "reactive"].indexOf(config.contextValueMode) < 0) { issue("invalid_context_value_mode", "Context values require initial or reactive mode", path); }
+      if (!spec) { return; }
+      try { applyContextDefault({ type: item.type, config: {} }, { defaultFrom: spec }); }
+      catch (error) { issue("invalid_context_default", String(error), path); return; }
+      var source = item.sources && item.sources.self;
+      if (!source || !boolLike(source.enabled) || !source.vars || !source.vars.selfVar || source.vars.selfVar.type !== "ts") { issue("missing_context_default_source", "Context default requires an enabled TS self source", path); }
+      if (config.contextValueMode === "reactive" && !boolLike(config.disabled)) { warning("editable_reactive_value", "A reactive value can replace a manual edit when dependencies change; use initial for prefill or a disabled control for a calculation", path); }
+      if (spec.source === "expression") { warning("context_expression_runtime_check", "Verify expression result type, dependencies, source readiness and absence of side effects at runtime; arbitrary expressions are not statically proven", path); }
+      if (spec.source === "field") {
+        var matches = fields.filter(function (candidate) { return candidate && candidate.name === spec.field; });
+        if (matches.length !== 1) { issue("unknown_context_field", "Context field must resolve to exactly one component: " + spec.field, path + "/field"); return; }
+        if (boolLike((matches[0].config || {}).componentDisabled) || ["button", "description", "layout"].indexOf(matches[0].type) >= 0) { issue("unavailable_context_field", "This component does not supply an enabled runtime input value", path + "/field"); }
+        links[item.name] = spec.field;
+        if (config.contextValueMode === "initial") { warning("context_default_source_readiness", "An initial default only reads the value available when this page's source initializes. Ensure the referenced field/data is ready; later changes do not refill editable input", path); }
+      }
+      if (boolLike(config.mandatory) && boolLike(config.disabled) && spec.source !== "literal") { warning("required_context_value_fallback", "A required disabled field can block submission if context is missing. Provide a recovery path, not fabricated identity data", path); }
+      if (spec.source === "literal" && ((item.type === "slider" || (item.type === "text" && config.type === "number")) && (typeof spec.value !== "number" || !isFinite(spec.value)))) { issue("invalid_context_default_type", "A numeric control requires a numeric literal default", path + "/value"); }
+      if (spec.source === "literal" && ["text", "datetime", "time", "barcode"].indexOf(item.type) >= 0 && spec.value != null && typeof spec.value === "object") { issue("invalid_context_default_type", "A scalar control cannot use an object/array literal; select a scalar path or expression", path + "/value"); }
+    });
+    Object.keys(links).forEach(function (name) {
+      var seen = Object.create(null);
+      var current = name;
+      while (hasOwn(links, current)) {
+        if (hasOwn(seen, current)) { issue("cyclic_context_default", "Context defaults contain a dependency cycle starting at " + name, "/formulaire"); break; }
+        seen[current] = true;
+        current = links[current];
+      }
+    });
   }
 
   function compileReduced(reduced, options) {
@@ -1362,6 +1670,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var useTabMode = tabModeFor(input, pages.length);
     for (var p = 0; p < pages.length; p++) {
       var page = pageDefaults(pages[p], p, useTabMode);
+      if (input.navigationMode === "custom") { page.enabledTab = false; page.enabledButtons = false; }
       doc.pages.push(page);
       var fields = ensureArray(pages[p].fields || pages[p].formulaire || pages[p].components);
       for (var f = 0; f < fields.length; f++) {
@@ -1387,11 +1696,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       if (target == null) {
         target = { id: flowId, elements: [] };
-        if (flowIn.name) {
-          target.name = flowIn.name;
-        }
         doc.flows.push(target);
       }
+      if (trimmed(flowIn.name)) { target.name = trimmed(flowIn.name); }
       var elements = ensureArray(flowIn.elements);
       for (var e = 0; e < elements.length; e++) {
         var compiledElement = compileFlowElement(elements[e], byType);
@@ -1407,14 +1714,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       doc.subTag = Array.isArray(input.subTag) ? input.subTag : [String(input.subTag)];
     }
     ensureButtonFlows(doc);
+    doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
+    resolveAuthoringReferences(doc);
+    var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
+    var validation = validateForm(doc, { project: projectName, generation: true }).validation;
     return {
-      status: "ok",
+      bindingFinalization: { status: bindingCount ? "pending_creation" : "not_required", bindingCount: bindingCount },
+      status: validation.valid ? "ok" : "invalid",
       project: projectName,
       allTypesPath: contract.file,
       form: doc,
-      validation: validateForm(doc, { project: projectName }).validation
+      validation: validation
     };
   }
 
@@ -1435,6 +1747,65 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     function warning(code, message, path) {
       warnings.push({ code: code, message: message, path: path || "" });
+    }
+    function incomplete(code, message, path) {
+      // New generations must be usable. Existing editor drafts remain editable.
+      if (opts.generation === true || ensureArray(opts.strictBindingPaths).some(function (prefix) { return path.indexOf(prefix + "/") === 0 || path === prefix; })) { issue(code, message, path); }
+      else { warning(code, message, path); }
+    }
+    function enabledEntries(entries) {
+      return Object.keys(entries || {}).filter(function (key) { return entries[key] && boolLike(entries[key].enabled); });
+    }
+    function validateBaserowBinding(key, entry, owner, path) {
+      if (["lib_BaseRow.forms_AddRow", "lib_BaseRow.forms_AddRowFromData", "lib_BaseRow.forms_DeleteRow", "lib_BaseRow.formssource_GetTableData", "lib_BaseRow.formssource_GetSelectData"].indexOf(key) < 0) { return; }
+      var payload = entry.vars && entry.vars.forms_config;
+      var binding;
+      try { binding = JSON.parse(payload && payload.str); } catch (e) { binding = null; }
+      if (!binding || typeof binding !== "object" || Array.isArray(binding)) {
+        incomplete("invalid_baserow_config", "Baserow requires forms_config as a UI-authored JSON string object; discover the real table before binding", path + "/vars/forms_config");
+        return;
+      }
+      if (!trimmed(binding.table_id) || !isFinite(Number(binding.table_id_int)) || Number(binding.table_id_int) <= 0 || Math.floor(Number(binding.table_id_int)) !== Number(binding.table_id_int)) {
+        incomplete("missing_baserow_table", "Baserow requires the discovered table path and positive integer table_id_int, not a placeholder destination", path + "/vars/forms_config");
+      }
+      if (binding.source_id != null && String(binding.source_id) !== String(owner.id)) {
+        incomplete("baserow_source_identity_mismatch", "source_id must match the component or submit element carrying this binding", path + "/vars/forms_config");
+      }
+      if (/formssource_Get(Table|Select)Data$/.test(key) && (!Array.isArray(binding.columns) || !binding.columns.length || binding.columns.some(function (column) { return typeof column !== "string" || !trimmed(column); }))) {
+        incomplete("missing_baserow_columns", "A Baserow data source requires non-empty column names from the discovered table", path + "/vars/forms_config");
+      }
+      var rowId = entry.vars.forms_id;
+      if (key === "lib_BaseRow.forms_DeleteRow" && (!rowId || !trimmed(rowId.str))) {
+        incomplete("missing_baserow_row_id", "Deleting a Baserow row requires forms_id bound to the selected row id", path + "/vars/forms_id");
+      }
+      if (rowId && trimmed(rowId.str) && !/\$\$START/.test(rowId.str) && rowId.type !== "ts" && !/^[1-9]\d*$/.test(trimmed(rowId.str))) {
+        incomplete("invalid_baserow_row_id", "forms_id must be a positive row id or a supported dynamic expression", path + "/vars/forms_id");
+      }
+      if (!trimmed(binding.form_id) || !trimmed(binding.source_owner) || binding.source_id == null) {
+        warning(opts.generation === true ? "baserow_identity_pending_creation" : "baserow_identity_incomplete", opts.generation === true ? "Expected before creation: nocode-form-create automatically binds the saved form id, actual component ids and authenticated owner. Continue with create; do not invent identities or stop for this warning" : "Baserow identity is incomplete. For an unfinished creation, use nocode-form-edit with finalize_baserow_bindings on this saved id, not another create", path + "/vars/forms_config");
+      } else if (form._id != null && String(binding.form_id) !== String(form._id)) {
+        incomplete("baserow_form_identity_mismatch", "Baserow binding belongs to a different form; use the saved owning document id", path + "/vars/forms_config");
+      }
+      if (key === "lib_BaseRow.forms_AddRowFromData" && !(entry.vars.forms_freeVars && trimmed(entry.vars.forms_freeVars.str))) {
+        incomplete("missing_baserow_values", "Explicit Baserow save requires forms_freeVars mapping actual input values to columns", path + "/vars/forms_freeVars");
+      } else if (key === "lib_BaseRow.forms_AddRowFromData") {
+        var mapping;
+        try { mapping = JSON.parse(entry.vars.forms_freeVars.str); } catch (_invalidValues) { mapping = null; }
+        if (!mapping || typeof mapping !== "object" || Array.isArray(mapping) || !Object.keys(mapping).length || Object.keys(mapping).some(function (column) { return !trimmed(column); })) {
+          incomplete("invalid_baserow_values", "forms_freeVars must encode a non-empty object mapping exact Baserow column names to values or SmartSources", path + "/vars/forms_freeVars");
+        }
+      }
+    }
+    function validateStyle(style, path) {
+      if (style == null) { return; }
+      if (typeof style !== "object" || Array.isArray(style)) { issue("invalid_style_object", "Style must be an object of CSS string values", path); return; }
+      Object.keys(style).forEach(function (property) {
+        var value = style[property];
+        if (typeof value !== "string") { issue("invalid_style_value", "Use CSS strings including units (for example 16px); use an empty string to keep defaults", path + "/" + property); }
+        else if (/^(margin|padding)(Top|Right|Bottom|Left)?$|^border(Radius|Width)$/.test(property) && value.split(/\s+/).some(function (part) { return /^-?\d+(\.\d+)?$/.test(part) && Number(part) !== 0; })) {
+          issue("missing_style_unit", "Nonzero CSS lengths require a unit, for example 16px", path + "/" + property);
+        }
+      });
     }
     if (!form || typeof form !== "object" || Array.isArray(form)) {
       issue("invalid_form", "Form must be a JSON object", "");
@@ -1462,6 +1833,36 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           pageMap[String(page.pageTechName)] = true;
         }
       });
+      var pages = ensureArray(form.pages).filter(function (page) { return page && page.included !== false; });
+      if (pages.length > 1 && pages.every(function (page) { return !boolLike(page.enabledTab) && !boolLike(page.enabledButtons); })) {
+        var edges = {};
+        pages.forEach(function (page) { edges[page.pageTechName] = []; });
+        ensureArray(form.formulaire).forEach(function (button) {
+          if (!button || button.type !== "button" || !button.config || boolLike(button.config.componentDisabled)) { return; }
+          var flow = ensureArray(form.flows).filter(function (flow) { return flow && flow.id === button.flow; })[0];
+          ensureArray(flow && flow.elements).forEach(function (step) {
+            if (!step || step.type !== "push_page") { return; }
+            var target = step.config && step.config.targetPage;
+            var from = String(button.config.page);
+            var index = pages.map(function (page) { return page.pageTechName; }).indexOf(from);
+            if (target === "__c8o_next" && pages[index + 1]) { target = pages[index + 1].pageTechName; }
+            if (target === "__c8o_previous" && pages[index - 1]) { target = pages[index - 1].pageTechName; }
+            if (target === "__c8o_back") { target = pages[0].pageTechName; }
+            if (edges[from] && edges[target]) { edges[from].push(target); }
+          });
+        });
+        var reached = {}, queue = [pages[0].pageTechName];
+        while (queue.length) {
+          var current = queue.shift();
+          if (reached[current]) { continue; }
+          reached[current] = true;
+          queue = queue.concat(edges[current] || []);
+        }
+        pages.forEach(function (page) {
+          if (!reached[page.pageTechName]) { warning("custom_page_unreachable", "No static button path from the first page to " + page.name + "; verify intended navigation", "/pages"); }
+          if (!edges[page.pageTechName].length) { warning("custom_page_without_exit", "No static navigation button leaves " + page.name + "; add a return path unless this is an intentional terminal page", "/pages"); }
+        });
+      }
       var ids = {};
       ensureArray(form.formulaire).forEach(function (item, idx) {
         if (!item || typeof item !== "object") {
@@ -1506,24 +1907,151 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         issue("invalid_flows", "flows must be an array", "/flows");
       }
       var flowIds = {};
+      var allFlowElementIds = {};
       ensureArray(form.flows).forEach(function (flow, idx) {
         if (!flow || typeof flow !== "object") {
           issue("invalid_flow", "Flow must be an object", "/flows/" + idx);
           return;
         }
         var id = trimmed(flow.id || flow.name);
+        if (!trimmed(flow.name)) { incomplete("missing_flow_name", "Flow needs a visible name in addition to its stable id", "/flows/" + idx + "/name"); }
         if (!id.length) {
           issue("missing_flow_id", "Flow must define id or name", "/flows/" + idx);
         } else {
+          if (flowIds[id]) { issue("duplicate_flow_id", "Duplicate flow id: " + id, "/flows/" + idx); }
           flowIds[id] = true;
         }
         if (!Array.isArray(flow.elements)) {
           issue("invalid_flow_elements", "Flow elements must be an array", "/flows/" + idx + "/elements");
         }
+        var elementIds = {};
+        ensureArray(flow.elements).forEach(function (element, eidx) {
+          var path = "/flows/" + idx + "/elements/" + eidx;
+          if (!element || typeof element !== "object") { issue("invalid_flow_element", "Flow element must be an object", path); return; }
+          if (element.id == null || allFlowElementIds[String(element.id)] || ids[String(element.id)]) {
+            issue("invalid_flow_element_id", "Flow element id must be present and unique", path + "/id");
+          }
+          elementIds[String(element.id)] = element;
+          allFlowElementIds[String(element.id)] = true;
+          if (["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields"].indexOf(element.type) < 0) {
+            issue("unsupported_flow_element", "Unsupported flow element: " + element.type, path + "/type");
+          }
+          var config = element.config || {};
+          var source = element.sources && element.sources.self;
+          var value = source && source.vars && source.vars.selfVar;
+          if (element.type === "toast" && (!enabledEntries(element.sources).length || (source && (!value || !trimmed(value.str) || trimmed(value.str) === "toast_example")))) {
+            incomplete("unconfigured_toast", "Toast must have an enabled message source without prototype placeholders", path + "/sources");
+          }
+          if (element.type === "submit" && !enabledEntries(element.actions).length) {
+            incomplete("unconfigured_submit", "Select an actual backend action. An empty submit is not an implemented business save", path + "/actions");
+          }
+          enabledEntries(element.actions).forEach(function (key) {
+            var action = element.actions[key];
+            if (key.indexOf(".") < 1 || !action.vars || typeof action.vars !== "object") {
+              issue("invalid_backend_action", "Use a qualified action name and UI-authored vars object", path + "/actions/" + key);
+            }
+          });
+          if (element.type === "push_page" && !pageMap[String(config.targetPage)] && ["__c8o_back", "__c8o_next", "__c8o_previous"].indexOf(config.targetPage) < 0) {
+            issue("unknown_navigation_target", "Navigation must target an existing, unambiguous page", path + "/config/targetPage");
+          }
+          if (["add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"].indexOf(element.type) >= 0) {
+            var grid = ids[String(config.targetGrid)];
+            if (!grid || grid.item.type !== "grid") { issue("unknown_grid_target", "Action must target an existing grid", path + "/config/targetGrid"); }
+            else if (element.type === "add_row_to_local_grid" && grid.item.config.sourceEnabled !== false) {
+              incomplete("local_grid_action_on_source", "Local insertion requires sourceEnabled=false; use a backend action for persistent data", path);
+            }
+            if (element.type === "add_row_to_local_grid" && (!value || !trimmed(value.str))) {
+              incomplete("missing_grid_row", "Local grid insertion needs an object-valued row source", path + "/sources");
+            }
+          }
+        });
+        ensureArray(flow.elements).forEach(function (element, eidx) {
+          if (!element || typeof element !== "object") { return; }
+          var path = "/flows/" + idx + "/elements/" + eidx;
+          if (element.parentRef != null && !elementIds[String(element.parentRef)]) { issue("unknown_flow_parent", "Missing flow parent", path + "/parentRef"); }
+          ["childrenRefs", "childrenRefsElse"].forEach(function (key) {
+            ensureArray(element[key]).forEach(function (id) {
+              if (!elementIds[String(id)] || String(elementIds[String(id)].parentRef) !== String(element.id)) { issue("invalid_flow_child", "Flow child reference must exist and point back to its parent", path + "/" + key); }
+            });
+          });
+        });
       });
       ensureArray(form.formulaire).forEach(function (item, idx) {
         if (item && item.flow && !flowIds[String(item.flow)]) {
           issue("unknown_field_flow", "Field references unknown flow: " + item.flow, "/formulaire/" + idx + "/flow");
+        }
+        if (!item || typeof item !== "object") { return; }
+        var path = "/formulaire/" + idx;
+        var config = item.config || {};
+        var displayedQuestion = config.personalized ? config.html : config.label;
+        if (!boolLike(config.componentDisabled) && typeof displayedQuestion === "string" && /^exemple de question[.!?]?$/i.test(trimmed(displayedQuestion.replace(/<[^>]*>/g, "")))) {
+          warning("prototype_question_label", "The visible question still contains the prototype text. Set label (plain text) or description/config.html (rich text); a technical name or defaultFrom is not a label", path + (config.personalized ? "/config/html" : "/config/label"));
+        }
+        if (item.type === "button" && !boolLike(config.componentDisabled)) {
+          var flow = ensureArray(form.flows).filter(function (flow) { return flow && flow.id === item.flow; })[0];
+          if (!flow || !ensureArray(flow.elements).length) { incomplete("empty_button_flow", "Button must have a non-empty flow", path + "/flow"); }
+          if (flow && ensureArray(flow.elements).some(function (element) { return element && element.type === "submit"; }) && !boolLike(config.checkMandatoryInCurrentPage)) {
+            warning("submit_without_required_check", "Submission button does not validate required fields on its page", path + "/config/checkMandatoryInCurrentPage");
+          }
+        }
+        if (item.type === "grid") {
+          if (config.sourceEnabled !== false && !enabledEntries(item.sources).length) { incomplete("grid_without_source", "Source-backed grid needs an enabled data source; use sourceEnabled=false for a local grid", path + "/sources"); }
+          if (config.sourceEnabled !== false && enabledEntries(item.sources).indexOf("self") >= 0) { incomplete("invalid_grid_self_source", "Grid data needs a backend source or a local grid, not a scalar self source", path + "/sources/self"); }
+          if (config.sourceEnabled === false && !ensureArray(config.columns).length) { issue("grid_without_columns", "Local grid needs columns", path + "/config/columns"); }
+          if (config.sourceEnabled === false) { warning("local_grid_not_persistent", "Local grid rows disappear on reload. This cannot deliver business storage or tracking; bind a real source unless transient UI state is intended", path); }
+        }
+        ["boxStyle", "questionBoxStyle", "componentBoxStyle"].forEach(function (key) {
+          validateStyle(config[key], path + "/config/" + key);
+        });
+        if (config.layoutChildrenStyle != null) {
+          if (typeof config.layoutChildrenStyle !== "object" || Array.isArray(config.layoutChildrenStyle)) { issue("invalid_style_object", "layoutChildrenStyle must contain default/first/last style objects", path + "/config/layoutChildrenStyle"); }
+          else { Object.keys(config.layoutChildrenStyle).forEach(function (scope) { validateStyle(config.layoutChildrenStyle[scope], path + "/config/layoutChildrenStyle/" + scope); }); }
+        }
+        if (item.type === "description" && /style\s*=/.test(config.html || "") && !(config.boxStyle && (config.boxStyle.margin || config.boxStyle.padding))) {
+          warning("html_spacing_without_container_style", "Styled HTML has no explicit Forms container spacing; check outer margin and avoid double padding", path + "/config/boxStyle");
+        }
+      });
+      validateContextDefaults(form, issue, warning);
+      baserowBindings(form).forEach(function (binding) {
+        if (!binding.config) { incomplete("invalid_baserow_config", "Baserow requires forms_config as a JSON string object", binding.path + "/vars/forms_config"); return; }
+        validateBaserowBinding(binding.path.substring(binding.path.lastIndexOf("/") + 1), binding.entry, binding.item, binding.path);
+      });
+      ensureArray(form.pages).forEach(function (page, idx) {
+        if (!page) { return; }
+        var content = ensureArray(form.formulaire).filter(function (item) { return item && item.config && item.config.page === page.pageTechName; });
+        if (content.length && content.every(function (item) { return item.type === "description"; })) {
+          warning("text_only_page", "This page only contains text. Confirm it does not replace an expected interaction or data view", "/pages/" + idx);
+        }
+        var topLevel = content.filter(function (item) { return item.parentRef == null && !boolLike(item.config.componentDisabled); });
+        function hasBoxStyle(item) {
+          var style = item.config.boxStyle || {};
+          return Object.keys(style).some(function (key) { return trimmed(style[key]).length > 0; });
+        }
+        function hasSpacing(style) {
+          return Object.keys(style || {}).some(function (key) { return /^(margin|padding)(Top|Right|Bottom|Left)?$/.test(key) && trimmed(style[key]); });
+        }
+        content.forEach(function (item) {
+          if (boolLike(item.config.componentDisabled)) { return; }
+          var parent = item.parentRef != null && content.filter(function (other) { return String(other.id) === String(item.parentRef); })[0];
+          var inherited = parent && parent.config && parent.config.layoutChildrenStyle;
+          if (!hasSpacing(item.config.boxStyle) && !hasSpacing(parent && parent.config.boxStyle) && !hasSpacing(inherited && inherited.default)) {
+            warning("missing_block_spacing", "Review native margin/padding on " + item.name + "; surface color alone is not spacing. Intentional defaults are allowed", "/formulaire/" + form.formulaire.indexOf(item) + "/config/boxStyle");
+          }
+          var childItems = ensureArray(item.childrenRefs).map(function (id) { return content.filter(function (child) { return String(child.id) === String(id); })[0]; }).filter(function (child) { return !!child; });
+          var actionOnly = item.type === "button" || (item.type === "layout" && childItems.length && childItems.every(function (child) { return child.type === "button"; }));
+          var background = trimmed((item.config.boxStyle || {}).backgroundColor).toLowerCase().replace(/\s/g, "");
+          if (actionOnly && (!background || ["white", "#fff", "#ffffff", "rgb(255,255,255)", "rgba(255,255,255,1)"].indexOf(background) >= 0)) {
+            warning("action_wrapper_surface", "Review the white/default outer surface on " + item.name + ". Action-only wrappers normally use transparent background and no border; preserve deliberate custom designs", "/formulaire/" + form.formulaire.indexOf(item) + "/config/boxStyle");
+          }
+        });
+        if (topLevel.some(hasBoxStyle) && topLevel.some(function (item) { return !hasBoxStyle(item); })) {
+          warning("partial_page_styling", "Some top-level blocks have explicit box styling and others do not. Review spacing on all visible fields, data views and action groups; preserve intentional defaults", "/pages/" + idx);
+        }
+        for (var b = 1; b < topLevel.length; b++) {
+          if (topLevel[b - 1].type === "button" && topLevel[b].type === "button") {
+            warning("ungrouped_adjacent_buttons", "Adjacent buttons are separate page blocks. If related, group them in a responsive layout (horizontal desktop/tablet, stacked phones)", "/pages/" + idx);
+            break;
+          }
         }
       });
     }
@@ -1641,13 +2169,56 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!response) {
       return response;
     }
-    if (response.document && response.document.res) {
+    if (response.document && Object.prototype.hasOwnProperty.call(response.document, "res")) {
       return response.document.res;
     }
-    if (response.doc && response.doc.document && response.doc.document.res) {
+    if (response.doc && response.doc.document && Object.prototype.hasOwnProperty.call(response.doc.document, "res")) {
       return response.doc.document.res;
     }
     return response;
+  }
+
+  function validateBaserowColumns(form, authentication, options, validation) {
+    var cache = {};
+    baserowBindings(form).forEach(function (binding) {
+      if (form._id && ensureArray(options.strictBindingPaths).indexOf(binding.path) < 0) { return; }
+      if (!binding.config || !binding.config.table_id_int) { return; }
+      function problem(code, message) { validation.issues.push({ code: code, message: message, path: binding.path }); }
+      // Do not fetch another account's catalog while editing a shared binding.
+      if (binding.config.source_owner && binding.config.source_owner !== authentication.user) {
+        validation.warnings.push({ code: "baserow_columns_unverified", message: "Existing connection owner preserved; column permissions must be verified with that owner", path: binding.path });
+        return;
+      }
+      var table = String(binding.config.table_id_int);
+      if (!hasOwn(cache, table)) {
+        try {
+          var response = callC8oSequence("lib_BaseRow", "formscommon_FieldsList", { forms_config: JSON.stringify({ table_id: binding.config.table_id_int, editor: authentication.user }) });
+          var error = apiError(response);
+          var envelope = response && (response.document || response.doc && response.doc.document || response);
+          cache[table] = !error && envelope && envelope.array ? ensureArray(envelope.array) : null;
+        } catch (_catalogError) { cache[table] = null; }
+      }
+      var fields = cache[table];
+      if (!fields || !fields.length) { problem("baserow_schema_unavailable", "Cannot verify the selected Baserow table columns with the authenticated account; check catalog access before saving"); return; }
+      var names = fields.map(function (field) { return String(field.name); });
+      var columns = /\/sources[^/]*\//.test(binding.path) ? ensureArray(binding.config.columns) : [];
+      if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) {
+        try { columns = Object.keys(JSON.parse(binding.entry.vars.forms_freeVars.str)); } catch (_invalidMapping) { return; }
+      }
+      columns.forEach(function (column) {
+        var readSource = /\/sources[^/]*\//.test(binding.path);
+        if (names.indexOf(column) < 0 && !(readSource && column === "id")) { problem("unknown_baserow_column", "Column is not present in the selected table: " + column); }
+      });
+      if (/\/lib_BaseRow\.forms_AddRow$/.test(binding.path)) {
+        var inputs = ensureArray(form.formulaire).filter(function (item) { return ["description", "button", "layout", "grid", "map"].indexOf(item.type) < 0; });
+        if (!inputs.some(function (item) { return names.indexOf(item.name) >= 0; })) {
+          problem("unmapped_baserow_inputs", "No input technical name matches the selected table columns. Use forms_AddRowFromData with an explicit column/value mapping");
+        }
+      }
+    });
+    validation.issueCount = validation.issues.length;
+    validation.warningCount = validation.warnings.length;
+    validation.valid = validation.issueCount === 0;
   }
 
   function saveForm(form, options) {
@@ -1684,8 +2255,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         authentication: authentication || { authenticated: false }
       };
     }
+    validateBaserowColumns(sanitized, authentication, opts, validation);
+    if (!validation.valid) { return { status: "invalid", saved: false, validation: validation, authentication: authentication }; }
     var tempFile = null;
     var meta = clone(sanitized, {});
+    // Existing documents are full read/modify/write snapshots. Never merge them
+    // onto a newer revision or accidentally recreate a deleted form.
+    delete meta._c8oExpectedRevision;
+    if (meta._id) {
+      if (!trimmed(meta._rev)) { return { status: "conflict", saved: false, validation: validation, error: { code: "missing_revision", message: "Read the current form before saving" } }; }
+      meta._c8oExpectedRevision = String(meta._rev);
+    }
     var variables = { meta: JSON.stringify(meta) };
     if (thumbnailImage.media) {
       try {
@@ -1724,7 +2304,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var error = apiError(response);
     if (error) {
       return {
-        status: "error",
+        status: error.error === "conflict" || error.code === "conflict" || error === "conflict" ? "conflict" : "error",
         saved: false,
         validation: validation,
         authentication: authentication,
@@ -1848,7 +2428,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         response: unwrapApiResult(response)
       };
     }
-    return unwrapApiResult(response);
+    var form = unwrapApiResult(response);
+    if (form && Object.prototype.hasOwnProperty.call(form, "res")) {
+      form = form.res;
+    }
+    if (!form || typeof form !== "object" || !form._id) {
+      return {
+        status: "unavailable",
+        fetched: false,
+        error: {
+          code: "form_unavailable",
+          message: "The form is missing or not accessible to the authenticated No Code user. The API does not distinguish these cases."
+        }
+      };
+    }
+    return form;
   }
 
   function applyMergePatch(target, patch) {
@@ -2147,7 +2741,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (action === "add_page") {
       var pageIndex = normalizeIndex(op.index, form.pages.length, form.pages.length);
-      var page = makePageFromOperation(op, pageIndex, tabModeFor({ navigationMode: op.navigationMode || "tabs" }, form.pages.length + 1));
+      var mode = trimmed(op.navigationMode);
+      if (!mode) {
+        var reference = form.pages[Math.min(pageIndex, form.pages.length - 1)];
+        mode = reference && boolLike(reference.enabledTab) ? "tabs" : reference && boolLike(reference.enabledButtons) ? "buttons" : "custom";
+      }
+      if (["custom", "tabs", "buttons"].indexOf(mode) < 0) { throw new Error("Unknown navigationMode: " + mode); }
+      var page = makePageFromOperation(op, pageIndex, mode === "tabs");
+      if (mode === "custom") { page.enabledTab = false; page.enabledButtons = false; }
       form.pages.splice(pageIndex, 0, page);
       summary.push({ action: action, pageTechName: page.pageTechName, index: pageIndex });
       return;
@@ -2227,6 +2828,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var fieldFound = findField(form, op);
       var fieldPatch = op.patch && typeof op.patch === "object" ? op.patch : op.fieldObject || (op.field && typeof op.field === "object" ? op.field : {});
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, fieldPatch);
+      applyFieldLabel(form.formulaire[fieldFound.index], fieldPatch);
+      if (hasOwn(fieldPatch, "label")) { delete form.formulaire[fieldFound.index].label; }
+      if (hasOwn(fieldPatch, "description")) { delete form.formulaire[fieldFound.index].description; }
+      if (hasOwn(fieldPatch, "defaultFrom")) {
+        // An explicit contextual edit replaces the old scalar self default only;
+        // never silently replace a backend/choice data source.
+        if (Object.keys(fieldFound.item.sources || {}).some(function (key) { return key !== "self" && boolLike(fieldFound.item.sources[key].enabled); })) { throw new Error("Cannot replace an enabled external source with defaultFrom"); }
+        applyContextDefault(form.formulaire[fieldFound.index], fieldPatch);
+      }
       summary.push({ action: action, fieldId: form.formulaire[fieldFound.index].id, name: form.formulaire[fieldFound.index].name });
       return;
     }
@@ -2247,7 +2857,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (action === "add_flow") {
       var flow = op.flowData || (op.flow && typeof op.flow === "object" && !Array.isArray(op.flow) ? clone(op.flow, {}) : {});
       flow.id = trimmed(flow.id || op.flowId || op.id || op.name) || ("flow_" + nextId());
-      flow.name = trimmed(flow.name || op.flowName || op.name) || flow.id;
+      flow.name = trimmed(flow.name || op.flowName || op.name);
+      flow.name = flowDisplayName(flow, form.formulaire);
       flow.elements = ensureArray(flow.elements);
       form.flows.splice(normalizeIndex(op.index, form.flows.length, form.flows.length), 0, flow);
       summary.push({ action: action, flowId: flow.id });
@@ -2347,6 +2958,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       applyEditOperation(edited, ops[i], catalogByType, summary);
     }
     ensureButtonFlows(edited);
+    resolveAuthoringReferences(edited);
     return { form: edited, operations: summary, allTypesPath: contract.file };
   }
 
@@ -2370,6 +2982,139 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   C8O.nocodeForms.validate = validateForm;
   C8O.nocodeForms.save = saveForm;
   C8O.nocodeForms.get = getForm;
+  function attachSavedForm(saved, candidate, options) {
+    if (saved.saved !== true) { saved.form = candidate; return saved; }
+    var result = saved.response || {};
+    var id = result.id || candidate._id;
+    // The persisted API document can differ from the compiled one (ids, media,
+    // page flags). Never report an unsaved snapshot as a verified saved form.
+    var readOptions = clone(options || {}, {});
+    delete readOptions.rev;
+    try {
+      var actual = id ? getForm(String(id), readOptions) : null;
+      if (actual && String(actual._id) === String(id)) {
+        saved.form = actual;
+        saved.readbackVerified = true;
+        saved.validation = validateForm(actual, readOptions).validation;
+        return saved;
+      }
+    } catch (_readbackError) {}
+    saved.form = clone(candidate, {});
+    if (id) { saved.form._id = id; }
+    if (result.rev) { saved.form._rev = result.rev; }
+    saved.readbackVerified = false;
+    saved.validation.warnings.push({ code: "saved_form_readback_unavailable", message: "Save succeeded but readback could not be verified. Re-read this id; do not retry create.", path: "" });
+    saved.validation.warningCount = saved.validation.warnings.length;
+    return saved;
+  }
+
+  function finalizeBaserowBindings(saved, options, expectedCount, newForm) {
+    var id = saved.form && saved.form._id || saved.response && saved.response.id;
+    function pending(code) {
+      saved.status = "partial";
+      saved.bindingFinalization = {
+        status: "pending", code: code, bindingCount: expectedCount,
+        message: "The form is already saved but Baserow identity finalization is not verified. Do not call create again. Resume finalization on this same id.",
+        recovery: id ? { tool: "nocode-form-edit", id: String(id), operations: [{ action: "finalize_baserow_bindings" }] } : null
+      };
+      return saved;
+    }
+    if (!expectedCount) {
+      saved.bindingFinalization = { status: "not_required", bindingCount: 0 };
+      return saved;
+    }
+    if (!id || saved.readbackVerified !== true) { return pending("saved_form_readback_unavailable"); }
+    var authentication = saved.authentication || {};
+    var user = authentication.authenticated === true ? trimmed(authentication.user) : "";
+    // This recovery operation is limited to the creator: never reassign a
+    // collaborator's Baserow account to the current caller.
+    if (!user || trimmed(saved.form.creator) !== user) { return pending("binding_owner_not_verified"); }
+    var candidate = clone(saved.form, {});
+    var bindings = baserowBindings(candidate);
+    if (bindings.length !== expectedCount) { return pending("binding_count_changed"); }
+    var changed = false;
+    for (var i = 0; i < bindings.length; i++) {
+      var binding = bindings[i];
+      if (!binding.config || !binding.variable || binding.item.id == null) { return pending("invalid_baserow_binding"); }
+      if (!newForm && trimmed(binding.config.source_owner) && trimmed(binding.config.source_owner) !== user) { return pending("binding_owner_mismatch"); }
+      if (String(binding.config.form_id) !== String(id) || String(binding.config.source_id) !== String(binding.item.id) || binding.config.source_owner !== user) {
+        binding.config.form_id = String(id);
+        binding.config.source_id = binding.item.id;
+        binding.config.source_owner = user;
+        binding.variable.str = JSON.stringify(binding.config);
+        changed = true;
+      }
+    }
+    if (changed) {
+      var finalOptions = clone(options || {}, {});
+      delete finalOptions.thumbnailImage;
+      delete finalOptions.rev;
+      try {
+        // A fresh revision check prevents knowingly overwriting an intervening
+        // editor save. The existing Forms API remains the only write path.
+        var latest = getForm(String(id), finalOptions);
+        if (!latest || String(latest._id) !== String(id) || latest._rev !== candidate._rev) { return pending("form_changed_before_finalization"); }
+        var finalized = saveForm(candidate, finalOptions);
+        if (!finalized || finalized.saved !== true) { return pending(finalized && finalized.status === "conflict" ? "form_changed_before_finalization" : "binding_save_failed"); }
+        // Keep the successful second revision even if its readback fails.
+        saved.response = finalized.response;
+        saved.validation = finalized.validation;
+        attachSavedForm(saved, candidate, finalOptions);
+      } catch (_finalizationError) {
+        return pending("binding_finalization_failed");
+      }
+    }
+    if (saved.readbackVerified !== true || String(saved.form._id) !== String(id)) { return pending("binding_readback_unavailable"); }
+    var verified = baserowBindings(saved.form);
+    if (verified.length !== expectedCount || verified.some(function (binding) {
+      return !binding.config || String(binding.config.form_id) !== String(id) || String(binding.config.source_id) !== String(binding.item.id) || binding.config.source_owner !== user;
+    })) { return pending("binding_verification_failed"); }
+    saved.status = "ok";
+    saved.bindingFinalization = { status: "ready", bindingCount: verified.length };
+    return saved;
+  }
+
+  function resumeBaserowFinalization(id, options) {
+    var opts = clone(options || {}, {});
+    delete opts.rev;
+    var authentication = validateToken(opts);
+    if (!authentication || authentication.authenticated !== true) { return { status: "auth_required", saved: false, authentication: authentication }; }
+    var form = getForm(id, opts);
+    if (!form || !form._id) { return form; }
+    if (!baserowBindings(form).length) { return { status: "invalid", saved: false, error: { code: "no_baserow_bindings", message: "No Baserow bindings remain on this form. Inspect the saved form; finalization cannot reconstruct missing business connections." } }; }
+    var saved = { status: "ok", saved: true, form: form, response: { id: form._id, rev: form._rev }, authentication: authentication, readbackVerified: true, validation: validateForm(form, opts).validation };
+    return finalizeBaserowBindings(saved, opts, baserowBindings(form).length, false);
+  }
+
+  function saveEditedForm(current, edited, options) {
+    var opts = clone(options || {}, {});
+    var authentication = validateToken(opts);
+    if (!authentication || authentication.authenticated !== true) { return { status: "auth_required", saved: false, authentication: authentication }; }
+    // Root identity cannot be replaced through a merge patch.
+    edited._id = current._id;
+    edited._rev = current._rev;
+    opts.strictBindingPaths = prepareEditedBaserowBindings(current, edited, trimmed(authentication.user));
+    var expected = baserowBindings(edited).filter(function (binding) { return opts.strictBindingPaths.indexOf(binding.path) >= 0; });
+    var saved = saveForm(edited, opts);
+    attachSavedForm(saved, sanitizeFormBeforeSave(edited), opts);
+    if (saved.saved === true && opts.strictBindingPaths.length) {
+      var actual = {};
+      if (saved.readbackVerified) { baserowBindings(saved.form).forEach(function (binding) { actual[binding.key] = binding; }); }
+      var verified = saved.readbackVerified && expected.every(function (binding) {
+        var found = actual[binding.key];
+        return found && found.config && String(found.config.form_id) === String(current._id) &&
+          String(found.config.source_id) === String(binding.item.id) && found.config.source_owner === binding.config.source_owner;
+      });
+      saved.bindingFinalization = { status: verified ? "ready" : "pending", bindingCount: expected.length };
+      if (!verified) {
+        saved.status = "partial";
+        saved.bindingFinalization.code = "edited_binding_readback_unverified";
+        saved.bindingFinalization.recovery = { tool: "nocode-form-get", id: String(current._id) };
+      }
+    }
+    return saved;
+  }
+
   C8O.nocodeForms.create = function (reduced, options) {
     var compiled = compileReduced(reduced, options);
     if (!compiled || compiled.status !== "ok") {
@@ -2383,8 +3128,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       createOptions.thumbnailImage = reduced.thumbnailImage;
     }
     var saved = saveForm(compiled.form, createOptions);
-    saved.form = compiled.form;
+    attachSavedForm(saved, compiled.form, createOptions);
     saved.allTypesPath = compiled.allTypesPath;
+    if (saved.saved === true) { finalizeBaserowBindings(saved, createOptions, compiled.bindingFinalization.bindingCount, true); }
     return saved;
   };
   C8O.nocodeForms.update = function (id, patch, options) {
@@ -2395,12 +3141,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var currentForm = current && current.res ? current.res : current;
     var patched = applyMergePatch(currentForm, patch);
-    var saved = saveForm(patched, options);
-    saved.form = sanitizeFormBeforeSave(patched);
-    return saved;
+    return saveEditedForm(currentForm, patched, options);
   };
   C8O.nocodeForms.edit = function (id, operations, options) {
     try {
+      var requestedOperations = ensureArray(operations);
+      if (requestedOperations.some(function (op) { return op && op.action === "finalize_baserow_bindings"; })) {
+        if (requestedOperations.length !== 1) { throw new Error("finalize_baserow_bindings must be the only operation; resume the saved creation before other edits"); }
+        return resumeBaserowFinalization(id, options);
+      }
       var current = getForm(id, options);
       if (current && current.fetched === false) {
         current.saved = false;
@@ -2408,8 +3157,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       var currentForm = current && current.res ? current.res : current;
       var applied = applyEditOperations(currentForm, operations, options);
-      var saved = saveForm(applied.form, options);
-      saved.form = sanitizeFormBeforeSave(applied.form);
+      var saved = saveEditedForm(currentForm, applied.form, options);
       saved.operations = applied.operations;
       saved.allTypesPath = applied.allTypesPath;
       return saved;

@@ -1,0 +1,46 @@
+{
+  "name": "TEST - Generation qualite - Demandes",
+  "description": "Démonstration isolée : les demandes restent dans cette session, sans envoi ni stockage métier.",
+  "language": "fr",
+  "navigationMode": "custom",
+  "backgroundColor": "#F5F7FB",
+  "thumbnailColor": "#2563EB",
+  "pages": [
+    {
+      "name": "Accueil",
+      "iconName": "home",
+      "fields": [
+        {
+          "type": "description", "name": "bienvenue",
+          "description": "<h2>Vos demandes, simplement</h2><p>Créez une demande et consultez le suivi de démonstration.</p>",
+          "boxStyle": { "margin": "0 0 24px 0", "padding": "24px", "border": "1px solid #CBD5E1", "borderRadius": "16px", "backgroundColor": "#FFFFFF" }
+        },
+        { "type": "button", "name": "ouvrir_demandes", "label": "Créer et suivre une demande", "icon": "add-circle", "flow": "ouvrir_demandes", "boxStyle": { "margin": "0 0 16px 0" } }
+      ]
+    },
+    {
+      "name": "Demandes",
+      "iconName": "list",
+      "fields": [
+        { "type": "description", "name": "demo", "description": "<h2>Demandes de démonstration</h2><p>Les données sont fictives et disparaissent au rechargement. Aucun e-mail n’est envoyé.</p>", "boxStyle": { "margin": "0 0 16px 0", "padding": "16px", "border": "1px solid #BFDBFE", "borderRadius": "12px", "backgroundColor": "#EFF6FF" } },
+        { "type": "text", "id": 1900000000101, "name": "demandeur", "description": "Nom du demandeur", "placeholder": "Ex. Alex Exemple", "mandatory": true, "boxStyle": { "margin": "0 0 16px 0" } },
+        { "type": "button", "name": "ajouter_demande", "label": "Ajouter à la démonstration", "icon": "add", "flow": "ajouter_demande", "checkMandatoryInCurrentPage": true },
+        { "type": "grid", "name": "demandes", "description": "Suivi des demandes — session de démonstration", "sourceEnabled": false, "returned_value": "all_the_data", "columns": [{ "name": "Demandeur", "type": "text" }, { "name": "Statut", "type": "text" }], "boxStyle": { "margin": "24px 0 16px 0", "padding": "16px", "border": "1px solid #E2E8F0", "borderRadius": "12px", "backgroundColor": "#FFFFFF" } },
+        { "type": "button", "name": "exemple", "label": "Ajouter une ligne fictive", "icon": "flask", "flow": "exemple", "fill": "outline" },
+        { "type": "button", "name": "retour", "label": "Retour à l’accueil", "icon": "home", "flow": "retour", "fill": "outline" }
+      ]
+    }
+  ],
+  "flows": [
+    { "id": "ouvrir_demandes", "elements": [{ "type": "push_page", "targetPage": "Demandes" }] },
+    { "id": "retour", "elements": [{ "type": "push_page", "targetPage": "Accueil" }] },
+    { "id": "exemple", "elements": [
+      { "type": "add_row_to_local_grid", "targetGrid": "demandes", "row": { "Demandeur": "Camille Démo", "Statut": "En attente" } },
+      { "type": "toast", "message": "Ligne fictive ajoutée à cette session", "duration": 3 }
+    ] },
+    { "id": "ajouter_demande", "elements": [
+      { "type": "add_row_to_local_grid", "targetGrid": "demandes", "sources": { "self": { "enabled": true, "vars": { "selfVar": { "str": "({Demandeur: $$START1900000000101{\"c8otype\":\"path\",\"c8opath\":\"demandeur\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1900000000101\",\"c8oName\":null}END1900000000101$$, Statut: 'En attente'})", "type": "ts", "html": false } } } } },
+      { "type": "toast", "message": "Demande ajoutée à la démonstration, sans envoi", "duration": 3 }
+    ] }
+  ]
+}

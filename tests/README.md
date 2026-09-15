@@ -4,6 +4,85 @@ This folder stores reproducible prompts/scripts for running Codex CLI scenarios 
 
 This entire folder is an internal lab surface for benchmark and observability work. It is not the recommended public MCP onboarding path during the mono-agent CRUD recovery cycle.
 
+## No-code generation quality
+
+Label regression cases check the content actually selected by the Forms
+question renderer (`personalized ? html : label`), not just the presence of
+`config.label`. They cover all question prototypes, contextual/disabled inputs,
+plain-text escaping, intact SmartSource envelopes, explicit rich text/mode
+precedence and semantic edits of existing labels. Prototype question diagnostics
+are advisory so existing drafts remain editable.
+
+Context defaults are documented by `authoringContract.contextualDefaults`.
+`defaultFrom` compiles to an editable native TS self source and the opt-in
+`config.contextValueMode`. Deploy the C8Oforms viewer update with this MCP
+change: an older viewer ignores the initial-only policy. Existing native
+sources without the new policy are unchanged. Only scalar controls accept the
+shorthand; choice defaults and backend data views retain their own contracts.
+Initial defaults require the source value to be ready when the page initializes;
+they deliberately do not subscribe to late changes. Clock defaults use the
+browser clock, and runtime identity is not a server-side access-control check.
+
+Run `node --test tests/scripts/validate_nocode_generation.cjs`. The tests use the
+actual Forms `AllTypes.json` in the sibling `C8oForms` checkout (override with
+`C8OFORMS_PROJECT_ROOT`) and mock only the Java filesystem/engine adapter. They
+cover message mapping, styles (including nested layout children), responsive
+action groups, visible flow names, navigation/grid references, Baserow binding
+configuration, invalid generation, legacy draft compatibility, nested flow
+links and post-save readback. Baserow compiler cases use in-memory test identities;
+they neither write records nor prove backend persistence. Creation lifecycle
+tests now exercise the public create/edit functions and the complete save/read/
+finalize/read cycle using an in-memory requestable transport. They cover server-
+assigned component ids, trusted creator identity, readback failures, second-save
+failure, same-id recovery, idempotency and intervening edits.
+
+`fixtures/nocode-generation-quality.json` is a legacy transient-grid regression
+fixture, not an application template or a delivery-quality benchmark. Keep it
+for compiler compatibility tests only; do not create it as a replacement for a
+requested application. Its stable input id makes the SmartSource test reproducible
+and must not be copied into unrelated generated applications.
+
+The earlier 2026-09-11 browser pass only verified transient component behavior,
+including a 390px viewport. It did not verify application delivery or persistence.
+The operational acceptance test must use an authorized Baserow destination:
+create the dedicated schema, connect save and read to the same table, submit an
+authorized test record, reload, and verify the record in the result view. Check
+flow labels, grouped buttons and spacing on desktop/mobile, and report the test
+record's disposition. If authentication or destination is unavailable, mark this
+acceptance test pending rather than replacing it with local rows.
+
+New compile/create rejects incomplete action flows. Full-document validation
+keeps these as warnings for existing drafts; structural reference errors stay
+blocking. Successful saves now re-read the authoritative document and return
+`readbackVerified`. If readback fails, the write is still successful: re-read its
+returned id rather than retrying create. No Studio viewer behavior is changed.
+
+Baserow creation manages `form_id`, `source_id` and `source_owner`: callers must
+omit them in new reduced input. `bindingFinalization.status=pending_creation`
+at compile is nonblocking. Create reports `ready` only after identity readback;
+it does not execute business actions. After a partial result with `saved:true`,
+use the returned `nocode-form-edit` recovery (`finalize_baserow_bindings`, alone)
+on the existing id. It is creator-only and preserves other source owners by
+refusing a takeover. Existing-document writes now carry the revision read to
+`C8Oforms.APIV2_updateFormulaireDocument`. Its opt-in `form_write_guard.js` path
+keeps that revision for the native CouchDB write (`policy=none`), rejects stale
+or missing documents, and preserves attachment stubs. Ordinary editor calls
+without the guard retain their previous merge behavior. Deploy these Forms and
+MCP changes together; an older Forms API does not enforce this guard. The two
+creation writes still are not one transaction.
+Only the first write uploads a requested thumbnail. No Baserow rows are written
+by finalization. A live authenticated create and data round-trip remain separate
+acceptance checks from the in-memory suite.
+
+Semantic edits also finalize new/changed Baserow bindings before the edit save,
+preserving existing connection owners. Added pages inherit navigation, including
+custom mode. Regression cases cover a race after the revision preflight,
+concurrent deletion, edit-time identity binding, readback mismatch, invalid row
+ids/value mappings, actual column-name matching (with a simulated catalog), and
+missing spacing in nested layouts. The in-memory server
+uses the actual Forms write guard and simulates CouchDB revision rejection; it
+does not substitute for a live concurrency/ACL acceptance check.
+
 Exception: `scripts/run_fastpath_repeatability.py` is the dedicated repeatability runner for the recommended mono-agent CRUD fast path. It still lives under `tests/`, but it is intentionally separate from the benchmark/multi-agent lab flow.
 
 - `prompt.txt`: Main end-to-end HTTP contract scenario. The runner should inject `convertigo-http`.

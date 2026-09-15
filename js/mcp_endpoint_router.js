@@ -1,4 +1,5 @@
 // Centralized dispatcher for MCP requests (initialize/tools/prompts/etc.).
+include("js/nocode_tool_policy.js");
 var paramsJson = "{}";
 try {
   paramsJson = JSON.stringify(paramsObject);
@@ -407,6 +408,12 @@ if (methodName === "initialize") {
         };
       }
     }
+  }
+  if (!mappingError && C8O.nocodeToolPolicy.active() && !C8O.nocodeToolPolicy.allows(targetSequence)) {
+    mappingError = {
+      status: "403", code: "-32601",
+      message: "This tool is not available in the No Code assistant. Use the no-code tools only."
+    };
   }
   if (mappingError) {
     callSequence = "mcp_error_response";

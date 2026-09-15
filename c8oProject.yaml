@@ -40,7 +40,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 600
-  version: 0.1.0
+  version: 0.1.1
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
@@ -84,6 +84,7 @@
   ↓tools_nocode_form_contract_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_contract_get.yaml
   ↓tools_nocode_form_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_create.yaml
   ↓tools_nocode_form_edit [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_edit.yaml
+  ↓tools_nocode_form_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_get.yaml
   ↓tools_nocode_form_update [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_update.yaml
   ↓tools_nocode_form_validate [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_validate.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
