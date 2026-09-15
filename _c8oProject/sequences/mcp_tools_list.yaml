@@ -21,7 +21,8 @@ comment: Handles MCP tools/list calls
 ↓Init [steps.SimpleStep-1762960828140]: 
   comment: Prepare tool list and pagination
   expression: |
-    'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    'include("js/nocode_tool_policy.js");
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var feedbackMode = String(C8O.reporting.resolveMode());
     var mcpAuthKind = typeof authKind === "undefined" || authKind === null ? "" : String(authKind);
     var limitText = limit == null ? "" : String(limit).trim();
@@ -71,7 +72,9 @@ comment: Handles MCP tools/list calls
             if (feedbackMode == "off" && seqName == "tools_report_create") {
               continue;
             }
-            toolNames.push(seqName);
+            if (!C8O.nocodeToolPolicy.active() || C8O.nocodeToolPolicy.allows(seqName)) {
+              toolNames.push(seqName);
+            }
           }
         } catch (_ignoredName) {}
       }

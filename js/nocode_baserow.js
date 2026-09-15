@@ -1117,12 +1117,13 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         var id = numberOrNull(item && typeof item === "object" ? item.id : item);
         if (id == null) {
           var key = trimmed(item && typeof item === "object" ? (item.key || item.value || item.name) : item);
-          var target = rowKeyLookup[field.targetTable.toLowerCase()] || {};
+          var target = rowKeyLookup[trimmed(field.targetTable).toLowerCase()] || {};
           id = numberOrNull(target[key]);
         }
-        if (id != null) {
-          out.push(id);
+        if (id == null || id <= 0 || Math.floor(id) !== id) {
+          throw new Error("Unresolved Baserow relationship in " + (field.name || "link_row") + ". Use a verified row id or a business key resolved from an earlier table; never guess row ids");
         }
+        out.push(id);
       }
       return out;
     }

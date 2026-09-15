@@ -1,0 +1,34 @@
+accessibility: Private
+comment: |
+  Read an existing No Code form without modifying it
+  Use before auditing, proposing improvements, or editing a form identified by its document id. Reads the latest saved form through C8Oforms.APIV2_getDocument with the authenticated No Code bearer user and existing ACLs. Returns status, fetched and form on success; auth_required for token failures or unavailable when the form is missing or inaccessible. Never use an empty edit/update to read. The token is supplied out-of-band by the integrated host.
+↓Run [steps.SimpleStep-1789129239378]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    try {
+      var current = C8O.nocodeForms.get(id, { project: "C8Oforms", rev: rev, token: token });
+      result = current && current.fetched === false ? current : { status: "ok", fetched: true, form: current };
+    } catch (e) {
+      result = { status: "error", fetched: false, error: { code: "form_read_failed", message: "Unable to read the form through the No Code API." } };
+    }'
+↓result [steps.JsonToXmlStep-1789129239380]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓id [variables.RequestableVariable-1789129239382]: 
+  comment: Form document id.
+  description: Form document id.
+  required: true
+↓rev [variables.RequestableVariable-1789129239384]: 
+  comment: Optional revision. Empty reads latest.
+↓token [variables.RequestableVariable-1789129239386]: 
+  comment: Optional compatibility field; bearer credential supplied by the host.
