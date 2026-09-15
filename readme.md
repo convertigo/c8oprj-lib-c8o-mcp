@@ -458,3 +458,15 @@ Template source for the bootstrap work-in-progress card.
 <td>Message</td><td></td>
 </tr>
 </table>
+
+## HTTP surface and security
+
+The project exposes exactly two URL mapper paths, `/convertigo/api/mcp` and
+`/convertigo/api/mcp/`: `POST` is the Streamable HTTP MCP entry point, protected
+by the bearer tokens managed in the administration page (see `js/mcp_auth.js`),
+and `GET` answers a ping. Every capability is delivered as an MCP tool behind
+that authenticated endpoint. The legacy bootstrap REST endpoints (`/api/exec`,
+`/api/metrics`, `/api/mcp/projects`, `/api/mcp/sequences[/invoke]`,
+`/api/mcp/object[/create|/reorder]`, `/api/mcp/candidates`) and their sequences
+were removed in 0.2.7: they had no authentication and `/api/exec` evaluated
+arbitrary Rhino scripts. Do not reintroduce unauthenticated mappings.
