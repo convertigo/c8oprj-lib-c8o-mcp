@@ -4,7 +4,29 @@ responseTimeout: 300
 ↓Init [steps.SimpleStep-1761755111960]: 
   comment: Parse JSON-RPC request and select target sequence
   expression: |
-    'const Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    '// A previous call on this HTTP session may have scheduled its invalidation
+    // (terminateSession on the /mcp mapping). Clients that replay the JSESSIONID
+    // cookie would otherwise lose this call at the next Tomcat expiry sweep, while
+    // stateless clients get a fresh session and are unaffected. Re-arm it now.
+    try {
+      if (context.httpSession != null) {
+        var mcpSessionTimeout = 600;
+        try { mcpSessionTimeout = parseInt(String(context.project.getHttpSessionTimeout()), 10) || 600; } catch (_ignoreProjectTimeout) {}
+        context.httpSession.setMaxInactiveInterval(mcpSessionTimeout);
+      }
+    } catch (_ignoreSessionRearm) {}
+    
+    var TOOL_CALL_INTERRUPTED = /Parent context stopped|already been invalidated|Session already invalidated/i;
+    function formatToolErrorText(err) {
+      err = err && err.error ? err.error : (err || {});
+      var probe = [err.message, err.details, err.exception, err.context].join("\n");
+      if (TOOL_CALL_INTERRUPTED.test(probe)) {
+        return JSON.stringify({ code: "server_call_interrupted", message: "The MCP call was interrupted on the server because its HTTP session ended during execution. Retry the same call once with identical arguments before trying anything else.", details: err.message || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
+      }
+      return JSON.stringify({ code: err.code || "", message: err.message || "Tool call failed", details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
+    }
+    
+    const Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     
     const JSON_RPC_VERSION = "2.0";
     const SUPPORTED_PROTOCOL = "2025-06-18";
@@ -318,7 +340,7 @@ responseTimeout: 300
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                     - SmartType: 
                       - ↑mode: JS
-                      - →→: '(function (err) { err = err && err.error ? err.error : (err || {}); return JSON.stringify({ code: err.code || "", message: err.message || "Tool call failed", details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} }); })(toolError)'
+                      - →→: formatToolErrorText(toolError)
           ↓structuredContent [steps.JsonObjectStep-1782105694341]: 
             key: 
               - xmlizable: 
@@ -444,7 +466,7 @@ responseTimeout: 300
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                     - SmartType: 
                       - ↑mode: JS
-                      - →→: '(function (err) { err = err && err.error ? err.error : (err || {}); return JSON.stringify({ code: err.code || "", message: err.message || "Tool call failed", details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} }); })(toolError)'
+                      - →→: formatToolErrorText(toolError)
           ↓structuredContent [steps.JsonObjectStep-1782105694666]: 
             key: 
               - xmlizable: 
