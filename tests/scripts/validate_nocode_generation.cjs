@@ -530,7 +530,12 @@ function creationHarness(options = {}) {
   const client = api((sequence, params) => {
     state.calls.push(sequence);
     if (sequence === 'nocode_validate_token') return { document: { result: { authenticated: !options.authFail, user: state.user } } };
-    if (sequence === 'formscommon_FieldsList') return { document: { array: options.columns || [{name:'Reference',type:'text'},{name:'Status',type:'text'}] } };
+    if (sequence === 'formscommon_ApplicationsList') return { document: { array: [] } };
+    if (sequence === 'formscommon_FieldsList') {
+      // Like lib_BaseRow, the field list is empty until a Baserow session exists.
+      if (options.fieldsNeedSession && !state.calls.includes('formscommon_ApplicationsList')) return { document: {} };
+      return { document: { array: options.columns || [{name:'Reference',type:'text'},{name:'Status',type:'text'}] } };
+    }
     if (sequence === 'APIV2_getDocument') {
       state.reads++;
       if (options.failRead === state.reads) return { document: { res: {} } };
@@ -709,6 +714,21 @@ test('save checks discovered table columns and rejects unmapped inputs before cr
     assert.equal(h.state.creates,0);
     assert.ok(r.validation.issues.some(i=>i.code===({'unknown-column':'unknown_baserow_column','unmapped-input':'unmapped_baserow_inputs','unavailable':'baserow_schema_unavailable'}[mode])));
   }
+});
+
+test('column verification opens a Baserow session once when the fresh MCP session has no token', () => {
+  const h = creationHarness({fieldsNeedSession:true});
+  const r = h.client.create(connectedWithoutIdentities(),h.auth);
+  assert.equal(r.status,'ok');
+  assert.equal(r.saved,true);
+  assert.equal(h.state.calls.filter(s=>s==='formscommon_ApplicationsList').length,1);
+  assert.ok(!r.validation.issues.some(i=>i.code==='baserow_schema_unavailable'));
+
+  const still = creationHarness({columns:[]});
+  const failed = still.client.create(connectedWithoutIdentities(),still.auth);
+  assert.equal(failed.saved,false);
+  assert.equal(still.state.calls.filter(s=>s==='formscommon_ApplicationsList').length,1);
+  assert.ok(failed.validation.issues.some(i=>i.code==='baserow_schema_unavailable' && /Do not remove the connection/.test(i.message)));
 });
 
 test('explicit mappings use real columns and allow false and zero values', () => {

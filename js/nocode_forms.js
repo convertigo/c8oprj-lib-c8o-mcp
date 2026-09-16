@@ -2178,8 +2178,26 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return response;
   }
 
+  function readBaserowTableFields(tableId, authentication) {
+    var response = callC8oSequence("lib_BaseRow", "formscommon_FieldsList", { forms_config: JSON.stringify({ table_id: tableId, editor: authentication.user }) });
+    var error = apiError(response);
+    var envelope = response && (response.document || response.doc && response.doc.document || response);
+    return !error && envelope && envelope.array ? ensureArray(envelope.array) : null;
+  }
+
   function validateBaserowColumns(form, authentication, options, validation) {
     var cache = {};
+    // formscommon_FieldsList reuses the Baserow token already stored in the HTTP
+    // session; with an explicit editor it never resolves the account itself. A
+    // fresh MCP session has no token, so the first empty answer primes the
+    // session exactly like the catalog tool does, then the read is retried once.
+    var sessionPrimed = false;
+    function primeBaserowSession() {
+      if (sessionPrimed) { return false; }
+      sessionPrimed = true;
+      try { callC8oSequence("lib_BaseRow", "formscommon_ApplicationsList", {}); } catch (_catalogError) {}
+      return true;
+    }
     baserowBindings(form).forEach(function (binding) {
       if (form._id && ensureArray(options.strictBindingPaths).indexOf(binding.path) < 0) { return; }
       if (!binding.config || !binding.config.table_id_int) { return; }
@@ -2191,15 +2209,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       var table = String(binding.config.table_id_int);
       if (!hasOwn(cache, table)) {
-        try {
-          var response = callC8oSequence("lib_BaseRow", "formscommon_FieldsList", { forms_config: JSON.stringify({ table_id: binding.config.table_id_int, editor: authentication.user }) });
-          var error = apiError(response);
-          var envelope = response && (response.document || response.doc && response.doc.document || response);
-          cache[table] = !error && envelope && envelope.array ? ensureArray(envelope.array) : null;
-        } catch (_catalogError) { cache[table] = null; }
+        var fetched = null;
+        try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication); } catch (_fieldsError) { fetched = null; }
+        if ((!fetched || !fetched.length) && primeBaserowSession()) {
+          try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication); } catch (_retryError) { fetched = null; }
+        }
+        cache[table] = fetched;
       }
       var fields = cache[table];
-      if (!fields || !fields.length) { problem("baserow_schema_unavailable", "Cannot verify the selected Baserow table columns with the authenticated account; check catalog access before saving"); return; }
+      if (!fields || !fields.length) { problem("baserow_schema_unavailable", "Cannot read the columns of Baserow table " + table + " with the authenticated No Code account, even after opening a Baserow session; check that this account can access the table before saving. Do not remove the connection to work around this"); return; }
       var names = fields.map(function (field) { return String(field.name); });
       var columns = /\/sources[^/]*\//.test(binding.path) ? ensureArray(binding.config.columns) : [];
       if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) {
