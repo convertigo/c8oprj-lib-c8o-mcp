@@ -44,29 +44,40 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // returns a truncated value; a malformed reduced form then compiled into an
   // empty "Untitled form" without any diagnostic. Refuse such text explicitly.
   function assertStrictJsonText(text, label) {
-    var depth = 0, inString = false, escaped = false, started = false, endedAt = -1;
+    var name = label || "value";
+    var stack = [], inString = false, escaped = false, started = false, endedAt = -1;
+    function fail(reason, pos) {
+      var from = Math.max(0, pos - 40), to = Math.min(text.length, pos + 40);
+      throw new Error(name + " is not valid JSON (" + text.length + " characters were received in full, this is not a transport truncation): " + reason + " at position " + pos + ": ..." + text.substring(from, to) + "...");
+    }
     for (var i = 0; i < text.length; i++) {
       var ch = text.charAt(i);
       if (inString) {
         if (escaped) { escaped = false; }
         else if (ch === "\\") { escaped = true; }
-        else if (ch === "\"") { inString = false; if (depth === 0 && endedAt < 0) { endedAt = i; } }
+        else if (ch === "\"") { inString = false; if (!stack.length && endedAt < 0) { endedAt = i; } }
         continue;
       }
+      if (endedAt >= 0 && !/\s/.test(ch)) { fail("unexpected content after the end of the JSON value", i); }
       if (ch === "\"") { inString = true; started = true; }
-      else if (ch === "{" || ch === "[") { depth++; started = true; }
+      else if (ch === "{" || ch === "[") { stack.push({ ch: ch, pos: i }); started = true; }
       else if (ch === "}" || ch === "]") {
-        depth--;
-        if (depth < 0) { throw new Error((label || "value") + " is not valid JSON: unexpected '" + ch + "' at position " + i); }
-        if (depth === 0 && endedAt < 0) { endedAt = i; }
-      } else if (endedAt >= 0 && !/\s/.test(ch)) {
-        throw new Error((label || "value") + " is not valid JSON: unexpected content after the closing bracket at position " + i);
+        if (!stack.length) { fail("unexpected '" + ch + "' with nothing left to close", i); }
+        var open = stack.pop();
+        var expected = open.ch === "{" ? "}" : "]";
+        if (ch !== expected) { fail("unexpected '" + ch + "': the " + (open.ch === "{" ? "object" : "array") + " opened at position " + open.pos + " must be closed with '" + expected + "' first", i); }
+        if (!stack.length && endedAt < 0) { endedAt = i; }
       }
     }
-    if (inString) { throw new Error((label || "value") + " is not valid JSON: unterminated string"); }
-    if (depth !== 0 || !started) { throw new Error((label || "value") + " is not valid JSON: " + depth + " bracket(s) left open"); }
+    if (inString) { fail("unterminated string", text.length); }
+    if (stack.length) {
+      var last = stack[stack.length - 1];
+      fail(stack.length + " bracket(s) left open; the " + (last.ch === "{" ? "object" : "array") + " opened here is never closed", last.pos);
+    }
+    if (!started) { fail("no JSON value", 0); }
     return true;
   }
+
 
   function parseObject(value, label, fallback) {
     if (value == null || trimmed(value).length === 0) {
@@ -886,6 +897,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application, then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
           unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
           tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control."
+        },
+        incrementalCreation: {
+          rule: "Tool arguments are generated token by token by the model; a reduced JSON above roughly 4 KB is likely to arrive with a structural typo and be refused. Build large applications in steps, each with a short argument, and pass reduced as a JSON object, not as a string.",
+          step1: "nocode-form-create with the skeleton only: name, descform, navigationMode, pages with iconName and their fields (type, name, label, mandatory, choices, Baserow sources/actions with columns), button fields with their flow ids and the push_page/submit flows. No boxStyle/questionBoxStyle/componentBoxStyle/layoutChildrenStyle, no toast text polish. Design warnings (missing_block_spacing, action_wrapper_surface, partial_page_styling, ungrouped_adjacent_buttons) are expected at this step.",
+          step2: "One nocode-form-edit per page: update_field patches with the style recipes (config.boxStyle etc.), add_flow_element for toasts/refresh, update_page for icons/flags. Keep each call to one page so a refused call costs one page, not the application.",
+          step3: "nocode-form-get, then nocode-form-validate: all design warnings of step 1 must be resolved before delivery.",
+          onInvalidJson: "A 'reduced is not valid JSON' error names the position and shows the surrounding text: fix the JSON at that position and resend the same call. The whole argument was received; it is never a transport truncation."
         },
         completion: ["Read the saved form and validate it after create/edit.", "Check every requested capability against actual components/actions; report unsupported or unconnected functionality explicitly.", "Test navigation, required fields, success/failure feedback and record persistence after reload using an authorized test record. Do not claim visual/runtime checks without a browser capability.", "New compile/create rejects incomplete toasts, empty button flows and unconfigured submit/source grids. Full-document validation reports these as warnings so existing drafts can still be edited; structural reference errors always block."]
       },

@@ -736,11 +736,20 @@ test('malformed reduced JSON is refused instead of compiling into an empty form'
   const truncated = '{"description":"d"}}, "name":"Bad","pages":[{"name":"P","fields":[{"type":"text","name":"a","label":"A"}]}]}';
   assert.throws(() => client.assertStrictJsonText(truncated, 'reduced'), /reduced is not valid JSON/);
   assert.throws(() => client.assertStrictJsonText('{"name":"Bad","pages":[{"name":"P","fields":[', 'reduced'), /left open/);
-  assert.throws(() => client.assertStrictJsonText('{"name":"x"} trailing', 'reduced'), /after the closing bracket/);
+  assert.throws(() => client.assertStrictJsonText('{"name":"x"} trailing', 'reduced'), /after the end of the JSON value/);
   assert.throws(() => client.assertStrictJsonText('{"name":"unterminated', 'reduced'), /unterminated string/);
   assert.equal(client.assertStrictJsonText('{"name":"ok","pages":[{"fields":[{"type":"text","name":"a","label":"A {x}"}]}]}', 'reduced'), true);
   assert.equal(client.assertStrictJsonText(' [1, {"a": "]"}] ', 'ops'), true);
   assert.throws(() => client.parseObject(truncated, 'reduced', {}), /reduced is not valid JSON/);
+});
+
+test('invalid reduced JSON errors name the position, the surrounding text and the received length', () => {
+  const client = api();
+  const extraBrace = '{"name":"x","pages":[{"name":"P","fields":[{"type":"text","name":"a","label":"A"}}]}]}';
+  assert.throws(() => client.assertStrictJsonText(extraBrace, 'reduced'), e => /unexpected '\}': the array opened at position 42 must be closed with '\]' first at position 81/.test(e.message) && e.message.includes(extraBrace.length + ' characters were received in full') && e.message.includes('"label":"A"}}]}]}...'));
+  const contract = client.contract({});
+  assert.ok(contract.authoringContract.generationQuality.incrementalCreation.step1.includes('nocode-form-create'));
+  assert.ok(/not as a string/.test(contract.authoringContract.generationQuality.incrementalCreation.rule));
 });
 
 test('a reduced form without any component is invalid and never created', () => {
