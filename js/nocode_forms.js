@@ -40,12 +40,41 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
   }
 
+  // The Rhino JSON parser tolerates unbalanced or trailing input and silently
+  // returns a truncated value; a malformed reduced form then compiled into an
+  // empty "Untitled form" without any diagnostic. Refuse such text explicitly.
+  function assertStrictJsonText(text, label) {
+    var depth = 0, inString = false, escaped = false, started = false, endedAt = -1;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (inString) {
+        if (escaped) { escaped = false; }
+        else if (ch === "\\") { escaped = true; }
+        else if (ch === "\"") { inString = false; if (depth === 0 && endedAt < 0) { endedAt = i; } }
+        continue;
+      }
+      if (ch === "\"") { inString = true; started = true; }
+      else if (ch === "{" || ch === "[") { depth++; started = true; }
+      else if (ch === "}" || ch === "]") {
+        depth--;
+        if (depth < 0) { throw new Error((label || "value") + " is not valid JSON: unexpected '" + ch + "' at position " + i); }
+        if (depth === 0 && endedAt < 0) { endedAt = i; }
+      } else if (endedAt >= 0 && !/\s/.test(ch)) {
+        throw new Error((label || "value") + " is not valid JSON: unexpected content after the closing bracket at position " + i);
+      }
+    }
+    if (inString) { throw new Error((label || "value") + " is not valid JSON: unterminated string"); }
+    if (depth !== 0 || !started) { throw new Error((label || "value") + " is not valid JSON: " + depth + " bracket(s) left open"); }
+    return true;
+  }
+
   function parseObject(value, label, fallback) {
     if (value == null || trimmed(value).length === 0) {
       return fallback;
     }
     var text = trimmed(value);
     if (text.charAt(0) === "{") {
+      assertStrictJsonText(text, label);
       try {
         var parsedText = JSON.parse(text);
         if (parsedText && typeof parsedText === "object" && !Array.isArray(parsedText)) {
@@ -71,6 +100,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var text = trimmed(value);
     if (text.charAt(0) === "[") {
+      assertStrictJsonText(text, label);
       try {
         var parsedText = JSON.parse(text);
         if (Array.isArray(parsedText)) {
@@ -1720,6 +1750,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
     var validation = validateForm(doc, { project: projectName, generation: true }).validation;
+    if (!doc.formulaire.length) {
+      // A reduced form without a single component is never a deliverable
+      // application; it usually means the reduced JSON was lost on the way.
+      validation.issues.unshift({ code: "empty_form", message: "The reduced form contains no component on any page. Nothing to create: check that the complete reduced JSON (name, pages, fields) was sent.", path: "/pages" });
+      validation.issueCount = validation.issues.length;
+      validation.valid = false;
+    }
     return {
       bindingFinalization: { status: bindingCount ? "pending_creation" : "not_required", bindingCount: bindingCount },
       status: validation.valid ? "ok" : "invalid",
@@ -3191,6 +3228,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
   };
   C8O.nocodeForms.parseObject = parseObject;
+  C8O.nocodeForms.assertStrictJsonText = assertStrictJsonText;
   C8O.nocodeForms.parseArray = parseArray;
   C8O.nocodeForms.parseOperations = parseOperations;
 })();

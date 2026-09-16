@@ -731,6 +731,30 @@ test('column verification opens a Baserow session once when the fresh MCP sessio
   assert.ok(failed.validation.issues.some(i=>i.code==='baserow_schema_unavailable' && /Do not remove the connection/.test(i.message)));
 });
 
+test('malformed reduced JSON is refused instead of compiling into an empty form', () => {
+  const client = api();
+  const truncated = '{"description":"d"}}, "name":"Bad","pages":[{"name":"P","fields":[{"type":"text","name":"a","label":"A"}]}]}';
+  assert.throws(() => client.assertStrictJsonText(truncated, 'reduced'), /reduced is not valid JSON/);
+  assert.throws(() => client.assertStrictJsonText('{"name":"Bad","pages":[{"name":"P","fields":[', 'reduced'), /left open/);
+  assert.throws(() => client.assertStrictJsonText('{"name":"x"} trailing', 'reduced'), /after the closing bracket/);
+  assert.throws(() => client.assertStrictJsonText('{"name":"unterminated', 'reduced'), /unterminated string/);
+  assert.equal(client.assertStrictJsonText('{"name":"ok","pages":[{"fields":[{"type":"text","name":"a","label":"A {x}"}]}]}', 'reduced'), true);
+  assert.equal(client.assertStrictJsonText(' [1, {"a": "]"}] ', 'ops'), true);
+  assert.throws(() => client.parseObject(truncated, 'reduced', {}), /reduced is not valid JSON/);
+});
+
+test('a reduced form without any component is invalid and never created', () => {
+  const client = api();
+  const r = client.compile({ description: 'orphan', flows: [] });
+  assert.equal(r.status, 'invalid');
+  assert.ok(r.validation.issues.some(i => i.code === 'empty_form'));
+  const h = creationHarness();
+  const created = h.client.create({ name: 'Nothing inside', pages: [{ name: 'P', fields: [] }] }, h.auth);
+  assert.equal(created.saved, false);
+  assert.equal(h.state.creates, 0);
+  assert.ok(created.validation.issues.some(i => i.code === 'empty_form'));
+});
+
 test('explicit mappings use real columns and allow false and zero values', () => {
   const h = creationHarness();
   const input = connectedWithoutIdentities();
