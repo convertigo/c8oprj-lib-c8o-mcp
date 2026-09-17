@@ -44,6 +44,36 @@ try {
 } catch (_ignoreManagedViewerDebugPort) {
   managedViewerDebugPort = 0;
 }
+// Reveal mode requested by the agent host through the MCP client configuration:
+// inject reveal=true on the tools that support it when the model did not pass it.
+var managedRevealMode = false;
+try {
+  var managedRevealModeHeader = context && context.httpServletRequest
+    ? context.httpServletRequest.getHeader("X-Convertigo-Reveal-Mode")
+    : null;
+  managedRevealMode = String(managedRevealModeHeader || "").trim().toLowerCase() === "true";
+} catch (_ignoreManagedRevealMode) {
+  managedRevealMode = false;
+}
+// X-Convertigo-No-Log mutes the engine logs of this request. The /api path is not
+// covered by ProjectsDataFilter, so the marker is set here; log4j2 thread context
+// inheritance (enabled by the engine) propagates it to the tool sequence threads.
+try {
+  var managedNoLogHeader = context && context.httpServletRequest
+    ? context.httpServletRequest.getHeader("X-Convertigo-No-Log")
+    : null;
+  if (String(managedNoLogHeader || "").trim().toLowerCase() === "true") {
+    Packages.org.apache.log4j.MDC.put("nolog", Packages.java.lang.Boolean.TRUE);
+  }
+} catch (_ignoreManagedNoLog) {}
+var REVEAL_CAPABLE_SEQUENCES = {
+  tools_mobile_builder_open: true,
+  tools_databaseobject_tree_apply: true,
+  tools_batch_call: true,
+  tools_nocode_form_create: true,
+  tools_nocode_form_edit: true,
+  tools_nocode_form_update: true
+};
 
 function getSchemaType(schema) {
   if (!schema || typeof schema !== "object") {
@@ -460,6 +490,10 @@ if (methodName === "initialize") {
       callVariables = coerceToolArguments(toolArgs || {}, targetSequence, requestable);
       if (targetSequence === "tools_mobile_builder_open" && managedViewerDebugPort > 0) {
         callVariables.browserDebugPort = managedViewerDebugPort;
+      }
+      if (managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true
+          && (callVariables.reveal === undefined || callVariables.reveal === null || String(callVariables.reveal).trim().length === 0)) {
+        callVariables.reveal = "true";
       }
       injectMeta(callVariables);
     }

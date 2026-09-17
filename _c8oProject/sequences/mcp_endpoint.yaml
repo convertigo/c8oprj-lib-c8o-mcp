@@ -1,5 +1,5 @@
 accessibility: Private
-comment: Handles MCP JSON-RPC requests (initialize, notifications, tools, ping).
+comment: 'Handles MCP JSON-RPC requests (initialize, notifications, tools, ping). Request headers set by the Agent Bridge: X-Convertigo-Reveal-Mode true injects reveal=true on the tools that support it (mobile-builder-open, databaseobject-tree-apply, batch-call, no-code form mutations) unless the model passed it; X-Convertigo-No-Log true mutes the engine logs of the tool execution.'
 responseTimeout: 300
 ↓Init [steps.SimpleStep-1761755111960]: 
   comment: Parse JSON-RPC request and select target sequence
