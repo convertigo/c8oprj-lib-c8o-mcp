@@ -686,6 +686,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       runtime: "Backend actions are not standalone visual flow elements. They are stored under a submit flow element actions object and executed by C8Oforms.APIV2_Execute_Sequences when that submit step runs.",
       storagePath: "flows[].elements[type='submit'].actions[sequenceQualifiedName]",
       sequenceKey: "The action object key is the fully qualified backend action sequence name, for example lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple.",
+      capabilities: {
+        read: "Source-backed grids, cards and selects read Baserow rows and field values (formssource_*), with filters that may reference fields, the selected row or the connected user.",
+        create: "lib_BaseRow.forms_AddRow / forms_AddRowFromData with an empty forms_id create a row.",
+        update: "The same two actions UPDATE an existing row when forms_id holds its Baserow row id. 'AddRow' in the name does not mean create-only. forms_id is usually a SmartSource reference to the id of the row selected in a grid, or to a field holding the id.",
+        remove: "lib_BaseRow.forms_DeleteRow deletes the row identified by forms_id.",
+        severalTables: "A flow may contain several submit elements, and a submit element several actions, each with its own forms_config. One button can therefore create a row in one table and update a row in another.",
+        computedValues: "A value written to Baserow can be a SmartSource reference to a calculated field (defaultFrom source 'expression', mode 'reactive'), so arithmetic such as a remaining balance is computed in the form and then written.",
+        limits: "No server-side transaction across actions, no server-side arithmetic inside an action, no access control from the form itself: enforce ownership and approval rules with Baserow permissions or filtered sources.",
+        rule: "Before telling the user that something is technically impossible, re-read this section and knownNoCodeBackendActions, and quote the sentence that establishes the limit. If no sentence establishes it, the capability is not proven missing: propose the closest recipe instead."
+      },
+      recipes: {
+        updateExistingRow: "Grid bound to the table with returned_value row_selected; edit fields prefilled from the selection (defaultFrom source 'field', path to the selected row columns); save button flow = submit with lib_BaseRow.forms_AddRowFromData, forms_id referencing <grid>.id.value, forms_freeVars mapping each column to its field.",
+        updateRelatedTable: "Example: a leave request decrements a balance. 1) Load the collaborator's balance row in a source-backed grid (filtered on the connected user) so its id and current value are available. 2) Add a disabled calculated field new_balance = current balance - requested days (defaultFrom expression, reactive). 3) The submit flow contains two submit elements: the first creates the request row (forms_id empty), the second targets the balances table with forms_AddRowFromData, forms_id referencing the balance row id and forms_freeVars writing new_balance. If the business rule is 'decrement on approval', put the second submit element in the approval button flow instead.",
+        approvalWorkflow: "Status changes are updates: an approve/refuse button flow uses forms_AddRowFromData with forms_id of the selected request row and forms_freeVars {Status: 'Approved'}."
+      },
       knownNoCodeBackendActions: {
         c8oforms: {
           "lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple": {

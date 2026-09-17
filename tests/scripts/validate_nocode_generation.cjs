@@ -752,6 +752,13 @@ test('invalid reduced JSON errors name the position, the surrounding text and th
   assert.ok(/not as a string/.test(contract.authoringContract.generationQuality.incrementalCreation.rule));
 });
 
+test('the contract states update capabilities and recipes next to the backend actions', () => {
+  const text = JSON.stringify(api().contract({}));
+  assert.match(text, /UPDATE an existing row when forms_id holds its Baserow row id/);
+  assert.match(text, /updateRelatedTable/);
+  assert.match(text, /quote the sentence that establishes the limit/);
+});
+
 test('a reduced form without any component is invalid and never created', () => {
   const client = api();
   const r = client.compile({ description: 'orphan', flows: [] });
