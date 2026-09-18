@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import re
 from urllib.request import Request, urlopen
 
@@ -38,6 +39,9 @@ def call_mcp(url, payload, extra_headers=None, timeout=60):
         "Content-Type": "application/json",
         "MCP-Protocol-Version": PROTOCOL_VERSION,
     }
+    token = os.environ.get("CONVERTIGO_MCP_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = "Bearer " + token
     if extra_headers:
         headers.update(extra_headers)
     request = Request(

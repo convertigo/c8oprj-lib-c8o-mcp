@@ -174,7 +174,7 @@ def run_case(
             "Do not invent prefixes, suffixes, or dates.",
             "## Viewer and mobile builder rule",
             "stateOnly:true, wait:true, timeoutSec:180",
-            "Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
+            "do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
             'If a state-only call returns `status:"stopped"`, do not poll again',
             "Studio JxBrowser exposes one existing visible page over CDP, not a normal multi-tab browser",
             '`log-view({project:"<targetProject>",level:"error",limit:40,timeoutMs:0})`',

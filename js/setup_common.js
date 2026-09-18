@@ -63,11 +63,10 @@ C8O.setupCommon = C8O.setupCommon || {};
         "- Vibe prefixes MCP tools with the server name: every tool id used in this skill is called as `Convertigo_<tool-id>`, for example `Convertigo_databaseobject-tree-apply` or `Convertigo_project-save`.",
         "- The Convertigo MCP transport is serial in Vibe. Issue exactly one `Convertigo_*` tool call per assistant message, including read-only calls. Vibe executes several tool calls of one message concurrently, and concurrent calls can reset the shared transport and turn independent operations into long `TaskGroup` failures.",
         "- Vibe has no native MCP resource read. Read an exact guide URI with `Convertigo_requestable-execute` using `requestable:\"lib_ConvertigoMCP.mcp_resources_read\"` and `variables:{uri:\"<exact-uri>\"}`. Use `variables.uri`, never `variables.path`, and never pass an external HTTP URL to that requestable.",
-        "- MCP arguments are structured values, not JSON strings: pass `tree` as an object and `calls` as an array, never as serialized text. A SmartSource `value` must be plain JSON text starting with a quoted `filter` key; if a readback shows backslash-escaped quotes, the value was double escaped and must be patched with unescaped JSON. Empty generated bindings such as `[(ngModel)]=\"\"` are escaping failures, not component failures.",
+        "- MCP arguments are structured values, not JSON strings: pass `tree` as an object and `calls` as an array, never as serialized text. If a readback shows backslash-escaped quotes or an empty generated binding, the argument was serialized twice: resend it as a structured value.",
         "- Prefer direct `Convertigo_databaseobject-tree-apply` calls over `Convertigo_batch-call` for dependent mutations. If a batch is genuinely independent, each nested `calls[].tool` must be the unprefixed MCP tool id such as `databaseobject-tree-apply`, not the Vibe-exposed name.",
         "- Browser proof is available only when a browser-control MCP server is configured for this Vibe home; otherwise report the result as implemented but functionally unvalidated.",
-        "- Keep isolated runs isolated: a task-local `VIBE_HOME`, `enabled_skills = [\"convertigo-vibe-generalist\"]`, no copied API keys or `.env` files, and no edits to the Codex `convertigo-generalist` skill. When restricting tools with `--enabled-tools`, repeat the flag once per tool instead of passing a comma-separated list.",
-        "- Rerun `_setupVibe` when the MCP endpoint or the guidance version changes."
+        "- Keep isolated runs isolated: a task-local `VIBE_HOME`, `enabled_skills = [\"convertigo-vibe-generalist\"]`, no copied API keys or `.env` files, and no edits to the Codex `convertigo-generalist` skill. When restricting tools with `--enabled-tools`, repeat the flag once per tool instead of passing a comma-separated list."
       ]
     },
     claude: {
@@ -186,7 +185,7 @@ C8O.setupCommon = C8O.setupCommon || {};
       "",
       "# Convertigo Generalist (" + harness.label + ")",
       "",
-      "Layer 1 of this skill is the harness bootstrap below. Layer 2 is the common Convertigo skill, identical for every harness. Layer 3 are the specialised guides, read on demand as MCP resources.",
+      "Layer 1 of this skill is the harness bootstrap below. Layer 2 is the common Convertigo skill, identical for every harness. Layer 3 are the specialised guides, read on demand the way the bootstrap describes.",
       "",
       "## Harness bootstrap",
       ""
