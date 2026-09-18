@@ -93,6 +93,41 @@ Do not present planner/specialist routing, benchmark flows, or manual YAML editi
 - Built-in resources such as `convertigo://capabilities` and `convertigo://recipes/quickstart` are part of the onboarding surface and must stay aligned with the live contract.
 - `TOOLS.md` is generated from the live MCP catalog and is not a hand-maintained contract file.
 
+## Who owns the managed MCP url (contract with lib_ConvertigoAgentBridge)
+
+`lib_ConvertigoAgentBridge` writes the managed Vibe `config.toml` and then calls
+`_setupVibe` (through `installAgentSkills`), so this project always runs last on
+that file. Both used to write the `url` of the same `[[mcp_servers]]` entry and
+fought over it: the Bridge wrote an enriched url and `_setupVibe` rewrote it to
+its own `?jsonOnly=true` form.
+
+**The Bridge owns that url.** It marks the urls it owns with `from_bridge=true`:
+
+```
+http://<host>/convertigo/api/mcp?jsonOnly=false&from_bridge=true&descriptorVersion=<guidance>&toolsRevision=<hash>
+```
+
+- When `_setupVibe`, `_setupCodex` or `_setupClaude` finds an existing MCP server
+  entry whose url carries `from_bridge=true`, it leaves that url untouched. It
+  still repairs everything else it owns in the entry: `tool_timeout_sec` /
+  `startup_timeout_sec`, `[mcp_servers.auth]`, the
+  `X-Convertigo-Guidance-Version` header, the `[tools.*]` permissions.
+- Without the marker, behaviour is unchanged: the url is rewritten, so a stale or
+  hand-written entry is still repaired and an older Bridge keeps working.
+- `replaceConfig=true` still rebuilds the whole file from scratch — that is an
+  explicit "reset this home" request, not a repair, and the marker does not
+  apply to it. The Bridge always calls with `replaceConfig=false`.
+- The marker is inert server side: `mcp_endpoint` reads `request`, `jsonOnly`
+  and, as a header fallback, `descriptorVersion`; the `/api/mcp` URL mapper maps
+  `request` and `jsonOnly` only and ignores unknown query parameters.
+- Implemented by `isBridgeOwnedMcpUrl` in `js/setup_vibe.js` and
+  `js/setup_codex.js`, and by the `keepUrl` check in `js/setup_claude.js`.
+  Deliberately duplicated rather than shared through `js/setup_common.js`, which
+  is a guidance fingerprint source (`js/guidance_version.js`): touching it would
+  change `C8O.MCP_GUIDANCE_VERSION` for an internal refactor.
+- Covered by `tests/scripts/validate_setup_vibe_config.js` (marker honoured, and
+  the no-marker path still repairs).
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

@@ -118,6 +118,23 @@ C8O.setupVibe = C8O.setupVibe || {};
     return text + fragment;
   }
 
+  // Cross-project contract with lib_ConvertigoAgentBridge (see AGENT.md,
+  // "Who owns the managed MCP url"). The Bridge writes the managed Vibe
+  // config.toml first and marks the url it owns with `from_bridge=true`; this
+  // setup runs after it (installAgentSkills -> setupVibeFromMcpProject) and
+  // must then leave that url byte for byte alone, or the Bridge's
+  // `descriptorVersion` and `toolsRevision` parameters are lost. Everything
+  // else in the entry (auth headers, tool permissions, timeout) is still ours
+  // to repair. An entry without the marker is treated exactly as before, so a
+  // stale or hand-written url still gets fixed and an older Bridge keeps working.
+  function isBridgeOwnedMcpUrl(line) {
+    var match = String(line == null ? "" : line).match(/url\s*=\s*["']([^"']*)["']/);
+    if (!match) {
+      return false;
+    }
+    return /(^|[?&])from_bridge=true(&|#|$)/i.test(match[1]);
+  }
+
   function tomlEscape(value) {
     return String(value == null ? "" : value)
       .replace(/\\/g, "\\\\")
@@ -393,7 +410,9 @@ C8O.setupVibe = C8O.setupVibe || {};
     var hasTimeout = false;
     for (var i = 1; i < section.length; i++) {
       if (/^\s*url\s*=/.test(section[i])) {
-        section[i] = urlLine;
+        if (!isBridgeOwnedMcpUrl(section[i])) {
+          section[i] = urlLine;
+        }
         hasUrl = true;
       } else if (/^\s*tool_timeout_sec\s*=/.test(section[i])) {
         section[i] = timeoutLine;

@@ -72,9 +72,16 @@ C8O.setupClaude = C8O.setupClaude || {};
       } else if (!trim(headers.Authorization).length) {
         warnings.push("No MCP bearer token was provided for " + name + "; add an Authorization: Bearer header before using the protected MCP endpoint.");
       }
+      // Same cross-project contract as _setupVibe (see AGENT.md, "Who owns the
+      // managed MCP url"): a url carrying `from_bridge=true` belongs to
+      // lib_ConvertigoAgentBridge and is kept as it is; the headers below are
+      // still ours to repair. Without the marker the url is rewritten exactly
+      // as before.
+      var previousUrl = trim(previous.url);
+      var keepUrl = /(^|[?&])from_bridge=true(&|#|$)/i.test(previousUrl);
       state.mcpServers[name] = {
         type: "http",
-        url: url,
+        url: keepUrl ? previousUrl : url,
         headers: headers
       };
     };

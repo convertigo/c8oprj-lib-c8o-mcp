@@ -85,4 +85,66 @@ assert.match(created.text, /^\[mcp_servers\.auth\]$/m);
 assert.match(created.text, /headers = \{ [^\n]*Authorization = "Bearer token-value"/);
 assert.ok(created.text.indexOf("[mcp_servers.auth]") < created.text.indexOf("headers = {"));
 
+// --- cross-project contract: the Bridge owns a url marked from_bridge=true ---
+// lib_ConvertigoAgentBridge writes the managed config.toml first, then calls this
+// setup. A url it marked must survive byte for byte, otherwise its cache-busting
+// `toolsRevision` and its `descriptorVersion` never reach the running Vibe.
+const bridgeUrl =
+  "http://localhost:18082/convertigo/api/mcp?jsonOnly=false&from_bridge=true" +
+  "&descriptorVersion=2026-09-04.vibe-serial-transport-v1&toolsRevision=a1b2c3";
+const bridgeConfig = [
+  'active_model = "vibe-thinking"',
+  "",
+  "[[mcp_servers]]",
+  'name = "Convertigo"',
+  'transport = "http"',
+  'url = "' + bridgeUrl + '"',
+  "tool_timeout_sec = 180",
+  "",
+  "[mcp_servers.auth]",
+  'type = "static"',
+  'api_key_env = "CONVERTIGO_MCP_TOKEN"',
+  'api_key_header = "Authorization"',
+  'api_key_format = "Bearer {token}"',
+  ""
+].join("\n");
+
+const bridgeOwned = patchConfigToml(
+  bridgeConfig,
+  "http://localhost:18080/convertigo/api/mcp?jsonOnly=true",
+  "token-value",
+  false,
+  []
+);
+assert.match(
+  bridgeOwned.text,
+  new RegExp("^url = \"" + bridgeUrl.replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&") + "\"$", "m"),
+  "a Bridge-owned MCP url must be left untouched, parameters included"
+);
+assert.doesNotMatch(
+  bridgeOwned.text,
+  /^url = "http:\/\/localhost:18080/m,
+  "the MCP setup must not add its own url next to the Bridge's"
+);
+// Everything else in the entry is still repaired.
+assert.match(bridgeOwned.text, /^\[mcp_servers\.auth\]$/m);
+assert.match(bridgeOwned.text, /headers = \{ [^\n]*Authorization = "Bearer token-value"/);
+assert.match(bridgeOwned.text, /"X-Convertigo-Guidance-Version" = "2026-09-04\.vibe-serial-transport-v1"/);
+assert.match(bridgeOwned.text, /^\[tools\./m, "tool permissions are still installed");
+
+// Degrade safely: an old Bridge writes no marker, so the entry is repaired as before.
+const unmarkedConfig = bridgeConfig.replace("&from_bridge=true", "");
+const unmarked = patchConfigToml(
+  unmarkedConfig,
+  "http://localhost:18080/convertigo/api/mcp?jsonOnly=true",
+  "token-value",
+  false,
+  []
+);
+assert.match(
+  unmarked.text,
+  /^url = "http:\/\/localhost:18080\/convertigo\/api\/mcp\?jsonOnly=true"$/m,
+  "without the marker the MCP setup keeps repairing a stale or hand-written url"
+);
+
 console.log(JSON.stringify({ status: "ok", validated: "setup-vibe-config" }));

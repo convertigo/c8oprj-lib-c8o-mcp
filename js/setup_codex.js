@@ -177,6 +177,20 @@ C8O.setupCodex = C8O.setupCodex || {};
     return text + fragment;
   }
 
+  // Same cross-project contract as _setupVibe (see AGENT.md, "Who owns the
+  // managed MCP url"): a url the Bridge marked with `from_bridge=true` is the
+  // Bridge's, and this setup only repairs the rest of the entry. The Bridge
+  // does not mark the Codex url today, so in practice nothing changes here;
+  // the check exists so the contract does not have to be re-litigated the day
+  // it does.
+  function isBridgeOwnedMcpUrl(line) {
+    var match = String(line == null ? "" : line).match(/url\s*=\s*["']([^"']*)["']/);
+    if (!match) {
+      return false;
+    }
+    return /(^|[?&])from_bridge=true(&|#|$)/i.test(match[1]);
+  }
+
   function flowMcpUrl(url) {
     var text = trim(url);
     if (/\/api\/mcp(?=\?|#|$)/i.test(text)) {
@@ -326,7 +340,9 @@ C8O.setupCodex = C8O.setupCodex || {};
       var replacedTimeout = false;
       for (var i = 1; i < sectionLines.length; i++) {
         if (/^\s*url\s*=/.test(sectionLines[i])) {
-          sectionLines[i] = urlLine;
+          if (!isBridgeOwnedMcpUrl(sectionLines[i])) {
+            sectionLines[i] = urlLine;
+          }
           replacedUrl = true;
         } else if (/^\s*startup_timeout_sec\s*=/.test(sectionLines[i])) {
           sectionLines[i] = timeoutLine;
