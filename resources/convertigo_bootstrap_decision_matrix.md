@@ -75,6 +75,7 @@ Before asking the human for DB or service details:
 - call `project-list`
 - call `project-list-symbols` when symbols or environment-specific configuration may already answer the question
 - when `project` is supplied, treat the default symbol scope as project-local; use `scope=all` only when global/cross-project context is truly needed
+- to make a value configurable, do not ask for a symbol to be created first: reference `${my.symbol=defaultValue}` directly; the default avoids any load error and the symbol becomes editable in the administration console
 - inspect only the exact target subtree if needed
 
 Why this matters:

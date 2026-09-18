@@ -50,6 +50,10 @@ accessibility: Private
     var fallbackTitle = humanize(mainSlug) || humanize(sequence.replace(/^tools_/, "")) || "Tool";
     var toolTitle = meta.title && meta.title.length ? meta.title : fallbackTitle;
     var toolDescription = meta.description && meta.description.length ? meta.description : toolTitle;
+    include("js/tool_description_notes.js");
+    if (C8O.toolDescriptionNotes && C8O.toolDescriptionNotes[sequence]) {
+      toolDescription = toolDescription + "\n" + C8O.toolDescriptionNotes[sequence];
+    }
     category = categorySlug;
     tool_slug = mainSlug;
     tool_name = toolName;

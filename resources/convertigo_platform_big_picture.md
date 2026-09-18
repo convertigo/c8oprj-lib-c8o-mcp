@@ -85,6 +85,14 @@ Global symbols are runtime configuration values managed by admins and resolved b
 - feature flags
 - runtime modes such as MCP reporting
 
+How to introduce a new symbol, without any admin tool:
+- reference it **with a default value** wherever a property accepts text: `${my.symbol=defaultValue}`. An empty default is allowed: `${my.symbol=}`.
+- the default makes the project load and run as soon as it is saved: no undefined-symbol error, no deployment prerequisite.
+- the symbol then appears in the administration console (Symbols), where an admin overrides the value per environment. The project keeps working with its default until they do.
+- never reference a bare `${my.symbol}`: it fails wherever the symbol was not created beforehand.
+- never put a secret in the default: leave it empty (`${my.api.key=}`) and tell the user which symbol to fill in.
+- name symbols in lower case with dots, prefixed by the project or feature (`myproject.api.url`), and reuse an existing one when `project-list-symbols` already shows it.
+
 #### Marketplace libraries and starter projects
 Marketplace projects are not just demos. They are reusable assets:
 - libraries
