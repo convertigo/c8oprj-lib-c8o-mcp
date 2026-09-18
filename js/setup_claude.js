@@ -31,31 +31,7 @@ C8O.setupClaude = C8O.setupClaude || {};
   }
 
   function buildClaudeSkillMarkdown(mcpUrl) {
-    var text = String(helpers.buildSkillMarkdown(mcpUrl));
-    text = text.replace(
-      "description: Bootstrap Codex for general Convertigo work.",
-      "description: Bootstrap Claude Code for general Convertigo work."
-    );
-    text = text.replace(/`_setupCodex`/g, "`_setupClaude`");
-    text = text.replace(/rerun `_setupClaude` for the current MCP endpoint or ask before project mutation\./,
-      "rerun `_setupClaude` for the current MCP endpoint or ask before project mutation.");
-    text = text.replace(
-      "- If Codex is not yet configured for Convertigo, run the local Studio sequence `_setupClaude` from the lib_ConvertigoMCP project.",
-      "- If Claude Code is not yet configured for Convertigo, run the local Studio sequence `_setupClaude` from the lib_ConvertigoMCP project."
-    );
-    text = text.replace(
-      "## Local MCP endpoint",
-      [
-        "## Claude Code tool naming",
-        "",
-        "- The Convertigo MCP server is registered as `convertigo`; its tools appear as `mcp__convertigo__<tool>` (for example `mcp__convertigo__project-list` or `mcp__convertigo__batch-call`). The guide names above refer to the `<tool>` part.",
-        "- Read `convertigo://...` guides with the MCP resource tools (`ReadMcpResourceTool` with server `convertigo`) instead of guessing their content.",
-        "- Studio viewer automation through Playwright is not available in a Claude session unless a Playwright MCP server is configured separately; when browser proof is impossible, report the result as implemented but functionally unvalidated.",
-        "",
-        "## Local MCP endpoint"
-      ].join("\n")
-    );
-    return text;
+    return C8O.setupCommon.buildSkillMarkdown("claude", mcpUrl);
   }
 
   function buildClaudeNoCodeSkillMarkdown(mcpUrl) {

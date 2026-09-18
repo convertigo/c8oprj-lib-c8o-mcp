@@ -49,6 +49,13 @@ def load_text(path):
     return Path(path).read_text(encoding="utf-8")
 
 
+def skill_guidance_version(skill_text):
+    match = re.search(r"^- Skill guidance version: `([^`]+)`\.", skill_text, flags=re.MULTILINE)
+    if not match:
+        raise RuntimeError("Generated skill has no guidance version line")
+    return match.group(1)
+
+
 def skill_result(result, key):
     skills = result.get("skills")
     if isinstance(skills, dict) and isinstance(skills.get(key), dict):
@@ -122,6 +129,14 @@ def run_case(
         skill_text,
         [
             "name: convertigo-generalist",
+            "## Harness bootstrap",
+            "Harness: OpenAI Codex CLI",
+            "`~/.codex/skills/convertigo-generalist/SKILL.md`",
+            "optimizeMutations:true",
+            "Do not inspect `ALL_TOOLS`",
+            '`playwright.browser_tabs({action:"list"})`',
+            '`playwright.browser_find({text:"<visible text>"})`',
+            '`playwright.browser_evaluate({function:"..."})`',
             "Skill guidance version:",
             "MCP guidance version",
             "params._meta.convertigoGuidanceVersion",
@@ -130,46 +145,45 @@ def run_case(
             "once per agent conversation",
             "On follow-up turns",
             "`convertigo://capabilities`",
-            "`convertigo://recipes/quickstart`",
+            "## Task routes",
+            "`new-standard-crud`",
+            "`project-review`",
             "`convertigo://resources/convertigo-start`",
             "`convertigo://resources/convertigo-crud-fastpath`",
-            "Do not call `resources/list`, `resources/templates/list`, or `prompts/list`",
+            "`convertigo://resources/convertigo-project-review`",
+            "## MCP-first rule",
             "## Tool economy and convergence",
             "already used successfully in the current conversation",
             "Common NGX contracts that do not require palette discovery",
             "Skip `palette-list` and `palette-describe`",
             "UIPageEvent#UIPageEvent.viewEvent",
-            "optimizeMutations:true",
-            "Do not inspect `ALL_TOOLS`",
             "target QName in `target`, never in `qname`",
             "Property patches also belong under `tree`",
             "Keep structural proof compact",
-            "one readiness check and one acceptance-oriented browser proof",
             "implemented but functionally unvalidated",
             "## NGX authoring invariants",
-            "trigger Angular change detection through the supported page context in the same callback",
             "Every normal `UICustomAction` completion path must call `resolve(...)` or `reject(...)`",
             "Never use `this.c8o.page.detectChanges()`",
             "preserve the complete existing string and every `Begin_c8o_...`",
             "Never recursively search a drive root, user profile, workspace root",
-            "stateOnly:true, wait:true, timeoutSec:180",
+            "## Symbols and secrets",
+            "${my.symbol=defaultValue}",
+            "Never put a secret, token, password, API key, or customer credential in the default value.",
+            "## Naming rules",
             "If no project is selected and the user explicitly asks to create a new project or application",
             "Do not invent prefixes, suffixes, or dates.",
+            "## Viewer and mobile builder rule",
+            "stateOnly:true, wait:true, timeoutSec:180",
             "Do not open `DisplayObjects/mobile/...` against the live HMR viewer.",
-            "If a state-only call returns `status:\"stopped\"`, do not poll it again",
+            'If a state-only call returns `status:"stopped"`, do not poll again',
             "Studio JxBrowser exposes one existing visible page over CDP, not a normal multi-tab browser",
-            '`playwright.browser_tabs({action:"list"})`',
-            '`playwright.browser_find({text:"<visible text>"})`',
-            '`playwright.browser_evaluate({function:"..."})`',
             '`log-view({project:"<targetProject>",level:"error",limit:40,timeoutMs:0})`',
-            "managed Playwright MCP configuration must be refreshed",
             "Never edit or repair `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts.",
-            "run `marketplace-import` with that exact name",
-            "Project review, audit, expertise note, client synthesis, hardening plan, recommendations, or V1/V2 comparison",
-            "`convertigo://resources/convertigo-project-review`",
-            "Convertigo Project Review Guide",
+            "## Validation and evidence",
+            "## Project review route",
         ],
     )
+    assert_true("{{" not in skill_text or "{{ item." in skill_text, "Unresolved placeholder in the generated skill")
 
     nocode_skill_text = load_text(nocode_skill_path)
     contains_lines(
@@ -195,7 +209,7 @@ def run_case(
         f'url = "{configured_mcp_url(resolved_mcp_url)}"',
         "startup_timeout_sec = 60",
         "[mcp_servers.convertigo.http_headers]",
-        '"X-Convertigo-Guidance-Version" = "2026-09-04.vibe-serial-transport-v1"',
+        '"X-Convertigo-Guidance-Version" = "' + skill_guidance_version(skill_text) + '"',
     ]
     flow_enabled = bool(result.get("configuredFlowMcpUrl"))
     if flow_enabled:

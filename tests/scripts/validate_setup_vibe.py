@@ -52,6 +52,13 @@ def load_text(path):
     return Path(path).read_text(encoding="utf-8")
 
 
+def skill_guidance_version(skill_text):
+    match = re.search(r"^- Skill guidance version: `([^`]+)`\.", skill_text, flags=re.MULTILINE)
+    if not match:
+        raise RuntimeError("Generated skill has no guidance version line")
+    return match.group(1)
+
+
 def contains_lines(text, expected_lines):
     for line in expected_lines:
         if line not in text:
@@ -115,11 +122,17 @@ def run_case(
         skill_text,
         [
             "name: convertigo-vibe-generalist",
-            "thin Vibe adapter",
+            "## Harness bootstrap",
+            "Harness: Mistral Vibe CLI",
+            "`~/.vibe/skills/convertigo-vibe-generalist/SKILL.md`",
+            "`Convertigo_requestable-execute`",
+            "The Convertigo MCP transport is serial in Vibe",
+            "MCP arguments are structured values",
             "Skill guidance version:",
             "MCP guidance version",
             "`convertigo://capabilities`",
             "Select exactly one primary route",
+            "## Task routes",
             "`new-ngx-local-state`",
             "`new-ngx-http-data`",
             "`existing-ngx-ui`",
@@ -134,18 +147,20 @@ def run_case(
             "`convertigo://resources/convertigo-start`",
             "`convertigo://resources/convertigo-recipe-starter-extension`",
             "`convertigo://resources/convertigo-vibe-http-ngx-fastpath`",
-            "`Convertigo_requestable-execute`",
-            "MCP arguments are structured values",
-            "Treat the Convertigo MCP transport as serial",
-            "Never wait for Convertigo with shell `sleep`",
+            "`convertigo://resources/convertigo-project-review`",
+            "## Symbols and secrets",
+            "${my.symbol=defaultValue}",
+            "Never wait with shell `sleep`",
             "implemented but functionally unvalidated",
             "stale incompatible properties",
-            "`convertigo://resources/convertigo-project-review`",
+            "- Expected local MCP entry: `" + resolved_mcp_url + "`",
         ],
     )
-    assert_true(len(skill_text.splitlines()) < 80, "Vibe routing skill should stay compact")
-    assert_true("## Core Rails" not in skill_text, "Domain guidance leaked into the Vibe adapter")
-    assert_true("## Optional project review route" not in skill_text, "Review guidance leaked into the Vibe adapter")
+    bootstrap = skill_text.split("## Harness bootstrap", 1)[1].split("\n## ", 1)[0]
+    bootstrap_bullets = [line for line in bootstrap.splitlines() if line.startswith("- ")]
+    assert_true(len(bootstrap_bullets) <= 30, "The Vibe bootstrap layer should stay under 30 lines")
+    assert_true("_setupCodex" not in skill_text, "The Vibe skill must point at _setupVibe only")
+    assert_true("mcp__convertigo__" not in skill_text, "Claude tool naming leaked into the Vibe skill")
 
     agents_text = load_text(agents_path)
     contains_lines(
@@ -170,7 +185,7 @@ def run_case(
             "[mcp_servers.auth]",
             'type = "static"',
             "headers = { ",
-            '"X-Convertigo-Guidance-Version" = "2026-09-04.vibe-serial-transport-v1"',
+            '"X-Convertigo-Guidance-Version" = "' + skill_guidance_version(skill_text) + '"',
             "[tools.Convertigo_project-list]",
             "[tools.Convertigo_requestable-execute]",
             "[tools.Convertigo_databaseobject-tree-apply]",

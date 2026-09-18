@@ -13,12 +13,24 @@ def parse_args():
     return parser.parse_args()
 
 
-def expected_version():
-    source = (ROOT / "js" / "guidance_version.js").read_text(encoding="utf-8")
-    match = re.search(r'C8O\.MCP_GUIDANCE_VERSION\s*=\s*"([^"]+)"', source)
+def expected_version(mcp_url):
+    """The guidance version is a content fingerprint computed by the engine, so
+    it is read back from the live MCP instead of parsed from the sources."""
+    response = call_mcp(mcp_url, tool_call_payload())
+    warning = guidance_warning(response)
+    match = re.match(r"^mcp_guidance_version_missing expected=(\S+)$", warning)
     if not match:
-        raise RuntimeError("Unable to read C8O.MCP_GUIDANCE_VERSION")
-    return match.group(1)
+        raise RuntimeError(f"Unable to read the served guidance version: {response}")
+    version = match.group(1)
+    label = (ROOT / "js" / "guidance_version.js").read_text(encoding="utf-8")
+    if not re.search(r'var GUIDANCE_LABEL = "([^"]+)"', label):
+        raise RuntimeError("Unable to read GUIDANCE_LABEL")
+    expected_prefix = re.search(r'var GUIDANCE_LABEL = "([^"]+)"', label).group(1)
+    if not version.startswith(expected_prefix + "."):
+        raise RuntimeError(f"Served guidance version {version} does not use the local label {expected_prefix}")
+    if version.endswith(".unresolved"):
+        raise RuntimeError("The engine could not compute the guidance fingerprint")
+    return version
 
 
 def call_mcp(url, payload, extra_headers=None, timeout=60):
@@ -68,8 +80,8 @@ def assert_true(condition, message):
 
 def main():
     args = parse_args()
-    version = expected_version()
     wait_for_mcp_ready(args.mcp_url, timeout=90)
+    version = expected_version(args.mcp_url)
 
     missing = call_mcp(args.mcp_url, tool_call_payload())
     assert_true(
