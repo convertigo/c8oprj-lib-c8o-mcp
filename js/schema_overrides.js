@@ -525,6 +525,127 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  var SECURITY_SEVERITIES = ["info", "low", "medium", "high", "critical"];
+
+  function projectSecurityAuditInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Project technical name to audit." },
+        includeEngine: booleanFlagSchema(true, "Set false to skip engine-wide checks (CORS policy, XSRF, crypto passphrase, admin password). Engine findings get their own score and never lower the project score."),
+        includeFrontend: booleanFlagSchema(true, "Set false to skip the NGX frontend source scan."),
+        minSeverity: {
+          type: "string",
+          enum: SECURITY_SEVERITIES,
+          default: "low",
+          description: "Lowest severity listed in findings. The score always counts every finding."
+        },
+        limit: integerSchema(1, 1000, 200, "Maximum findings listed. 1 to 1000; default 200. Summary counts stay complete."),
+        suppress: {
+          type: "array",
+          description: "Accepted risks. Matching findings stay listed with suppressed=true and no longer lower the score. Omit qname to accept every finding of the rule.",
+          items: {
+            type: "object",
+            properties: {
+              ruleId: { type: "string", description: "Rule id such as EXP-03." },
+              qname: { type: "string", description: "Exact finding qname." },
+              reason: { type: "string", description: "Why the risk is accepted." }
+            },
+            required: ["ruleId"],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
+  function securityFindingSchema() {
+    return openObjectSchema({
+      ruleId: { type: "string" },
+      severity: { type: "string", enum: SECURITY_SEVERITIES },
+      category: { type: "string" },
+      title: { type: "string" },
+      qname: { type: "string" },
+      evidence: openObjectSchema({}),
+      recommendation: { type: "string" },
+      confidence: { type: "string", enum: ["high", "medium", "low"] },
+      anonymousReachable: { type: "boolean" },
+      requestable: { type: "string" },
+      suppressed: { type: "boolean" },
+      suppressionReason: { type: "string" }
+    });
+  }
+
+  function securityRuleCheckSchema() {
+    return openObjectSchema({
+      ruleId: { type: "string" },
+      category: { type: "string" },
+      title: { type: "string" },
+      status: { type: "string", enum: ["passed", "failed", "info", "suppressed", "notApplicable"], description: "info: only informational findings, no deduction." },
+      findings: { type: "number", description: "Active findings of the rule." },
+      suppressed: { type: "number" },
+      maxSeverity: { type: "string" },
+      deduction: { type: "number", description: "Points this rule removes from the score, after its cap." },
+      cap: { type: "number" },
+      reason: { type: "string", description: "Why the rule could not apply." },
+      recommendation: { type: "string" }
+    });
+  }
+
+  function projectSecurityAuditOutputSchema() {
+    var grade = { type: "string", enum: ["A", "B", "C", "D", "F"] };
+    return openObjectSchema({
+      project: { type: "string" },
+      projectVersion: { type: "string" },
+      rulesetVersion: { type: "string" },
+      auditedAt: { type: "string" },
+      score: { type: "number", description: "0 to 100; 100 means no active finding." },
+      grade: grade,
+      gradeCappedBy: { type: "string" },
+      summary: openObjectSchema({
+        critical: { type: "number" },
+        high: { type: "number" },
+        medium: { type: "number" },
+        low: { type: "number" },
+        info: { type: "number" },
+        suppressed: { type: "number" },
+        byCategory: openObjectSchema({}),
+        rules: openObjectSchema({
+          passed: { type: "number" },
+          failed: { type: "number" },
+          info: { type: "number" },
+          suppressed: { type: "number" },
+          notApplicable: { type: "number" }
+        })
+      }),
+      categories: {
+        type: "array",
+        items: openObjectSchema({
+          id: { type: "string" },
+          score: { type: "number" },
+          deduction: { type: "number" },
+          findings: { type: "number" }
+        })
+      },
+      rules: { type: "array", description: "Complete checklist, independent of minSeverity and limit; deductions add up to 100 - score.", items: securityRuleCheckSchema() },
+      findings: { type: "array", items: securityFindingSchema() },
+      coverage: openObjectSchema({}),
+      engine: openObjectSchema({
+        score: { type: "number" },
+        grade: grade,
+        gradeCappedBy: { type: "string" },
+        studioMode: { type: "boolean" },
+        rules: { type: "array", items: securityRuleCheckSchema() },
+        findings: { type: "array", items: securityFindingSchema() }
+      }),
+      scoreModel: openObjectSchema({}),
+      limitations: stringArraySchema(),
+      warnings: stringArraySchema()
+    });
+  }
+
   function projectDeleteInputSchema() {
     return {
       type: "object",
@@ -1788,6 +1909,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_project_list_symbols") {
       return projectListSymbolsInputSchema();
     }
+    if (seq === "tools_project_security_audit") {
+      return projectSecurityAuditInputSchema();
+    }
     if (seq === "tools_project_delete") {
       return projectDeleteInputSchema();
     }
@@ -1845,6 +1969,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_delete") {
       return projectDeleteOutputSchema();
+    }
+    if (seq === "tools_project_security_audit") {
+      return projectSecurityAuditOutputSchema();
     }
     var crudOutputOverride = C8O.schemaOverridesCrud && C8O.schemaOverridesCrud.applyOutput
       ? C8O.schemaOverridesCrud.applyOutput(seq)

@@ -457,6 +457,7 @@
       "resources/read",
       "prompts/list",
       "prompts/call",
+      "project-security-audit",
       "databaseobject-tree-get",
       "requestable-execute",
       "log-view"

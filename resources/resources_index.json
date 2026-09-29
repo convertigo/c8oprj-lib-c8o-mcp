@@ -143,7 +143,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_project_review.md",
     "guideId": "convertigo/project-review",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "review",
@@ -158,6 +158,7 @@
       "convertigo/start@15"
     ],
     "recommendedTools": [
+      "project-security-audit",
       "project-list",
       "databaseobject-tree-get",
       "databaseobject-search"

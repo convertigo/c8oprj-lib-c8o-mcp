@@ -234,3 +234,16 @@ do
     --out-dir "tests/reports/${stem}"
 done
 ```
+
+## Security audit
+
+Run `node --test tests/scripts/validate_security_audit.cjs` after changing
+`js/security_audit_rules.js`, `js/security_audit_collect.js` or the
+`project-security-audit` wiring. The cases drive the pure rule engine with
+normalized models (exposure semantics, anonymous reachability through internal
+calls, per-rule caps, the critical grade cap, suppression, `minSeverity`, and the
+`rules` checklist whose deductions must add up to `100 - score`),
+the source scanners, and the collector against mocked beans holding a sentinel
+secret that must never appear in the model or the report. They also check the
+router mapping and the NoCode refusal. They do not replace a live call on a
+loaded project.

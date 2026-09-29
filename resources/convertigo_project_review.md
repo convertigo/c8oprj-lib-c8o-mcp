@@ -47,6 +47,7 @@ In client-facing reports, avoid internal implementation jargon such as `YAML`, `
 ## Core workflow
 
 1. Identify the project roots and look for prior reviews if the user mentioned them.
+   For a security review, run `project-security-audit({project})` first: it returns sourced findings, a 0-100 score and an A-F grade, and never returns secret values. Verify each finding before reporting it, and pass risks the user accepts (for example authentication checked in JavaScript) through `suppress` with a reason.
 2. Inventory the current project before judging it:
    - backend: connectors, transactions, sequences, references
    - frontend: pages, shared components, shared actions, menus, references
@@ -74,14 +75,22 @@ Review backend projects around these families first:
 
 Reason from effective runtime exposure, not from missing-property wording:
 
-- if `accessibility` is absent, the sequence is effectively `Public`
+- if `accessibility` is absent on a sequence, the sequence is effectively `Public`
+- if `accessibility` is absent on a transaction, the transaction is effectively `Private`
 - if `authenticatedContextRequired` is absent, it is effectively `false`
 
 Use these meanings:
 
-- `Public`: publicly callable and visible in Test Platform
-- `Hidden`: callable from the frontend project but not exposed publicly in Test Platform
-- `Private`: callable only from another sequence
+- `Public`: callable by any client and visible in Test Platform
+- `Hidden`: still callable by any client; it is only hidden from Test Platform and WSDL. Without `authenticatedContextRequired=true`, a Hidden sequence is anonymous.
+- `Private`: blocked for direct `.json`/`.xml` calls; callable from another sequence
+
+Two runtime rules change the effective exposure:
+
+- URL mappings (`UrlMapper`) ignore `accessibility`: a `Private` target behind a mapping is reachable from outside, and only its `authenticatedContextRequired` protects it.
+- Internal calls (`SequenceStep`, `TransactionStep`) bypass `accessibility`: anything an anonymous sequence calls is anonymously reachable too.
+
+Also check the project `corsOrigin`: `=Origin` (the engine default through `=Global`) echoes any caller origin with credentials, so any website can call Hidden sequences in a logged-in browser unless the engine enables `convertigo.xsrf.projects`.
 
 Review doctrine:
 
