@@ -1,0 +1,257 @@
+accessibility: Private
+comment: |
+  Audit the security of a Convertigo project
+  Statically audits one project (exposure, authentication, secrets, injection, dangerous steps, transport, session, references, NGX frontend and engine settings) and returns sourced findings with a deterministic 0-100 score and an A-F grade. Read-only; secret values are never returned, only their literal/symbol/empty status.
+↓IncludeHelpers [steps.SimpleStep-1790616258202]: 
+  comment: Load the audit rules and the project collector.
+  expression: |
+    include("js/security_audit_rules.js");
+    include("js/security_audit_collect.js");
+↓Init [steps.SimpleStep-1790616258204]: 
+  comment: Collect the project model, evaluate the rules and score them.
+  expression: include("js/tools_project_security_audit.js");
+↓Result [steps.JsonObjectStep-1790616258206]: 
+  comment: Build the audit report.
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓project [steps.JsonFieldStep-1790616258210]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: project
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.project
+  ↓projectVersion [steps.JsonFieldStep-1790616258212]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectVersion
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.projectVersion
+  ↓rulesetVersion [steps.JsonFieldStep-1790616258214]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rulesetVersion
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.rulesetVersion
+  ↓auditedAt [steps.JsonFieldStep-1790616258216]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: auditedAt
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.auditedAt
+  ↓score [steps.JsonFieldStep-1790616258218]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: score
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.score
+  ↓grade [steps.JsonFieldStep-1790616258220]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: grade
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.grade
+  ↓gradeCappedBy [steps.JsonFieldStep-1790616258222]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: gradeCappedBy
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.gradeCappedBy
+  ↓summary [steps.JsonToXmlStep-1790616258224]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.summary
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: summary
+  ↓categories [steps.JsonToXmlStep-1790616258226]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.categories
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: categories
+  ↓rules [steps.JsonToXmlStep-1790668563033]: 
+    comment: 'One entry per rule: passed, failed, suppressed or notApplicable, with its deduction.'
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.rules
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rules
+  ↓findings [steps.JsonToXmlStep-1790616258228]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.findings
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: findings
+  ↓coverage [steps.JsonToXmlStep-1790616258230]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.coverage
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: coverage
+  ↓IfEngine [steps.IfStep-1790616258232]: 
+    condition: auditResult.engine != null
+    ↓engine [steps.JsonToXmlStep-1790616258234]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: auditResult.engine
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: engine
+  ↓scoreModel [steps.JsonToXmlStep-1790616258236]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.scoreModel
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: scoreModel
+  ↓limitations [steps.JsonToXmlStep-1790616258238]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.limitations
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: limitations
+  ↓warnings [steps.JsonToXmlStep-1790616258240]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.warnings
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
+↓project [variables.RequestableVariable-1790616258242]: 
+  comment: Project technical name to audit.
+  description: Project technical name to audit.
+↓includeEngine [variables.RequestableVariable-1790616258244]: 
+  comment: Set false to skip engine-wide checks (CORS policy, XSRF, crypto passphrase, admin password).
+  description: Set false to skip engine-wide checks (CORS policy, XSRF, crypto passphrase, admin password).
+  value: true
+↓includeFrontend [variables.RequestableVariable-1790616258246]: 
+  comment: Set false to skip the NGX frontend source scan.
+  description: Set false to skip the NGX frontend source scan.
+  value: true
+↓minSeverity [variables.RequestableVariable-1790616258248]: 
+  comment: 'Lowest severity listed in findings: info, low, medium, high or critical. The score always counts every finding.'
+  description: 'Lowest severity listed in findings: info, low, medium, high or critical. The score always counts every finding.'
+  value: low
+↓limit [variables.RequestableVariable-1790616258250]: 
+  comment: Maximum findings listed. 1 to 1000; default 200. Summary counts stay complete.
+  description: Maximum findings listed. 1 to 1000; default 200. Summary counts stay complete.
+  value: 200
+↓suppress [variables.RequestableVariable-1790616258252]: 
+  comment: Accepted risks as a JSON array of {ruleId, qname?, reason}. Matching findings stay listed with suppressed=true and no longer lower the score.
+  description: Accepted risks as a JSON array of {ruleId, qname?, reason}. Matching findings stay listed with suppressed=true and no longer lower the score.
+↓SelfAudit [core.TestCase]: 
+  ↓project [variables.TestCaseVariable-1790616258255]: 
+    value: lib_ConvertigoMCP
