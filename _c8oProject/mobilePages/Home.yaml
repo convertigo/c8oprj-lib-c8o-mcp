@@ -907,6 +907,15 @@ title: MCP access tokens
                     ↓ct_SetupClick [ngx.components.UIControlEvent-1790487038008]: 
                       ↓CallLocalSetup [ngx.components.UIDynamicAction-1790487038250]: 
                         beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:lib_ConvertigoMCP.McpLocalAgentSetup"}'
+                        ↓Failure [ngx.components.UIActionFailureEvent-1790779797909]: 
+                          ↓SetupFailureToast [ngx.components.UIDynamicAction-1790780147466]: 
+                            beanData: |
+                              '{
+                               "ionBean": "ToastAction",
+                               "IonColor": "plain:danger",
+                               "message": "script:(event && (event.message || (event.error && event.error.message))) || ''Client configuration failed.''",
+                               "duration": "plain:6000"
+                              }'
                         ↓agent [ngx.components.UIControlVariable-1790487038500]: 
                           varValue: 
                             - xmlizable: 
@@ -916,7 +925,15 @@ title: MCP access tokens
                           varValue: 
                             - xmlizable: 
                               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                              - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.mcpToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+                              - MobileSmartSourceType: script:this.local?.createdToken || ''
+                        ↓SetupSuccessToast [ngx.components.UIDynamicAction-1790780147028]: 
+                          beanData: |
+                            '{
+                             "ionBean": "ToastAction",
+                             "IonColor": "plain:success",
+                             "message": "plain:Codex is configured. Restart Codex, then start a new session in this workspace to use Convertigo MCP.",
+                             "duration": "plain:6000"
+                            }'
                   ↓SetupClaude [ngx.components.UIDynamicElement-1790486882640]: 
                     beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
                     tagName: ion-button
@@ -937,6 +954,15 @@ title: MCP access tokens
                     ↓ct_SetupClick [ngx.components.UIControlEvent-1790487045396]: 
                       ↓CallLocalSetup [ngx.components.UIDynamicAction-1790487045638]: 
                         beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:lib_ConvertigoMCP.McpLocalAgentSetup"}'
+                        ↓Failure [ngx.components.UIActionFailureEvent-1790780242726]: 
+                          ↓SetupFailureToast [ngx.components.UIDynamicAction-1790780243164]: 
+                            beanData: |
+                              '{
+                               "ionBean": "ToastAction",
+                               "IonColor": "plain:danger",
+                               "message": "script:(event && (event.message || (event.error && event.error.message))) || ''Client configuration failed.''",
+                               "duration": "plain:6000"
+                              }'
                         ↓agent [ngx.components.UIControlVariable-1790487045888]: 
                           varValue: 
                             - xmlizable: 
@@ -946,7 +972,15 @@ title: MCP access tokens
                           varValue: 
                             - xmlizable: 
                               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                              - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.mcpToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+                              - MobileSmartSourceType: script:this.local?.createdToken || ''
+                        ↓SetupSuccessToast [ngx.components.UIDynamicAction-1790780242252]: 
+                          beanData: |
+                            '{
+                             "ionBean": "ToastAction",
+                             "IonColor": "plain:success",
+                             "message": "plain:Claude Code is configured. Start a new Claude Code session to use Convertigo MCP.",
+                             "duration": "plain:6000"
+                            }'
                   ↓SetupVibe [ngx.components.UIDynamicElement-1790486882642]: 
                     beanData: '{"ionBean":"Button","IonFill":"plain:outline"}'
                     tagName: ion-button
@@ -967,6 +1001,15 @@ title: MCP access tokens
                     ↓ct_SetupClick [ngx.components.UIControlEvent-1790487052657]: 
                       ↓CallLocalSetup [ngx.components.UIDynamicAction-1790487052899]: 
                         beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:lib_ConvertigoMCP.McpLocalAgentSetup"}'
+                        ↓Failure [ngx.components.UIActionFailureEvent-1790780244112]: 
+                          ↓SetupFailureToast [ngx.components.UIDynamicAction-1790780244550]: 
+                            beanData: |
+                              '{
+                               "ionBean": "ToastAction",
+                               "IonColor": "plain:danger",
+                               "message": "script:(event && (event.message || (event.error && event.error.message))) || ''Client configuration failed.''",
+                               "duration": "plain:6000"
+                              }'
                         ↓agent [ngx.components.UIControlVariable-1790487053149]: 
                           varValue: 
                             - xmlizable: 
@@ -976,7 +1019,15 @@ title: MCP access tokens
                           varValue: 
                             - xmlizable: 
                               - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                              - MobileSmartSourceType: source:{"filter":"Local","project":"lib_ConvertigoMCP","input":"","model":{"data":[{"localObject":"local"}],"path":"?.mcpToken","prefix":"","suffix":"","custom":"","useCustom":false}}
+                              - MobileSmartSourceType: script:this.local?.createdToken || ''
+                        ↓SetupSuccessToast [ngx.components.UIDynamicAction-1790780243638]: 
+                          beanData: |
+                            '{
+                             "ionBean": "ToastAction",
+                             "IonColor": "plain:success",
+                             "message": "plain:Vibe is configured. Restart Vibe to use Convertigo MCP.",
+                             "duration": "plain:6000"
+                            }'
               ↓Explanation [ngx.components.UIDynamicElement-1790446412361]: 
                 beanData: '{"ionBean":"DivTag"}'
                 tagName: div
@@ -1097,23 +1148,6 @@ title: MCP access tokens
                         - xmlizable: 
                           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                           - MobileSmartSourceType: 'plain:To configure another computer, copy the token and add it to that client''s Authorization: Bearer header.'
-            ↓SetupMessageIf [ngx.components.UIControlDirective-1788368053390]: 
-              directiveExpression: '!!local?.setupMessage'
-              directiveName: If
-              ↓Message [ngx.components.UIDynamicElement-1788368057616]: 
-                beanData: '{"ionBean":"DivTag"}'
-                tagName: div
-                ↓Class [ngx.components.UIAttribute-1788368061842]: 
-                  attrName: class
-                  attrValue: 
-                    - xmlizable: 
-                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                      - MobileSmartSourceType: plain:admin-setup-message
-                ↓Text [ngx.components.UIText-1788368066068]: 
-                  textValue: 
-                    - xmlizable: 
-                      - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-                      - MobileSmartSourceType: script:local?.setupMessage || ''
       ↓TokensCard [ngx.components.UIDynamicElement-1788364335186]: 
         beanData: '{"ionBean":"Card"}'
         tagName: ion-card
