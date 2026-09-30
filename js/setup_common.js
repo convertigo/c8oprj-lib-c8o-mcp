@@ -78,7 +78,7 @@ C8O.setupCommon = C8O.setupCommon || {};
       readsMcpResources: true,
       copyResourceSkills: false,
       bootstrap: [
-        "- Harness: Claude Code. The Convertigo MCP server is declared as `convertigo` in the `.claude.json` of the active `CLAUDE_CONFIG_DIR`; this skill lives in `<CLAUDE_CONFIG_DIR>/skills/convertigo-generalist/SKILL.md`.",
+        "- Harness: Claude Code. The Convertigo MCP server is declared as `convertigo` in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json` when `CLAUDE_CONFIG_DIR` is set); this skill lives in `~/.claude/skills/convertigo-generalist/SKILL.md` (or under `$CLAUDE_CONFIG_DIR/skills`).",
         "- Claude Code namespaces MCP tools: every tool id used in this skill is called as `mcp__convertigo__<tool-id>`, for example `mcp__convertigo__project-list` or `mcp__convertigo__batch-call`.",
         "- Claude Code reads MCP resources natively. Read a `convertigo://...` guide with the MCP resource tool of the `convertigo` server instead of guessing its content.",
         "- Claude Code may issue several MCP calls in one turn. Group independent or ordered source-object changes into one `batch-call`; nested `calls[].tool` values are plain MCP tool ids without the `mcp__convertigo__` prefix.",

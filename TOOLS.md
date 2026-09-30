@@ -1,12 +1,12 @@
 # Convertigo MCP Tools
 
-> Refreshed by `_refreshMaintainerDocs` from the live MCP catalog on `2026-09-29` (`mcp_initialize`, `mcp_tools_list`, `mcp_resources_list`, `mcp_prompts_list`).
+> Refreshed by `_refreshMaintainerDocs` from the live MCP catalog on `2026-09-30` (`mcp_initialize`, `mcp_tools_list`, `mcp_resources_list`, `mcp_prompts_list`).
 
 ## Live Snapshot
 
-- Server version: `0.2.18`
+- Server version: `0.2.19`
 - Tools: `39`
-- Resources: `25`
+- Resources: `31`
 - Prompts: `10`
 
 Use the live MCP catalog as truth:
@@ -86,8 +86,12 @@ For a new CRUD UI project, the current public rail is:
 
 | URI | Title | Description | Guidance |
 |---|---|---|---|
+| `convertigo://capabilities` | Convertigo MCP capabilities | Core MCP capabilities and recommended authoring flow. |  |
+| `convertigo://recipes/quickstart` | Convertigo MCP quickstart recipes | Minimal MCP-first recipes for fast project delivery. |  |
+| `convertigo://resources/convertigo-authentication` | Convertigo Authentication | Login, logout, sign-up and password reset with OAuth 2.0, OpenID Connect, FranceConnect, or email + password through lib_OAuth, lib_FranceConnect, and lib_UserManager, plus the session and exposure rules that protect sequences. | domain |
 | `convertigo://resources/convertigo-backend-sequences` | Convertigo Backend Sequences | Sequence and facade design, JSON shaping, SmartTypes, and safe runtime validation. | domain |
 | `convertigo://resources/convertigo-bootstrap-decision-matrix` | Convertigo Bootstrap Decision Matrix | Bootstrap-first questioning and brief-building guide for mono-agent and multi-agent Convertigo sessions. | workflow |
+| `convertigo://resources/convertigo-context-api` | Convertigo Context (JS API guardrails) | Reference guide for safe Rhino context usage and forbidden patterns. | reference |
 | `convertigo://resources/convertigo-contract-first-delivery` | Convertigo Contract-First Delivery | Planner workflow for facade contracts, stubs, parallel specialist work, and safe stub replacement. | workflow |
 | `convertigo://resources/convertigo-crud-edit-fastpath` | Convertigo CRUD Edit Fast Path | Fast extension rail for an existing deterministic CRUD project that is already green. | workflow |
 | `convertigo://resources/convertigo-crud-fastpath` | Convertigo CRUD Fast Path | Recommended mono-agent path for deterministic SQL CRUD plus starter NGX UI work. | workflow |
@@ -100,6 +104,7 @@ For a new CRUD UI project, the current public rail is:
 | `convertigo://resources/convertigo-frontend-ngx` | Convertigo Frontend NGX | Palette-first NGX delivery with contract-based bindings, batching, scoped template expressions, and resilient UI states. | domain |
 | `convertigo://resources/convertigo-integration-http` | Convertigo HTTP Integration | HTTP connector and transaction setup, schema recording, transport diagnostics, and facade handoff. | domain |
 | `convertigo://resources/convertigo-integration-sql` | Convertigo SQL Integration | SQL connector and transaction practices behind a stable facade contract. | domain |
+| `convertigo://resources/convertigo-json-quickref` | Convertigo JSON Steps Quickref | Reference guide for JSON steps, iterators, ordering, and SmartType sourcing. | reference |
 | `convertigo://resources/convertigo-platform-big-picture` | Convertigo Platform Big Picture | Platform overview, mindset, subsystems, and the reasons behind facade-first Convertigo design. | start |
 | `convertigo://resources/convertigo-project-review` | Convertigo Project Review Guide | Static review route for Convertigo backend/frontend audits, client syntheses, and V1/V2 progress comparisons. | workflow |
 | `convertigo://resources/convertigo-recipe-facade-stub` | Convertigo Facade Stub Recipe | Golden path for locking a facade contract and producing a minimal executable stub fast. | workflow |
@@ -108,6 +113,7 @@ For a new CRUD UI project, the current public rail is:
 | `convertigo://resources/convertigo-recipe-sql-crud` | Convertigo SQL CRUD Recipe | Golden path for creating a SQL CRUD scaffold behind a stable facade contract. | workflow |
 | `convertigo://resources/convertigo-recipe-starter-extension` | Convertigo Starter Extension Recipe | Golden path for importing a starter project and extending it without rediscovering project structure. | workflow |
 | `convertigo://resources/convertigo-start` | Convertigo Start Guide | Canonical entry guide for tree-first Convertigo MCP work. | start |
+| `convertigo://resources/convertigo-task-routes` | Convertigo Task Routes | Provider-neutral routing table from task shapes to the smallest required Convertigo MCP resources. | routing |
 | `convertigo://resources/convertigo-validation-and-evidence` | Convertigo Validation and Evidence | Closure checklist for runtime proofs, save/reload discipline, and concise evidence. | validation |
 | `convertigo://resources/convertigo-vibe-http-ngx-fastpath` | Convertigo Vibe HTTP NGX Fast Path | Compact headless path for fresh NGX apps backed by HTTP web-service records. | workflow |
 | `convertigo://resources/convertigo-vibe-start` | Convertigo Vibe Start | Mistral Vibe adapter guide for isolated Convertigo MCP work. | start |

@@ -95,6 +95,17 @@
       ]
     },
     {
+      "id": "authentication",
+      "match": "Add or change login, logout, sign-up, password reset, OAuth, OpenID Connect, FranceConnect, or access control on sequences",
+      "required": [
+        "convertigo://resources/convertigo-authentication"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-backend-sequences",
+        "convertigo://resources/convertigo-context-api"
+      ]
+    },
+    {
       "id": "unknown",
       "match": "Convertigo task that does not match a route above",
       "required": [

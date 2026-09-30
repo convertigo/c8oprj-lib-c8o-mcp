@@ -16,7 +16,7 @@ C8O.securityAudit = C8O.securityAudit || {};
   }
   api._rulesInitialized = true;
 
-  api.RULESET_VERSION = "1";
+  api.RULESET_VERSION = "2";
   api.SEVERITIES = ["info", "low", "medium", "high", "critical"];
   api.CATEGORIES = ["exposure", "auth", "secrets", "injection", "capabilities", "transport", "session", "supplychain", "frontend", "engine"];
   api.WEIGHTS = { critical: 25, high: 10, medium: 4, low: 1, info: 0 };
@@ -45,10 +45,14 @@ C8O.securityAudit = C8O.securityAudit || {};
     "EXP-06": { category: "exposure", title: "Authenticated response cached without the user in the cache key", recommendation: "Enable authenticatedUserAsCacheKey, or remove responseExpiryDate, so one user's cached response is never served to another." },
     "AUTH-01": { category: "auth", title: "Authenticated user set without prior credential verification", recommendation: "Verify credentials (transaction, sequence, LDAP step or JavaScript check) before SetAuthenticatedUserStep. Generated auth_login skeletons accept any password." },
     "AUTH-02": { category: "auth", title: "FullSync data open to anonymous users", recommendation: "Set anonymousReplication=deny and use fromAuthenticatedUser or fromKeyC8oAcl ACL policies." },
+    "AUTH-03": { category: "auth", title: "Client can set identity-provider or email parameters", recommendation: "Remove the variable from the exposed requestable and set the value server side from a symbol on the StepVariable of a Hidden facade. See convertigo://resources/convertigo-authentication." },
+    "AUTH-04": { category: "auth", title: "Password hashed with SHA-1 or MD5", recommendation: "Move password handling to lib_UserManager. Code that must still hash passwords (such as an authentication library) uses a slow salted algorithm like bcrypt (org.bouncycastle.crypto.generators.OpenBSDBCrypt) and compares with MessageDigest.isEqual." },
+    "AUTH-05": { category: "auth", title: "Logout keeps the HTTP session alive", recommendation: "Add a RemoveSessionStep after RemoveAuthenticatedUserStep and call the logout with __disableAutologin=true." },
+    "AUTH-06": { category: "auth", title: "Application code hashes or verifies passwords", recommendation: "Keep email + password accounts in lib_UserManager and call it from a Hidden facade; do not store or verify credentials in application code. Suppress with a reason only when auditing the authentication library itself. See convertigo://resources/convertigo-authentication." },
     "SEC-01": { category: "secrets", title: "Credential stored as a literal in the project", recommendation: "Move the value to a symbol whose name ends with .secret (for example ${db.password.secret}). Ciphered project values are only as strong as the engine crypto.passphrase." },
     "SEC-02": { category: "secrets", title: "Sensitive symbol with an inline default value", recommendation: "Remove the inline default (${name=value}) and define the value in the engine global symbols, with a .secret suffix." },
     "SEC-03": { category: "secrets", title: "Sensitive variable with a literal default value", recommendation: "Remove the default value, or bind it to a .secret symbol. Test case values are exported with the project." },
-    "SEC-04": { category: "secrets", title: "Sensitive variable not masked in logs", recommendation: "Set the variable visibility to mask Logs (and Studio/Platform) so its value is never traced." },
+    "SEC-04": { category: "secrets", title: "Sensitive variable not masked in logs", recommendation: "Set the variable visibility to 15 (Logs=1, Studio=2, Platform=4, XmlFile=8) so its value is never traced; an even value leaves it in the logs." },
     "SEC-05": { category: "secrets", title: "Static Authorization header in an HTTP transaction", recommendation: "Pass the credential through a .secret symbol or a masked variable instead of a literal header." },
     "SEC-06": { category: "secrets", title: "Sensitive symbol not stored ciphered", recommendation: "Rename the symbol with a .secret suffix so the engine stores it ciphered and masks it in the administration console." },
     "INJ-01": { category: "injection", title: "Raw SQL substitution {{variable}}", recommendation: "Use {variable} placeholders, which become prepared-statement parameters. {{variable}} is plain text replacement and allows SQL injection." },
@@ -228,10 +232,69 @@ C8O.securityAudit = C8O.securityAudit || {};
         if (s.signals.dynamicCode === true) {
           out.push(makeFinding("INJ-02", anonymous ? "high" : "medium", s.qname, { patterns: ["eval/new Function"] }, extras));
         }
+        if (s.signals.managesPassword === true) {
+          out.push(makeFinding("AUTH-06", "medium", s.qname, { patterns: ["password hashing or comparison in JavaScript"] }, { anonymousReachable: anonymous, requestable: owner, confidence: "medium" }));
+        }
+        if (s.signals.weakPasswordHash === true) {
+          out.push(makeFinding("AUTH-04", "medium", s.qname, { patterns: ["SHA-1/MD5 with a password"] }, { anonymousReachable: anonymous, requestable: owner, confidence: "medium" }));
+        }
         var privileged = arr(s.signals.privileged);
         if (privileged.length) {
           out.push(makeFinding("CAP-03", anonymous ? "high" : "medium", s.qname, { patterns: privileged }, extras));
         }
+      }
+    }
+  }
+
+  var CLIENT_CONTROLLED_IDP_PARAM = /^(introspect_?url|redirect_?uri|client_?id|key_?secret|client_?secret|token_?endpoint|authorization_?endpoint|issuer|jwks_?uri|email_?(subject|body|logo)|target_?application_?name)$/i;
+
+  var STORED_CREDENTIAL_PARAM = /^(pass(word)?_?hash|hash(ed)?_?pass(word)?|pwd_?hash|password_?salt)$/i;
+
+  function evaluateAuthentication(model, reach, out) {
+    var variables = arr(model.variables);
+    var credentialOwners = {};
+    for (var cv = 0; cv < variables.length; cv++) {
+      var credential = variables[cv];
+      if (credential.scope === "requestable" && STORED_CREDENTIAL_PARAM.test(String(credential.name || "")) && !credentialOwners[credential.owner]) {
+        credentialOwners[credential.owner] = true;
+        out.push(makeFinding("AUTH-06", "medium", credential.owner, { variable: credential.name, storesCredentials: true }, { anonymousReachable: !!reach.reachable[credential.owner], confidence: "medium" }));
+      }
+    }
+    for (var v = 0; v < variables.length; v++) {
+      var variable = variables[v];
+      if (variable.scope !== "requestable" || !CLIENT_CONTROLLED_IDP_PARAM.test(String(variable.name || ""))) {
+        continue;
+      }
+      var owner = reach.byQName[variable.owner];
+      if (!owner || (owner.accessibility === "Private" && reach.mapped[owner.qname] !== true)) {
+        continue;
+      }
+      var anonymous = !!reach.reachable[owner.qname];
+      out.push(makeFinding("AUTH-03", anonymous ? "critical" : "medium", variable.qname, { variable: variable.name, requestable: owner.qname, accessibility: owner.accessibility, authenticatedContextRequired: owner.authenticatedContextRequired === true }, { anonymousReachable: anonymous }));
+    }
+    var steps = arr(model.steps);
+    var logout = {};
+    var order = [];
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      if (s.enabled === false) {
+        continue;
+      }
+      var removes = s.kind === "removeUser" || (s.kind === "js" && s.signals && s.signals.removesUser === true);
+      var ends = s.kind === "endSession" || (s.kind === "js" && s.signals && s.signals.endsSession === true);
+      if (!removes && !ends) {
+        continue;
+      }
+      if (!logout[s.owner]) {
+        logout[s.owner] = { removes: false, ends: false };
+        order.push(s.owner);
+      }
+      logout[s.owner].removes = logout[s.owner].removes || removes;
+      logout[s.owner].ends = logout[s.owner].ends || ends;
+    }
+    for (var o = 0; o < order.length; o++) {
+      if (logout[order[o]].removes && !logout[order[o]].ends) {
+        out.push(makeFinding("AUTH-05", "low", order[o], { removesAuthenticatedUser: true, endsSession: false }));
       }
     }
   }
@@ -398,6 +461,7 @@ C8O.securityAudit = C8O.securityAudit || {};
     var findings = [];
     var hasAuthenticated = evaluateExposure(model, reach, findings);
     evaluateSteps(model, reach, findings);
+    evaluateAuthentication(model, reach, findings);
     evaluateSecrets(model, findings);
     evaluateInjection(model, reach, findings);
     evaluateConnectors(model, findings);
@@ -548,6 +612,10 @@ C8O.securityAudit = C8O.securityAudit || {};
       case "EXP-06": return some(requestables, function (r) { return r.authenticatedContextRequired === true; }) ? "" : "No requestable requires an authenticated context.";
       case "AUTH-01": return some(steps, stepKind("setAuthenticatedUser")) ? "" : "No SetAuthenticatedUserStep in the project.";
       case "AUTH-02": return some(connectors, function (c) { return c.type === "fullsync"; }) || some(requestables, function (r) { return r.fullSyncAclPolicy !== undefined; }) ? "" : "No FullSync connector or ACL-driven transaction in the project.";
+      case "AUTH-03": return some(model.variables, function (v) { return v.scope === "requestable"; }) ? "" : "No requestable input variable in the project.";
+      case "AUTH-04": return noJsStep;
+      case "AUTH-06": return noJsStep.length && !some(model.variables, function (v) { return v.scope === "requestable"; }) ? "No JavaScript step or requestable input variable in the project." : "";
+      case "AUTH-05": return some(steps, function (s) { return s.kind === "removeUser" || (s.kind === "js" && s.signals && s.signals.removesUser === true); }) ? "" : "No logout in the project.";
       case "SEC-01": return arr(model.secretProperties).length ? "" : "No object with a ciphered credential property.";
       case "SEC-02": case "SEC-06": return noSources;
       case "SEC-03": case "SEC-04": return arr(model.variables).length ? "" : "No variable in the project.";
@@ -619,6 +687,10 @@ C8O.securityAudit = C8O.securityAudit || {};
 
   api.sortFindings = function (findings) {
     return findings.slice().sort(function (a, b) {
+      var suppressedOrder = (a.suppressed === true ? 1 : 0) - (b.suppressed === true ? 1 : 0);
+      if (suppressedOrder !== 0) {
+        return suppressedOrder;
+      }
       var rank = api.severityRank(b.severity) - api.severityRank(a.severity);
       if (rank !== 0) {
         return rank;

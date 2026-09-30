@@ -218,7 +218,7 @@
     "title": "Convertigo Backend Specialist",
     "description": "Sequence specialist for facade requestables, orchestration, and stable response shaping.",
     "promptId": "convertigo/backend",
-    "revision": 8,
+    "revision": 9,
     "roleId": "backend",
     "modelProfile": "fast",
     "scopeTags": [
@@ -232,6 +232,7 @@
       "convertigo/engineering-workflow@1",
       "convertigo/recipe-facade-stub@1",
       "convertigo/backend-sequences@1",
+      "convertigo/authentication@1",
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [
@@ -379,7 +380,7 @@
     "title": "Convertigo Frontend NGX Specialist",
     "description": "NGX page and binding specialist working against a stable backend facade contract.",
     "promptId": "convertigo/frontend-ngx",
-    "revision": 7,
+    "revision": 8,
     "roleId": "frontend-ngx",
     "modelProfile": "fast",
     "scopeTags": [
@@ -396,6 +397,7 @@
       "convertigo/recipe-ngx-data-page@4",
       "convertigo/fast-path-ngx-entry-shell@4",
       "convertigo/frontend-ngx@1",
+      "convertigo/authentication@1",
       "convertigo/validation-and-evidence@1"
     ],
     "fastPathRefs": [
@@ -437,7 +439,7 @@
     "title": "Convertigo Critic",
     "description": "Internal lab reviewer for MCP guide compliance, evidence quality, and UX gaps.",
     "promptId": "convertigo/critic",
-    "revision": 2,
+    "revision": 3,
     "roleId": "critic",
     "modelProfile": "high",
     "scopeTags": [
@@ -450,6 +452,7 @@
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
       "convertigo/engineering-workflow@1",
+      "convertigo/authentication@1",
       "convertigo/validation-and-evidence@1"
     ],
     "recommendedTools": [

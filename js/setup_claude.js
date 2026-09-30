@@ -1,6 +1,6 @@
 // Local Claude Code onboarding for lib_ConvertigoMCP.
-// Generates the managed Convertigo skills inside a CLAUDE_CONFIG_DIR and, when
-// requested, declares the Convertigo MCP server in that home's .claude.json.
+// Generates the managed Convertigo skills and, when requested, declares the
+// Convertigo MCP server in the .claude.json that Claude Code actually reads.
 if (typeof C8O === "undefined") {
   var C8O = {};
 }
@@ -16,19 +16,43 @@ C8O.setupClaude = C8O.setupClaude || {};
   var trim = helpers.trim;
   var CLAUDE_STATE_FILE = ".claude.json";
 
-  function resolveClaudeHome(input) {
+  function expandHome(raw) {
+    if (raw === "~") {
+      return helpers.userHomeDirectory();
+    }
+    if (raw.indexOf("~/") === 0 || raw.indexOf("~\\") === 0) {
+      return helpers.userHomeDirectory() + raw.substring(1);
+    }
+    return raw;
+  }
+
+  function environmentConfigDir() {
+    try {
+      return trim(Packages.java.lang.System.getenv("CLAUDE_CONFIG_DIR"));
+    } catch (_ignoreEnv) {
+      return "";
+    }
+  }
+
+  // Claude Code keeps skills and its .claude.json state in CLAUDE_CONFIG_DIR when
+  // that variable is set. Without it, skills live in ~/.claude/skills but the
+  // state file, which holds mcpServers, is ~/.claude.json in the home directory.
+  // An explicit claudeHome is treated as a CLAUDE_CONFIG_DIR, as the Agent
+  // Bridge uses it for isolated homes.
+  C8O.setupClaude._resolveLayout = function (input) {
     var File = Packages.java.io.File;
     var raw = trim(input);
     if (!raw.length) {
-      raw = "~/.claude";
+      raw = environmentConfigDir();
     }
-    if (raw === "~") {
-      raw = helpers.userHomeDirectory();
-    } else if (raw.indexOf("~/") === 0 || raw.indexOf("~\\") === 0) {
-      raw = helpers.userHomeDirectory() + raw.substring(1);
+    if (raw.length) {
+      var configDir = new File(expandHome(raw)).getCanonicalFile();
+      return { home: configDir, skillsDir: new File(configDir, "skills"), stateFile: new File(configDir, CLAUDE_STATE_FILE) };
     }
-    return new File(raw).getCanonicalFile();
-  }
+    var userHome = new File(helpers.userHomeDirectory()).getCanonicalFile();
+    var defaultDir = new File(userHome, ".claude");
+    return { home: defaultDir, skillsDir: new File(defaultDir, "skills"), stateFile: new File(userHome, CLAUDE_STATE_FILE) };
+  };
 
   function buildClaudeSkillMarkdown(mcpUrl) {
     return C8O.setupCommon.buildSkillMarkdown("claude", mcpUrl);
@@ -104,14 +128,15 @@ C8O.setupClaude = C8O.setupClaude || {};
     var warnings = [];
     var dryRun = C8O.util.toBoolean(opts.dryRun, false) === true;
     var configureMcp = C8O.util.toBoolean(typeof opts.configureMcp === "undefined" || String(opts.configureMcp).length === 0 ? true : opts.configureMcp, true) === true;
-    var claudeHome = resolveClaudeHome(opts.claudeHome);
+    var layout = C8O.setupClaude._resolveLayout(opts.claudeHome);
+    var claudeHome = layout.home;
     var resolvedMcpUrl = helpers.deriveMcpUrl(opts.mcpUrl, warnings);
     var compactMcpUrl = helpers.configuredMcpUrl(resolvedMcpUrl);
     var enableFlow = helpers.flowCapabilityAvailable();
-    var skillsDir = new File(claudeHome, "skills");
+    var skillsDir = layout.skillsDir;
     var generalistSkillFile = new File(new File(skillsDir, "convertigo-generalist"), "SKILL.md");
     var noCodeSkillFile = new File(new File(skillsDir, "convertigo-nocode"), "SKILL.md");
-    var stateFile = new File(claudeHome, CLAUDE_STATE_FILE);
+    var stateFile = layout.stateFile;
     var generalistWrite = helpers.writeManagedFile(generalistSkillFile, buildClaudeSkillMarkdown(resolvedMcpUrl), dryRun);
     var noCodeWrite = helpers.writeManagedFile(noCodeSkillFile, buildClaudeNoCodeSkillMarkdown(resolvedMcpUrl), dryRun);
     var combinedSkillStatus = helpers.combineSkillStatuses([generalistWrite.status, noCodeWrite.status]);

@@ -46,6 +46,11 @@ C8O.securityAudit = C8O.securityAudit || {};
     { id: "FileUtils write/delete", regex: /FileUtils\s*\.\s*(write\w*|copy\w*|delete\w*|forceDelete\w*|move\w*)\s*\(/ }
   ];
   var DYNAMIC_CODE_JS = /(^|[^\w.])eval\s*\(|new\s+Function\s*\(/;
+  var WEAK_HASH_JS = /DigestUtils\s*\.\s*(sha1|md5|sha)(Hex)?\s*\(|MessageDigest\s*\.\s*getInstance\s*\(\s*["'](SHA-?1|MD5)["']/i;
+  var PASSWORD_JS = /passw|pwd/i;
+  var PASSWORD_CRYPTO_JS = /OpenBSDBCrypt|BCrypt|Argon2|PBKDF2|SCrypt|SecretKeyFactory|MessageDigest|DigestUtils|Mac\s*\.\s*getInstance/;
+  var REMOVE_USER_JS = /removeAuthenticatedUser\s*\(/;
+  var END_SESSION_JS = /httpSession\s*\.\s*invalidate\s*\(|terminateSession\s*\(/;
 
   var FRONTEND_PATTERNS = [
     { id: "bypassSecurityTrust", kind: "sanitizer", regex: /bypassSecurityTrust(Html|Script|Style|Url|ResourceUrl)\s*\(/g },
@@ -123,7 +128,14 @@ C8O.securityAudit = C8O.securityAudit || {};
         privileged.push(PRIVILEGED_JS[i].id);
       }
     }
-    return { dynamicCode: DYNAMIC_CODE_JS.test(text), privileged: privileged };
+    return {
+      dynamicCode: DYNAMIC_CODE_JS.test(text),
+      privileged: privileged,
+      weakPasswordHash: WEAK_HASH_JS.test(text) && PASSWORD_JS.test(text),
+      managesPassword: PASSWORD_CRYPTO_JS.test(text) && PASSWORD_JS.test(text),
+      removesUser: REMOVE_USER_JS.test(text),
+      endsSession: END_SESSION_JS.test(text)
+    };
   };
 
   api.rawSqlPlaceholders = function (query) {
@@ -266,7 +278,7 @@ C8O.securityAudit = C8O.securityAudit || {};
     return "requestable";
   }
 
-  function collectVariable(dbo, className, model) {
+  function collectVariable(dbo, className, owner, model) {
     var Visibility = Packages.com.twinsoft.convertigo.engine.enums.Visibility;
     var value = call(dbo, "getValueOrNull", null);
     var visibility = call(dbo, "getVisibility", 0);
@@ -277,6 +289,7 @@ C8O.securityAudit = C8O.securityAudit || {};
     model.variables.push({
       qname: qnameOf(dbo),
       name: C8O.dbo.safeName(dbo),
+      owner: owner,
       scope: variableScope(className),
       valueStatus: secretStatus(dbo, "value", value),
       logsMasked: logsMasked
@@ -308,6 +321,10 @@ C8O.securityAudit = C8O.securityAudit || {};
       step.kind = "setAuthenticatedUser";
     } else if (className === "LDAPAuthenticationStep") {
       step.kind = "ldapAuth";
+    } else if (className === "RemoveAuthenticatedUserStep") {
+      step.kind = "removeUser";
+    } else if (className === "RemoveSessionStep") {
+      step.kind = "endSession";
     } else if (has(dbo, "getSourceSequence")) {
       step.kind = "call";
       step.target = str(call(dbo, "getSourceSequence", ""));
@@ -337,7 +354,7 @@ C8O.securityAudit = C8O.securityAudit || {};
       var dbo = stack.pop();
       var className = simpleClassName(dbo);
       if (/Variable$/.test(className)) {
-        collectVariable(dbo, className, model);
+        collectVariable(dbo, className, requestable.qname, model);
       } else if (/Step$/.test(className)) {
         collectStep(dbo, className, requestable.qname, model, requestable);
         collectSecretProperties(dbo, model);

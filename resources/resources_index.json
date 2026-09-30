@@ -823,6 +823,46 @@
     "fallbackToRag": false
   },
   {
+    "uri": "convertigo://resources/convertigo-authentication",
+    "name": "Convertigo Authentication",
+    "title": "Convertigo Authentication",
+    "description": "Login, logout, sign-up and password reset with OAuth 2.0, OpenID Connect, FranceConnect, or email + password through lib_OAuth, lib_FranceConnect, and lib_UserManager, plus the session and exposure rules that protect sequences.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_authentication.md",
+    "guideId": "convertigo/authentication",
+    "revision": 4,
+    "scopeTags": [
+      "domain",
+      "auth",
+      "security",
+      "oauth",
+      "openid",
+      "email",
+      "session"
+    ],
+    "prerequisites": [
+      "convertigo/start@1",
+      "convertigo/backend-sequences@1"
+    ],
+    "recommendedTools": [
+      "marketplace-list",
+      "marketplace-import",
+      "project-list-symbols",
+      "databaseobject-tree-get",
+      "databaseobject-tree-apply",
+      "requestable-execute",
+      "project-security-audit",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-backend",
+      "convertigo-frontend-ngx",
+      "convertigo-critic"
+    ],
+    "guidanceLevel": "domain",
+    "fallbackToRag": false
+  },
+  {
     "uri": "convertigo://resources/convertigo-recipe-ngx-data-page",
     "name": "Convertigo NGX Data Page Recipe",
     "title": "Convertigo NGX Data Page Recipe",
@@ -916,7 +956,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 20,
+    "revision": 23,
     "scopeTags": [
       "domain",
       "frontend",

@@ -174,28 +174,22 @@ comment: Handles MCP resources/templates/list requests
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.revision != null ? item.revision : 0'
-  ↓Meta [steps.JsonObjectStep-1764249000016]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: meta
-    ↓IfHasCursor [steps.IfStep-1764249000017]: 
-      condition: resourceTemplatesHasNextCursor === true
-      ↓NextCursor [steps.JsonFieldStep-1764249000018]: 
-        key: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: PLAIN
-              - →→: nextCursor
-        value: 
-          - xmlizable: 
-            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-            - SmartType: 
-              - ↑mode: PLAIN
-              - →→: String(resourceTemplatesNextCursor)
+  ↓NextCursorIf [steps.IfStep-1790757878471]: 
+    comment: 'MCP pagination: nextCursor is a sibling of resourceTemplates in the result.'
+    condition: resourceTemplatesHasNextCursor === true
+    ↓NextCursor [steps.JsonFieldStep-1790757878474]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: String(resourceTemplatesNextCursor)
 ↓cursor [variables.RequestableVariable-1764249000019]: 
   comment: Optional pagination cursor
 ↓_nextCursor [variables.RequestableVariable-1764249000020]: 

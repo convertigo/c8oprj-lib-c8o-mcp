@@ -139,11 +139,22 @@ C8O.maintainerDocs = C8O.maintainerDocs || {};
   }
 
   function fetchResources() {
-    var payload = internalSequence("mcp_resources_list", {
-      idJson: "1",
-      paramsJson: "{}"
-    }) || {};
-    return payload.resources || [];
+    // resources/list is paged; follow nextCursor so the docs list every resource.
+    var resources = [];
+    var cursor = "";
+    for (var page = 0; page < 20; page++) {
+      var payload = internalSequence("mcp_resources_list", {
+        idJson: "1",
+        paramsJson: "{}",
+        cursor: cursor.length ? cursor : null
+      }) || {};
+      resources = resources.concat(payload.resources || []);
+      cursor = trim(payload.nextCursor);
+      if (!cursor.length) {
+        break;
+      }
+    }
+    return resources;
   }
 
   function fetchPrompts() {

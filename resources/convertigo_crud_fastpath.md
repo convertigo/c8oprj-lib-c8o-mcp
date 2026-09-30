@@ -55,7 +55,7 @@ Default assumptions for the fast path:
 - when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
 - for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` over direct edits on generated CRUD-kit shared components
 - relation controls default to `select`; use `ui.relationFields.<field>.control=autocomplete` only when the larger option set really needs it
-- generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences, and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
+- generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences (the generated `auth_login` accepts any password; replace it with a real check from `convertigo://resources/convertigo-authentication` before delivery), and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
 - prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
 
 ## Deterministic rail

@@ -133,6 +133,20 @@ Why this is the right way:
 Common trap:
 - calling the backend is the only thing wired; loading/empty/error/retry remain structural stubs
 
+### Execution order inside an event
+The generated code fixes the order, so the tree must express it:
+- actions that are siblings under the same event start together (`Promise.all`); they do not wait for each other
+- the children of an action start after that action resolves and read its result as `out`; several children of the same action again run in parallel
+- the action's Failure handler runs only when the call is rejected (network, timeout, engine exception)
+- a sequence that returns a business failure as an `error` element, such as an `XMLErrorStep` or a facade contract field, resolves normally: the Failure handler does not run
+
+Good pattern:
+- `CallSequenceAction` → child `IfAction` on `out?.error` → toast or error state, and a sibling child for the success path
+
+Bad pattern:
+- the result toast is a sibling of the `CallSequenceAction`: it runs before the response arrives and shows stale state
+- the business error is expected in the Failure handler: it never fires for an `error` element
+
 ### Where sequence and fullsync calls belong
 Use `CallSequenceAction` when:
 - the page depends on a backend facade or server-side orchestration
@@ -155,7 +169,7 @@ Canonical searchable data chain:
 ### HTTP search page pattern
 For a search app backed by an HTTP web service, use this shape. Open data APIs are just one example:
 - Backend: `HttpConnector` -> typed `JsonHttpTransaction` -> public facade `GenericSequence`.
-- UI search input: `UIDynamicElement#Input`; bind its Binding/`DoubleBinding` property to a page local such as `?.searchQuery` with `SC`/source mode on `Local`. Do not use `ionChange`/`InputChange` plus `SetLocalAction` only to copy the typed value.
+- UI search input: `UIDynamicElement#Input` inside a `UIDynamicElement#FormItem`, with its `Label` property set and `LabelPlacement` `stacked` (see Forms and input fields); bind its Binding/`DoubleBinding` property to a page local such as `?.searchQuery` with `SC`/source mode on `Local`. Do not use `ionChange`/`InputChange` plus `SetLocalAction` only to copy the typed value.
 - Page-local UI state must live in Convertigo locals, not in TypeScript page fields. Do not declare `searchQuery`, `results`, `loading`, `error`, or similar state in `Begin_c8o_PageDeclaration`.
 - Add a page-enter `UIPageEvent` that initializes every local used by Local SmartSources or `SetLocalAction` with `SetLocalAction` before first render/user interaction. In current NGX trees the default `viewEvent` is `onDidEnter`, which satisfies this page-enter initialization rule. A search page normally initializes `searchQuery`, `loading`, `error`, `errorMessage`, `empty`, and `results`.
 - Widgets/directives that read page-local UI state must use SmartSource/source mode on `Local`, for example `source:{"filter":"Local",...}`. Do not bind that state with `script:searchQuery`, `script:page.searchQuery`, `script:this.local?...`, or `plain:loading`.
@@ -172,12 +186,12 @@ For a search app backed by an HTTP web service, use this shape. Open data APIs a
 - Use that shape for `UIControlVariable.varValue`, `UIControlDirective.directiveSource`, `UIText.textValue`, and dynamic component properties whenever the value comes from `SetLocalAction`.
 - For input query binding, the same shape is known to apply cleanly as `DoubleBinding` when `path` is `?.searchQuery`. Do not stop at an "escaping is tricky" explanation and do not replace it with `ionChange`; apply the compact `SOURCE` value and read back the object.
 - For button handoff, a known-good minimal chain is `UIControlEvent#UIControlEvent(eventName:onClick)` -> `UIDynamicAction#SetLocalAction(Property:loading)` -> `UIDynamicAction#CallSequenceAction(requestable: plain:<Project>.<facade>)` -> `UIControlVariable#UIControlVariable(name:<facadeVar>, varValue:<Local SOURCE ?.searchQuery>)`.
-- Keep Local SmartSource `prefix` and `suffix` empty. For visible labels, use separate static `UIText`/`Label` objects around the bound value. Affixes on Local SmartSources can generate invalid Angular interpolation.
+- Keep Local SmartSource `prefix` and `suffix` empty. For visible labels of displayed values, use separate static `UIText` objects around the bound value; form controls are different and use their own `Label` property. Affixes on Local SmartSources can generate invalid Angular interpolation.
 - Do not stop after storing the backend result in a local. Build a visible result surface that reads local result state with SmartSource/source mode, such as a `ForEach.directiveSource` on `?.results?.items`, a counter bound to `?.results?.total`, or detail text bound to one selected/result item.
 - The facade must already expose the application fields the UI stores or binds. Do not make the NGX page parse raw `TransactionStep` internals as the final data contract; browser action output can expose only `HttpInfo`, `attr`, or other diagnostics even when backend `requestable-execute` displayed richer raw transaction data. If that happens, repair the facade contract first.
 - Treat any final page action script containing `out.transaction`, `out?.transaction`, `response?.transaction`, or `transaction.document` as non-compliant for HTTP-backed data pages. Those paths are diagnostics from the transport layer, not the page contract.
 - Result rows/details must expose real domain fields from the facade contract, including at least one recognizable label/name field and one useful differentiator when available.
-- Labels and component body text usually belong in `ngx.components.UIText#UIText` children. If `textValue` is skipped on a `UIDynamicElement#Button`, `UIDynamicElement#Paragraph`, heading, card, or similar component, add a `UIText` child instead of retrying the skipped property.
+- Labels and component body text usually belong in `ngx.components.UIText#UIText` children, except form controls, whose label is their `Label` property. If `textValue` is skipped on a `UIDynamicElement#Button`, `UIDynamicElement#Paragraph`, heading, card, or similar component, add a `UIText` child instead of retrying the skipped property.
 - UI submit: `UIDynamicElement#Button` -> `UIControlEvent`.
 - Pre-call state changes use `SetLocalAction` nodes for `loading`, `error`, `empty`, and related flags. A small `UICustomAction` may only handle validation or normalization that palette actions cannot express.
 - Backend call: `UIDynamicAction#CallSequenceAction` under that event, with `requestable` set to `<Project>.<facadeSequence>`.
@@ -211,7 +225,70 @@ The following shapes are non-compliant for normal HTTP search pages:
 - raw `*ngFor` / `*ngIf` are embedded in a fragment instead of modeled with palette directives or components
 - backend URL or HTTP transport appears anywhere in the NGX page
 
+## Forms and input fields
+
+### Structure
+Model every form with palette objects, in this order:
+1. `ngx.components.UIForm#UIForm` with an `identifier` in lowerCamelCase, for example `loginForm`
+2. one `ngx.components.UIDynamicElement#FormItem` (`ion-item`) per field, as a direct child of the form
+3. exactly one control inside each `FormItem`: `UIDynamicElement#Input`, `#TextArea`, `#Select`, `#Toggle`, `#CheckBox`, or another Forms palette control
+4. the buttons inside the form: `UIDynamicElement#SubmitButton` (and `#ResetButton` when useful), each with a `UIText` child for its visible text; group them in a `Grid` > `GridRow` > `GridCol` when there are several
+5. a `UIControlEvent` with `eventName:"onSubmit"` as a child of the form, holding the action chain
+
+Do not put a control directly under the page or a card without its `FormItem`, and do not put several controls in one `FormItem`.
+
+### Labels and placement
+- The visible label of a control is its `Label` property. Ionic uses the modern control layout only when `Label` (or an aria label) is set.
+- Set `LabelPlacement` explicitly. Use `stacked` (label always above the field) for forms, or `floating` (label moves above on focus or when filled). The default `start` puts the label on the left of the field on the same line and squeezes the input, especially on phones; `fixed` truncates long labels.
+- Never add a separate `Label` (`ion-label`) or `UIText` next to a control to act as its label, and never set `Legacy:true`: the control falls back to the legacy markup and the label is misplaced or duplicated.
+- `Placeholder` is an example value, not a label: keep the `Label` even when a placeholder is set.
+- Use `HelperText` for guidance and `ErrorText` for the validation message; both render under the field.
+
+### Values, types, and validation
+- Every control has a `ControlName`: it is the key of the value in the form and usually matches the sequence variable name.
+- Set `Type` on text inputs: `email`, `password`, `number`, `tel`, `url`, `date`, `time`, or `search`. Never leave a password field as `text`.
+- Mark mandatory fields with `Required`.
+- Pass values to the sequence with one `UIControlVariable` per field under the `CallSequenceAction`, sourced from the Form SmartSource of the submitted form.
+- Canonical Form SmartSource contract:
+  - `filter` is `Form`;
+  - `model.data` holds exactly one entry `{"priority":<priority of the UIForm>,"identifier":"<identifier of the UIForm>"}`. `priority` is the `priority` of the `UIForm` node returned by `databaseobject-tree-get`, written as a JSON number. Without it the engine cannot link the SmartSource to its form (its source `form<priority>` is not produced);
+  - `path` carries the value path `?.controls?.['<ControlName>']?.value`;
+  - `prefix`, `suffix`, and `custom` stay empty and `useCustom` stays `false`.
+- Do not write this JSON from memory. Read back a valid Form SmartSource of the same project with `databaseobject-tree-get` (`properties:"all"`), or copy one from Studio, and reproduce its exact shape; change only `priority`, `identifier`, and the `ControlName` in `path`. Its shape, for a form whose `UIForm` priority is `1790757878391` and identifier `loginForm`:
+
+```json
+{
+  "mode": "SOURCE",
+  "value": "{\"filter\":\"Form\",\"project\":\"<ProjectName>\",\"input\":\"\",\"model\":{\"data\":[{\"priority\":1790757878391,\"identifier\":\"loginForm\"}],\"path\":\"?.controls?.['email']?.value\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"
+}
+```
+
+- After applying it, read the `UIControlVariable` back and check that `model.data[0].priority` equals the `UIForm` priority and that `identifier` and `ControlName` match.
+
+- When the form edits existing data, bind each control `Value` to a Local SmartSource of the loaded record (for example `?.draft?.email`) and still read the submitted values from the Form SmartSource.
+- A single search box that is not submitted as a form may keep its `DoubleBinding` on a Local SmartSource, as described in the HTTP search page pattern; it still sits in a `FormItem` with its `Label`.
+
+### Submit chain
+- `SubmitButton` → the form `onSubmit` event → `CallSequenceAction` with the field variables → children for the result (see Execution order inside an event).
+- Do not also put an `onClick` event on the submit button: the form submits once through `onSubmit`.
+
+Bad pattern:
+- a `UIText` or `Label` placed before an `Input` as its label, with no `Label` property on the control
+- controls placed side by side in one `FormItem`, or directly under a card without `FormItem`
+- `LabelPlacement` left at `start` in a vertical form
+- a password `Input` with `Type` `text`
+- values read with `document.querySelector(...)` or copied into locals by `ionChange` instead of the Form SmartSource
+- a Form SmartSource without `priority` in `model.data`, or with a priority that is not the one of its `UIForm`
+
 ## Data mapping with SmartTypes and picker
+
+### Never write SmartSource JSON from memory
+A SmartSource value is a JSON document whose internal keys depend on the filter (`Local`, `Form`, `Action`, `Iteration`, `Global`, ...), such as `priority`, `identifier`, or `localObject` in `model.data`. A hand-written value that misses one of them may still compile and fail to bind, or bind to the wrong object.
+- Always start from an existing valid SmartSource: read one back with `databaseobject-tree-get` (`properties:"all"`) from a node of the same project that already uses that filter, or copy it from Studio.
+- When the project has no SmartSource of that filter yet, use the canonical shape documented in this guide for that filter (Local, Form), apply it once, read it back, and use that readback as the model for the next ones.
+- Reproduce its exact shape and key order, and change only the values that identify your target (priority, identifier, path).
+- Priorities come from the `priority` field of the target node in `databaseobject-tree-get` output and are JSON numbers inside `model.data`.
+- After each apply, read the node back and compare the stored SmartSource with the shape you copied.
 
 ### Binding modes must be intentional
 Frontend variables and action variables can carry:

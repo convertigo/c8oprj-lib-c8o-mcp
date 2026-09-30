@@ -146,6 +146,49 @@ test('secret, injection, transport, session and supply-chain rules fire on minim
   assert.ok(!ids.some(id => id.includes('api.token.secret') || id.endsWith(':P.api') && id.startsWith('SEC-01')));
 });
 
+test('authentication rules flag client-set IdP parameters, weak password hashing and logouts that keep the session', () => {
+  const audit = loadAudit();
+  const variable = (owner, name, scope) => ({ qname: owner + '.' + name, name, owner, scope: scope || 'requestable', valueStatus: 'symbol', logsMasked: true });
+  const model = emptyModel({
+    requestables: [
+      seq('login', 'Hidden', false), seq('adminConfig', 'Hidden', true), seq('helper', 'Private', false),
+      seq('logout', 'Hidden', true), seq('logoutOk', 'Hidden', true), seq('hash', 'Private', false),
+      { qname: 'P.db.create_user', kind: 'transaction', accessibility: 'Private', authenticatedContextRequired: false, calls: [] },
+      { qname: 'P.db.update_user', kind: 'transaction', accessibility: 'Private', authenticatedContextRequired: false, calls: [] }
+    ],
+    variables: [
+      variable('P.login', 'client_id'), variable('P.login', 'code'), variable('P.login', 'emailSubject'),
+      variable('P.adminConfig', 'redirect_uri'), variable('P.helper', 'introspectURL'),
+      variable('P.login.Test_Case', 'client_id', 'testCase'),
+      variable('P.db.create_user', 'passwordhash'), variable('P.db.create_user', 'password_salt'), variable('P.db.update_user', 'password')
+    ],
+    steps: [
+      { qname: 'P.logout.Remove', owner: 'P.logout', kind: 'removeUser' },
+      { qname: 'P.logoutOk.Remove', owner: 'P.logoutOk', kind: 'removeUser' },
+      { qname: 'P.logoutOk.End', owner: 'P.logoutOk', kind: 'endSession' },
+      { qname: 'P.hash.Hash', owner: 'P.hash', kind: 'js', signals: { dynamicCode: false, privileged: [], weakPasswordHash: true, managesPassword: true } },
+      { qname: 'P.login.Bcrypt', owner: 'P.login', kind: 'js', signals: { dynamicCode: false, privileged: [], weakPasswordHash: false, managesPassword: true } }
+    ]
+  });
+  const ids = ruleIds(audit.buildReport(model, { minSeverity: 'info' })).filter(id => /^AUTH-0[3-6]/.test(id));
+  same(ids, [
+    'AUTH-03:critical:P.login.client_id',
+    'AUTH-03:critical:P.login.emailSubject',
+    'AUTH-03:medium:P.adminConfig.redirect_uri',
+    'AUTH-04:medium:P.hash.Hash',
+    'AUTH-05:low:P.logout',
+    'AUTH-06:medium:P.db.create_user',
+    'AUTH-06:medium:P.hash.Hash',
+    'AUTH-06:medium:P.login.Bcrypt'
+  ]);
+  const empty = audit.buildReport(emptyModel(), {});
+  const byId = Object.fromEntries(empty.rules.map(r => [r.ruleId, r]));
+  assert.equal(byId['AUTH-03'].reason, 'No requestable input variable in the project.');
+  assert.equal(byId['AUTH-04'].reason, 'No JavaScript step in the project.');
+  assert.equal(byId['AUTH-05'].reason, 'No logout in the project.');
+  assert.equal(byId['AUTH-06'].reason, 'No JavaScript step or requestable input variable in the project.');
+});
+
 test('per-rule caps bound the deduction and the score is deterministic', () => {
   const audit = loadAudit();
   const many = [];
@@ -179,6 +222,11 @@ test('suppressed findings stay listed but no longer lower the score or cap the g
   assert.equal(after.summary.suppressed, 1);
   assert.equal(after.findings[0].suppressed, true);
   assert.equal(after.findings[0].suppressionReason, 'bearer checked in JS');
+  const mixed = audit.buildReport(emptyModel({
+    requestables: [seq('endpoint', 'Private', false), seq('open', 'Hidden', false)],
+    mappings: [{ qname: 'P.m', path: '/api', method: 'POST', target: 'P.endpoint' }]
+  }), { limit: 1, suppress: [{ ruleId: 'EXP-03', reason: 'accepted' }] });
+  assert.equal(mixed.findings[0].ruleId, 'EXP-02', 'active findings are listed before suppressed ones');
 });
 
 test('minSeverity filters the listed findings but the score counts all of them', () => {
@@ -246,6 +294,16 @@ test('source scanners detect raw SQL, JS signals, symbols and frontend patterns'
   assert.equal(signals.dynamicCode, true);
   same(signals.privileged, ['java.lang.Runtime', 'FileUtils write/delete']);
   assert.equal(audit.scanJsSignals('context.evaluate(x); retrieval(y)').dynamicCode, false);
+  assert.equal(audit.scanJsSignals('var h = DigestUtils.sha1Hex(password + "+" + salt);').weakPasswordHash, true);
+  assert.equal(audit.scanJsSignals('var md = java.security.MessageDigest.getInstance("MD5"); md.update(pwd);').weakPasswordHash, true);
+  assert.equal(audit.scanJsSignals('var h = DigestUtils.sha1Hex(fileContent);').weakPasswordHash, false, 'a checksum is not a password hash');
+  const bcrypt = audit.scanJsSignals('var ok = org.bouncycastle.crypto.generators.OpenBSDBCrypt.checkPassword(hash, password.toCharArray());');
+  assert.equal(bcrypt.managesPassword, true, 'strong hashing in application code is still flagged by AUTH-06');
+  assert.equal(bcrypt.weakPasswordHash, false);
+  assert.equal(audit.scanJsSignals('var md = java.security.MessageDigest.getInstance("SHA-256"); md.update(fileBytes);').managesPassword, false);
+  const logout = audit.scanJsSignals('context.removeAuthenticatedUser(); context.httpSession.invalidate();');
+  assert.equal(logout.removesUser, true);
+  assert.equal(logout.endsSession, true);
   const symbols = {};
   audit.scanSymbols('a: ${db.password=' + SENTINEL + '}\nb: ${db.url}\nc: ${empty=}', 'c8oProject.yaml', symbols);
   assert.equal(symbols['db.password'].inlineDefault, true);

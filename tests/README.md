@@ -247,3 +247,25 @@ the source scanners, and the collector against mocked beans holding a sentinel
 secret that must never appear in the model or the report. They also check the
 router mapping and the NoCode refusal. They do not replace a live call on a
 loaded project.
+
+## Guide index consistency
+
+Run `node --test tests/scripts/validate_resources_index.cjs` after adding or
+renaming a guide, a task route or a prompt. It checks that every indexed file
+exists, that `uri` and `guideId` are unique, that routes and prompt `guideIds`
+resolve, that `unknown` stays the last route, and that the authentication guide
+stays harness-neutral and only recommends tools Vibe allows.
+
+## List pagination
+
+Run `node --test tests/scripts/validate_list_pagination.cjs` after changing an
+`mcp_*_list` sequence. `mcp_endpoint` only forwards the children of `result`, so
+a list cursor must be a `nextCursor` field inside `result` with a JS value; a
+PLAIN value or a sibling `meta` object leaves MCP clients stuck on page 1.
+
+## Claude Code setup paths
+
+Run `node --test tests/scripts/validate_setup_claude_paths.cjs` after changing
+`js/setup_claude.js`. Without `CLAUDE_CONFIG_DIR`, Claude Code reads skills from
+`~/.claude/skills` but its MCP servers from `~/.claude.json`; with it, both live
+in that directory. An explicit `claudeHome` is treated as a `CLAUDE_CONFIG_DIR`.
