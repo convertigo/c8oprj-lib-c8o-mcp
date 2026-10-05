@@ -5,7 +5,7 @@
 
 ## Live Snapshot
 
-- Server version: `0.2.20`
+- Server version: `0.2.21`
 - Tools: `41`
 - Resources: `31`
 - Prompts: `10`

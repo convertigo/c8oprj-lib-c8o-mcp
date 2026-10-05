@@ -75,12 +75,18 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     return base64UrlBytes(signBytes(data, secret));
   }
 
+  // Only the canonical encoding of a signature is accepted (base64url without padding, unused trailing
+  // bits at zero, as RFC 7515 requires): the decoder ignores those bits, so several strings decoded to
+  // the same signature and a token could be altered while staying valid. Every issuer encodes this way.
   function signaturesEqual(actual, expected) {
     try {
-      return MessageDigest.isEqual(
-        Base64.getUrlDecoder().decode(String(actual)),
-        Base64.getUrlDecoder().decode(String(expected))
-      );
+      var text = String(actual);
+      if (!/^[A-Za-z0-9_-]+$/.test(text)) {
+        return false;
+      }
+      var decoded = Base64.getUrlDecoder().decode(text);
+      return base64UrlBytes(decoded) === text &&
+        MessageDigest.isEqual(decoded, Base64.getUrlDecoder().decode(String(expected)));
     } catch (_invalidSignatureEncoding) {
       return false;
     }

@@ -21,7 +21,7 @@ try {
     "C8O.mcpAuth._contractTest = { buildToken: buildToken, rootDirectory: rootDirectory, signingKey: signingKey };})();"
   );
   eval(legacySource);
-  var flowJwt = eval(readSource(flowProjectDir, "libs/flow/lib/jwt.js"));
+  var flowJwt = eval(readSource(flowProjectDir, "_flow/lib/jwt.js"));
   var now = Math.floor(System.currentTimeMillis() / 1000);
   var claims = {
     iss: "lib_ConvertigoMCP",
@@ -51,6 +51,24 @@ try {
   var legacyValidation = C8O.mcpAuth.validate(flowToken, {});
   assertTrue(legacyValidation.authenticated === true,
     "Legacy MCP rejected a token created with the Flow MCP contract");
+  // Both accept only the canonical signature encoding: a tampered character, a non-zero unused trailing
+  // bit (the last character of a 32-byte HMAC carries only 4 meaningful bits) and padding are refused.
+  var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  [legacyToken, flowToken].forEach(function (token) {
+    var signatureStart = token.lastIndexOf(".") + 1;
+    var lastIndex = alphabet.indexOf(token.charAt(token.length - 1));
+    assertTrue(lastIndex % 4 === 0, "An issued signature is not canonical: " + token.substring(signatureStart));
+    [
+      token.substring(0, signatureStart) + (token.charAt(signatureStart) === "a" ? "b" : "a") + token.substring(signatureStart + 1),
+      token.substring(0, token.length - 1) + alphabet.charAt(lastIndex + 1),
+      token + "="
+    ].forEach(function (variant) {
+      [flowJwt.validate(variant), C8O.mcpAuth.validate(variant, {})].forEach(function (result) {
+        assertTrue(result.authenticated === false && result.error.code === "invalid_token_signature",
+          "A tampered or non canonical signature was accepted: " + JSON.stringify(result));
+      });
+    });
+  });
   assertTrue(String(flowJwt._test.rootDirectory().getAbsolutePath()) ===
       String(C8O.mcpAuth._contractTest.rootDirectory().getAbsolutePath()),
     "Legacy and Flow MCP do not use the same JWT registry");
