@@ -492,6 +492,18 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
     return { reloaded: false, message: message };
   }
   try {
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    if (!Engine.isStudioMode()) {
+      // Same engine lifecycle as the web Studio's projects.Reload service.
+      // clearCache releases source/tag drafts before the normal project import.
+      var dbom = Engine.theApp.databaseObjectsManager;
+      Engine.theApp.schemaManager.clearCache(name);
+      dbom.clearCache(name);
+      if (dbom.getProjectByName(name) == null) {
+        throw new Error("Unable to reload project: " + name);
+      }
+      return { reloaded: true, message: "" };
+    }
     var ConvertigoPlugin = C8O.dbo.getReloadStudioPlugin();
     var previousIdentity = C8O.dbo.getCachedProjectIdentity(name);
     ConvertigoPlugin.getDefault().reloadProject(name);

@@ -1,0 +1,32 @@
+accessibility: Private
+comment: |
+  Apply a revision-checked tag command
+  Applies one generic command through the shared Studio tag domain. Read tags-get first and reuse its exact revision and canonical targets. Project tags remain drafts until project-save; workspace-only edits persist locally. Never saves a project implicitly. Membership tagIds are ordered; the last tag has priority for Flow configuration. Preserve unavailable metadata when updating a definition. Destructive commands require explicit confirmation.
+↓Include [steps.SimpleStep-1791187200011]: 
+  expression: include("js/tags.js");
+↓Apply [steps.SimpleStep-1791187200012]: 
+  expression: 'var tagResult = C8O.tags.apply({scope: scope, project: project, revision: revision, action: action, input: input});'
+↓result [steps.JsonToXmlStep-1791187200013]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: tagResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓scope [variables.RequestableVariable-1791187200014]: 
+  comment: 'Required: projectObjects or workspaceProjects.'
+↓project [variables.RequestableVariable-1791187200015]: 
+  comment: Loaded project name; required for projectObjects.
+  value: ''
+↓revision [variables.RequestableVariable-1791187200016]: 
+  comment: Exact revision returned by tags-get or the preceding tags-apply.
+↓action [variables.RequestableVariable-1791187200017]: 
+  comment: Generic tag command; see tags-get and tool schema.
+↓input [variables.RequestableVariable-1791187200018]: 
+  comment: JSON command object; definitions, canonical targets, ordered tagIds or confirmation fields.

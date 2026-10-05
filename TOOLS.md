@@ -1,11 +1,12 @@
 # Convertigo MCP Tools
 
 > Refreshed by `_refreshMaintainerDocs` from the live MCP catalog on `2026-09-30` (`mcp_initialize`, `mcp_tools_list`, `mcp_resources_list`, `mcp_prompts_list`).
+> Version and catalogue counts rechecked with the official HTTP MCP SDK on `2026-10-05`; shared tag tools added below.
 
 ## Live Snapshot
 
-- Server version: `0.2.19`
-- Tools: `39`
+- Server version: `0.2.20`
+- Tools: `41`
 - Resources: `31`
 - Prompts: `10`
 
@@ -77,6 +78,8 @@ For a new CRUD UI project, the current public rail is:
 | `project-security-audit` | `tools_project_security_audit` | Audit the security of a Convertigo project | Statically audits one project (exposure, authentication, secrets, injection, dangerous steps, transport, session, references, NGX frontend and engine settings) and returns sourced findings with a deterministic 0-100 score and an A-F grade. Read-only; secret values are never returned, only their literal/symbol/empty status. |
 | `rag-query` | `tools_rag_query` | Query the Convertigo knowledge base | Fallback helper for features, setup, APIs, and troubleshooting. It is slower than local guides, so prefer documented workflows when you already have them. |
 | `requestable-execute` | `tools_requestable_execute` | Run a sequence or transaction | Executes a requestable and returns its payload. Pass variables as an object or JSON string; enable includeLogs only for debugging, and use recordSchema only on transactions. |
+| `tags-apply` | `tools_tags_apply` | Apply a revision-checked tag command | Uses the shared tag domain for project sequence tags or workspace project tags. Keeps explicit membership order, validates metadata contributions and revisions, and requires confirmation for destructive commands. Project edits stay drafts until project-save. |
+| `tags-get` | `tools_tags_get` | Read project or workspace tags | Returns the revision, canonical targets, ordered memberships and available typed metadata contributions, without an administrator browser session. Requires an engine with the shared tag domain. |
 | `requestable-stub-get` | `tools_requestable_stub_get` | Read a requestable stub | Loads the XML stub file for a sequence or transaction using the same default filename logic as the Convertigo engine. |
 | `requestable-stub-set` | `tools_requestable_stub_set` | Write a requestable stub | Creates or replaces the XML stub file for a sequence or transaction using the same default filename logic as the Convertigo engine. |
 | `upsert-crud` | `tools_upsert_crud` | Create or update deterministic CRUD scaffolding | Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. |

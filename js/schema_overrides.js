@@ -21,6 +21,45 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function tagsInputSchema(mutation) {
+    var schema = {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["projectObjects", "workspaceProjects"], description: "projectObjects edits sequence tags in project; workspaceProjects edits local project organization." },
+        project: { type: "string", description: "Required for projectObjects. Exact loaded project name, never a storage path." }
+      },
+      required: ["scope"],
+      additionalProperties: false,
+      allOf: [{ if: { properties: { scope: { const: "projectObjects" } } }, then: { required: ["project"] } }]
+    };
+    if (!mutation) {
+      schema.properties.referenceProject = { type: "string", description: "Optional workspaceProjects preview of direct and indirect project references." };
+      return schema;
+    }
+    schema.properties.revision = { type: "string", description: "Exact revision from tags-get or the preceding tags-apply. Stale or missing revisions are rejected." };
+    schema.properties.action = { type: "string", enum: ["create", "update", "delete", "assign", "remove", "clear", "transfer", "reorder", "share", "republish", "resolve", "createFromReferences"], description: "One generic tag-domain command." };
+    schema.properties.input = {
+      type: "object",
+      description: "Command object. create/update: definition and id for update. Memberships: canonical targets and ordered tagIds. delete: id, confirmed:true, memberCount. Flow configs: definition.metadata.flow.configs, using names advertised by tags-get. Preserve unavailable metadata when updating.",
+      properties: {
+        id: { type: "string" },
+        definition: { type: "object", additionalProperties: true },
+        targets: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 1000 },
+        tagIds: { type: "array", items: { type: "string" }, description: "Explicit membership order, never alphabetically sorted." },
+        confirmed: { type: "boolean" },
+        memberCount: { type: "integer", minimum: 0 },
+        fromTagId: { type: "string" },
+        shared: { type: "boolean" },
+        fromProject: { type: "string" },
+        alignSources: { type: "boolean" },
+        project: { type: "string", description: "createFromReferences root project." }
+      },
+      additionalProperties: false
+    };
+    schema.required.push("revision", "action", "input");
+    return schema;
+  }
+
   function batchCallInputSchema() {
     return {
       type: "object",
@@ -1819,6 +1858,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     seq = String(seq || "");
 
+    if (seq === "tools_tags_get" || seq === "tools_tags_apply") {
+      return tagsInputSchema(seq === "tools_tags_apply");
+    }
+
     if (seq === "tools_batch_call") {
       return batchCallInputSchema();
     }
@@ -1943,6 +1986,23 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     seq = String(seq || "");
 
+    if (seq === "tools_tags_get" || seq === "tools_tags_apply") {
+      // The identities and metadata namespaces are dynamic map keys. Do not
+      // infer their schema (or the engine error envelope) from XML element names.
+      return openObjectSchema({
+        revision: { type: "string" },
+        tags: openObjectSchema({}),
+        assignments: { type: "object", additionalProperties: stringArraySchema() },
+        targets: stringArraySchema(),
+        contributions: openObjectSchema({}),
+        membershipOrder: { type: "string", enum: ["explicit"] },
+        dirty: { type: "boolean" },
+        readOnly: { type: "boolean" },
+        done: { type: "boolean" },
+        id: { type: "string" },
+        error: openObjectSchema({})
+      });
+    }
     if (seq === "tools_batch_call") {
       return batchCallOutputSchema();
     }

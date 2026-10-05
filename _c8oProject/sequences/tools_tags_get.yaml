@@ -1,0 +1,29 @@
+accessibility: Private
+comment: |
+  Read project or workspace tags
+  Reads project sequence tags or workspace project tags, their revision, ordered memberships and available metadata contributions through the same domain as both Studios. No administrator browser session is needed. project is required for projectObjects; referenceProject optionally previews references for workspaceProjects.
+↓Include [steps.SimpleStep-1791187200001]: 
+  expression: include("js/tags.js");
+↓Read [steps.SimpleStep-1791187200002]: 
+  expression: 'var tagResult = C8O.tags.get({scope: scope, project: project, referenceProject: referenceProject});'
+↓result [steps.JsonToXmlStep-1791187200003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: tagResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓scope [variables.RequestableVariable-1791187200004]: 
+  comment: 'Required: projectObjects (sequence tags) or workspaceProjects (project tags).'
+↓project [variables.RequestableVariable-1791187200005]: 
+  comment: Loaded project name; required for projectObjects.
+  value: ''
+↓referenceProject [variables.RequestableVariable-1791187200006]: 
+  comment: Optional workspaceProjects preview of this project's direct and indirect references.
+  value: ''

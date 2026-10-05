@@ -4,6 +4,23 @@ This folder stores reproducible prompts/scripts for running Codex CLI scenarios 
 
 This entire folder is an internal lab surface for benchmark and observability work. It is not the recommended public MCP onboarding path during the mono-agent CRUD recovery cycle.
 
+## Shared tag domain
+
+Run `node --test tests/scripts/validate_tags.cjs` after editing the tag tools.
+The MCP owns only transport and schemas; the engine's `TagManager` owns policy,
+contributions, canonical targets, explicit membership order, revisions and
+project drafts. `tags-get`/`tags-apply` use the usual MCP bearer, not an
+administrator browser session. Project mutations require explicit
+`project-save`; workspace-only memberships persist locally. These tools are
+not advertised on older engines without the shared domain and remain excluded
+from the NoCode profile/token scope.
+
+The Flow MCP library contains `tests/tags-tools.js` for the real Java domain
+and both adapters, plus `tests/tags-http-contract.mjs` for an official MCP SDK
+round trip on an owned disposable runtime/project (including named Flow
+configurations, rejected mutations and Save/Reload). In-memory tests do not
+replace that HTTP proof.
+
 ## No-code capability isolation
 
 Run `node --test tests/scripts/validate_nocode_tool_policy.cjs` after changes to

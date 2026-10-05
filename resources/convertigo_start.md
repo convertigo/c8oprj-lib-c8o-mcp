@@ -33,6 +33,31 @@ Read this when a managed skill cannot route the task directly, or when the agent
 
 ## Mandatory workflow
 
+### Tags and ordered memberships
+
+On engines with the shared tag domain, `tags-get` and `tags-apply` expose the
+same contract as Eclipse and Studio web, with normal MCP bearer authentication
+and no administrator browser session. Use `scope:"projectObjects"` with an
+exact loaded project name for sequence tags, or `scope:"workspaceProjects"`
+for local project organization. Read the revision, canonical `targets` and
+typed `contributions` first. Each mutation sends that exact `revision`, one
+`action` and an `input` object; stale revisions and invalid metadata are refused.
+
+Definitions use stable ids independent of labels; color belongs in
+`definition.presentation.color`. `assign` appends ordered `tagIds`; `reorder`
+must include all current memberships. Preserve unavailable metadata namespaces
+when updating. Project edits remain drafts until `project-save`, and
+`project-reload` discards unsaved changes; workspace-only edits persist locally.
+`createFromReferences` seeds an editable project tag from the current transitive
+references, rather than dynamically following future reference changes.
+
+Flow metadata is offered only when the project has a Flow engine. Its
+`definition.metadata.flow.configs` is an ordered list of configuration names
+advertised by `tags-get`, not configuration values. The last assigned tag and
+last configuration in that tag win on conflicting root branches. Configuration
+definitions remain in the Flow engine and are edited through its authoring
+tree/palette contract, not by writing a project metadata file manually.
+
 ### Minimal MCP session recipe
 1. Read `convertigo://capabilities` directly to verify guidance freshness.
 2. When a managed skill already names the resource URI or tool, skip `resources/list`, `resources/templates/list`, and `prompts/list`. Discover catalogs only when routing is ambiguous, a named entry is unavailable, or guidance versions disagree.

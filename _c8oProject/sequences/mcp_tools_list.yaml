@@ -5,6 +5,7 @@ comment: Handles MCP tools/list calls
   expression: |
     include("js/databaseobject.js");
     include("js/reporting.js");
+    include("js/tags.js");
 ↓ParseParams [steps.SimpleStep-1762961037030]: 
   comment: Extract limit from paramsJson
   expression: |
@@ -66,6 +67,9 @@ comment: Handles MCP tools/list calls
         try {
           var seqName = seq.getName();
           if (seqName && seqName.startsWith("tools_")) {
+            if (seqName.indexOf("tools_tags_") === 0 && !C8O.tags.available()) {
+              continue;
+            }
             if (mcpAuthKind === "nocode" && seqName.indexOf("tools_nocode_") !== 0) {
               continue;
             }
