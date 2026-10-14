@@ -334,7 +334,7 @@ test('flow names use explicit labels, button labels or humanized ids, including 
 });
 
 test('adjacent page buttons and partial styling trigger review without rewriting the design', () => {
-  const r = api().compile(example());
+  const r = api().compile({ ...example(), styleDefaults: false });
   assert.ok(r.validation.warnings.some(w => w.code === 'ungrouped_adjacent_buttons'));
   assert.ok(r.validation.warnings.some(w => w.code === 'partial_page_styling'));
   assert.equal(r.form.formulaire.filter(f => f.type === 'layout').length, 0);
@@ -810,7 +810,7 @@ test('Baserow relationships resolve actual row ids and never silently drop unres
 });
 
 test('spacing diagnostics cover color-only blocks and nested children without restyling them', () => {
-  const input = example();
+  const input = { ...example(), styleDefaults: false };
   input.pages[0].fields=[{type:'layout',name:'group',boxStyle:{backgroundColor:'#ffffff'},children:[{type:'text',name:'inside',boxStyle:{backgroundColor:'#ffffff'}}]}];
   const r = api().compile(input);
   const field = r.form.formulaire.find(f=>f.name==='inside');
@@ -1288,4 +1288,98 @@ test('review regressions: toast color patches, reset drafts and placeholders of 
   assert.ok(v.warnings.some(w => w.code === 'unknown_reset_target') && v.valid, 'an unfinished native reset stays editable');
   const r = api().compile({ name: 'P', pages: [{ name: 'P', fields: [{ type: 'location', name: 'where', label: 'Where' }, { type: 'file', name: 'doc', label: 'Doc' }] }] });
   assert.ok(r.form.formulaire.every(f => f.config.placeholder === '' || f.config.placeholder === undefined));
+});
+
+// Role spacing, sections and phone density.
+function styled(fields, extra = {}) {
+  return { name: 'Styles', navigationMode: 'custom', pages: [{ name: 'Main', fields }], ...extra };
+}
+test('application components get role spacing instead of a card each, explicit styles win', () => {
+  const r = api().compile(styled([
+    { type: 'description', name: 'intro', description: '<p>Intro</p>' },
+    { type: 'text', name: 'first_name', label: 'First name' },
+    { type: 'grid', name: 'list', sourceEnabled: false, columns: [{ name: 'Name', type: 'text' }] },
+    { type: 'button', name: 'alone', label: 'Alone', flow: 'noop' },
+    { type: 'layout', name: 'pair', cols: [{ size: 6 }, { size: 6 }], children: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] },
+    { type: 'layout', name: 'actions', children: [{ type: 'button', name: 'save', label: 'Save', variant: 'primary', flow: 'noop' }, { type: 'button', name: 'cancel', label: 'Cancel', variant: 'secondary', flow: 'noop' }] },
+    { type: 'text', name: 'custom', label: 'Custom', boxStyle: { margin: '0 0 40px 0' } }
+  ], { flows: [{ id: 'noop', elements: [{ type: 'push_page', targetPage: 'Main' }] }] }));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const field = name => r.form.formulaire.find(f => f.name === name).config;
+  assert.deepEqual([field('intro').boxStyle.margin, field('intro').boxStyle.padding, field('intro').boxStyle.backgroundColor], ['0 0 16px 0', '0', 'transparent']);
+  assert.deepEqual([field('first_name').boxStyle.padding, field('first_name').boxStyle.border], ['0', '0']);
+  assert.deepEqual([field('list').boxStyle.padding, field('list').boxStyle.borderRadius, field('list').boxStyle.backgroundColor], ['16px', '12px', '#FFFFFF']);
+  assert.deepEqual([field('alone').boxStyle.margin, field('alone').boxStyle.backgroundColor], ['8px 0 16px 0', 'transparent']);
+  assert.deepEqual(clone(field('pair').layoutChildrenStyle), { default: { margin: '0 0 12px 0', padding: '0 12px 0 0', border: '0', backgroundColor: 'transparent' }, last: { padding: '0' } });
+  assert.equal(field('a').boxStyle.margin, '', 'children are spaced by their layout');
+  assert.equal(field('actions').layoutChildrenStyle.default.padding, '4px');
+  assert.equal(field('actions').boxStyle.margin, '8px 0 24px 0');
+  assert.equal(field('custom').boxStyle.margin, '0 0 40px 0');
+  assert.ok(!field('custom').boxStyle.padding, 'an explicit style is not completed');
+  for (const code of ['missing_block_spacing', 'partial_page_styling', 'action_wrapper_surface']) {
+    assert.ok(!r.validation.warnings.some(w => w.code === code), code);
+  }
+});
+test('questionnaires and opted-out forms keep the viewer cards', () => {
+  const questionnaire = api().compile({ name: 'Survey', pages: [{ name: 'Q', fields: [{ type: 'text', name: 'q1', label: 'Q1' }] }] });
+  assert.equal(questionnaire.form.formulaire[0].config.boxStyle.padding, '');
+  const optedOut = api().compile(styled([{ type: 'text', name: 'q1', label: 'Q1' }], { styleDefaults: false }));
+  assert.equal(optedOut.form.formulaire[0].config.boxStyle.padding, '');
+});
+test('sections compile to a titled card with fields in columns', () => {
+  const r = api().compile(styled([
+    { type: 'section', name: 'identity', title: 'Identité & contact', subtitle: 'Qui est-ce ?', columns: 2, fields: [
+      { type: 'text', name: 'first', label: 'Prénom' },
+      { type: 'text', name: 'last', label: 'Nom' },
+      { type: 'text', name: 'email', label: 'Email' },
+      { type: 'text', name: 'notes', label: 'Notes', fullWidth: true },
+      { type: 'text', name: 'phone', label: 'Téléphone' }
+    ] },
+    { type: 'section', name: 'single', columns: 1, fields: [{ type: 'text', name: 'alone', label: 'Alone' }] }
+  ]));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const byName = name => r.form.formulaire.find(f => f.name === name);
+  const section = byName('identity');
+  assert.equal(section.type, 'layout');
+  assert.deepEqual([section.config.boxStyle.border, section.config.boxStyle.borderRadius, section.config.boxStyle.backgroundColor], ['1px solid #E2E8F0', '12px', '#FFFFFF']);
+  assert.deepEqual(clone(section.childrenRefs.map(id => r.form.formulaire.find(f => f.id === id).name)), ['identity_title', 'identity_row1', 'notes', 'identity_row2']);
+  assert.match(byName('identity_title').config.html, /<h3[^>]*>Identité &amp; contact<\/h3>/);
+  const row = byName('identity_row1');
+  assert.deepEqual(clone(row.childrenRefs.map(id => r.form.formulaire.find(f => f.id === id).name)), ['first', 'last', 'email']);
+  assert.deepEqual(clone(row.config.cols.map(c => c.size)), [6, 6, 0, 0, 0, 0]);
+  assert.deepEqual(clone(row.config.phoneP.map(c => c.size)), [12, 0, 0, 0, 0, 0]);
+  assert.equal(row.config.layoutChildrenStyle.default.padding, '0 12px 0 0');
+  assert.equal(byName('notes').parentRef, section.id);
+  assert.equal(byName('alone').parentRef, byName('single').id, 'one column: no row');
+  assert.ok(!r.validation.warnings.some(w => w.code === 'missing_block_spacing'));
+  const questionnaire = api().compile({ name: 'Survey', pages: [{ name: 'Q', fields: [{ type: 'section', name: 's', title: 'S', fields: [{ type: 'text', name: 'q', label: 'Q' }] }] }] });
+  assert.equal(questionnaire.form.formulaire[0].config.boxStyle.borderRadius, '12px', 'a section is styled in any form');
+  assert.throws(() => api().compile(styled([{ type: 'section', name: 's', columns: 5, fields: [] }])), /columns must be/);
+  assert.throws(() => api().compile(styled([{ type: 'section', fields: [] }])), /needs a technical name/);
+});
+test('new forms are denser on phones', () => {
+  const r = api().compile(styled([{ type: 'text', name: 'a', label: 'A' }]));
+  assert.deepEqual(['desktop', 'tablet', 'phoneL', 'phoneP'].map(device => r.form.config[device].padding.value), ['24', '20', '12', '12']);
+  const custom = api().compile(styled([{ type: 'text', name: 'a', label: 'A' }], { config: { desktop: { padding: { unit: 'px', value: '32' } } } }));
+  assert.equal(custom.form.config.desktop.padding.value, '32');
+});
+test('add_field gives role spacing on application pages and a section in edits', () => {
+  const h = creationHarness();
+  const created = h.client.create(example(), h.auth);
+  const edited = h.client.edit(created.form._id, [
+    { action: 'add_field', pageName: 'Home', fieldObject: { type: 'text', name: 'search', label: 'Search' } },
+    { action: 'add_field', pageName: 'Home', fieldObject: { type: 'section', name: 'filters', title: 'Filtres', fields: [{ type: 'text', name: 'f1', label: 'F1' }, { type: 'text', name: 'f2', label: 'F2' }] } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  const byName = name => edited.form.formulaire.find(f => f.name === name);
+  assert.equal(byName('search').config.boxStyle.padding, '0');
+  assert.equal(byName('filters').config.boxStyle.borderRadius, '12px');
+  assert.equal(byName('f2').parentRef, byName('filters_row1').id);
+});
+test('contract section and page examples compile with role spacing', () => {
+  const contract = api().contract().authoringContract;
+  const r = api().compile({ name: 'Examples', navigationMode: 'custom', pages: [contract.generationQuality.pageHeader.example, { name: 'More', fields: [contract.componentAuthoring.section.example] }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  assert.ok(r.form.formulaire.some(f => f.name === 'contact_identity' && f.type === 'layout'));
+  assert.ok(contract.generationQuality.styles.roleDefaults.values.section.boxStyle.borderRadius);
 });

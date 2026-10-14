@@ -859,7 +859,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         subTag: { oneOf: ["string", "string[]"], optional: true },
         appLike: { type: "boolean", optional: true, description: "When true, pages default to persisted tab navigation." },
         navigationMode: { type: "string", enum: ["tabs", "buttons", "custom"], default: "Legacy fallback: tabs for multi-page forms, buttons for single-page forms. Explicitly choose custom for an application with home/action buttons." },
-        config: { type: "object", optional: true, description: "Advanced root responsive sizing. Omit unless needed." },
+        config: { type: "object", optional: true, description: "Advanced root responsive sizing (horizontalMargin, width, font-size, padding per device). Omit unless needed: new forms get a page padding of 24px desktop, 20px tablet, 12px phones." },
+        styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See generationQuality.styles.roleDefaults." },
         pages: { type: "array", required: true },
         flows: { type: "array", optional: true, description: "Only include when a button, automation, formula, or submit behavior needs it." }
       },
@@ -901,6 +902,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             standaloneButton: { boxStyle: { margin: "8px 0 16px 0", padding: "0", border: "0", backgroundColor: "transparent" } },
             buttonInsideGroup: { boxStyle: { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }
           },
+          roleDefaults: {
+            rule: "In an application (navigationMode custom or tabs) the compiler gives every new component without a style of its own the spacing of its role; a linear questionnaire keeps the viewer card around each question. Author styles only to depart from these defaults; an explicit style object replaces the default of that scope.",
+            roles: { field: "top-level input: flat, 16px below", text: "top-level description: flat, 16px below", dataView: "top-level grid/chart/map/gallery: white card, 16px padding", button: "top-level button: transparent wrapper", actions: "layout of buttons: transparent, children 4px apart", row: "layout of fields: flat, 12px gutters between columns and rows", section: "section: white card with a title, see componentAuthoring.section" },
+            values: ROLE_STYLES,
+            optOut: "Root styleDefaults:false, or add_field with styleDefaults:false, keeps the viewer cards."
+          },
+          mobile: "New forms have a page padding of 24px on desktop, 20px on tablets and 12px on phones (root config.<device>.padding). Box styles are the same on every device: prefer the 8/12/16/24px values of the role defaults to larger ones, and columns that collapse to one on phones.",
           nesting: "One surface per logical group. Use boxStyle for outer margin/padding, questionBoxStyle only for the header and componentBoxStyle only for the inner control. Child boxStyle can override layoutChildrenStyle: do not double-pad or combine conflicting shorthand and per-side values. Preserve native input affordances.",
           review: "Review all visible blocks, including inputs, grids and action groups, not only the welcome card. Use a consistent spacing scale (for example 8/16/24px), verify mobile overflow and desktop density. Empty spacing alone is not an error.",
           actionGroups: "Put related buttons in a native layout: two columns on desktop/tablet, one on phones. Keep group spacing on the layout and avoid a separate full-width card per button. Do not group unrelated actions automatically.",
@@ -916,7 +924,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         pageHeader: {
           rule: "Every page of an application needs its own header: a page title, an optional one-line subtitle and, on task and detail pages, a back action. The viewer otherwise shows the form name in a large title card on every page with isNameDisplayed not false.",
           reduced: "page.header: { title, subtitle } adds a description block at the top of the page (h2 title, muted subtitle, no card). With navigationMode custom, pages default to isNameDisplayed=false; set it true on the home page only if the application name should appear there.",
-          example: { name: "Contact", header: { title: "Fiche contact", subtitle: "Les informations du contact sélectionné." }, fields: [] },
+          example: { name: "Contact", header: { title: "Fiche contact", subtitle: "Les informations du contact sélectionné." }, fields: [{ type: "section", name: "contact_main", title: "Identité", fields: [{ type: "text", name: "contact_first_name", label: "Prénom" }, { type: "text", name: "contact_last_name", label: "Nom" }] }] },
           back: "Put the back action in the page action bar as a ghost or secondary button whose flow is push_page to the list page (or __c8o_back)."
         },
         actionBar: {
@@ -926,7 +934,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           example: { type: "layout", name: "contact_actions", cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneP: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneL: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], boxStyle: { margin: "16px 0 24px 0", padding: "0", border: "0", backgroundColor: "transparent" }, layoutChildrenStyle: { default: { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }, children: [{ type: "button", name: "save_contact", label: "Enregistrer", icon: "save", variant: "primary", expand: "block", flow: "save_contact" }, { type: "button", name: "cancel_contact", label: "Annuler", icon: "close", variant: "secondary", expand: "block", flow: "cancel_contact" }] }
         },
         listDetail: {
-          rule: "A list page shows a source-backed grid of a few short columns (name, status, date, amount) and the actions that apply to the selected row; a detail page shows the selected record in fields grouped in sections, with save/cancel in its action bar.",
+          rule: "A list page shows a source-backed grid of a few short columns (name, status, date, amount) and the actions that apply to the selected row; a detail page shows the selected record in fields grouped in sections (type section), with save/cancel in its action bar.",
           selection: "Detail fields read the list grid selection through defaultFrom source field, mode reactive (path [column, 'value']). Write expressions with a fallback (value ?? '') : the viewer keeps the previous value when the expression gives null or undefined, so a cleared selection would leave stale text.",
           guard: "Disable the row actions until a row is selected with disabledIf: { field: '<grid>', operator: 'is_empty' }, instead of a mandatory guard field.",
           runtime: "Clicking the selected row again deselects it. Coming back to the list keeps the selection when the row content is unchanged; after a save refreshes the grid, a modified row is no longer selected. Do not promise that the edited record stays selected."
@@ -956,8 +964,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         },
         incrementalCreation: {
           rule: "Tool arguments are generated token by token by the model; a reduced JSON above roughly 4 KB is likely to arrive with a structural typo and be refused. Build large applications in steps, each with a short argument, and pass reduced as a JSON object, not as a string.",
-          step1: "nocode-form-create with the skeleton only: name, descform, navigationMode, pages with iconName and their fields (type, name, label, mandatory, choices, Baserow sources/actions with columns), button fields with their flow ids and the push_page/submit flows. No boxStyle/questionBoxStyle/componentBoxStyle/layoutChildrenStyle, no toast text polish. Design warnings (missing_block_spacing, action_wrapper_surface, partial_page_styling, ungrouped_adjacent_buttons) are expected at this step.",
-          step2: "One nocode-form-edit per page: update_field patches with the style recipes (config.boxStyle etc.), add_flow_element for toasts/refresh, update_page for icons/flags. Keep each call to one page so a refused call costs one page, not the application.",
+          step1: "nocode-form-create with the skeleton: name, descform, navigationMode, pages with header and iconName, their fields grouped in sections and action layouts (type, name, label, mandatory, choices, Baserow sources/actions with columns), button fields with their variant and flow ids and the push_page/submit flows. No style objects: the role defaults space an application. Remaining design warnings (ungrouped_adjacent_buttons) are expected at this step.",
+          step2: "One nocode-form-edit per page for what the skeleton left: add_flow_element for toasts/refresh, update_field for a deliberate style change, update_page for icons/flags. Keep each call to one page so a refused call costs one page, not the application.",
           step3: "nocode-form-get, then nocode-form-validate: all design warnings of step 1 must be resolved before delivery.",
           onInvalidJson: "A 'reduced is not valid JSON' error names the position and shows the surrounding text: fix the JSON at that position and resend the same call. The whole argument was received; it is never a transport truncation."
         },
@@ -1046,6 +1054,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           colsExample: [{ size: 3 }, { size: 3 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }],
           actionGroupExample: { type: "layout", name: "request_actions", cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], tablet: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneL: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneP: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], boxStyle: { margin: "0 0 16px 0", padding: "0" }, children: [{ type: "button", name: "open_requests", label: "My requests", flow: "open_requests" }, { type: "button", name: "return_home", label: "Home", flow: "return_home" }] }
         },
+        section: {
+          fields: ["name", "title", "subtitle", "columns", "fields", "visibleIf", "boxStyle", "layoutChildrenStyle"],
+          description: "A group of fields in one white card with an h3 title: compiled to a layout (one column) holding the title, rows of fields in columns (columns 1 to 4, default 2; at most 2 on tablets, 1 on phones) and, on a line of their own, the fields with fullWidth:true and nested layouts. Use one section per logical group of a detail or entry page (Identité, Coordonnées, Contrat) instead of loose rows.",
+          example: { type: "section", name: "contact_identity", title: "Identité", subtitle: "Le contact et son entreprise", columns: 2, fields: [{ type: "text", name: "first_name", label: "Prénom" }, { type: "text", name: "last_name", label: "Nom", mandatory: true }, { type: "select", name: "company", label: "Entreprise", values: ["A", "B"] }, { type: "text", name: "notes", label: "Notes", fullWidth: true }] }
+        },
         description: { fields: ["name", "description"], note: "Use HTML for headings, dashboards, explanatory bands, and visual grouping." },
         text: { fields: ["name", "description", "placeholder", "mandatory", "short", "config"] },
         datetime: { fields: ["name", "description", "placeholder", "mandatory", "config"], configHints: ["display_format", "picker_format", "min_datetime", "max_datetime"] },
@@ -1105,6 +1118,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "add_page", required: ["name"], optional: ["index", "navigationMode", "iconName"], example: { action: "add_page", name: "Details", index: 1, navigationMode: "tabs" } },
           { action: "update_page", requiredOneOf: ["pageTechName", "pageName"], required: ["patch"], example: { action: "update_page", pageName: "Details", patch: { iconName: "people", enabledTab: true } } },
           { action: "add_field", aliases: ["add_component", "add_element"], requiredOneOf: ["pageTechName", "pageName"], required: ["fieldObject"], example: { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } } },
+          { action: "add_field", note: "On an application page a new top-level component gets the role spacing (styleDefaults:false keeps the viewer card); a section can be added the same way.", example: { action: "add_field", pageName: "Details", fieldObject: { type: "section", name: "contract", title: "Contrat", fields: [{ type: "text", name: "amount", label: "Montant" }, { type: "datetime", name: "signed_on", label: "Signé le" }] } } },
           { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion.", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
           { action: "update_field", requiredOneOf: ["fieldId", "fieldName"], required: ["patch"], example: { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false, label: "Child" } } } },
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
@@ -1287,6 +1301,121 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  // Spacing the compiler gives the new components of an application by role,
+  // instead of the viewer's default white card (padding 20px 27px) around each.
+  var FLAT_BLOCK = { margin: "0 0 16px 0", padding: "0", border: "0", backgroundColor: "transparent" };
+  var ROLE_STYLES = {
+    field: { boxStyle: FLAT_BLOCK },
+    text: { boxStyle: FLAT_BLOCK },
+    dataView: { boxStyle: { margin: "0 0 24px 0", padding: "16px", border: "1px solid " + DESIGN_TOKENS.border, borderRadius: "12px", backgroundColor: DESIGN_TOKENS.surface } },
+    button: { boxStyle: { margin: "8px 0 16px 0", padding: "0", border: "0", backgroundColor: "transparent" } },
+    actions: {
+      boxStyle: { margin: "8px 0 24px 0", padding: "0", border: "0", backgroundColor: "transparent" },
+      layoutChildrenStyle: { "default": { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }
+    },
+    row: {
+      boxStyle: FLAT_BLOCK,
+      // A gutter on the right of every column but the last one of its row.
+      layoutChildrenStyle: { "default": { margin: "0 0 12px 0", padding: "0 12px 0 0", border: "0", backgroundColor: "transparent" }, last: { padding: "0" } }
+    },
+    section: {
+      // The children keep a 12px bottom margin, hence the smaller bottom padding.
+      boxStyle: { margin: "0 0 24px 0", padding: "16px 16px 4px 16px", border: "1px solid " + DESIGN_TOKENS.border, borderRadius: "12px", backgroundColor: DESIGN_TOKENS.surface },
+      layoutChildrenStyle: { "default": { margin: "0 0 12px 0", padding: "0", border: "0", backgroundColor: "transparent" } }
+    }
+  };
+  var DATA_VIEW_TYPES = ["grid", "chart", "map", "gallery"];
+  var NO_ROLE_TYPES = ["ion-card", "card"];
+
+  function hasStyleValues(style) {
+    return !!style && typeof style === "object" && !Array.isArray(style) && Object.keys(style).some(function (key) {
+      var value = style[key];
+      return value != null && (typeof value === "object" ? hasStyleValues(value) : trimmed(value).length > 0);
+    });
+  }
+
+  function explicitStyle(field, key) {
+    return hasStyleValues(field[key]) || hasStyleValues(field.config && field.config[key]);
+  }
+
+  function styleRole(type, field, parentId) {
+    if (field.__role) { return field.__role; }
+    if (type === "layout") {
+      var children = ensureArray(field.children || field.fields);
+      return children.length && children.every(function (child) { return child && normalizeType(child.type) === "button"; }) ? "actions" : "row";
+    }
+    if (parentId != null || NO_ROLE_TYPES.indexOf(type) >= 0) { return null; }
+    if (type === "description") { return "text"; }
+    if (type === "button") { return "button"; }
+    return DATA_VIEW_TYPES.indexOf(type) >= 0 ? "dataView" : "field";
+  }
+
+  // Fills only the empty values: prototype placeholders ("") and the button
+  // wrapper defaults stay, a style the author wrote is never touched.
+  function applyRoleStyles(target, field, parentId) {
+    var role = ROLE_STYLES[styleRole(target.type, field, parentId)];
+    if (!role) { return; }
+    var config = target.config;
+    if (role.boxStyle && parentId == null && !explicitStyle(field, "boxStyle")) {
+      config.boxStyle = config.boxStyle && typeof config.boxStyle === "object" ? config.boxStyle : {};
+      Object.keys(role.boxStyle).forEach(function (key) { if (!trimmed(config.boxStyle[key]).length) { config.boxStyle[key] = role.boxStyle[key]; } });
+    }
+    if (role.layoutChildrenStyle && !explicitStyle(field, "layoutChildrenStyle")) {
+      config.layoutChildrenStyle = clone(role.layoutChildrenStyle, {});
+    }
+  }
+
+  function layoutSizes(columns) {
+    var sizes = [];
+    for (var i = 0; i < 6; i++) { sizes.push({ size: i < columns ? Math.floor(12 / columns) : 0 }); }
+    return sizes;
+  }
+
+  // section: a card with an optional h3 title; its fields in columns (one on
+  // phones), a fullWidth field or a nested layout on a line of its own.
+  function sectionToLayout(section) {
+    var name = trimmed(section.name);
+    if (!name.length) { throw new Error("A section needs a technical name"); }
+    var columns = section.columns == null ? 2 : Number(section.columns);
+    if ([1, 2, 3, 4].indexOf(columns) < 0) { throw new Error("section.columns must be 1, 2, 3 or 4"); }
+    var layout = {};
+    ["id", "visibleIf", "conditions", "componentDisabled", "boxStyle", "layoutChildrenStyle", "config"].forEach(function (key) { if (hasOwn(section, key)) { layout[key] = section[key]; } });
+    layout.type = "layout";
+    layout.name = name;
+    layout.__role = "section";
+    layout.cols = layoutSizes(1);
+    layout.tablet = layoutSizes(1);
+    layout.phoneL = layoutSizes(1);
+    layout.phoneP = layoutSizes(1);
+    var children = [];
+    if (trimmed(section.title).length) {
+      var html = "<h3 style=\"margin:0;font-size:1.125rem;line-height:1.4;color:" + DESIGN_TOKENS.text + "\">" + escapeHtml(trimmed(section.title)) + "</h3>";
+      if (trimmed(section.subtitle).length) {
+        html += "<p style=\"margin:2px 0 0 0;color:" + DESIGN_TOKENS.muted + "\">" + escapeHtml(trimmed(section.subtitle)) + "</p>";
+      }
+      children.push({ type: "description", name: name + "_title", description: html });
+    }
+    var row = null;
+    var rowCount = 0;
+    ensureArray(section.fields || section.children).forEach(function (child) {
+      if (!child || typeof child !== "object") { return; }
+      var childType = normalizeType(child.type);
+      if (columns === 1 || boolLike(child.fullWidth) || childType === "layout" || childType === "section") {
+        row = null;
+        children.push(child);
+        return;
+      }
+      if (!row) {
+        rowCount++;
+        row = { type: "layout", name: name + "_row" + rowCount, __role: "row", cols: layoutSizes(columns), tablet: layoutSizes(Math.min(columns, 2)), phoneL: layoutSizes(1), phoneP: layoutSizes(1), children: [] };
+        children.push(row);
+      }
+      row.children.push(child);
+    });
+    layout.children = children;
+    return layout;
+  }
+
   // page.header: { title, subtitle } becomes the first block of the page: a
   // page title distinct from the form name, without a card around it.
   function pageHeaderField(page) {
@@ -1450,10 +1579,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function defaultRootConfig() {
     return {
-      desktop: { horizontalMargin: { unit: "px", value: "100" }, width: { unit: "px", value: "1280" }, "font-size": { unit: "px", value: "16" } },
-      tablet: { horizontalMargin: { unit: "px", value: "60" }, width: { unit: "px", value: "940" }, "font-size": { unit: "px", value: "16" } },
-      phoneL: { horizontalMargin: { unit: "px", value: "10" }, width: { unit: "%", value: "100" }, "font-size": { unit: "px", value: "16" } },
-      phoneP: { horizontalMargin: { unit: "px", value: "10" }, width: { unit: "%", value: "100" }, "font-size": { unit: "px", value: "16" } }
+      // padding: inner margin of the page content, denser on phones (the viewer uses 24px without it).
+      desktop: { horizontalMargin: { unit: "px", value: "100" }, width: { unit: "px", value: "1280" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "24" } },
+      tablet: { horizontalMargin: { unit: "px", value: "60" }, width: { unit: "px", value: "940" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "20" } },
+      phoneL: { horizontalMargin: { unit: "px", value: "10" }, width: { unit: "%", value: "100" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "12" } },
+      phoneP: { horizontalMargin: { unit: "px", value: "10" }, width: { unit: "%", value: "100" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "12" } }
     };
   }
 
@@ -1877,9 +2007,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return paths;
   }
 
-  function compileField(field, pageTechName, catalogByType, formulaire, parentId) {
+  // options.roleStyles: the spacing of an application (custom or tab
+  // navigation) is given to new components that carry no style of their own.
+  function compileField(field, pageTechName, catalogByType, formulaire, parentId, options) {
     if (!field || typeof field !== "object") {
       return null;
+    }
+    var opts = options || {};
+    if (normalizeType(field.type) === "section") {
+      field = sectionToLayout(field);
     }
     var type = normalizeType(field.type);
     var proto = catalogByType[type];
@@ -1904,6 +2040,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (!trimmed(out.config.boxStyle.backgroundColor)) { out.config.boxStyle.backgroundColor = "transparent"; }
       if (!trimmed(out.config.boxStyle.border)) { out.config.boxStyle.border = "0"; }
     }
+    if (opts.roleStyles === true || field.__role === "section" || field.__role === "row") {
+      // A section and its rows are always styled: that is what they are for.
+      applyRoleStyles(out, field, parentId);
+    }
     if (type === "button" && !trimmed(field.flow).length) {
       out.flow = "flow_" + out.id;
     }
@@ -1915,7 +2055,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var children = ensureArray(field.children || field.fields);
       formulaire.push(out);
       for (var i = 0; i < children.length; i++) {
-        var child = compileField(children[i], pageTechName, catalogByType, formulaire, out.id);
+        var child = compileField(children[i], pageTechName, catalogByType, formulaire, out.id, opts);
         if (child) {
           out.childrenRefs.push(child.id);
         }
@@ -2095,6 +2235,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       pages = [{ name: "Page 1", fields: ensureArray(input.fields) }];
     }
     var useTabMode = tabModeFor(input, pages.length);
+    // Applications (custom or tab navigation) get role spacing; a linear
+    // questionnaire keeps the card around each question.
+    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode) };
     for (var p = 0; p < pages.length; p++) {
       var page = pageDefaults(pages[p], p, useTabMode);
       if (input.navigationMode === "custom") {
@@ -2109,7 +2252,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var header = pageHeaderField(pages[p]);
       if (header) { fields = [header].concat(fields); }
       for (var f = 0; f < fields.length; f++) {
-        compileField(fields[f], page.pageTechName, byType, doc.formulaire, null);
+        compileField(fields[f], page.pageTechName, byType, doc.formulaire, null, fieldOptions);
       }
     }
     var flows = ensureArray(input.flows);
@@ -3274,7 +3417,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var addedHeader = pageHeaderField(pageInput);
       if (addedHeader) {
         var headerIndex = form.formulaire.length;
-        compileField(addedHeader, page.pageTechName, catalogByType, form.formulaire, null);
+        compileField(addedHeader, page.pageTechName, catalogByType, form.formulaire, null, { roleStyles: true });
         var nextPage = form.pages[pageIndex + 1];
         var insertAt = nextPage ? form.formulaire.slice(0, headerIndex).map(function (item) { return item && item.config && item.config.page; }).indexOf(nextPage.pageTechName) : -1;
         if (insertAt >= 0) { form.formulaire.splice(insertAt, 0, form.formulaire.pop()); }
@@ -3336,7 +3479,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var pageTech = pageTechNameForOperation(form, op, null);
       var beforeLength = form.formulaire.length;
       var parentId = trimmed(op.parentId || op.parent || op.parentFieldId);
-      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentId.length ? parentId : null);
+      var targetPage = ensureArray(form.pages).filter(function (candidate) { return candidate && candidate.pageTechName === pageTech; })[0];
+      // Same spacing as at creation on an application page (tab or custom navigation).
+      var applicationPage = !!targetPage && (boolLike(targetPage.enabledTab) || !boolLike(targetPage.enabledButtons));
+      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentId.length ? parentId : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage });
       if (parentId.length) {
         var parentField = findField(form, { id: parentId }).item;
         parentField.childrenRefs = ensureArray(parentField.childrenRefs);
