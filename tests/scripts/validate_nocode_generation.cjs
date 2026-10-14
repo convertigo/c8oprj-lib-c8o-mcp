@@ -1427,8 +1427,8 @@ test('viewer title choice, grid second click and documented button and header li
   assert.equal(api().compile(styled([])).form.config.titleDisplay, undefined, 'the viewer default is kept');
   assert.throws(() => api().compile(styled([], { titleDisplay: 'both' })), /titleDisplay must be/);
   const quality = api().contract().authoringContract.generationQuality;
-  assert.ok(quality.actionBar.example.children.every(button => button.expand === undefined), 'no full-width promise');
-  assert.match(quality.actionBar.width, /does not stretch/);
+  assert.match(quality.actionBar.width, /expand block or full makes it fill the width of its column in recent viewers/);
+  assert.doesNotMatch(JSON.stringify(api().contract().authoringContract), /not rendered as a full-width|does not stretch/);
   assert.match(quality.dataViews.headers, /user's language/);
 });
 test('box styles: only the keys the viewer renders, nested parts of layoutChildrenStyle', () => {
