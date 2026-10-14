@@ -1485,3 +1485,27 @@ test('component visuals: grid toolbar style, image and map sizes, container text
   assert.match(contract.componentAuthoring.grid.visual, /gridCellPadding/);
   assert.ok(contract.styleObjectFields.borderWidth.legacy);
 });
+test('Baserow filter sub-groups: documented and kept by compile and edit', () => {
+  const filter = api().contract().authoringContract.baserowSources.filter;
+  assert.match(filter.groups.shape, /recursive/);
+  assert.match(filter.groups.depth, /4 levels/);
+  assert.match(filter.groups.variables, /forms_tableFilter.*forms_Filter/);
+  assert.equal(filter.groups.example.filter.groups[0].condVisible, 'or');
+  assert.equal(filter.uiAuthoredShape.groups.length, 0);
+  const grouped = clone(filter.groups.example.filter);
+  grouped.groups[0].groups = [{ type: 'filter', condVisible: 'and', conds: [{ val1: { name: 'Status', displayName: 'Status' }, val2: { type: 'text', str: 'open', html: false, arr: [] }, operator: 'equal' }], groups: [] }];
+  const input = connectedExample();
+  input.pages[1].fields[0].sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableFilter = clone(grouped);
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const kept = r.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableFilter;
+  assert.equal(JSON.stringify(kept.groups), JSON.stringify(grouped.groups), 'compile keeps the sub-groups at every level');
+  const h = creationHarness();
+  const start = h.client.create(connectedWithoutIdentities(), h.auth);
+  const grid = start.form.formulaire.find(f => f.type === 'grid');
+  const sources = clone(grid.sources);
+  sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableFilter = clone(grouped);
+  const edited = h.client.edit(start.form._id, [{ action: 'update_field', fieldName: grid.name, patch: { sources } }], h.auth);
+  const saved = edited.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableFilter;
+  assert.equal(JSON.stringify(saved.groups), JSON.stringify(grouped.groups), 'nocode-form-edit keeps them');
+});

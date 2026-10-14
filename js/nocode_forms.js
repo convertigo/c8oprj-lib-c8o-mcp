@@ -589,16 +589,41 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             }
           ],
           condVisible: "and",
+          groups: [],
           type: "filter"
+        },
+        groups: {
+          shape: "groups: [{ type: \"filter\", condVisible: \"and\"|\"or\", conds: [...], groups: [...] }], recursive: a sub-group combines its conditions and its own sub-groups with its condVisible, and takes part in its parent as one condition.",
+          depth: "Up to 4 levels below the top-level group; deeper sub-groups are not sent. A sub-group without any complete condition is left out.",
+          variables: "The same shape in forms_tableFilter (tableData) and forms_Filter (selectData). Older viewers send two levels of sub-groups only.",
+          example: {
+            description: "(First name contains X OR Last name contains X) AND Rank >= 3",
+            filter: {
+              str: "",
+              html: false,
+              type: "filter",
+              condVisible: "and",
+              conds: [{ val1: { name: "Rank", displayName: "Rank" }, val2: { type: "text", str: "3", html: false, arr: [] }, operator: "higher_than_or_equal" }],
+              groups: [{
+                type: "filter",
+                condVisible: "or",
+                conds: [
+                  { val1: { name: "First name", displayName: "First name" }, val2: { type: "text", str: "X", html: false, arr: [] }, operator: "contains" },
+                  { val1: { name: "Last name", displayName: "Last name" }, val2: { type: "text", str: "X", html: false, arr: [] }, operator: "contains" }
+                ],
+                groups: []
+              }]
+            }
+          }
         },
         groupOperators: ["and", "or"],
         operators: filterOperators,
         notes: [
           "Use Baserow column names in val1.name.",
-          "Use condVisible with and/or for the top-level filter group operator.",
+          "Use condVisible with and/or for the top-level filter group operator; mix AND and OR with groups (sub-groups), never by chaining conditions.",
           "For equal with an empty value, lib_BaseRow sends __empty to avoid returning every row.",
           "SelectData also supports forms_filter as a simple search string; it is separate from forms_Filter.",
-          "For source objects copied from C8Oforms, keep the conds/condVisible/type metadata.",
+          "For source objects copied from C8Oforms, keep the conds/condVisible/groups/type metadata.",
           "When val2.str references another form variable, preserve the $$START...END...$$ SmartSource envelope exactly."
         ]
       },
