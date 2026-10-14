@@ -484,7 +484,7 @@ test('transparent standalone button wrappers preserve the actual button fill', (
 test('nested flow relationships and else branches survive compilation', () => {
   const input = example();
   input.flows[2].elements = [
-    { type: 'if_else', id: 1900000000201, childrenRefs: [1900000000202], childrenRefsElse: [1900000000203] },
+    { type: 'if_else', id: 1900000000201, condition: { field: 'requests', operator: 'is_filled' }, childrenRefs: [1900000000202], childrenRefsElse: [1900000000203] },
     { type: 'toast', id: 1900000000202, parentRef: 1900000000201, message: 'Then' },
     { type: 'toast', id: 1900000000203, parentRef: 1900000000201, message: 'Else' }
   ];
@@ -979,4 +979,313 @@ test('schema exposes the single-operation finalization recovery', () => {
   assert.equal(result.saved, false);
   assert.equal(h.state.saves, 0);
   assert.equal(h.state.calls.length, 0);
+});
+
+// Readable UI: toasts, buttons, page headers, placeholders, conditions, if_else, reset_fields.
+function viewerToastTextColor(hex) {
+  // Same formula as the viewer (viewerPage getContrastColor).
+  const h = hex.replace('#', '');
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(h.substring(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 ? '#000000' : '#FFFFFF';
+}
+function wcagContrast(a, b) {
+  const lum = hex => {
+    const c = [0, 2, 4].map(i => parseInt(hex.replace('#', '').substring(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+function toastFlow(...toasts) {
+  const input = example();
+  input.flows[2].elements = toasts.map((toast, index) => ({ type: 'toast', message: 'Message ' + index, ...toast }));
+  return input;
+}
+test('toast colors compile to hex values the viewer renders readably', () => {
+  const r = api().compile(toastFlow({ color: 'success' }, { color: 'danger' }, { color: 'warning' }, { color: 'info' }, {}, { color: '#0a0' }, { color: '1E293B' }));
+  assert.equal(r.status, 'ok');
+  const colors = clone(r.form.flows.find(f => f.id === 'example').elements.map(e => e.config.color));
+  assert.deepEqual(colors.slice(0, 5), ['#15803D', '#B91C1C', '#B45309', '#1E293B', '#15803D'], 'named colors and the default');
+  assert.equal(colors[5], '#00aa00');
+  assert.equal(colors[6], '#1E293B');
+  for (const color of colors.slice(0, 5)) {
+    const text = viewerToastTextColor(color);
+    assert.equal(text, '#FFFFFF', color);
+    assert.ok(wcagContrast(color, text) >= 4.5, color + ' contrast');
+  }
+});
+test('a toast color the viewer cannot read blocks creation and stays advisory on drafts', () => {
+  const r = api().compile(toastFlow({ color: 'var(--ion-color-success)' }, { color: 'success', duration: 3000 }));
+  assert.ok(r.validation.issues.some(i => i.code === 'unreadable_toast_color'));
+  assert.ok(r.validation.warnings.some(w => w.code === 'toast_duration_seconds'));
+  const draft = api().validate(r.form).validation;
+  assert.ok(draft.warnings.some(w => w.code === 'unreadable_toast_color'));
+  assert.ok(!draft.issues.some(i => i.code === 'unreadable_toast_color'));
+  const legacy = clone(api().compile(toastFlow({})).form);
+  legacy.flows.find(f => f.id === 'example').elements[0].config.color = 'success';
+  assert.ok(api().validate(legacy).validation.warnings.some(w => w.code === 'unreadable_toast_color'), 'existing named colors are reported');
+});
+test('button variants give a coherent hierarchy and explicit values win', () => {
+  const input = example();
+  input.pages[1].fields.push(
+    { type: 'button', name: 'save', label: 'Save', variant: 'primary', flow: 'back' },
+    { type: 'button', name: 'cancel', label: 'Cancel', variant: 'secondary', flow: 'back' },
+    { type: 'button', name: 'remove', label: 'Delete', variant: 'danger', flow: 'back' },
+    { type: 'button', name: 'more', label: 'More', variant: 'ghost', flow: 'back' },
+    { type: 'button', name: 'brand', label: 'Brand', variant: 'secondary', color: '#7C3AED', flow: 'back' },
+    { type: 'button', name: 'bare_outline', label: 'Outline', fill: 'outline', flow: 'back' }
+  );
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok');
+  const config = name => r.form.formulaire.find(f => f.name === name).config;
+  assert.deepEqual([config('save').fill, config('save').backgroundColor, config('save').color], ['solid', '#2563EB', '#FFFFFF']);
+  assert.deepEqual([config('cancel').fill, config('cancel').backgroundColor, config('cancel').color], ['outline', 'transparent', '#2563EB']);
+  assert.equal(config('cancel').componentBoxStyle.border, '1px solid #2563EB');
+  assert.deepEqual([config('remove').fill, config('remove').backgroundColor], ['solid', '#B91C1C']);
+  assert.deepEqual([config('more').fill, config('more').backgroundColor, config('more').color], ['clear', 'transparent', '#2563EB']);
+  assert.equal(config('brand').color, '#7C3AED');
+  assert.deepEqual([config('bare_outline').backgroundColor, config('bare_outline').color], ['transparent', '#2563EB'], 'a bare outline drops the solid prototype colors');
+  assert.equal(config('cancel').variant, undefined);
+  assert.equal(config('cancel').boxStyle.backgroundColor, 'transparent', 'the wrapper stays transparent');
+  assert.ok(!r.validation.warnings.some(w => w.code === 'button_fill_overridden' || w.code === 'button_text_unreadable'));
+  assert.throws(() => api().compile({ name: 'Bad', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', variant: 'fancy' }] }] }), /Unknown button variant/);
+});
+test('outline and clear buttons painted solid or with white text are reported', () => {
+  const r = api().compile(example());
+  const doc = clone(r.form);
+  const buttons = doc.formulaire.filter(f => f.type === 'button');
+  Object.assign(buttons[0].config, { fill: 'outline', backgroundColor: '#3880ff', color: '#fff' });
+  Object.assign(buttons[1].config, { fill: 'clear', backgroundColor: 'transparent', color: '#fff' });
+  const warnings = api().validate(doc).validation.warnings;
+  assert.ok(warnings.some(w => w.code === 'button_fill_overridden'));
+  assert.ok(warnings.some(w => w.code === 'button_text_unreadable'));
+});
+test('custom navigation pages get their own header instead of the repeated form title', () => {
+  const input = example();
+  input.pages[0].isNameDisplayed = true;
+  input.pages[1].header = { title: 'Requests & <follow-up>', subtitle: 'Select a request' };
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok');
+  assert.deepEqual(clone(r.form.pages.map(p => p.isNameDisplayed)), [true, false], 'explicit value kept, default off');
+  const first = r.form.formulaire.find(f => f.config.page === r.form.pages[1].pageTechName);
+  assert.equal(first.type, 'description');
+  assert.match(first.config.html, /<h2[^>]*>Requests &amp; &lt;follow-up&gt;<\/h2>/);
+  assert.match(first.config.html, /Select a request/);
+  assert.equal(first.config.boxStyle.backgroundColor, 'transparent');
+  const tabs = api().compile({ ...example(), navigationMode: 'tabs' });
+  assert.ok(tabs.form.pages.every(p => p.isNameDisplayed === false));
+  const doc = clone(r.form);
+  doc.pages.forEach(p => { p.isNameDisplayed = true; });
+  assert.ok(api().validate(doc).validation.warnings.some(w => w.code === 'repeated_form_title'));
+  assert.ok(!r.validation.warnings.some(w => w.code === 'repeated_form_title'));
+  assert.throws(() => api().compile({ ...example(), pages: [{ name: 'P', header: { subtitle: 'no title' }, fields: [] }] }), /header needs a title/);
+});
+test('prototype placeholders are never shown to end users', () => {
+  const r = api().compile({ name: 'Placeholders', pages: [{ name: 'P', fields: [
+    { type: 'text', name: 'a', label: 'A' },
+    { type: 'select', name: 'b', label: 'B', values: ['x'] },
+    { type: 'datetime', name: 'c', label: 'C' },
+    { type: 'text', name: 'd', label: 'D', placeholder: 'Ex. Dupont' }
+  ] }] });
+  assert.deepEqual(clone(r.form.formulaire.map(f => f.config.placeholder)), ['', '', '', 'Ex. Dupont']);
+  assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_placeholder'));
+  const doc = clone(r.form);
+  doc.formulaire[0].config.placeholder = 'Exemple de placeholder';
+  assert.ok(api().validate(doc).validation.warnings.some(w => w.code === 'prototype_placeholder'));
+});
+function conditionExample(extraFields, flows) {
+  return { name: 'Conditions', navigationMode: 'custom', pages: [{ name: 'Main', fields: [
+    { type: 'grid', name: 'contacts', id: 1900000000400, sourceEnabled: false, columns: [{ name: 'Name', type: 'text' }] },
+    { type: 'text', name: 'status', id: 1900000000401, label: 'Status' },
+    { type: 'checkbox', name: 'tags', id: 1900000000402, label: 'Tags', values: ['High', 'Low'] },
+    ...extraFields
+  ] }], flows: flows || [] };
+}
+test('reduced conditions compile to the native groups the viewer evaluates', () => {
+  const r = api().compile(conditionExample([
+    { type: 'description', name: 'detail', description: '<p>Detail</p>', visibleIf: { field: 'contacts', operator: 'not_empty' } },
+    { type: 'button', name: 'open', label: 'Open', flow: 'noop', disabledIf: { field: 'contacts', operator: 'is_empty' } },
+    { type: 'description', name: 'mixed', description: '<p>Mixed</p>', visibleIf: { all: [{ field: 'status', operator: '==', value: 'Open' }, { any: [{ field: 'tags', operator: 'in', value: ['High'] }, { field: 'status', operator: 'is_filled' }] }] } },
+    { type: 'layout', name: 'providers', visibleIf: { never: true }, children: [] }
+  ], [{ id: 'noop', elements: [{ type: 'push_page', targetPage: 'Main' }] }]));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const field = name => r.form.formulaire.find(f => f.name === name);
+  const shown = field('detail').conditions.visibleIf;
+  assert.deepEqual(clone(shown.conds[0]), { type: 'visibleIf', subject: 'field', val1: { name: 'contacts', displayName: 'contacts', str: '1900000000400', source: true, type: 'grid', arr: [] }, val2: { str: '', source: false, type: 'text', arr: [], html: false }, operator: 'is_filled' });
+  const disabled = field('open').conditions.buttonStateIf;
+  assert.equal(disabled.__uiMode, 'button_state_disabled_when_condition');
+  assert.equal(disabled.conds[0].operator, 'is_empty');
+  const mixed = field('mixed').conditions.visibleIf;
+  assert.equal(mixed.condVisible, 'and');
+  assert.deepEqual([mixed.conds[0].operator, mixed.conds[0].val1.type, mixed.conds[0].val2.str], ['equals', 'text', 'Open']);
+  assert.equal(mixed.groups[0].condVisible, 'or');
+  assert.deepEqual([mixed.groups[0].conds[0].operator, clone(mixed.groups[0].conds[0].val2.arr), mixed.groups[0].conds[0].val1.type], ['among_following', ['High'], 'checkbox']);
+  assert.equal(field('providers').conditions.visibleIf.conds[0].subject, 'never_visible');
+  assert.ok(!JSON.stringify(r.form).includes('__ref'));
+});
+test('condition operators and field names the viewer cannot evaluate are refused', () => {
+  assert.throws(() => api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'status', operator: 'not_equal', value: 'a' } }])), /Unknown condition operator/);
+  assert.throws(() => api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'status', operator: 'equals' } }])), /needs a value/);
+  const unknown = api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'missing', operator: 'is_filled' } }]));
+  assert.ok(unknown.validation.issues.some(i => i.code === 'unknown_condition_field'));
+  const native = api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', conditions: { visibleIf: { type: 'visibleIf', condVisible: 'and', groups: [], conds: [{ type: 'visibleIf', subject: 'field', operator: '==', val1: { str: '1900000000401', source: true, type: 'text', arr: [] }, val2: { str: 'a', source: false, type: 'text', arr: [] } }] } } }]));
+  assert.ok(native.validation.issues.some(i => i.code === 'invalid_condition_operator'), 'native groups are kept but checked');
+  assert.ok(api().validate(native.form).validation.warnings.some(w => w.code === 'invalid_condition_operator'), 'advisory on drafts');
+});
+test('if_else branches compile to children after their parent and need a condition', () => {
+  const r = api().compile(conditionExample([], [{ id: 'decide', elements: [
+    { type: 'if_else', name: 'has_contact', condition: { field: 'contacts', operator: 'is_filled' },
+      then: [{ type: 'toast', message: 'Selected' }, { type: 'if_else', condition: { field: 'status', operator: 'equals', value: 'Open' }, then: [{ type: 'push_page', targetPage: 'Main' }] }],
+      else: [{ type: 'toast', message: 'Select a contact', color: 'info' }] },
+    { type: 'toast', message: 'Done' }
+  ] }]));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const elements = r.form.flows.find(f => f.id === 'decide').elements;
+  assert.deepEqual(clone(elements.map(e => e.type)), ['if_else', 'toast', 'if_else', 'push_page', 'toast', 'toast']);
+  const [root, thenToast, nested, push, elseToast, done] = elements;
+  assert.deepEqual(clone(root.childrenRefs), [thenToast.id, nested.id]);
+  assert.deepEqual(clone(root.childrenRefsElse), [elseToast.id]);
+  assert.deepEqual([thenToast.parentRef, nested.parentRef, elseToast.parentRef, push.parentRef], [root.id, root.id, root.id, nested.id]);
+  assert.equal(done.parentRef, undefined);
+  const selfVar = root.sources.self.vars.selfVar;
+  assert.equal(selfVar.type, 'condition');
+  assert.deepEqual([selfVar.cond[0].operator, selfVar.cond[0].val1.str, selfVar.cond[0].val1.type], ['is_filled', '1900000000400', 'grid']);
+  assert.equal(root.config.condition, undefined);
+  const empty = api().compile(conditionExample([], [{ id: 'decide', elements: [{ type: 'if_else', then: [{ type: 'toast', message: 'Always' }] }] }]));
+  assert.ok(empty.validation.issues.some(i => i.code === 'empty_if_else_condition'));
+  assert.throws(() => api().compile(conditionExample([], [{ id: 'bad', elements: [{ type: 'toast', message: 'x', then: [] }] }])), /belong to an if_else/);
+});
+test('reset_fields targets pages and components by name', () => {
+  const input = conditionExample([], [{ id: 'resets', elements: [
+    { type: 'reset_fields', targetPage: 'Main' },
+    { type: 'reset_fields', targetField: 'status' },
+    { type: 'reset_fields', scope: 'element', targetField: 'tags' },
+    { type: 'reset_fields' }
+  ] }]);
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const configs = r.form.flows.find(f => f.id === 'resets').elements.map(e => clone(e.config));
+  assert.deepEqual([configs[0].scope, configs[0].targetPage], ['page', r.form.pages[0].pageTechName]);
+  assert.deepEqual([configs[1].scope, configs[1].targetElement], ['component', 1900000000401]);
+  assert.deepEqual([configs[2].scope, configs[2].targetElement], ['component', 1900000000402]);
+  assert.equal(configs[3].scope, 'application');
+  const bad = api().compile(conditionExample([], [{ id: 'resets', elements: [{ type: 'reset_fields', targetPage: 'Nowhere' }, { type: 'reset_fields', targetField: 'nothing' }] }]));
+  assert.equal(bad.validation.issues.filter(i => i.code === 'unknown_reset_target').length, 2);
+});
+test('wide list grids are reported, hidden Baserow columns do not count', () => {
+  const input = connectedExample();
+  const grid = input.pages[1].fields[0];
+  const columns = ['Reference', 'Status', 'Owner', 'Date', 'Amount', 'Notes', 'Description'];
+  const vars = forms => ({ str: JSON.stringify({ table_id: 'Test workspace~>Test database~>Requests', table_id_int: 42, columns, hidden: forms }), html: false });
+  grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config = vars([]);
+  assert.ok(api().compile(input).validation.warnings.some(w => w.code === 'wide_list_grid'));
+  grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config = vars(['Notes', 'Description']);
+  assert.ok(!api().compile(input).validation.warnings.some(w => w.code === 'wide_list_grid'));
+});
+test('edits accept reduced conditions, button variants and page headers', () => {
+  const h = creationHarness();
+  const created = h.client.create(example(), h.auth);
+  const id = created.form._id;
+  const edited = h.client.edit(id, [
+    { action: 'update_field', fieldName: 'open', patch: { variant: 'secondary', disabledIf: { field: 'welcome', operator: 'is_filled' } } },
+    { action: 'add_page', name: 'Detail', navigationMode: 'custom', index: 1, header: { title: 'Detail', subtitle: 'One request' } },
+    { action: 'add_flow_element', flowId: 'back', index: 0, element: { type: 'if_else', condition: { field: 'requests', operator: 'is_filled' }, then: [{ type: 'toast', message: 'Leaving', color: 'warning' }] } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.validation || edited.error));
+  const form = edited.form;
+  const open = form.formulaire.find(f => f.name === 'open');
+  assert.deepEqual([open.config.fill, open.config.backgroundColor, open.config.color], ['outline', 'transparent', '#2563EB']);
+  assert.equal(open.variant, undefined);
+  assert.deepEqual([open.conditions.buttonStateIf.conds[0].operator, open.conditions.buttonStateIf.conds[0].val1.type, open.conditions.buttonStateIf.__uiMode], ['is_filled', 'description', 'button_state_disabled_when_condition']);
+  assert.equal(open.conditions.buttonStateIf.conds.length, 1, 'a reduced condition replaces the whole group');
+  const detail = form.pages[1];
+  assert.deepEqual([detail.name, detail.isNameDisplayed, detail.enabledTab, detail.enabledButtons], ['Detail', false, false, false]);
+  const pageOrder = clone(form.formulaire.map(f => form.pages.findIndex(p => p.pageTechName === f.config.page)));
+  assert.deepEqual(pageOrder, [...pageOrder].sort((a, b) => a - b), 'the header stays between the fields of its neighbours');
+  assert.ok(form.formulaire.some(f => f.config.page === detail.pageTechName && f.type === 'description' && /<h2/.test(f.config.html)));
+  const back = form.flows.find(f => f.id === 'back').elements;
+  assert.deepEqual(clone(back.map(e => e.type)), ['if_else', 'toast', 'push_page']);
+  assert.equal(back[1].parentRef, back[0].id);
+  assert.equal(back[1].config.color, '#B45309');
+});
+test('contract documents the readable UI patterns and its examples compile', () => {
+  const contract = api().contract().authoringContract;
+  const quality = contract.generationQuality;
+  for (const key of ['designTokens', 'pageHeader', 'actionBar', 'listDetail', 'emptyStates', 'toasts', 'dataViews']) assert.ok(quality[key], key);
+  assert.ok(contract.conditionFields.reducedShape.operators.includes('is_filled'));
+  assert.ok(contract.flowAuthoring.elementTypes.includes('reset_fields'));
+  assert.ok(contract.flowAuthoring.ifElse && contract.flowAuthoring.resetFields);
+  assert.match(contract.flowAuthoring.toast, /6-digit hex/);
+  const r = api().compile({ name: 'Contract examples', navigationMode: 'custom', pages: [
+    { ...quality.pageHeader.example, fields: [
+      quality.actionBar.example,
+      quality.emptyStates.example,
+      { type: 'text', name: 'amount', label: 'Amount' },
+      { type: 'grid', name: 'contacts', sourceEnabled: false, columns: [{ name: 'Name', type: 'text' }] },
+      { type: 'button', name: 'go', label: 'Go', flow: 'save_contact' }
+    ] },
+    { name: 'Contacts', fields: [{ type: 'button', name: 'home', label: 'Home', variant: 'ghost', flow: 'cancel_contact' }] },
+    { name: 'Approval', fields: [] }
+  ], flows: [
+    { id: 'save_contact', elements: [quality.toasts.recipes.success, quality.toasts.recipes.error, contract.flowAuthoring.ifElse.example] },
+    { id: 'cancel_contact', elements: [{ type: 'reset_fields', scope: 'page', targetPage: 'Contact' }, { type: 'push_page', targetPage: 'Contacts' }] }
+  ] });
+  assert.ok(!r.validation.issues.some(i => ['unreadable_toast_color', 'invalid_condition_operator', 'unknown_condition_field', 'unknown_reset_target', 'empty_if_else_condition'].includes(i.code)), JSON.stringify(r.validation.issues));
+  for (const example of contract.conditionFields.reducedShape.examples) {
+    const condition = example.visibleIf || example.disabledIf;
+    if (condition.never) continue;
+    assert.doesNotThrow(() => JSON.stringify(condition));
+  }
+});
+test('review regressions: never=false, null and empty conditions, native if_else groups', () => {
+  const never = api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { never: false } }]));
+  assert.equal(never.status, 'ok');
+  assert.equal(never.form.formulaire.find(f => f.name === 'x').conditions.visibleIf.conds.length, 0, 'never=false is no condition');
+  assert.throws(() => api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'status', operator: 'is_filled', never: false } }])), /never cannot be combined/);
+  const legacy = api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', conditions: { visibleIf: {} } }]));
+  assert.equal(legacy.status, 'ok', 'an empty native group stays accepted');
+  assert.throws(() => api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'status', operator: 'equals', value: '' } }])), /needs a value/);
+  const native = api().compile(conditionExample([], [{ id: 'decide', elements: [{ type: 'if_else', condition: { type: 'condition', condVisible: 'and', cond: [{ type: 'visibleIf', subject: 'field', operator: 'is_filled', val1: { str: '1900000000401', source: true, type: 'text', arr: [] }, val2: { str: '', source: false, type: 'text', arr: [] } }] }, then: [{ type: 'toast', message: 'ok' }] }] }]));
+  assert.equal(native.status, 'ok', JSON.stringify(native.validation.issues));
+  assert.equal(native.form.flows.find(f => f.id === 'decide').elements[0].sources.self.vars.selfVar.cond.length, 1, 'the native cond list is kept');
+  const h = creationHarness();
+  const input = example();
+  input.pages[0].fields[1].visibleIf = { field: 'welcome', operator: 'is_filled' };
+  input.pages[0].fields[1].disabledIf = { field: 'welcome', operator: 'is_empty' };
+  const created = h.client.create(input, h.auth);
+  const cleared = h.client.edit(created.form._id, [{ action: 'update_field', fieldName: 'open', patch: { visibleIf: null, disabledIf: null } }], h.auth);
+  assert.equal(cleared.saved, true, JSON.stringify(cleared.error || cleared.validation));
+  const open = cleared.form.formulaire.find(f => f.name === 'open');
+  assert.equal(open.conditions.visibleIf, undefined);
+  assert.equal(open.conditions.buttonStateIf, undefined);
+});
+test('review regressions: button edits keep designer colors and switch variant borders', () => {
+  const h = creationHarness();
+  const input = example();
+  Object.assign(input.pages[0].fields[1], { backgroundColor: '#FF0000', color: '#000000' });
+  input.pages[1].fields.push({ type: 'button', name: 'alt', label: 'Alt', variant: 'secondary', flow: 'back' });
+  const created = h.client.create(input, h.auth);
+  const edited = h.client.edit(created.form._id, [
+    { action: 'update_field', fieldName: 'open', patch: { fill: 'outline' } },
+    { action: 'update_field', fieldName: 'alt', patch: { variant: 'danger' } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  const config = name => edited.form.formulaire.find(f => f.name === name).config;
+  assert.deepEqual([config('open').fill, config('open').backgroundColor, config('open').color], ['outline', 'transparent', '#000000']);
+  assert.deepEqual([config('alt').fill, config('alt').backgroundColor, config('alt').componentBoxStyle.border], ['solid', '#B91C1C', '']);
+  assert.throws(() => api().compile({ name: 'Bad', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', variant: 'toString' }] }] }), /Unknown button variant/);
+});
+test('review regressions: toast color patches, reset drafts and placeholders of file and location', () => {
+  const h = creationHarness();
+  const created = h.client.create(toastFlow({ color: 'success' }), h.auth);
+  const toastId = created.form.flows.find(f => f.id === 'example').elements[0].id;
+  const edited = h.client.edit(created.form._id, [{ action: 'update_flow_element', flowId: 'example', elementId: toastId, patch: { config: { color: 'danger' } } }], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  assert.equal(edited.form.flows.find(f => f.id === 'example').elements[0].config.color, '#B91C1C');
+  const draft = clone(api().compile(conditionExample([], [{ id: 'r', elements: [{ type: 'reset_fields', targetField: 'status' }] }])).form);
+  draft.flows.find(f => f.id === 'r').elements[0].config.targetElement = '';
+  const v = api().validate(draft).validation;
+  assert.ok(v.warnings.some(w => w.code === 'unknown_reset_target') && v.valid, 'an unfinished native reset stays editable');
+  const r = api().compile({ name: 'P', pages: [{ name: 'P', fields: [{ type: 'location', name: 'where', label: 'Where' }, { type: 'file', name: 'doc', label: 'Doc' }] }] });
+  assert.ok(r.form.formulaire.every(f => f.config.placeholder === '' || f.config.placeholder === undefined));
 });

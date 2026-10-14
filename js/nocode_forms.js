@@ -833,7 +833,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-09-14.visible-labels-v8",
+      contractVersion: "2026-10-14.readable-ui-v9",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -907,6 +907,47 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           buttonSurfaces: "Standalone buttons and action-only layouts use explicit boxStyle.backgroundColor=transparent and border=0 by default, not a white full-width card. Empty or omitted values may keep the white Forms default. Check parent layout and layoutChildrenStyle surfaces too. This is the wrapper only: preserve the clickable button's own backgroundColor/config.backgroundColor and readable text. Keep a surrounding content card only when semantically intended or requested.",
           acceptance: ["Check every page: introduction, section groups, inputs, data views and action groups, including nested children.", "Verify margin/padding/borders survived saved-form readback. Color/radius alone is not spacing; defaults or parent-provided spacing must be deliberate.", "Resolve partial_page_styling and ungrouped_adjacent_buttons warnings by reviewing the actual design, not by applying one card style everywhere.", "When browser access is authorized, check desktop/mobile gaps, field widths, button wrapping and overflow. Otherwise report visual verification pending."]
         },
+        designTokens: {
+          rule: "One small palette for the whole application, chosen for contrast on a light page. Reuse these values in styles, HTML, buttons and toasts instead of inventing new ones; keep a user-requested brand color instead of primary when given.",
+          tokens: DESIGN_TOKENS,
+          typography: "Page title h2 1.5rem in text color, subtitle and hints in muted color, section titles h3. Never repeat the application name as the title of every page.",
+          mobileFirst: "Design for a phone first: one column on phoneP/phoneL (size 12), two on tablet, more only on desktop. Buttons stack on phones. Lists show few short columns; details go on a detail page."
+        },
+        pageHeader: {
+          rule: "Every page of an application needs its own header: a page title, an optional one-line subtitle and, on task and detail pages, a back action. The viewer otherwise shows the form name in a large title card on every page with isNameDisplayed not false.",
+          reduced: "page.header: { title, subtitle } adds a description block at the top of the page (h2 title, muted subtitle, no card). With navigationMode custom, pages default to isNameDisplayed=false; set it true on the home page only if the application name should appear there.",
+          example: { name: "Contact", header: { title: "Fiche contact", subtitle: "Les informations du contact sélectionné." }, fields: [] },
+          back: "Put the back action in the page action bar as a ghost or secondary button whose flow is push_page to the list page (or __c8o_back)."
+        },
+        actionBar: {
+          rule: "One primary action per page or section, visually dominant; the others are secondary; destructive actions are danger and separated from the primary. Cancel is secondary or ghost, never primary.",
+          variants: "button.variant: primary (solid primary), secondary (outline: transparent background, primary text and border), danger (solid red), ghost (text only). Explicit fill/backgroundColor/color override the variant. Do not set fill outline/clear with a solid backgroundColor: the viewer paints it solid.",
+          order: "Primary action first in reading order, on the left of the group (it stacks on top on phones). Navigation buttons (Home, Contacts...) are a separate group from task actions: make the current page's entry primary or omit it, the others ghost or secondary.",
+          example: { type: "layout", name: "contact_actions", cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneP: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneL: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], boxStyle: { margin: "16px 0 24px 0", padding: "0", border: "0", backgroundColor: "transparent" }, layoutChildrenStyle: { default: { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }, children: [{ type: "button", name: "save_contact", label: "Enregistrer", icon: "save", variant: "primary", expand: "block", flow: "save_contact" }, { type: "button", name: "cancel_contact", label: "Annuler", icon: "close", variant: "secondary", expand: "block", flow: "cancel_contact" }] }
+        },
+        listDetail: {
+          rule: "A list page shows a source-backed grid of a few short columns (name, status, date, amount) and the actions that apply to the selected row; a detail page shows the selected record in fields grouped in sections, with save/cancel in its action bar.",
+          selection: "Detail fields read the list grid selection through defaultFrom source field, mode reactive (path [column, 'value']). Write expressions with a fallback (value ?? '') : the viewer keeps the previous value when the expression gives null or undefined, so a cleared selection would leave stale text.",
+          guard: "Disable the row actions until a row is selected with disabledIf: { field: '<grid>', operator: 'is_empty' }, instead of a mandatory guard field.",
+          runtime: "Clicking the selected row again deselects it. Coming back to the list keeps the selection when the row content is unchanged; after a save refreshes the grid, a modified row is no longer selected. Do not promise that the edited record stays selected."
+        },
+        emptyStates: {
+          rule: "A list or dashboard needs an explicit empty state: a muted hint telling what will appear and which action creates the first record, next to that action.",
+          example: { type: "description", name: "contacts_empty", description: "<p style=\"margin:0;color:#64748B\">Aucun contact pour l'instant ? Utilisez « Nouveau contact » pour créer le premier.</p>", boxStyle: { margin: "0 0 8px 0", padding: "0", border: "0", backgroundColor: "transparent" } },
+          note: "A row_selected grid is empty until a row is selected, so is_empty on it does not mean 'no record'. Showing the hint only when the table is empty needs a runtime check of the chosen condition in a browser."
+        },
+        toasts: {
+          rule: "A toast confirms the outcome of an action in a few words. color must be a 6-digit hex: the viewer derives the text color from it and any other value gives a transparent toast with white text. The names success, danger, warning, info are compiled to readable hex values; a toast without color is success.",
+          recipes: { success: { type: "toast", message: "Contact enregistré", color: "success", duration: 3, position: "bottom" }, error: { type: "toast", message: "Le contact n'a pas pu être enregistré", color: "danger", duration: 6, position: "top", closeBtn: true }, info: { type: "toast", message: "Sélectionnez d'abord un contact", color: "info", duration: 4, position: "top" } },
+          duration: "duration is in seconds (3 to 6), not milliseconds.",
+          afterSubmit: "A failed submit stops its flow and the viewer shows its own error message: steps after it, including a success toast, run only when the save succeeded. No if_else is needed to guard a success toast. A network failure stops the flow without any message."
+        },
+        dataViews: {
+          grids: "Lists: at most 5 short visible columns; hide long text (notes, descriptions) and technical columns with forms_config.hidden and show them on the detail page. AutoSizeColumns true sizes columns to their content and scrolls horizontally: set it false for wide tables so columns fit the width. Number columns keep the Baserow decimal places; aggregation results (sum, average) are not rounded by the source, so prefer a count or show amounts on rows.",
+          label: "The grid label is small plain text: put the section title in a description block (h3) above the grid and keep the grid label short or empty.",
+          selects: "A source-backed select lists every row, including rows whose display column is empty (blank options). Add a not-empty rule on the display column in forms_Filter and sort with forms_tableSort. A select default from a grid selection uses sources.self.vars.selfVar { type: 'ts', str: \"(fields.<grid> && fields.<grid>['<column>'] ? fields.<grid>['<column>'].value : '')\" }, the same cell path as a defaultFrom field source on that grid, giving a value that exists among the options (otherwise the select stays empty).",
+          placeholders: "Give text, select and date inputs a useful placeholder or none: a missing placeholder is compiled to an empty one, never the prototype example text."
+        },
         data: {
           local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
           connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application, then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
@@ -931,7 +972,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         enabledButtons: { type: "boolean", optional: true, default: "false in tab mode" },
         positionTab: { type: "string", optional: true, default: "bottom" },
         positionButtons: { type: "string", optional: true, default: "tab" },
-        isNameDisplayed: { type: "boolean", optional: true, default: "false in tab mode" },
+        isNameDisplayed: { type: "boolean", optional: true, default: "false in tab and custom navigation", description: "Shows the form name in a large title card at the top of the page. Keep it off on application pages and use header." },
+        header: { type: "object", optional: true, fields: { title: "string, required", subtitle: "string", name: "technical name of the generated description block" }, description: "Page title block added as the first component. See generationQuality.pageHeader." },
         checkMandatoryInCurrentPage: { type: "boolean", optional: true, default: true },
         fields: { type: "array", required: true, aliases: ["components", "formulaire"] }
       },
@@ -945,7 +987,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         mandatory: { type: "boolean", optional: true },
         disabled: { type: "boolean", optional: true },
         componentDisabled: { type: "boolean", optional: true, mapsTo: "config.componentDisabled", description: "Disables the component as if it did not exist in the viewer." },
-        disabledIf: { type: "object", optional: true, mapsTo: "conditions.buttonStateIf", description: "Button-only shorthand: disables the button when the condition group evaluates to true." },
+        visibleIf: { type: "object", optional: true, mapsTo: "conditions.visibleIf", description: "Shows the component only when the condition is true. Reduced condition shape: see conditionFields." },
+        disabledIf: { type: "object", optional: true, mapsTo: "conditions.buttonStateIf", description: "Button-only shorthand: disables the button when the condition is true. Reduced condition shape: see conditionFields." },
         short: { type: "boolean", optional: true },
         boxStyle: { type: "object", optional: true, mapsTo: "config.boxStyle", description: "Container style overrides. Empty values keep the C8Oforms defaults." },
         questionBoxStyle: { type: "object", optional: true, mapsTo: "config.questionBoxStyle", description: "Question/header part style overrides when the component exposes a question part." },
@@ -976,9 +1019,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       conditionFields: {
         visibleIf: { type: "object", optional: true, description: "Visibility condition group." },
-        goToPageIf: { type: "object", optional: true, description: "Navigation authorization condition group." },
+        goToPageIf: { type: "object", optional: true, description: "Navigation authorization condition group (native shape only)." },
         buttonStateIf: { type: "object", optional: true, description: "Button enabled/disabled condition group." },
-        disabledIf: { type: "object", optional: true, description: "Reduced authoring alias for buttonStateIf with __uiMode=button_state_disabled_when_condition." }
+        disabledIf: { type: "object", optional: true, description: "Reduced authoring alias for buttonStateIf with __uiMode=button_state_disabled_when_condition." },
+        reducedShape: {
+          condition: "{ field: '<technical name of a component or formula>', operator, value }. value is omitted for is_filled/is_empty and is an array for among_following/out_following.",
+          group: "{ all: [conditions or groups] } (and) or { any: [...] } (or). A single condition is a group of one.",
+          never: "{ never: true } hides a component permanently, for example a hidden data-provider grid or its layout.",
+          operators: CONDITION_OPERATORS,
+          aliases: CONDITION_OPERATOR_ALIASES,
+          semantics: "is_filled/is_empty test a value; a grid is empty until a row is selected (row_selected) and again after deselection. equals/different/greater/minus compare with value. Any other operator name is refused: the viewer would silently evaluate it as false. Field names are resolved to component ids and types; native groups (with conds/groups) are kept as they are.",
+          examples: [
+            { visibleIf: { field: "contacts", operator: "is_filled" } },
+            { disabledIf: { field: "contacts", operator: "is_empty" } },
+            { visibleIf: { all: [{ field: "status", operator: "equals", value: "Open" }, { any: [{ field: "amount", operator: "greater", value: "1000" }, { field: "priority", operator: "among_following", value: ["High", "Urgent"] }] }] } },
+            { visibleIf: { never: true } }
+          ],
+          hiddenFields: "A hidden component is not checked as mandatory. Hide a component rather than adding a mandatory guard field."
+        }
       },
       dynamicReferences: dynamicReferenceContract(),
       componentAuthoring: {
@@ -999,7 +1057,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         radio_group: { fields: ["name", "description", "columns", "rows"] },
         checkbox_group: { fields: ["name", "description", "columns", "rows"] },
         grid: { fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "config"], columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
-        button: { fields: ["name", "flow", "label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"] },
+        button: { fields: ["name", "flow", "label", "icon", "iconPosition", "variant", "backgroundColor", "color", "fill", "expand", "disabledIf", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"], variants: BUTTON_VARIANTS, note: "Prefer variant over raw colors; see generationQuality.actionBar. expand 'block' fills the column of an action group." },
         img: { fields: ["name", "description", "config"] },
         file: { fields: ["name", "description", "mandatory", "config"] },
         signature: { fields: ["name", "description", "mandatory", "config"] },
@@ -1015,12 +1073,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         formulas: "Put business_logic elements in the flow with id formulas.",
         buttonFlow: "A button field sets flow to the stable flow id. Set a meaningful visible flow.name in the user's language; do not confuse it with the id. Missing names fall back to the unique triggering button label or a humanized id. Explicit names also apply to the built-in formulas/submit flows.",
         backendActions: "Attach backend sequence actions to submit elements through submit.actions; see authoringContract.backendActions.",
-        toast: "message is translated into sources.self.vars.selfVar.str (text, html=false). Explicit sources take precedence. position, duration (seconds), color and closeBtn map into config.",
+        toast: "message is translated into sources.self.vars.selfVar.str (text, html=false). Explicit sources take precedence. position (top, middle, bottom), duration (seconds), color and closeBtn map into config. color must be a 6-digit hex or success/danger/warning/info (compiled to readable hex); default success. See generationQuality.toasts.",
+        ifElse: {
+          shape: "{ type: 'if_else', condition: <reduced condition, see conditionFields.reducedShape>, then: [elements], else: [elements] }",
+          compilation: "then/else elements are compiled after the if_else with parentRef set to it and listed in childrenRefs/childrenRefsElse. Branches can be nested. In edits, use add_flow_element: add_flow and update_flow_element store native elements as given.",
+          example: { type: "if_else", condition: { field: "amount", operator: "greater", value: "1000" }, then: [{ type: "push_page", targetPage: "Approval" }], else: [{ type: "submit", actions: {} }, { type: "toast", message: "Saved", color: "success" }] },
+          submit: "Do not test the outcome of a submit with if_else: a failed submit stops the flow (see generationQuality.toasts.afterSubmit). An if_else without a condition always runs its then branch: it is refused at creation and reported on existing forms."
+        },
+        resetFields: {
+          shape: "{ type: 'reset_fields', scope: 'application' | 'page' | 'component', targetPage: '<page name>', targetField: '<component name>' }",
+          semantics: "page resets the input values of that page (default: the current page); component resets the named component and its children; application resets every input. Values are rebuilt from their defaults. scope defaults to component with targetField, page with targetPage, otherwise application.",
+          order: "Put reset_fields before the push_page that leaves the page, or target the page explicitly; resetting a list grid does not clear its visual selection."
+        },
         gridActions: "targetGrid accepts a unique grid field name in reduced JSON, resolved to the component id. add_row_to_local_grid accepts row as a literal JSON object or an explicit object-valued SmartSource. Local insertions are not persistent saves.",
-        elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"],
+        elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields"],
         examples: [
           { id: "open_requests", name: "Open my requests", elements: [{ type: "push_page", targetPage: "My requests" }] },
           { id: "refresh_requests", name: "Refresh requests", elements: [{ type: "refresh_grid", targetGrid: "requests" }] },
+          { id: "save_contact", name: "Enregistrer le contact", elements: [{ type: "submit", actions: {} }, { type: "toast", message: "Contact enregistré", color: "success", duration: 3 }, { type: "refresh_grid", targetGrid: "contacts" }, { type: "reset_fields", scope: "page", targetPage: "Contact" }, { type: "push_page", targetPage: "Contacts" }] },
           { id: "formulas", name: "Computed values", elements: [{ name: "full_name", type: "business_logic", expression: "fields.first_name + ' ' + fields.last_name" }] }
         ]
       },
@@ -1040,7 +1110,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
           { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index"], example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
           { action: "add_flow", required: ["flowId"], example: { action: "add_flow", flowId: "flow_save", name: "Save", flowData: { elements: [] } } },
-          { action: "add_flow_element", required: ["flowId", "element"], example: { action: "add_flow_element", flowId: "flow_save", element: { type: "toast", message: "Saved" } } }
+          { action: "add_flow_element", required: ["flowId", "element"], example: { action: "add_flow_element", flowId: "flow_save", element: { type: "toast", message: "Saved", color: "success" } } },
+          { action: "update_field", note: "Reduced conditions and button variants are accepted in patches; a reduced condition replaces the whole group.", example: { action: "update_field", fieldName: "open_contact", patch: { variant: "secondary", disabledIf: { field: "contacts", operator: "is_empty" } } } },
+          { action: "add_page", note: "header adds the page title block (add_page and create only); custom navigation pages default to isNameDisplayed=false.", example: { action: "add_page", name: "Contact", navigationMode: "custom", header: { title: "Fiche contact", subtitle: "Les informations du contact sélectionné." } } }
         ],
         notes: [
           "Use fieldObject with the same reduced component shape accepted by nocode-form-compile.",
@@ -1110,6 +1182,219 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function boolLike(value) {
     return value === true || String(value).toLowerCase() === "true";
+  }
+
+  // Readable defaults for generated applications. White text on each colored
+  // token, except text/muted/border/surface which are page colors.
+  var DESIGN_TOKENS = {
+    primary: "#2563EB",
+    onPrimary: "#FFFFFF",
+    text: "#0F172A",
+    muted: "#64748B",
+    border: "#E2E8F0",
+    surface: "#FFFFFF",
+    success: "#15803D",
+    danger: "#B91C1C",
+    warning: "#B45309",
+    info: "#1E293B"
+  };
+
+  // The viewer writes a toast color as CSS --background and derives the text
+  // color from a 6-digit hex only: a name such as "success" gives white on white.
+  var TOAST_COLORS = {
+    success: DESIGN_TOKENS.success,
+    danger: DESIGN_TOKENS.danger,
+    error: DESIGN_TOKENS.danger,
+    warning: DESIGN_TOKENS.warning,
+    info: DESIGN_TOKENS.info,
+    dark: DESIGN_TOKENS.info,
+    primary: DESIGN_TOKENS.primary,
+    medium: "#475569"
+  };
+
+  // The viewer sets the inline --background of a button from config.backgroundColor
+  // whatever its fill, so outline/clear need a transparent background to look so.
+  var BUTTON_VARIANTS = {
+    primary: { fill: "solid", backgroundColor: DESIGN_TOKENS.primary, color: DESIGN_TOKENS.onPrimary },
+    secondary: { fill: "outline", backgroundColor: "transparent", color: DESIGN_TOKENS.primary, border: "1px solid " + DESIGN_TOKENS.primary },
+    danger: { fill: "solid", backgroundColor: DESIGN_TOKENS.danger, color: DESIGN_TOKENS.onPrimary },
+    ghost: { fill: "clear", backgroundColor: "transparent", color: DESIGN_TOKENS.primary }
+  };
+
+  var PROTOTYPE_PLACEHOLDERS = { text: "Exemple de placeholder", select: "Exemple de réponse", datetime: "Datetime", time: "Time", barcode: "Exemple de placeholder", location: "Exemple de placeholder", file: "Exemple de fichier" };
+
+  // Each operator is the name of the viewer method that evaluates it.
+  var CONDITION_OPERATORS = ["equals", "different", "greater", "greaterequals", "minus", "minusequals", "among_following", "out_following", "contains", "not_contains", "contains_multiple_files", "contains_a_file", "does_not_contain_file", "is_filled", "is_empty"];
+  var CONDITION_OPERATOR_ALIASES = { "==": "equals", "=": "equals", "!=": "different", ">": "greater", ">=": "greaterequals", "<": "minus", "<=": "minusequals", in: "among_following", not_in: "out_following", not_empty: "is_filled", filled: "is_filled", empty: "is_empty" };
+  var UNARY_CONDITION_OPERATORS = ["is_filled", "is_empty", "contains_a_file", "does_not_contain_file", "contains_multiple_files"];
+
+  function normalizeToastColor(value) {
+    var text = trimmed(value);
+    if (hasOwn(TOAST_COLORS, text.toLowerCase())) { return TOAST_COLORS[text.toLowerCase()]; }
+    var short = /^#?([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(text);
+    if (short) { return "#" + short[1] + short[1] + short[2] + short[2] + short[3] + short[3]; }
+    if (/^#?[0-9a-f]{6}$/i.test(text)) { return text.charAt(0) === "#" ? text : "#" + text; }
+    return value;
+  }
+
+  function isReadableToastColor(value) {
+    return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+  }
+
+  function isOpaqueColor(value) {
+    var text = trimmed(value).toLowerCase().replace(/\s/g, "");
+    return text.length > 0 && text !== "transparent" && !/^rgba\(.*,0(\.0*)?\)$/.test(text) && !/^#[0-9a-f]{6}00$/.test(text);
+  }
+
+  function isWhiteColor(value) {
+    return ["white", "#fff", "#ffffff", "rgb(255,255,255)", "rgba(255,255,255,1)"].indexOf(trimmed(value).toLowerCase().replace(/\s/g, "")) >= 0;
+  }
+
+  function explicitConfigValue(field, key) {
+    return hasOwn(field, key) || (field && field.config && typeof field.config === "object" && hasOwn(field.config, key));
+  }
+
+  // variant gives coherent fill/colors; explicit fill/backgroundColor/color win.
+  // A bare outline/clear fill drops the solid prototype colors it would inherit.
+  function applyButtonVariant(target, field) {
+    var config = target.config || (target.config = {});
+    var variant = trimmed(field.variant != null ? field.variant : field.config && field.config.variant);
+    delete config.variant;
+    delete target.variant;
+    var recipe = null;
+    if (variant.length) {
+      recipe = hasOwn(BUTTON_VARIANTS, variant) ? BUTTON_VARIANTS[variant] : null;
+      if (!recipe) { throw new Error("Unknown button variant: " + variant + " (use " + Object.keys(BUTTON_VARIANTS).join(", ") + ")"); }
+    } else if (["outline", "clear"].indexOf(trimmed(config.fill)) >= 0 && explicitConfigValue(field, "fill")) {
+      // Only what would make the button solid or unreadable is replaced.
+      recipe = {};
+      if (isOpaqueColor(config.backgroundColor)) { recipe.backgroundColor = "transparent"; }
+      if (!trimmed(config.color).length || isWhiteColor(config.color)) { recipe.color = DESIGN_TOKENS.primary; }
+    }
+    if (!recipe) { return; }
+    ["fill", "backgroundColor", "color"].forEach(function (key) {
+      if (hasOwn(recipe, key) && !explicitConfigValue(field, key)) { config[key] = recipe[key]; }
+    });
+    var explicitBorder = (field.componentBoxStyle && hasOwn(field.componentBoxStyle, "border")) || (field.config && field.config.componentBoxStyle && hasOwn(field.config.componentBoxStyle, "border"));
+    if (variant.length && !explicitBorder && (recipe.border || (config.componentBoxStyle && trimmed(config.componentBoxStyle.border).length))) {
+      // A variant owns the button border: switching variants removes the previous one.
+      config.componentBoxStyle = config.componentBoxStyle && typeof config.componentBoxStyle === "object" ? config.componentBoxStyle : {};
+      config.componentBoxStyle.border = recipe.border || "";
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  // page.header: { title, subtitle } becomes the first block of the page: a
+  // page title distinct from the form name, without a card around it.
+  function pageHeaderField(page) {
+    var header = page && page.header;
+    if (header == null) { return null; }
+    if (typeof header === "string") { header = { title: header }; }
+    if (typeof header !== "object" || Array.isArray(header) || !trimmed(header.title)) { throw new Error("page.header needs a title"); }
+    var html = "<h2 style=\"margin:0;font-size:1.5rem;line-height:1.3;color:" + DESIGN_TOKENS.text + "\">" + escapeHtml(trimmed(header.title)) + "</h2>";
+    if (trimmed(header.subtitle)) {
+      html += "<p style=\"margin:4px 0 0 0;color:" + DESIGN_TOKENS.muted + "\">" + escapeHtml(trimmed(header.subtitle)) + "</p>";
+    }
+    var slug = trimmed(page.name).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    return {
+      type: "description",
+      // Without a usable slug the compiler names the block after its id.
+      name: trimmed(header.name) || (slug.length ? "header_" + slug : ""),
+      description: html,
+      boxStyle: { margin: "0 0 16px 0", padding: "0", border: "0", backgroundColor: "transparent" }
+    };
+  }
+
+  function normalizeConditionOperator(value) {
+    var text = trimmed(value);
+    var operator = hasOwn(CONDITION_OPERATOR_ALIASES, text.toLowerCase()) ? CONDITION_OPERATOR_ALIASES[text.toLowerCase()] : text;
+    if (CONDITION_OPERATORS.indexOf(operator) < 0) { throw new Error("Unknown condition operator: " + text + " (use " + CONDITION_OPERATORS.join(", ") + ")"); }
+    return operator;
+  }
+
+  function isNativeConditionGroup(spec) {
+    return !Object.keys(spec).length || ["conds", "cond", "groups", "condVisible", "type", "__legacyConds", "__uiMode"].some(function (key) { return hasOwn(spec, key); });
+  }
+
+  // Reduced condition: { field, operator, value }, { all: [...] }, { any: [...] }
+  // or { never: true }. field names are resolved to ids once the form is built.
+  function compileConditionGroup(spec) {
+    if (spec == null || typeof spec !== "object" || Array.isArray(spec)) { throw new Error("A condition must be an object"); }
+    if (isNativeConditionGroup(spec)) { return clone(spec, spec); }
+    var group = { type: "visibleIf", condVisible: "and", conds: [], groups: [] };
+    if (hasOwn(spec, "never")) {
+      if (hasOwn(spec, "field") || hasOwn(spec, "all") || hasOwn(spec, "any")) { throw new Error("never cannot be combined with other conditions"); }
+      // { never: false } is no condition: always visible.
+      if (boolLike(spec.never)) { group.conds.push({ type: "visibleIf", subject: "never_visible" }); }
+      return group;
+    }
+    var items;
+    if (hasOwn(spec, "all") || hasOwn(spec, "any")) {
+      if (hasOwn(spec, "all") && hasOwn(spec, "any")) { throw new Error("A condition group uses all or any, not both"); }
+      group.condVisible = hasOwn(spec, "any") ? "or" : "and";
+      items = ensureArray(hasOwn(spec, "any") ? spec.any : spec.all);
+      if (!items.length) { throw new Error("A condition group needs at least one condition"); }
+    } else {
+      items = [spec];
+    }
+    items.forEach(function (item) {
+      if (item && typeof item === "object" && !Array.isArray(item) && (hasOwn(item, "all") || hasOwn(item, "any") || hasOwn(item, "never") || isNativeConditionGroup(item))) {
+        group.groups.push(compileConditionGroup(item));
+        return;
+      }
+      group.conds.push(compileCondition(item));
+    });
+    return group;
+  }
+
+  function compileCondition(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) { throw new Error("A condition must be an object"); }
+    var name = trimmed(item.field);
+    if (!name.length) { throw new Error("A condition needs the technical name of a field"); }
+    var operator = normalizeConditionOperator(item.operator);
+    var unary = UNARY_CONDITION_OPERATORS.indexOf(operator) >= 0;
+    if (!unary && (!hasOwn(item, "value") || item.value == null || item.value === "" || (Array.isArray(item.value) && !item.value.length))) {
+      // The viewer ignores a comparison without a value.
+      throw new Error("Condition operator " + operator + " needs a value; use is_empty or is_filled to test an empty field");
+    }
+    var val2 = { str: "", source: false, type: "text", arr: [], html: false };
+    if (!unary) {
+      if (Array.isArray(item.value)) { val2.arr = item.value.map(function (v) { return String(v); }); }
+      else { val2.str = item.value == null ? "" : String(item.value); }
+    }
+    return {
+      type: "visibleIf",
+      subject: "field",
+      val1: { name: name, displayName: name, str: name, source: true, type: "", arr: [], __ref: name },
+      val2: val2,
+      operator: operator
+    };
+  }
+
+  function eachConditionGroup(form, visit) {
+    ensureArray(form.formulaire).forEach(function (item, index) {
+      var conditions = item && item.conditions;
+      if (!conditions || typeof conditions !== "object") { return; }
+      ["visibleIf", "buttonStateIf", "goToPageIf"].forEach(function (key) {
+        if (conditions[key] && typeof conditions[key] === "object") { visit(conditions[key], "/formulaire/" + index + "/conditions/" + key, item); }
+      });
+    });
+    ensureArray(form.flows).forEach(function (flow, fi) {
+      ensureArray(flow && flow.elements).forEach(function (element, ei) {
+        var selfVar = element && element.type === "if_else" && element.sources && element.sources.self && element.sources.self.vars && element.sources.self.vars.selfVar;
+        if (selfVar && typeof selfVar === "object") {
+          visit({ conds: ensureArray(selfVar.conds || selfVar.cond), groups: ensureArray(selfVar.groups) }, "/flows/" + fi + "/elements/" + ei + "/sources/self/vars/selfVar", element);
+        }
+      });
+    });
+  }
+
+  function eachCondition(group, path, visit) {
+    ensureArray(group && group.conds).forEach(function (cond, index) { visit(cond, path + "/conds/" + index); });
+    ensureArray(group && group.groups).forEach(function (child, index) { eachCondition(child, path + "/groups/" + index, visit); });
   }
 
   function tabModeFor(input, pageCount) {
@@ -1232,6 +1517,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     target.config.page = pageTechName;
     if (field.placeholder != null && target.config.placeholder != null) {
       target.config.placeholder = String(field.placeholder);
+    } else if (hasOwn(PROTOTYPE_PLACEHOLDERS, target.type) && target.config.placeholder === PROTOTYPE_PLACEHOLDERS[target.type]) {
+      // The prototype text would be shown to end users as a hint.
+      target.config.placeholder = "";
     }
     copyConfigValues(target, field, [
       "defaultValue",
@@ -1296,22 +1584,31 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     }
     applyFieldLabel(target, field);
+    applyFieldConditions(target, field);
+  }
+
+  // Native condition groups are kept as they are; reduced conditions
+  // ({ field, operator, value }, all/any, never) are compiled to them.
+  function applyFieldConditions(target, field) {
     if (field.conditions && typeof field.conditions === "object" && !Array.isArray(field.conditions)) {
       target.conditions = clone(field.conditions, {});
+      ["visibleIf", "buttonStateIf"].forEach(function (key) {
+        if (target.conditions[key] != null) { target.conditions[key] = compileConditionGroup(target.conditions[key]); }
+      });
     }
     if (field.visibleIf != null || field.goToPageIf != null || field.buttonStateIf != null || field.disabledIf != null) {
       target.conditions = target.conditions && typeof target.conditions === "object" && !Array.isArray(target.conditions) ? target.conditions : {};
       if (field.visibleIf != null) {
-        target.conditions.visibleIf = clone(field.visibleIf, field.visibleIf);
+        target.conditions.visibleIf = compileConditionGroup(field.visibleIf);
       }
       if (field.goToPageIf != null) {
         target.conditions.goToPageIf = clone(field.goToPageIf, field.goToPageIf);
       }
       if (field.buttonStateIf != null) {
-        target.conditions.buttonStateIf = clone(field.buttonStateIf, field.buttonStateIf);
+        target.conditions.buttonStateIf = compileConditionGroup(field.buttonStateIf);
       }
       if (field.disabledIf != null) {
-        var disabledIf = clone(field.disabledIf, field.disabledIf);
+        var disabledIf = compileConditionGroup(field.disabledIf);
         if (disabledIf && typeof disabledIf === "object" && !Array.isArray(disabledIf)) {
           disabledIf.__uiMode = "button_state_disabled_when_condition";
         }
@@ -1416,7 +1713,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     copyObjectValues(out, element, ["sources", "actions", "children", "childrenRefs", "childrenRefsElse", "parentRef", "vars"]);
     copyConfigValues(out, element, ["condition", "operator", "message", "target", "page", "flow", "delay", "loopSource", "itemName"]);
-    copyConfigValues(out, element, ["targetPage", "targetGrid", "position", "duration", "color", "closeBtn"]);
+    copyConfigValues(out, element, ["targetPage", "targetGrid", "position", "duration", "color", "closeBtn", "scope", "targetElement"]);
     if (type === "toast") {
       // The viewer reads selfVar, not message/config.message. Explicit sources win.
       if (!hasOwn(element, "sources")) {
@@ -1424,7 +1721,27 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         out.sources = { self: { enabled: true, vars: { selfVar: { str: message == null ? "" : String(message), type: "text", html: false } } } };
       }
       delete out.message;
-      if (out.config) { delete out.config.message; }
+      out.config = out.config || {};
+      delete out.config.message;
+      // Named colors become readable hex values; no color means success.
+      out.config.color = explicitConfigValue(element, "color") ? normalizeToastColor(out.config.color) : TOAST_COLORS.success;
+    }
+    if (type === "reset_fields") {
+      out.config = out.config || {};
+      var scope = trimmed(out.config.scope).toLowerCase();
+      var resetScopes = { app: "application", form: "application", element: "component", field: "component" };
+      if (hasOwn(resetScopes, scope)) { scope = resetScopes[scope]; }
+      if (hasOwn(element, "targetField")) { out.config.targetElement = element.targetField; }
+      if (!explicitConfigValue(element, "scope")) {
+        scope = trimmed(out.config.targetElement).length ? "component" : (trimmed(out.config.targetPage).length ? "page" : "application");
+      }
+      out.config.scope = scope;
+    }
+    if (type === "if_else" && hasOwn(element, "condition")) {
+      var group = compileConditionGroup(element.condition);
+      // A native if_else condition (as read back) lists its conditions in cond.
+      out.sources = { self: { enabled: true, vars: { selfVar: { str: "", type: "condition", cond: ensureArray(group.conds || group.cond), condVisible: group.condVisible || "and", groups: ensureArray(group.groups) } } } };
+      if (out.config) { delete out.config.condition; }
     }
     if (type === "push_page" && !hasOwn(element, "targetPage") && !(element.config && hasOwn(element.config, "targetPage"))) {
       out.config.targetPage = element.target || element.page || "";
@@ -1434,6 +1751,30 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       out.sources = { self: { enabled: true, vars: { selfVar: { str: "(" + JSON.stringify(element.row) + ")", type: "ts", html: false } } } };
     }
     return out;
+  }
+
+  // An element and the elements of its then/else branches, children after
+  // their parent in the flow (the viewer only starts elements without parentRef).
+  function compileFlowElements(element, catalogByType) {
+    var out = compileFlowElement(element, catalogByType);
+    if (!out) { return []; }
+    var all = [out];
+    if (out.type !== "if_else") {
+      if (hasOwn(element, "then") || hasOwn(element, "else")) { throw new Error("then/else branches belong to an if_else element"); }
+      return all;
+    }
+    [["then", "childrenRefs"], ["else", "childrenRefsElse"]].forEach(function (branch) {
+      if (!hasOwn(element, branch[0])) { return; }
+      out[branch[1]] = ensureArray(out[branch[1]]);
+      ensureArray(element[branch[0]]).forEach(function (childInput) {
+        var children = compileFlowElements(childInput, catalogByType);
+        if (!children.length) { return; }
+        children[0].parentRef = out.id;
+        out[branch[1]].push(children[0].id);
+        all = all.concat(children);
+      });
+    });
+    return all;
   }
 
   function resolveAuthoringReferences(doc) {
@@ -1452,6 +1793,28 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         if (["add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"].indexOf(element.type) >= 0) {
           config.targetGrid = resolve(config.targetGrid, grids, "id");
         }
+        if (element.type === "reset_fields") {
+          if (trimmed(config.targetPage).length) { config.targetPage = resolve(config.targetPage, doc.pages, "pageTechName"); }
+          if (trimmed(config.targetElement).length) { config.targetElement = resolve(config.targetElement, doc.formulaire, "id"); }
+        }
+      });
+    });
+    // Reduced conditions name a field (or a formula); the viewer reads its id
+    // and needs its component type to choose the comparison.
+    var formulas = [];
+    doc.flows.forEach(function (flow) {
+      ensureArray(flow.elements).forEach(function (element) { if (element && element.type === "business_logic") { formulas.push(element); } });
+    });
+    eachConditionGroup(doc, function (group, path) {
+      eachCondition(group, path, function (cond) {
+        var ref = cond && cond.val1 && cond.val1.__ref;
+        if (ref == null) { return; }
+        var matches = doc.formulaire.filter(function (item) { return item && item.name === ref; });
+        if (!matches.length) { matches = formulas.filter(function (item) { return item.name === ref; }); }
+        if (matches.length !== 1) { return; } // Validation reports it.
+        cond.val1.str = String(matches[0].id);
+        cond.val1.type = matches[0].type;
+        delete cond.val1.__ref;
       });
     });
   }
@@ -1535,6 +1898,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     applyCommonFieldConfig(out, field, pageTechName);
     if (type === "button") {
+      applyButtonVariant(out, field);
       out.config.boxStyle = out.config.boxStyle || {};
       // Only new buttons receive these defaults; explicit custom surfaces win.
       if (!trimmed(out.config.boxStyle.backgroundColor)) { out.config.boxStyle.backgroundColor = "transparent"; }
@@ -1733,9 +2097,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var useTabMode = tabModeFor(input, pages.length);
     for (var p = 0; p < pages.length; p++) {
       var page = pageDefaults(pages[p], p, useTabMode);
-      if (input.navigationMode === "custom") { page.enabledTab = false; page.enabledButtons = false; }
+      if (input.navigationMode === "custom") {
+        page.enabledTab = false;
+        page.enabledButtons = false;
+        // The viewer repeats the form name in a title card on every page that
+        // does not set this flag; a custom application gives each page a header.
+        if (!hasOwn(pages[p], "isNameDisplayed")) { page.isNameDisplayed = false; }
+      }
       doc.pages.push(page);
       var fields = ensureArray(pages[p].fields || pages[p].formulaire || pages[p].components);
+      var header = pageHeaderField(pages[p]);
+      if (header) { fields = [header].concat(fields); }
       for (var f = 0; f < fields.length; f++) {
         compileField(fields[f], page.pageTechName, byType, doc.formulaire, null);
       }
@@ -1764,10 +2136,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (trimmed(flowIn.name)) { target.name = trimmed(flowIn.name); }
       var elements = ensureArray(flowIn.elements);
       for (var e = 0; e < elements.length; e++) {
-        var compiledElement = compileFlowElement(elements[e], byType);
-        if (compiledElement) {
-          target.elements.push(compiledElement);
-        }
+        Array.prototype.push.apply(target.elements, compileFlowElements(elements[e], byType));
       }
     }
     if (input.tag != null) {
@@ -2012,6 +2381,27 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (element.type === "toast" && (!enabledEntries(element.sources).length || (source && (!value || !trimmed(value.str) || trimmed(value.str) === "toast_example")))) {
             incomplete("unconfigured_toast", "Toast must have an enabled message source without prototype placeholders", path + "/sources");
           }
+          if (element.type === "toast" && !isReadableToastColor(config.color)) {
+            incomplete("unreadable_toast_color", "The viewer only reads a 6-digit hex toast color (for example " + TOAST_COLORS.success + "); any other value gives a transparent toast with white text. Use a hex color or success, danger, warning, info", path + "/config/color");
+          }
+          if (element.type === "toast" && isFinite(Number(config.duration)) && Number(config.duration) > 60) {
+            warning("toast_duration_seconds", "Toast duration is in seconds: " + config.duration + " keeps the toast on screen for more than a minute", path + "/config/duration");
+          }
+          if (element.type === "reset_fields") {
+            if (["application", "page", "component"].indexOf(config.scope || "application") < 0) {
+              incomplete("invalid_reset_scope", "reset_fields scope must be application, page or component", path + "/config/scope");
+            } else if (config.scope === "page" && trimmed(config.targetPage).length && !pageMap[String(config.targetPage)]) {
+              incomplete("unknown_reset_target", "reset_fields must target an existing page (its unique name in reduced JSON)", path + "/config/targetPage");
+            } else if (config.scope === "component" && !ids[String(config.targetElement)]) {
+              incomplete("unknown_reset_target", "reset_fields with scope component must target an existing component (its unique name in reduced JSON)", path + "/config/targetElement");
+            }
+          }
+          if (element.type === "if_else") {
+            var branchCondition = value && value.type === "condition" ? ensureArray(value.conds || value.cond).concat(ensureArray(value.groups)) : [];
+            if (!value || (value.type === "condition" && !branchCondition.some(function (cond) { return cond && (trimmed(cond.operator).length || cond.subject === "never_visible" || ensureArray(cond.conds).length || ensureArray(cond.groups).length); })) || (value.type !== "condition" && !trimmed(value.str))) {
+              incomplete("empty_if_else_condition", "An if_else without a condition always runs its then branch. Give it a condition", path + "/sources/self/vars/selfVar");
+            }
+          }
           if (element.type === "submit" && !enabledEntries(element.actions).length) {
             incomplete("unconfigured_submit", "Select an actual backend action. An empty submit is not an implemented business save", path + "/actions");
           }
@@ -2064,7 +2454,30 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             warning("submit_without_required_check", "Submission button does not validate required fields on its page", path + "/config/checkMandatoryInCurrentPage");
           }
         }
+        if (item.type === "button" && !boolLike(config.componentDisabled) && ["outline", "clear"].indexOf(trimmed(config.fill)) >= 0) {
+          if (isOpaqueColor(config.backgroundColor)) {
+            warning("button_fill_overridden", "The viewer paints config.backgroundColor whatever the fill: this " + config.fill + " button renders solid. Use variant secondary/ghost or backgroundColor transparent", path + "/config/backgroundColor");
+          } else if (isWhiteColor(config.color)) {
+            warning("button_text_unreadable", "White text on a " + config.fill + " button with a transparent background is invisible on a light page. Use variant secondary/ghost or a dark text color", path + "/config/color");
+          }
+        }
+        if (hasOwn(PROTOTYPE_PLACEHOLDERS, item.type) && !boolLike(config.componentDisabled) && trimmed(config.placeholder) === PROTOTYPE_PLACEHOLDERS[item.type]) {
+          warning("prototype_placeholder", "End users see the prototype hint \"" + config.placeholder + "\". Set a useful placeholder or an empty one", path + "/config/placeholder");
+        }
         if (item.type === "grid") {
+          var gridColumns = ensureArray(config.columns);
+          var gridSource = Object.keys(item.sources || {}).filter(function (key) { return /formssource_GetTableData$/.test(key) && boolLike(item.sources[key].enabled); })[0];
+          if (gridSource) {
+            var gridConfig = null;
+            try { gridConfig = JSON.parse(item.sources[gridSource].vars.forms_config.str); } catch (_invalidGridConfig) { gridConfig = null; }
+            if (gridConfig && Array.isArray(gridConfig.columns)) {
+              var hiddenColumns = ensureArray(gridConfig.hidden).map(String);
+              gridColumns = gridConfig.columns.filter(function (column) { return hiddenColumns.indexOf(String(column && column.name != null ? column.name : column)) < 0; });
+            }
+          }
+          if (!boolLike(config.componentDisabled) && config.returned_value !== "all_the_data" && gridColumns.length > 5) {
+            warning("wide_list_grid", "This grid shows " + gridColumns.length + " columns: it scrolls horizontally and long text makes tall rows. Show at most 5 short columns in a list and put the others (notes, descriptions) on the detail page", path);
+          }
           if (config.sourceEnabled !== false && !enabledEntries(item.sources).length) { incomplete("grid_without_source", "Source-backed grid needs an enabled data source; use sourceEnabled=false for a local grid", path + "/sources"); }
           if (config.sourceEnabled !== false && enabledEntries(item.sources).indexOf("self") >= 0) { incomplete("invalid_grid_self_source", "Grid data needs a backend source or a local grid, not a scalar self source", path + "/sources/self"); }
           if (config.sourceEnabled === false && !ensureArray(config.columns).length) { issue("grid_without_columns", "Local grid needs columns", path + "/config/columns"); }
@@ -2082,6 +2495,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       });
       validateContextDefaults(form, issue, warning);
+      eachConditionGroup(form, function (group, groupPath) {
+        eachCondition(group, groupPath, function (cond, condPath) {
+          if (!cond || typeof cond !== "object" || cond.subject !== "field") { return; }
+          if (trimmed(cond.operator).length && CONDITION_OPERATORS.indexOf(cond.operator) < 0) {
+            incomplete("invalid_condition_operator", "Unknown condition operator " + cond.operator + ": the viewer silently evaluates it as false. Use " + CONDITION_OPERATORS.join(", "), condPath + "/operator");
+          }
+          if (cond.val1 && cond.val1.__ref != null) {
+            incomplete("unknown_condition_field", "Condition field must resolve to exactly one component or formula: " + cond.val1.__ref, condPath + "/val1");
+          }
+        });
+      });
+      var customPages = ensureArray(form.pages).filter(function (page) { return page && !boolLike(page.enabledTab) && !boolLike(page.enabledButtons); });
+      if (customPages.length >= 2 && customPages.length === ensureArray(form.pages).length && customPages.filter(function (page) { return page.isNameDisplayed !== false; }).length >= 2) {
+        warning("repeated_form_title", "The form name is repeated in a title card on every page. Set isNameDisplayed=false on the pages and give each one a page header (page.header or a description block)", "/pages");
+      }
       baserowBindings(form).forEach(function (binding) {
         if (!binding.config) { incomplete("invalid_baserow_config", "Baserow requires forms_config as a JSON string object", binding.path + "/vars/forms_config"); return; }
         validateBaserowBinding(binding.path.substring(binding.path.lastIndexOf("/") + 1), binding.entry, binding.item, binding.path);
@@ -2835,9 +3263,22 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         mode = reference && boolLike(reference.enabledTab) ? "tabs" : reference && boolLike(reference.enabledButtons) ? "buttons" : "custom";
       }
       if (["custom", "tabs", "buttons"].indexOf(mode) < 0) { throw new Error("Unknown navigationMode: " + mode); }
+      var pageInput = op.pageObject || op.pageData || (op.page && typeof op.page === "object" && !Array.isArray(op.page) ? op.page : op);
       var page = makePageFromOperation(op, pageIndex, mode === "tabs");
-      if (mode === "custom") { page.enabledTab = false; page.enabledButtons = false; }
+      if (mode === "custom") {
+        page.enabledTab = false;
+        page.enabledButtons = false;
+        if (!hasOwn(pageInput, "isNameDisplayed")) { page.isNameDisplayed = false; }
+      }
       form.pages.splice(pageIndex, 0, page);
+      var addedHeader = pageHeaderField(pageInput);
+      if (addedHeader) {
+        var headerIndex = form.formulaire.length;
+        compileField(addedHeader, page.pageTechName, catalogByType, form.formulaire, null);
+        var nextPage = form.pages[pageIndex + 1];
+        var insertAt = nextPage ? form.formulaire.slice(0, headerIndex).map(function (item) { return item && item.config && item.config.page; }).indexOf(nextPage.pageTechName) : -1;
+        if (insertAt >= 0) { form.formulaire.splice(insertAt, 0, form.formulaire.pop()); }
+      }
       summary.push({ action: action, pageTechName: page.pageTechName, index: pageIndex });
       return;
     }
@@ -2915,7 +3356,47 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (action === "update_field") {
       var fieldFound = findField(form, op);
       var fieldPatch = op.patch && typeof op.patch === "object" ? op.patch : op.fieldObject || (op.field && typeof op.field === "object" ? op.field : {});
-      form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, fieldPatch);
+      var mergePatch = clone(fieldPatch, {});
+      // Reduced conditions replace the whole group: merging them into a
+      // native group would mix both shapes.
+      var conditionPatch = {};
+      ["visibleIf", "disabledIf", "buttonStateIf", "goToPageIf"].forEach(function (key) {
+        if (hasOwn(mergePatch, key)) { conditionPatch[key] = mergePatch[key]; delete mergePatch[key]; }
+      });
+      if (mergePatch.conditions && typeof mergePatch.conditions === "object" && !Array.isArray(mergePatch.conditions)) {
+        ["visibleIf", "buttonStateIf"].forEach(function (key) {
+          var group = mergePatch.conditions[key];
+          if (group && typeof group === "object" && !Array.isArray(group) && !isNativeConditionGroup(group)) { conditionPatch[key] = group; delete mergePatch.conditions[key]; }
+        });
+      }
+      if (fieldFound.item.type === "button") {
+        // Same reduced button properties as at creation: they live in config.
+        delete mergePatch.variant;
+        ["fill", "backgroundColor", "color", "expand", "icon", "iconPosition"].forEach(function (key) {
+          if (hasOwn(mergePatch, key)) {
+            mergePatch.config = mergePatch.config && typeof mergePatch.config === "object" ? mergePatch.config : {};
+            if (!hasOwn(mergePatch.config, key)) { mergePatch.config[key] = mergePatch[key]; }
+            delete mergePatch[key];
+          }
+        });
+        if (mergePatch.config) { delete mergePatch.config.variant; }
+      }
+      form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);
+      if (Object.keys(conditionPatch).length) {
+        var compiledConditions = {};
+        applyFieldConditions(compiledConditions, conditionPatch);
+        var updatedConditions = form.formulaire[fieldFound.index].conditions;
+        updatedConditions = updatedConditions && typeof updatedConditions === "object" && !Array.isArray(updatedConditions) ? updatedConditions : {};
+        // null removes the condition, as in a merge patch.
+        Object.keys(conditionPatch).forEach(function (key) {
+          if (conditionPatch[key] == null) { delete updatedConditions[key === "disabledIf" ? "buttonStateIf" : key]; }
+        });
+        Object.keys(compiledConditions.conditions || {}).forEach(function (key) { updatedConditions[key] = compiledConditions.conditions[key]; });
+        form.formulaire[fieldFound.index].conditions = updatedConditions;
+      }
+      if (fieldFound.item.type === "button" && (hasOwn(fieldPatch, "variant") || explicitConfigValue(fieldPatch, "variant") || explicitConfigValue(fieldPatch, "fill"))) {
+        applyButtonVariant(form.formulaire[fieldFound.index], fieldPatch);
+      }
       applyFieldLabel(form.formulaire[fieldFound.index], fieldPatch);
       if (hasOwn(fieldPatch, "label")) { delete form.formulaire[fieldFound.index].label; }
       if (hasOwn(fieldPatch, "description")) { delete form.formulaire[fieldFound.index].description; }
@@ -2969,7 +3450,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var targetFlow = findFlow(form, op).item;
       targetFlow.elements = ensureArray(targetFlow.elements);
       var flowElementDef = op.element && typeof op.element === "object" && !Array.isArray(op.element) ? op.element : op;
-      var flowElement = compileFlowElement(flowElementDef, catalogByType);
+      var compiledFlowElements = compileFlowElements(flowElementDef, catalogByType);
+      var flowElement = compiledFlowElements[0];
       var flowParentId = trimmed(op.parentId || op.parent || op.parentElementId);
       if (flowParentId.length) {
         var flowParent = findFlowElement(targetFlow, { id: flowParentId }).item;
@@ -2978,9 +3460,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         flowElement.parentRef = flowParent.id;
         flowParent[refKey].splice(normalizeIndex(op.index, flowParent[refKey].length, flowParent[refKey].length), 0, flowElement.id);
         var flowParentIndex = findFlowElement(targetFlow, { id: flowParent.id }).index;
-        targetFlow.elements.splice(flowParentIndex + 1, 0, flowElement);
+        Array.prototype.splice.apply(targetFlow.elements, [flowParentIndex + 1, 0].concat(compiledFlowElements));
       } else {
-        targetFlow.elements.splice(normalizeIndex(op.index, targetFlow.elements.length, targetFlow.elements.length), 0, flowElement);
+        Array.prototype.splice.apply(targetFlow.elements, [normalizeIndex(op.index, targetFlow.elements.length, targetFlow.elements.length), 0].concat(compiledFlowElements));
       }
       summary.push({ action: action, flowId: targetFlow.id || targetFlow.name, elementId: flowElement.id });
       return;
@@ -2990,6 +3472,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var flowElementFound = findFlowElement(updateFlow, op);
       var flowElementPatch = op.patch && typeof op.patch === "object" ? op.patch : op.element || {};
       updateFlow.elements[flowElementFound.index] = applyMergePatch(flowElementFound.item, flowElementPatch);
+      var patchedElement = updateFlow.elements[flowElementFound.index];
+      if (patchedElement.type === "toast" && patchedElement.config && (hasOwn(flowElementPatch, "color") || explicitConfigValue(flowElementPatch, "color"))) {
+        patchedElement.config.color = normalizeToastColor(hasOwn(flowElementPatch, "color") ? flowElementPatch.color : patchedElement.config.color);
+        delete patchedElement.color;
+      }
       summary.push({ action: action, flowId: updateFlow.id || updateFlow.name, elementId: updateFlow.elements[flowElementFound.index].id });
       return;
     }
