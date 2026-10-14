@@ -1431,3 +1431,57 @@ test('viewer title choice, grid second click and documented button and header li
   assert.match(quality.actionBar.width, /does not stretch/);
   assert.match(quality.dataViews.headers, /user's language/);
 });
+test('box styles: only the keys the viewer renders, nested parts of layoutChildrenStyle', () => {
+  const codes = r => clone(r.validation.issues.concat(r.validation.warnings).map(i => i.code + ' ' + i.path));
+  const bad = api().compile(styled([{ type: 'text', name: 't', label: 'T', boxStyle: { marginTop: '8px', color: '#333', boxShadow: '0 1px 2px #0002', fontSize: '14px', margin: '0 0 8px 0' } }]));
+  assert.equal(bad.status, 'invalid', 'refused at creation');
+  const unsupported = bad.validation.issues.filter(i => i.code === 'unsupported_style_key');
+  assert.deepEqual(clone(unsupported.map(i => i.path.split('/').pop())).sort(), ['boxShadow', 'color', 'fontSize', 'marginTop']);
+  assert.match(unsupported.find(i => /color$/.test(i.path)).message, /Use textColor/);
+  assert.match(unsupported.find(i => /marginTop$/.test(i.path)).message, /shorthand/);
+  const draft = clone(api().compile(styled([{ type: 'text', name: 't', label: 'T' }])).form);
+  draft.formulaire.find(f => f.name === 't').config.boxStyle.marginTop = '8px';
+  const checked = api().validate(draft);
+  assert.equal(checked.validation.valid, true, 'an existing draft stays editable');
+  assert.ok(checked.validation.warnings.some(w => w.code === 'unsupported_style_key'));
+  const parts = api().compile(styled([{ type: 'layout', name: 'row', cols: [{ size: 6 }, { size: 6 }], layoutChildrenStyle: { default: { margin: '0', questionBoxStyle: { padding: '0 0 4px 0' }, componentBoxStyle: { borderRadius: '8px' } } }, children: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] }]));
+  assert.equal(parts.status, 'ok', JSON.stringify(parts.validation.issues));
+  assert.ok(!codes(parts).some(c => /unsupported_style_key|invalid_style_value/.test(c)));
+});
+test('containers: unrendered nesting refused, card children refused, layout columns derived', () => {
+  const nested = api().compile(styled([{ type: 'layout', name: 'l', children: [{ type: 'ion-card', name: 'c', label: 'C' }] }]));
+  assert.equal(nested.status, 'invalid');
+  assert.ok(nested.validation.issues.some(i => i.code === 'unrendered_nesting'));
+  assert.throws(() => api().compile(styled([{ type: 'ion-card', name: 'c', label: 'C', children: [{ type: 'text', name: 't', label: 'T' }] }])), /use a section/);
+  const sizes = (form, name) => { const c = form.formulaire.find(f => f.name === name).config; return ['cols', 'tablet', 'phoneL', 'phoneP'].map(k => c[k].map(x => x.size).filter(n => n > 0).join('/')); };
+  const r = api().compile(styled([
+    { type: 'layout', name: 'two', cols: [{ size: 6 }, { size: 6 }], children: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] },
+    { type: 'layout', name: 'three', children: [{ type: 'text', name: 'c', label: 'C' }, { type: 'text', name: 'd', label: 'D' }, { type: 'text', name: 'e', label: 'E' }] },
+    { type: 'layout', name: 'given', cols: [{ size: 3 }, { size: 9 }], tablet: [{ size: 12 }], children: [{ type: 'text', name: 'f', label: 'F' }] }
+  ]));
+  assert.deepEqual(sizes(r.form, 'two'), ['6/6', '6/6', '12', '12']);
+  assert.deepEqual(sizes(r.form, 'three'), ['4/4/4', '6/6', '12', '12']);
+  assert.deepEqual(sizes(r.form, 'given'), ['3/9', '12', '12', '12'], 'given arrays are kept');
+});
+test('component visuals: grid toolbar style, image and map sizes, container text color, global box style', () => {
+  const warned = (r, code) => r.validation.warnings.filter(w => w.code === code).map(w => w.path);
+  const r = api().compile(styled([
+    { type: 'grid', name: 'list', sourceEnabled: false, columns: [{ name: 'Nom', type: 'text' }], componentBoxStyle: { border: '1px solid #E2E8F0' } },
+    { type: 'img', name: 'logo', config: { width: '100%', height: '120' } },
+    { type: 'map', name: 'where', config: { minHeight: '50vh' } },
+    { type: 'section', name: 'dark', title: 'Dark', boxStyle: { backgroundColor: '#0F172A', textColor: '#FFFFFF' }, fields: [{ type: 'button', name: 'go', label: 'Go', variant: 'primary', flow: 'go' }] },
+    { type: 'description', name: 'band', description: '<p>Band</p>', boxStyle: { backgroundColor: '#0F172A', textColor: '#FFFFFF', margin: '0', padding: '16px' } }
+  ], { flows: [{ id: 'go', elements: [{ type: 'toast', message: 'Go' }] }] }));
+  assert.equal(warned(r, 'grid_component_style').length, 1);
+  assert.equal(clone(warned(r, 'image_size_unit')).length, 1, 'only the width with a unit');
+  assert.equal(warned(r, 'map_height_unit').length, 1);
+  const textColor = clone(warned(r, 'container_text_color'));
+  assert.equal(textColor.length, 1, 'the dark section holding a button, not the text-only band: ' + textColor);
+  const form = clone(r.form);
+  form.config.boxStyle = { padding: '16px' };
+  assert.ok(api().validate(form).validation.warnings.some(w => w.code === 'global_box_style' && w.path === '/config/boxStyle'));
+  const contract = api().contract().authoringContract;
+  assert.ok(contract.styleRendering.precedence && contract.styleRendering.textColor && contract.styleRendering.nesting);
+  assert.match(contract.componentAuthoring.grid.visual, /gridCellPadding/);
+  assert.ok(contract.styleObjectFields.borderWidth.legacy);
+});

@@ -930,6 +930,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             optOut: "Root styleDefaults:false, or add_field with styleDefaults:false, keeps the viewer cards."
           },
           mobile: "Root config.<device> sets the page container: horizontalMargin outside, padding inside, adding up on each side. New applications get horizontalMargin 32px desktop, 16px tablet, 0 on phones and padding 24px, 20px, 12px; a linear questionnaire keeps the wider creation margins (100/60/10px). See rootFields.config. Box styles are the same on every device: prefer the 8/12/16/24px values of the role defaults to larger ones, and columns that collapse to one on phones.",
+          richText: "Label and description HTML is rendered as written: inline style attributes (color, font-size, font-weight, text-align, margins) and the global Ionic utility classes work; font-family is overridden by the viewer font. The form document has no stylesheet, custom CSS class, theme color or dark mode: apply the design tokens explicitly. Do not rely on <style> blocks or event attributes.",
+          boxStyles: "Only the keys of styleObjectFields are rendered; see styleRendering for the parts, the precedence (application, page, parent layoutChildrenStyle, component), the text color rules and the nesting of containers.",
           nesting: "One surface per logical group. Use boxStyle for outer margin/padding, questionBoxStyle only for the header and componentBoxStyle only for the inner control. Child boxStyle can override layoutChildrenStyle: do not double-pad or combine conflicting shorthand and per-side values. Preserve native input affordances.",
           review: "Review all visible blocks, including inputs, grids and action groups, not only the welcome card. Use a consistent spacing scale (for example 8/16/24px), verify mobile overflow and desktop density. Empty spacing alone is not an error.",
           actionGroups: "Put related buttons in a native layout: two columns on desktop/tablet, one on phones. Keep group spacing on the layout and avoid a separate full-width card per button. Do not group unrelated actions automatically.",
@@ -1032,21 +1034,34 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         flow: { type: "string", optional: true, description: "For button fields, references a flows[].id." }
       },
       styleObjectFields: {
-        margin: { type: "string", optional: true, example: "0 0 10px 0" },
-        padding: { type: "string", optional: true, example: "20px 27px" },
+        margin: { type: "string", optional: true, example: "0 0 16px 0", description: "Outer margin: one CSS shorthand (1 to 4 values). There are no per-side keys." },
+        padding: { type: "string", optional: true, example: "16px", description: "Inner padding: one CSS shorthand (1 to 4 values)." },
         backgroundColor: { type: "string", optional: true, example: "#FFFFFF" },
-        textColor: { type: "string", optional: true, example: "#202124" },
-        textColorMode: { type: "string", optional: true, enum: ["", "auto", "custom", "none"] },
-        border: { type: "string", optional: true, example: "1px solid #E5E7EB" },
-        borderWidth: { type: "string", optional: true, example: "1px" },
-        borderStyle: { type: "string", optional: true, example: "solid" },
-        borderColor: { type: "string", optional: true, example: "#E5E7EB" },
-        borderRadius: { type: "string", optional: true, example: "10px" },
-        borderTop: { type: "string", optional: true },
+        textColor: { type: "string", optional: true, example: "#0F172A", description: "Text color of the part and of everything inside it, or auto (black or white by contrast with the background). Forced with !important on the buttons, icons and inputs inside: see styleRendering.textColor." },
+        textColorMode: { type: "string", optional: true, enum: ["", "auto", "custom", "none"], description: "auto computes the color, custom uses textColor, none (or no key) keeps the default." },
+        border: { type: "string", optional: true, example: "1px solid #E2E8F0", description: "Border shorthand (width style color)." },
+        borderTop: { type: "string", optional: true, example: "1px solid #E2E8F0", description: "One side, a full shorthand applied after border; borderRight, borderBottom and borderLeft likewise." },
         borderRight: { type: "string", optional: true },
         borderBottom: { type: "string", optional: true },
         borderLeft: { type: "string", optional: true },
-        verticalAlign: { type: "string", optional: true, enum: ["", "start", "center", "end", "stretch"], description: "Mostly used for children inside a layout." }
+        borderRadius: { type: "string", optional: true, example: "12px", description: "One radius for all corners." },
+        verticalAlign: { type: "string", optional: true, enum: ["", "start", "center", "end", "stretch"], description: "Only for the children of a layout (their boxStyle or the layout's layoutChildrenStyle): aligns the child in its column; stretch (default) makes the columns of a row as tall as each other. Ignored elsewhere." },
+        borderWidth: { type: "string", optional: true, legacy: true, description: "Legacy: read when border is empty, removed by the editor. Use border." },
+        borderStyle: { type: "string", optional: true, legacy: true, description: "Legacy, see borderWidth." },
+        borderColor: { type: "string", optional: true, legacy: true, description: "Legacy, see borderWidth." }
+      },
+      styleRendering: {
+        parts: { boxStyle: "the card around the component (its container)", questionBoxStyle: "the label (question) of the component; description, button and chart have none", componentBoxStyle: "the control: the ion-item of an input, the radio or checkbox list, the signature pad, the gallery; on a grid it is the refresh/deselect toolbar, not the table" },
+        ignoredKeys: "The viewer reads only the keys of styleObjectFields; any other key is ignored without error and refused at creation (unsupported_style_key): marginTop and other sides (use the margin/padding shorthand), color (use textColor), boxShadow, width, height, minHeight, opacity, fontSize, fontWeight, fontFamily, textAlign (put text styles in the HTML of a label or description).",
+        values: "CSS strings with units (16px, 1rem, 50%, calc(...)); !important is removed; a bare nonzero number is not a length. An empty string or a missing key keeps the default.",
+        precedence: "From weakest to strongest: the application config.<part>, the page config.<part>, the parent's layoutChildrenStyle (default, then first, then last), the component's own style. Inside a layout, the container of a child takes the layoutChildrenStyle value first and the application/page/child boxStyle over it; inside a card, layoutChildrenStyle wins over the application and the page.",
+        layoutChildrenStyle: "{ default, first, last }: each a box style for the container of the children, which may also hold questionBoxStyle and componentBoxStyle for their parts. In a layout first and last are the first and last child of each visual row (per device); in a card, the first and last child.",
+        globalStyles: "Avoid boxStyle on the application or a page: it applies to every top-level component, to root layouts and cards and to the children of layouts, so spacing and borders add up (global_box_style). The role defaults style components one by one.",
+        textColor: "A text color (custom or auto) on a container is forced on what it contains: button labels and icons take it whatever the button color, inputs lose their light grey background, grids and galleries are tinted. Keep it for text-only blocks (a dark band of description) or color the text inside the HTML (container_text_color).",
+        perDevice: "Box styles are the same on every screen. Only the root config.<device>, the layout columns (cols, tablet, phoneL, phoneP), the gallery cards per line and the phone navigation change with the screen.",
+        nesting: "A layout renders the simple components and nested layouts, not a card; a card (ion-card) renders the simple components, not a layout, a card or a map (unrendered_nesting). Group fields with a section or a layout.",
+        mandatoryError: "A mandatory component left empty is painted light red (#ffebee, !important) whatever its backgroundColor.",
+        editorCanvas: "The editor canvas does not draw box styles nor the root config.<device>: check them in the viewer or the preview."
       },
       conditionFields: {
         visibleIf: { type: "object", optional: true, description: "Visibility condition group." },
@@ -1083,24 +1098,26 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           example: { type: "section", name: "contact_identity", title: "Identité", subtitle: "Le contact et son entreprise", columns: 2, fields: [{ type: "text", name: "first_name", label: "Prénom" }, { type: "text", name: "last_name", label: "Nom", mandatory: true }, { type: "select", name: "company", label: "Entreprise", values: ["A", "B"] }, { type: "text", name: "notes", label: "Notes", fullWidth: true }] }
         },
         description: { fields: ["name", "description"], note: "Use HTML for headings, dashboards, explanatory bands, and visual grouping." },
-        text: { fields: ["name", "description", "placeholder", "mandatory", "short", "config"] },
-        datetime: { fields: ["name", "description", "placeholder", "mandatory", "config"], configHints: ["display_format", "picker_format", "min_datetime", "max_datetime"] },
-        time: { fields: ["name", "description", "placeholder", "mandatory", "config"], configHints: ["display_format", "picker_format"] },
-        slider: { fields: ["name", "description", "min", "max", "step"] },
+        text: { visual: "config.type: unset, text, password, email, number, search, tel, url (input type and keyboard); short:false gives a growing multi-line field.", fields: ["name", "description", "placeholder", "mandatory", "short", "config"] },
+        datetime: { visual: "display_format and picker_format take the same value: MM/DD/YY, DD/MM/YY, MM/DD/YYYY, DD/MM/YYYY or YYYY/MM/DD.", fields: ["name", "description", "placeholder", "mandatory", "config"], configHints: ["display_format", "picker_format", "min_datetime", "max_datetime"] },
+        time: { visual: "display_format and picker_format: HH:mm, HH:mm:ss, hh:mm:A or hh:mm:ss:A.", fields: ["name", "description", "placeholder", "mandatory", "config"], configHints: ["display_format", "picker_format"] },
+        slider: { visual: "config.pin (value bubble while dragging), config.snaps (ticks), config.sliderLeftLabel and sliderRightLabel (texts at the ends).", fields: ["name", "description", "min", "max", "step"] },
         radio: { fields: ["name", "description", "values", "config"], values: "string[] or option objects" },
         checkbox: { fields: ["name", "description", "values", "config"], values: "string[] or option objects" },
-        select: { fields: ["name", "description", "placeholder", "values", "sources", "sourceEnabled", "config"], values: "string[] or option objects" },
+        select: { visual: "config.type: popover (default), action-sheet or alert (not action-sheet with selectionMode multiple); config.selectionMode: single or multiple.", fields: ["name", "description", "placeholder", "values", "sources", "sourceEnabled", "config"], values: "string[] or option objects" },
         radio_group: { fields: ["name", "description", "columns", "rows"] },
         checkbox_group: { fields: ["name", "description", "columns", "rows"] },
-        grid: { fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "deselectOnSecondClick", "config"], headers: "Column headers are the source column names (Baserow field names) and aggregation keys (count, sum_<column>); no grid property renames them. See generationQuality.dataViews.headers.", deselectOnSecondClick: "false keeps the selected row selected when it is clicked again (viewers that have this option).", columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
-        button: { fields: ["name", "flow", "label", "icon", "iconPosition", "variant", "backgroundColor", "color", "fill", "expand", "disabledIf", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"], variants: BUTTON_VARIANTS, note: "Prefer variant over raw colors; see generationQuality.actionBar. expand is saved but not rendered as a full-width button by the current viewer." },
-        img: { fields: ["name", "description", "config"] },
+        grid: { visual: "Table look: config.gridCellPadding (number of px, 0 to 60, default 21), gridFooterEnabled, gridFiltersEnabled, gridPaginationEnabled with gridRowsPerPage (default 10). The style of the table itself is fixed; componentBoxStyle styles its toolbar only (grid_component_style), style the card with boxStyle.", fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "deselectOnSecondClick", "config"], headers: "Column headers are the source column names (Baserow field names) and aggregation keys (count, sum_<column>); no grid property renames them. See generationQuality.dataViews.headers.", deselectOnSecondClick: "false keeps the selected row selected when it is clicked again (viewers that have this option).", columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
+        button: { visual: "config.shape: default or round; size: small, default or large; justify and align (flex-start, center, flex-end) place the button in its block; iconPosition: start or end. color and backgroundColor win over componentBoxStyle colors; a textColor on a container around the button overrides its label color. buttonDisplayMode advanced renders the label as HTML and ignores fill, colors, shape, size and icon.", fields: ["name", "flow", "label", "icon", "iconPosition", "variant", "backgroundColor", "color", "fill", "expand", "disabledIf", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"], variants: BUTTON_VARIANTS, note: "Prefer variant over raw colors; see generationQuality.actionBar. expand is saved but not rendered as a full-width button by the current viewer." },
+        img: { visual: "config.width and height are numbers of pixels without unit ('240'): the viewer appends px (image_size_unit); config.alt is the alternative text.", fields: ["name", "description", "config"] },
         file: { fields: ["name", "description", "mandatory", "config"] },
         signature: { fields: ["name", "description", "mandatory", "config"] },
         location: { fields: ["name", "description", "config"] },
         barcode: { fields: ["name", "description", "config"] },
-        chart: { fields: ["name", "description", "sources", "config"] },
-        map: { fields: ["name", "description", "sources", "config"] }
+        chart: { visual: "config.type: line, area, bar, pie or donut; config.height: 'auto' or a number of pixels ('320'); firstColAsXAxis. Chart colors, legend and theme cannot be set.", fields: ["name", "description", "sources", "config"] },
+        gallery: { fields: ["name", "description", "sources", "config"], visual: "config.cardsPerLine, cardsPerLineTablet, cardsPerLinePhoneL, cardsPerLinePhoneP: 1, 2, 3, 4 or 6 cards per line (an empty value takes the next larger screen's; phoneP falls back to 1); config.galleryTemplate { str, html: true, type: 'html' } is the HTML of a card. Card images are 180px high (object-fit cover) whatever the template says." },
+        "ion-card": { fields: ["name", "label", "description"], visual: "A card with a title: config.title (text, html with personalized:true, size H1 to H6, position text-left/text-center/text-right, label_color). Its children are not compiled by the reduced contract (refused): use a section to group fields in a titled card." },
+        map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18), config.autoCenter.", fields: ["name", "description", "sources", "config"] }
       },
       baserowSources: baserowSourceContract(),
       backendActions: backendActionContract(),
@@ -1348,6 +1365,38 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       layoutChildrenStyle: { "default": { margin: "0 0 12px 0", padding: "0", border: "0", backgroundColor: "transparent" } }
     }
   };
+  // Keys of a box style the viewer reads (getViewerItemBoxStyleRaw); it
+  // silently ignores any other one. borderWidth/Style/Color are legacy keys
+  // the editor still reads but removes when it writes a border.
+  var BOX_STYLE_KEYS = ["margin", "padding", "backgroundColor", "textColor", "textColorMode", "border", "borderTop", "borderRight", "borderBottom", "borderLeft", "borderRadius", "verticalAlign", "borderWidth", "borderStyle", "borderColor"];
+  var BOX_STYLE_SUBSTITUTES = {
+    side: "one margin or padding shorthand, for example margin: '8px 0 16px 0'",
+    color: "textColor",
+    font: "inline styles in the label or description HTML (the viewer imposes its font family)",
+    none: "nothing: the viewer has no such box style"
+  };
+  function boxStyleSubstitute(key) {
+    if (/^(margin|padding)(Top|Right|Bottom|Left|Block|Inline)/.test(key)) { return BOX_STYLE_SUBSTITUTES.side; }
+    if (key === "color") { return BOX_STYLE_SUBSTITUTES.color; }
+    if (/^(font|lineHeight|textAlign|textTransform|textDecoration|letterSpacing|whiteSpace)/.test(key)) { return BOX_STYLE_SUBSTITUTES.font; }
+    return BOX_STYLE_SUBSTITUTES.none;
+  }
+  // The text color a box style gives, as the viewer resolves it
+  // (getViewerResolvedTextColor): "" when none, "auto" for the computed one.
+  function activeTextColor(style) {
+    if (!style || typeof style !== "object") { return ""; }
+    var color = trimmed(style.textColor), mode = trimmed(style.textColorMode).toLowerCase();
+    if (["none", "unset", "default"].indexOf(mode) >= 0 || ["none", "unset"].indexOf(color.toLowerCase()) >= 0) { return ""; }
+    if (!color.length) { return mode === "auto" ? "auto" : ""; }
+    // Legacy: white text without a mode nor a background of its own is ignored.
+    if (!mode.length && !trimmed(style.backgroundColor).length && isWhiteColor(color)) { return ""; }
+    return color;
+  }
+  // Child types each container renders (itemLayoutViewer_Elem, itemCardViewer_Elem):
+  // a layout renders nested layouts but no card, a card no layout, card or map.
+  var CONTAINER_UNRENDERED_CHILDREN = { layout: ["ion-card", "card"], "ion-card": ["layout", "ion-card", "card", "map"], card: ["layout", "ion-card", "card", "map"] };
+  // Components a container text color recolors (viewer rules on [style*="--c8o-box-text-color"]).
+  var TEXT_COLOR_CONTROL_TYPES = ["button", "text", "select", "datetime", "time", "checkbox", "radio", "slider", "barcode", "file", "location", "radio_group", "checkbox_group", "signature", "grid"];
   var DATA_VIEW_TYPES = ["grid", "chart", "map", "gallery"];
   var NO_ROLE_TYPES = ["ion-card", "card"];
 
@@ -1393,6 +1442,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var sizes = [];
     for (var i = 0; i < 6; i++) { sizes.push({ size: i < columns ? Math.floor(12 / columns) : 0 }); }
     return sizes;
+  }
+
+  // Device columns a layout does not give would keep the prototype's (six
+  // desktop columns, three on tablets, two on large phones): cols follows the
+  // children (at most 4), tablets keep up to two of its columns, phones one.
+  function deriveLayoutColumns(config, given, childCount) {
+    if (!given("cols")) { config.cols = layoutSizes(Math.max(1, Math.min(4, childCount))); }
+    var desktop = ensureArray(config.cols).filter(function (col) { return col && Number(col.size) > 0; });
+    if (!given("tablet")) {
+      config.tablet = desktop.length <= 2 ? desktop.map(function (col) { return { size: Number(col.size) }; }) : layoutSizes(2);
+      while (config.tablet.length < 6) { config.tablet.push({ size: 0 }); }
+    }
+    if (!given("phoneL")) { config.phoneL = layoutSizes(1); }
+    if (!given("phoneP")) { config.phoneP = layoutSizes(1); }
   }
 
   // section: a card with an optional h3 title; its fields in columns (one on
@@ -2083,6 +2146,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!proto) {
       throw new Error("Unsupported form component type: " + type);
     }
+    if ((type === "ion-card" || type === "card") && (ensureArray(field.children).length || ensureArray(field.fields).length)) {
+      throw new Error("ion-card children are not compiled by the reduced contract and would be lost: use a section (a titled card of fields) or a layout");
+    }
     if (type === "grid" && (hasOwn(field, "rows") || hasOwn(field, "sampleRows") || hasOwn(field, "data"))) {
       throw new Error("Unsupported grid seed property: bind business data to a real source; rows/sampleRows/data would not be rendered. Local row actions are only for transient UI state");
     }
@@ -2114,6 +2180,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         if (hasOwn(field, key) && !(field.config && hasOwn(field.config, key))) { out.config[key] = field[key]; }
       });
       var children = ensureArray(field.children || field.fields);
+      deriveLayoutColumns(out.config, function (key) { return hasOwn(field, key) || !!(field.config && hasOwn(field.config, key)); }, children.length);
       formulaire.push(out);
       for (var i = 0; i < children.length; i++) {
         var child = compileField(children[i], pageTechName, catalogByType, formulaire, out.id, opts);
@@ -2444,11 +2511,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       }
     }
-    function validateStyle(style, path) {
+    // parts: a layoutChildrenStyle scope also holds the questionBoxStyle and
+    // componentBoxStyle of the children, as the editor writes them.
+    function validateStyle(style, path, parts) {
       if (style == null) { return; }
       if (typeof style !== "object" || Array.isArray(style)) { issue("invalid_style_object", "Style must be an object of CSS string values", path); return; }
       Object.keys(style).forEach(function (property) {
         var value = style[property];
+        if (parts === true && (property === "questionBoxStyle" || property === "componentBoxStyle")) { validateStyle(value, path + "/" + property); return; }
+        if (BOX_STYLE_KEYS.indexOf(property) < 0) {
+          incomplete("unsupported_style_key", "The viewer ignores the box style key " + property + ". Use " + boxStyleSubstitute(property) + ". Box style keys: " + BOX_STYLE_KEYS.slice(0, 12).join(", "), path + "/" + property);
+          return;
+        }
         if (typeof value !== "string") { issue("invalid_style_value", "Use CSS strings including units (for example 16px); use an empty string to keep defaults", path + "/" + property); }
         else if (/^(margin|padding)(Top|Right|Bottom|Left)?$|^border(Radius|Width)$/.test(property) && value.split(/\s+/).some(function (part) { return /^-?\d+(\.\d+)?$/.test(part) && Number(part) !== 0; })) {
           issue("missing_style_unit", "Nonzero CSS lengths require a unit, for example 16px", path + "/" + property);
@@ -2645,6 +2719,22 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           });
         });
       });
+      var itemById = {}, childrenByParent = {};
+      ensureArray(form.formulaire).forEach(function (item) {
+        if (!item || typeof item !== "object" || item.id == null) { return; }
+        itemById[String(item.id)] = item;
+        if (item.parentRef != null) { (childrenByParent[String(item.parentRef)] = childrenByParent[String(item.parentRef)] || []).push(item); }
+      });
+      function descendants(item) {
+        var out = [], queue = (childrenByParent[String(item.id)] || []).slice();
+        while (queue.length && out.length < 500) {
+          var next = queue.shift();
+          out.push(next);
+          queue = queue.concat(childrenByParent[String(next.id)] || []);
+        }
+        return out;
+      }
+      function isControl(item) { return TEXT_COLOR_CONTROL_TYPES.indexOf(item.type) >= 0 && !boolLike(item.config && item.config.componentDisabled); }
       ensureArray(form.formulaire).forEach(function (item, idx) {
         if (item && item.flow && !flowIds[String(item.flow)]) {
           issue("unknown_field_flow", "Field references unknown flow: " + item.flow, "/formulaire/" + idx + "/flow");
@@ -2697,10 +2787,50 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         });
         if (config.layoutChildrenStyle != null) {
           if (typeof config.layoutChildrenStyle !== "object" || Array.isArray(config.layoutChildrenStyle)) { issue("invalid_style_object", "layoutChildrenStyle must contain default/first/last style objects", path + "/config/layoutChildrenStyle"); }
-          else { Object.keys(config.layoutChildrenStyle).forEach(function (scope) { validateStyle(config.layoutChildrenStyle[scope], path + "/config/layoutChildrenStyle/" + scope); }); }
+          else { Object.keys(config.layoutChildrenStyle).forEach(function (scope) { validateStyle(config.layoutChildrenStyle[scope], path + "/config/layoutChildrenStyle/" + scope, true); }); }
         }
         if (item.type === "description" && /style\s*=/.test(config.html || "") && !(config.boxStyle && (config.boxStyle.margin || config.boxStyle.padding))) {
           warning("html_spacing_without_container_style", "Styled HTML has no explicit Forms container spacing; check outer margin and avoid double padding", path + "/config/boxStyle");
+        }
+        var parentItem = item.parentRef != null ? itemById[String(item.parentRef)] : null;
+        if (parentItem && hasOwn(CONTAINER_UNRENDERED_CHILDREN, parentItem.type) && CONTAINER_UNRENDERED_CHILDREN[parentItem.type].indexOf(item.type) >= 0) {
+          incomplete("unrendered_nesting", "The viewer does not render a " + item.type + " inside a " + parentItem.type + ": " + item.name + " would not appear. Group fields with a layout or a section; a card only holds simple components", path + "/parentRef");
+        }
+        if (boolLike(config.componentDisabled)) { return; }
+        if (item.type === "grid" && hasStyleValues(config.componentBoxStyle)) {
+          warning("grid_component_style", "componentBoxStyle of a grid styles its refresh/deselect toolbar, not the table. Style the grid card with boxStyle", path + "/config/componentBoxStyle");
+        }
+        if (item.type === "img") {
+          ["width", "height"].forEach(function (key) {
+            if (config[key] != null && trimmed(config[key]).length && !/^\d+(\.\d+)?$/.test(trimmed(config[key]))) {
+              warning("image_size_unit", "Image " + key + " is a number of pixels without unit ('240'): the viewer appends px, so " + config[key] + " gives an invalid size", path + "/config/" + key);
+            }
+          });
+        }
+        if (item.type === "map" && config.minHeight != null && trimmed(config.minHeight).length && !/^\d+(\.\d+)?(px)?$/.test(trimmed(config.minHeight))) {
+          warning("map_height_unit", "map minHeight is in pixels ('320' or '320px'): the viewer turns " + config.minHeight + " into px", path + "/config/minHeight");
+        }
+        var recolored = function (scopeItems) { return scopeItems.some(function (child) { return isControl(child) || descendants(child).some(isControl); }); };
+        var ownTextColor = activeTextColor(config.boxStyle);
+        if (ownTextColor && (isControl(item) || descendants(item).some(isControl))) {
+          warning("container_text_color", "textColor " + ownTextColor + " on " + item.name + " is forced on the buttons, icons and inputs inside it: button labels lose their own color and inputs their light background. Keep textColor for text-only blocks, or color the text in the HTML", path + "/config/boxStyle/textColor");
+        }
+        if (config.layoutChildrenStyle && typeof config.layoutChildrenStyle === "object") {
+          Object.keys(config.layoutChildrenStyle).forEach(function (scope) {
+            var scoped = activeTextColor(config.layoutChildrenStyle[scope]);
+            if (scoped && recolored(childrenByParent[String(item.id)] || [])) {
+              warning("container_text_color", "layoutChildrenStyle." + scope + ".textColor " + scoped + " is forced on the buttons, icons and inputs of the children of " + item.name + ". Keep textColor for text-only children", path + "/config/layoutChildrenStyle/" + scope + "/textColor");
+            }
+          });
+        }
+      });
+      var globalStyles = [{ owner: form.config, path: "/config", name: "the application" }].concat(ensureArray(form.pages).map(function (page, index) { return { owner: page && page.config, path: "/pages/" + index + "/config", name: "page " + (page && page.name) }; }));
+      globalStyles.forEach(function (scope) {
+        if (!scope.owner || typeof scope.owner !== "object") { return; }
+        ["boxStyle", "questionBoxStyle", "componentBoxStyle"].forEach(function (key) { validateStyle(scope.owner[key], scope.path + "/" + key); });
+        var box = scope.owner.boxStyle;
+        if (box && typeof box === "object" && ["margin", "padding", "border", "backgroundColor"].some(function (key) { return trimmed(box[key]).length > 0; })) {
+          warning("global_box_style", "The boxStyle of " + scope.name + " applies to every top-level component, to root layouts and cards and to the children of layouts, over their layoutChildrenStyle: spacing and borders add up. Style the components instead (role defaults)", scope.path + "/boxStyle");
         }
       });
       validateContextDefaults(form, issue, warning);
