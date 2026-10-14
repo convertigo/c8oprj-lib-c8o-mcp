@@ -992,7 +992,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           rule: "A list page shows a source-backed grid of a few short columns (name, status, date, amount) and the actions that apply to the selected row; a detail page shows the selected record in fields grouped in sections (type section), with save/cancel in its action bar.",
           selection: "Detail fields read the list grid selection through defaultFrom source field, mode reactive (path [column, 'value']). Write expressions with a fallback (value ?? ''): older viewers keep the previous value when the expression gives null or undefined, so a cleared selection would leave stale text (recent viewers empty a reactive field then).",
           guard: "Disable the row actions until a row is selected with disabledIf: { field: '<grid>', operator: 'is_empty' }, instead of a mandatory guard field.",
-          runtime: "Clicking the selected row again deselects it, unless the grid sets deselectOnSecondClick:false (viewers that have this option). Recent viewers select the row again by its id after a refresh, older ones by its content: there a modified row is no longer selected after a save. Do not promise that the edited record stays selected."
+          runtime: "Clicking the selected row again deselects it, unless the grid sets deselectOnSecondClick:false (config.deselectOnSecondClick in a native or patched field; compile and nocode-form-edit put the reduced key there) (viewers that have this option). Recent viewers select the row again by its id after a refresh, older ones by its content: there a modified row is no longer selected after a save. Do not promise that the edited record stays selected."
         },
         emptyStates: {
           rule: "A list or dashboard needs an explicit empty state: a muted hint telling what will appear and which action creates the first record, next to that action.",
@@ -1051,6 +1051,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         mandatory: { type: "boolean", optional: true },
         disabled: { type: "boolean", optional: true },
         componentDisabled: { type: "boolean", optional: true, mapsTo: "config.componentDisabled", description: "Disables the component as if it did not exist in the viewer." },
+        sticky: { type: "string", optional: true, enum: ["always", "notOnPhone"], mapsTo: "config.sticky", description: "Keeps the component at the top of the screen while the page scrolls under it (a search bar, a summary, an action bar): always, or notOnPhone (not below 768px). A component of a layout or a card sticks along its layout or card only; a sticky child of a layout takes its own height. Older viewers ignore it." },
         visibleIf: { type: "object", optional: true, mapsTo: "conditions.visibleIf", description: "Shows the component only when the condition is true. Reduced condition shape: see conditionFields." },
         disabledIf: { type: "object", optional: true, mapsTo: "conditions.buttonStateIf", description: "Button-only shorthand: disables the button when the condition is true. Reduced condition shape: see conditionFields." },
         short: { type: "boolean", optional: true },
@@ -1138,9 +1139,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         select: { visual: "config.type: popover (default), action-sheet or alert (not action-sheet with selectionMode multiple); config.selectionMode: single or multiple.", fields: ["name", "description", "placeholder", "values", "sources", "sourceEnabled", "config"], values: "string[] or option objects" },
         radio_group: { fields: ["name", "description", "columns", "rows"] },
         checkbox_group: { fields: ["name", "description", "columns", "rows"] },
-        grid: { visual: "Table look: config.gridCellPadding (number of px, 0 to 60, default 21), gridFooterEnabled, gridFiltersEnabled, gridPaginationEnabled with gridRowsPerPage (default 10). The style of the table itself is fixed; componentBoxStyle styles its toolbar only (grid_component_style), style the card with boxStyle.", fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "deselectOnSecondClick", "config"], headers: "Column headers are the source column names (Baserow field names) and aggregation keys (count, sum_<column>); no grid property renames them. See generationQuality.dataViews.headers.", deselectOnSecondClick: "false keeps the selected row selected when it is clicked again (viewers that have this option).", columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
+        grid: { visual: "Table look: config.gridCellPadding (number of px, 0 to 60, default 21), gridFooterEnabled, gridFiltersEnabled, gridPaginationEnabled with gridRowsPerPage (default 10). componentBoxStyle styles the table (its margin, border, background); boxStyle the card around it. Older viewers put componentBoxStyle on the refresh/deselect toolbar above the table.", fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "deselectOnSecondClick", "config"], headers: "Column headers are the source column names (Baserow field names) and aggregation keys (count, sum_<column>); no grid property renames them. See generationQuality.dataViews.headers.", deselectOnSecondClick: "false keeps the selected row selected when it is clicked again (viewers that have this option).", columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
         button: { visual: "config.shape: default or round; size: small, default or large; justify and align (flex-start, center, flex-end) place the button in its block; iconPosition: start or end. color and backgroundColor win over componentBoxStyle colors; a textColor on a container around the button overrides its label color. buttonDisplayMode advanced renders the label as HTML and ignores fill, colors, shape, size and icon.", fields: ["name", "flow", "label", "icon", "iconPosition", "variant", "backgroundColor", "color", "fill", "expand", "disabledIf", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"], variants: BUTTON_VARIANTS, note: "Prefer variant over raw colors; see generationQuality.actionBar. expand is saved but not rendered as a full-width button by the current viewer." },
-        img: { visual: "config.width and height are numbers of pixels without unit ('240'): the viewer appends px (image_size_unit); config.alt is the alternative text.", fields: ["name", "description", "config"] },
+        img: { visual: "config.width and height are a number of pixels ('240') or a percentage ('100%'); another unit is read as pixels (image_size_unit). Older viewers append px to the width, so a percentage needs a recent viewer. config.alt is the alternative text.", fields: ["name", "description", "config"] },
         file: { fields: ["name", "description", "mandatory", "config"] },
         signature: { fields: ["name", "description", "mandatory", "config"] },
         location: { fields: ["name", "description", "config"] },
@@ -1169,7 +1170,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           semantics: "page resets the input values of that page (default: the current page); component resets the named component and its children; application resets every input. Values are rebuilt from their defaults. scope defaults to component with targetField, page with targetPage, otherwise application.",
           order: "Put reset_fields before the push_page that leaves the page, or target the page explicitly; resetting a list grid does not clear its visual selection."
         },
-        gridActions: "targetGrid accepts a unique grid field name in reduced JSON, resolved to the component id. add_row_to_local_grid accepts row as a literal JSON object or an explicit object-valued SmartSource. Local insertions are not persistent saves.",
+        gridActions: "targetGrid accepts a unique field name in reduced JSON, resolved to the component id: a grid for add_row_to_local_grid and remove_row_from_local_grid; a grid, a gallery or a chart for refresh_grid (it reloads the data source of its target; a map is not reloaded). add_row_to_local_grid accepts row as a literal JSON object or an explicit object-valued SmartSource. Local insertions are not persistent saves.",
         elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields"],
         examples: [
           { id: "open_requests", name: "Open my requests", elements: [{ type: "push_page", targetPage: "My requests" }] },
@@ -1399,6 +1400,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // Keys of a box style the viewer reads (getViewerItemBoxStyleRaw); it
   // silently ignores any other one. borderWidth/Style/Color are legacy keys
   // the editor still reads but removes when it writes a border.
+  // Reduced field keys that live in config: compile copies them there, and nocode-form-edit moves them there
+  // when a patch gives them at the root of the field (the viewer reads config.<key>).
+  var REDUCED_CONFIG_KEYS = ["defaultValue", "position", "display_format", "picker_format", "min_datetime", "max_datetime", "date_less_than_today", "date_more_than_today", "cancelText", "okText", "returned_value", "sourceEnabled", "AutoSizeColumns", "deselectOnSecondClick", "label_color", "icon", "iconPosition", "backgroundColor", "color", "expand", "fill", "shape", "size", "justify", "align", "checkMandatoryInCurrentPage"];
+  var REDUCED_STYLE_CONFIG_KEYS = ["componentDisabled", "boxStyle", "questionBoxStyle", "componentBoxStyle", "layoutChildrenStyle", "sticky"];
   var BOX_STYLE_KEYS = ["margin", "padding", "backgroundColor", "textColor", "textColorMode", "border", "borderTop", "borderRight", "borderBottom", "borderLeft", "borderRadius", "verticalAlign", "borderWidth", "borderStyle", "borderColor"];
   var BOX_STYLE_SUBSTITUTES = {
     side: "one margin or padding shorthand, for example margin: '8px 0 16px 0'",
@@ -1429,6 +1434,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // Components a container text color recolors (viewer rules on [style*="--c8o-box-text-color"]).
   var TEXT_COLOR_CONTROL_TYPES = ["button", "text", "select", "datetime", "time", "checkbox", "radio", "slider", "barcode", "file", "location", "radio_group", "checkbox_group", "signature", "grid"];
   var DATA_VIEW_TYPES = ["grid", "chart", "map", "gallery"];
+  // what refresh_grid can reload: the viewer reloads the "sources" of its target; a map loads sourcesMarkers,
+  // sourcesCircles... and is not reloaded by it
+  var REFRESHABLE_TYPES = ["grid", "gallery", "chart"];
   var NO_ROLE_TYPES = ["ion-card", "card"];
 
   function hasStyleValues(style) {
@@ -1805,41 +1813,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       // The prototype text would be shown to end users as a hint.
       target.config.placeholder = "";
     }
-    copyConfigValues(target, field, [
-      "defaultValue",
-      "position",
-      "display_format",
-      "picker_format",
-      "min_datetime",
-      "max_datetime",
-      "date_less_than_today",
-      "date_more_than_today",
-      "cancelText",
-      "okText",
-      "returned_value",
-      "sourceEnabled",
-      "AutoSizeColumns",
-      "deselectOnSecondClick",
-      "label_color",
-      "icon",
-      "iconPosition",
-      "backgroundColor",
-      "color",
-      "expand",
-      "fill",
-      "shape",
-      "size",
-      "justify",
-      "align",
-      "checkMandatoryInCurrentPage"
-    ]);
-    copyConfigValues(target, field, [
-      "componentDisabled",
-      "boxStyle",
-      "questionBoxStyle",
-      "componentBoxStyle",
-      "layoutChildrenStyle"
-    ]);
+    copyConfigValues(target, field, REDUCED_CONFIG_KEYS);
+    copyConfigValues(target, field, REDUCED_STYLE_CONFIG_KEYS);
     if (field.mandatory != null && target.config.mandatory != null) {
       target.config.mandatory = field.mandatory === true || String(field.mandatory) === "true";
     }
@@ -2071,12 +2046,16 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       return matches.length === 1 ? matches[0][idKey] : value;
     }
     var grids = doc.formulaire.filter(function (item) { return item.type === "grid"; });
+    var refreshTargets = doc.formulaire.filter(function (item) { return REFRESHABLE_TYPES.indexOf(item.type) >= 0; });
     doc.flows.forEach(function (flow) {
       ensureArray(flow.elements).forEach(function (element) {
         var config = element.config || {};
         if (element.type === "push_page") { config.targetPage = resolve(config.targetPage, doc.pages, "pageTechName"); }
-        if (["add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"].indexOf(element.type) >= 0) {
+        if (["add_row_to_local_grid", "remove_row_from_local_grid"].indexOf(element.type) >= 0) {
           config.targetGrid = resolve(config.targetGrid, grids, "id");
+        }
+        if (element.type === "refresh_grid") {
+          config.targetGrid = resolve(config.targetGrid, refreshTargets, "id");
         }
         if (element.type === "reset_fields") {
           if (trimmed(config.targetPage).length) { config.targetPage = resolve(config.targetPage, doc.pages, "pageTechName"); }
@@ -2730,7 +2709,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           }
           if (["add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid"].indexOf(element.type) >= 0) {
             var grid = ids[String(config.targetGrid)];
-            if (!grid || grid.item.type !== "grid") { issue("unknown_grid_target", "Action must target an existing grid", path + "/config/targetGrid"); }
+            // refresh_grid reloads the source of any data view the viewer loads from its sources (performRefreshGrid):
+            // a grid, a gallery or a chart; the local rows of add/remove belong to a grid
+            if (!grid || (element.type === "refresh_grid" ? REFRESHABLE_TYPES.indexOf(grid.item.type) < 0 : grid.item.type !== "grid")) {
+              issue("unknown_grid_target", element.type === "refresh_grid" ? "refresh_grid must target an existing grid, gallery or chart" : "Action must target an existing grid", path + "/config/targetGrid");
+            }
             else if (element.type === "add_row_to_local_grid" && grid.item.config.sourceEnabled !== false) {
               incomplete("local_grid_action_on_source", "Local insertion requires sourceEnabled=false; use a backend action for persistent data", path);
             }
@@ -2816,6 +2799,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         ["boxStyle", "questionBoxStyle", "componentBoxStyle"].forEach(function (key) {
           validateStyle(config[key], path + "/config/" + key);
         });
+        if (config.sticky != null && ["always", "notOnPhone"].indexOf(config.sticky) < 0) {
+          issue("invalid_sticky", "sticky is always or notOnPhone (or absent)", path + "/config/sticky");
+        }
         if (config.layoutChildrenStyle != null) {
           if (typeof config.layoutChildrenStyle !== "object" || Array.isArray(config.layoutChildrenStyle)) { issue("invalid_style_object", "layoutChildrenStyle must contain default/first/last style objects", path + "/config/layoutChildrenStyle"); }
           else { Object.keys(config.layoutChildrenStyle).forEach(function (scope) { validateStyle(config.layoutChildrenStyle[scope], path + "/config/layoutChildrenStyle/" + scope, true); }); }
@@ -2828,13 +2814,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           incomplete("unrendered_nesting", "The viewer does not render a " + item.type + " inside a " + parentItem.type + ": " + item.name + " would not appear. Group fields with a layout or a section; a card only holds simple components", path + "/parentRef");
         }
         if (boolLike(config.componentDisabled)) { return; }
-        if (item.type === "grid" && hasStyleValues(config.componentBoxStyle)) {
-          warning("grid_component_style", "componentBoxStyle of a grid styles its refresh/deselect toolbar, not the table. Style the grid card with boxStyle", path + "/config/componentBoxStyle");
-        }
         if (item.type === "img") {
           ["width", "height"].forEach(function (key) {
-            if (config[key] != null && trimmed(config[key]).length && !/^\d+(\.\d+)?$/.test(trimmed(config[key]))) {
-              warning("image_size_unit", "Image " + key + " is a number of pixels without unit ('240'): the viewer appends px, so " + config[key] + " gives an invalid size", path + "/config/" + key);
+            if (config[key] != null && trimmed(config[key]).length && !/^\d+(\.\d+)?%?$/.test(trimmed(config[key]))) {
+              warning("image_size_unit", "Image " + key + " is a number of pixels ('240') or a percentage ('100%'): the image reads " + config[key] + " as a number of pixels", path + "/config/" + key);
             }
           });
         }
@@ -3756,16 +3739,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (group && typeof group === "object" && !Array.isArray(group) && !isNativeConditionGroup(group)) { conditionPatch[key] = group; delete mergePatch.conditions[key]; }
         });
       }
+      // The reduced keys that compile puts in config (deselectOnSecondClick, sticky, the button look...) go there
+      // too in a patch: stored at the root of the component, the viewer would not read them.
+      REDUCED_CONFIG_KEYS.concat(REDUCED_STYLE_CONFIG_KEYS).forEach(function (key) {
+        if (hasOwn(mergePatch, key)) {
+          mergePatch.config = mergePatch.config && typeof mergePatch.config === "object" ? mergePatch.config : {};
+          if (!hasOwn(mergePatch.config, key)) { mergePatch.config[key] = mergePatch[key]; }
+          delete mergePatch[key];
+        }
+      });
       if (fieldFound.item.type === "button") {
-        // Same reduced button properties as at creation: they live in config.
         delete mergePatch.variant;
-        ["fill", "backgroundColor", "color", "expand", "icon", "iconPosition"].forEach(function (key) {
-          if (hasOwn(mergePatch, key)) {
-            mergePatch.config = mergePatch.config && typeof mergePatch.config === "object" ? mergePatch.config : {};
-            if (!hasOwn(mergePatch.config, key)) { mergePatch.config[key] = mergePatch[key]; }
-            delete mergePatch[key];
-          }
-        });
         if (mergePatch.config) { delete mergePatch.config.variant; }
       }
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);

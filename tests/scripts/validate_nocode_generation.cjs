@@ -1472,8 +1472,8 @@ test('component visuals: grid toolbar style, image and map sizes, container text
     { type: 'section', name: 'dark', title: 'Dark', boxStyle: { backgroundColor: '#0F172A', textColor: '#FFFFFF' }, fields: [{ type: 'button', name: 'go', label: 'Go', variant: 'primary', flow: 'go' }] },
     { type: 'description', name: 'band', description: '<p>Band</p>', boxStyle: { backgroundColor: '#0F172A', textColor: '#FFFFFF', margin: '0', padding: '16px' } }
   ], { flows: [{ id: 'go', elements: [{ type: 'toast', message: 'Go' }] }] }));
-  assert.equal(warned(r, 'grid_component_style').length, 1);
-  assert.equal(clone(warned(r, 'image_size_unit')).length, 1, 'only the width with a unit');
+  assert.equal(warned(r, 'grid_component_style').length, 0, 'componentBoxStyle styles the table of a recent viewer');
+  assert.equal(clone(warned(r, 'image_size_unit')).length, 0, 'a percentage is a valid image size');
   assert.equal(warned(r, 'map_height_unit').length, 1);
   const textColor = clone(warned(r, 'container_text_color'));
   assert.equal(textColor.length, 1, 'the dark section holding a button, not the text-only band: ' + textColor);
@@ -1524,4 +1524,40 @@ test('aggregation labels: documented, kept by compile', () => {
   const r = api().compile(input);
   assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
   assert.equal(r.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableAggregations.str, 'count=Nombre,sum:Reference=Montant');
+});
+test('refresh_grid targets a grid, a gallery or a chart; local rows a grid only', () => {
+  const flows = (target, type = 'refresh_grid') => ({ flows: [{ id: 'reload', elements: [{ type, targetGrid: target }] }] });
+  const fields = [
+    { type: 'grid', name: 'list', sourceEnabled: false, columns: [{ name: 'Nom', type: 'text' }] },
+    { type: 'gallery', name: 'cards' },
+    { type: 'chart', name: 'stats' },
+    { type: 'map', name: 'where' },
+    { type: 'button', name: 'go', label: 'Go', variant: 'primary', flow: 'reload' },
+  ];
+  const issues = (extra) => clone(api().compile(styled(fields, extra)).validation.issues).filter(i => i.code === 'unknown_grid_target');
+  for (const name of ['list', 'cards', 'stats']) { assert.equal(issues(flows(name)).length, 0, name); }
+  assert.equal(issues(flows('where')).length, 1, 'a map is not reloaded by refresh_grid');
+  assert.equal(issues(flows('cards', 'remove_row_from_local_grid')).length, 1, 'local rows belong to a grid');
+  const r = api().compile(styled(fields, flows('cards')));
+  const gallery = r.form.formulaire.find(f => f.name === 'cards');
+  assert.equal(String(r.form.flows.find(f => f.id === 'reload').elements[0].config.targetGrid), String(gallery.id), 'resolved to the id of the gallery');
+  assert.match(api().contract().authoringContract.flowAuthoring.gridActions, /a grid, a gallery or a chart for refresh_grid/);
+});
+test('sticky: compiled into config, validated, and an edit puts reduced config keys in config', () => {
+  const r = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'notOnPhone' }]));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  assert.equal(r.form.formulaire[0].config.sticky, 'notOnPhone');
+  assert.equal(r.form.formulaire[0].sticky, undefined);
+  const bad = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'top' }]));
+  assert.ok(clone(bad.validation.issues).some(i => i.code === 'invalid_sticky'));
+  assert.deepEqual(clone(api().contract().authoringContract.commonFieldFields.sticky.enum), ['always', 'notOnPhone']);
+  const h = creationHarness();
+  const start = h.client.create(connectedWithoutIdentities(), h.auth);
+  const grid = start.form.formulaire.find(f => f.type === 'grid');
+  const edited = h.client.edit(start.form._id, [{ action: 'update_field', fieldName: grid.name, patch: { deselectOnSecondClick: false, sticky: 'always' } }], h.auth);
+  const saved = edited.form.formulaire.find(f => f.type === 'grid');
+  assert.equal(saved.config.deselectOnSecondClick, false, 'the viewer reads config.deselectOnSecondClick');
+  assert.equal(saved.config.sticky, 'always');
+  assert.equal(saved.deselectOnSecondClick, undefined);
+  assert.equal(saved.sticky, undefined);
 });
