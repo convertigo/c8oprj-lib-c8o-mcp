@@ -1419,3 +1419,15 @@ test('wide_page_margin flags an application keeping wide margins and set_root na
   assert.equal(contract.rootFields.config.recommended.application.desktop.horizontalMargin.value, '32');
   assert.match(contract.generationQuality.styles.mobile, /horizontalMargin/);
 });
+test('viewer title choice, grid second click and documented button and header limits', () => {
+  const r = api().compile(styled([{ type: 'grid', name: 'list', sourceEnabled: false, deselectOnSecondClick: false, columns: [{ name: 'Nom', type: 'text' }] }], { titleDisplay: 'page' }));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  assert.equal(r.form.config.titleDisplay, 'page');
+  assert.equal(r.form.formulaire[0].config.deselectOnSecondClick, false);
+  assert.equal(api().compile(styled([])).form.config.titleDisplay, undefined, 'the viewer default is kept');
+  assert.throws(() => api().compile(styled([], { titleDisplay: 'both' })), /titleDisplay must be/);
+  const quality = api().contract().authoringContract.generationQuality;
+  assert.ok(quality.actionBar.example.children.every(button => button.expand === undefined), 'no full-width promise');
+  assert.match(quality.actionBar.width, /does not stretch/);
+  assert.match(quality.dataViews.headers, /user's language/);
+});

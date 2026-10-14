@@ -880,6 +880,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           example: { desktop: { horizontalMargin: { unit: "px", value: "32" }, padding: { unit: "px", value: "24" }, width: { unit: "px", value: "1280" } }, tablet: { horizontalMargin: { unit: "px", value: "16" }, padding: { unit: "px", value: "20" }, width: { unit: "%", value: "100" } }, phoneL: { horizontalMargin: { unit: "px", value: "0" }, padding: { unit: "px", value: "12" } }, phoneP: { horizontalMargin: { unit: "px", value: "0" }, padding: { unit: "px", value: "12" } } },
           validation: "wide_page_margin warns when an application keeps a horizontalMargin above 48px on desktop or 16px on phones."
         },
+        titleDisplay: { type: "string", enum: ["form", "page", "none"], optional: true, mapsTo: "config.titleDisplay", description: "Title card at the top of the pages: the form name (form, the viewer default), the name of the current page (page) or none. A page with isNameDisplayed=false never shows it. Read by C8Oforms viewers that have this option; older viewers always show the form name." },
         styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See generationQuality.styles.roleDefaults." },
         pages: { type: "array", required: true },
         flows: { type: "array", optional: true, description: "Only include when a button, automation, formula, or submit behavior needs it." }
@@ -943,7 +944,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         },
         pageHeader: {
           rule: "Every page of an application needs its own header: a page title, an optional one-line subtitle and, on task and detail pages, a back action. The viewer otherwise shows the form name in a large title card on every page with isNameDisplayed not false.",
-          reduced: "page.header: { title, subtitle } adds a description block at the top of the page (h2 title, muted subtitle, no card). With navigationMode custom, pages default to isNameDisplayed=false; set it true on the home page only if the application name should appear there.",
+          reduced: "page.header: { title, subtitle } adds a description block at the top of the page (h2 title, muted subtitle, no card). With navigationMode custom, pages default to isNameDisplayed=false; set it true on the home page only if the application name should appear there. Root titleDisplay (form, page, none) chooses what that title card shows where it is displayed.",
           example: { name: "Contact", header: { title: "Fiche contact", subtitle: "Les informations du contact sélectionné." }, fields: [{ type: "section", name: "contact_main", title: "Identité", fields: [{ type: "text", name: "contact_first_name", label: "Prénom" }, { type: "text", name: "contact_last_name", label: "Nom" }] }] },
           back: "Put the back action in the page action bar as a ghost or secondary button whose flow is push_page to the list page (or __c8o_back)."
         },
@@ -951,13 +952,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           rule: "One primary action per page or section, visually dominant; the others are secondary; destructive actions are danger and separated from the primary. Cancel is secondary or ghost, never primary.",
           variants: "button.variant: primary (solid primary), secondary (outline: transparent background, primary text and border), danger (solid red), ghost (text only). Explicit fill/backgroundColor/color override the variant. Do not set fill outline/clear with a solid backgroundColor: the viewer paints it solid.",
           order: "Primary action first in reading order, on the left of the group (it stacks on top on phones). Navigation buttons (Home, Contacts...) are a separate group from task actions: make the current page's entry primary or omit it, the others ghost or secondary.",
-          example: { type: "layout", name: "contact_actions", cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneP: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneL: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], boxStyle: { margin: "16px 0 24px 0", padding: "0", border: "0", backgroundColor: "transparent" }, layoutChildrenStyle: { default: { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }, children: [{ type: "button", name: "save_contact", label: "Enregistrer", icon: "save", variant: "primary", expand: "block", flow: "save_contact" }, { type: "button", name: "cancel_contact", label: "Annuler", icon: "close", variant: "secondary", expand: "block", flow: "cancel_contact" }] }
+          example: { type: "layout", name: "contact_actions", cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneP: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], phoneL: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], boxStyle: { margin: "16px 0 24px 0", padding: "0", border: "0", backgroundColor: "transparent" }, layoutChildrenStyle: { default: { margin: "0", padding: "4px", border: "0", backgroundColor: "transparent" } }, children: [{ type: "button", name: "save_contact", label: "Enregistrer", icon: "save", variant: "primary", flow: "save_contact" }, { type: "button", name: "cancel_contact", label: "Annuler", icon: "close", variant: "secondary", flow: "cancel_contact" }] },
+          width: "A button keeps the width of its label, centered in its column (justify). expand block/full is saved but the current viewer does not stretch the button to its column, so buttons of a group have unequal widths: keep labels of similar length and do not promise full-width buttons."
         },
         listDetail: {
           rule: "A list page shows a source-backed grid of a few short columns (name, status, date, amount) and the actions that apply to the selected row; a detail page shows the selected record in fields grouped in sections (type section), with save/cancel in its action bar.",
-          selection: "Detail fields read the list grid selection through defaultFrom source field, mode reactive (path [column, 'value']). Write expressions with a fallback (value ?? '') : the viewer keeps the previous value when the expression gives null or undefined, so a cleared selection would leave stale text.",
+          selection: "Detail fields read the list grid selection through defaultFrom source field, mode reactive (path [column, 'value']). Write expressions with a fallback (value ?? ''): older viewers keep the previous value when the expression gives null or undefined, so a cleared selection would leave stale text (recent viewers empty a reactive field then).",
           guard: "Disable the row actions until a row is selected with disabledIf: { field: '<grid>', operator: 'is_empty' }, instead of a mandatory guard field.",
-          runtime: "Clicking the selected row again deselects it. Coming back to the list keeps the selection when the row content is unchanged; after a save refreshes the grid, a modified row is no longer selected. Do not promise that the edited record stays selected."
+          runtime: "Clicking the selected row again deselects it, unless the grid sets deselectOnSecondClick:false (viewers that have this option). Recent viewers select the row again by its id after a refresh, older ones by its content: there a modified row is no longer selected after a save. Do not promise that the edited record stays selected."
         },
         emptyStates: {
           rule: "A list or dashboard needs an explicit empty state: a muted hint telling what will appear and which action creates the first record, next to that action.",
@@ -968,17 +970,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           rule: "A toast confirms the outcome of an action in a few words. color must be a 6-digit hex: the viewer derives the text color from it and any other value gives a transparent toast with white text. The names success, danger, warning, info are compiled to readable hex values; a toast without color is success.",
           recipes: { success: { type: "toast", message: "Contact enregistré", color: "success", duration: 3, position: "bottom" }, error: { type: "toast", message: "Le contact n'a pas pu être enregistré", color: "danger", duration: 6, position: "top", closeBtn: true }, info: { type: "toast", message: "Sélectionnez d'abord un contact", color: "info", duration: 4, position: "top" } },
           duration: "duration is in seconds (3 to 6), not milliseconds.",
-          afterSubmit: "A failed submit stops its flow and the viewer shows its own error message: steps after it, including a success toast, run only when the save succeeded. No if_else is needed to guard a success toast. A network failure stops the flow without any message."
+          afterSubmit: "A failed submit stops its flow and the viewer shows its own error message: steps after it, including a success toast, run only when the save succeeded. No if_else is needed to guard a success toast. A network failure also stops the flow; older viewers show no message then."
         },
         dataViews: {
           grids: "Lists: at most 5 short visible columns; hide long text (notes, descriptions) and technical columns with forms_config.hidden and show them on the detail page. AutoSizeColumns true sizes columns to their content and scrolls horizontally: set it false for wide tables so columns fit the width. Number columns keep the Baserow decimal places; aggregation results (sum, average) are not rounded by the source, so prefer a count or show amounts on rows.",
           label: "The grid label is small plain text: put the section title in a description block (h3) above the grid and keep the grid label short or empty.",
+          headers: "Grid column headers show the source column names as they are, and aggregation columns their key (count, sum_<column>, avg_<column>...); no grid property renames them. When the application creates its Baserow schema, name the fields in the user's language as they should read in the grids (Montant du contrat, not contract_value). With an existing base whose names do not suit, show few columns and explain them in the title above the grid; avoid aggregation grids in front of end users.",
           selects: "A source-backed select lists every row, including rows whose display column is empty (blank options). Add a not-empty rule on the display column in forms_Filter and sort with forms_tableSort. A select default from a grid selection uses sources.self.vars.selfVar { type: 'ts', str: \"(fields.<grid> && fields.<grid>['<column>'] ? fields.<grid>['<column>'].value : '')\" }, the same cell path as a defaultFrom field source on that grid, giving a value that exists among the options (otherwise the select stays empty).",
           placeholders: "Give text, select and date inputs a useful placeholder or none: a missing placeholder is compiled to an empty one, never the prototype example text."
         },
         data: {
           local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
-          connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application, then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
+          connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application (field names in the user's language: they are the grid column headers), then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
           unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
           tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control."
         },
@@ -1089,8 +1092,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         select: { fields: ["name", "description", "placeholder", "values", "sources", "sourceEnabled", "config"], values: "string[] or option objects" },
         radio_group: { fields: ["name", "description", "columns", "rows"] },
         checkbox_group: { fields: ["name", "description", "columns", "rows"] },
-        grid: { fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "config"], columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
-        button: { fields: ["name", "flow", "label", "icon", "iconPosition", "variant", "backgroundColor", "color", "fill", "expand", "disabledIf", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"], variants: BUTTON_VARIANTS, note: "Prefer variant over raw colors; see generationQuality.actionBar. expand 'block' fills the column of an action group." },
+        grid: { fields: ["name", "description", "columns", "sources", "sourceEnabled", "returned_value", "AutoSizeColumns", "deselectOnSecondClick", "config"], headers: "Column headers are the source column names (Baserow field names) and aggregation keys (count, sum_<column>); no grid property renames them. See generationQuality.dataViews.headers.", deselectOnSecondClick: "false keeps the selected row selected when it is clicked again (viewers that have this option).", columnsExample: [{ name: "Child", type: "text" }, { name: "Status", type: "text" }] },
+        button: { fields: ["name", "flow", "label", "icon", "iconPosition", "variant", "backgroundColor", "color", "fill", "expand", "disabledIf", "config"], configHints: ["label", "icon", "iconPosition", "backgroundColor", "color", "fill", "expand"], variants: BUTTON_VARIANTS, note: "Prefer variant over raw colors; see generationQuality.actionBar. expand is saved but not rendered as a full-width button by the current viewer." },
         img: { fields: ["name", "description", "config"] },
         file: { fields: ["name", "description", "mandatory", "config"] },
         signature: { fields: ["name", "description", "mandatory", "config"] },
@@ -1722,6 +1725,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       "returned_value",
       "sourceEnabled",
       "AutoSizeColumns",
+      "deselectOnSecondClick",
       "label_color",
       "icon",
       "iconPosition",
@@ -2293,6 +2297,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var useTabMode = tabModeFor(input, pages.length);
     // An application gets the narrow root margins of APP_ROOT_SPACING.
     var doc = defaultDoc(input, input.navigationMode === "custom" || useTabMode);
+    if (hasOwn(input, "titleDisplay")) {
+      if (["form", "page", "none"].indexOf(input.titleDisplay) < 0) { throw new Error("titleDisplay must be form, page or none"); }
+      doc.config.titleDisplay = input.titleDisplay;
+    }
     // Applications (custom or tab navigation) get role spacing; a linear
     // questionnaire keeps the card around each question.
     var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode) };
