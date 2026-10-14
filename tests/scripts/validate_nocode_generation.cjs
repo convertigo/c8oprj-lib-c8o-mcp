@@ -1509,3 +1509,19 @@ test('Baserow filter sub-groups: documented and kept by compile and edit', () =>
   const saved = edited.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableFilter;
   assert.equal(JSON.stringify(saved.groups), JSON.stringify(grouped.groups), 'nocode-form-edit keeps them');
 });
+test('aggregation labels: documented, kept by compile', () => {
+  const contract = api().contract().authoringContract;
+  const aggregations = contract.baserowSources.groupAggregations;
+  assert.match(aggregations.syntax, /optional label after =/);
+  assert.match(aggregations.labels.key, /sum_Contract Value/);
+  assert.match(aggregations.labels.rules, /128 characters/);
+  assert.ok(aggregations.examples.some(example => /=Montant/.test(example)));
+  assert.match(contract.generationQuality.dataViews.headers, /groupAggregations\.labels/);
+  const input = connectedExample();
+  const vars = input.pages[1].fields[0].sources['lib_BaseRow.formssource_GetTableData'].vars;
+  vars.forms_tableGroupBy = { str: 'Status', html: false };
+  vars.forms_tableAggregations = { str: 'count=Nombre,sum:Reference=Montant', html: false };
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  assert.equal(r.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableAggregations.str, 'count=Nombre,sum:Reference=Montant');
+});

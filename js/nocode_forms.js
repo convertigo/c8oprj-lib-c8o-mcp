@@ -652,8 +652,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         source: "tableData only",
         variable: "forms_tableAggregations",
         operators: ["count", "sum", "avg", "min", "max"],
-        syntax: "Comma-separated aggregation specs: count or operator:Column name.",
-        examples: ["count", "sum:Amount", "avg:Amount", "min:Date", "max:Score"],
+        syntax: "Comma-separated aggregation specs: count or operator:Column name, each with an optional label after = (count=Deals, sum:Contract Value=Revenue).",
+        examples: ["count", "sum:Amount", "avg:Amount", "min:Date", "max:Score", "count=Nombre de ventes,sum:Contract Value=Montant,sum:Expected revenue=Revenu attendu"],
+        labels: {
+          purpose: "The label names the value in chart legends and grid headers. Without a label the viewer shows the operator and the column in the language of the user (Somme · Contract Value, Nombre).",
+          key: "The key of the value stays count or <operator>_<column> (sum_Contract Value): paths and references to it (<grid>.0.sum_Contract Value) do not change with the label.",
+          rules: "Plain text of at most 128 characters, without comma, =, < or >. Give one per aggregation shown to end users, in their language, so a chart can show several readable series.",
+          compatibility: "Older viewers and lib_BaseRow versions show the key (sum_Contract Value) in legends and headers."
+        },
         recommendedUse: [
           "count works for any grouped data.",
           "sum and avg should target numeric columns.",
@@ -1002,7 +1008,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         dataViews: {
           grids: "Lists: at most 5 short visible columns; hide long text (notes, descriptions) and technical columns with forms_config.hidden and show them on the detail page. AutoSizeColumns true sizes columns to their content and scrolls horizontally: set it false for wide tables so columns fit the width. Number columns keep the Baserow decimal places; aggregation results (sum, average) are not rounded by the source, so prefer a count or show amounts on rows.",
           label: "The grid label is small plain text: put the section title in a description block (h3) above the grid and keep the grid label short or empty.",
-          headers: "Grid column headers show the source column names as they are, and aggregation columns their key (count, sum_<column>, avg_<column>...); no grid property renames them. When the application creates its Baserow schema, name the fields in the user's language as they should read in the grids (Montant du contrat, not contract_value). With an existing base whose names do not suit, show few columns and explain them in the title above the grid; avoid aggregation grids in front of end users.",
+          headers: "Grid column headers show the source column names as they are, and aggregation columns their label (authoringContract.baserowSources.groupAggregations.labels: sum:Amount=Montant, else Somme · Amount); no grid property renames them. When the application creates its Baserow schema, name the fields in the user's language as they should read in the grids (Montant du contrat, not contract_value). With an existing base whose names do not suit, show few columns and explain them in the title above the grid; label the aggregations of a grid or a chart shown to end users.",
           selects: "A source-backed select lists every row, including rows whose display column is empty (blank options). Add a not-empty rule on the display column in forms_Filter and sort with forms_tableSort. A select default from a grid selection uses sources.self.vars.selfVar { type: 'ts', str: \"(fields.<grid> && fields.<grid>['<column>'] ? fields.<grid>['<column>'].value : '')\" }, the same cell path as a defaultFrom field source on that grid, giving a value that exists among the options (otherwise the select stays empty).",
           placeholders: "Give text, select and date inputs a useful placeholder or none: a missing placeholder is compiled to an empty one, never the prototype example text."
         },
