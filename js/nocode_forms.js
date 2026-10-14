@@ -859,7 +859,27 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         subTag: { oneOf: ["string", "string[]"], optional: true },
         appLike: { type: "boolean", optional: true, description: "When true, pages default to persisted tab navigation." },
         navigationMode: { type: "string", enum: ["tabs", "buttons", "custom"], default: "Legacy fallback: tabs for multi-page forms, buttons for single-page forms. Explicitly choose custom for an application with home/action buttons." },
-        config: { type: "object", optional: true, description: "Advanced root responsive sizing (horizontalMargin, width, font-size, padding per device). Omit unless needed: new forms get a page padding of 24px desktop, 20px tablet, 12px phones." },
+        config: {
+          type: "object",
+          optional: true,
+          description: "Root sizing of the page container, per device: config.<device>.<key>. Choose it deliberately for an application. Omitted, an application (navigationMode custom or tabs) gets the recommended.application values and a linear questionnaire the editor creation values; a partial object changes only the keys it gives (also with set_root).",
+          devices: { desktop: "viewport 992px and wider", tablet: "768 to 991px", phoneL: "576 to 767px", phoneP: "below 576px" },
+          valueShape: "{ unit: 'px' | '%', value: '<number>' }: value is a number written as a string, as the editor writes it (a number is accepted and stored as a string).",
+          keys: {
+            horizontalMargin: "margin-left and margin-right of the page container, outside its padding. With vertical page tabs it starts after the tab bar.",
+            padding: "padding of the same page container, inside horizontalMargin.",
+            width: "max-width of the content column inside the padding (desktop 1280px, tablet and phones 100%). While the room is narrower the column fills it; on wider screens it is capped and centered (auto margins on both sides).",
+            "font-size": "base font size of the page, 16px."
+          },
+          spacing: "horizontalMargin and padding add up on each side: the content starts horizontalMargin + padding from the screen edge, or from the tab bar. Do not double them (horizontalMargin 24px + padding 24px is already 48px per side). A vertical page tab bar already takes horizontal room (about 158px at 1440px, 106px on a 375px phone): keep the margins small, 0 on phones.",
+          measured: "Vertical page tabs at 1440px: horizontalMargin 100px + padding 24px leave 1034px of content starting at x=282; the recommended 32px + 24px leave 1170px. At 800px (tablet) the recommended 16px + 20px leave 570px. At 375px the creation 10px + 12px after the tab bar leave only 225px, the recommended 0 + 12px leave 245px.",
+          recommended: {
+            application: APP_ROOT_SPACING,
+            questionnaire: "A linear questionnaire (navigationMode buttons) can keep the creation values (horizontalMargin 100px desktop, 60px tablet, 10px phones; width 1280px desktop, 940px tablet) for a narrower reading column, or lower the desktop width (for example 760px) to keep a narrow column that stays centered on wide screens."
+          },
+          example: { desktop: { horizontalMargin: { unit: "px", value: "32" }, padding: { unit: "px", value: "24" }, width: { unit: "px", value: "1280" } }, tablet: { horizontalMargin: { unit: "px", value: "16" }, padding: { unit: "px", value: "20" }, width: { unit: "%", value: "100" } }, phoneL: { horizontalMargin: { unit: "px", value: "0" }, padding: { unit: "px", value: "12" } }, phoneP: { horizontalMargin: { unit: "px", value: "0" }, padding: { unit: "px", value: "12" } } },
+          validation: "wide_page_margin warns when an application keeps a horizontalMargin above 48px on desktop or 16px on phones."
+        },
         styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See generationQuality.styles.roleDefaults." },
         pages: { type: "array", required: true },
         flows: { type: "array", optional: true, description: "Only include when a button, automation, formula, or submit behavior needs it." }
@@ -908,7 +928,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             values: ROLE_STYLES,
             optOut: "Root styleDefaults:false, or add_field with styleDefaults:false, keeps the viewer cards."
           },
-          mobile: "New forms have a page padding of 24px on desktop, 20px on tablets and 12px on phones (root config.<device>.padding). Box styles are the same on every device: prefer the 8/12/16/24px values of the role defaults to larger ones, and columns that collapse to one on phones.",
+          mobile: "Root config.<device> sets the page container: horizontalMargin outside, padding inside, adding up on each side. New applications get horizontalMargin 32px desktop, 16px tablet, 0 on phones and padding 24px, 20px, 12px; a linear questionnaire keeps the wider creation margins (100/60/10px). See rootFields.config. Box styles are the same on every device: prefer the 8/12/16/24px values of the role defaults to larger ones, and columns that collapse to one on phones.",
           nesting: "One surface per logical group. Use boxStyle for outer margin/padding, questionBoxStyle only for the header and componentBoxStyle only for the inner control. Child boxStyle can override layoutChildrenStyle: do not double-pad or combine conflicting shorthand and per-side values. Preserve native input affordances.",
           review: "Review all visible blocks, including inputs, grids and action groups, not only the welcome card. Use a consistent spacing scale (for example 8/16/24px), verify mobile overflow and desktop density. Empty spacing alone is not an error.",
           actionGroups: "Put related buttons in a native layout: two columns on desktop/tablet, one on phones. Keep group spacing on the layout and avoid a separate full-width card per button. Do not group unrelated actions automatically.",
@@ -1124,6 +1144,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
           { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index"], example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
           { action: "add_flow", required: ["flowId"], example: { action: "add_flow", flowId: "flow_save", name: "Save", flowData: { elements: [] } } },
+          { action: "set_root", note: "config is merged device by device and key by key; see rootFields.config.", example: { action: "set_root", config: { desktop: { horizontalMargin: { unit: "px", value: "32" } }, phoneL: { horizontalMargin: { unit: "px", value: "0" } }, phoneP: { horizontalMargin: { unit: "px", value: "0" } } } } },
           { action: "add_flow_element", required: ["flowId", "element"], example: { action: "add_flow_element", flowId: "flow_save", element: { type: "toast", message: "Saved", color: "success" } } },
           { action: "update_field", note: "Reduced conditions and button variants are accepted in patches; a reduced condition replaces the whole group.", example: { action: "update_field", fieldName: "open_contact", patch: { variant: "secondary", disabledIf: { field: "contacts", operator: "is_empty" } } } },
           { action: "add_page", note: "header adds the page title block (add_page and create only); custom navigation pages default to isNameDisplayed=false.", example: { action: "add_page", name: "Contact", navigationMode: "custom", header: { title: "Fiche contact", subtitle: "Les informations du contact sélectionné." } } }
@@ -1577,17 +1598,53 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return out;
   }
 
-  function defaultRootConfig() {
-    return {
+  var ROOT_DEVICES = ["desktop", "tablet", "phoneL", "phoneP"];
+  // Root spacing of an application (custom or tab navigation): the page tab
+  // bar already takes horizontal room, the creation margins of the editor
+  // (100/60/10px) would only narrow the content.
+  var APP_ROOT_SPACING = {
+    desktop: { horizontalMargin: { unit: "px", value: "32" }, width: { unit: "px", value: "1280" }, padding: { unit: "px", value: "24" } },
+    tablet: { horizontalMargin: { unit: "px", value: "16" }, width: { unit: "%", value: "100" }, padding: { unit: "px", value: "20" } },
+    phoneL: { horizontalMargin: { unit: "px", value: "0" }, width: { unit: "%", value: "100" }, padding: { unit: "px", value: "12" } },
+    phoneP: { horizontalMargin: { unit: "px", value: "0" }, width: { unit: "%", value: "100" }, padding: { unit: "px", value: "12" } }
+  };
+  // Largest horizontalMargin (px) an application keeps without a wide_page_margin warning.
+  var APP_MARGIN_LIMITS = { desktop: 48, phoneL: 16, phoneP: 16 };
+
+  function defaultRootConfig(application) {
+    var config = {
       // padding: inner margin of the page content, denser on phones (the viewer uses 24px without it).
       desktop: { horizontalMargin: { unit: "px", value: "100" }, width: { unit: "px", value: "1280" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "24" } },
       tablet: { horizontalMargin: { unit: "px", value: "60" }, width: { unit: "px", value: "940" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "20" } },
       phoneL: { horizontalMargin: { unit: "px", value: "10" }, width: { unit: "%", value: "100" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "12" } },
       phoneP: { horizontalMargin: { unit: "px", value: "10" }, width: { unit: "%", value: "100" }, "font-size": { unit: "px", value: "16" }, padding: { unit: "px", value: "12" } }
     };
+    return application ? mergeRootConfig(config, APP_ROOT_SPACING) : config;
   }
 
-  function defaultDoc(reduced) {
+  // Merges a reduced root config over defaults, device by device and key by
+  // key: { desktop: { horizontalMargin: { unit: "px", value: 32 } } } changes
+  // that value only. Numeric values are written as strings, as the editor does.
+  function mergeRootConfig(defaults, given) {
+    var out = clone(defaults, {}) || {};
+    if (!given || typeof given !== "object" || Array.isArray(given)) { return out; }
+    Object.keys(given).forEach(function (key) {
+      var value = given[key];
+      if (ROOT_DEVICES.indexOf(key) < 0 || !value || typeof value !== "object" || Array.isArray(value)) {
+        out[key] = clone(value, value);
+        return;
+      }
+      var device = out[key] && typeof out[key] === "object" ? out[key] : (out[key] = {});
+      Object.keys(value).forEach(function (setting) {
+        var entry = clone(value[setting], value[setting]);
+        if (entry && typeof entry === "object" && typeof entry.value === "number") { entry.value = String(entry.value); }
+        device[setting] = entry;
+      });
+    });
+    return out;
+  }
+
+  function defaultDoc(reduced, application) {
     var random = "assets/images/svg/imgplaceholder/placeholder0.svg";
     return {
       name: trimmed(reduced.name || reduced.question) || "Untitled form",
@@ -1601,7 +1658,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       progressIndicator: false,
       wallpaper: reduced.backgroundColor ? { enabled: true, index: 0, random: random, type: "color", link: null, color: String(reduced.backgroundColor) } : { link: null, enabled: false, index: null, random: random },
       thumbnail: reduced.thumbnailImage ? { enabled: true, index: 0, type: "custom" } : (reduced.thumbnailColor ? { enabled: true, index: 0, type: "color", color: String(reduced.thumbnailColor) } : { enabled: false, index: null, random: random }),
-      config: clone(reduced.config, defaultRootConfig()) || defaultRootConfig(),
+      config: mergeRootConfig(defaultRootConfig(application === true), reduced.config),
       pages: [],
       formulaire: [],
       flows: [{ id: "formulas", elements: [] }, { id: "submit", elements: [] }],
@@ -2229,12 +2286,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       };
     }
-    var doc = defaultDoc(input);
     var pages = ensureArray(input.pages);
     if (!pages.length) {
       pages = [{ name: "Page 1", fields: ensureArray(input.fields) }];
     }
     var useTabMode = tabModeFor(input, pages.length);
+    // An application gets the narrow root margins of APP_ROOT_SPACING.
+    var doc = defaultDoc(input, input.navigationMode === "custom" || useTabMode);
     // Applications (custom or tab navigation) get role spacing; a linear
     // questionnaire keeps the card around each question.
     var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode) };
@@ -2652,6 +2710,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var customPages = ensureArray(form.pages).filter(function (page) { return page && !boolLike(page.enabledTab) && !boolLike(page.enabledButtons); });
       if (customPages.length >= 2 && customPages.length === ensureArray(form.pages).length && customPages.filter(function (page) { return page.isNameDisplayed !== false; }).length >= 2) {
         warning("repeated_form_title", "The form name is repeated in a title card on every page. Set isNameDisplayed=false on the pages and give each one a page header (page.header or a description block)", "/pages");
+      }
+      var formPages = ensureArray(form.pages);
+      var applicationPages = formPages.length && (formPages.every(function (page) { return page && boolLike(page.enabledTab); }) || customPages.length === formPages.length);
+      if (applicationPages && form.config && typeof form.config === "object") {
+        Object.keys(APP_MARGIN_LIMITS).forEach(function (device) {
+          var margin = form.config[device] && form.config[device].horizontalMargin;
+          var value = margin ? parseFloat(margin.value) : NaN;
+          if (margin && trimmed(margin.unit || "px") === "px" && value > APP_MARGIN_LIMITS[device]) {
+            warning("wide_page_margin", "This application keeps a horizontalMargin of " + value + "px on " + device + ", added on each side to the page padding, after the page tab bar. Use " + APP_ROOT_SPACING[device].horizontalMargin.value + "px (see rootFields.config.recommended): set_root { config: { " + device + ": { horizontalMargin: { unit: 'px', value: '" + APP_ROOT_SPACING[device].horizontalMargin.value + "' } } } }", "/config/" + device + "/horizontalMargin");
+          }
+        });
       }
       baserowBindings(form).forEach(function (binding) {
         if (!binding.config) { incomplete("invalid_baserow_config", "Baserow requires forms_config as a JSON string object", binding.path + "/vars/forms_config"); return; }
@@ -3335,6 +3404,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (hasOwn(op, "language")) {
       patch.lang = op.language;
+    }
+    if (hasOwn(op, "config")) {
+      patch.config = mergeRootConfig(form.config || {}, op.config);
     }
     if (hasOwn(op, "backgroundColor")) {
       patch.wallpaper = { enabled: true, index: 0, random: "assets/images/svg/imgplaceholder/placeholder0.svg", type: "color", link: null, color: String(op.backgroundColor) };
