@@ -1,4 +1,4 @@
-tplProjectName: mobilebuilder_tpl_8_4_0_ngx
+tplProjectName: mobilebuilder_tpl_8_4_0_ngx_legacy
 ↓TplCrudPageHeader [ngx.components.UISharedRegularComponent-1775818406512]: 🗏 mobileSharedComponents/TplCrudPageHeader.yaml
 ↓TplWorkInProgressCard [ngx.components.UISharedRegularComponent-1775818410338]: 🗏 mobileSharedComponents/TplWorkInProgressCard.yaml
 ↓TplCrudLoadingState [ngx.components.UISharedRegularComponent-1775818410356]: 🗏 mobileSharedComponents/TplCrudLoadingState.yaml

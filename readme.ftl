@@ -295,3 +295,11 @@ ${help("more.info")} : [documentation](./project.md)
 <#-- output project content -->
 ${content}
 
+
+## Tigo project resources
+
+With lib_ConvertigoAssistant 1.5.0 or newer, `tigo-resources` manages a named
+project's `.tigo/` prompts, skills and MCP declarations with optimistic revisions
+and HTTP privacy protection. It requires full MCP authentication and cannot
+change personal resources, credentials or activation. See the Assistant's
+[resource guide](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/docs/tigo-library.md).

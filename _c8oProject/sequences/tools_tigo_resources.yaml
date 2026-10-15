@@ -1,0 +1,31 @@
+accessibility: Private
+comment: |
+  Manage project prompts, skills and MCP declarations
+  Read, create, duplicate or edit .tigo resources and skill support files in a named project, with optimistic revisions. No activation, secret access or Git commit. Requires full MCP authentication; personal resources and built-ins remain protected.
+includeResponseElement: false
+↓Run [steps.SimpleStep-1792084184795]: 
+  expression: include("js/tools_tigo_resources.js");
+↓Response [steps.JsonToXmlStep-1792084184797]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: response
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792084184799]: 
+↓action [variables.RequestableVariable-1792084184801]: 
+  value: list
+↓kind [variables.RequestableVariable-1792084184803]: 
+  value: prompt
+↓key [variables.RequestableVariable-1792084184805]: 
+↓revision [variables.RequestableVariable-1792084184807]: 
+↓input [variables.RequestableVariable-1792084184809]: 
+  visibility: 15
+↓language [variables.RequestableVariable-1792084184811]: 
+  value: en

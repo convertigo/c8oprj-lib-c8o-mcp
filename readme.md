@@ -331,3 +331,12 @@ Template source for the bootstrap work-in-progress card.
 
 
 
+
+## Tigo project resources
+
+With lib_ConvertigoAssistant 1.5.0 or newer, the full MCP catalog exposes
+`tigo-resources` to list and edit a named project's `.tigo/` prompts, standard
+skills and MCP declarations. Updates and removals use optimistic revisions;
+project writes add the HTTP privacy rule. The tool cannot edit built-ins or
+personal resources, activate skills/connections, read credentials, or commit Git
+changes. See the Assistant's [resource format and usage guide](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/docs/tigo-library.md).

@@ -1848,6 +1848,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   }
 
   C8O.schemaOverrides.applyInput = function (sequenceName, inputSchema, requestable) {
+    if (String(sequenceName) === "tools_tigo_resources") {
+      return {type:"object",additionalProperties:false,required:["project","action"],properties:{
+        project:{type:"string",description:"Exact loaded project name. Personal preferences, secrets, activation and built-ins cannot be changed by this tool."},
+        action:{type:"string",enum:["list","get","save","duplicate","delete","readFile","writeFile"]},
+        kind:{type:"string",enum:["prompt","skill","mcp"]},key:{type:"string",description:"Qualified key returned by list/get."},
+        revision:{type:"string",description:"Exact revision returned by get; required for updates, deletes and overwriting a support file."},
+        language:{type:"string"},input:{type:"object",additionalProperties:true,description:"save: schemaVersion:1, id, defaultLanguage, translations with title/description/body; skills need SKILL.md frontmatter and optional requiresMcp. MCP: connection with transport http/stdio, url or command/args, env reference names and headers {name:{env,prefix}}. Never include credentials. duplicate: {id}. Support files: {path,content?}, under references/, scripts/ or assets/."}
+      }};
+    }
     var seq = sequenceName || "";
     if (!seq && requestable && requestable.getName) {
       try {
