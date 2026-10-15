@@ -1,5 +1,5 @@
 accessibility: Private
-comment: 'Handles MCP JSON-RPC requests (initialize, notifications, tools, ping). Request headers set by the Agent Bridge: X-Convertigo-Reveal-Mode true injects reveal=true on the tools that support it (mobile-builder-open, databaseobject-tree-apply, batch-call, no-code form mutations) unless the model passed it; X-Convertigo-No-Log true mutes the engine logs of the tool execution.'
+comment: 'Handles MCP JSON-RPC requests (initialize, notifications, tools, ping). Request headers set by the Agent Bridge: X-Convertigo-Reveal-Mode true injects reveal=true on the tools that support it (mobile-builder-open, databaseobject-tree-apply, batch-call, no-code form mutations) unless the model passed it; X-Convertigo-No-Log true mutes the engine logs of the tool execution. ping is answered inline, with no sub-sequence and no engine logs.'
 responseTimeout: 300
 ↓Init [steps.SimpleStep-1761755111960]: 
   comment: Parse JSON-RPC request and select target sequence
@@ -63,6 +63,7 @@ responseTimeout: 300
     var callVariables = {};
     var responseStatus = "200";
     var responseHasBody = true;
+    var pingInline = false;
     var mcpGuidanceWarning = "";
     var mcpAuthentication = null;
     '
@@ -193,15 +194,6 @@ responseTimeout: 300
 ↓jIfThenElse [steps.IfThenElseStep-1762186083999]: 
   condition: responseHasBody
   ↓jThen [steps.ThenStep-1762186084001]: 
-    ↓prepareCall [steps.SimpleStep-1762189043128]: 
-      expression: |
-        _sequence = callSequence;
-        _variables = JSON.stringify(callVariables);
-        
-    ↓Call_InternalCall [steps.SequenceStep-1761755111966]: 
-      sourceSequence: lib_ConvertigoMCP.internal_call
-      ↓_sequence [variables.StepVariable-1761755111968]: 
-      ↓_variables [variables.StepVariable-1761755111970]: 
     ↓ErrorJsonrpc [steps.JsonFieldStep-1761755202001]: 
       key: 
         - xmlizable: 
@@ -264,6 +256,26 @@ responseTimeout: 300
               - SmartType: 
                 - ↑mode: JS
                 - →→: requestIdValue
+    ↓PingInline [steps.IfStep-1792051200001]: 
+      comment: ping is answered here, without internal_call, mcp_ping or engine logs
+      condition: pingInline
+      ↓result [steps.JsonObjectStep-1792051200003]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: result
+      ↓ReturnPing [steps.ReturnStep-1792051200005]: 
+    ↓prepareCall [steps.SimpleStep-1762189043128]: 
+      expression: |
+        _sequence = callSequence;
+        _variables = JSON.stringify(callVariables);
+        
+    ↓Call_InternalCall [steps.SequenceStep-1761755111966]: 
+      sourceSequence: lib_ConvertigoMCP.internal_call
+      ↓_sequence [variables.StepVariable-1761755111968]: 
+      ↓_variables [variables.StepVariable-1761755111970]: 
     ↓IfError [steps.IfExistStep-1761755111974]: 
       condition: IfError
       sourceDefinition: 

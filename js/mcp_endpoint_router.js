@@ -300,7 +300,12 @@ if (methodName === "initialize") {
   responseStatus = "202";
   responseHasBody = false;
 } else if (methodName === "ping") {
-  callSequence = "mcp_ping";
+  // Clients ping often to check the connection: answer inline in mcp_endpoint,
+  // without internal_call or mcp_ping, and keep these calls out of the engine logs.
+  pingInline = true;
+  try {
+    Packages.org.apache.log4j.MDC.put("nolog", Packages.java.lang.Boolean.TRUE);
+  } catch (_ignorePingNoLog) {}
 } else if (methodName === "prompts/list") {
   callSequence = "mcp_prompts_list";
   callVariables = {};
