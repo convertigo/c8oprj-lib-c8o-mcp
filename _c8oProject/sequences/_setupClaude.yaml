@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Setup local Claude Code onboarding for this MCP project
-  Generates or updates the local Convertigo skills in a CLAUDE_CONFIG_DIR and, when configureMcp is true, declares the Convertigo MCP server in that home's .claude.json, including an optional MCP bearer token.
+  Generates or updates the local Convertigo skills in a CLAUDE_CONFIG_DIR and, when configureMcp is true, declares the Convertigo MCP server in that home's .claude.json, including an optional MCP bearer token and the X-Convertigo-No-Log header (see mcpNoLog).
 ↓IncludeHelpers [steps.SimpleStep-1789369711882]: 
   comment: Load the local Claude Code setup helper.
   expression: include("js/setup_claude.js");
@@ -38,3 +38,6 @@ comment: |
   value: 
     - ↑traceable: false
   visibility: 1
+↓mcpNoLog [variables.RequestableVariable-1792051200103]: 
+  comment: 'Optional. true writes the X-Convertigo-No-Log: true header on the convertigo MCP server, so Convertigo 8.4.6+ writes no engine log for the MCP requests of this client; false removes it. Empty: global symbol agentbridge.mcp.nolog, else true. An entry owned by lib_ConvertigoAgentBridge (url with from_bridge=true) keeps its header.'
+  description: 'Optional. true writes the X-Convertigo-No-Log: true header on the convertigo MCP server, so Convertigo 8.4.6+ writes no engine log for the MCP requests of this client; false removes it. Empty: global symbol agentbridge.mcp.nolog, else true. An entry owned by lib_ConvertigoAgentBridge (url with from_bridge=true) keeps its header.'

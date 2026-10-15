@@ -317,6 +317,25 @@ C8O.util.toBoolean = function (value, defaultValue) {
   return defaultValue;
 };
 
+/**
+ * Whether the setup sequences write X-Convertigo-No-Log: true in the MCP client
+ * configuration, so that Convertigo 8.4.6+ mutes the engine logs of every MCP
+ * request of that client (MdcFilter). Same rule as lib_ConvertigoAgentBridge:
+ * the explicit value first, then the global symbol agentbridge.mcp.nolog, then true.
+ */
+C8O.util.mcpNoLogEnabled = function (value) {
+  if (value !== null && value !== undefined && String(value).replace(/^\s+|\s+$/g, "").length) {
+    return C8O.util.toBoolean(value, true);
+  }
+  try {
+    var symbol = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("agentbridge.mcp.nolog");
+    if (symbol !== null && symbol !== undefined && String(symbol).replace(/^\s+|\s+$/g, "").length) {
+      return C8O.util.toBoolean(String(symbol), true);
+    }
+  } catch (_ignoreNoLogSymbol) {}
+  return true;
+};
+
 C8O.util.isPlainObject = function (value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 };

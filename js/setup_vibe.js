@@ -242,7 +242,9 @@ C8O.setupVibe = C8O.setupVibe || {};
     return trim(match[1]).replace(/^["']|["']$/g, "").toLowerCase();
   }
 
-  function mcpHeadersLine(existingLine, mcpToken) {
+  // noLog true writes X-Convertigo-No-Log, false removes it, undefined leaves it
+  // as found. A Bridge-owned entry keeps the header the Bridge chose.
+  function mcpHeadersLine(existingLine, mcpToken, noLog) {
     var entries = inlineMapEntries(existingLine);
     var byKey = {};
     var order = [];
@@ -268,9 +270,20 @@ C8O.setupVibe = C8O.setupVibe || {};
       }
       byKey[authorizationKey] = 'Authorization = "Bearer ' + tomlEscape(token) + '"';
     }
+    var noLogKey = "x-convertigo-no-log";
+    if (noLog === true) {
+      if (!Object.prototype.hasOwnProperty.call(byKey, noLogKey)) {
+        order.push(noLogKey);
+      }
+      byKey[noLogKey] = '"X-Convertigo-No-Log" = "true"';
+    } else if (noLog === false) {
+      delete byKey[noLogKey];
+    }
     var merged = [];
     for (var orderIndex = 0; orderIndex < order.length; orderIndex++) {
-      merged.push(byKey[order[orderIndex]]);
+      if (Object.prototype.hasOwnProperty.call(byKey, order[orderIndex])) {
+        merged.push(byKey[order[orderIndex]]);
+      }
     }
     return "headers = { " + merged.join(", ") + " }";
   }
@@ -319,7 +332,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     }
   }
 
-  function normalizeConvertigoMcpAuth(section, mcpToken) {
+  function normalizeConvertigoMcpAuth(section, mcpToken, noLog) {
     var headerEntries = [];
     var normalized = [];
     var skippedHeaderSection = false;
@@ -360,7 +373,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       }
     }
 
-    var headersLine = mcpHeadersLine("headers = { " + headerEntries.join(", ") + " }", mcpToken);
+    var headersLine = mcpHeadersLine("headers = { " + headerEntries.join(", ") + " }", mcpToken, noLog);
     if (authStart < 0) {
       if (normalized.length && trim(normalized[normalized.length - 1]).length) {
         normalized.push("");
@@ -386,7 +399,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     return normalized.slice(0, authEnd).concat(additions).concat(normalized.slice(authEnd));
   }
 
-  function patchConvertigoMcpServer(lines, mcpUrl, mcpToken) {
+  function patchConvertigoMcpServer(lines, mcpUrl, mcpToken, noLog) {
     var range = findConvertigoMcpServerRange(lines);
     if (!range.found) {
       if (lines.length && trim(lines[lines.length - 1]).length) {
@@ -400,7 +413,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       lines.push("");
       lines.push("[mcp_servers.auth]");
       lines.push('type = "static"');
-      lines.push(mcpHeadersLine("", mcpToken));
+      lines.push(mcpHeadersLine("", mcpToken, noLog));
       lines.push("");
       return lines;
     }
@@ -409,9 +422,12 @@ C8O.setupVibe = C8O.setupVibe || {};
     var timeoutLine = "tool_timeout_sec = 180";
     var hasUrl = false;
     var hasTimeout = false;
+    var bridgeOwned = false;
     for (var i = 1; i < section.length; i++) {
       if (/^\s*url\s*=/.test(section[i])) {
-        if (!isBridgeOwnedMcpUrl(section[i])) {
+        if (isBridgeOwnedMcpUrl(section[i])) {
+          bridgeOwned = true;
+        } else {
           section[i] = urlLine;
         }
         hasUrl = true;
@@ -443,11 +459,11 @@ C8O.setupVibe = C8O.setupVibe || {};
     if (missing.length) {
       section = section.slice(0, insertAt).concat(missing).concat(section.slice(insertAt));
     }
-    section = normalizeConvertigoMcpAuth(section, mcpToken);
+    section = normalizeConvertigoMcpAuth(section, mcpToken, bridgeOwned ? undefined : noLog);
     return lines.slice(0, range.start).concat(section).concat(lines.slice(range.end));
   }
 
-  function buildFullConfig(mcpUrl, mcpToken) {
+  function buildFullConfig(mcpUrl, mcpToken, noLog) {
     var lines = [
       'active_model = "mistral-medium-3.5"',
       "include_prompt_detail = true",
@@ -461,7 +477,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "",
       "[mcp_servers.auth]",
       'type = "static"',
-      mcpHeadersLine("", mcpToken),
+      mcpHeadersLine("", mcpToken, noLog),
       ""
     ];
     var tools = vibeToolNames();
@@ -489,7 +505,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     return false;
   }
 
-  function patchExistingConfig(existingText, mcpUrl, mcpToken, warnings) {
+  function patchExistingConfig(existingText, mcpUrl, mcpToken, warnings, noLog) {
     var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
     var lines = splitLines(text);
 
@@ -499,7 +515,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       warnings.push("Existing enabled_skills does not include convertigo-vibe-generalist; left unchanged to avoid rewriting user skill filters.");
     }
 
-    lines = patchConvertigoMcpServer(lines, mcpUrl, mcpToken);
+    lines = patchConvertigoMcpServer(lines, mcpUrl, mcpToken, noLog);
 
     var next = lines.join("\n").replace(/\n+$/, "\n");
     var tools = vibeToolNames();
@@ -514,11 +530,11 @@ C8O.setupVibe = C8O.setupVibe || {};
     return next.replace(/\n+$/, "\n");
   }
 
-  function patchConfigToml(existingText, mcpUrl, mcpToken, replaceConfig, warnings) {
+  function patchConfigToml(existingText, mcpUrl, mcpToken, replaceConfig, warnings, noLog) {
     var existing = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
     var next = (replaceConfig === true || trim(existing).length === 0)
-      ? buildFullConfig(mcpUrl, mcpToken)
-      : patchExistingConfig(existing, mcpUrl, mcpToken, warnings);
+      ? buildFullConfig(mcpUrl, mcpToken, noLog)
+      : patchExistingConfig(existing, mcpUrl, mcpToken, warnings, noLog);
     var normalizedExisting = existing.replace(/\n+$/, "\n");
     var normalizedNext = next.replace(/\n+$/, "\n");
     return {
@@ -555,6 +571,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     var vibeHome = resolveVibeHome(opts.vibeHome);
     var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
     var compactMcpUrl = configuredMcpUrl(resolvedMcpUrl);
+    var noLog = C8O.util.mcpNoLogEnabled(opts.mcpNoLog);
     var skillsDir = new File(vibeHome, "skills");
     var skillDir = new File(skillsDir, "convertigo-vibe-generalist");
     var skillFile = new File(skillDir, "SKILL.md");
@@ -566,7 +583,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     var agentsWrite = writeManagedFile(agentsFile, agentsContent, dryRun);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, replaceConfig, warnings);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, replaceConfig, warnings, noLog);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
@@ -579,6 +596,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
       tokenConfigured: trim(opts.mcpToken).length > 0,
+      noLog: noLog,
       skillPath: String(skillFile.getAbsolutePath()),
       agentsPath: String(agentsFile.getAbsolutePath()),
       configPath: String(configFile.getAbsolutePath()),
@@ -599,6 +617,7 @@ var setupVibeResult = C8O.setupVibe.run({
   vibeHome: (typeof vibeHome !== "undefined") ? vibeHome : "",
   mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
   mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
+  mcpNoLog: (typeof mcpNoLog !== "undefined") ? mcpNoLog : "",
   dryRun: (typeof dryRun !== "undefined") ? dryRun : false,
   replaceConfig: (typeof replaceConfig !== "undefined") ? replaceConfig : false
 });

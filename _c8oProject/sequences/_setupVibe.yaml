@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Setup local Mistral Vibe onboarding for this MCP project
-  Generates or updates the skill, AGENTS.md, and config.toml, including an optional MCP bearer token.
+  Generates or updates the skill, AGENTS.md, and config.toml, including an optional MCP bearer token and the X-Convertigo-No-Log header (see mcpNoLog).
 ↓IncludeHelpers [steps.SimpleStep-1782030194227]: 
   comment: Load the local Vibe setup helper.
   expression: include("js/setup_vibe.js");
@@ -38,3 +38,6 @@ comment: |
   value: 
     - ↑traceable: false
   visibility: 1
+↓mcpNoLog [variables.RequestableVariable-1792051200105]: 
+  comment: 'Optional. true writes the X-Convertigo-No-Log: true header on the convertigo MCP server, so Convertigo 8.4.6+ writes no engine log for the MCP requests of this client; false removes it. Empty: global symbol agentbridge.mcp.nolog, else true. An entry owned by lib_ConvertigoAgentBridge (url with from_bridge=true) keeps its header.'
+  description: 'Optional. true writes the X-Convertigo-No-Log: true header on the convertigo MCP server, so Convertigo 8.4.6+ writes no engine log for the MCP requests of this client; false removes it. Empty: global symbol agentbridge.mcp.nolog, else true. An entry owned by lib_ConvertigoAgentBridge (url with from_bridge=true) keeps its header.'

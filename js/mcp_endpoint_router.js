@@ -55,9 +55,10 @@ try {
 } catch (_ignoreManagedRevealMode) {
   managedRevealMode = false;
 }
-// X-Convertigo-No-Log mutes the engine logs of this request. The /api path is not
-// covered by ProjectsDataFilter, so the marker is set here; log4j2 thread context
-// inheritance (enabled by the engine) propagates it to the tool sequence threads.
+// X-Convertigo-No-Log mutes the engine logs of this request. From Convertigo 8.4.6
+// the engine MdcFilter already does it for the whole request; before, the /api path
+// is not covered by ProjectsDataFilter, so the marker is set here and log4j2 thread
+// context inheritance propagates it to the tool sequence threads.
 try {
   var managedNoLogHeader = context && context.httpServletRequest
     ? context.httpServletRequest.getHeader("X-Convertigo-No-Log")

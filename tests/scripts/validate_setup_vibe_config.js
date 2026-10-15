@@ -147,4 +147,32 @@ assert.match(
   "without the marker the MCP setup keeps repairing a stale or hand-written url"
 );
 
+// --- X-Convertigo-No-Log: true writes it, false removes it, undefined keeps it ---
+const mcpUrl = "http://localhost:18080/convertigo/api/mcp?jsonOnly=true";
+const noLogHeader = /"X-Convertigo-No-Log" = "true"/;
+const quiet = patchConfigToml("", mcpUrl, "token-value", true, [], true);
+assert.match(quiet.text, /headers = \{ [^\n]*"X-Convertigo-No-Log" = "true"/);
+assert.match(quiet.text, /headers = \{ [^\n]*Authorization = "Bearer token-value"/);
+const quietRepaired = patchConfigToml(quiet.text, mcpUrl, "token-value", false, [], true);
+assert.equal(quietRepaired.text.match(/X-Convertigo-No-Log/g).length, 1, "the header is never duplicated");
+assert.equal(patchConfigToml(quietRepaired.text, mcpUrl, "token-value", false, [], true).status, "unchanged");
+assert.doesNotMatch(patchConfigToml("", mcpUrl, "token-value", true, [], false).text, noLogHeader);
+
+const quietPatched = patchConfigToml(migrated.text, mcpUrl, "", false, [], true);
+assert.match(quietPatched.text, noLogHeader, "an existing entry gets the header");
+assert.match(quietPatched.text, /X-Custom-Header = "preserved"/);
+const loud = patchConfigToml(quietPatched.text, mcpUrl, "", false, [], false);
+assert.doesNotMatch(loud.text, noLogHeader, "mcpNoLog=false removes the header");
+assert.match(loud.text, /X-Custom-Header = "preserved"/);
+assert.match(patchConfigToml(quietPatched.text, mcpUrl, "", false, []).text, noLogHeader,
+  "without a decision the header is left as found");
+
+// The Bridge chose its own header: the setup keeps it, present or absent.
+const bridgeQuiet = bridgeConfig.replace('api_key_format = "Bearer {token}"',
+  'api_key_format = "Bearer {token}"\nheaders = { "X-Convertigo-No-Log" = "true" }');
+assert.match(patchConfigToml(bridgeQuiet, mcpUrl, "", false, [], false).text, noLogHeader,
+  "a Bridge-owned entry keeps the header the Bridge wrote");
+assert.doesNotMatch(patchConfigToml(bridgeConfig, mcpUrl, "", false, [], true).text, noLogHeader,
+  "a Bridge-owned entry without the header does not get one");
+
 console.log(JSON.stringify({ status: "ok", validated: "setup-vibe-config" }));

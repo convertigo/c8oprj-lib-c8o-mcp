@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Setup local Codex onboarding for this MCP project
-  Generates or updates the local Convertigo skills and config.toml, including an optional MCP bearer token.
+  Generates or updates the local Convertigo skills and config.toml, including an optional MCP bearer token and the X-Convertigo-No-Log header (see mcpNoLog).
 ↓IncludeHelpers [steps.SimpleStep-1773653288527]: 
   comment: Load the local Codex setup helper.
   expression: include("js/setup_codex.js");
@@ -34,3 +34,6 @@ comment: |
   value: 
     - ↑traceable: false
   visibility: 1
+↓mcpNoLog [variables.RequestableVariable-1792051200101]: 
+  comment: 'Optional. true writes the X-Convertigo-No-Log: true header on the convertigo MCP server, so Convertigo 8.4.6+ writes no engine log for the MCP requests of this client; false removes it. Empty: global symbol agentbridge.mcp.nolog, else true. An entry owned by lib_ConvertigoAgentBridge (url with from_bridge=true) keeps its header.'
+  description: 'Optional. true writes the X-Convertigo-No-Log: true header on the convertigo MCP server, so Convertigo 8.4.6+ writes no engine log for the MCP requests of this client; false removes it. Empty: global symbol agentbridge.mcp.nolog, else true. An entry owned by lib_ConvertigoAgentBridge (url with from_bridge=true) keeps its header.'

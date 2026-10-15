@@ -128,6 +128,22 @@ http://<host>/convertigo/api/mcp?jsonOnly=false&from_bridge=true&descriptorVersi
 - Covered by `tests/scripts/validate_setup_vibe_config.js` (marker honoured, and
   the no-marker path still repairs).
 
+## X-Convertigo-No-Log in the client configurations
+
+Since Convertigo 8.4.6 the engine `MdcFilter` covers every URL, `/api/mcp`
+included: a request carrying `X-Convertigo-No-Log: true` (or `?__nolog=true`)
+writes no engine log at all. Below 8.4.6 the header only mutes the logs of the
+sequence steps (`js/mcp_endpoint_router.js`). It mutes a whole client, tool
+calls included, not one JSON-RPC method.
+
+- `_setupCodex`, `_setupClaude` and `_setupVibe` write the header on the
+  `convertigo` server (not on `convertigo-flow`), with the Bridge's rule
+  (`C8O.util.mcpNoLogEnabled`): the `mcpNoLog` variable, else the global symbol
+  `agentbridge.mcp.nolog`, else `true`. `mcpNoLog=false` removes the header.
+- A Bridge-owned entry (url with `from_bridge=true`) keeps the header the Bridge
+  chose: the Bridge has its own `mcpNoLog` option and calls the setups after
+  writing its configuration.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

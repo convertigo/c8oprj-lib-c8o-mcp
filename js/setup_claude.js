@@ -71,7 +71,9 @@ C8O.setupClaude = C8O.setupClaude || {};
     }
   }
 
-  function patchClaudeState(existingText, mcpUrl, mcpToken, warnings, enableFlow) {
+  // noLog true writes X-Convertigo-No-Log on the convertigo server, false removes it,
+  // undefined leaves it as found. A Bridge-owned entry keeps the header the Bridge chose.
+  function patchClaudeState(existingText, mcpUrl, mcpToken, warnings, enableFlow, noLog) {
     var state = parseJsonSafe(existingText, null);
     var created = state === null;
     if (state === null) {
@@ -81,7 +83,7 @@ C8O.setupClaude = C8O.setupClaude || {};
       state.mcpServers = {};
     }
     var token = trim(mcpToken);
-    var patchServer = function (name, url) {
+    var patchServer = function (name, url, serverNoLog) {
       var previous = state.mcpServers[name] && typeof state.mcpServers[name] === "object" ? state.mcpServers[name] : {};
       var previousHeaders = previous.headers && typeof previous.headers === "object" ? previous.headers : {};
       var headers = {};
@@ -103,13 +105,23 @@ C8O.setupClaude = C8O.setupClaude || {};
       // as before.
       var previousUrl = trim(previous.url);
       var keepUrl = /(^|[?&])from_bridge=true(&|#|$)/i.test(previousUrl);
+      if (!keepUrl && (serverNoLog === true || serverNoLog === false)) {
+        for (var headerName in headers) {
+          if (Object.prototype.hasOwnProperty.call(headers, headerName) && headerName.toLowerCase() === "x-convertigo-no-log") {
+            delete headers[headerName];
+          }
+        }
+        if (serverNoLog === true) {
+          headers["X-Convertigo-No-Log"] = "true";
+        }
+      }
       state.mcpServers[name] = {
         type: "http",
         url: keepUrl ? previousUrl : url,
         headers: headers
       };
     };
-    patchServer("convertigo", mcpUrl);
+    patchServer("convertigo", mcpUrl, noLog);
     if (enableFlow === true) {
       patchServer("convertigo-flow", helpers.flowMcpUrl(mcpUrl));
     }
@@ -133,6 +145,7 @@ C8O.setupClaude = C8O.setupClaude || {};
     var resolvedMcpUrl = helpers.deriveMcpUrl(opts.mcpUrl, warnings);
     var compactMcpUrl = helpers.configuredMcpUrl(resolvedMcpUrl);
     var enableFlow = helpers.flowCapabilityAvailable();
+    var noLog = C8O.util.mcpNoLogEnabled(opts.mcpNoLog);
     var skillsDir = layout.skillsDir;
     var generalistSkillFile = new File(new File(skillsDir, "convertigo-generalist"), "SKILL.md");
     var noCodeSkillFile = new File(new File(skillsDir, "convertigo-nocode"), "SKILL.md");
@@ -145,7 +158,7 @@ C8O.setupClaude = C8O.setupClaude || {};
     var tokenConfigured = false;
     if (configureMcp) {
       var existing = helpers.readTextIfExists(stateFile);
-      var patched = patchClaudeState(existing, compactMcpUrl, opts.mcpToken, warnings, enableFlow);
+      var patched = patchClaudeState(existing, compactMcpUrl, opts.mcpToken, warnings, enableFlow, noLog);
       configStatus = patched.status;
       tokenConfigured = patched.tokenConfigured;
       if (patched.status !== "unchanged" && dryRun !== true) {
@@ -161,6 +174,7 @@ C8O.setupClaude = C8O.setupClaude || {};
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
       tokenConfigured: tokenConfigured,
+      noLog: configureMcp ? noLog : null,
       configPath: String(stateFile.getAbsolutePath()),
       skillPath: String(generalistSkillFile.getAbsolutePath()),
       skillPaths: {
@@ -191,6 +205,7 @@ var setupClaudeResult = C8O.setupClaude.run({
   claudeHome: (typeof claudeHome !== "undefined") ? claudeHome : "",
   mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
   mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
+  mcpNoLog: (typeof mcpNoLog !== "undefined") ? mcpNoLog : "",
   dryRun: (typeof dryRun !== "undefined") ? dryRun : false,
   configureMcp: (typeof configureMcp !== "undefined") ? configureMcp : true
 });

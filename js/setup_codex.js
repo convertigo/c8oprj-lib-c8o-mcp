@@ -318,13 +318,23 @@ C8O.setupCodex = C8O.setupCodex || {};
     section.push(line);
   }
 
-  function patchMcpServer(lines, serverName, mcpUrl, mcpToken, warnings) {
+  function removeHeader(section, key) {
+    var expectedKey = String(key).toLowerCase();
+    return section.filter(function (line, index) {
+      return index === 0 || assignmentKey(line) !== expectedKey;
+    });
+  }
+
+  // noLog true writes X-Convertigo-No-Log, false removes it, undefined leaves it
+  // as found. A Bridge-owned entry keeps the header the Bridge chose.
+  function patchMcpServer(lines, serverName, mcpUrl, mcpToken, warnings, noLog) {
     lines = removeMisconfiguredTokenHeader(lines, serverName, warnings);
     var sectionName = "mcp_servers." + serverName;
     var range = findSectionRange(lines, sectionName);
     var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
     var timeoutLine = "startup_timeout_sec = 60";
     var token = trim(mcpToken);
+    var bridgeOwned = false;
 
     if (!range.found) {
       if (lines.length && trim(lines[lines.length - 1]).length) {
@@ -340,7 +350,9 @@ C8O.setupCodex = C8O.setupCodex || {};
       var replacedTimeout = false;
       for (var i = 1; i < sectionLines.length; i++) {
         if (/^\s*url\s*=/.test(sectionLines[i])) {
-          if (!isBridgeOwnedMcpUrl(sectionLines[i])) {
+          if (isBridgeOwnedMcpUrl(sectionLines[i])) {
+            bridgeOwned = true;
+          } else {
             sectionLines[i] = urlLine;
           }
           replacedUrl = true;
@@ -405,15 +417,20 @@ C8O.setupCodex = C8O.setupCodex || {};
     if (token.length) {
       upsertHeader(headersSection, "Authorization", 'Authorization = "Bearer ' + tomlEscape(token) + '"');
     }
+    if (noLog === true && !bridgeOwned) {
+      upsertHeader(headersSection, "X-Convertigo-No-Log", '"X-Convertigo-No-Log" = "true"');
+    } else if (noLog === false && !bridgeOwned) {
+      headersSection = removeHeader(headersSection, "X-Convertigo-No-Log");
+    }
     lines = lines.slice(0, headersRange.start).concat(headersSection).concat(lines.slice(headersRange.end));
 
     return lines;
   }
 
-  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings, enableFlow) {
+  function patchConfigToml(existingText, mcpUrl, mcpToken, warnings, enableFlow, noLog) {
     var text = String(existingText == null ? "" : existingText).replace(/\r\n?/g, "\n");
     var lines = splitLines(text);
-    lines = patchMcpServer(lines, "convertigo", mcpUrl, mcpToken, warnings);
+    lines = patchMcpServer(lines, "convertigo", mcpUrl, mcpToken, warnings, noLog);
     if (enableFlow === true) {
       lines = patchMcpServer(lines, "convertigo-flow", flowMcpUrl(mcpUrl), mcpToken, warnings);
     } else {
@@ -516,6 +533,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var resolvedMcpUrl = deriveMcpUrl(opts.mcpUrl, warnings);
     var compactMcpUrl = configuredMcpUrl(resolvedMcpUrl);
     var enableFlow = flowCapabilityAvailable();
+    var noLog = C8O.util.mcpNoLogEnabled(opts.mcpNoLog);
     var skillsDir = new File(codexHome, "skills");
     var generalistSkillDir = new File(skillsDir, "convertigo-generalist");
     var generalistSkillFile = new File(generalistSkillDir, "SKILL.md");
@@ -529,7 +547,7 @@ C8O.setupCodex = C8O.setupCodex || {};
     var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeSkillWrite.status]);
 
     var existingConfig = readTextIfExists(configFile);
-    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, warnings, enableFlow);
+    var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, warnings, enableFlow, noLog);
     if (patchedConfig.status !== "unchanged" && dryRun !== true) {
       writeText(configFile, patchedConfig.text);
     }
@@ -541,6 +559,7 @@ C8O.setupCodex = C8O.setupCodex || {};
       resolvedMcpUrl: resolvedMcpUrl,
       configuredMcpUrl: compactMcpUrl,
       tokenConfigured: patchedConfig.tokenConfigured,
+      noLog: noLog,
       configPath: String(configFile.getAbsolutePath()),
       skillPath: String(generalistSkillFile.getAbsolutePath()),
       skillPaths: {
@@ -596,6 +615,7 @@ if (C8O.setupCodex.autoRun !== false) {
     codexHome: (typeof codexHome !== "undefined") ? codexHome : "",
     mcpUrl: (typeof mcpUrl !== "undefined") ? mcpUrl : "",
     mcpToken: (typeof mcpToken !== "undefined") ? mcpToken : "",
+    mcpNoLog: (typeof mcpNoLog !== "undefined") ? mcpNoLog : "",
     dryRun: (typeof dryRun !== "undefined") ? dryRun : false
   });
 }
