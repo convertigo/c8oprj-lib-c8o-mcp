@@ -137,6 +137,12 @@ var SMART_TYPE_VALUE_HINT =
   'SmartType values are JSON objects like {"mode":"PLAIN","expression":"text"}. ' +
   'Use {"mode":"JS","expression":"<javascript>"} for evaluated expressions, or {"mode":"SOURCE","sources":["<stepPriority>","<xpath>"]} to pull data from another step output.';
 
+// NGX (MobileSmartSourceType) values do not share the sequence step SmartType format:
+// _buildMobileSmartSourceType rejects mode JS and reads "value".
+var NGX_SMART_TYPE_VALUE_HINT =
+  'NGX SmartType values are JSON objects like {"mode":"PLAIN","value":"text"}. ' +
+  'Use {"mode":"SCRIPT","value":"<expression>"} for evaluated expressions (not JS), or {"mode":"SOURCE","value":"<smart-source-json>"} for a picker source.';
+
 var MULTI_SOURCES_HINT =
   'sourcesDefinition expects an array of entries, each entry providing a label, a SmartType source (same ["<stepPriority>", "<xpath>"] structure), and an optional fallback value. ' +
   'Build it as a JSON array of objects such as { description: "optional", source: ["1234567890", "./text()"], defaultValue: "" } so the picker-style data is preserved.';
@@ -211,6 +217,9 @@ C8O.dbo.resolveLlmHint = function (className, propertyName, propertyEntry) {
     return MULTI_SOURCES_HINT;
   }
   if (propertyEntry) {
+    if (propertyEntry.type && String(propertyEntry.type).indexOf("MobileSmartSourceType") !== -1) {
+      return NGX_SMART_TYPE_VALUE_HINT;
+    }
     var kind = propertyEntry.kind || propertyEntry.valueKind || "";
     if (kind) {
       kind = String(kind).toLowerCase();
