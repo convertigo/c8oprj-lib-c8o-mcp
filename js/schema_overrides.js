@@ -115,7 +115,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         responseDetail: {
           type: "string",
           enum: ["compact", "full"],
-          description: "Default compact. Compact keeps complete call payloads for reads, summarizes mutation payloads, and emits lightweight reference pointers instead of duplicating results. Use full only for detailed diagnostics.",
+          description: "Default compact. Compact keeps complete call payloads for reads, summarizes mutation payloads (touched objects as touchedCount + touchedRoots instead of every QName), and emits lightweight reference pointers instead of duplicating results. Use full only for detailed diagnostics.",
           default: "compact"
         }
       },
@@ -1362,6 +1362,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       optimized: { type: "boolean" },
       optimizedCalls: { type: "number" },
       touchedQNames: stringArraySchema(),
+      touchedCount: { type: "number" },
+      touchedRoots: stringArraySchema(),
       refreshQName: { type: "string" },
       studioRefresh: nullableSchema(studioRefreshSchema()),
       reveal: nullableSchema(revealOutputSchema()),

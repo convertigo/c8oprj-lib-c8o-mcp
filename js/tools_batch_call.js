@@ -406,6 +406,30 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     }
   }
 
+  // Keeps only the QNames that are not below another touched QName: creating a sequence
+  // and its 30 steps yields the sequence QName alone.
+  function rootQNames(qnames) {
+    var list = Array.isArray(qnames) ? qnames : [];
+    var sorted = [];
+    for (var i = 0; i < list.length; i++) {
+      var text = asTrimmed(list[i]);
+      if (text.length) {
+        sorted.push(text);
+      }
+    }
+    sorted.sort();
+    var roots = [];
+    for (var j = 0; j < sorted.length; j++) {
+      var candidate = sorted[j];
+      var last = roots.length ? roots[roots.length - 1] : null;
+      if (last !== null && (candidate === last || candidate.indexOf(last + ".") === 0)) {
+        continue;
+      }
+      roots.push(candidate);
+    }
+    return roots;
+  }
+
   function compactMutationPayload(payload) {
     if (!payload || typeof payload !== "object") {
       return payload;
@@ -413,7 +437,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var compact = {};
     var keys = [
       "status", "message", "targetQName", "qname", "parentQName", "newQName",
-      "summary", "warnings", "errors", "touchedQNames"
+      "summary", "warnings", "errors"
     ];
     for (var i = 0; i < keys.length; i++) {
       var key = keys[i];
@@ -421,6 +445,29 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         compact[key] = payload[key];
       }
     }
+    if (Array.isArray(payload.touchedQNames)) {
+      compact.touchedCount = payload.touchedQNames.length;
+      compact.touchedRoots = rootQNames(payload.touchedQNames);
+    }
+    return compact;
+  }
+
+  // In compact mode the full touched list, saveResults and mobileBuilder are already
+  // summarized or present at the top level: keep the finalize block to counts and roots.
+  function outputMutationFinalize(mutationFinalize, responseDetail) {
+    if (responseDetail === "full") {
+      return mutationFinalize;
+    }
+    var compact = {};
+    var keys = Object.keys(mutationFinalize);
+    for (var i = 0; i < keys.length; i++) {
+      compact[keys[i]] = mutationFinalize[keys[i]];
+    }
+    compact.touchedCount = mutationFinalize.touchedQNames.length;
+    compact.touchedRoots = rootQNames(mutationFinalize.touchedQNames);
+    compact.touchedQNames = [];
+    compact.mobileBuilder = [];
+    compact.saveResults = [];
     return compact;
   }
 
@@ -948,7 +995,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       },
       saveResults: mutationFinalize.saveResults,
       mobileBuilder: mutationFinalize.mobileBuilder,
-      mutationFinalize: mutationFinalize,
+      mutationFinalize: outputMutationFinalize(mutationFinalize, responseDetail),
       durationMs: finishedAt - startedAt,
       timestamp: finishedAt
     };
