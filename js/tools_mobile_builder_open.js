@@ -1268,7 +1268,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         : (browserDebugUrl.length
         ? (!browserDebugPortMatched
           ? "Studio JxBrowser is not using the managed CDP port yet. Retry mobile-builder-open after the Studio classes are updated; do not use Playwright until browserDebugPortMatched is true."
-          : (browserControlReady
+          : (browserControlReady && browserDebugPortValue <= 0
+            ? "No managed browser is attached to this MCP client (browserDebugPortRequested is 0), so a generic Playwright MCP cannot reach the Studio JxBrowser. Smoke the viewer by navigating your own browser tool to viewerHomeUrl, in a browser profile that holds no session of another Studio on localhost."
+            : browserControlReady
             ? "Use the existing Studio JxBrowser CDP target through Playwright/browser-control MCP; do not create a new browser tab/page or run ad hoc Node/CDP scripts. If those MCP tools are unavailable or stale, report the configuration problem."
             : "Studio JxBrowser CDP exists, but the current target is still the loader/about:blank. Poll mobile-builder-open with stateOnly=true and wait=true before using Playwright/browser-control."))
         : ""),

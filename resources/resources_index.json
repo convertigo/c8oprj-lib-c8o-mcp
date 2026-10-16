@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-  "revision": 16,
+  "revision": 17,
     "scopeTags": [
       "start",
       "onboarding",
@@ -956,7 +956,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 24,
+    "revision": 25,
     "scopeTags": [
       "domain",
       "frontend",
