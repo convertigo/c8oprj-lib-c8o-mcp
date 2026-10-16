@@ -343,6 +343,21 @@ comment: |
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: true
+        ↓AllowedValuesIf [steps.IfStep-1792171000001]: 
+          condition: item && typeof item.allowedValues === 'string' && item.allowedValues.length > 0
+          ↓AllowedValuesField [steps.JsonFieldStep-1792171000002]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: allowedValues
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: item.allowedValues
         ↓LlmHintIf [steps.IfStep-1763554782919]: 
           condition: item && typeof item.llmHint !== 'undefined' && item.llmHint !== null
           ↓LlmHintField [steps.JsonFieldStep-1763554797054]: 

@@ -2369,6 +2369,58 @@ C8O.dbo._exampleValueForKind = function (kind, fallback) {
   }
 };
 
+// Integer properties edited with a Studio tags editor store the index of the selected tag,
+// so expose {value, label} pairs; string and enum properties store the tag itself.
+C8O.dbo._describeAllowedValues = function (descriptor, sampleInstance, kind) {
+  var name = descriptor.getName ? String(descriptor.getName()) : "";
+  var tags = null;
+  try {
+    if (sampleInstance && sampleInstance instanceof Packages.com.twinsoft.convertigo.beans.core.ITagsProperty) {
+      tags = sampleInstance.getTagsForProperty(name);
+    }
+  } catch (_ignoreTagsProperty) {
+    tags = null;
+  }
+  if (!tags) {
+    try {
+      var editorClass = descriptor.getPropertyEditorClass ? descriptor.getPropertyEditorClass() : null;
+      var methods = editorClass ? editorClass.getMethods() : [];
+      for (var i = 0; i < methods.length && !tags; i++) {
+        var method = methods[i];
+        if (String(method.getName()) === "getTags" && method.getParameterCount() === 1 &&
+            Packages.java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+          try {
+            tags = method.invoke(null, Packages.java.lang.reflect.Array.newInstance(Packages.java.lang.Object, 1));
+          } catch (_ignoreTagsInvoke) {
+            tags = null;
+          }
+        }
+      }
+    } catch (_ignoreEditor) {
+      tags = null;
+    }
+  }
+  var values = [];
+  if (tags && tags.length) {
+    for (var t = 0; t < tags.length; t++) {
+      values.push(kind === "number" ? { value: t, label: String(tags[t]) } : { value: String(tags[t]) });
+    }
+    return values;
+  }
+  try {
+    var propertyType = descriptor.getPropertyType ? descriptor.getPropertyType() : null;
+    if (propertyType && propertyType.isEnum()) {
+      var constants = propertyType.getEnumConstants();
+      for (var c = 0; c < constants.length; c++) {
+        var label = String(constants[c].toString());
+        var constantName = String(constants[c].name());
+        values.push(label !== constantName ? { value: constantName, label: label } : { value: constantName });
+      }
+    }
+  } catch (_ignoreEnum) {}
+  return values.length ? values : null;
+};
+
 C8O.dbo.describePropertyDescriptor = function (descriptor, sampleInstance) {
   if (!descriptor) {
     return null;
@@ -2399,7 +2451,7 @@ C8O.dbo.describePropertyDescriptor = function (descriptor, sampleInstance) {
   } catch (_ignoreDisplay) {
     displayName = name;
   }
-  return {
+  var hint = {
     name: name,
     displayName: displayName,
     description: description,
@@ -2413,6 +2465,11 @@ C8O.dbo.describePropertyDescriptor = function (descriptor, sampleInstance) {
     defaultValue: normalizedValue,
     exampleValue: exampleValue
   };
+  var allowedValues = C8O.dbo._describeAllowedValues(descriptor, sampleInstance, kind);
+  if (allowedValues) {
+    hint.allowedValues = allowedValues;
+  }
+  return hint;
 };
 
 C8O.dbo.describeBeanProperties = function (beanInfo) {

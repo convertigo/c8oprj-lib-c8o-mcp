@@ -91,6 +91,15 @@ function mapHints(hints, className) {
     if (hint.nillable === true) {
       hintPayload.nillable = true;
     }
+    if (hint.allowedValues && hint.allowedValues.length) {
+      var allowed = [];
+      for (var v = 0; v < hint.allowedValues.length; v++) {
+        var option = hint.allowedValues[v];
+        var valueText = typeof option.value === "number" ? String(option.value) : JSON.stringify(String(option.value));
+        allowed.push(option.label ? valueText + " = " + option.label : valueText);
+      }
+      hintPayload.allowedValues = allowed.join("; ");
+    }
     if (classLabel && C8O && C8O.dbo && typeof C8O.dbo.resolveLlmHint === "function") {
       try {
         var resolved = C8O.dbo.resolveLlmHint(classLabel, hint.name, hint);
