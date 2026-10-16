@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Run a batch of MCP tool calls
-  Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches.
+  Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches. Large generated batches can be read from a workspace .json file with callsFile instead of being re-typed as calls.
 ↓IncludeHelpers [steps.SimpleStep-1772625431444]: 
   comment: Load shared helpers for generic batch tool calls.
   expression: |
@@ -19,6 +19,7 @@ comment: |
     
     batchResult = C8O.mcp.batchCall({
       calls: callsInput,
+      callsFile: (typeof callsFile !== "undefined") ? callsFile : null,
       onError: onErrorInput,
       resumeFrom: resumeFromInput,
       executionId: executionIdInput,
@@ -299,6 +300,9 @@ comment: |
 ↓calls [variables.RequestableVariable-1772625373495]: 
   comment: Ordered tool calls. Each item uses {tool, arguments?, id?}; ids can be referenced later in the batch.
   description: Ordered tool calls. Each item uses {tool, arguments?, id?}; ids can be referenced later in the batch.
+↓callsFile [variables.RequestableVariable-1792171000031]: 
+  comment: Path of a .json file under the projects workspace holding the calls array (or {calls:[...]}), instead of calls. Absolute or relative to the workspace.
+  description: Path of a .json file under the projects workspace holding the calls array (or {calls:[...]}), instead of calls. Absolute or relative to the workspace.
 ↓onError [variables.RequestableVariable-1772625375909]: 
   comment: 'Allowed values: stop or continue. stop aborts on the first failure; continue records failures and keeps running.'
   description: 'Allowed values: stop or continue. stop aborts on the first failure; continue records failures and keeps running.'

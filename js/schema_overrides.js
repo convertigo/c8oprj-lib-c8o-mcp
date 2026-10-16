@@ -88,6 +88,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
             additionalProperties: false
           }
         },
+        callsFile: {
+          type: "string",
+          description: "Instead of calls: path of a .json file under the Convertigo projects workspace holding the calls array (or {calls:[...]}). Use it for large generated batches so they are not re-typed as arguments. Absolute or relative to the workspace."
+        },
         onError: {
           type: "string",
           enum: ["stop", "continue"],
@@ -119,7 +123,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: "compact"
         }
       },
-      required: ["calls"],
+      required: [],
       additionalProperties: false
     };
   }

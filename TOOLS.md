@@ -43,7 +43,7 @@ For a new CRUD UI project, the current public rail is:
 
 | Tool | Sequence | Title | Description |
 |---|---|---|---|
-| `batch-call` | `tools_batch_call` | Run a batch of MCP tool calls | Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches. |
+| `batch-call` | `tools_batch_call` | Run a batch of MCP tool calls | Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches. Large generated batches can be read from a workspace .json file with callsFile. |
 | `crud-proof` | `tools_crud_proof` | Prove deterministic CRUD state | Combines CRUD status, requestable execution summaries, UI shell checks, and mobile builder readiness diagnostics for the mono-agent fast path. |
 | `crud-status` | `tools_crud_status` | Inspect deterministic CRUD status | Returns the current CRUD scaffold status for a project, connector, facade prefix, and visible UI target. |
 | `databaseobject-delete` | `tools_databaseobject_delete` | Delete a database object | Removes an existing object from the project tree. Use autoSave=false or batch-call when you want to group several mutations before exporting. |

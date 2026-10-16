@@ -147,6 +147,51 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return [];
   }
 
+  var CALLS_FILE_MAX_BYTES = 10 * 1024 * 1024;
+
+  // Lets an agent pass a batch generated on disk instead of re-typing it as tool arguments.
+  // Only .json files under the projects workspace are read, and their content is never echoed.
+  function readCallsFile(rawPath, errors) {
+    var File = Packages.java.io.File;
+    var pathText = asTrimmed(rawPath);
+    var root = new File(String(Packages.com.twinsoft.convertigo.engine.Engine.PROJECTS_PATH)).getCanonicalFile();
+    var file = new File(pathText);
+    if (!file.isAbsolute()) {
+      file = new File(root, pathText);
+    }
+    file = file.getCanonicalFile();
+    var fail = function (message) {
+      errors.push({ code: "validation_error", message: message });
+      return [];
+    };
+    if (!file.toPath().startsWith(root.toPath())) {
+      return fail("callsFile must be inside the projects workspace " + root.getPath() + ".");
+    }
+    if (!/\.json$/i.test(String(file.getName()))) {
+      return fail("callsFile must be a .json file.");
+    }
+    if (!file.isFile()) {
+      return fail("callsFile not found: " + file.getPath());
+    }
+    if (file.length() > CALLS_FILE_MAX_BYTES) {
+      return fail("callsFile is larger than 10 MB.");
+    }
+    var text = String(new java.lang.String(Packages.java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
+    var parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (_invalidJson) {
+      return fail("callsFile is not valid JSON.");
+    }
+    if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.calls)) {
+      parsed = parsed.calls;
+    }
+    if (!Array.isArray(parsed)) {
+      return fail("callsFile must contain a JSON array of calls or an object with a calls array.");
+    }
+    return parsed;
+  }
+
   function normalizeOnError(rawOnError) {
     var text = asTrimmed(rawOnError).toLowerCase();
     return text === "continue" ? "continue" : "stop";
@@ -713,6 +758,15 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
     var errors = [];
     var calls = parseCallsInput(params.calls, errors);
+    var callsFile = asTrimmed(unwrapValue(params.callsFile));
+    if (callsFile.length) {
+      if (calls.length) {
+        errors.push({ code: "validation_error", message: "Pass either calls or callsFile, not both." });
+        calls = [];
+      } else {
+        calls = readCallsFile(callsFile, errors);
+      }
+    }
     var onError = normalizeOnError(params.onError);
     var responseDetail = normalizeResponseDetail(params.responseDetail);
     var resumeFrom = parseResumeFrom(params.resumeFrom);
