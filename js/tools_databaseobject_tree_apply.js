@@ -318,6 +318,63 @@ if (treeApplyResult && C8O.uiReveal && C8O.uiReveal.enabled(revealInput, false) 
   });
 }
 
+// Compact by default: a 200-object subtree used to return every applied entry (~100 KB).
+// batch-call asks for "full" because its deferred finalize reads touchedQNames and applied.
+function treeApplyRootQNames(qnames) {
+  var sorted = [];
+  for (var i = 0; i < qnames.length; i++) {
+    var text = asTrimmed(qnames[i]);
+    if (text.length) {
+      sorted.push(text);
+    }
+  }
+  sorted.sort();
+  var roots = [];
+  for (var j = 0; j < sorted.length; j++) {
+    var last = roots.length ? roots[roots.length - 1] : null;
+    if (last !== null && (sorted[j] === last || sorted[j].indexOf(last + ".") === 0)) {
+      continue;
+    }
+    roots.push(sorted[j]);
+  }
+  return roots;
+}
+
+function treeApplyCompactResult(result) {
+  var operations = Array.isArray(result.operations) ? result.operations : [];
+  var compactOperations = [];
+  for (var oi = 0; oi < operations.length; oi++) {
+    var opReport = operations[oi] || {};
+    var compactOp = {};
+    var keys = Object.keys(opReport);
+    for (var ki = 0; ki < keys.length; ki++) {
+      if (keys[ki] !== "applied") {
+        compactOp[keys[ki]] = opReport[keys[ki]];
+      }
+    }
+    if (Array.isArray(opReport.applied)) {
+      var byAction = {};
+      for (var ai = 0; ai < opReport.applied.length; ai++) {
+        var action = asTrimmed((opReport.applied[ai] || {}).action) || "other";
+        byAction[action] = (byAction[action] || 0) + 1;
+      }
+      compactOp.appliedCount = opReport.applied.length;
+      compactOp.appliedByAction = byAction;
+    }
+    compactOperations.push(compactOp);
+  }
+  result.operations = compactOperations;
+  if (Array.isArray(result.touchedQNames)) {
+    result.touchedQNames = treeApplyRootQNames(result.touchedQNames);
+  }
+  return result;
+}
+
+var responseDetailInput = (typeof responseDetail !== "undefined" && asTrimmed(responseDetail).toLowerCase() === "full") ? "full" : "compact";
+if (treeApplyResult && responseDetailInput !== "full") {
+  treeApplyResult = treeApplyCompactResult(treeApplyResult);
+}
+
 treeApplyStop = treeApplyResult && treeApplyResult.stop ? treeApplyResult.stop : null;
 treeApplyResume = treeApplyResult && treeApplyResult.resume ? treeApplyResult.resume : {
   executionId: "",

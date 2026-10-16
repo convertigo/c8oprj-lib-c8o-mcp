@@ -243,6 +243,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           default: false,
           description: "Set true when the host UI reveal mode is enabled, so Studio selects and reveals the patched or created object in the Project Explorer."
+        },
+        responseDetail: {
+          type: "string",
+          enum: ["compact", "full"],
+          description: "Default compact: operations report appliedCount and appliedByAction instead of every applied entry, and touchedQNames lists root QNames only. Use full only to diagnose a mutation.",
+          default: "compact"
         }
       },
       required: ["target", "tree"],

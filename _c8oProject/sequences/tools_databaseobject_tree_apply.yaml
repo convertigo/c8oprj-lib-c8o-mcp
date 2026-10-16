@@ -377,3 +377,6 @@ comment: |
   comment: Set true to select and reveal the patched or created object in the Studio Project Explorer.
   description: Set true to select and reveal the patched or created object in the Studio Project Explorer.
   value: false
+↓responseDetail [variables.RequestableVariable-1792171000021]: 
+  comment: compact (default) or full. Compact reports applied counts and root touched QNames only.
+  description: compact (default) or full. Compact reports applied counts and root touched QNames only.

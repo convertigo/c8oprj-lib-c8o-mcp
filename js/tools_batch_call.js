@@ -800,6 +800,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
           report.optimizedMutation = true;
         }
 
+        if (sequenceName === "tools_databaseobject_tree_apply") {
+          // The deferred finalize and $ref substitutions need every touched QName and applied entry.
+          callArguments.responseDetail = "full";
+        }
         var payload = internalCallSequence(sequenceName, callArguments);
         report.payload = payload;
         report.status = classifyPayloadStatus(payload);
