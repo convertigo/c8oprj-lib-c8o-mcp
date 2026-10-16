@@ -340,3 +340,13 @@ skills and MCP declarations. Updates and removals use optimistic revisions;
 project writes add the HTTP privacy rule. The tool cannot edit built-ins or
 personal resources, activate skills/connections, read credentials, or commit Git
 changes. See the Assistant's [resource format and usage guide](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/docs/tigo-library.md).
+
+## Tigo release channels
+
+Customer stable bundle: Assistant **1.4.49**, Bridge **0.4.22**, MCP **0.2.23**.
+The Assistant **1.5.0** / Bridge **0.4.23** / MCP **0.2.24** bundle is a preview
+awaiting review. Use the complete bundle from the Assistant's
+[stable manifest](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/stack-release-stable.json)
+or explicitly choose its
+[preview manifest](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/stack-release-preview.json).
+Pushes/tags build and publish pre-releases; they never deploy a server.

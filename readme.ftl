@@ -303,3 +303,13 @@ project's `.tigo/` prompts, skills and MCP declarations with optimistic revision
 and HTTP privacy protection. It requires full MCP authentication and cannot
 change personal resources, credentials or activation. See the Assistant's
 [resource guide](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/docs/tigo-library.md).
+
+## Tigo release channels
+
+Customer stable bundle: Assistant **1.4.49**, Bridge **0.4.22**, MCP **0.2.23**.
+The Assistant **1.5.0** / Bridge **0.4.23** / MCP **0.2.24** bundle is a preview
+awaiting review. Use the complete bundle from the Assistant's
+[stable manifest](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/stack-release-stable.json)
+or explicitly choose its
+[preview manifest](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/stack-release-preview.json).
+Pushes/tags build and publish pre-releases; they never deploy a server.
