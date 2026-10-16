@@ -206,6 +206,42 @@ Minimum validation proof:
 - one execution path with representative variables
 - no hidden runtime dependence on custom `context.*` fields
 
+### 5. Shared business logic in `js/` files
+When several sequences need the same rule (a date computation, a status, a validation), write it once in a project script and load it where needed instead of copying it into each `SimpleStep`.
+
+Write the file:
+- `project-js-set` creates or replaces `<project>/js/<file>.js` (send the whole file); `project-js-get` reads it back
+- write Rhino 1.9.2 compatible code and hang functions on one namespace object (`var Pca = Pca || {}; Pca.dueDate = function (d) { ... };`) so several includes do not collide
+
+Load it in a sequence:
+- add a first `steps.SimpleStep` whose `expression` is `include("js/<file>.js");` (path relative to the project folder)
+- later steps of the same sequence (`SimpleStep`, `IfStep` conditions, SmartTypes in `JS` mode) can then call its functions
+- give every sequence that uses it its own include step
+
+Read a called requestable's result in JavaScript:
+- `steps.JsonSourceStep`: sets `variableName` to a JS value built from the producer's XML (JSON types restored when the requestable generates them, as SQL transactions do with `generateJsonTypes=true`)
+- `steps.SimpleSourceStep`: sets `variableName` to the text of the first matching node
+- `steps.SourceStep`: sets `variableName` to the matching DOM nodes
+- their `sourceDefinition` is `["<priority of the TransactionStep or SequenceStep>", "./document/..."]`: the xpath starts at the called requestable's `document`, e.g. `./document/sql_output` for an `SqlTransaction`, or `./document/*[@originalKeyName='result']` for a JSON field named `result`
+- check the exact path with `databaseobject-schema` or one `requestable-execute` of the called requestable before wiring it
+
+Minimal chain:
+
+```text
+↓Include          steps.SimpleStep       include("js/pca_rules.js");
+↓CallList         steps.TransactionStep  output=false
+↓Rows             steps.JsonSourceStep   source ["<CallList priority>", "./document/sql_output"], variableName=rows
+↓Compute          steps.SimpleStep       var result = Pca.withStatus(rows, today);
+↓response         steps.JsonToXmlStep    jsonObject = JS "result", key "response", output=true
+```
+
+Common trap:
+- reading the transaction through `context.*` or re-executing it in JS instead of sourcing the `TransactionStep`
+
+Minimum validation proof:
+- one `requestable-execute` of the sequence showing the computed fields
+- after editing the file with `project-js-set`, run the sequence again and check the new behaviour is used
+
 ### Best-case first, trust the error bubble
 Default backend generation should assume the nominal path works:
 - wire the happy-path requestables cleanly

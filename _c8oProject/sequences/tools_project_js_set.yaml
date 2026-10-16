@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Write a project helper script
-  Creates or replaces one file under the project's js/ directory. Send the complete file content; partial patches are not supported.
+  Creates or replaces one file under the project's js/ directory. Send the complete file content; partial patches are not supported. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
 ↓InitContext [steps.SimpleStep-1762350567267]: 
   comment: Validate input and persist file content
   expression: |
