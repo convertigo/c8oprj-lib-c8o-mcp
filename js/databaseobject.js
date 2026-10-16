@@ -1246,7 +1246,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       } catch (_ignorePrevDynamic) {}
 
       try {
-        var preparedDynamicValue = C8O.dbo._prepareDynamicPropertyValue(rawSpec, dynamicMeta);
+        var preparedDynamicValue = C8O.dbo._prepareDynamicPropertyValue(C8O.dbo._expandSmartSourceShorthand(rawSpec, dbo), dynamicMeta);
         dynamicContext.ionBean.setPropertyValue(dynamicMeta.name, preparedDynamicValue);
         applied.push({
           name: dynamicMeta.name,
@@ -1320,7 +1320,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         continue;
       }
 
-      var preparedValue = C8O.dbo._preparePropertyValue(pd, rawSpec);
+      var preparedValue = C8O.dbo._preparePropertyValue(pd, C8O.dbo._isMobileSmartSourceTypeClass(propertyType) ? C8O.dbo._expandSmartSourceShorthand(rawSpec, dbo) : rawSpec);
       var compiledValue = dbo.compileProperty(propertyType, name, preparedValue);
       if (compiledValue instanceof NativeJavaObject) {
         compiledValue = compiledValue.unwrap();
@@ -1456,6 +1456,82 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
   }
 
   return rawSpec;
+};
+
+// Short NGX SmartSource forms, expanded to the full picker JSON:
+//   {"mode":"SOURCE","local":"?.results?.items"}   -> Local filter on page locals
+//   {"mode":"SOURCE","global":"?.currentUser"}     -> Global filter on router.sharedObject
+// Optional "prefix"/"suffix" keep their picker meaning. Anything else is returned unchanged.
+C8O.dbo._smartSourcePath = function (path) {
+  var text = C8O.util.toTrimmedString(path);
+  if (!text.length) {
+    throw new Error("NGX SmartSource short form needs a non-empty path, for example \"?.results\".");
+  }
+  if (text.indexOf("?.") === 0 || text.charAt(0) === "[") {
+    return text;
+  }
+  return "?." + text.replace(/^\./, "").split("?.").join(".").split(".").join("?.");
+};
+
+C8O.dbo._projectNameOf = function (dbo) {
+  var current = dbo;
+  for (var guard = 0; current && guard < 50; guard++) {
+    try {
+      var project = current.getProject ? current.getProject() : null;
+      if (project) {
+        return String(project.getName());
+      }
+    } catch (_ignoreProject) {}
+    try {
+      current = current.getParent ? current.getParent() : null;
+    } catch (_ignoreParent) {
+      current = null;
+    }
+  }
+  return "";
+};
+
+C8O.dbo._expandSmartSourceShorthand = function (rawSpec, dbo) {
+  var spec = rawSpec;
+  if (typeof spec === "string") {
+    var trimmed = spec.trim();
+    if (trimmed.charAt(0) !== "{" || (trimmed.indexOf("\"local\"") < 0 && trimmed.indexOf("\"global\"") < 0)) {
+      return rawSpec;
+    }
+    try {
+      spec = JSON.parse(trimmed);
+    } catch (_notJson) {
+      return rawSpec;
+    }
+  }
+  if (!spec || typeof spec !== "object" || Array.isArray(spec)) {
+    return rawSpec;
+  }
+  var hasLocal = spec.local !== undefined && spec.local !== null;
+  var hasGlobal = spec.global !== undefined && spec.global !== null;
+  if (!hasLocal && !hasGlobal) {
+    return rawSpec;
+  }
+  if (spec.mode && String(spec.mode).toUpperCase() !== "SOURCE") {
+    throw new Error("NGX SmartSource short form (local/global) requires mode SOURCE.");
+  }
+  if (hasLocal && hasGlobal) {
+    throw new Error("NGX SmartSource short form takes either local or global, not both.");
+  }
+  var source = {
+    filter: hasLocal ? "Local" : "Global",
+    project: C8O.dbo._projectNameOf(dbo),
+    input: "",
+    model: {
+      data: [hasLocal ? { localObject: "local" } : { sharedObject: "router.sharedObject" }],
+      path: C8O.dbo._smartSourcePath(hasLocal ? spec.local : spec.global),
+      prefix: spec.prefix != null ? String(spec.prefix) : "",
+      suffix: spec.suffix != null ? String(spec.suffix) : "",
+      custom: "",
+      useCustom: false
+    }
+  };
+  return { mode: "SOURCE", value: JSON.stringify(source) };
 };
 
 C8O.dbo._buildMobileSmartSourceType = function (spec) {
