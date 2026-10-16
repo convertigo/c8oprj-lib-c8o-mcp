@@ -210,7 +210,7 @@ Minimum validation proof:
 When several sequences need the same rule (a date computation, a status, a validation), write it once in a project script and load it where needed instead of copying it into each `SimpleStep`.
 
 Write the file:
-- `project-js-set` creates or replaces `<project>/js/<file>.js` (send the whole file); `project-js-get` reads it back
+- `project-js-set` with `project=<your application project>` creates or replaces `<project>/js/<file>.js` (send the whole file); `project-js-get` with the same `project` reads it back. `project` is required: never target the MCP server project
 - write Rhino 1.9.2 compatible code and hang functions on one namespace object (`var Pca = Pca || {}; Pca.dueDate = function (d) { ... };`) so several includes do not collide
 
 Load it in a sequence:

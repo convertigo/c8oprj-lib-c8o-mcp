@@ -1,13 +1,16 @@
 accessibility: Private
 comment: |
   Read a project helper script
-  Loads one file from the project's js/ directory. Use it to inspect helper code or schema override files before patching them.
+  Loads one file from the js/ directory of the given project. Use it to inspect helper code before patching it with project-js-set.
 ↓InitContext [steps.SimpleStep-1762350567241]: 
   comment: Validate input and load file content
   expression: |
-    'var project = context.project;
-    if (!project) { throw new Error("No project context"); }
-    var jsDir = new java.io.File(project.getDirPath(), "js");
+    'var projectName = project == null ? "" : String(project).trim();
+    if (!projectName.length) { throw new Error("project is required: the technical name of the project whose js/ folder you want to read"); }
+    var dboManager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    if (!dboManager.existsProject(projectName)) { throw new Error("Unknown project: " + projectName); }
+    var targetProject = dboManager.getOriginalProjectByName(projectName, false);
+    var jsDir = new java.io.File(targetProject.getDirPath(), "js");
     var filenameText = filename == null ? "" : String(filename).trim();
     if (!filenameText.length) { throw new Error("filename is required"); }
     var normalized = filenameText.replace(/\\/g, "/");
@@ -177,6 +180,9 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: fileContent
+↓project [variables.RequestableVariable-1792171000011]: 
+  comment: Technical name of the project whose js/ folder is targeted (the application project, never the MCP server project).
+  description: Technical name of the project whose js/ folder is targeted (the application project, never the MCP server project).
 ↓filename [variables.RequestableVariable-1762350567265]: 
   comment: Path relative to js/. Do not prefix with js/.
   description: Path relative to js/. Do not prefix with js/.

@@ -1,13 +1,17 @@
 accessibility: Private
 comment: |
   Write a project helper script
-  Creates or replaces one file under the project's js/ directory. Send the complete file content; partial patches are not supported. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
+  Creates or replaces one file under the js/ directory of the given project. Send the complete file content; partial patches are not supported. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
 ↓InitContext [steps.SimpleStep-1762350567267]: 
   comment: Validate input and persist file content
   expression: |
-    'var project = context.project;
-    if (!project) { throw new Error("No project context"); }
-    var jsDir = new java.io.File(project.getDirPath(), "js");
+    'var projectName = project == null ? "" : String(project).trim();
+    if (!projectName.length) { throw new Error("project is required: the technical name of the project whose js/ folder you want to write"); }
+    if (context && context.project && projectName === String(context.project.getName())) { throw new Error("Writing into the js/ folder of the running MCP server project is forbidden"); }
+    var dboManager = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager;
+    if (!dboManager.existsProject(projectName)) { throw new Error("Unknown project: " + projectName); }
+    var targetProject = dboManager.getOriginalProjectByName(projectName, false);
+    var jsDir = new java.io.File(targetProject.getDirPath(), "js");
     var filenameText = filename == null ? "" : String(filename).trim();
     if (!filenameText.length) { throw new Error("filename is required"); }
     var normalized = filenameText.replace(/\\/g, "/");
@@ -168,6 +172,9 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: fileContent
+↓project [variables.RequestableVariable-1792171000012]: 
+  comment: Technical name of the project whose js/ folder is targeted (the application project, never the MCP server project).
+  description: Technical name of the project whose js/ folder is targeted (the application project, never the MCP server project).
 ↓filename [variables.RequestableVariable-1762350567289]: 
   comment: Path relative to js/. Do not prefix with js/.
   description: Path relative to js/. Do not prefix with js/.
