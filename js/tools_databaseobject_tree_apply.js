@@ -328,7 +328,10 @@ if (atInput === "self") {
   var classNameInput = asTrimmed(treeObject.className);
   var nameInput = asTrimmed(treeObject.name);
   if (!classNameInput.length) {
-    throw new Error("tree.className is required when at is inside/before/after.");
+    var wrapsChildren = !nameInput.length && Array.isArray(treeObject.children) && treeObject.children.length > 0;
+    throw new Error("tree.className is required when at is inside/before/after: tree is the one node to create." +
+      (wrapsChildren ? " To add these children under the target, either send at:\"self\" with tree {children:[...]}, " +
+        "or send each child as the tree with at:\"inside\" (one batch-call entry per child)." : ""));
   }
   if (!nameInput.length) {
     throw new Error("tree.name is required when at is inside/before/after.");
