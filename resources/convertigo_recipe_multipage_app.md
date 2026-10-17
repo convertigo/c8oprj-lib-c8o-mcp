@@ -63,6 +63,8 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 - Every form follows the Forms section of `convertigo-frontend-ngx`; a `Select` and its options share one value type.
 
 ## Order of work
+Keep `docs/generated/PROGRESS.md` up to date after each step below (object inventory, checks, next step), as the common skill's "Long tasks" section says: it is what a resumed or compacted conversation starts from.
+
 1. Data model and `SqlTransaction`s, seeded with demo data by a reset sequence; prove each with `requestable-execute`.
 2. `js/<app>.js` with the rules, then the session facades, then the other facades.
 3. Pages, one lot per page through `callsFile`.
