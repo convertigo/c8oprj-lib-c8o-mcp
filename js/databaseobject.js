@@ -1197,11 +1197,16 @@ C8O.dbo._buildSmartType = function (spec) {
   }
 
   var mode = SmartTypeMode.PLAIN;
+  // Step SmartTypes know PLAIN, JS and SOURCE; SCRIPT is the NGX name of an evaluated expression, so it means JS here.
+  // An unknown mode used to fall back to PLAIN silently, which turned an expression into a literal text.
+  if (modeToken === 'SCRIPT' || modeToken === 'EXPRESSION' || modeToken === 'JAVASCRIPT') {
+    modeToken = 'JS';
+  }
   if (modeToken) {
     try {
       mode = SmartTypeMode.valueOf(modeToken);
     } catch (_ignoreMode) {
-      mode = SmartTypeMode.PLAIN;
+      throw new Error('Unknown SmartType mode "' + modeToken + '" for a step property: use PLAIN (a literal text), JS (an expression) or SOURCE (another step output).');
     }
   }
   smart.setMode(mode);
