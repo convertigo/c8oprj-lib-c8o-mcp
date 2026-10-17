@@ -226,6 +226,7 @@ Read a called requestable's result in JavaScript:
 - check the exact path with `databaseobject-schema` or one `requestable-execute` of the called requestable before wiring it
 - under a `SequenceStep`, source `./document` and read the fields in JS (`.document.data`): a deeper xpath such as `./document/data` can return `null`
 - rows from `./document/sql_output` come as an array created in another Rhino scope: `rows instanceof Array` is `false`. Loop on `rows.length` (or copy into a local array first) instead of testing `instanceof Array`
+- a sequence variable is a JavaScript variable of the same name in every step: read `profile` directly. `context.get("profile")` reads a context attribute (set with `context.set`), not a request variable, so it returns nothing and the code falls back to its default on every call. Do not redeclare the variable from another source (`var profile = context.get(...)`)
 - sequence variables read in JS are Java strings (`typeof` is `object`): call `String(v)` before `split`, regular expressions or `===` comparisons
 
 Calling a requestable with parameters:
