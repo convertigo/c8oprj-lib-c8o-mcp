@@ -916,6 +916,12 @@ include("js/crud_ui_refresh.js");
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
         "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: col LIKE {x} || '%'.");
     }
+    // HSQLDB refuses CURRENT_DATE - 120 ("incompatible data types in combination"): the unit is required.
+    var dateMath = /\b(CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))\s*[-+]\s*\d+(?!\d|\s*(DAY|MONTH|YEAR|HOUR|MINUTE|SECOND)S?\b)/i.exec(query);
+    if (dateMath) {
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery adds a bare number to a date (" + dateMath[0] + "); HSQLDB refuses it " +
+        "with \"incompatible data types in combination\". Give the unit (" + dateMath[0] + " DAY) or use DATEADD('day', n, CURRENT_DATE).");
+    }
     // A variable is always bound as one value: a multivalued one in IN ({x}) is never expanded to a list.
     var inMatch = /\bIN\s*\(\s*\{([A-Za-z_][\w]*)\}\s*\)/i.exec(query);
     if (inMatch && isMultiValuedVariable(dbo, node, inMatch[1])) {
