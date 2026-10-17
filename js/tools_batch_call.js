@@ -283,7 +283,29 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     if (!project) {
       throw new Error("Project lib_ConvertigoMCP is not available.");
     }
-    return project.getSequenceByName(sequenceName);
+    try {
+      return project.getSequenceByName(sequenceName);
+    } catch (_missingSequence) {
+      // The engine throws for an unknown name: the caller reports it as an unknown tool.
+      return null;
+    }
+  }
+
+  // Tool names of the same family (scheduler-list, scheduler-apply for scheduler-remove).
+  function sameFamilyTools(sequenceName) {
+    var family = String(sequenceName).replace(/^tools_/, "").split("_")[0];
+    var names = [];
+    try {
+      var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+      var sequences = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP").getSequencesList();
+      for (var i = 0; i < sequences.size(); i++) {
+        var name = String(sequences.get(i).getName());
+        if (name.indexOf("tools_" + family + "_") === 0) {
+          names.push(name.substring(6).replace(/_/g, "-"));
+        }
+      }
+    } catch (_ignoreList) {}
+    return names;
   }
 
   function toRequestValue(value) {
@@ -890,7 +912,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
         var requestable = resolveSequence(sequenceName);
         if (!requestable) {
-          throw new Error("Unknown tool: " + normalized.tool + " (sequence " + sequenceName + " not found)");
+          var family = sameFamilyTools(sequenceName);
+          throw new Error("Unknown tool: " + normalized.tool + (family.length ? ". Tools of this family: " + family.join(", ") +
+            " (their descriptions say which one removes or disables)" : "") + ".");
         }
 
         var callArguments = resolveRefsInValue(refs, normalized.arguments);
