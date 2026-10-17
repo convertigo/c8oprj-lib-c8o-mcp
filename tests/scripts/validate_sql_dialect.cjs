@@ -54,4 +54,9 @@ assert.strictEqual(D.limit("oracle", "10", false), "FETCH FIRST 10 ROWS ONLY");
 assert.strictEqual(D.limit("sqlserver", "10", true), "OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY");
 assert.strictEqual(D.limit("sqlserver", "10", false), null);
 
+assert.ok(/d'ann/.test(D.unbalancedQuote("VALUES ('Réaffecté en début d'année', 'x')")));
+assert.strictEqual(D.unbalancedQuote("VALUES ('d''année', 'x') -- it's a comment"), null);
+assert.strictEqual(D.unbalancedQuote("SELECT 'a' /* don't */ FROM t"), null);
+assert.strictEqual(D.unbalancedQuote("SELECT '{x}' FROM t"), null);
+
 console.log("sql dialect rules OK");

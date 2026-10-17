@@ -253,6 +253,11 @@
           break;
         }
       }
+      var openQuote = D.unbalancedQuote(query);
+      if (openQuote !== null) {
+        add("SQL-UNCLOSED-LITERAL", "error", dbo, "A string literal is never closed near \"" + openQuote + "\": the transaction fails with unexpected token.",
+          "Double each apostrophe inside a text: 'd''année'.");
+      }
       var dateMath = D.dateMath(dialect, query);
       if (dateMath) {
         add("SQL-DATE-UNIT", "error", dbo, "Bare number added to a date (" + dateMath.expression + "): " + dateMath.message + ".",

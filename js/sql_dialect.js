@@ -118,6 +118,34 @@ C8O.sqlDialect = C8O.sqlDialect || {};
     return found;
   };
 
+  // A string literal left open: an apostrophe inside a text that was not doubled ('d''année'). Returns the text
+  // from the quote that opens the unclosed literal, or null. Comments are skipped; '' inside a literal is one quote.
+  api.unbalancedQuote = function (sql) {
+    var text = String(sql || "");
+    var open = -1;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (open < 0) {
+        if (ch === "-" && text.charAt(i + 1) === "-") {
+          var eol = text.indexOf("\n", i);
+          i = eol < 0 ? text.length : eol;
+        } else if (ch === "/" && text.charAt(i + 1) === "*") {
+          var end = text.indexOf("*/", i + 2);
+          i = end < 0 ? text.length : end + 1;
+        } else if (ch === "'") {
+          open = i;
+        }
+      } else if (ch === "'") {
+        if (text.charAt(i + 1) === "'") {
+          i++;
+        } else {
+          open = -1;
+        }
+      }
+    }
+    return open < 0 ? null : text.substring(Math.max(0, open - 30), open + 40);
+  };
+
   // Row limit clause, after ORDER BY. SQL Server needs an ORDER BY for OFFSET ... FETCH: null without one.
   api.limit = function (dialect, n, ordered) {
     if (dialect === "oracle") {

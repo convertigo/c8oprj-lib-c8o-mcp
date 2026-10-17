@@ -970,6 +970,11 @@ include("js/sql_dialect.js");
       }
       literal += ch;
     }
+    var openQuote = C8O.sqlDialect.unbalancedQuote(query);
+    if (openQuote !== null) {
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a string literal that is never closed near \"" + openQuote +
+        "\"; the transaction fails with \"unexpected token\". Double an apostrophe inside a text: 'd''année'.");
+    }
     if (quoted) {
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
         "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: " + C8O.sqlDialect.likePrefix(C8O.sqlDialect.of(dbo), "x") + ".");

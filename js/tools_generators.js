@@ -352,6 +352,10 @@ C8O.generators = C8O.generators || {};
     if (dateMath) {
       errors.push(dateMath.expression + " adds a bare number to a date: " + dateMath.message + ". Write " + dateMath.fix + ".");
     }
+    var openQuote = D.unbalancedQuote(sql);
+    if (openQuote !== null) {
+      errors.push("a string literal is never closed near \"" + openQuote + "\": an apostrophe inside a text must be doubled ('d''année').");
+    }
     var isNull = /\{([A-Za-z_]\w*)\}\s+IS\s+(NOT\s+)?NULL/i.exec(String(sql));
     if (isNull) {
       errors.push("{" + isNull[1] + "} IS NULL is never true: an absent variable is an empty string. Write the optional filter ({" + isNull[1] + "} = '' OR col = {" + isNull[1] + "}).");
