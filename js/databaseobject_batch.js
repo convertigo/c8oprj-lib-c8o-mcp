@@ -20,6 +20,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
 }
 include("js/databaseobject_ops.js");
 include("js/crud_ui_refresh.js");
+include("js/sql_dialect.js");
 
 (function () {
   if (typeof C8O === "undefined") {
@@ -850,6 +851,24 @@ include("js/crud_ui_refresh.js");
     warnQuotedSqlVariables(dbo, node, report);
     warnAdjacentTexts(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
+    warnI18nKeyText(dbo, node, report);
+  }
+
+  // A UIText whose i18n flag is on renders its textValue as a translation key: without a
+  // translation the page shows the key with underscores (run 5 toolbar title).
+  function warnI18nKeyText(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    if (!props || props.textValue === undefined || props.i18n !== undefined) {
+      return;
+    }
+    var i18nOn = false;
+    try {
+      i18nOn = typeof dbo.isI18n === "function" && dbo.isI18n() === true;
+    } catch (_ignoreI18n) {}
+    if (i18nOn) {
+      pushReportWarning(report, safeQName(dbo) + ": i18n is on, so textValue is a translation key; with no translation the page shows it with underscores. " +
+        "Send i18n:false with the text, or add the translation.");
+    }
   }
 
   // c8oPage is the page object inside action scripts; Angular templates (If/ForEach directives)
@@ -874,11 +893,12 @@ include("js/crud_ui_refresh.js");
     }
   }
 
-  // Two UIText siblings render on one line with no separator ("Postes actifs7"): each piece of
+  // Two UIText siblings render on one line with no separator ("Active orders7"): each piece of
   // information needs its own element (Label and Note, h3 and p, two classed spans).
   function warnAdjacentTexts(dbo, node, report) {
     var children = node && Array.isArray(node.children) ? node.children : [];
     var previousText = "";
+    var previousPiece = null;
     for (var ci = 0; ci < children.length; ci++) {
       var child = children[ci] || {};
       var className = String(child.className || "");
@@ -886,7 +906,21 @@ include("js/crud_ui_refresh.js");
         continue;
       }
       if (/UIText/.test(className)) {
-        if (previousText.length) {
+        var rawValue = child.properties && typeof child.properties === "object" ? child.properties.textValue : undefined;
+        var piece = { plain: true, text: "" };
+        if (rawValue && typeof rawValue === "object") {
+          piece.plain = String(rawValue.mode || "PLAIN").toUpperCase() === "PLAIN";
+          piece.text = String(rawValue.value !== undefined ? rawValue.value : (rawValue.expression || ""));
+        } else if (typeof rawValue === "string") {
+          piece.plain = !/^(script|source):/.test(rawValue);
+          piece.text = rawValue.replace(/^plain:/, "");
+        }
+        // A composed sentence ("Date : ", value, " (" ...) is fine; only a join with no separator glues.
+        var endsOpen = previousPiece && previousPiece.plain && (previousPiece.text.length === 0 || /[\s:;,.!?\-\u2013\u2014(\[«]$/.test(previousPiece.text));
+        var startsOpen = piece.plain && (piece.text.length === 0 || /^[\s:;,.!?\-\u2013\u2014)\]»]/.test(piece.text));
+        var glued = previousText.length && !endsOpen && !startsOpen;
+        previousPiece = piece;
+        if (glued) {
           pushReportWarning(report, safeQName(dbo) + ": UIText " + previousText + " and " + String(child.name || "") +
             " are siblings, so they render glued on one line. Put each piece in its own element (Label and Note, " +
             "Heading3 and Paragraph, two SpanTag with classes) or merge them into one UIText; see \"Basic presentation\" in convertigo-frontend-ngx.");
@@ -895,6 +929,7 @@ include("js/crud_ui_refresh.js");
         previousText = String(child.name || "");
       } else {
         previousText = "";
+        previousPiece = null;
       }
     }
   }
@@ -937,21 +972,22 @@ include("js/crud_ui_refresh.js");
     }
     if (quoted) {
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
-        "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: col LIKE {x} || '%'.");
+        "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: " + C8O.sqlDialect.likePrefix(C8O.sqlDialect.of(dbo), "x") + ".");
     }
-    // HSQLDB refuses CURRENT_DATE - 120 ("incompatible data types in combination"): the unit is required.
-    var dateMath = /\b(CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))\s*[-+]\s*\d+(?!\d|\s*(DAY|MONTH|YEAR|HOUR|MINUTE|SECOND)S?\b)/i.exec(query);
+    // A bare number added to a date: refused or misread depending on the database (js/sql_dialect.js).
+    var dialect = C8O.sqlDialect.of(dbo);
+    var dateMath = C8O.sqlDialect.dateMath(dialect, query);
     if (dateMath) {
-      pushReportWarning(report, safeQName(dbo) + ": sqlQuery adds a bare number to a date (" + dateMath[0] + "); HSQLDB refuses it " +
-        "with \"incompatible data types in combination\". Give the unit (" + dateMath[0] + " DAY) or use DATEADD('day', n, CURRENT_DATE).");
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery adds a bare number to a date (" + dateMath.expression + "); " +
+        dateMath.message + ". Write " + dateMath.fix + ".");
     }
     // A variable is always bound as one value: a multivalued one in IN ({x}) is never expanded to a list.
     var inMatch = /\bIN\s*\(\s*\{([A-Za-z_][\w]*)\}\s*\)/i.exec(query);
     if (inMatch && isMultiValuedVariable(dbo, node, inMatch[1])) {
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery uses IN ({" + inMatch[1] + "}) with a multivalued variable; " +
         "the engine binds it as one value (\"[a, b]\"), never as a list, so the filter matches nothing or fails on a cast. " +
-        "Pass the list as one comma-separated string and test POSITION(',' || CAST(col AS VARCHAR(20)) || ',' IN ',' || {" +
-        inMatch[1] + "} || ',') > 0 (see convertigo_integration_sql).");
+        "Pass the list as one comma-separated string and test " + C8O.sqlDialect.inList(dialect, "col", "{" + inMatch[1] + "}") +
+        " (see convertigo_integration_sql).");
     }
   }
 

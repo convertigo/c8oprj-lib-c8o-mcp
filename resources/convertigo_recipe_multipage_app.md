@@ -12,13 +12,33 @@ Output tokens are the main cost, far ahead of tool latency. Before writing trees
 - Keep the default compact responses of `batch-call` and `databaseobject-tree-apply`.
 
 ## Reuse inventory first
-Before the architecture, list what the specification needs and search for it: `marketplace-list({search:"<capability>"})` for each capability, `palette-list` for native steps. A build that skipped this step rewrote SMTP sending, CSV export and admin grids by hand. Candidates found in the marketplace descriptions:
+Before the architecture, list what the specification needs and search for it: `marketplace-list({search:"<capability>"})` with English keywords for each capability, then `marketplace-describe({project})` on each candidate to read what it offers and how to call it; `palette-list` for native steps. A build that skipped this step rewrote SMTP sending, CSV export and admin grids by hand. A chosen library is imported with `marketplace-import({project:"<library>", targetProject:"<App>"})`, which adds the reference in the app; this is not a change to another project, even when the specification says to modify no project but the app. Candidates found in the marketplace descriptions:
 - authentication and SSO: `lib_UserManager` (user/password, OpenID/OAuth sign-ons), `lib_OAuth` (OAuth/OpenID, e.g. an Entra ID tenant), `lib_SAML`, `lib_LDAP`, `AuthStarter`, `lib_UserManager_ui_ngx` (ready screens); see `convertigo-authentication`
 - mail: the native `steps.SmtpStep`; `lib_Microsoft_Teams` for Outlook through Microsoft Graph
 - CSV and files: `lib_csv_response` (plain text CSV response), `lib_download_file` (download controlled by a sequence)
 - admin lists: `lib_ExtendedComponents_ui_ngx` (AG Grid with sorting, filtering and paging); charts: `libApexCharts`
 - documents: `lib_fill_odt_pdf` (fill Word/Excel/PowerPoint, PDF), `lib_JasperReports`
 If the specification limits dependencies, a marketplace library is still a standard Convertigo component: record the choice either way in the decision log.
+
+## Generators for the standard objects
+Most of such an app is made of the fixed objects this recipe describes: SQL transactions, facades of one shape, and pages of four kinds. Three tools build each of them in one call, with the rules of the guides built in. Use them first; keep `databaseobject-tree-apply` for what they do not cover.
+- `sql-transaction-create`: SqlTransactions from SQL text or a structured `select` (camelCase aliases, optional filters, `contains`, `in` list filters with `POSITION`, `bool`), `insert`, `update` or `delete`; several per call with `transactions:[...]`. It refuses SQL that breaks a rule of `convertigo-integration-sql` and says how to fix it.
+- `facade-create`: one facade sequence of the shape below from `{name, inputs, roles, reads, writes, logic}`. Write `js/app.js` first: `logic` names a function such as `App.orderList(ctx)` that receives `ctx = {me, input, reads, today}` (the user row, the inputs as strings, the rows of each read) and returns `{success, data, errors, meta}`, plus `writes: {<write name>: row or [rows]}` whose fields are the variables of the write transaction. Reads take a `transaction` or SQL, `vars` (JS expressions, e.g. `{ownerId: "me.role === 'ADMIN' ? ownerId : me.id"}`), a `perimeter` (`filter` drops out-of-perimeter rows, `deny` answers `FORBIDDEN`) and `required`. Writes run only when `logic` succeeds, once per row, and stop at the first `document.error` (`WRITE_FAILED`).
+- `ngx-page-create`: a `list` (filters, badges, row click), `detail`, `form` (UIForm, Form SmartSources, toast and navigation) or `dashboard` (KPI grid, sections) page wired to its facade, with the lost-session redirect, the `local?.x` templates and the `AppLayout` style.
+
+Each one validates the whole spec before writing and creates all or nothing: a refused call lists every problem and leaves the project untouched, so fix the spec and send it again. The answer lists the created QNames and the next proof to run. Pages may link to pages not created yet (a warning, not an error), so build them in any order.
+
+Use `databaseobject-tree-apply` instead for objects outside these shapes: a `SequenceStep` call, an iterator over XML, an HTTP connector, `SmtpStep`, a page with tabs, cards with actions on each row or a master-detail layout, shared components, menus, application events. A generated object is an ordinary tree: read it with `databaseobject-tree-get` and patch it (a label, an extra step) instead of generating it again. To regenerate one, delete it first: the generators never overwrite an existing facade or page (`sql-transaction-create` takes `ifExists:"replace"`).
+
+A list facade and its page, two calls:
+
+```json
+{"project":"<App>","name":"order_list","logic":"App.orderList","inputs":["search","status"],"roles":["ADMIN","SALES"],
+ "reads":[{"name":"orders","transaction":"q_orders","perimeter":{"field":"ownerId","bypassRoles":["ADMIN"]}}]}
+{"project":"<App>","name":"ManageOrders","kind":"list","title":"Orders","facade":"order_list","authRedirect":"Login",
+ "filters":[{"name":"search","label":"Search"}],
+ "list":{"item":"order","title":"orderNumber","subtitle":"label","badge":{"field":"status","colors":{"LATE":"warning"}},"onItem":{"page":"OrderHistory","data":{"id":"id"}}}}
+```
 
 ## Architecture
 1. Project from `marketplace-import({project:"template_ngxBuilderIonic", importedProjectName:"<App>"})`.
@@ -29,7 +49,7 @@ If the specification limits dependencies, a marketplace library is still a stand
 6. Configuration in global symbols `${app.setting=default}`; secrets in `.secret` symbols without default. The engine resolves `${...}` only in object properties, such as a `SimpleStep` expression, never inside `js/*.js`: pass the settings from the first step of each sequence, `app.configure({delayMonths: "${app.delayMonths=2}"})`, and keep the values in the shared object. In JS, `Engine.theApp.databaseObjectsManager.symbolsGetValue("app.delayMonths")` returns the stored value or `null`, without the inline default.
 
 ## Facade sequence shape
-Every protected service has the same five parts, created and wired in one `databaseobject-tree-apply` (steps source earlier siblings by name):
+Every protected service has the same five parts. `facade-create` builds them from a short spec; by hand, create and wire them in one `databaseobject-tree-apply` (steps source earlier siblings by name):
 
 ```text
 seq <service>                accessibility=Hidden, authenticatedContextRequired=true
@@ -43,22 +63,24 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 ```
 
 - Check the role and the data perimeter in `logic`, from the user reloaded in the database on every call: a disabled account loses its rights at once. Hiding a button is not access control.
-- Refuse out-of-perimeter reads without returning the record (`ACCES_INTERDIT`).
+- Refuse out-of-perimeter reads without returning the record (`FORBIDDEN`).
 - Variables read in JS are Java strings and rows come from another Rhino scope: see `convertigo-backend-sequences` section 5.
 
 ## Session
 - `auth_login<...>` (Hidden, anonymous): verifies the identity, then `context.setAuthenticatedUser(<normalized email>)` and returns `{user, home}` where `home` is the page for the role.
-- `auth_getCurrentUser` (Hidden): returns the reloaded user. Either mark it `authenticatedContextRequired` (no session gives `Authentication required`) or keep it anonymous and return a business code such as `NON_AUTHENTIFIE`; the entry page handles whichever you chose.
+- `auth_getCurrentUser` (Hidden): returns the reloaded user. Either mark it `authenticatedContextRequired` (no session gives `Authentication required`) or keep it anonymous and return a business code such as `UNAUTHENTICATED`; the entry page handles whichever you chose.
 - `auth_logout`: clears the session.
-- Sessions expire (timeout, engine restart). A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required` (no dedicated code); the client treats it exactly like the business codes `NON_AUTHENTIFIE` or `COMPTE_INACTIF`. The SDK auto-login replays the last login first, so a server-side logout is restored silently; test with the application's logout button, then a protected page.
+- Sessions expire (timeout, engine restart). A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required` (no dedicated code); the client treats it exactly like the business code of a lost session (`UNAUTHENTICATED` by default in `facade-create` and `ngx-page-create`, or the code the application's contract names: pass it to both). The SDK auto-login replays the last login first, so a server-side logout is restored silently; test with the application's logout button, then a protected page.
 - For a real identity provider, keep this layer and follow `convertigo-authentication`.
 
 ## NGX pages
 Every page below is built from events and actions: no page loads data from `scriptContent` (`this.c8o.callJson`), which bypasses Angular change detection and leaves the view stale.
 - Entry page (`isRoot`): page-enter event -> `CallSequenceAction` `auth_getCurrentUser` with `noAutoLogin` and `noLoading` -> one `IfAction` per role on `out?.success && out?.data?.user?.role == '<ROLE>'` -> `RootPageAction` to that role's home page. Otherwise it shows the login form or buttons.
 - Login: `CallSequenceAction` login with `noAutoLogin` -> child `IfAction` on `out?.success` -> `RootPageAction` home; its Failure handler sets a network error local.
+- Before each build and at the end of each lot, run `project-lint` on the project and fix what it reports.
 - Build every page with the patterns of "Basic presentation" in `convertigo-frontend-ngx` (sections, lists, label/value, counters, cards, one `AppLayout` style created before the pages), never with side-by-side `UIText`.
 - `out` in the actions under a `CallSequenceAction` is the sequence's JSON response, one top-level key per output step (its `key`). With the four `JsonToXmlStep` of the facade (keys `success`, `data`, `errors`, `meta`), pages read `out?.success` and `out?.data`. A single `JsonToXmlStep` with key `response` puts everything one level down (`out?.response?.success`): keep the four top-level keys so every page reads the same shape.
+- Load page data on `viewEvent` `pageWillEnter`, not the default `pageDidEnter`: checked on a production build, `pageDidEnter` does not fire when the app opens on the page's URL (reload, bookmark, deep link), so the page stays without its locals and data; `pageWillEnter` fires there and on every navigation.
 - Protected page: page-enter event with `setLocals` for every local it reads -> `CallSequenceAction` of its data facade -> child `SetLocalAction` storing `out` -> under it an `IfAction` on the auth error codes -> `RootPageAction` back to the entry page, and the state updates for the success path. Widgets read the locals with the `local` short form.
 - Lists open details with `PushPageAction` `data` holding ids only; the target page copies `c8oPage.navParams?.data?.id` into a local at page enter and calls its facade.
 - Session-wide values (current user, role, flash message) go in global state with `SetGlobalAction`, read with the `global` short form; it is lost on a browser reload, so the entry page restores it.
@@ -70,9 +92,9 @@ Keep `docs/generated/PROGRESS.md` up to date after each step below (object inven
 
 Keep your own context for the specification, the plan, the decisions and the reports, and delegate the heavy work to sub-agents (common skill, "Sub-agents"): close each page lot with one verifier run (`subagent-run`, profile `verifier`) whose paths are the user journeys through that page and whose checks are the specification's acceptance criteria with their exact texts. Copy its verdict and findings into `PROGRESS.md`; fix, rebuild and verify again only the paths that failed.
 
-1. Data model and `SqlTransaction`s, seeded with demo data by a reset sequence; prove each with `requestable-execute`.
-2. `js/<app>.js` with the rules, then the session facades, then the other facades.
-3. Pages, one lot per page through `callsFile`.
+1. Data model and `SqlTransaction`s (`sql-transaction-create`, several per call), seeded with demo data by a reset sequence; prove each with `requestable-execute`.
+2. `js/<app>.js` with the rules, then the session facades, then the other facades (`facade-create`).
+3. Pages (`ngx-page-create`, then `databaseobject-tree-apply` for what it does not cover), one lot per page.
 4. Scheduled or batch logic as a sequence that takes an injectable date for tests. Schedule it with `scheduler-apply({name, project, sequence, cron:"0 0 8 * * ?"})` (Quartz syntax with seconds) and check it with `scheduler-list`. A scheduled run has no user session: the scheduled sequence must not require `authenticatedContextRequired`, and it does its own authorization (for example, it checks a technical parameter or symbol). When the business hour is a setting (for example `app.reminderHour=08:00`), schedule a frequent run (`0 */15 * * * ?`) whose sequence checks the configured hour and is idempotent per day, so changing the setting needs no rescheduling.
 5. Non-regression sequences that call the facades and assert the contract. A `Private` test sequence can open a session with `context.setAuthenticatedUser(<email>)` and call the protected facades through `SequenceStep`: the session reaches them, so one `requestable-execute` runs every acceptance case for one role, then for the next.
 
@@ -82,7 +104,7 @@ Keep your own context for the specification, the plan, the decisions and the rep
 
 ```bash
 curl -s -b admin.jar -c admin.jar "http://<studio-host>.localhost:<port>/convertigo/projects/<App>/.json" --data-urlencode "__sequence=auth_loginDemo" --data-urlencode "profile=ADMIN"
-curl -s -b admin.jar -c admin.jar "http://<studio-host>.localhost:<port>/convertigo/projects/<App>/.json" --data-urlencode "__sequence=poste_list"
+curl -s -b admin.jar -c admin.jar "http://<studio-host>.localhost:<port>/convertigo/projects/<App>/.json" --data-urlencode "__sequence=order_list"
 ```
 
 - Prove the UI in the viewer returned by `mobile-builder-open` (see its `browserControlHint`) with verifier sub-agents, not click by click: one run per role, whose paths log in with that role and run each specification acceptance criterion, and whose checks include that the role cannot reach another role's page or data.

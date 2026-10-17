@@ -393,7 +393,85 @@ C8O.marketplace._dedupeEntries = function (entries) {
   return out;
 };
 
+// The catalog matches the search text as one phrase: "user authentication" finds nothing while "authentication"
+// finds nine entries. Several words are therefore searched one by one and merged, the entries matching the most
+// words first; a search that finds nothing returns the whole catalog as suggestions instead of an empty list.
+C8O.marketplace._searchWords = function (search) {
+  var parts = C8O.marketplace._trim(search).toLowerCase().split(/[\s,;+|]+/);
+  var words = [];
+  for (var i = 0; i < parts.length && words.length < 6; i++) {
+    if (parts[i].length >= 2 && words.indexOf(parts[i]) < 0) {
+      words.push(parts[i]);
+    }
+  }
+  return words;
+};
+
 C8O.marketplace.list = function (options) {
+  var opts = options || {};
+  var search = C8O.marketplace._trim(opts.search);
+  var words = C8O.marketplace._searchWords(search);
+  var result;
+  if (words.length > 1) {
+    var byKey = {};
+    var hits = {};
+    var order = [];
+    var pages = [];
+    for (var w = 0; w < words.length; w++) {
+      var one = C8O.marketplace._listOne({ search: words[w], topics: opts.topics, limit: 200, cursor: 0, maxPages: opts.maxPages,
+        cacheTtl: opts.cacheTtl, headers: opts.headers });
+      pages = pages.concat(one.pagesFetched || []);
+      for (var e = 0; e < one.entries.length; e++) {
+        var key = C8O.marketplace._trim(one.entries[e].name).toLowerCase();
+        if (!byKey[key]) {
+          byKey[key] = one.entries[e];
+          hits[key] = 0;
+          order.push(key);
+        }
+        hits[key]++;
+      }
+    }
+    var ranked = order.slice().sort(function (a, b) {
+      return hits[b] - hits[a] || order.indexOf(a) - order.indexOf(b);
+    });
+    var all = ranked.map(function (k) { return byKey[k]; });
+    var limitValue = C8O.marketplace._toInt(opts.limit, 20, 1, 200);
+    var startIndex = Math.min(C8O.marketplace._toInt(opts.cursor, 0, 0, 1000000), all.length);
+    var endIndex = Math.min(startIndex + limitValue, all.length);
+    result = {
+      endpoint: C8O.marketplace.DEFAULT_ENDPOINT,
+      search: search,
+      topics: C8O.marketplace.buildFilters(C8O.marketplace.normalizeListOptions(opts)).topics,
+      totalCount: all.length,
+      returned: endIndex - startIndex,
+      limit: limitValue,
+      startIndex: startIndex,
+      hasMore: endIndex < all.length,
+      nextCursor: endIndex < all.length ? String(endIndex) : "",
+      entries: all.slice(startIndex, endIndex),
+      pagesFetched: pages,
+      warnings: ["Searched each word on its own (" + words.join(", ") + "): the entries matching the most words come first."]
+    };
+  } else {
+    result = C8O.marketplace._listOne(opts);
+    result.warnings = [];
+  }
+  result.suggestions = [];
+  if (search.length && !result.entries.length && !C8O.marketplace._trim(opts.cursor).length) {
+    var catalog = C8O.marketplace._listOne({ topics: opts.topics, limit: 200, cursor: 0, maxPages: 10, cacheTtl: opts.cacheTtl, headers: opts.headers });
+    for (var c = 0; c < catalog.entries.length; c++) {
+      var entry = catalog.entries[c];
+      var description = C8O.marketplace._trim(entry.description);
+      result.suggestions.push({ name: entry.name, technicalName: entry.technicalName,
+        reason: description.length > 140 ? description.substring(0, 137) + "..." : description });
+    }
+    result.warnings.push("Nothing matches \"" + search + "\": the catalog is in English and matches whole words of names, descriptions " +
+      "and topics. suggestions lists the whole catalog: pick from it, or search one English keyword (csv, chart, grid, pdf, mail, auth, map).");
+  }
+  return result;
+};
+
+C8O.marketplace._listOne = function (options) {
   var opts = C8O.marketplace.normalizeListOptions(options || {});
   var endpoint = C8O.marketplace._trim(opts.endpoint) || C8O.marketplace.DEFAULT_ENDPOINT;
   var limitValue = C8O.marketplace._toInt(opts.limit, 20, 1, 200);
@@ -850,6 +928,42 @@ C8O.marketplace.findEntry = function (entries, options) {
   return null;
 };
 
+// Adds the reference to an imported library in the project that uses it (references.ProjectSchemaReference whose
+// projectName is "<library>=<url>"), so the project builds and deploys with it. Nothing changes when one exists.
+C8O.marketplace.addReference = function (targetProjectName, libraryName, projectUrl) {
+  var out = { addReference: true, referenceAlready: false, referenceAdded: false, referenceName: "", referenceProjectUrl: projectUrl, warnings: [] };
+  var target = C8O.marketplace.resolveProject(targetProjectName);
+  if (target == null) {
+    out.warnings.push("targetProject " + targetProjectName + " is not loaded: no reference added.");
+    return out;
+  }
+  var refs = C8O.marketplace.getProjectReferenceMap(target);
+  var existing = refs.lower[C8O.marketplace._trim(libraryName).toLowerCase()];
+  if (existing) {
+    out.referenceAlready = true;
+    out.referenceName = existing.referenceName;
+    out.referenceProjectUrl = existing.projectUrl;
+    return out;
+  }
+  if (typeof C8O.dbo.batchApply !== "function") {
+    include("js/databaseobject_batch.js");
+  }
+  var name = C8O.marketplace._trim(libraryName).replace(/[^A-Za-z0-9_]/g, "_");
+  var result = C8O.dbo.batchApply({ target: String(target.getName()), onError: "stop", autoSave: true, triggerMobileBuilder: false,
+    operations: [{ type: "create", related: String(target.getName()), mode: "inside", className: "references.ProjectSchemaReference",
+      name: name, properties: { projectName: projectUrl } }] });
+  var failed = !result || result.status === "failed" || (result.errors && result.errors.length > 0) ||
+    (result.summary && (result.summary.failedOps > 0 || result.summary.partialOps > 0));
+  if (failed) {
+    out.warnings.push("The reference to " + libraryName + " could not be added to " + targetProjectName + ": " +
+      JSON.stringify((result && (result.errors || result.operations)) || result).substring(0, 400));
+    return out;
+  }
+  out.referenceAdded = true;
+  out.referenceName = name;
+  return out;
+};
+
 C8O.marketplace.resolveEntry = function (options) {
   var opts = C8O.marketplace.normalizeListOptions(options || {});
   var projectToken = C8O.marketplace._trim(opts.project);
@@ -860,7 +974,7 @@ C8O.marketplace.resolveEntry = function (options) {
   if (!search.length) {
     search = projectToken;
   }
-  var result = C8O.marketplace.list({
+  var result = C8O.marketplace._listOne({
     endpoint: opts.endpoint,
     search: search,
     topics: opts.topics,

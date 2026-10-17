@@ -354,7 +354,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: { type: "string", description: "Marketplace project name. For the standard NGX starter use template_ngxBuilderIonic." },
-        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template. Canonical standard NGX call: {project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"}." }
+        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template. Canonical standard NGX call: {project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"}." },
+        targetProject: { type: "string", description: "For a library: the project that uses it. The import adds the reference to the library in that project (needed to call its sequences, use its shared components and deploy with it); importing a library and referencing it does not modify the library." }
       },
       required: ["project"],
       additionalProperties: false
@@ -1766,6 +1767,87 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  // High-level generators (js/tools_generators.js): the specs stay open objects, their keys are
+  // described here so a caller can write a valid spec without reading the guides first.
+  function generatorInputSchema(seq) {
+    var open = function (description) { return { type: "object", additionalProperties: true, description: description }; };
+    var openArray = function (description) { return { type: "array", items: { type: "object", additionalProperties: true }, description: description }; };
+    var project = { type: "string", description: "Application project (exact technical name)." };
+    if (seq === "tools_sql_transaction_create") {
+      return {
+        type: "object",
+        properties: {
+          project: project,
+          connector: { type: "string", description: "SqlConnector name; optional when the project has only one." },
+          name: { type: "string", description: "Transaction name: q_<what> for a read, w_<what> for a write." },
+          sql: { type: "string", description: "SQL text with {variables}. Refused when it breaks a rule of convertigo-integration-sql: unaliased or non camelCase selected columns (write col AS \"camelCase\"), '{x}%' inside a literal, {x} IS NULL, IN ({x}), a bare number added to a date." },
+          select: open("Structured read instead of sql: {from:\"orders o JOIN customer c ON c.id = o.customer_id\", columns:{id:\"o.id\", orderNumber:\"o.order_number\"} (or an array of columns, aliased in camelCase), where:[{variable:\"ownerId\", column:\"o.owner_id\"}, {variable:\"search\", columns:[\"o.order_number\",\"o.label\"], op:\"contains\"}, {variable:\"ids\", column:\"p.id\", op:\"in\"}, {variable:\"actif\", column:\"p.actif\", op:\"bool\"}, {sql:\"p.actif = TRUE\"}], orderBy, groupBy, limit}. Each filter is optional ({x} = '' OR ...) unless required:true; ops =, <>, <, <=, >, >=, contains, startsWith, in (comma-separated list: POSITION, FIND_IN_SET on MariaDB/MySQL, CHARINDEX on SQL Server, INSTR on Oracle), bool ('true'/'false')."),
+          insert: open("Structured insert: {table, values:{column: \"variable\" | {sql:\"CURRENT_TIMESTAMP\"}}}."),
+          update: open("Structured update: {table, set:{column: \"variable\" | {sql}}, where:{column: \"variable\"}}."),
+          deleteFrom: open("Structured delete: {table, where:{column: \"variable\"}}."),
+          variables: open("Defaults and descriptions of the declared variables: {name: {value, description}} or {name: defaultValue}. Variables are declared from the {placeholders}; an unknown name is refused."),
+          autoCommit: { type: "string", enum: ["0", "1", "2"], description: "0 manual, 1 after each query, 2 once at the end (default for a write with several statements separated by ;)." },
+          maxResult: { type: "string", description: "Optional max number of rows." },
+          comment: { type: "string" },
+          transactions: openArray("Several transactions in one call: an array of {name, connector?, sql | select | insert | update | delete, variables?, autoCommit?}. Replaces the single-transaction arguments."),
+          ifExists: { type: "string", enum: ["fail", "replace", "keep"], default: "fail", description: "replace rewrites the SQL and variables of an existing transaction in place (its callers keep working); keep leaves it untouched." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
+    }
+    if (seq === "tools_facade_create") {
+      return {
+        type: "object",
+        properties: {
+          project: project,
+          name: { type: "string", description: "Facade sequence name, e.g. order_list. It must not exist yet." },
+          connector: { type: "string", description: "Default SqlConnector of the reads and writes; optional when the project has one." },
+          script: { type: "string", default: "js/app.js", description: "Business rules file, included by the init step. Must exist (project-js-set)." },
+          logic: { type: "string", description: "Function of script called by the logic step, e.g. App.orderList. It receives ctx = {me (user row), input: {<inputs> as strings}, reads: {<read name>: [rows]}, today} and returns {success, data, errors:[{code,message,field}], meta}, plus optional writes: {<write name>: row | [rows]} whose fields are the write transaction variables. Never called when the role or perimeter check already failed." },
+          inputs: { type: "array", items: { anyOf: [{ type: "string" }, { type: "object", additionalProperties: true }] }, description: "Sequence variables: names or {name, value (default), description}. They reach logic as ctx.input.<name> strings and the reads as JS variables of the same name." },
+          auth: { anyOf: [{ type: "boolean" }, open("")], description: "Default {required:true}: authenticatedContextRequired, user reloaded with userTransaction (default q_user_by_email, variable email = session user), refused with UNAUTHENTICATED when missing, or when activeField (a boolean column of the user row, no default: give it only if the user table has one) is false, FORBIDDEN when roleField (default role) is not in roles. false for an anonymous facade." },
+          roles: { type: "array", items: { type: "string" }, description: "Roles allowed (auth.roles); empty means any active user." },
+          reads: openArray("Reads, in order: [{name, transaction:\"q_orders\" | sql/select (creates q_<name>), vars:{variable:\"JS expression\"} (e.g. {ownerId:\"me.role === 'ADMIN' ? ownerId : me.id\"}; others take the input of the same name), perimeter:{field:\"ownerId\", userField:\"id\", bypassRoles:[\"ADMIN\"], mode:\"filter\" (drop rows) | \"deny\" (FORBIDDEN, no row returned)}, required:true (NOT_FOUND when no row)}]. Rows reach logic as ctx.reads.<name>; a failing read answers READ_FAILED."),
+          writes: openArray("Writes, after logic and only when it succeeds: [{name, transaction:\"w_order_insert\" | sql/insert/update/delete (creates w_<name>)}]. Each row of resp.writes.<name> runs the transaction once with its fields as variables; document.error is checked and answers WRITE_FAILED, later rows are skipped. Several statements that must be atomic belong in one transaction (sql with ;)."),
+          errors: open("Override codes or messages: {unauthenticated, forbidden, notFound, readFailed, writeFailed, logic: {code, message} | \"message\"}."),
+          accessibility: { type: "string", enum: ["Hidden", "Private", "Public"], default: "Hidden" },
+          comment: { type: "string" }
+        },
+        required: ["project", "name", "logic"],
+        additionalProperties: false
+      };
+    }
+    return {
+      type: "object",
+      properties: {
+        project: project,
+        name: { type: "string", description: "PascalCase page name; it must not exist yet." },
+        title: { type: "string", description: "Toolbar title (and section title unless heading is given)." },
+        kind: { type: "string", enum: ["list", "detail", "form", "dashboard"] },
+        facade: { type: "string", description: "Data facade called at page enter (required except for a form without data). Every variable of the facade is passed explicitly: filter, param, vars entry, else ''." },
+        params: { type: "array", items: { type: "string" }, description: "navParams data keys copied into locals of the same name at page enter (e.g. [\"id\"] for a detail page)." },
+        locals: open("Extra locals set at page enter: {local: \"TypeScript expression\"}, e.g. {today: \"new Date().toISOString().substring(0, 10)\"}; templates read them as local?.<name>."),
+        vars: open("Extra facade variables: {variable: \"TypeScript expression\"}, e.g. {status: \"'LATE'\"}."),
+        filters: openArray("List filters bound to locals filter<Name> and passed to the facade variable of the same name: [{name:\"search\", label, type:\"search\"|\"text\"|\"date\"|\"select\", options:[{value, label}], value}]. A Filter button reloads the list (cacheTtl 0)."),
+        filterLabel: { type: "string", description: "Text of the filter button, in the app's language (English default \"Filter\")." },
+        list: open("List page: {items:\"items\" (path in out.data), item:\"row\", title:\"orderNumber\", subtitle, note, badge:{field, labels:{CODE:\"Label\"}, colors:{CODE:\"success\"}}, empty (text when there is no row, English default \"No record.\"), onItem:{page, kind:\"push\", data:{id:\"id\"}}}. A field is a path in the row or {field, labels, prefix, suffix}."),
+        detail: open("Detail page: {record:\"order\" (path in out.data, optional), fields:[{label, field, labels?}]} rendered as a label/value list."),
+        form: open("Form page: {submit:\"order_submit\", fields:[{name (the submit variable), label, type: text|email|password|number|tel|url|date|time|textarea|select|toggle, required, helper, value (TypeScript initial value), options:[{value,label}] | optionsFrom:{items:\"items\" (path in the page facade data), item, value:\"id\", label:\"orderNumber\"}, multiple (sent comma-separated), maxLength, rows}], vars:{variable:\"TypeScript\"} (variables not in the form), success:{message (English default \"Saved.\"), page, kind:\"root\"|\"push\"|\"pop\", data}, cancel:{page, kind} | false, submitLabel (default \"Save\"), cancelLabel (default \"Cancel\")}. Give every text in the app's language: the defaults are English and the result warns when one was used. Submit: UIForm onSubmit > CallSequenceAction with Form SmartSources > toast and navigation, or the first error message."),
+        dashboard: open("Dashboard page: {kpis:[{label, field:\"counters.activeOrders\"}], sections:[{heading, items:\"late\", item, title, subtitle, note, badge, empty} | {heading, record:\"lastRun\", fields:[{label, field}]}]}."),
+        actions: openArray("Buttons under the content: [{label, page, kind:\"push\"|\"root\"|\"pop\", data:{key:\"TypeScript\"}, sequence (called first, e.g. auth_logout), fill, color}]."),
+        authRedirect: { type: "string", description: "Entry page opened with RootPageAction when the facade answers a lost-session code or Authentication required." },
+        authCodes: { type: "array", items: { type: "string" }, description: "Codes treated as a lost session; default UNAUTHENTICATED, the facade-create default; give the same code as facade-create's errors.unauthenticated when it was changed." },
+        heading: { type: "string", description: "Heading2 under the toolbar; default title, \"\" for none." },
+        inMenu: { type: "boolean", default: false },
+        segment: { type: "string", description: "Route segment; default path-to-<name in lower case>." },
+        icon: { type: "string", description: "Menu icon (ionicons name)." }
+      },
+      required: ["project", "name", "kind"],
+      additionalProperties: false
+    };
+  }
+
   C8O.schemaOverrides._helpers = {
     booleanFlagSchema: booleanFlagSchema,
     openObjectSchema: openObjectSchema,
@@ -2015,6 +2097,17 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_tags_get" || seq === "tools_tags_apply") {
       return tagsInputSchema(seq === "tools_tags_apply");
     }
+    if (seq === "tools_project_lint") {
+      return {
+        type: "object",
+        properties: {
+          project: { type: "string", description: "Project technical name to lint." },
+          checkTexts: { type: "boolean", description: "false skips the review of the shown texts and i18n files (spelling, accents, language, any language) by the gateway model; default true." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
+    }
     if (seq === "tools_scheduler_list") {
       return {
         type: "object",
@@ -2097,6 +2190,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
+    if (seq === "tools_sql_transaction_create" || seq === "tools_facade_create" || seq === "tools_ngx_page_create") {
+      return generatorInputSchema(seq);
+    }
+
     if (seq === "tools_image_describe") {
       return {
         type: "object",
@@ -2129,6 +2226,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_marketplace_list") {
       return marketplaceListInputSchema();
+    }
+    if (seq === "tools_marketplace_describe") {
+      return {
+        type: "object",
+        properties: {
+          project: { type: "string", description: "Marketplace entry name from marketplace-list, for example lib_csv_response." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
     }
     if (seq === "tools_marketplace_import") {
       return marketplaceImportInputSchema();

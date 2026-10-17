@@ -76,7 +76,7 @@ Use them to:
 - stop early when the facade already has enough evidence to return
 
 Pick the loop by what you iterate:
-- a JavaScript array or list built in a `SimpleStep` (rows from `sql_output`, ids split from a variable): `steps.SimpleIteratorStep` (jIterator) with `expression` set to it (`postes`, `rows || []`); its child steps read the current element as `item` and its position as `index`. Its `condition` is the stopping index, not a filter: filter with an `IfStep` inside the loop.
+- a JavaScript array or list built in a `SimpleStep` (rows from `sql_output`, ids split from a variable): `steps.SimpleIteratorStep` (jIterator) with `expression` set to it (`orders`, `rows || []`); its child steps read the current element as `item` and its position as `index`. Its `condition` is the stopping index, not a filter: filter with an `IfStep` inside the loop.
 - an XML node list of a source step: `steps.IteratorStep` with a `sourceDefinition` on that step. Given a JavaScript variable, it runs zero times without any error.
 
 Why this is the right way:
@@ -240,6 +240,8 @@ A failing call does not stop the sequence:
 Calling a requestable with parameters:
 - a `StepVariable` with no source and no value takes the value of the JavaScript variable of the same name in the sequence scope (a sequence variable or a `var` set by a previous `SimpleStep`), else its default value
 - create the step variables with `importVariables:true` on the `TransactionStep` or `SequenceStep` node (after `sourceTransaction`/`sourceSequence`): the MCP imports one `StepVariable` per variable of the called requestable, with its default value. Then set the JavaScript variables of the same names before the call
+
+`facade-create` builds this chain for a facade (include, user read and role check, reads, a logic step calling a function of the file, guarded writes, the four outputs): see `convertigo-recipe-multipage-app`, Generators. Build it by hand when the facade needs other steps.
 
 Minimal chain:
 

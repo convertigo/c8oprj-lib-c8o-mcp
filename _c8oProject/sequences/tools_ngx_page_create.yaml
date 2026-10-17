@@ -1,0 +1,105 @@
+accessibility: Private
+comment: |
+  Create an NGX page with the Basic presentation patterns
+  Creates a list, detail, form or dashboard page from a page spec: page-enter event with locals and a CallSequenceAction of its facade, lost-session redirect, record lists, label/value lists, KPI grid, UIForm with Form SmartSources, toast and navigation, local?.x templates, and the AppLayout style created or completed. All or nothing.
+↓Include [steps.SimpleStep-1792270100034]: 
+  expression: include("js/tools_generators_ngx.js");
+↓Run [steps.SimpleStep-1792270100035]: 
+  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals});'
+↓result [steps.JsonToXmlStep-1792270100036]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: generatorResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792270100037]: 
+  comment: 'Application project.'
+  description: 'Application project.'
+  value: ''
+↓name [variables.RequestableVariable-1792270100038]: 
+  comment: 'PascalCase page name.'
+  description: 'PascalCase page name.'
+  value: ''
+↓title [variables.RequestableVariable-1792270100039]: 
+  comment: 'Page and toolbar title.'
+  description: 'Page and toolbar title.'
+  value: ''
+↓kind [variables.RequestableVariable-1792270100040]: 
+  comment: 'list, detail, form or dashboard.'
+  description: 'list, detail, form or dashboard.'
+  value: ''
+↓facade [variables.RequestableVariable-1792270100041]: 
+  comment: 'Data facade called at page enter.'
+  description: 'Data facade called at page enter.'
+  value: ''
+↓params [variables.RequestableVariable-1792270100042]: 
+  comment: 'navParams data keys copied into locals at page enter.'
+  description: 'navParams data keys copied into locals at page enter.'
+  value: ''
+↓vars [variables.RequestableVariable-1792270100043]: 
+  comment: 'Extra facade variables: {variable: TypeScript expression}.'
+  description: 'Extra facade variables: {variable: TypeScript expression}.'
+  value: ''
+↓filters [variables.RequestableVariable-1792270100044]: 
+  comment: 'List filters: [{name, label, type, options}].'
+  description: 'List filters: [{name, label, type, options}].'
+  value: ''
+↓filterLabel [variables.RequestableVariable-1792270100045]: 
+  comment: 'Text of the filter button.'
+  description: 'Text of the filter button.'
+  value: ''
+↓list [variables.RequestableVariable-1792270100046]: 
+  comment: 'List spec: {items, item, title, subtitle, note, badge, empty, onItem}.'
+  description: 'List spec: {items, item, title, subtitle, note, badge, empty, onItem}.'
+  value: ''
+↓detail [variables.RequestableVariable-1792270100047]: 
+  comment: 'Detail spec: {record, fields:[{label, field}]}.'
+  description: 'Detail spec: {record, fields:[{label, field}]}.'
+  value: ''
+↓form [variables.RequestableVariable-1792270100048]: 
+  comment: 'Form spec: {submit, fields, vars, success, cancel, submitLabel}.'
+  description: 'Form spec: {submit, fields, vars, success, cancel, submitLabel}.'
+  value: ''
+↓dashboard [variables.RequestableVariable-1792270100049]: 
+  comment: 'Dashboard spec: {kpis:[{label, field}], sections}.'
+  description: 'Dashboard spec: {kpis:[{label, field}], sections}.'
+  value: ''
+↓actions [variables.RequestableVariable-1792270100050]: 
+  comment: 'Buttons: [{label, page, kind, data, sequence}].'
+  description: 'Buttons: [{label, page, kind, data, sequence}].'
+  value: ''
+↓authRedirect [variables.RequestableVariable-1792270100051]: 
+  comment: 'Entry page opened when the session is lost.'
+  description: 'Entry page opened when the session is lost.'
+  value: ''
+↓authCodes [variables.RequestableVariable-1792270100052]: 
+  comment: 'Business codes treated as a lost session.'
+  description: 'Business codes treated as a lost session.'
+  value: ''
+↓heading [variables.RequestableVariable-1792270100053]: 
+  comment: 'Section title under the toolbar; default title, empty for none.'
+  description: 'Section title under the toolbar; default title, empty for none.'
+  value: ''
+↓inMenu [variables.RequestableVariable-1792270100054]: 
+  comment: 'true to list the page in the auto menu.'
+  description: 'true to list the page in the auto menu.'
+  value: ''
+↓segment [variables.RequestableVariable-1792270100055]: 
+  comment: 'Route segment; default path-to-<name>.'
+  description: 'Route segment; default path-to-<name>.'
+  value: ''
+↓icon [variables.RequestableVariable-1792270100056]: 
+  comment: 'Menu icon.'
+  description: 'Menu icon.'
+  value: ''
+↓locals [variables.RequestableVariable-1792270100057]: 
+  comment: 'Extra locals set at page enter: {local: TypeScript expression}.'
+  description: 'Extra locals set at page enter: {local: TypeScript expression}.'
+  value: ''

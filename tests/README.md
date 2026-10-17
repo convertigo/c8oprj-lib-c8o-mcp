@@ -46,6 +46,21 @@ under `<user workspace>/agents/vibe/npm/node_modules`); it is skipped otherwise.
 A live call on a Studio viewer is still the proof that the model drives the page
 and reads its screenshots.
 
+## Generators (sql-transaction-create, facade-create, ngx-page-create)
+
+Run `node --test tests/scripts/validate_generators.cjs` after changing
+`js/tools_generators.js` or `js/tools_generators_ngx.js`. The beans and the
+batch engine are faked in memory. The checks cover the SQL rules (refused SQL
+text, structured select filters), the facade tree (step order, sources by
+name, outputs) and its generated JavaScript, run in a sandbox for the role,
+perimeter, required, logic and write paths, including a failing write. They
+also cover the list, dashboard and form pages (no c8oPage in templates, every
+facade variable passed, Form SmartSources on the created UIForm priority,
+AppLayout created or completed) and the all-or-nothing rollback. A live run on
+a Studio is still the proof that the engine accepts the trees and that the
+pages build: `requestable-execute` on each facade, a production build, and a
+browser check.
+
 ## No-code capability isolation
 
 Run `node --test tests/scripts/validate_nocode_tool_policy.cjs` after changes to

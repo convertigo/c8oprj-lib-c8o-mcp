@@ -1,0 +1,25 @@
+accessibility: Private
+comment: |
+  Describe a marketplace library before importing it
+  What one marketplace library offers and how to use it: its readme (sequences and their variables, shared components, setup, symbols), from the workspace when it is loaded or else from its GitHub repository; once it is loaded, its callable sequences with their variables and its shared NGX components and actions, as QNames. Call it on each candidate of marketplace-list before deciding to reuse it or to build the capability yourself.
+↓Include [steps.SimpleStep-1792280000010]: 
+  expression: 'include("js/databaseobject.js"); include("js/marketplace.js"); include("js/tools_marketplace_describe.js");'
+↓Run [steps.SimpleStep-1792280000011]: 
+  expression: 'var describeResult = C8O.marketplaceDescribe.execute({project: project});'
+↓result [steps.JsonToXmlStep-1792280000012]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: describeResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792280000013]: 
+  comment: Marketplace entry name from marketplace-list, for example lib_csv_response.
+  description: Marketplace entry name from marketplace-list, for example lib_csv_response.
+  value: ''
