@@ -494,6 +494,20 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       compact.touchedCount = payload.touchedQNames.length;
       compact.touchedRoots = rootQNames(payload.touchedQNames);
     }
+    if (payload.stop) {
+      compact.stop = payload.stop;
+    }
+    var operationErrors = [];
+    var ops = Array.isArray(payload.operations) ? payload.operations : [];
+    for (var oi = 0; oi < ops.length; oi++) {
+      var opErrors = ops[oi] && Array.isArray(ops[oi].errors) ? ops[oi].errors : [];
+      for (var ei = 0; ei < opErrors.length; ei++) {
+        operationErrors.push(opErrors[ei]);
+      }
+    }
+    if (operationErrors.length && !(Array.isArray(compact.errors) && compact.errors.length)) {
+      compact.errors = operationErrors;
+    }
     return compact;
   }
 
@@ -735,6 +749,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         return String(payload.error.message);
       }
       return safeString(payload.error);
+    }
+    // A failed tree-apply reports the real cause in stop/operations, not in message.
+    if (payload.stop && payload.stop.message) {
+      return String(payload.stop.message);
     }
     if (payload.message) {
       return String(payload.message);

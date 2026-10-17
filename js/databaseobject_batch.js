@@ -787,6 +787,52 @@ include("js/crud_ui_refresh.js");
     report.applied.push({ action: "importVariables", qname: safeQName(dbo), added: after - before });
   }
 
+  // A SqlTransaction declares its {variable} parameters only when its queries are parsed, which
+  // otherwise happens at the first execution: parse them as soon as sqlQuery is written, so
+  // importVariables on a TransactionStep can see them.
+  function declareSqlVariables(ctx, dbo, node, report) {
+    if (!dbo || !node || !node.properties) {
+      return;
+    }
+    var className = "";
+    try {
+      className = String(dbo.getClass().getName());
+    } catch (_ignoreClass) {}
+    if (!/\.SqlTransaction$/.test(className) || typeof dbo.initializeQueries !== "function") {
+      return;
+    }
+    var props = node.properties;
+    var touched = false;
+    var names = Array.isArray(props)
+      ? props.map(function (entry) { return entry ? (entry.name || entry.key || entry.property || "") : ""; })
+      : Object.keys(props);
+    for (var i = 0; i < names.length; i++) {
+      if (String(names[i]).toLowerCase() === "sqlquery") {
+        touched = true;
+      }
+    }
+    if (!touched) {
+      return;
+    }
+    var before = dbo.numberOfVariables ? dbo.numberOfVariables() : 0;
+    dbo.initializeQueries(true);
+    var after = dbo.numberOfVariables ? dbo.numberOfVariables() : before;
+    if (after > before) {
+      markDirty(ctx, dbo);
+      report.applied.push({ action: "declareSqlVariables", qname: safeQName(dbo), added: after - before });
+    }
+  }
+
+  function findDirectChildByName(parent, name) {
+    var children = getDirectChildren(parent);
+    for (var i = 0; i < children.length; i++) {
+      if (String(children[i].getName()) === name) {
+        return children[i];
+      }
+    }
+    return null;
+  }
+
   function applyProperties(ctx, dbo, rawProperties, scopeName, report) {
     var localErrors = [];
     var propertiesInput = rawProperties;
@@ -950,6 +996,7 @@ include("js/crud_ui_refresh.js");
 
         applyProperties(ctx, createdChild, childPatch.properties, safeQName(createdChild), report);
         importStepVariables(ctx, createdChild, childPatch, report);
+        declareSqlVariables(ctx, createdChild, childPatch, report);
         upsertChildren(ctx, createdChild, safeQName(createdChild), nestedChildren, strategy, report);
         continue;
       }
@@ -990,6 +1037,7 @@ include("js/crud_ui_refresh.js");
 
         applyProperties(ctx, recreated, childPatch.properties, safeQName(recreated), report);
         importStepVariables(ctx, recreated, childPatch, report);
+        declareSqlVariables(ctx, recreated, childPatch, report);
         upsertChildren(ctx, recreated, safeQName(recreated), nestedChildren, strategy, report);
         continue;
       }
@@ -999,6 +1047,7 @@ include("js/crud_ui_refresh.js");
       }
       applyProperties(ctx, runtimeChild, childPatch.properties, safeQName(runtimeChild), report);
       importStepVariables(ctx, runtimeChild, childPatch, report);
+      declareSqlVariables(ctx, runtimeChild, childPatch, report);
       upsertChildren(ctx, runtimeChild, safeQName(runtimeChild), nestedChildren, strategy, report);
     }
 
@@ -1038,6 +1087,35 @@ include("js/crud_ui_refresh.js");
       throw makeOpError("validation_error", "create operation requires name", "validate", "", relatedQName);
     }
 
+    // The engine renames a duplicate child to name1 without notice: update the existing child
+    // of the same class instead, and refuse a different class.
+    var existing = findDirectChildByName(createCtx.parent, name);
+    if (existing) {
+      var parentQNameForExisting = safeQName(createCtx.parent);
+      var existingClass = shortClassName(existing.getClass().getName());
+      var requestedClass = className.split("#")[0];
+      if (requestedClass.toLowerCase() !== existingClass.toLowerCase() &&
+          requestedClass.toLowerCase() !== String(existing.getClass().getName()).toLowerCase()) {
+        throw makeOpError("validation_error", parentQNameForExisting + " already has a child named " + name +
+          " of class " + existingClass + "; delete it or choose another name.", "validate", "", parentQNameForExisting);
+      }
+      var existingQName = safeQName(existing);
+      pushReportWarning(report, name + " already exists under " + parentQNameForExisting +
+        ": updated in place (at:" + mode + " does not create " + name + "1).");
+      report.applied.push({ action: "updateExisting", qname: existingQName, name: name, className: existingClass });
+      if (op.opId !== undefined) {
+        registerRef(ctx, op.opId, existing);
+      }
+      applyProperties(ctx, existing, op.properties, existingQName, report);
+      importStepVariables(ctx, existing, op, report);
+      declareSqlVariables(ctx, existing, op, report);
+      if (children.length) {
+        upsertChildren(ctx, existing, existingQName, children,
+          { replaceOnClassMismatch: true, pruneMissing: false, reorder: false }, report);
+      }
+      return;
+    }
+
     var updates = parsePropertiesMap(op.properties, [], "create.properties");
     var created = createObject(ctx, createCtx.parent, className, name, createCtx, updates);
     var createdQName = safeQName(created);
@@ -1058,6 +1136,7 @@ include("js/crud_ui_refresh.js");
 
     applyProperties(ctx, created, op.properties, createdQName, report);
     importStepVariables(ctx, created, op, report);
+    declareSqlVariables(ctx, created, op, report);
     if (children.length) {
       upsertChildren(
         ctx,
@@ -1142,6 +1221,7 @@ include("js/crud_ui_refresh.js");
       applyProperties(ctx, root, patch.properties, qname, report);
     }
     importStepVariables(ctx, root, patch, report);
+    declareSqlVariables(ctx, root, patch, report);
 
     var childrenPatch = parseChildrenInput(patch.children, qname + ".children", []);
     upsertChildren(ctx, root, qname, childrenPatch, strategy, report);
