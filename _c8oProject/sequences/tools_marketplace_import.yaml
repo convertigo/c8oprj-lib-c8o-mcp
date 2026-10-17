@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Import a marketplace project
-  Imports a marketplace project into the workspace and wires the reference for the target project. Starter templates may require a new local project name.
+  Imports a marketplace project into the workspace. With targetProject, also adds the reference to the library in that project, which a project needs to call the library or use its shared components and to deploy with it. Starter templates take a new local project name instead.
 ↓IncludeHelpers [steps.SimpleStep-1764302001000]: 
   comment: Load shared marketplace helpers
   expression: |
@@ -50,6 +50,16 @@ comment: |
         refresh: false,
         warnings: [importErrorMessage]
       };
+    }
+    var referenceTarget = typeof targetProject !== "undefined" && targetProject != null ? C8O.marketplace._trim(targetProject) : "";
+    if (referenceTarget.length && marketplaceImportResult && marketplaceImportResult.loadedAfter === true) {
+      var referenceResult = C8O.marketplace.addReference(referenceTarget, marketplaceImportResult.library, marketplaceImportResult.projectUrl);
+      marketplaceImportResult.addReference = true;
+      marketplaceImportResult.referenceAlready = referenceResult.referenceAlready;
+      marketplaceImportResult.referenceAdded = referenceResult.referenceAdded;
+      marketplaceImportResult.referenceName = referenceResult.referenceName;
+      marketplaceImportResult.referenceProjectUrl = referenceResult.referenceProjectUrl;
+      marketplaceImportResult.warnings = (marketplaceImportResult.warnings || []).concat(referenceResult.warnings);
     }
     marketplaceImportRefresh = marketplaceImportResult && marketplaceImportResult.refresh === true;
     marketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.targetProject ? String(marketplaceImportResult.targetProject) : "";
@@ -424,6 +434,10 @@ comment: |
 ↓project [variables.RequestableVariable-1764302001039]: 
   comment: Marketplace project name.
   description: Marketplace project name.
+↓targetProject [variables.RequestableVariable-1792280000001]: 
+  comment: Project that uses the library; the import adds the reference to the library in it.
+  description: Project that uses the library; the import adds the reference to the library in it.
+  value: ''
 ↓importedProjectName [variables.RequestableVariable-1772793514924]: 
   comment: New local project name. Required when the marketplace entry is a starter template.
   description: New local project name. Required when the marketplace entry is a starter template.

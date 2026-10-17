@@ -928,6 +928,42 @@ C8O.marketplace.findEntry = function (entries, options) {
   return null;
 };
 
+// Adds the reference to an imported library in the project that uses it (references.ProjectSchemaReference whose
+// projectName is "<library>=<url>"), so the project builds and deploys with it. Nothing changes when one exists.
+C8O.marketplace.addReference = function (targetProjectName, libraryName, projectUrl) {
+  var out = { addReference: true, referenceAlready: false, referenceAdded: false, referenceName: "", referenceProjectUrl: projectUrl, warnings: [] };
+  var target = C8O.marketplace.resolveProject(targetProjectName);
+  if (target == null) {
+    out.warnings.push("targetProject " + targetProjectName + " is not loaded: no reference added.");
+    return out;
+  }
+  var refs = C8O.marketplace.getProjectReferenceMap(target);
+  var existing = refs.lower[C8O.marketplace._trim(libraryName).toLowerCase()];
+  if (existing) {
+    out.referenceAlready = true;
+    out.referenceName = existing.referenceName;
+    out.referenceProjectUrl = existing.projectUrl;
+    return out;
+  }
+  if (typeof C8O.dbo.batchApply !== "function") {
+    include("js/databaseobject_batch.js");
+  }
+  var name = C8O.marketplace._trim(libraryName).replace(/[^A-Za-z0-9_]/g, "_");
+  var result = C8O.dbo.batchApply({ target: String(target.getName()), onError: "stop", autoSave: true, triggerMobileBuilder: false,
+    operations: [{ type: "create", related: String(target.getName()), mode: "inside", className: "references.ProjectSchemaReference",
+      name: name, properties: { projectName: projectUrl } }] });
+  var failed = !result || result.status === "failed" || (result.errors && result.errors.length > 0) ||
+    (result.summary && (result.summary.failedOps > 0 || result.summary.partialOps > 0));
+  if (failed) {
+    out.warnings.push("The reference to " + libraryName + " could not be added to " + targetProjectName + ": " +
+      JSON.stringify((result && (result.errors || result.operations)) || result).substring(0, 400));
+    return out;
+  }
+  out.referenceAdded = true;
+  out.referenceName = name;
+  return out;
+};
+
 C8O.marketplace.resolveEntry = function (options) {
   var opts = C8O.marketplace.normalizeListOptions(options || {});
   var projectToken = C8O.marketplace._trim(opts.project);

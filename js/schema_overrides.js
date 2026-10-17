@@ -354,7 +354,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: { type: "string", description: "Marketplace project name. For the standard NGX starter use template_ngxBuilderIonic." },
-        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template. Canonical standard NGX call: {project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"}." }
+        importedProjectName: { type: "string", description: "New local project name. Required when the marketplace entry is a starter template. Canonical standard NGX call: {project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"}." },
+        targetProject: { type: "string", description: "For a library: the project that uses it. The import adds the reference to the library in that project (needed to call its sequences, use its shared components and deploy with it); importing a library and referencing it does not modify the library." }
       },
       required: ["project"],
       additionalProperties: false
