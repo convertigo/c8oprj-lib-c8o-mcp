@@ -37,6 +37,14 @@ Read this when the feature needs data from a REST, SOAP, XML, JSON, raw HTTP, or
 14. Choose a provider that satisfies the requested data contract. If the feature is about searchable records, the endpoint must return records with useful fields for that requested contract. Generic article search, URL suggestions, autocomplete labels, documentation pages, or provider help payloads are not a valid substitute unless the user explicitly asked for those artifacts.
 15. Before any UI mutation, prove that the facade itself exposes the application contract the UI will bind to. For list/search pages, this usually means a top-level or clearly named object with `items`, `total`, `query`, `error`, or equivalent fields. A facade that only leaks `TransactionStep.output=true`, transport metadata, or a raw connector subtree is still a diagnostic facade, not a UI contract.
 
+### Business facade with `facade-create`
+When the HTTP data feeds an application page or business rule, let `facade-create` build the facade instead of shaping it by hand: it keeps the session user check, roles, perimeter, the `js/app.js` logic and the `{success, data, errors, meta}` contract of the other facades.
+1. Build and prove the connector and the transaction as below, with `httpInfo=true`: the generator refuses an HTTP transaction without it, because a 404 or a lost connection then returns an ordinary document.
+2. Name it in a read or a write: `{"name":"todos","transaction":"<connector>.<transaction>","vars":{"userId":"me.id"}}`. The transaction variables take `vars` or the facade input of the same name (a write: the fields of each row of `writes.<name>`).
+3. In `logic`, `ctx.reads.todos` is the JSON body: a JSON array or object comes unwrapped, `HttpInfo` and `attr` are removed; `path:"items"` keeps one part of it.
+4. A transport error or an HTTP status >= 400 answers `READ_FAILED` or `WRITE_FAILED` with the status in the message; later writes are skipped.
+5. Prove the facade with `requestable-execute` (with `authenticatedUser` when it is protected), including one failing call.
+
 ### Canonical object pattern
 - public facade sequence
 - internal call to HTTP transaction

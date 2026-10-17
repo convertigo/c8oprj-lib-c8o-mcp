@@ -34,7 +34,11 @@ function bean(name, javaClass, parent, props) {
     getAllChildren: () => list(node.children),
     getVariablesList: () => list(node.children.filter(c => /Variable$/.test(c.javaClass))),
     getConnectorsList: () => list(node.children.filter(c => /Connector$/.test(c.javaClass))),
-    getStyleContent: () => ({ getString: () => node.props.styleContent || '' })
+    getStyleContent: () => ({ getString: () => node.props.styleContent || '' }),
+    getSequencesList: () => list(node.children.filter(c => /Sequence$/.test(c.javaClass))),
+    getReferenceList: () => list((node.references || []).map(n => ({ getParser: () => ({ getProjectName: () => n }) }))),
+    getHttpInfo: () => node.props.httpInfo === true,
+    getHttpInfoTagName: () => node.props.httpInfoTagName || 'HttpInfo'
   };
   if (parent) {
     parent.children.push(node);
@@ -72,8 +76,28 @@ function makeWorld(options) {
   const submit = bean('declaration_declare', JAVA['sequences.GenericSequence'], project);
   ['posteIds', 'dateEffective', 'commentaire', 'source'].forEach(v => bean(v, JAVA['variables.RequestableVariable'], submit));
   bean('auth_logout', JAVA['sequences.GenericSequence'], project);
+  // Other sources: an HTTP connector, a local sequence, a referenced library and a loaded but unreferenced one.
+  const api = bean('api', 'com.twinsoft.convertigo.beans.connectors.HttpConnector', project);
+  const http = (name, vars, props) => {
+    const t = bean(name, 'com.twinsoft.convertigo.beans.transactions.JsonHttpTransaction', api, props);
+    vars.forEach(v => bean(v, 'com.twinsoft.convertigo.beans.variables.RequestableHttpVariable', t));
+    return t;
+  };
+  http('getTodos', ['userId'], { httpInfo: true });
+  http('postTodo', ['title', 'ownerId'], { httpInfo: true });
+  http('getRaw', ['id'], {});
+  http('q_postes', [], { httpInfo: true });
+  const boom = bean('boom', JAVA['sequences.GenericSequence'], project);
+  bean('fail', JAVA['variables.RequestableVariable'], boom);
+  project.references = ['lib_csv'];
+  const libs = {};
+  ['lib_csv', 'lib_other'].forEach(n => {
+    libs[n] = bean(n, 'com.twinsoft.convertigo.beans.core.Project');
+    const lseq = bean('api_data_pure', JAVA['sequences.GenericSequence'], libs[n]);
+    bean('nb_lines', JAVA['variables.RequestableVariable'], lseq);
+  });
   const files = Object.assign({ '/ws/App/js/app.js': 'var App = { posteList: function (ctx) {}, declare: function (ctx) {} };' }, opts.files || {});
-  return { project, db, appComp, files, ops: [], deleted: [], failOn: opts.failOn || null };
+  return { project, db, appComp, files, libs, ops: [], deleted: [], failOn: opts.failOn || null };
 }
 
 function find(rootBean, qname) {
@@ -108,7 +132,7 @@ function buildTree(parent, node) {
 function load(world) {
   const sandbox = {
     Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { databaseObjectsManager: {
-      getOriginalProjectByName: name => (name === 'App' ? world.project : null)
+      getOriginalProjectByName: name => (name === 'App' ? world.project : world.libs[name] || null)
     } } } } } } } },
     java: {
       io: { File: function (dir, p) { const full = dir + '/' + p; this.isFile = () => full in world.files; this.toPath = () => full; } },
@@ -429,6 +453,222 @@ test('facade-create refuses a bad spec and removes what it created when a step f
   const seq = creates(anonymous, 'sequences.GenericSequence')[0];
   assert.equal(seq.properties.authenticatedContextRequired, false);
   assert.deepEqual(plain(seq.children.map(c => c.name)), ['init', 'logic', 'outSuccess', 'outData', 'outErrors', 'outMeta']);
+});
+
+// --- facade over other sources -------------------------------------------------------------------
+
+function anySourceSpec(extra) {
+  return Object.assign({ project: 'App', name: 'todo_board', logic: 'App.posteList', inputs: ['userId', 'nb'], roles: ['USER', 'ADMIN'],
+    auth: { userSequence: 'boom', roles: ['USER', 'ADMIN'] },
+    reads: [{ name: 'todos', transaction: 'api.getTodos', perimeter: { field: 'userId', bypassRoles: ['ADMIN'] } },
+      { name: 'people', sequence: 'lib_csv.api_data_pure', vars: { nb_lines: 'nb' }, path: 'people', required: true }],
+    writes: [{ name: 'post', transaction: 'postTodo' }, { name: 'boom', sequence: 'boom' }] }, extra || {});
+}
+
+function stepsByName(seq) {
+  const byName = {};
+  walk({ children: seq.children }, n => { if (n.name) byName[n.name] = n; });
+  return byName;
+}
+
+test('facade-create calls transactions of any connector and library sequences', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.facadeCreate(anySourceSpec());
+  assert.deepEqual(plain(out.created), ['App.todo_board'], 'nothing but the facade is created');
+  assert.match(out.contract.logic, /todos: JSON body of App\.api\.getTodos, people: JSON of lib_csv\.api_data_pure at people/);
+  const byName = stepsByName(creates(world, 'sequences.GenericSequence')[0]);
+  assert.equal(byName.callMe.className, 'steps.SequenceStep');
+  assert.equal(byName.callMe.properties.sourceSequence, 'App.boom');
+  assert.deepEqual(plain(byName.srcMe.properties.sourceDefinition), { step: 'callMe', xpath: './document' });
+  assert.equal(byName.call_todos.className, 'steps.TransactionStep');
+  assert.equal(byName.call_todos.properties.sourceTransaction, 'App.api.getTodos');
+  assert.equal(byName.call_people.className, 'steps.SequenceStep');
+  assert.equal(byName.call_people.properties.sourceSequence, 'lib_csv.api_data_pure');
+  assert.equal(byName.call_people.importVariables, true);
+  assert.equal(byName.prep_people.properties.expression, 'nb_lines = String(nb);');
+  assert.equal(byName.callW_post.properties.sourceTransaction, 'App.api.postTodo');
+  assert.equal(byName.callW_boom.className, 'steps.SequenceStep');
+  assert.match(byName.set_post.properties.expression, /^title = .*\nownerId = /);
+  assert.match(byName.init.properties.expression, /function facadeFailure\(d, source, infoTag\)/);
+  assert.match(byName.guard.properties.expression, /facadeFailure\(d_todos, 'http', 'HttpInfo'\)/);
+  assert.match(byName.guard.properties.expression, /facadePath\(facadeBody\(d_people, 'sequence', ''\), \["people"\]\)/);
+  assert.match(byName.check_boom.properties.expression, /facadeFailure\(d_w, 'sequence', ''\)/);
+  for (const name of ['init', 'auth', 'prep_people', 'guard', 'logic', 'set_post', 'check_post', 'check_boom']) {
+    assert.doesNotThrow(() => new Function(byName[name].properties.expression), name + ' must be valid JavaScript');
+  }
+  // A name alone still finds the SQL transaction first, then any connector; SQL facades keep their exact code.
+  const sqlOnly = makeWorld();
+  const G2 = load(sqlOnly);
+  G2.facadeCreate(facadeSpec());
+  const sqlSteps = stepsByName(creates(sqlOnly, 'sequences.GenericSequence')[0]);
+  assert.equal(sqlSteps.call_postes.properties.sourceTransaction, 'App.db.q_postes');
+  assert.doesNotMatch(sqlSteps.init.properties.expression, /facadeFailure/);
+  assert.equal(sqlSteps.srcMe.properties.sourceDefinition.xpath, './document/sql_output');
+  const raw = makeWorld();
+  find(raw.project, 'App.api.getRaw').props.httpInfo = true;
+  load(raw).facadeCreate({ project: 'App', name: 'raw', logic: 'App.posteList', auth: false, reads: [{ name: 'raw', transaction: 'getRaw' }] });
+  assert.equal(stepsByName(creates(raw, 'sequences.GenericSequence')[0]).call_raw.properties.sourceTransaction, 'App.api.getRaw');
+});
+
+test('the generated calls detect HTTP and sequence failures and expose the JSON', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.facadeCreate(anySourceSpec());
+  const byName = stepsByName(creates(world, 'sequences.GenericSequence')[0]);
+  const meta = { connector: 'api', project: 'App' };
+  const info = code => ({ url: 'https://x/todos', status: { text: '', attr: { code: String(code), text: code === 200 ? 'OK' : 'Not Found' } } });
+  // docs: documents the faked calls return, by step; writes: documents per write call, in order.
+  function run(docs, logic, writes) {
+    const scope = { context: { getAuthenticatedUser: () => 'a@b' }, include: () => {}, App: { posteList: logic }, userId: '2', nb: '3', calls: [] };
+    vm.createContext(scope);
+    const exec = name => vm.runInContext(byName[name].properties.expression, scope);
+    exec('init');
+    scope.meDoc = { document: docs.me };
+    exec('auth');
+    if (scope.resp === null) {
+      exec('prep_people');
+      scope.doc_todos = { document: docs.todos };
+      scope.doc_people = { document: docs.people };
+    }
+    exec('guard');
+    exec('logic');
+    const queue = (writes || []).slice();
+    for (const w of ['post', 'boom']) {
+      if (!(scope.resp && scope.resp.success === true)) break;
+      for (const item of scope['rows_' + w]) {
+        scope.item = item;
+        exec('set_' + w);
+        scope.calls.push(w);
+        scope['docW_' + w] = { document: queue.shift() || { object: { id: 1 }, attr: meta } };
+        exec('check_' + w);
+        if (scope.resp.success !== true) break;
+      }
+    }
+    return scope;
+  }
+  const user = { id: 2, role: 'USER', email: 'a@b', attr: meta };
+  const todos = { HttpInfo: info(200), array: [{ id: 1, userId: 2 }, { id: 2, userId: 3 }], attr: meta };
+  const people = { people: [{ firstname: 'Ann' }], attr: meta };
+  const ok = (data, writes) => ctx => ({ success: true, data: data(ctx), errors: [], meta: {}, writes });
+  let s = run({ me: { text: '', attr: meta }, todos, people }, ok(() => 1));
+  assert.equal(s.resp.errors[0].code, 'UNAUTHENTICATED', 'an empty user document is no user');
+  s = run({ me: { id: 9, role: 'GUEST', attr: meta }, todos, people }, ok(() => 1));
+  assert.equal(s.resp.errors[0].code, 'FORBIDDEN');
+  s = run({ me: user, todos, people }, ok(ctx => ctx));
+  assert.deepEqual(plain(s.resp.data.reads.todos), [{ id: 1, userId: 2 }], 'JSON array unwrapped, HttpInfo dropped, perimeter applied');
+  assert.deepEqual(plain(s.resp.data.reads.people), [{ firstname: 'Ann' }], 'path picks the rows of the sequence');
+  assert.equal(s.resp.data.me.id, 2);
+  s = run({ me: Object.assign({}, user, { role: 'ADMIN' }), todos, people }, ok(ctx => ctx.reads.todos.length));
+  assert.equal(s.resp.data, 2, 'bypass role keeps every row');
+  s = run({ me: user, todos: { HttpInfo: info(404), object: {}, attr: meta }, people }, ok(() => 1));
+  assert.equal(s.resp.errors[0].code, 'READ_FAILED');
+  assert.match(s.resp.errors[0].message, /todos: HTTP 404 Not Found/);
+  s = run({ me: user, todos, people: { error: { message: 'm', details: 'lib down' }, attr: meta } }, ok(() => 1));
+  assert.match(s.resp.errors[0].message, /people: lib down/);
+  s = run({ me: user, todos, people: { people: [], attr: meta } }, ok(() => 1));
+  assert.equal(s.resp.errors[0].code, 'NOT_FOUND', 'required on an empty JSON list');
+  s = run({ me: user, todos, people: { success: false, errors: [{ code: 'X', message: 'refused' }], attr: meta } }, ok(() => 1));
+  assert.match(s.resp.errors[0].message, /people: success false: refused/, 'a sequence answering success false failed');
+  s = run({ me: user, todos, people }, ok(() => 1, { post: [{ title: 't', ownerId: 2 }, { title: 'u' }], boom: { fail: '1' } }));
+  assert.equal(s.resp.success, true);
+  assert.deepEqual(plain(s.calls), ['post', 'post', 'boom']);
+  assert.equal(s.written.post, 2);
+  assert.equal(s.title, 'u');
+  assert.equal(s.ownerId, '', 'a missing field is an empty variable');
+  s = run({ me: user, todos, people }, ok(() => 1, { post: [{ title: 'a' }, { title: 'b' }], boom: { fail: '1' } }),
+    [{ HttpInfo: info(500), object: {}, attr: meta }]);
+  assert.equal(s.resp.errors[0].code, 'WRITE_FAILED');
+  assert.match(s.resp.errors[0].message, /post: HTTP 500/);
+  assert.deepEqual(plain(s.calls), ['post'], 'later rows and writes skipped after a failed HTTP write');
+  s = run({ me: user, todos, people }, ok(() => 1, { post: [], boom: [{ fail: '0' }, { fail: '1' }, { fail: '0' }] }),
+    [{ ok: true, attr: meta }, { error: { message: 'An exception occured', details: 'boom asked' }, attr: meta }]);
+  assert.equal(s.resp.errors[0].code, 'WRITE_FAILED');
+  assert.match(s.resp.errors[0].message, /boom: boom asked/);
+  assert.deepEqual(plain(s.calls), ['boom', 'boom'], 'the third sequence call is skipped');
+});
+
+test('facade-create refuses calls it cannot reach or check', () => {
+  const world = makeWorld();
+  const G = load(world);
+  bean('getTodos', 'com.twinsoft.convertigo.beans.transactions.JsonHttpTransaction', bean('api2', 'com.twinsoft.convertigo.beans.connectors.HttpConnector', world.project), { httpInfo: true });
+  const expected = [
+    'reads[0]: App.api.getRaw has httpInfo off', 'databaseobject-tree-apply({target:"App.api.getRaw", tree:{properties:{httpInfo:true}}})',
+    'reads[1]: App does not reference lib_other', 'marketplace-import({project:"lib_other", targetProject:"App"})',
+    'reads[2]: project lib_gone is not loaded', 'marketplace-import({project:"lib_gone", targetProject:"App"})',
+    'reads[3]: no sequence nope in lib_csv', 'reads[4] gives sequence and transaction',
+    'reads[5]: getTodos exists in several connectors (App.api.getTodos, App.api2.getTodos)',
+    'reads[6].path must be a dotted key path', 'reads[7].path picks a part of the JSON', 'reads[8]: no connector nope in App',
+    'reads[9].vars.zz is not a variable of lib_csv.api_data_pure (nb_lines)', 'writes[0]: no transaction nothing in App.api'
+  ];
+  assert.throws(() => G.facadeCreate({ project: 'App', name: 'bad', logic: 'App.posteList', auth: false, reads: [
+    { name: 'raw', transaction: 'getRaw' },
+    { name: 'other', sequence: 'lib_other.api_data_pure' },
+    { name: 'gone', sequence: 'lib_gone.x' },
+    { name: 'nope', sequence: 'lib_csv.nope' },
+    { name: 'both', sequence: 'boom', transaction: 'q_postes' },
+    { name: 'twice', transaction: 'getTodos' },
+    { name: 'badPath', sequence: 'boom', path: 'a..b' },
+    { name: 'sqlPath', transaction: 'q_postes', path: 'rows' },
+    { name: 'noConn', transaction: 'nope.getTodos' },
+    { name: 'badVar', sequence: 'lib_csv.api_data_pure', vars: { zz: '1' } }
+  ], writes: [{ name: 'w', transaction: 'api.nothing' }] }), err => {
+    const missing = expected.filter(text => !err.message.includes(text));
+    assert.deepEqual(missing, [], err.message);
+    return true;
+  });
+  assert.equal(creates(world).length, 0, 'nothing created');
+});
+
+test('facade-create opens and ends the session for login and logout facades', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.facadeCreate({ project: 'App', name: 'auth_login', logic: 'App.posteList', auth: false, inputs: ['email', 'password'],
+    reads: [{ name: 'user', transaction: 'q_user_by_email' }], writes: [{ name: 'journal', transaction: 'w_journal_insert' }],
+    session: { login: 'resp.data.email' } });
+  assert.match(out.contract.session, /opens the session with resp\.data\.email/);
+  const seq = creates(world, 'sequences.GenericSequence')[0];
+  assert.deepEqual(plain(seq.children.map(c => c.name)), ['init', 'ifAllowed', 'guard', 'logic', 'ifWrite_journal', 'ifLogin',
+    'outSuccess', 'outData', 'outErrors', 'outMeta', 'email', 'password'], 'login after the writes, before the outputs');
+  const byName = stepsByName(seq);
+  assert.equal(byName.ifLogin.properties.condition, 'resp && resp.success === true');
+  assert.doesNotThrow(() => new Function(byName.login.properties.expression));
+  const login = (resp) => {
+    const scope = { resp, facadeInput: { email: 'a@b' }, authenticated: [], context: { setAuthenticatedUser(u) { scope.authenticated.push(u); } } };
+    vm.createContext(scope);
+    vm.runInContext(byName.login.properties.expression, scope);
+    return scope;
+  };
+  let s = login({ success: true, data: { email: 'a@b', home: 'Home' } });
+  assert.deepEqual(plain(s.authenticated), ['a@b']);
+  s = login({ success: true, data: {} });
+  assert.deepEqual(plain(s.authenticated), [], 'no user id, no session');
+  assert.equal(s.resp.errors[0].code, 'LOGIC_FAILED');
+  assert.match(s.resp.errors[0].message, /session\.login gave no user id/);
+
+  const off = makeWorld();
+  load(off).facadeCreate({ project: 'App', name: 'auth_signOut', logic: 'App.posteList', auth: false, session: { logout: true } });
+  const logoutSeq = creates(off, 'sequences.GenericSequence')[0];
+  assert.deepEqual(plain(logoutSeq.children.map(c => c.name)), ['init', 'logic', 'outSuccess', 'outData', 'outErrors', 'outMeta', 'ifLogout'],
+    'nothing runs after RemoveSessionStep: it comes last');
+  const ifLogout = logoutSeq.children.find(c => c.name === 'ifLogout');
+  assert.deepEqual(plain(ifLogout.children.map(c => [c.className, c.name])), [['steps.SimpleStep', 'logout'], ['steps.RemoveSessionStep', 'endSession']]);
+  assert.equal(ifLogout.children[0].properties.expression, 'context.removeAuthenticatedUser();');
+
+  const plainFacade = makeWorld();
+  load(plainFacade).facadeCreate(facadeSpec());
+  assert.ok(!creates(plainFacade, 'sequences.GenericSequence')[0].children.some(c => /^if(Login|Logout)$/.test(c.name)), 'no session step by default');
+
+  const bad = makeWorld();
+  const G3 = load(bad);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l1', logic: 'App.posteList', session: { login: 'resp.data.email' } }),
+    /session\.login opens the session, so the facade must be callable without one: add auth:false/);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l2', logic: 'App.posteList', auth: false, session: { login: 'resp.data.', logout: false } }),
+    /session\.login must be a JavaScript expression/);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l3', logic: 'App.posteList', auth: false, session: { login: 'x', logout: true } }),
+    /session must be \{login/);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l4', logic: 'App.posteList', auth: false, session: {} }), /session must be \{login/);
+  assert.equal(creates(bad).length, 0);
 });
 
 // --- page --------------------------------------------------------------------------------------
