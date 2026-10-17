@@ -1188,6 +1188,10 @@ C8O.generators = C8O.generators || {};
         authCode.push("meRows = facadeEmpty(meBody) ? [] : (meBody.length !== undefined ? meBody : [meBody]);");
       }
       authCode.push("me = (meRows && meRows.length) ? meRows[0] : null;");
+      if (inputNames.indexOf(emailVar) >= 0) {
+        // The user reload set the JS variable of the same name to the session email: give the input its value back.
+        authCode.push(emailVar + " = facadeInput." + emailVar + ";");
+      }
       var active = activeField.length ? " || !(me." + activeField + " === true || String(me." + activeField + ") === \"true\")" : "";
       authCode.push("if (!me" + active + ") { resp = " + failExpr(codes.unauthenticated) + "; }");
       if (roles.length) {
