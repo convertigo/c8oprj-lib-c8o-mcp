@@ -448,6 +448,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         qname: { type: "string", description: "Existing QName. Case-sensitive." },
+        target: { type: "string", description: "Alias of qname, as in databaseobject-tree-apply." },
         autoSave: booleanFlagSchema(true, "Set false to keep the deletion in memory and skip project export."),
         refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
       },

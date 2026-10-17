@@ -19,7 +19,13 @@ comment: |
     var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
     var refreshFlag = C8O.util.toBoolean(refreshInput, true) === true;
     
-    var removal = C8O.dbo.removeObject({ qname: qname });
+    // target is accepted like in databaseobject-tree-apply and tree-get.
+    var deleteQName = (typeof qname !== "undefined" && qname != null && String(qname).trim().length) ? qname
+      : ((typeof target !== "undefined" && target != null) ? target : "");
+    if (!String(deleteQName).trim().length) {
+      throw new Error("qname (or target) is required.");
+    }
+    var removal = C8O.dbo.removeObject({ qname: deleteQName });
     
     var parentQNameText = removal.parentQName ? String(removal.parentQName) : "";
     var projectNameText = removal.projectName ? String(removal.projectName) : "";
@@ -277,7 +283,9 @@ comment: |
 ↓qname [variables.RequestableVariable-1762372536796]: 
   comment: Existing QName. Case-sensitive.
   description: Existing QName. Case-sensitive.
-  required: true
+↓target [variables.RequestableVariable-1762372536799]: 
+  comment: Alias of qname, as in databaseobject-tree-apply.
+  description: Alias of qname, as in databaseobject-tree-apply.
 ↓autoSave [variables.RequestableVariable-1762419976851]: 
   comment: Set false to keep the deletion in memory and skip project export.
   description: Set false to keep the deletion in memory and skip project export.
