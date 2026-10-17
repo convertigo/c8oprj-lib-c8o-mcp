@@ -856,12 +856,21 @@ include("js/crud_ui_refresh.js");
   // see the page members directly, so c8oPage.local?.x there is undefined: write local?.x.
   function warnTemplatePageReference(dbo, node, report) {
     var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
-    var expr = props ? props.directiveExpression : undefined;
-    if (expr && typeof expr === "object") {
-      expr = expr.expression !== undefined ? expr.expression : expr.value;
+    if (!props) {
+      return;
     }
-    if (typeof expr === "string" && /\bc8oPage\./.test(expr)) {
-      pushReportWarning(report, safeQName(dbo) + ": directiveExpression uses c8oPage, which a template does not know; write local?.x instead of c8oPage.local?.x.");
+    // Template-side values: directive expressions, text interpolations and attribute values.
+    var templateKeys = ["directiveExpression", "textValue", "attrValue", "directiveSource"];
+    for (var tk = 0; tk < templateKeys.length; tk++) {
+      var expr = props[templateKeys[tk]];
+      if (expr && typeof expr === "object") {
+        expr = expr.expression !== undefined ? expr.expression : expr.value;
+      }
+      if (typeof expr === "string" && /\bc8oPage\./.test(expr)) {
+        pushReportWarning(report, safeQName(dbo) + ": " + templateKeys[tk] + " uses c8oPage, which the page template does not have " +
+          "(the page fails at run time on c8oPage.local); write local?.x instead of c8oPage.local?.x. c8oPage exists only in action scripts.");
+        return;
+      }
     }
   }
 
