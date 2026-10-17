@@ -66,6 +66,11 @@ Minimal `AppLayout`:
 
 Wrap the page content in a `DivTag` with class `app-page`. A text-only Playwright proof does not see glued texts or a missing layout: look at the page itself (a screenshot) before calling a UI lot done.
 
+Before you call a UI lot done, check each page you built with a screenshot:
+- Save it with Playwright `browser_take_screenshot({filename:"check-<page>.png"})`: with a `filename` the image is only saved, not sent to your model.
+- If your model reads images, look at it. If it cannot (GLM models of the Convertigo gateway have no image input), call `image-describe({path:"<the file the screenshot result names>", question:"..."})` and ask about readability, overlapping or cut-off elements, texts glued together without a separator, and empty areas. Example: `Is every label separated from its value? Is any text glued to another, cut off or overlapping? Is any area empty or unreadable?`
+- Fix what it reports in the source objects, rebuild, and check again. Keep the default `reasoning` and `maxTokens`; one call per page state is enough.
+
 ## NGX mental model
 
 ### Structure first, then wiring

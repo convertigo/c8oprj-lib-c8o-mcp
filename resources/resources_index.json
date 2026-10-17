@@ -956,7 +956,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 26,
+    "revision": 27,
     "scopeTags": [
       "domain",
       "frontend",
@@ -975,6 +975,7 @@
       "palette-describe",
       "requestable-execute",
       "mobile-builder-open",
+      "image-describe",
       "project-save"
     ],
     "promptNames": [
