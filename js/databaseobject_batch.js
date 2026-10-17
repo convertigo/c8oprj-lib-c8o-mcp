@@ -750,7 +750,19 @@ include("js/crud_ui_refresh.js");
       }
     }
     if (!insertedByPriority) {
-      parent.add(dbo);
+      try {
+        parent.add(dbo);
+      } catch (addError) {
+        // "You cannot add to a project a ... TransactionStep": at before/after places the new object
+        // next to the target, under the target's parent.
+        var placeMode = createContext && createContext.mode ? String(createContext.mode) : "inside";
+        var sibling = createContext && createContext.sibling ? safeQName(createContext.sibling) : "";
+        throw new Error(shortClassName(dbo.getClass().getName()) + " cannot go under " + safeQName(parent) +
+          " (" + shortClassName(parent.getClass().getName()) + ")" +
+          (placeMode !== "inside" && sibling.length ? ": at:\"" + placeMode + "\" places it next to " + sibling +
+            ", under that object's parent. To add it inside " + sibling + ", use at:\"inside\"; to place it before or after a child, target that child." : ".") +
+          " Engine: " + String(addError && addError.message ? addError.message : addError).replace(/^.*EngineException: /, ""));
+      }
       if (createContext && createContext.mode && createContext.mode !== "inside" && createContext.sibling) {
         var moveResult = C8O.dbo.moveObject({
           qname: safeQName(dbo),
