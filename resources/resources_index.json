@@ -7,18 +7,18 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-  "revision": 17,
+    "revision": 17,
     "scopeTags": [
       "start",
       "onboarding",
       "tree-authoring"
     ],
     "prerequisites": [],
-  "recommendedTools": [
-    "databaseobject-tree-get",
-    "requestable-execute",
-    "project-save"
-  ],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "requestable-execute",
+      "project-save"
+    ],
     "promptNames": [
       "convertigo-quickstart",
       "convertigo-crud-fastpath",
@@ -1103,6 +1103,43 @@
       "convertigo-vibe-quickstart"
     ],
     "guidanceLevel": "routing",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-multipage-app",
+    "name": "Convertigo Recipe Multipage App",
+    "title": "Convertigo Recipe: Multi-page App with Roles",
+    "description": "Architecture and order of work for a specification-driven NGX business app: SQL transactions, shared JS rules, uniform facades with server-side role checks, session, role-based navigation, protected pages, cost rules for large builds, and session-aware validation.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_recipe_multipage_app.md",
+    "guideId": "convertigo/recipe-multipage-app",
+    "revision": 1,
+    "scopeTags": [
+      "recipe",
+      "ngx",
+      "sql",
+      "session",
+      "roles",
+      "multipage"
+    ],
+    "prerequisites": [
+      "convertigo/start@1"
+    ],
+    "recommendedTools": [
+      "marketplace-import",
+      "project-js-set",
+      "batch-call",
+      "databaseobject-tree-apply",
+      "databaseobject-tree-get",
+      "requestable-execute",
+      "mobile-builder-open",
+      "project-save"
+    ],
+    "promptNames": [
+      "convertigo-backend",
+      "convertigo-frontend-ngx"
+    ],
+    "guidanceLevel": "workflow",
     "fallbackToRag": false
   }
 ]

@@ -28,6 +28,18 @@
       ]
     },
     {
+      "id": "new-multipage-app",
+      "match": "New NGX business application from a specification with several pages, roles or a session, and SQL persistence",
+      "required": [
+        "convertigo://resources/convertigo-recipe-multipage-app"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-backend-sequences",
+        "convertigo://resources/convertigo-frontend-ngx",
+        "convertigo://resources/convertigo-authentication"
+      ]
+    },
+    {
       "id": "existing-ngx-ui",
       "match": "Create or modify an NGX page in an existing project",
       "required": [
