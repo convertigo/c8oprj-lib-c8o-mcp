@@ -11,6 +11,15 @@ Output tokens are the main cost, far ahead of tool latency. Before writing trees
 - Use the tree shortcuts: `{"mode":"SOURCE","local":"?.x"}` and `{"mode":"SOURCE","global":"?.x"}` SmartSources, `attributes:{...}` on elements, `setLocals:{...}` on events and actions, `importVariables:true` on `TransactionStep` and `SequenceStep`.
 - Keep the default compact responses of `batch-call` and `databaseobject-tree-apply`.
 
+## Reuse inventory first
+Before the architecture, list what the specification needs and search for it: `marketplace-list({search:"<capability>"})` for each capability, `palette-list` for native steps. A build that skipped this step rewrote SMTP sending, CSV export and admin grids by hand. Candidates found in the marketplace descriptions:
+- authentication and SSO: `lib_UserManager` (user/password, OpenID/OAuth sign-ons), `lib_OAuth` (OAuth/OpenID, e.g. an Entra ID tenant), `lib_SAML`, `lib_LDAP`, `AuthStarter`, `lib_UserManager_ui_ngx` (ready screens); see `convertigo-authentication`
+- mail: the native `steps.SmtpStep`; `lib_Microsoft_Teams` for Outlook through Microsoft Graph
+- CSV and files: `lib_csv_response` (plain text CSV response), `lib_download_file` (download controlled by a sequence)
+- admin lists: `lib_ExtendedComponents_ui_ngx` (AG Grid with sorting, filtering and paging); charts: `libApexCharts`
+- documents: `lib_fill_odt_pdf` (fill Word/Excel/PowerPoint, PDF), `lib_JasperReports`
+If the specification limits dependencies, a marketplace library is still a standard Convertigo component: record the choice either way in the decision log.
+
 ## Architecture
 1. Project from `marketplace-import({project:"template_ngxBuilderIonic", importedProjectName:"<App>"})`.
 2. One `SqlConnector` for the application database (HSQLDB file database is enough for a V1 and a demo).
