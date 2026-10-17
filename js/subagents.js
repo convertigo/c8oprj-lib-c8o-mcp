@@ -28,6 +28,8 @@ C8O.subagents = C8O.subagents || {};
   var LOCK_GRACE_MS = 90 * 1000;
   var RUN_ID = /^(verify|build|sa)-\d{8}-\d{6}-[0-9a-f]{8}$/;
   var ACTIVITY_SHOWN = 6;
+  var MCP_RUNNER_WAIT_SEC = 3;
+  api.MCP_RUNNER_WAIT_SEC = MCP_RUNNER_WAIT_SEC;
 
   api.GATEWAY_URL = GATEWAY_URL;
   api.RUN_ID = RUN_ID;
@@ -51,6 +53,9 @@ C8O.subagents = C8O.subagents || {};
       model: "glm-5-3",
       readOnly: false,
       idPrefix: "build",
+      // It works through the Convertigo MCP, and the Studio runs one MCP call at a time: a call waiting here for its
+      // report would hold its own tool calls back. Calls wait at most MCP_RUNNER_WAIT_SEC; the caller waits on its side.
+      usesMcp: true,
       limits: { maxSteps: 120, timeBudgetSec: 900, maxCostUsd: 1.5 },
       bounds: { maxSteps: [10, 400], timeBudgetSec: [60, 3600], maxCostUsd: [0.05, 10] }
     }
@@ -162,6 +167,8 @@ C8O.subagents = C8O.subagents || {};
       reasoningTokens: Number(usage.reasoningTokens) || 0,
       totalTokens: Number(usage.totalTokens) || 0,
       cost: cost,
+      // gateway: the cost the gateway charged; journal: the agent's estimate from its configured prices.
+      costSource: cost === null ? "" : (usage.costSource === "journal" ? "journal" : "gateway"),
       currency: cost === null ? "" : "USD",
       durationMs: Number(usage.durationMs) || 0
     };
@@ -174,11 +181,15 @@ C8O.subagents = C8O.subagents || {};
 
   // Waits up to waitSec for the run's report. toResult(output, run, root) shapes a finished run's answer.
   api.collect = function (runId, waitSec, host, runners) {
-    var deadline = host.now() + waitSec * 1000;
     var run = host.readRun(runId);
     if (!run.exists) {
       throw new Error("Unknown runId " + runId + ": start a sub-agent with a profile and a task first.");
     }
+    var mcpRunner = api.PROFILES[run.profile] && api.PROFILES[run.profile].usesMcp === true;
+    if (mcpRunner) {
+      waitSec = Math.min(waitSec, MCP_RUNNER_WAIT_SEC);
+    }
+    var deadline = host.now() + waitSec * 1000;
     var runner = runners[run.runner];
     while (true) {
       var output = api.parseOutput(run.output);
@@ -202,8 +213,12 @@ C8O.subagents = C8O.subagents || {};
           task: run.task,
           elapsedMs: Math.max(0, host.now() - run.startedAt),
           activity: activityOf(run),
-          message: "The sub-agent is still working. Call the same tool again with this runId alone to wait for its report; " +
-            "do not start another sub-agent on the same browser or project meanwhile."
+          message: mcpRunner
+            ? "The sub-agent is still working through the Convertigo MCP, which runs one call at a time: do not wait inside " +
+              "a tool call. Wait about 60 s on your side (for example the shell command sleep 60), then call the same tool " +
+              "with this runId alone; do not write to the project meanwhile."
+            : "The sub-agent is still working. Call the same tool again with this runId alone to wait for its report; " +
+              "do not start another sub-agent on the same browser or project meanwhile."
         };
       }
       host.sleep(1000);
@@ -265,6 +280,83 @@ C8O.subagents = C8O.subagents || {};
       throw e;
     }
     return api.collect(run.runId, waitSec, host, runners);
+  };
+
+  // The tools that write a project. While a constructor builds a project, the MCP router refuses their calls on that
+  // project from anyone but the constructor's own session (header X-Convertigo-Subagent-Run).
+  api.WRITE_SEQUENCES = {
+    tools_databaseobject_tree_apply: true, tools_databaseobject_delete: true, tools_databaseobject_move: true,
+    tools_databaseobject_rename: true, tools_batch_call: true, tools_project_save: true, tools_project_reload: true,
+    tools_project_js_set: true, tools_upsert_crud: true, tools_upsert_ngx_crud_kit: true, tools_sql_transaction_create: true,
+    tools_facade_create: true, tools_ngx_page_create: true, tools_marketplace_import: true, tools_requestable_stub_set: true,
+    tools_scheduler_apply: true
+  };
+
+  function projectOfArguments(args) {
+    args = args || {};
+    var named = str(args.project || args.targetProject || args.projectName);
+    if (named.length) {
+      return named;
+    }
+    var spec = args.spec;
+    if (typeof spec === "string" && str(spec).charAt(0) === "{") {
+      try { spec = JSON.parse(spec); } catch (_notJson) { spec = null; }
+    }
+    if (spec && typeof spec === "object" && str(spec.project).length) {
+      return str(spec.project);
+    }
+    var qname = str(args.target || args.qname || args.parentQName || args.source || args.requestable);
+    return qname.length ? qname.split(".")[0] : "";
+  }
+
+  // The projects a tool call writes: its own arguments, or each call of a batch.
+  api.projectsOfCall = function (sequence, args) {
+    if (api.WRITE_SEQUENCES[sequence] !== true) {
+      return [];
+    }
+    var projects = [];
+    var add = function (p) {
+      if (p.length && projects.indexOf(p) < 0) {
+        projects.push(p);
+      }
+    };
+    if (sequence === "tools_batch_call") {
+      var calls = args && args.calls;
+      if (typeof calls === "string" && str(calls).charAt(0) === "[") {
+        try { calls = JSON.parse(calls); } catch (_notJson) { calls = []; }
+      }
+      (Array.isArray(calls) ? calls : []).forEach(function (call) {
+        var nested = call && call.arguments;
+        if (typeof nested === "string" && str(nested).charAt(0) === "{") {
+          try { nested = JSON.parse(nested); } catch (_notJsonArgs) { nested = {}; }
+        }
+        add(projectOfArguments(nested));
+      });
+      add(projectOfArguments(args));
+      return projects;
+    }
+    add(projectOfArguments(args));
+    return projects;
+  };
+
+  // A constructor holding the project's lock, unless the call comes from that constructor: {runId, message} or null.
+  api.projectWriteBlocked = function (project, runHeader, host) {
+    var holder = host.readLock("project:" + project);
+    if (!holder || !RUN_ID.test(str(holder.runId)) || Number(holder.expiresAt || 0) < host.now()) {
+      return null;
+    }
+    if (str(runHeader) === str(holder.runId)) {
+      return null;
+    }
+    var run = host.readRun(str(holder.runId));
+    if (!run.exists || !run.alive) {
+      return null;
+    }
+    return {
+      runId: holder.runId,
+      message: "A constructor sub-agent (" + holder.runId + ") is building project " + project + ": wait for its report " +
+        "(subagent-run with runId " + holder.runId + ") before writing to this project."
+    };
   };
 
   // The Studio side of the host: run folders, process start and state, locks, settings and the gateway key.
@@ -340,6 +432,14 @@ C8O.subagents = C8O.subagents || {};
           throw new Error("Another sub-agent is starting on " + lockKey + ": wait for its report.");
         }
         return String(lockFile.getPath());
+      },
+      readLock: function (lockKey) {
+        var lockFile = new File(runsRoot, ".lock-" + String(lockKey).replace(/[^0-9A-Za-z]+/g, "_"));
+        try {
+          return lockFile.isFile() ? JSON.parse(readText(lockFile)) : null;
+        } catch (_badLock) {
+          return null;
+        }
       },
       unlock: function (lockPath) {
         try {

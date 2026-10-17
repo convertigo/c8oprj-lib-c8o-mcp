@@ -1595,7 +1595,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       outputTokens: { type: "number" },
       reasoningTokens: { type: "number" },
       totalTokens: { type: "number" },
-      cost: { type: ["number", "null"], description: "Gateway cost of all the calls, null when the gateway did not price one of them." },
+      cost: { type: ["number", "null"], description: "Cost of all the calls, null when one of them is not priced." },
+      costSource: { type: "string", enum: ["", "gateway", "journal"], description: "gateway: charged by the gateway; journal: the sub-agent's estimate from its configured prices." },
       currency: { type: "string" },
       durationMs: { type: "number" }
     });
@@ -2146,14 +2147,14 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           inputs: {
             type: "object",
             additionalProperties: true,
-            description: "Inputs of the profile. verifier: url (viewerHomeUrl), paths (one plain-language path per user journey), checks (acceptance criteria with exact expected texts), hints (demo accounts, expected values). constructor: project, files, qnames, notes."
+            description: "Inputs of the profile. verifier: url (viewerHomeUrl), paths (one plain-language path per user journey), checks (acceptance criteria with exact expected texts), hints (demo accounts, expected values). constructor: project (required, the one project it builds in), qnames (existing objects to use), files (workspace files to read), notes (rules and values that matter)."
           },
           reportFormat: { type: "string", description: "What the report must contain, for example: one line per check with the exact text seen." },
           model: { type: "string", description: "Gateway model for this run; default the profile model." },
-          maxSteps: { type: "integer", description: "Model turns of the sub-agent; default and bounds per profile (verifier 40, 6 to 80)." },
-          timeBudgetSec: { type: "integer", description: "Time budget in seconds; default and bounds per profile (verifier 150, 30 to 540)." },
-          maxCostUsd: { type: "number", description: "Gateway cost budget in USD; default and bounds per profile (verifier 0.5)." },
-          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report; keep the default, it fits every agent host." },
+          maxSteps: { type: "integer", description: "Model turns of the sub-agent; default and bounds per profile (verifier 40, 6 to 80; constructor 120, 10 to 400)." },
+          timeBudgetSec: { type: "integer", description: "Time budget in seconds; default and bounds per profile (verifier 150, 30 to 540; constructor 900, 60 to 3600)." },
+          maxCostUsd: { type: "number", description: "Cost budget in USD; default and bounds per profile (verifier 0.5; constructor 1.5)." },
+          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report; keep the default, it fits every agent host. A constructor call waits 3 s at most: wait on your side between two calls." },
           runId: { type: "string", description: "To collect a running sub-agent: the runId of a status running answer, alone." },
           cdpEndpoint: { type: "string", description: "Verifier, only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser." }
         },

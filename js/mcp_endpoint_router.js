@@ -516,11 +516,40 @@ if (methodName === "initialize") {
       if (subagentSequence && managedConversationId.length) {
         callVariables.conversationId = managedConversationId;
       }
-      if (managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true
+      // One writer per project while a constructor sub-agent builds it: its own session only.
+      try {
+        if (typeof C8O.subagents === "undefined" || !C8O.subagents.projectsOfCall) {
+          include("js/subagents.js");
+        }
+        var writtenProjects = C8O.subagents.projectsOfCall(targetSequence, toolArgs || {});
+        if (writtenProjects.length) {
+          var subagentRunHeader = context && context.httpServletRequest
+            ? String(context.httpServletRequest.getHeader("X-Convertigo-Subagent-Run") || "") : "";
+          var lockHost = C8O.subagents.javaHost();
+          for (var wp = 0; wp < writtenProjects.length; wp++) {
+            var blocked = C8O.subagents.projectWriteBlocked(writtenProjects[wp], subagentRunHeader, lockHost);
+            if (blocked) {
+              callSequence = "mcp_error_response";
+              responseStatus = "409";
+              callVariables = {
+                status: "409",
+                code: "-32010",
+                message: blocked.message,
+                dataJson: JSON.stringify({ project: writtenProjects[wp], runId: blocked.runId }),
+                requestIdJson: requestIdJson
+              };
+              break;
+            }
+          }
+        }
+      } catch (_ignoreProjectLock) {}
+      if (callSequence === targetSequence && managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true
           && (callVariables.reveal === undefined || callVariables.reveal === null || String(callVariables.reveal).trim().length === 0)) {
         callVariables.reveal = "true";
       }
-      injectMeta(callVariables);
+      if (callSequence === targetSequence) {
+        injectMeta(callVariables);
+      }
     }
   }
 } else if (methodName === "logging/setLevel") {

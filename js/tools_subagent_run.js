@@ -33,6 +33,6 @@ C8O.subagentRun = C8O.subagentRun || {};
     if (!auth.authenticated || auth.kind === "nocode" || auth.scope !== "mcp:full") {
       throw new Error("A full Convertigo MCP bearer token is required");
     }
-    return api.run(params, C8O.browserVerify.javaHost());
+    return api.run(params, C8O.constructorRunner.extendHost(C8O.browserVerify.javaHost(), contextObject));
   };
 })(C8O.subagentRun);

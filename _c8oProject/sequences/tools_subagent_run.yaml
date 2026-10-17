@@ -4,7 +4,7 @@ comment: |
   Starts a sub-agent with a profile (verifier: browser and vision proofs, read-only; constructor: builds in the project through the Convertigo MCP), a task, its inputs and the report wanted, with its own model and limits (turns, time, gateway cost). Returns a short report and the usage of its model calls; the sub-agent's context is thrown away. A call waits up to waitSec (50 s); a longer run answers status running with a runId, and the same tool called with that runId waits again.
 responseTimeout: 300
 ↓Include [steps.SimpleStep-1792280000001]: 
-  expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js"); include("js/tools_subagent_run.js");'
+  expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js"); include("js/subagent_constructor.js"); include("js/tools_subagent_run.js");'
 ↓Run [steps.SimpleStep-1792280000002]: 
   expression: 'var subagentResult = C8O.subagentRun.execute(context, {profile: profile, task: task, inputs: inputs, reportFormat: reportFormat, model: model, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, maxCostUsd: maxCostUsd, waitSec: waitSec, runId: runId, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, conversationId: conversationId});'
 ↓result [steps.JsonToXmlStep-1792280000003]: 

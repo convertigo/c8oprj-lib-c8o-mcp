@@ -141,7 +141,7 @@ test('a verification runs the agent with the key in its environment only and ret
   assert.equal(result.trace, undefined, 'the step trace stays in report.json');
   assert.deepEqual(plain(result.usage), {
     tool: 'browser-verify', callId: 'v1', runId: RUN, profile: 'verifier', model: 'mistral/mistral-large-4', requests: 6, inputTokens: 22000,
-    cachedTokens: 0, outputTokens: 900, reasoningTokens: 0, totalTokens: 22900, cost: 0.0153, currency: 'USD', durationMs: 15000
+    cachedTokens: 0, outputTokens: 900, reasoningTokens: 0, totalTokens: 22900, cost: 0.0153, costSource: 'gateway', currency: 'USD', durationMs: 15000
   });
 });
 
