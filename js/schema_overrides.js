@@ -285,6 +285,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           default: false,
           description: "Set true to append execution logs from this call."
+        },
+        authenticatedUser: {
+          type: "string",
+          description: "Optional user to run this call as (what the login sequence passes to context.setAuthenticatedUser, for example an email), for this call only. Without it the call has no authenticated user and sequences marked authenticatedContextRequired answer Authentication required."
         }
       },
       required: ["requestable"],
