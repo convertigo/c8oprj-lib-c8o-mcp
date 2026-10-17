@@ -105,6 +105,13 @@ function treeApplyExpandShortcuts(node, path) {
     }
     treeApplyWarnings.push((path || "tree") + ": " + strayKeys.join(", ") + " moved under properties (properties go in tree.properties).");
   }
+  // A page that loads its data from scriptContent (this.c8o.callJson...) bypasses NGX events and
+  // actions: its view does not refresh by itself and the frontend guide calls it non-compliant.
+  var pageScript = node.properties && typeof node.properties === "object" && !Array.isArray(node.properties)
+    ? node.properties.scriptContent : undefined;
+  if (pageScript && /c8o\.callJson(?:Object)?\s*\(/.test(typeof pageScript === "string" ? pageScript : JSON.stringify(pageScript))) {
+    treeApplyWarnings.push((path || "tree") + ": scriptContent calls the backend directly (c8o.callJson). Load data with a page or button event and a CallSequenceAction instead, bound to the page through locals (convertigo-frontend-ngx, palette-first): a direct call runs outside Angular change detection and the view does not refresh.");
+  }
   // handlers (a transaction's JavaScript handlers) is a node key too: it is not a bean property.
   if (node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) &&
       node.properties.handlers !== undefined) {
