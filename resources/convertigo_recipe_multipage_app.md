@@ -41,7 +41,7 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 - `auth_login<...>` (Hidden, anonymous): verifies the identity, then `context.setAuthenticatedUser(<normalized email>)` and returns `{user, home}` where `home` is the page for the role.
 - `auth_getCurrentUser` (Hidden): returns the reloaded user. Either mark it `authenticatedContextRequired` (no session gives `Authentication required`) or keep it anonymous and return a business code such as `NON_AUTHENTIFIE`; the entry page handles whichever you chose.
 - `auth_logout`: clears the session.
-- Sessions expire (timeout, engine restart). A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required` (no dedicated code); the client treats it exactly like the business codes `NON_AUTHENTIFIE` or `COMPTE_INACTIF`. Test it by logging out then using a protected page.
+- Sessions expire (timeout, engine restart). A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required` (no dedicated code); the client treats it exactly like the business codes `NON_AUTHENTIFIE` or `COMPTE_INACTIF`. The SDK auto-login replays the last login first, so a server-side logout is restored silently; test with the application's logout button, then a protected page.
 - For a real identity provider, keep this layer and follow `convertigo-authentication`.
 
 ## NGX pages
