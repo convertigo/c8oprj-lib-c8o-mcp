@@ -1122,7 +1122,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 16,
+    "revision": 17,
     "scopeTags": [
       "recipe",
       "ngx",

@@ -422,11 +422,24 @@
       }
     }
 
+    // Objects a reader of the project needs explained, kept without a comment; and the starter's own page.
+    var uncommented = { sequence: [], transaction: [], connector: [], page: [] };
+    var pages = [];
     var queue = [project];
     while (queue.length) {
       var dbo = queue.shift();
       scanned++;
       var className = simpleClassName(dbo);
+      var docKind = className === "PageComponent" ? "page" : (/Connector$/.test(className) ? "connector" :
+        (/Transaction$/.test(className) ? "transaction" : (/Sequence$/.test(className) && className !== "Sequence" ? "sequence" : "")));
+      if (docKind.length) {
+        if (!str(call(dbo, "getComment")).length) {
+          uncommented[docKind].push(dbo);
+        }
+        if (docKind === "page") {
+          pages.push(dbo);
+        }
+      }
       if (className === "SqlTransaction") {
         lintSql(dbo);
       } else if (/Sequence$/.test(className) && className !== "Sequence") {
@@ -441,6 +454,15 @@
       }
     }
 
+    Object.keys(uncommented).forEach(function (kind) {
+      var missing = uncommented[kind];
+      if (missing.length) {
+        add("DOC-NO-COMMENT", "warning", missing[0], missing.length + " " + kind + (missing.length > 1 ? "s have" : " has") + " no comment: " +
+          missing.slice(0, 12).map(function (d) { return String(d.getName()); }).join(", ") + (missing.length > 12 ? "..." : "") +
+          ". The comment is what the Studio shows to whoever maintains the project.",
+          "Give each one a one-line comment saying what it does (databaseobject-tree-apply, properties.comment).");
+      }
+    });
     var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
     textReview.texts = shownOrder.length;
     textReview.i18nFiles = i18n.files;
