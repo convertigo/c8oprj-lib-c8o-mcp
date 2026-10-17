@@ -56,6 +56,7 @@
   ↓tools_facade_create [sequences.GenericSequence]: 🗏 sequences/tools_facade_create.yaml
   ↓tools_image_describe [sequences.GenericSequence]: 🗏 sequences/tools_image_describe.yaml
   ↓tools_log_view [sequences.GenericSequence]: 🗏 sequences/tools_log_view.yaml
+  ↓tools_marketplace_describe [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_describe.yaml
   ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml

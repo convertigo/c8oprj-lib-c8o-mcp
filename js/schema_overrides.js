@@ -2083,6 +2083,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_marketplace_list") {
       return marketplaceListInputSchema();
     }
+    if (seq === "tools_marketplace_describe") {
+      return {
+        type: "object",
+        properties: {
+          project: { type: "string", description: "Marketplace entry name from marketplace-list, for example lib_csv_response." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
+    }
     if (seq === "tools_marketplace_import") {
       return marketplaceImportInputSchema();
     }
