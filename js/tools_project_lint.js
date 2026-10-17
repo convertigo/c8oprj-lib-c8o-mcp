@@ -17,6 +17,9 @@
       if (typeof value.getValue === "function") {
         return String(value.getValue());
       }
+      if (typeof value.getString === "function") {
+        return String(value.getString());
+      }
     } catch (_ignoreValue) {}
     return String(value);
   }
@@ -156,7 +159,7 @@
 
     function lintNgx(dbo, className) {
       if (className === "UIText") {
-        var text = smartText(call(dbo, "getTextValue"));
+        var text = smartText(call(dbo, "getTextSmartType") || call(dbo, "getTextValue"));
         if (call(dbo, "isI18n") === true && /\s/.test(text)) {
           add("NGX-I18N-KEY", "warning", dbo, "i18n is on, so \"" + text.substring(0, 60) + "\" is a translation key: without a translation the page shows it with underscores.",
             "Set i18n to false, or add the translation.");
@@ -171,7 +174,7 @@
             "Write the text with its accents; Convertigo objects are UTF-8.");
         }
       } else if (className === "UIAttribute") {
-        if (/\bc8oPage\./.test(smartText(call(dbo, "getAttrValue")))) {
+        if (/\bc8oPage\./.test(smartText(call(dbo, "getAttrSmartType") || call(dbo, "getAttrValue")))) {
           add("NGX-C8OPAGE-TEMPLATE", "error", dbo, "c8oPage in an attribute value: the page has no c8oPage member and fails at run time.",
             "Write local?.x instead of c8oPage.local?.x.");
         }
@@ -203,8 +206,12 @@
           continue;
         }
         if (kidClass === "UIText") {
-          var raw = str(call(kids[ki], "getTextValue"));
-          var current = { name: String(kids[ki].getName()), plain: /^plain:/.test(raw) || !/^(script|source):/.test(raw), text: smartText(raw) };
+          var smart = call(kids[ki], "getTextSmartType") || call(kids[ki], "getTextValue");
+          var mode = "";
+          try {
+            mode = smart && typeof smart.getMode === "function" ? String(smart.getMode()) : "";
+          } catch (_ignoreMode) {}
+          var current = { name: String(kids[ki].getName()), plain: mode.length ? mode === "PLAIN" : true, text: smartText(smart) };
           if (previous && C8O.lint.gluedBoundary(previous, current)) {
             add("NGX-GLUED-TEXT", "warning", dbo, "UIText " + previous.name + " and " + current.name + " meet with no space or separator: they render glued on one line.",
               "Put each piece in its own element (Label and Note, Heading3 and Paragraph, classed spans), or end the label with \": \".");
