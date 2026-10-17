@@ -128,6 +128,16 @@ Minimum validation proof:
 ### A `{variable}` never shares a SQL string literal with other text
 `{variable}` becomes a bound parameter. `'{name}'` alone is the same parameter (the engine drops the quotes), but with other text in the quotes (`LIKE '{name}%'`) it is not a parameter for the driver while still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
 
+### A list filter (`IN`) takes one comma-separated string
+A variable is always bound as one value. A multivalued variable is never expanded into a list: `IN ({ids})` receives the single string `[56, 57]`, which matches nothing, or fails with "invalid character value for cast" on a numeric column. Pass the list as one comma-separated string (`"56,57"`, built in the sequence with `ids.join(",")`) and test membership with `POSITION`, which stays a bound parameter:
+
+```sql
+SELECT id AS "id" FROM poste_pca
+WHERE ({ids} = '' OR POSITION(',' || CAST(id AS VARCHAR(20)) || ',' IN ',' || {ids} || ',') > 0)
+```
+
+Checked on HSQLDB: `"56,57"` returns those two rows, an absent variable returns every row. Do not reach for `{{ids}}` (raw text substitution, an injection point) or one transaction per element.
+
 ### An absent variable is an empty string, never NULL
 A `SqlTransaction` replaces a variable that has no value (not sent, or sent as null) with an empty string before binding it. A `{variable} IS NULL` test is therefore never true, and an optional filter written that way returns no row when the filter is omitted.
 

@@ -866,6 +866,29 @@ include("js/crud_ui_refresh.js");
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
         "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: col LIKE {x} || '%'.");
     }
+    // A variable is always bound as one value: a multivalued one in IN ({x}) is never expanded to a list.
+    var inMatch = /\bIN\s*\(\s*\{([A-Za-z_][\w]*)\}\s*\)/i.exec(query);
+    if (inMatch && isMultiValuedVariable(dbo, node, inMatch[1])) {
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery uses IN ({" + inMatch[1] + "}) with a multivalued variable; " +
+        "the engine binds it as one value (\"[a, b]\"), never as a list, so the filter matches nothing or fails on a cast. " +
+        "Pass the list as one comma-separated string and test POSITION(',' || CAST(col AS VARCHAR(20)) || ',' IN ',' || {" +
+        inMatch[1] + "} || ',') > 0 (see convertigo_integration_sql).");
+    }
+  }
+
+  function isMultiValuedVariable(dbo, node, name) {
+    var children = node && Array.isArray(node.children) ? node.children : [];
+    for (var ci = 0; ci < children.length; ci++) {
+      if (children[ci] && children[ci].name === name && /MultiValued/.test(String(children[ci].className || ""))) {
+        return true;
+      }
+    }
+    try {
+      var variable = dbo && dbo.getVariable ? dbo.getVariable(name) : null;
+      return variable != null && /MultiValued/.test(String(variable.getClass().getName()));
+    } catch (_ignoreVariable) {
+      return false;
+    }
   }
 
   // A SqlTransaction declares its {variable} parameters only when its queries are parsed, which
