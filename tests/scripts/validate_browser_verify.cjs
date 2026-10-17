@@ -537,3 +537,21 @@ test('scroll: the app own scroll container, as Ionic pages scroll inside ion-con
     await browser.close();
   }
 });
+
+test('the gateway client waits on HTTP 429 as Retry-After asks, then succeeds', async () => {
+  const answers = [
+    { status: 429, headers: { 'retry-after': '0.05' }, body: '{"error":{"message":"Rate limit exceeded"}}' },
+    { status: 200, headers: {}, body: JSON.stringify({ model: 'm', choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) }
+  ];
+  const waits = [];
+  let calls = 0;
+  const fakeFetch = async () => {
+    const a = answers[Math.min(calls++, answers.length - 1)];
+    return { status: a.status, text: async () => a.body, headers: { get: (n) => a.headers[String(n).toLowerCase()] || null } };
+  };
+  const gateway = agent.createGateway({ gatewayUrl: 'https://gw/v1', model: 'm', onWait: (status, ms) => waits.push([status, ms]) }, 'sk-test', fakeFetch);
+  const body = await gateway.complete([{ role: 'user', content: 'hi' }], {});
+  assert.equal(calls, 2);
+  assert.deepEqual(waits, [[429, 50]]);
+  assert.ok(body);
+});

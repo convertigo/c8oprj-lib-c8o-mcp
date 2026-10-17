@@ -303,7 +303,10 @@ function createGateway(config, key, fetchImpl) {
 
   async function post(request) {
     var lastError = null;
-    for (var attempt = 0; attempt < 3; attempt++) {
+    // The gateway limits requests per minute and per key, a key the main agent shares: on HTTP 429 wait as long as it
+    // asks (Retry-After), else longer each time, up to 75 s of waiting in all, instead of failing the verification.
+    var waitedMs = 0;
+    for (var attempt = 0; attempt < 6; attempt++) {
       var started = Date.now();
       var response;
       try {
@@ -326,7 +329,19 @@ function createGateway(config, key, fetchImpl) {
       }
       if (response.status === 429 || response.status >= 500) {
         lastError = new Error("The LLM gateway answered HTTP " + response.status + ": " + redact(text.substring(0, 300), key));
-        await sleep(2000 * (attempt + 1));
+        var retryAfter = Number(response.headers && response.headers.get ? response.headers.get("retry-after") : NaN);
+        var wait = response.status === 429
+          ? (isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : Math.min(30000, 5000 * Math.pow(2, attempt)))
+          : 2000 * (attempt + 1);
+        wait = Math.min(wait, 30000, Math.max(0, 75000 - waitedMs));
+        if (wait <= 0) {
+          break;
+        }
+        waitedMs += wait;
+        if (typeof config.onWait === "function") {
+          config.onWait(response.status, wait);
+        }
+        await sleep(wait);
         continue;
       }
       if (response.status < 200 || response.status >= 300) {
