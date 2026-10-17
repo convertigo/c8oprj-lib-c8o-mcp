@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Create SQL transactions with the SQL guide rules built in
-  Creates one or several SqlTransaction objects from SQL text or a structured select/insert/update/delete spec, declares their variables and checks the rules of the SQL guide (quoted camelCase aliases, optional filters, list filters with POSITION, date units). All or nothing.
+  Creates one or several SqlTransaction objects from SQL text or a structured select/insert/update/delete spec, declares their variables and checks the rules of the SQL guide (quoted camelCase aliases, optional filters, list filters and date units, in the SQL of the connector's database). All or nothing.
 ↓Include [steps.SimpleStep-1792270100001]: 
   expression: include("js/tools_generators.js");
 ↓Run [steps.SimpleStep-1792270100002]: 
