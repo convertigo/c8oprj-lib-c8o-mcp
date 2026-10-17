@@ -5,7 +5,7 @@
     "title": "Convertigo MCP Quickstart",
     "description": "Bootstrap guide selection and route standard SQL CRUD + starter NGX work to the fast path.",
     "promptId": "convertigo/quickstart",
-    "revision": 6,
+    "revision": 7,
     "roleId": "bootstrap",
     "modelProfile": "balanced",
     "scopeTags": [

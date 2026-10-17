@@ -126,7 +126,7 @@ def run_case(
             "Harness: Mistral Vibe CLI",
             "`~/.vibe/skills/convertigo-vibe-generalist/SKILL.md`",
             "`Convertigo_requestable-execute`",
-            "The Convertigo MCP transport is serial in Vibe",
+            "Vibe runs the tool calls of one message concurrently",
             "MCP arguments are structured values",
             "Skill guidance version:",
             "MCP guidance version",
