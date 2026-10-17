@@ -6,7 +6,7 @@ responseTimeout: 300
 ↓Include [steps.SimpleStep-1792270000001]: 
   expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js");'
 ↓Run [steps.SimpleStep-1792270000002]: 
-  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId, conversationId: conversationId});'
+  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, viewport: viewport, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId, conversationId: conversationId});'
 ↓result [steps.JsonToXmlStep-1792270000003]: 
   jsonObject: 
     - xmlizable: 
@@ -35,6 +35,10 @@ responseTimeout: 300
 ↓hints [variables.RequestableVariable-1792270000007]: 
   comment: 'Optional facts the sub-agent needs: demo accounts, expected values, what changed.'
   description: 'Optional facts the sub-agent needs: demo accounts, expected values, what changed.'
+  value: ''
+↓viewport [variables.RequestableVariable-1792282000001]: 
+  comment: 'Window of the verification: desktop (default, 1280x800), mobile (390x844) or <width>x<height>.'
+  description: 'Window of the verification: desktop (default, 1280x800), mobile (390x844) or <width>x<height>.'
   value: ''
 ↓model [variables.RequestableVariable-1792270000008]: 
   comment: 'Vision model of the gateway; default mistral/mistral-large-4.'
