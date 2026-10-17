@@ -110,6 +110,10 @@ comment: |
           }
         } catch (_ignoredCandidate) {}
       }
+      // An unknown target used to fall back to the whole palette (370 entries, mostly UI components).
+      if (parentDbo == null) {
+        throw new Error("target: Database object not found: " + targetRaw + ". Create it first, or call palette-list without target to list every entry.");
+      }
     }
     
     var parentQNameValue = parentDbo != null ? String(parentDbo.getQName()) : "";
