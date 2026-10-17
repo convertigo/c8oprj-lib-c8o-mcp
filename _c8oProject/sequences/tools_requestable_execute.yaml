@@ -168,6 +168,12 @@ comment: |
         out.error = source.error;
         return out;
       }
+      // Guide and prompt reads are how harnesses without native MCP resources (Vibe) read the method:
+      // return them whole, a cut guide silently loses its later rules.
+      if (/^lib_ConvertigoMCP\.mcp_(resources_read|prompts_call)$/.test(String(out.requestable))) {
+        out.payload = source;
+        return out;
+      }
       var payloadCopy = _shallowCopy(source);
       var keys = Object.keys(payloadCopy);
       for (var k = 0; k < keys.length; k++) {
