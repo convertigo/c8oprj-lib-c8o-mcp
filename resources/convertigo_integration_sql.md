@@ -128,6 +128,9 @@ Minimum validation proof:
 ### A `{variable}` never shares a SQL string literal with other text
 `{variable}` becomes a bound parameter. `'{name}'` alone is the same parameter (the engine drops the quotes), but with other text in the quotes (`LIKE '{name}%'`) it is not a parameter for the driver while still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
 
+### Date arithmetic needs a unit on HSQLDB
+`CURRENT_DATE - 120` is refused with "incompatible data types in combination": HSQLDB does not subtract a bare number from a date. Give the unit, `CURRENT_DATE - 120 DAY` (also `MONTH`, `YEAR`, and `CURRENT_TIMESTAMP - 2 HOUR`), or use `DATEADD('day', -120, CURRENT_DATE)`. Both forms checked on HSQLDB, in a `SELECT` and in a `VALUES` row. The error names the cause right after "on connection," in `details`, before the statement text.
+
 ### A list filter (`IN`) takes one comma-separated string
 A variable is always bound as one value. A multivalued variable is never expanded into a list: `IN ({ids})` receives the single string `[56, 57]`, which matches nothing, or fails with "invalid character value for cast" on a numeric column. Pass the list as one comma-separated string (`"56,57"`, built in the sequence with `ids.join(",")`) and test membership with `POSITION`, which stays a bound parameter:
 
