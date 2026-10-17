@@ -749,8 +749,15 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       if (typeof payload.error === "string") {
         return payload.error;
       }
+      // A script error in the callee arrives as the engine's generic "An exception occured while
+      // executing step"; the real message is in details.
+      var details = payload.error.details ? String(payload.error.details) : "";
+      var scriptError = /A Javascript error has occured: (?:Error: )?([\s\S]*?)(?: \([^()]*#\d+\))?\s*$/.exec(details);
+      if (scriptError && scriptError[1]) {
+        return scriptError[1].trim();
+      }
       if (payload.error.message) {
-        return String(payload.error.message);
+        return String(payload.error.message) + (details.length ? ": " + details.split("\n")[0] : "");
       }
       return safeString(payload.error);
     }
