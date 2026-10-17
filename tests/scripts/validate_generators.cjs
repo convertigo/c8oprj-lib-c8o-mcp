@@ -418,6 +418,8 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   assert.equal(out.style, 'AppLayout created');
   assert.deepEqual(plain(out.created), ['App.Application.NgxApp.AppLayout', 'App.Application.NgxApp.Postes']);
   assert.match(out.warnings.join(' '), /onItem\.page Detail is not a page of App yet/);
+  assert.match(out.warnings[0], /^English default texts were used for .*list\.empty "No record\."/);
+  assert.match(out.warnings[0], /filterLabel "Filter"/);
   const page = creates(world, 'ngx.components.PageComponent#PageComponent')[0];
   const values = templateValues(page, []);
   assert.deepEqual(plain(values.filter(v => !v.action && /c8oPage/.test(v.text))), [], 'templates never use c8oPage');
@@ -465,6 +467,8 @@ test('a form page wires its submit chain with Form SmartSources on the created U
       { name: 'dateEffective', type: 'date', required: true, value: 'local?.today' }, { name: 'commentaire', type: 'textarea', maxLength: 1000 }],
       vars: { source: "'RPCA'" }, success: { message: 'Saved', page: 'Postes', kind: 'root' } } });
   assert.deepEqual(plain(out.calls), ['App.poste_list at page enter', 'App.declaration_declare on submit (declarationForm)']);
+  assert.match(out.warnings[0], /form\.submitLabel "Save", form\.cancelLabel "Cancel"|form\.cancelLabel "Cancel", form\.submitLabel "Save"/);
+  assert.doesNotMatch(out.warnings[0], /success\.message/, 'a given text is not reported');
   const form = find(world.project, 'App.Application.NgxApp.DeclarationForm.Content.Form');
   assert.equal(form.props.identifier, 'declarationForm');
   const submit = world.ops.filter(op => op.type === 'create' && op.name === 'EventonSubmit')[0];

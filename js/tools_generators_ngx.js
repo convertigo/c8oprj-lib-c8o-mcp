@@ -184,6 +184,16 @@ include("js/tools_generators.js");
     var projectName = String(projectDbo.getName());
     var errors = [];
     var warnings = [];
+    // A text the spec leaves out gets an English default: an app in another language must give it.
+    var defaulted = [];
+    var textOr = function (value, fallback, field) {
+      var given = str(value);
+      if (given.length) {
+        return given;
+      }
+      defaulted.push(field + " \"" + fallback + "\"");
+      return fallback;
+    };
     var spec = parseJson(args.spec, "spec", "object") || {};
     ["name", "title", "kind", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "actions", "heading",
       "authCodes", "segment", "icon", "filterLabel", "locals"].forEach(function (k) {
@@ -372,7 +382,7 @@ include("js/tools_generators.js");
         rowChildren.push(controlEvent("EventonClick", "onClick", [navAction("Open", spec2.onItem, item)]));
       }
       classesUsed[".app-empty"] = 1;
-      var empty = str(spec2.empty || "No record.");
+      var empty = textOr(spec2.empty, "No record.", label + ".empty");
       return [
         ifDirective(prefix + "IfEmpty", "!local?.loading && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])]),
         nx("List", prefix + "List", {}, [forEach(prefix + "ForEach", itemsPath, item, [nx("ListItem", "Row", itemProps, rowChildren)])])
@@ -448,7 +458,7 @@ include("js/tools_generators.js");
       }
       if (filterNodes.length) {
         classesUsed[".app-filters"] = classesUsed[".app-filter"] = 1;
-        filterNodes.push(nx("Button", "BtnFilter", {}, [txt(str(spec.filterLabel) || "Filter"),
+        filterNodes.push(nx("Button", "BtnFilter", {}, [txt(textOr(spec.filterLabel, "Filter", "filterLabel")),
           controlEvent("EventonClick", "onClick", [dataCall("Reload", 0)])]));
         content.push(nx("DivTag", "Filters", {}, [cls("app-filters")].concat(filterNodes)));
       }
@@ -585,10 +595,10 @@ include("js/tools_generators.js");
         }).filter(function (x) { return x; });
         var formChildren = fieldsNodes.map(function (x) { return x.node; });
         if (form.cancel !== false) {
-          formChildren.push(nx("Button", "BtnCancel", { IonFill: { mode: "PLAIN", value: "outline" } }, [txt(str(form.cancelLabel) || "Cancel"),
+          formChildren.push(nx("Button", "BtnCancel", { IonFill: { mode: "PLAIN", value: "outline" } }, [txt(textOr(form.cancelLabel, "Cancel", "form.cancelLabel")),
             controlEvent("EventonClick", "onClick", [navAction("Back", isObj(form.cancel) ? form.cancel : { kind: "pop" })])]));
         }
-        formChildren.push(nx("SubmitButton", "BtnSubmit", { IonColor: { mode: "PLAIN", value: "primary" } }, [txt(str(form.submitLabel) || "Save")]));
+        formChildren.push(nx("SubmitButton", "BtnSubmit", { IonColor: { mode: "PLAIN", value: "primary" } }, [txt(textOr(form.submitLabel, "Save", "form.submitLabel"))]));
         content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         content.push({ className: "ngx.components.UIForm#UIForm", name: "Form", properties: { identifier: identifier }, children: formChildren });
         var success = isObj(form.success) ? form.success : {};
@@ -687,7 +697,7 @@ include("js/tools_generators.js");
         return callVariable(v, { mode: "SOURCE", value: JSON.stringify({ filter: "Form", project: projectName, input: "", model: {
           data: [{ priority: priority, identifier: formPlan.identifier }], path: "?.controls?.['" + v + "']?.value", prefix: "", suffix: "", custom: "", useCustom: false } }) });
       });
-      var ok = [nxAction("ToastAction", "ToastOk", { message: { mode: "SCRIPT", value: jsString(str(formPlan.success.message) || "Saved.") },
+      var ok = [nxAction("ToastAction", "ToastOk", { message: { mode: "SCRIPT", value: jsString(textOr(formPlan.success.message, "Saved.", "form.success.message")) },
         IonColor: { mode: "PLAIN", value: "success" }, duration: { mode: "PLAIN", value: "3000" } })];
       if (str(formPlan.success.page).length) {
         ok.push(navAction("Next", { page: formPlan.success.page, kind: formPlan.success.kind || "root", data: formPlan.success.data }));
@@ -729,7 +739,9 @@ include("js/tools_generators.js");
         .concat(formPlan ? [projectName + "." + formPlan.submit + " on submit (" + formPlan.identifier + ")"] : []),
       saved: finish.saved,
       mobileBuilder: finish.mobileBuilder,
-      warnings: warnings.concat(session.warnings),
+      warnings: (defaulted.length ? ["English default texts were used for " + defaulted.join(", ") +
+        ": if the app is in another language, change those texts on the page, or delete it and create it again with these fields in that language."] : [])
+        .concat(warnings, session.warnings),
       next: "mobile-builder-open({project:\"" + projectName + "\", stateOnly:true}) to wait for the build, then open /" + segment + " in the viewer and check it with a screenshot."
     };
   };
