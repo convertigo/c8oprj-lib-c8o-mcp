@@ -1217,7 +1217,12 @@ C8O.dbo._buildSmartType = function (spec) {
 
 // "Unknown property", plus the real names that contain the requested one or that it contains
 // (defaultValue -> value), so the caller can fix its payload in one try.
-C8O.dbo._unknownPropertyReason = function (requestedLookup, descriptorMap) {
+C8O.dbo._unknownPropertyReason = function (requestedLookup, descriptorMap, dynamicContext) {
+  // An NGX element shows its text through a child, not a property (ion-select-option, ion-toggle, ion-button).
+  if (dynamicContext && ["text", "label", "content", "innertext", "caption"].indexOf(requestedLookup) !== -1) {
+    return "Unknown property: the visible text of an NGX element is a child {className: \"ngx.components.UIText\", " +
+      "properties: {textValue: \"...\"}}";
+  }
   var close = [];
   var names = Object.keys(descriptorMap || {});
   for (var i = 0; i < names.length && close.length < 3; i++) {
@@ -1318,7 +1323,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
     }
 
     if (!pd) {
-      skipped.push({ name: requestedName, reason: C8O.dbo._unknownPropertyReason(requestedLookup, descriptorMap) });
+      skipped.push({ name: requestedName, reason: C8O.dbo._unknownPropertyReason(requestedLookup, descriptorMap, dynamicContext) });
       continue;
     }
 
