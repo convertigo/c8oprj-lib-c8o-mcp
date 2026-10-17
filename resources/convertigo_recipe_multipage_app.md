@@ -41,7 +41,7 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 - `auth_login<...>` (Hidden, anonymous): verifies the identity, then `context.setAuthenticatedUser(<normalized email>)` and returns `{user, home}` where `home` is the page for the role.
 - `auth_getCurrentUser` (Hidden): returns the reloaded user. Either mark it `authenticatedContextRequired` (no session gives `Authentication required`) or keep it anonymous and return a business code such as `NON_AUTHENTIFIE`; the entry page handles whichever you chose.
 - `auth_logout`: clears the session.
-- A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required`; the client treats it like the business codes `NON_AUTHENTIFIE` or `COMPTE_INACTIF`.
+- Sessions expire (timeout, engine restart). A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required` (no dedicated code); the client treats it exactly like the business codes `NON_AUTHENTIFIE` or `COMPTE_INACTIF`. Test it by logging out then using a protected page.
 - For a real identity provider, keep this layer and follow `convertigo-authentication`.
 
 ## NGX pages
@@ -50,6 +50,7 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 - Protected page: page-enter event with `setLocals` for every local it reads -> `CallSequenceAction` of its data facade -> child `SetLocalAction` storing `out` -> under it an `IfAction` on the auth error codes -> `RootPageAction` back to the entry page, and the state updates for the success path. Widgets read the locals with the `local` short form.
 - Lists open details with `PushPageAction` `data` holding ids only; the target page copies `c8oPage.navParams?.data?.id` into a local at page enter and calls its facade.
 - Session-wide values (current user, role, flash message) go in global state with `SetGlobalAction`, read with the `global` short form; it is lost on a browser reload, so the entry page restores it.
+- Add one application-level `UIAppEvent` with `appEvent` `onSessionLost`: it clears the session globals and `RootPageAction` to the entry page when the SDK detects a lost session. Keep the per-page check on the auth error codes: the failing call still returns its error to its page.
 - Every form follows the Forms section of `convertigo-frontend-ngx`; a `Select` and its options share one value type.
 
 ## Order of work

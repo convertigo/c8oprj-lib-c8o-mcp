@@ -830,7 +830,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_authentication.md",
     "guideId": "convertigo/authentication",
-    "revision": 5,
+    "revision": 6,
     "scopeTags": [
       "domain",
       "auth",
@@ -1113,7 +1113,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "recipe",
       "ngx",
