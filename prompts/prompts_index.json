@@ -100,7 +100,7 @@
     "title": "Convertigo Vibe Quickstart",
     "description": "Bootstrap Mistral Vibe for isolated Convertigo MCP work.",
     "promptId": "convertigo/vibe-quickstart",
-    "revision": 4,
+    "revision": 5,
     "roleId": "vibe-bootstrap",
     "modelProfile": "balanced",
     "scopeTags": [

@@ -14,6 +14,7 @@ Then read the smallest matching shared recipe before mutation:
 - new starter app: `convertigo://resources/convertigo-recipe-starter-extension`
 - HTTP web-service backend facade: `convertigo://resources/convertigo-recipe-http-facade`
 - data-backed NGX page: `convertigo://resources/convertigo-recipe-ngx-data-page`
+- new application from a specification (several pages, roles or a session, SQL): `convertigo://resources/convertigo-recipe-multipage-app`
 - standard SQL CRUD + starter NGX UI: `convertigo://resources/convertigo-crud-fastpath`
 - existing deterministic CRUD edit: `convertigo://resources/convertigo-crud-edit-fastpath`
 - final review or evidence: `convertigo://resources/convertigo-validation-and-evidence`
@@ -45,7 +46,7 @@ Then read the smallest matching shared recipe before mutation:
 - For a fresh NGX starter app, import `template_ngxBuilderIonic` with the exact requested project name after reading the starter recipe.
 - For any app that consumes an HTTP web service, read `convertigo-recipe-http-facade` before creating the connector, transaction, or facade sequence. Open data APIs are only one example of this HTTP-backed rail.
 - Mutate the visible entry page first; do not leave the starter home dominant while creating only a secondary page.
-- Prefer direct `Convertigo_databaseobject-tree-apply` calls for the first UI event/action chain. If `Convertigo_batch-call` is used later, nested `calls[].tool` values are unprefixed MCP ids such as `databaseobject-tree-apply`, not Vibe tool names such as `Convertigo_databaseobject-tree-apply`.
+- Keep one `Convertigo_*` call per message and apply the common skill's Tool economy rules to put more work in each call. Prefer direct `Convertigo_databaseobject-tree-apply` calls for the first UI event/action chain. If `Convertigo_batch-call` is used later, nested `calls[].tool` values are unprefixed MCP ids such as `databaseobject-tree-apply`, not Vibe tool names such as `Convertigo_databaseobject-tree-apply`.
 
 ## Output format
 Return these sections in order:
