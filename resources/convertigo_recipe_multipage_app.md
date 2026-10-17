@@ -54,6 +54,7 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 - For a real identity provider, keep this layer and follow `convertigo-authentication`.
 
 ## NGX pages
+Every page below is built from events and actions: no page loads data from `scriptContent` (`this.c8o.callJson`), which bypasses Angular change detection and leaves the view stale.
 - Entry page (`isRoot`): page-enter event -> `CallSequenceAction` `auth_getCurrentUser` with `noAutoLogin` and `noLoading` -> one `IfAction` per role on `out?.success && out?.data?.user?.role == '<ROLE>'` -> `RootPageAction` to that role's home page. Otherwise it shows the login form or buttons.
 - Login: `CallSequenceAction` login with `noAutoLogin` -> child `IfAction` on `out?.success` -> `RootPageAction` home; its Failure handler sets a network error local.
 - Protected page: page-enter event with `setLocals` for every local it reads -> `CallSequenceAction` of its data facade -> child `SetLocalAction` storing `out` -> under it an `IfAction` on the auth error codes -> `RootPageAction` back to the entry page, and the state updates for the success path. Widgets read the locals with the `local` short form.

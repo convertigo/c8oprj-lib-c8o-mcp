@@ -70,6 +70,7 @@ A build of several lots outlives the conversation context: the harness compacts 
 
 ## NGX authoring invariants
 
+- Pages load and send data through NGX events and actions (`CallSequenceAction` under a page or control event, results in locals bound with the `local` short form), never from `scriptContent` with `this.c8o.callJson`: a direct call runs outside Angular change detection, the view does not refresh, and `databaseobject-tree-apply` warns about it.
 - Use the exact SmartType shape reported by the live palette or a successful readback. Do not invent aliases such as `JS`, `SCRIPT`, `PLAIN`, `expression`, or `value` interchangeably.
 - Before changing a page `scriptContent`, read it with `properties:"all"`, preserve the complete existing string and every `Begin_c8o_...` / `End_c8o_...` section, and edit only the intended section. `mode:"merge"` replaces the whole string property; it does not merge script sections.
 - Do not declare framework lifecycle methods such as `ngOnDestroy` in page `scriptContent` unless the live Convertigo contract explicitly provides that extension point. Use a supported page event for cleanup instead of guessing a generated method name.
