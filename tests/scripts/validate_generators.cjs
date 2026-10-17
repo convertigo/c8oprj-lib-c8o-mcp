@@ -609,6 +609,57 @@ test('facade-create refuses calls it cannot reach or check', () => {
   assert.equal(creates(world).length, 0, 'nothing created');
 });
 
+test('facade-create opens and ends the session for login and logout facades', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.facadeCreate({ project: 'App', name: 'auth_login', logic: 'App.posteList', auth: false, inputs: ['email', 'password'],
+    reads: [{ name: 'user', transaction: 'q_user_by_email' }], writes: [{ name: 'journal', transaction: 'w_journal_insert' }],
+    session: { login: 'resp.data.email' } });
+  assert.match(out.contract.session, /opens the session with resp\.data\.email/);
+  const seq = creates(world, 'sequences.GenericSequence')[0];
+  assert.deepEqual(plain(seq.children.map(c => c.name)), ['init', 'ifAllowed', 'guard', 'logic', 'ifWrite_journal', 'ifLogin',
+    'outSuccess', 'outData', 'outErrors', 'outMeta', 'email', 'password'], 'login after the writes, before the outputs');
+  const byName = stepsByName(seq);
+  assert.equal(byName.ifLogin.properties.condition, 'resp && resp.success === true');
+  assert.doesNotThrow(() => new Function(byName.login.properties.expression));
+  const login = (resp) => {
+    const scope = { resp, facadeInput: { email: 'a@b' }, authenticated: [], context: { setAuthenticatedUser(u) { scope.authenticated.push(u); } } };
+    vm.createContext(scope);
+    vm.runInContext(byName.login.properties.expression, scope);
+    return scope;
+  };
+  let s = login({ success: true, data: { email: 'a@b', home: 'Home' } });
+  assert.deepEqual(plain(s.authenticated), ['a@b']);
+  s = login({ success: true, data: {} });
+  assert.deepEqual(plain(s.authenticated), [], 'no user id, no session');
+  assert.equal(s.resp.errors[0].code, 'LOGIC_FAILED');
+  assert.match(s.resp.errors[0].message, /session\.login gave no user id/);
+
+  const off = makeWorld();
+  load(off).facadeCreate({ project: 'App', name: 'auth_signOut', logic: 'App.posteList', auth: false, session: { logout: true } });
+  const logoutSeq = creates(off, 'sequences.GenericSequence')[0];
+  assert.deepEqual(plain(logoutSeq.children.map(c => c.name)), ['init', 'logic', 'outSuccess', 'outData', 'outErrors', 'outMeta', 'ifLogout'],
+    'nothing runs after RemoveSessionStep: it comes last');
+  const ifLogout = logoutSeq.children.find(c => c.name === 'ifLogout');
+  assert.deepEqual(plain(ifLogout.children.map(c => [c.className, c.name])), [['steps.SimpleStep', 'logout'], ['steps.RemoveSessionStep', 'endSession']]);
+  assert.equal(ifLogout.children[0].properties.expression, 'context.removeAuthenticatedUser();');
+
+  const plainFacade = makeWorld();
+  load(plainFacade).facadeCreate(facadeSpec());
+  assert.ok(!creates(plainFacade, 'sequences.GenericSequence')[0].children.some(c => /^if(Login|Logout)$/.test(c.name)), 'no session step by default');
+
+  const bad = makeWorld();
+  const G3 = load(bad);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l1', logic: 'App.posteList', session: { login: 'resp.data.email' } }),
+    /session\.login opens the session, so the facade must be callable without one: add auth:false/);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l2', logic: 'App.posteList', auth: false, session: { login: 'resp.data.', logout: false } }),
+    /session\.login must be a JavaScript expression/);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l3', logic: 'App.posteList', auth: false, session: { login: 'x', logout: true } }),
+    /session must be \{login/);
+  assert.throws(() => G3.facadeCreate({ project: 'App', name: 'l4', logic: 'App.posteList', auth: false, session: {} }), /session must be \{login/);
+  assert.equal(creates(bad).length, 0);
+});
+
 // --- page --------------------------------------------------------------------------------------
 
 function templateValues(node, out, inAction) {
