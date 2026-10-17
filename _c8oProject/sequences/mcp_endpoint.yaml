@@ -23,7 +23,10 @@ responseTimeout: 300
       if (TOOL_CALL_INTERRUPTED.test(probe)) {
         return JSON.stringify({ code: "server_call_interrupted", message: "The MCP call was interrupted on the server because its HTTP session ended during execution. Retry the same call once with identical arguments before trying anything else.", details: err.message || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
       }
-      return JSON.stringify({ code: err.code || "", message: err.message || "Tool call failed", details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
+      // A tool script error arrives wrapped in the generic engine message; lift the message of the script.
+      var scriptError = /A Javascript error has occured: (?:Error: )?([\s\S]*?)(?: \([^()]*#\d+\))?\s*$/.exec(String(err.details || ""));
+      var message = scriptError && scriptError[1] ? scriptError[1].trim() : (err.message || "Tool call failed");
+      return JSON.stringify({ code: err.code || "", message: message, details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
     }
     
     const Engine = Packages.com.twinsoft.convertigo.engine.Engine;
