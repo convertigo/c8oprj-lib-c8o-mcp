@@ -254,7 +254,32 @@ C8O.dbo._resolveNgxRefreshContext = function (dbo) {
   return context;
 };
 
-C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
+// Page, shared component or application that owns an NGX object, found by walking the parents
+// (class names compared as strings, so it does not depend on Class.forName visibility).
+C8O.dbo._ngxMainComponentOf = function (dbo) {
+  var current = dbo;
+  for (var guard = 0; current && guard < 200; guard++) {
+    var className = "";
+    try {
+      className = String(current.getClass().getName());
+    } catch (_ignoreClassName) {
+      className = "";
+    }
+    if (/\.ngx\.components\.(PageComponent|UISharedComponent|ApplicationComponent)$/.test(className)) {
+      return current;
+    }
+    try {
+      current = current.getParent ? current.getParent() : null;
+    } catch (_ignoreParent) {
+      current = null;
+    }
+  }
+  return null;
+};
+
+// additionalDbos: other objects touched in the same batch. Each distinct page, shared component or
+// application among them is regenerated in the same batch build, not only the one of dbo.
+C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors, additionalDbos) {
   var result = {
     requested: false,
     studioMode: false,
@@ -325,9 +350,60 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors) {
     var refreshed = false;
     var mainComponent = context ? context.mainScriptComponent : null;
     var application = context ? context.application : null;
-    if (mainComponent != null && typeof mainComponent.updateSourceFiles === "function") {
-      mainComponent.updateSourceFiles();
-      refreshStrategies.push("mainScriptComponent.updateSourceFiles");
+    var updatedMains = {};
+    var componentKey = function (component) {
+      try {
+        return String(component.getQName());
+      } catch (_ignoreQName) {
+        return String(component.hashCode());
+      }
+    };
+    var applicationKey = application != null ? componentKey(application) : "";
+    // Pages and shared components have no updateSourceFiles: regenerate them through the builder,
+    // after resetting their computed-content cache. The application is regenerated below.
+    var updateMain = function (component) {
+      if (component == null) {
+        return false;
+      }
+      var key = componentKey(component);
+      if (key === applicationKey || updatedMains[key]) {
+        return false;
+      }
+      var componentClass = "";
+      try {
+        componentClass = String(component.getClass().getName());
+      } catch (_ignoreComponentClass) {}
+      if (/\.PageComponent$/.test(componentClass)) {
+        C8O.dbo._resetIfNeeded(component, result.resetQNames);
+        mb.pageTemplateChanged(component);
+        mb.pageTsChanged(component, false);
+        mb.pageStyleChanged(component);
+      } else if (/\.UISharedComponent$/.test(componentClass)) {
+        C8O.dbo._resetIfNeeded(component, result.resetQNames);
+        mb.compTemplateChanged(component);
+        mb.compTsChanged(component, false);
+        mb.compStyleChanged(component);
+      } else if (typeof component.updateSourceFiles === "function") {
+        component.updateSourceFiles();
+      } else {
+        return false;
+      }
+      updatedMains[key] = true;
+      return true;
+    };
+    if (updateMain(mainComponent || C8O.dbo._ngxMainComponentOf(dbo))) {
+      refreshStrategies.push("mainScriptComponent");
+      refreshed = true;
+    }
+    var extraCount = 0;
+    var extras = additionalDbos && additionalDbos.length ? additionalDbos : [];
+    for (var ei = 0; ei < extras.length; ei++) {
+      if (updateMain(C8O.dbo._ngxMainComponentOf(extras[ei]))) {
+        extraCount++;
+      }
+    }
+    if (extraCount > 0) {
+      refreshStrategies.push(extraCount + " more page(s)/component(s)");
       refreshed = true;
     }
     if (application != null
@@ -446,6 +522,7 @@ C8O.dbo.finalizeMutationsByQNames = function (options) {
   var touchedQNameSet = {};
   var projectMap = {};
   var projectAnchorMap = {};
+  var projectDboMap = {};
 
   function addTouchedQName(value) {
     var text = C8O.util.toTrimmedString(value);
@@ -490,6 +567,7 @@ C8O.dbo.finalizeMutationsByQNames = function (options) {
             if (!projectAnchorMap[projectName]) {
               projectAnchorMap[projectName] = dbo;
             }
+            (projectDboMap[projectName] = projectDboMap[projectName] || []).push(dbo);
           }
         }
       } catch (_ignoreResolvedProject) {}
@@ -514,7 +592,7 @@ C8O.dbo.finalizeMutationsByQNames = function (options) {
       if (!anchor) {
         continue;
       }
-      var refreshInfo = C8O.dbo.triggerMobileBuilderRefresh(anchor, errors);
+      var refreshInfo = C8O.dbo.triggerMobileBuilderRefresh(anchor, errors, projectDboMap[anchorProjectName] || []);
       mobileBuilderResults.push({
         project: anchorProjectName,
         requested: refreshInfo && refreshInfo.requested === true,

@@ -436,6 +436,10 @@ include("js/crud_ui_refresh.js");
     if (anchorDbo && !ctx.projectAnchorMap[name]) {
       ctx.projectAnchorMap[name] = anchorDbo;
     }
+    if (anchorDbo) {
+      ctx.projectDboMap = ctx.projectDboMap || {};
+      (ctx.projectDboMap[name] = ctx.projectDboMap[name] || []).push(anchorDbo);
+    }
   }
 
   function markDirty(ctx, dbo) {
@@ -1171,7 +1175,7 @@ include("js/crud_ui_refresh.js");
       if (!anchor) {
         continue;
       }
-      var refreshInfo = C8O.dbo.triggerMobileBuilderRefresh(anchor, globalErrors);
+      var refreshInfo = C8O.dbo.triggerMobileBuilderRefresh(anchor, globalErrors, (ctx.projectDboMap || {})[projectName] || []);
       refreshResults.push({
         project: projectName,
         requested: refreshInfo && refreshInfo.requested === true,
