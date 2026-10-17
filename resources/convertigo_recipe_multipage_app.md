@@ -29,13 +29,13 @@ If the specification limits dependencies, a marketplace library is still a stand
 6. Configuration in global symbols `${app.setting=default}`, read from JS; secrets in `.secret` symbols without default.
 
 ## Facade sequence shape
-Every protected service has the same five parts:
+Every protected service has the same five parts, created and wired in one `databaseobject-tree-apply` (steps source earlier siblings by name):
 
 ```text
 seq <service>                accessibility=Hidden, authenticatedContextRequired=true
   init      SimpleStep       include("js/<app>.js"); read inputs; var sessionEmail = String(context.getAuthenticatedUser());
   callMe    TransactionStep  q_user_by_email, importVariables:true      (uses the JS var sessionEmail)
-  srcMe     JsonSourceStep   ["<callMe priority>", "./document/sql_output"] -> meRows
+  srcMe     JsonSourceStep   sourceDefinition {"step":"callMe","xpath":"./document/sql_output"} -> meRows
   ...reads  TransactionStep + JsonSourceStep pairs, same pattern
   logic     SimpleStep       resp = app.run(function () { var u = app.currentUser(meRows); check role and perimeter; return app.ok(data); });
   ...writes IfStep resp.success -> TransactionStep w_*, importVariables:true (set the JS vars first)
