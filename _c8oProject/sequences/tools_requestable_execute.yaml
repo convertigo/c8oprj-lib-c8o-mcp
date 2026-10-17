@@ -2,7 +2,7 @@ accessibility: Private
 comment: |
   Run a sequence or transaction
   Executes a requestable and returns its payload. Pass variables as an object or JSON string; enable includeLogs only for debugging, and use recordSchema only on transactions.
-  It runs without an HTTP session or authenticated user: a sequence marked authenticatedContextRequired answers Authentication required. To test protected sequences, run a Private test sequence that calls context.setAuthenticatedUser(<user>) and reaches them through SequenceStep, or call them over HTTP with a cookie jar after the login sequence.
+  It runs without an HTTP session or authenticated user: a sequence marked authenticatedContextRequired answers Authentication required. To run it as a signed-in user, pass authenticatedUser (the value the login sequence gives to context.setAuthenticatedUser, for example an email); the user is set for this call only.
 ↓IncludeUtil [steps.SimpleStep-1763053874391]: 
   comment: Load helper utilities
   expression: include("js/util.js");
@@ -45,7 +45,10 @@ comment: |
     try {
         includeLogsFlag = C8O.util.toBoolean ? C8O.util.toBoolean(includeLogs, false) : (String(includeLogs || '''').toLowerCase() === ''true'');
     } catch (_ignoreIl) {}
+    var authUser = C8O.util.toTrimmedString(typeof authenticatedUser === ''undefined'' ? '''' : authenticatedUser);
     executionPlan = {
+        authenticatedUser: authUser,
+        previousAuthenticatedUser: null,
         requestable: requestText,
         project: projectName,
         connector: targetConnector,
@@ -55,7 +58,12 @@ comment: |
         recordSchema: recordSchemaFlag,
         includeLogs: includeLogsFlag,
         startedAt: startedAt
-    };'
+    };
+    if (authUser.length) {
+        var previousUser = context.getAuthenticatedUser();
+        executionPlan.previousAuthenticatedUser = previousUser == null ? null : String(previousUser);
+        context.setAuthenticatedUser(authUser);
+    }'
 ↓ConfigureCalls [steps.SimpleStep-1763055844366]: 
   comment: Configure dynamic call targets and variables
   expression: C8O.requestable.configureExecutor(executionPlan);
@@ -122,6 +130,14 @@ comment: |
   comment: Build a compact requestable-execute response for MCP clients.
   expression: |
     'var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+    // authenticatedUser is for this call only: give the session back as it was.
+    if (executionPlan && executionPlan.authenticatedUser) {
+        if (executionPlan.previousAuthenticatedUser) {
+            context.setAuthenticatedUser(executionPlan.previousAuthenticatedUser);
+        } else {
+            context.removeAuthenticatedUser();
+        }
+    }
     function _node(value) {
       if (value && typeof value.item === "function") {
         value = value.item(0);
@@ -279,6 +295,9 @@ comment: |
 ↓includeLogs [variables.RequestableVariable-1772727101003]: 
   comment: Set true to append execution logs from this call.
   description: Set true to append execution logs from this call.
+↓authenticatedUser [variables.RequestableVariable-1772727101099]: 
+  comment: Optional authenticated user for this call only (what the login sequence passes to context.setAuthenticatedUser), to run a sequence marked authenticatedContextRequired.
+  description: Optional authenticated user for this call only (what the login sequence passes to context.setAuthenticatedUser), to run a sequence marked authenticatedContextRequired.
 ↓ip [core.TestCase-1763981218508]: 
   ↓requestable [variables.TestCaseVariable-1763981219651]: 
     value: codex_test.http_demo.get_ip
