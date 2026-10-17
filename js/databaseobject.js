@@ -347,6 +347,35 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
       );
     }
   }
+  // Suggest the exact QName of objects named like the last segment asked for: after a context
+  // compaction agents rebuild QNames from memory (Project.sequences.x, x/step, x#y).
+  if (projectName) {
+    try {
+      var wanted = String(qname).split(/[.:\/#]/).pop();
+      var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName, false);
+      if (wanted && project) {
+        var found = [];
+        var stack = [project];
+        var visited = 0;
+        while (stack.length && visited < 20000 && found.length < 3) {
+          var node = stack.pop();
+          visited++;
+          if (String(node.getName()) === wanted) {
+            found.push(String(node.getFullQName ? node.getFullQName() : node.getQName()));
+          }
+          var kids = C8O.dbo.getDirectChildren(node);
+          for (var k = 0; k < kids.length; k++) {
+            stack.push(kids[k]);
+          }
+        }
+        if (found.length) {
+          hints.push("Objects named \"" + wanted + "\": " + found.join(", ") + ".");
+        }
+      }
+    } catch (_ignoreNameSuggestion) {}
+    hints.push("QName shape: <Project>.sq:<sequence>, <Project>.cn:<connector>.tr:<transaction>, " +
+      "steps under a sequence as <sequence QName>.st:<step> (nested steps without the st: prefix); copy QNames from databaseobject-tree-get or databaseobject-search.");
+  }
   var ancestor = C8O.dbo._findExistingAncestor(qname);
   if (ancestor != null) {
     var ancestorQName = "";
