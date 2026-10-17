@@ -5,7 +5,7 @@ comment: |
 ↓Include [steps.SimpleStep-1792260000001]: 
   expression: 'include("js/mcp_auth.js"); include("js/tools_image_describe.js");'
 ↓Run [steps.SimpleStep-1792260000002]: 
-  expression: 'var imageDescribeResult = C8O.imageDescribe.execute(context, {path: path, base64: base64, question: question, model: model, maxTokens: maxTokens});'
+  expression: 'var imageDescribeResult = C8O.imageDescribe.execute(context, {path: path, base64: base64, question: question, model: model, maxTokens: maxTokens, reasoning: reasoning});'
 ↓result [steps.JsonToXmlStep-1792260000003]: 
   jsonObject: 
     - xmlizable: 
@@ -38,4 +38,8 @@ comment: |
 ↓maxTokens [variables.RequestableVariable-1792260000008]: 
   comment: 'Answer budget including the model reasoning, 200 to 8000; default 2000.'
   description: 'Answer budget including the model reasoning, 200 to 8000; default 2000.'
+  value: ''
+↓reasoning [variables.RequestableVariable-1792260000009]: 
+  comment: 'none (default, fast and cheap) or high (the model reasons first: slower, about 1500 more tokens).'
+  description: 'none (default, fast and cheap) or high (the model reasons first: slower, about 1500 more tokens).'
   value: ''

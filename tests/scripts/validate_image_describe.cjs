@@ -62,6 +62,8 @@ test('a file is sent as a data URL to the default vision model, and its usage an
   assert.equal(post.key, KEY);
   assert.equal(post.body.model, 'mistral/mistral-large-4');
   assert.equal(post.body.max_tokens, 2000);
+  assert.equal(post.body.reasoning_effort, 'none', 'no reasoning by default');
+  assert.equal(result.reasoning, 'none');
   const user = post.body.messages[1].content;
   assert.equal(user[0].text, 'Is the Save button visible?');
   assert.equal(user[1].image_url.url, 'data:image/png;base64,' + PNG.toString('base64'));
@@ -84,6 +86,26 @@ test('base64 and data URLs are accepted; the model and the budget can be chosen'
   assert.match(seen.posts[0].body.messages[1].content[0].text, /^Describe this screenshot/);
   assert.equal(result.image.source, 'base64');
   assert.throws(() => api.run({ base64: 'not base64 at all!' }, host().h), /base64 must be/);
+});
+
+test('reasoning high is passed on, and a model without that level is asked again with its default', () => {
+  const api = load();
+  const high = host();
+  api.run({ path: 'a.png', reasoning: 'HIGH' }, high.h);
+  assert.equal(high.seen.posts[0].body.reasoning_effort, 'high');
+  assert.throws(() => api.run({ path: 'a.png', reasoning: 'low' }, host().h), /reasoning must be none or high/);
+  const bodies = [];
+  const retry = host({ post: (url, key, body) => {
+    bodies.push(JSON.parse(body));
+    return bodies.length === 1
+      ? { status: 400, body: JSON.stringify({ error: { message: 'reasoning_effort none is not supported for this model' } }), header: () => '' }
+      : { status: 200, body: gatewayBody(), header: () => '' };
+  } });
+  const result = api.run({ path: 'a.png', model: 'other/vision' }, retry.h);
+  assert.equal(bodies.length, 2);
+  assert.equal('reasoning_effort' in bodies[1], false);
+  assert.equal(result.reasoning, 'model default');
+  assert.equal(result.description, 'A login form with a blue Save button.');
 });
 
 test('exactly one image is required and only images are sent', () => {

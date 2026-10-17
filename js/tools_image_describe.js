@@ -15,6 +15,7 @@ C8O.imageDescribe = C8O.imageDescribe || {};
   var KEY_ENV = "CONVERTIGO_LLM_API_KEY";
   var MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   var DEFAULT_MAX_TOKENS = 2000;
+  var DEFAULT_REASONING = "none";
   var REQUEST_TIMEOUT_MS = 120000;
   var DEFAULT_QUESTION = "Describe this screenshot for a developer who cannot see it: the visible text, the layout, " +
     "the colors, and anything that looks broken (overlapping, cut off, misaligned, empty, unreadable or error states).";
@@ -76,8 +77,22 @@ C8O.imageDescribe = C8O.imageDescribe || {};
     return Math.max(200, Math.min(8000, parsed));
   };
 
+  // Mistral Large 4 reasons by default: on a screenshot check it spent 1400 to 1900 reasoning tokens and 20 to 30 s
+  // per call, and an agent-chosen maxTokens of 1500 left no answer at all. reasoning_effort "none" gave the same
+  // finding in under 2 s for about 80 tokens, so it is the default; "high" stays available for a hard image.
+  api.normalizeReasoning = function (value) {
+    var text = str(value).toLowerCase();
+    if (!text.length) {
+      return DEFAULT_REASONING;
+    }
+    if (text !== "none" && text !== "high") {
+      throw new Error("reasoning must be none or high.");
+    }
+    return text;
+  };
+
   api.buildRequest = function (options) {
-    return {
+    var request = {
       model: options.model,
       max_tokens: options.maxTokens,
       messages: [
@@ -91,6 +106,10 @@ C8O.imageDescribe = C8O.imageDescribe || {};
         }
       ]
     };
+    if (options.reasoning) {
+      request.reasoning_effort = options.reasoning;
+    }
+    return request;
   };
 
   function numberOrNull(value) {
@@ -211,14 +230,22 @@ C8O.imageDescribe = C8O.imageDescribe || {};
       question: question,
       mimeType: image.mimeType,
       base64: host.encodeBase64(bytes),
-      maxTokens: api.normalizeMaxTokens(params.maxTokens)
+      maxTokens: api.normalizeMaxTokens(params.maxTokens),
+      reasoning: api.normalizeReasoning(params.reasoning)
     });
+    var post = function () {
+      try {
+        return host.post(GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), REQUEST_TIMEOUT_MS);
+      } catch (e) {
+        throw new Error("The LLM gateway could not be reached: " + api.redact(e && e.message ? e.message : e, key));
+      }
+    };
     var started = host.now();
-    var response;
-    try {
-      response = host.post(GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), REQUEST_TIMEOUT_MS);
-    } catch (e) {
-      throw new Error("The LLM gateway could not be reached: " + api.redact(e && e.message ? e.message : e, key));
+    var response = post();
+    // A model without that reasoning level refuses the request before any token is spent: ask again with its default.
+    if (response.status === 400 && /reasoning_effort/i.test(response.body) && request.reasoning_effort) {
+      delete request.reasoning_effort;
+      response = post();
     }
     var durationMs = host.now() - started;
     if (response.status < 200 || response.status >= 300) {
@@ -235,6 +262,7 @@ C8O.imageDescribe = C8O.imageDescribe || {};
     var result = {
       description: description,
       model: str(body.model) || model,
+      reasoning: request.reasoning_effort || "model default",
       usage: api.usageOf(body, model, response.header("x-litellm-response-cost"), durationMs, response.header("x-litellm-call-id")),
       image: image
     };
@@ -242,7 +270,7 @@ C8O.imageDescribe = C8O.imageDescribe || {};
       result.truncated = true;
       result.warning = description.length
         ? "The answer was cut at maxTokens; raise maxTokens or ask a narrower question."
-        : "The model spent maxTokens before answering; raise maxTokens or ask a narrower question.";
+        : "The model spent maxTokens reasoning before answering; use reasoning none, or raise maxTokens.";
     } else if (!description.length) {
       result.warning = "The model returned no text.";
     }

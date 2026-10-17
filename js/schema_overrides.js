@@ -1585,6 +1585,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return closedObjectSchema({
       description: { type: "string", description: "The vision model's answer." },
       model: { type: "string" },
+      reasoning: { type: "string", description: "Reasoning level actually used: none, high, or model default." },
       usage: closedObjectSchema({
         tool: { type: "string", enum: ["image-describe"] },
         callId: { type: "string", description: "Gateway call id." },
@@ -1960,7 +1961,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           base64: { type: "string", description: "The image as base64 or a data:image/...;base64, URL, instead of path." },
           question: { type: "string", description: "What to check, e.g. Is the Save button visible and aligned with the form? Defaults to a general screenshot description." },
           model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
-          maxTokens: { type: "integer", minimum: 200, maximum: 8000, default: 2000, description: "Answer budget, reasoning included." }
+          maxTokens: { type: "integer", minimum: 200, maximum: 8000, default: 2000, description: "Answer budget, reasoning included; keep the default." },
+          reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none answers at once (about 2 s). high lets the model reason first: 20 to 30 s and about 1500 more tokens, for a hard image only." }
         },
         additionalProperties: false
       };
