@@ -2363,6 +2363,39 @@ C8O.dbo._formatNgxCandidates = function (candidates, maxItems) {
   return labels.join(", ");
 };
 
+// Close NGX entries for a logical id that does not exist (#Column -> #GridCol "Grid Column"):
+// the id or the palette label contains the requested word, or a usual synonym does.
+C8O.dbo.suggestNgxLogicalClasses = function (classNameWithLogicalId, maxItems) {
+  var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
+  if (!parsed.hasLogicalId) {
+    return [];
+  }
+  var wanted = String(parsed.logicalId || "").toLowerCase();
+  var synonyms = { table: ["grid", "list"], column: ["gridcol", "col"], row: ["gridrow"], cell: ["gridcol"],
+    title: ["bartitle", "cardtitle", "heading"], text: ["textitem", "paragraph", "span"], container: ["div", "content"],
+    image: ["image", "img"], link: ["button", "anchor"], section: ["div", "heading2"] };
+  var words = [wanted].concat(synonyms[wanted] || []);
+  var found = [];
+  var candidates = [];
+  try {
+    candidates = C8O.dbo._listNgxComponentsByBaseClass(parsed.baseClassFqcn, null, { requireAllowedInParent: false });
+  } catch (_ignoreList) {}
+  // Words in order: the requested one first, then its synonyms, so the closest entries come first.
+  var seen = {};
+  for (var w = 0; w < words.length && found.length < (maxItems || 6); w++) {
+    for (var i = 0; i < candidates.length && found.length < (maxItems || 6); i++) {
+      var id = String(candidates[i].logicalId || "").toLowerCase();
+      var label = "";
+      try { label = String(candidates[i].component.getLabel() || ""); } catch (_ignoreLabel) {}
+      if (!seen[id] && words[w].length >= 3 && (id.indexOf(words[w]) !== -1 || label.toLowerCase().indexOf(words[w]) !== -1)) {
+        seen[id] = true;
+        found.push(C8O.util.fromFqcn(candidates[i].logicalClassName) + (label.length ? " (" + label + ")" : ""));
+      }
+    }
+  }
+  return found;
+};
+
 C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
   options = options || {};
   var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");

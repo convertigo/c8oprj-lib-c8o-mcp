@@ -217,7 +217,10 @@ if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
   }
   var ngxEntry = locateNgxEntry(requestedClassToken);
   if (!ngxEntry) {
-    throw new Error("Palette entry not found for className '" + requestedClassToken + "'");
+    var closeEntries = C8O.dbo.suggestNgxLogicalClasses ? C8O.dbo.suggestNgxLogicalClasses(requestedClassToken, 6) : [];
+    throw new Error("Palette entry not found for className '" + requestedClassToken + "'" +
+      (closeEntries.length ? ". Close entries: " + closeEntries.join(", ") : "") +
+      ". palette-list on the intended parent lists every entry it accepts.");
   }
   var ngxDesc = splitDescription(ngxEntry.description);
   entryPayload = {
