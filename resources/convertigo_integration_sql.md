@@ -122,6 +122,8 @@ Minimum validation proof:
 - the variable appears on the transaction
 - one execution with representative input proves the intended substitution path
 
+`sql-transaction-create` applies the rules of this section: from a structured `select` it writes the quoted camelCase aliases, the optional filters, the `contains` and `POSITION` list filters itself, and it refuses SQL text that breaks one of them, with the fix in the message.
+
 ### Result keys follow the database's identifier case
 `sql_output` rows are keyed by the column labels the driver returns. HSQLDB (and Oracle) upper-case unquoted identifiers: `SELECT id, numero_poste AS numPoste` gives `ID` and `NUMPOSTE`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", numero_poste AS "numeroPoste"`, and read those exact keys (checked on HSQLDB: the quoted alias `"libellePoste"` keeps its case).
 

@@ -443,7 +443,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_backend_sequences.md",
     "guideId": "convertigo/backend-sequences",
-    "revision": 6,
+    "revision": 7,
     "scopeTags": [
       "domain",
       "backend",
@@ -456,6 +456,7 @@
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
+      "facade-create",
       "databaseobject-tree-apply",
       "palette-list",
       "palette-describe",
@@ -796,7 +797,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "domain",
       "integration",
@@ -809,6 +810,7 @@
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
+      "sql-transaction-create",
       "databaseobject-tree-apply",
       "databaseobject-schema",
       "requestable-execute",
@@ -956,7 +958,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 27,
+    "revision": 28,
     "scopeTags": [
       "domain",
       "frontend",
@@ -969,6 +971,7 @@
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
+      "ngx-page-create",
       "databaseobject-tree-apply",
       "batch-call",
       "palette-list",
@@ -1115,7 +1118,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 7,
+    "revision": 8,
     "scopeTags": [
       "recipe",
       "ngx",
@@ -1131,6 +1134,9 @@
       "marketplace-import",
       "project-js-set",
       "batch-call",
+      "sql-transaction-create",
+      "facade-create",
+      "ngx-page-create",
       "databaseobject-tree-apply",
       "databaseobject-tree-get",
       "requestable-execute",

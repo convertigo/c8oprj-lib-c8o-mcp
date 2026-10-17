@@ -41,7 +41,7 @@ For data-backed pages, run the recipe's final tree-readback self-audit before an
 
 ## Basic presentation
 
-Wiring makes a page work; these patterns make it readable. Checked in a production build: each one renders as described.
+Wiring makes a page work; these patterns make it readable. Checked in a production build: each one renders as described. `ngx-page-create` builds list, detail, form and dashboard pages with them (see `convertigo-recipe-multipage-app`, Generators); apply them by hand to the pages it does not cover.
 
 - Never put two `UIText` side by side for two pieces of information. Adjacent texts render on one line with no separator ("Postes actifs7", "continuitéRemise : …"). Each piece goes in its own element: a `Label` and a `Note`, an `h3` and a `p`, two `span` blocks with classes, or one `UIText` that holds the whole sentence.
 - Section: `UIDynamicElement#Heading2` with a `UIText` child, then the section content. Never a bare `UIText` as a title.

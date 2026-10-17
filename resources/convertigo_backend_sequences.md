@@ -241,6 +241,8 @@ Calling a requestable with parameters:
 - a `StepVariable` with no source and no value takes the value of the JavaScript variable of the same name in the sequence scope (a sequence variable or a `var` set by a previous `SimpleStep`), else its default value
 - create the step variables with `importVariables:true` on the `TransactionStep` or `SequenceStep` node (after `sourceTransaction`/`sourceSequence`): the MCP imports one `StepVariable` per variable of the called requestable, with its default value. Then set the JavaScript variables of the same names before the call
 
+`facade-create` builds this chain for a facade (include, user read and role check, reads, a logic step calling a function of the file, guarded writes, the four outputs): see `convertigo-recipe-multipage-app`, Generators. Build it by hand when the facade needs other steps.
+
 Minimal chain:
 
 ```text
