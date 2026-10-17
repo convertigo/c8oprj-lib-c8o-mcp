@@ -233,6 +233,10 @@ Read a called requestable's result in JavaScript:
 - a sequence variable is a JavaScript variable of the same name in every step: read `profile` directly. `context.get("profile")` reads a context attribute (set with `context.set`), not a request variable, so it returns nothing and the code falls back to its default on every call. Do not redeclare the variable from another source (`var profile = context.get(...)`)
 - sequence variables read in JS are Java strings (`typeof` is `object`): call `String(v)` before `split`, regular expressions or `===` comparisons
 
+A failing call does not stop the sequence:
+- when the transaction behind a `TransactionStep` fails (SQL error, type mismatch), the sequence goes on with the next steps and the facade still answers success. The error is in the step's document: source `./document` and test it before using the rows or counting a write, for example `if (doc && doc.document && doc.document.error) { resp = app.fail("ECRITURE_KO", String(doc.document.error.details || doc.document.error.message)); }` (checked: a failing INSERT left the following steps running)
+- pass dates to SQL as strings (`'2026-10-17'`, `'2026-10-17 08:00:00'`), never as a JavaScript `Date` object: the object becomes its English text form, which the column refuses
+
 Calling a requestable with parameters:
 - a `StepVariable` with no source and no value takes the value of the JavaScript variable of the same name in the sequence scope (a sequence variable or a `var` set by a previous `SimpleStep`), else its default value
 - create the step variables with `importVariables:true` on the `TransactionStep` or `SequenceStep` node (after `sourceTransaction`/`sourceSequence`): the MCP imports one `StepVariable` per variable of the called requestable, with its default value. Then set the JavaScript variables of the same names before the call
