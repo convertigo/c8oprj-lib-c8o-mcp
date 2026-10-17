@@ -125,8 +125,8 @@ Minimum validation proof:
 ### Result keys follow the database's identifier case
 `sql_output` rows are keyed by the column labels the driver returns. HSQLDB (and Oracle) upper-case unquoted identifiers: `SELECT id, numero_poste AS numPoste` gives `ID` and `NUMPOSTE`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", numero_poste AS "numeroPoste"`, and read those exact keys (checked on HSQLDB: the quoted alias `"libellePoste"` keeps its case).
 
-### A `{variable}` never goes inside a SQL string literal
-`{variable}` becomes a bound parameter. Inside quotes (`LIKE '{name}%'`) it is not a parameter for the driver but still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
+### A `{variable}` never shares a SQL string literal with other text
+`{variable}` becomes a bound parameter. `'{name}'` alone is the same parameter (the engine drops the quotes), but with other text in the quotes (`LIKE '{name}%'`) it is not a parameter for the driver while still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
 
 ### An absent variable is an empty string, never NULL
 A `SqlTransaction` replaces a variable that has no value (not sent, or sent as null) with an empty string before binding it. A `{variable} IS NULL` test is therefore never true, and an optional filter written that way returns no row when the filter is omitted.

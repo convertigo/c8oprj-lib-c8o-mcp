@@ -854,7 +854,8 @@ include("js/crud_ui_refresh.js");
           continue;
         }
         inLiteral = false;
-        if (/\{[A-Za-z_][\w]*\}/.test(literal)) {
+        // '{x}' alone is a parameter for the engine (it drops the quotes): only other text around a variable breaks.
+        if (/\{[A-Za-z_][\w]*\}/.test(literal) && !/^\{[A-Za-z_][\w]*\}$/.test(literal)) {
           quoted = ["'" + literal + "'"];
         }
         continue;
