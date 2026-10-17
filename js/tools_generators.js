@@ -852,7 +852,8 @@ C8O.generators = C8O.generators || {};
     }
     var emailVar = str(auth.emailVariable || "email");
     var roleField = str(auth.roleField || "role");
-    var activeField = auth.activeField === undefined ? "actif" : str(auth.activeField);
+    // No default column: a user table without it would refuse every call as a lost session.
+    var activeField = str(auth.activeField);
     var reads = list(parseJson(args.reads, "reads", "array")).map(function (r, i) {
       return planCall(projectDbo, r, errors, warnings, "reads[" + i + "]", connectorName, "read");
     }).filter(function (p) { return p; });

@@ -247,6 +247,15 @@ function facadeSpec(extra) {
     writes: [{ name: 'journal', transaction: 'w_journal_insert' }, { name: 'stamp', update: { table: 'p', set: { v: 'v' }, where: { id: 'id' } } }] }, extra || {});
 }
 
+test('facade-create checks the active column the spec names', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.facadeCreate(facadeSpec({ auth: { activeField: 'enabled' } }));
+  const seq = creates(world, 'sequences.GenericSequence')[0];
+  const auth = seq.children.find(c => c.name === 'auth');
+  assert.match(auth.properties.expression, /me\.enabled === true \|\| String\(me\.enabled\) === "true"/);
+});
+
 test('facade-create builds the recipe shape and valid JavaScript', () => {
   const world = makeWorld();
   const G = load(world);
@@ -266,7 +275,7 @@ test('facade-create builds the recipe shape and valid JavaScript', () => {
   assert.equal(byName.call_last.properties.sourceTransaction, 'App.db.q_last');
   assert.equal(byName.ifAllowed.properties.condition, 'resp === null');
   assert.match(byName.auth.properties.expression, /\["ADMIN","RPCA"\]\.indexOf\(String\(me\.role\)\) < 0\) \{ resp = \{ success: false, data: null, errors: \[\{ code: 'ACCES_INTERDIT'/);
-  assert.match(byName.auth.properties.expression, /me\.actif === true/);
+  assert.doesNotMatch(byName.auth.properties.expression, /actif/, 'no active column unless the spec names one');
   assert.match(byName.prep_postes.properties.expression, /rpcaId = String\(me\.role === 'ADMIN' \? '' : me\.id\);/);
   assert.match(byName.guard.properties.expression, /\["ADMIN"\]\.indexOf\(String\(me\.role\)\) < 0/);
   assert.match(byName.guard.properties.expression, /'INTROUVABLE'/);
