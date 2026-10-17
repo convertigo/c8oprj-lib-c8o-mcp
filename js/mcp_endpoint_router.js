@@ -494,7 +494,8 @@ if (methodName === "initialize") {
       callSequence = targetSequence;
       responseStatus = "200";
       callVariables = coerceToolArguments(toolArgs || {}, targetSequence, requestable);
-      if (targetSequence === "tools_mobile_builder_open" && managedViewerDebugPort > 0) {
+      // browser-verify drives the same viewer as the agent's Playwright MCP: the conversation's debug port.
+      if ((targetSequence === "tools_mobile_builder_open" || targetSequence === "tools_browser_verify") && managedViewerDebugPort > 0) {
         callVariables.browserDebugPort = managedViewerDebugPort;
       }
       if (managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true

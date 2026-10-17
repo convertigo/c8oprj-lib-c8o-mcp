@@ -44,6 +44,7 @@
   ↓McpTokenValidate [sequences.GenericSequence]: 🗏 sequences/McpTokenValidate.yaml
   ↓nocode_validate_token [sequences.GenericSequence]: 🗏 sequences/nocode_validate_token.yaml
   ↓tools_batch_call [sequences.GenericSequence]: 🗏 sequences/tools_batch_call.yaml
+  ↓tools_browser_verify [sequences.GenericSequence]: 🗏 sequences/tools_browser_verify.yaml
   ↓tools_crud_proof [sequences.GenericSequence]: 🗏 sequences/tools_crud_proof.yaml
   ↓tools_crud_status [sequences.GenericSequence]: 🗏 sequences/tools_crud_status.yaml
   ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml

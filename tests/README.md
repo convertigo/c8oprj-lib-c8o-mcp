@@ -31,6 +31,21 @@ errors and the full-bearer gate. They mock the gateway: a live call through
 the MCP (with the Studio key file) is still the proof that the model reads
 the image.
 
+## Browser verification sub-agent
+
+Run `node --test tests/scripts/validate_browser_verify.cjs` after changing
+`browser-verify` (`js/tools_browser_verify.js`, `node/browser_verify_agent.cjs`).
+The checks cover the MCP side (paths and checks parsing, loopback-only CDP
+endpoint, the key passed to the child in its environment only, workspace-relative
+screenshots, the usage block, the browser lock, the full-bearer gate) and the
+sub-agent (budgets, the report that never says passed over a failure, the
+context trimming, gateway usage and retries with a mocked gateway, the loop with
+a mocked Playwright). The layout scan runs in a real headless Chrome when
+`PLAYWRIGHT_CORE_PATH` points at a playwright-core package (for example the one
+under `<user workspace>/agents/vibe/npm/node_modules`); it is skipped otherwise.
+A live call on a Studio viewer is still the proof that the model drives the page
+and reads its screenshots.
+
 ## No-code capability isolation
 
 Run `node --test tests/scripts/validate_nocode_tool_policy.cjs` after changes to

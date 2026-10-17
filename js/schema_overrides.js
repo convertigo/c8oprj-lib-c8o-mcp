@@ -1581,6 +1581,58 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function browserVerifyOutputSchema() {
+    var shot = { type: "string", description: "Screenshot file, relative to the Studio user workspace (readable by image-describe)." };
+    return closedObjectSchema({
+      verdict: { type: "string", enum: ["passed", "failed", "partial"], description: "passed only when every check passed and no blocking defect was seen; partial when something could not be checked." },
+      summary: { type: "string" },
+      checks: {
+        type: "array",
+        items: closedObjectSchema({
+          id: { type: "string" },
+          path: { type: "string" },
+          check: { type: "string" },
+          status: { type: "string", enum: ["passed", "failed", "not_checked"] },
+          evidence: { type: "string", description: "What the sub-agent saw: exact text, value, or screenshot finding." },
+          screenshot: shot
+        })
+      },
+      visualDefects: {
+        type: "array",
+        items: closedObjectSchema({
+          severity: { type: "string", enum: ["blocking", "major", "minor"] },
+          description: { type: "string" },
+          location: { type: "string" },
+          screenshot: shot
+        })
+      },
+      screenshots: {
+        type: "array",
+        items: closedObjectSchema({ name: { type: "string" }, path: shot, url: { type: "string" } })
+      },
+      reportFile: { type: "string", description: "Full report with the step trace, relative to the Studio user workspace." },
+      finalUrl: { type: "string" },
+      stopReason: { type: "string", description: "finished, or the budget that ended the run." },
+      modelCalls: { type: "number" },
+      browserActions: { type: "number" },
+      durationMs: { type: "number" },
+      usage: closedObjectSchema({
+        tool: { type: "string", enum: ["browser-verify"] },
+        callId: { type: "string", description: "Verification id, also the screenshot folder name." },
+        model: { type: "string" },
+        requests: { type: "number", description: "Model calls of the verification." },
+        inputTokens: { type: "number" },
+        cachedTokens: { type: "number" },
+        outputTokens: { type: "number" },
+        reasoningTokens: { type: "number" },
+        totalTokens: { type: "number" },
+        cost: { type: ["number", "null"], description: "Gateway cost of all the calls, null when the gateway did not price one of them." },
+        currency: { type: "string" },
+        durationMs: { type: "number" }
+      })
+    });
+  }
+
   function imageDescribeOutputSchema() {
     return closedObjectSchema({
       description: { type: "string", description: "The vision model's answer." },
@@ -1953,6 +2005,34 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
+    if (seq === "tools_browser_verify") {
+      return {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "Application URL to open first, usually viewerHomeUrl from mobile-builder-open. Empty: start from the page open in the viewer." },
+          paths: {
+            description: "Paths to walk and check, in plain language, in order (at most 8). For example: Log in as the demo RPCA (rpca.demo / demo), select two posts, declare them, check that both statuses become \"À jour\".",
+            oneOf: [
+              { type: "array", items: { oneOf: [{ type: "string" }, { type: "object", properties: { name: { type: "string" }, steps: { type: "string" } }, required: ["steps"] }] } },
+              { type: "string" }
+            ]
+          },
+          checks: {
+            description: "Acceptance checks reported one by one (at most 20), for example: The list shows 3 posts with the status \"À déclarer\".",
+            oneOf: [{ type: "array", items: { type: "string" } }, { type: "string" }]
+          },
+          hints: { type: "string", description: "Facts the sub-agent needs and cannot guess: demo accounts and passwords, expected values, what just changed." },
+          model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
+          reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none is fast and cheap; high only for a hard case." },
+          maxSteps: { type: "integer", minimum: 6, maximum: 80, default: 40 },
+          timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "The sub-agent reports what it has when it runs out." },
+          cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open)." }
+        },
+        required: ["paths"],
+        additionalProperties: false
+      };
+    }
+
     if (seq === "tools_image_describe") {
       return {
         type: "object",
@@ -2120,6 +2200,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_databaseobject_search") {
       return databaseobjectSearchOutputSchema();
+    }
+    if (seq === "tools_browser_verify") {
+      return browserVerifyOutputSchema();
     }
     if (seq === "tools_image_describe") {
       return imageDescribeOutputSchema();

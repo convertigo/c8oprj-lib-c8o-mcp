@@ -1,0 +1,61 @@
+accessibility: Private
+comment: |
+  Verify paths in the Studio browser with a vision sub-agent
+  A vision model of the Convertigo LLM gateway (default mistral/mistral-large-4) drives the Studio browser of the conversation (the viewer opened by mobile-builder-open), walks the paths given in plain language, looks at its screenshots and returns a short report: each check passed or failed with evidence, the visual defects seen, the screenshots saved in the Studio workspace, and the usage of its model calls. It only observes and never edits the project. One call replaces a whole functional and visual browser proof.
+↓Include [steps.SimpleStep-1792270000001]: 
+  expression: 'include("js/mcp_auth.js"); include("js/tools_browser_verify.js");'
+↓Run [steps.SimpleStep-1792270000002]: 
+  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort});'
+↓result [steps.JsonToXmlStep-1792270000003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: browserVerifyResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓url [variables.RequestableVariable-1792270000004]: 
+  comment: 'Application URL to open first (the viewerHomeUrl of mobile-builder-open); empty keeps the page open in the viewer.'
+  description: 'Application URL to open first (the viewerHomeUrl of mobile-builder-open); empty keeps the page open in the viewer.'
+  value: ''
+↓paths [variables.RequestableVariable-1792270000005]: 
+  comment: 'Paths to walk and check, in plain language: a JSON array of strings or {name, steps}, or one path per line. At most 8.'
+  description: 'Paths to walk and check, in plain language: a JSON array of strings or {name, steps}, or one path per line. At most 8.'
+  value: ''
+↓checks [variables.RequestableVariable-1792270000006]: 
+  comment: 'Optional acceptance checks to report one by one: a JSON array of strings or one per line. At most 20.'
+  description: 'Optional acceptance checks to report one by one: a JSON array of strings or one per line. At most 20.'
+  value: ''
+↓hints [variables.RequestableVariable-1792270000007]: 
+  comment: 'Optional facts the sub-agent needs: demo accounts, expected values, what changed.'
+  description: 'Optional facts the sub-agent needs: demo accounts, expected values, what changed.'
+  value: ''
+↓model [variables.RequestableVariable-1792270000008]: 
+  comment: 'Vision model of the gateway; default mistral/mistral-large-4.'
+  description: 'Vision model of the gateway; default mistral/mistral-large-4.'
+  value: ''
+↓reasoning [variables.RequestableVariable-1792270000009]: 
+  comment: 'none (default, fast) or high (the model reasons before each step: slower and dearer).'
+  description: 'none (default, fast) or high (the model reasons before each step: slower and dearer).'
+  value: ''
+↓maxSteps [variables.RequestableVariable-1792270000010]: 
+  comment: 'Maximum model turns, 6 to 80; default 40.'
+  description: 'Maximum model turns, 6 to 80; default 40.'
+  value: ''
+↓timeBudgetSec [variables.RequestableVariable-1792270000011]: 
+  comment: 'Time budget in seconds, 30 to 540; default 150. The sub-agent reports what it has when it runs out.'
+  description: 'Time budget in seconds, 30 to 540; default 150. The sub-agent reports what it has when it runs out.'
+  value: ''
+↓cdpEndpoint [variables.RequestableVariable-1792270000012]: 
+  comment: 'Loopback CDP endpoint of the Studio browser when the agent host does not send the viewer debug port.'
+  description: 'Loopback CDP endpoint of the Studio browser when the agent host does not send the viewer debug port.'
+  value: ''
+↓browserDebugPort [variables.RequestableVariable-1792270000013]: 
+  comment: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  description: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  value: ''
