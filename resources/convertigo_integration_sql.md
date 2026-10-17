@@ -122,6 +122,9 @@ Minimum validation proof:
 - the variable appears on the transaction
 - one execution with representative input proves the intended substitution path
 
+### Result keys follow the database's identifier case
+`sql_output` rows are keyed by the column labels the driver returns. HSQLDB (and Oracle) upper-case unquoted identifiers: `SELECT id, numero_poste AS numPoste` gives `ID` and `NUMPOSTE`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", numero_poste AS "numeroPoste"`, and read those exact keys (checked on HSQLDB: the quoted alias `"libellePoste"` keeps its case).
+
 ### An absent variable is an empty string, never NULL
 A `SqlTransaction` replaces a variable that has no value (not sent, or sent as null) with an empty string before binding it. A `{variable} IS NULL` test is therefore never true, and an optional filter written that way returns no row when the filter is omitted.
 
