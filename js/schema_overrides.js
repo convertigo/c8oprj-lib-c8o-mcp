@@ -2154,7 +2154,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           maxSteps: { type: "integer", description: "Model turns of the sub-agent; default and bounds per profile (verifier 40, 6 to 80; constructor 120, 10 to 400)." },
           timeBudgetSec: { type: "integer", description: "Time budget in seconds; default and bounds per profile (verifier 150, 30 to 540; constructor 900, 60 to 3600)." },
           maxCostUsd: { type: "number", description: "Cost budget in USD; default and bounds per profile (verifier 0.5; constructor 1.5)." },
-          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report; keep the default, it fits every agent host. A constructor call waits 3 s at most: wait on your side between two calls." },
+          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report; keep the default, it fits every agent host." },
           runId: { type: "string", description: "To collect a running sub-agent: the runId of a status running answer, alone." },
           cdpEndpoint: { type: "string", description: "Verifier, only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser." }
         },
