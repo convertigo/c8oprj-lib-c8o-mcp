@@ -940,10 +940,20 @@ include("js/crud_ui_refresh.js");
     }
     for (var i = 0; i < applyErrors.length; i++) {
       var err = applyErrors[i];
+      var errText = err && err.message ? String(err.message) : String(err);
+      var errName = err && err.name ? String(err.name) : "";
+      if (errName.length && errText.indexOf(errName) !== 0) {
+        errText = errName + ": " + errText;
+      }
+      if (/argument type mismatch/i.test(errText)) {
+        errText += /sourceDefinition/i.test(errName)
+          ? " (sourceDefinition expects [\"<source step priority>\", \"<xpath>\"] or {\"step\":\"<step name>\",\"xpath\":\"<xpath>\"}, as databaseobject-tree-get shows it)"
+          : " (use the value shape that databaseobject-tree-get shows for this property)";
+      }
       report.errors.push(
         makeOpError(
           "set_properties_error",
-          err && err.message ? err.message : String(err),
+          errText,
           "apply_properties",
           err && err.detail ? err.detail : "",
           safeQName(dbo)
@@ -1552,6 +1562,23 @@ include("js/crud_ui_refresh.js");
         for (var ni = 0; ni < noteReport.notes.length; ni++) {
           globalNotes.push((noteReport.opId ? String(noteReport.opId) + ": " : "") + String(noteReport.notes[ni]));
         }
+      }
+    }
+
+    // An operation that applied part of its work keeps its errors in its own report: surface them, so
+    // the result never says "completed with warnings" over an error.
+    for (var pe = 0; pe < opReports.length; pe++) {
+      var partialReport = opReports[pe];
+      if (!partialReport || partialReport.status !== "partial" || !Array.isArray(partialReport.errors)) {
+        continue;
+      }
+      for (var pei = 0; pei < partialReport.errors.length; pei++) {
+        var partialError = partialReport.errors[pei] || {};
+        globalErrors.push({
+          code: partialError.code || "partial_error",
+          message: (partialReport.opId ? String(partialReport.opId) + ": " : "") + String(partialError.message || partialError),
+          qname: partialError.qname || ""
+        });
       }
     }
 
