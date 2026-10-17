@@ -443,7 +443,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_backend_sequences.md",
     "guideId": "convertigo/backend-sequences",
-    "revision": 7,
+    "revision": 8,
     "scopeTags": [
       "domain",
       "backend",
@@ -797,7 +797,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "domain",
       "integration",
@@ -958,7 +958,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 29,
+    "revision": 30,
     "scopeTags": [
       "domain",
       "frontend",
@@ -1118,7 +1118,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 10,
+    "revision": 11,
     "scopeTags": [
       "recipe",
       "ngx",

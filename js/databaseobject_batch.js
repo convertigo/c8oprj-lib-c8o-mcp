@@ -893,7 +893,7 @@ include("js/sql_dialect.js");
     }
   }
 
-  // Two UIText siblings render on one line with no separator ("Postes actifs7"): each piece of
+  // Two UIText siblings render on one line with no separator ("Active orders7"): each piece of
   // information needs its own element (Label and Note, h3 and p, two classed spans).
   function warnAdjacentTexts(dbo, node, report) {
     var children = node && Array.isArray(node.children) ? node.children : [];

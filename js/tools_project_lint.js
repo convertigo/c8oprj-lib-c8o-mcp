@@ -390,7 +390,7 @@
         }
       }
       // Glued texts: two UIText siblings that meet with no space or punctuation between them
-      // ("Postes actifs" then a bound "7"). A composed sentence ("Date : ", value, " (", ...) is fine.
+      // ("Active orders" then a bound "7"). A composed sentence ("Date : ", value, " (", ...) is fine.
       var kids = C8O.dbo.getDirectChildren(dbo);
       var previous = null;
       for (var ki = 0; ki < kids.length; ki++) {

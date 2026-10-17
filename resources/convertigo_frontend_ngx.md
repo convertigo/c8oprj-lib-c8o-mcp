@@ -43,14 +43,14 @@ For data-backed pages, run the recipe's final tree-readback self-audit before an
 
 Wiring makes a page work; these patterns make it readable. Checked in a production build: each one renders as described. `ngx-page-create` builds list, detail, form and dashboard pages with them (see `convertigo-recipe-multipage-app`, Generators); apply them by hand to the pages it does not cover.
 
-- Never put two `UIText` side by side for two pieces of information. Adjacent texts render on one line with no separator ("Postes actifs7", "continuitéRemise : …"). Each piece goes in its own element: a `Label` and a `Note`, an `h3` and a `p`, two `span` blocks with classes, or one `UIText` that holds the whole sentence.
+- Never put two `UIText` side by side for two pieces of information. Adjacent texts render on one line with no separator ("Active orders7", "ShippedDate: …"). Each piece goes in its own element: a `Label` and a `Note`, an `h3` and a `p`, two `span` blocks with classes, or one `UIText` that holds the whole sentence.
 - Section: `UIDynamicElement#Heading2` with a `UIText` child, then the section content. Never a bare `UIText` as a title.
 - List of records: `List` > `UIControlDirective` (`ForEach`) > `ListItem` > `Label` (`Heading3` for the main field, `Paragraph` for the secondary one) and a `Note` for the value shown on the right (date, status, amount). Never one `UIText` per row joined with " • ".
 - Label and value (record details, form summary): a `List` with `lines` `none`, one `ListItem` per field, with a `Label` (the label) and a `Note` (the value).
 - Counters or KPIs: a `DivTag` with a grid class holding one `DivTag` per counter, each with two `SpanTag`, the value and the label, each with its own class.
 - Record card: `Card` > `CardHeader` (`CardTitle`, `CardSubTitle`) > `CardContent` with the label/value list, then a `DivTag` with an actions class holding the `Button`s.
 - Status: a `Badge` (or `Chip`) with a color class, next to the title, not glued inside a sentence.
-- Write every visible text in the user's language with its accents (« À relancer », « Gérer les postes », « échéance »). Convertigo objects are UTF-8 and accents render as typed; never strip them to ASCII. `project-lint` proofreads the shown texts and the i18n files and reports what is misspelled or missing its accents.
+- Write every visible text in the user's language with its accents (« Créer une commande », « Übersicht », « Configuración »). Convertigo objects are UTF-8 and accents render as typed; never strip them to ASCII. `project-lint` proofreads the shown texts and the i18n files and reports what is misspelled or missing its accents.
 - A `UIText` with `i18n` true, such as the toolbar title of the starter page, is a translation key, not a text: without an entry in the app's i18n files the page shows the key with spaces turned into underscores (« Suivi_des_mises_a_jour… »). When you write the text yourself, set `i18n` to false in the same patch.
 - Create one app-level `UIStyle` (for example `AppLayout`) in the first UI lot, before the pages, and put the shared layout classes there. Write a CSS rule only for markup the tree really produces: `.counter b` styles nothing if the value is a bare `UIText`.
 
@@ -268,11 +268,11 @@ The following shapes are non-compliant for normal HTTP search pages:
 Three scopes, one job each: page locals for the state of one page, navigation `data` for the id a page is opened with, global state for values shared by every page (current user, role, flags).
 
 Opening a page with data:
-- `PushPageAction` (or `RootPageAction`) with `page` set to the target page and `data` in SCRIPT mode holding an object of plain values, for example `{"mode":"SCRIPT","value":"{posteId: scope.poste.id}"}` under a `ForEach` whose item is `poste`
+- `PushPageAction` (or `RootPageAction`) with `page` set to the target page and `data` in SCRIPT mode holding an object of plain values, for example `{"mode":"SCRIPT","value":"{orderId: scope.order.id}"}` under a `ForEach` whose item is `order`
 - `data` travels as URL route and query parameters: every value arrives as a string and nested objects are lost. Pass ids, convert them (`Number(...)`) where needed, and reload the record on the target page
 
 Reading it on the target page:
-- in the page-enter `UIPageEvent`, a `SetLocalAction` copies the value into a local, with `Value` in SCRIPT mode: `c8oPage.navParams?.data?.posteId`
+- in the page-enter `UIPageEvent`, a `SetLocalAction` copies the value into a local, with `Value` in SCRIPT mode: `c8oPage.navParams?.data?.orderId`
 - then widgets, directives and `UIControlVariable` read that local through the Local SmartSource, as everywhere else
 - write `c8oPage.navParams`, not `this.navParams`: `this` is not the page in every SmartType context (templates in particular)
 
@@ -333,7 +333,7 @@ Do not put a control directly under the page or a card without its `FormItem`, a
 
 - When the form edits existing data, bind each control `Value` to a Local SmartSource of the loaded record (for example `?.draft?.email`) and still read the submitted values from the Form SmartSource.
 - A single search box that is not submitted as a form may keep its `DoubleBinding` on a Local SmartSource, as described in the HTTP search page pattern; it still sits in a `FormItem` with its `Label`.
-- A `Select` shows an option as selected only when its `Value` and the option `Value` have the same type. `SelectOption` values written in SCRIPT mode render as strings (`value="100"`), so a numeric record field leaves the select empty in edit mode. Give the `Select` a string too, for example SCRIPT `local?.draft?.rpcaId != null ? '' + local.draft.rpcaId : null`, and convert back to a number in the sequence. Template expressions cannot call `String(...)`; use `'' + value`.
+- A `Select` shows an option as selected only when its `Value` and the option `Value` have the same type. `SelectOption` values written in SCRIPT mode render as strings (`value="100"`), so a numeric record field leaves the select empty in edit mode. Give the `Select` a string too, for example SCRIPT `local?.draft?.ownerId != null ? '' + local.draft.ownerId : null`, and convert back to a number in the sequence. Template expressions cannot call `String(...)`; use `'' + value`.
 
 ### Submit chain
 - `SubmitButton` → the form `onSubmit` event → `CallSequenceAction` with the field variables → children for the result (see Execution order inside an event).
@@ -441,10 +441,10 @@ Angular property bindings must use the correct SmartType mode:
 
 ### Data along an action chain
 Checked in the generated page code (8.4 builder), each action of an event chain runs inside the event method:
-- `out` in an action's properties is the result of its direct parent action. Under a `CallSequenceAction`, it is the call's response. Under an `IfAction`, it is the If's own result, not the call's. To read a call's response deeper in the chain (a `SetLocalAction` or a toast under an `IfAction`), write `stack["<CallSequenceAction name>"].out`, for example `stack["LoadPostes"].out?.data`. `stack` is a local variable of the event method, so it is available in action properties.
+- `out` in an action's properties is the result of its direct parent action. Under a `CallSequenceAction`, it is the call's response. Under an `IfAction`, it is the If's own result, not the call's. To read a call's response deeper in the chain (a `SetLocalAction` or a toast under an `IfAction`), write `stack["<CallSequenceAction name>"].out`, for example `stack["LoadOrders"].out?.data`. `stack` is a local variable of the event method, so it is available in action properties.
 - Every action receives the event's inputs merged with its own variables (`{...stack["root"].in, ...vars}`). On a form submit, those inputs are the form's fields. A `CallSequenceAction` that reloads a list after the submit therefore also sends the form's fields, which act as filters. Give every variable of the called sequence explicitly on such a call, empty ones included.
 - A `CallSequenceAction` caches its response for 3 s by default (`cacheTtl` 3000). Set `cacheTtl` to 0 on a read that must show a write made just before, such as a reload after a create or a toggle.
-- A `UICustomAction` function receives `(page, props, vars, event)`, and nothing else: no `scope`, so `scope.poste` inside its code does not compile. To use the current `ForEach` item, add a variable on the custom action whose value is `scope.poste` (or `scope.poste.id`): action variables are evaluated in the event method, where `scope` exists. Then read `vars.poste` in the code. `props.stack`, `props.parent` and `props.out` are also passed.
+- A `UICustomAction` function receives `(page, props, vars, event)`, and nothing else: no `scope`, so `scope.order` inside its code does not compile. To use the current `ForEach` item, add a variable on the custom action whose value is `scope.order` (or `scope.order.id`): action variables are evaluated in the event method, where `scope` exists. Then read `vars.order` in the code. `props.stack`, `props.parent` and `props.out` are also passed.
 
 ### Custom action output handling
 Prefer direct source bindings over response-copying code. If a small `UICustomAction` is truly needed immediately after a `CallSequenceAction`, use the generated action parameters:
@@ -456,7 +456,7 @@ Prefer direct source bindings over response-copying code. If a small `UICustomAc
 - do not assign `page.local.*` from custom code; return/resolve normalized data and use palette `SetLocalAction` nodes to update local state
 - do not use browser globals such as `parent` or `parent.out`; in generated page code, `parent` resolves to `Window` and will fail TypeScript checks
 - do not assume a `stack` variable exists inside the custom action body unless generated diagnostics prove it for that exact object
-- if a failure handler needs an error message, read it from `event` defensively, for example `const message = event && event.message ? event.message : 'Erreur pendant la recherche';`
+- if a failure handler needs an error message, read it from `event` defensively, for example `const message = event && event.message ? event.message : 'Search failed';`
 
 ### Shared actions with NPM dependencies
 When a shared action/custom action needs an npm package:

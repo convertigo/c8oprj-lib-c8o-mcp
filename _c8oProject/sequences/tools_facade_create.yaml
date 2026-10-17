@@ -24,8 +24,8 @@ comment: |
   description: 'Application project.'
   value: ''
 ↓name [variables.RequestableVariable-1792270100022]: 
-  comment: 'Facade sequence name, for example poste_list.'
-  description: 'Facade sequence name, for example poste_list.'
+  comment: 'Facade sequence name, for example order_list.'
+  description: 'Facade sequence name, for example order_list.'
   value: ''
 ↓connector [variables.RequestableVariable-1792270100023]: 
   comment: 'Default SqlConnector of reads and writes.'
@@ -36,8 +36,8 @@ comment: |
   description: 'Business rules file, default js/app.js.'
   value: ''
 ↓logic [variables.RequestableVariable-1792270100025]: 
-  comment: 'JS function called with ctx, for example App.posteList.'
-  description: 'JS function called with ctx, for example App.posteList.'
+  comment: 'JS function called with ctx, for example App.orderList.'
+  description: 'JS function called with ctx, for example App.orderList.'
   value: ''
 ↓inputs [variables.RequestableVariable-1792270100026]: 
   comment: 'Sequence variables: names or {name, value, description}.'

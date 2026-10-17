@@ -23,7 +23,7 @@ If the specification limits dependencies, a marketplace library is still a stand
 ## Generators for the standard objects
 Most of such an app is made of the fixed objects this recipe describes: SQL transactions, facades of one shape, and pages of four kinds. Three tools build each of them in one call, with the rules of the guides built in. Use them first; keep `databaseobject-tree-apply` for what they do not cover.
 - `sql-transaction-create`: SqlTransactions from SQL text or a structured `select` (camelCase aliases, optional filters, `contains`, `in` list filters with `POSITION`, `bool`), `insert`, `update` or `delete`; several per call with `transactions:[...]`. It refuses SQL that breaks a rule of `convertigo-integration-sql` and says how to fix it.
-- `facade-create`: one facade sequence of the shape below from `{name, inputs, roles, reads, writes, logic}`. Write `js/app.js` first: `logic` names a function such as `App.posteList(ctx)` that receives `ctx = {me, input, reads, today}` (the user row, the inputs as strings, the rows of each read) and returns `{success, data, errors, meta}`, plus `writes: {<write name>: row or [rows]}` whose fields are the variables of the write transaction. Reads take a `transaction` or SQL, `vars` (JS expressions, e.g. `{rpcaId: "me.role === 'ADMIN' ? rpcaId : me.id"}`), a `perimeter` (`filter` drops out-of-perimeter rows, `deny` answers `FORBIDDEN`) and `required`. Writes run only when `logic` succeeds, once per row, and stop at the first `document.error` (`WRITE_FAILED`).
+- `facade-create`: one facade sequence of the shape below from `{name, inputs, roles, reads, writes, logic}`. Write `js/app.js` first: `logic` names a function such as `App.orderList(ctx)` that receives `ctx = {me, input, reads, today}` (the user row, the inputs as strings, the rows of each read) and returns `{success, data, errors, meta}`, plus `writes: {<write name>: row or [rows]}` whose fields are the variables of the write transaction. Reads take a `transaction` or SQL, `vars` (JS expressions, e.g. `{ownerId: "me.role === 'ADMIN' ? ownerId : me.id"}`), a `perimeter` (`filter` drops out-of-perimeter rows, `deny` answers `FORBIDDEN`) and `required`. Writes run only when `logic` succeeds, once per row, and stop at the first `document.error` (`WRITE_FAILED`).
 - `ngx-page-create`: a `list` (filters, badges, row click), `detail`, `form` (UIForm, Form SmartSources, toast and navigation) or `dashboard` (KPI grid, sections) page wired to its facade, with the lost-session redirect, the `local?.x` templates and the `AppLayout` style.
 
 Each one validates the whole spec before writing and creates all or nothing: a refused call lists every problem and leaves the project untouched, so fix the spec and send it again. The answer lists the created QNames and the next proof to run. Pages may link to pages not created yet (a warning, not an error), so build them in any order.
@@ -33,11 +33,11 @@ Use `databaseobject-tree-apply` instead for objects outside these shapes: a `Seq
 A list facade and its page, two calls:
 
 ```json
-{"project":"<App>","name":"poste_list","logic":"App.posteList","inputs":["recherche","statut"],"roles":["ADMIN","RPCA"],
- "reads":[{"name":"postes","transaction":"q_postes","perimeter":{"field":"rpcaId","bypassRoles":["ADMIN"]}}]}
-{"project":"<App>","name":"GererPostes","kind":"list","title":"Postes","facade":"poste_list","authRedirect":"Login",
- "filters":[{"name":"recherche","label":"Recherche"}],
- "list":{"item":"poste","title":"numeroPoste","subtitle":"libelle","badge":{"field":"statut","colors":{"A_RELANCER":"warning"}},"onItem":{"page":"HistoriquePoste","data":{"id":"id"}}}}
+{"project":"<App>","name":"order_list","logic":"App.orderList","inputs":["search","status"],"roles":["ADMIN","SALES"],
+ "reads":[{"name":"orders","transaction":"q_orders","perimeter":{"field":"ownerId","bypassRoles":["ADMIN"]}}]}
+{"project":"<App>","name":"ManageOrders","kind":"list","title":"Orders","facade":"order_list","authRedirect":"Login",
+ "filters":[{"name":"search","label":"Search"}],
+ "list":{"item":"order","title":"orderNumber","subtitle":"label","badge":{"field":"status","colors":{"LATE":"warning"}},"onItem":{"page":"OrderHistory","data":{"id":"id"}}}}
 ```
 
 ## Architecture
@@ -102,7 +102,7 @@ Keep `docs/generated/PROGRESS.md` up to date after each step below (object inven
 
 ```bash
 curl -s -b admin.jar -c admin.jar "http://<studio-host>.localhost:<port>/convertigo/projects/<App>/.json" --data-urlencode "__sequence=auth_loginDemo" --data-urlencode "profile=ADMIN"
-curl -s -b admin.jar -c admin.jar "http://<studio-host>.localhost:<port>/convertigo/projects/<App>/.json" --data-urlencode "__sequence=poste_list"
+curl -s -b admin.jar -c admin.jar "http://<studio-host>.localhost:<port>/convertigo/projects/<App>/.json" --data-urlencode "__sequence=order_list"
 ```
 
 - Prove the UI in the viewer returned by `mobile-builder-open` (see its `browserControlHint`): log in with each role, run each specification acceptance criterion, check that a role cannot reach another role's page or data.

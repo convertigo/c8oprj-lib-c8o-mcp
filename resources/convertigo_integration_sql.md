@@ -125,7 +125,7 @@ Minimum validation proof:
 `sql-transaction-create` applies the rules of this section: from a structured `select` it writes the quoted camelCase aliases, the optional filters, the `contains` and `POSITION` list filters itself, and it refuses SQL text that breaks one of them, with the fix in the message.
 
 ### Result keys follow the database's identifier case
-`sql_output` rows are keyed by the column labels the driver returns. HSQLDB and Oracle upper-case unquoted identifiers, PostgreSQL lower-cases them (MariaDB/MySQL and SQL Server keep them as written): `SELECT id, numero_poste AS numPoste` gives `ID` and `NUMPOSTE`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", numero_poste AS "numeroPoste"`, and read those exact keys (checked on HSQLDB: the quoted alias `"libellePoste"` keeps its case).
+`sql_output` rows are keyed by the column labels the driver returns. HSQLDB and Oracle upper-case unquoted identifiers, PostgreSQL lower-cases them (MariaDB/MySQL and SQL Server keep them as written): `SELECT id, order_number AS orderNum` gives `ID` and `ORDERNUM`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", order_number AS "orderNumber"`, and read those exact keys (checked on HSQLDB: the quoted alias `"orderLabel"` keeps its case).
 
 ### A `{variable}` never shares a SQL string literal with other text
 `{variable}` becomes a bound parameter. `'{name}'` alone is the same parameter (the engine drops the quotes), but with other text in the quotes (`LIKE '{name}%'`) it is not a parameter for the driver while still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. On MariaDB/MySQL `||` is a logical OR: use `CONCAT({name}, '%')`; on SQL Server use `+`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
@@ -139,7 +139,7 @@ Other databases, from their documentation (not checked here): MariaDB/MySQL acce
 A variable is always bound as one value. A multivalued variable is never expanded into a list: `IN ({ids})` receives the single string `[56, 57]`, which matches nothing, or fails with "invalid character value for cast" on a numeric column. Pass the list as one comma-separated string (`"56,57"`, built in the sequence with `ids.join(",")`) and test membership with `POSITION`, which stays a bound parameter:
 
 ```sql
-SELECT id AS "id" FROM poste_pca
+SELECT id AS "id" FROM orders
 WHERE ({ids} = '' OR POSITION(',' || CAST(id AS VARCHAR(20)) || ',' IN ',' || {ids} || ',') > 0)
 ```
 
@@ -151,9 +151,9 @@ A `SqlTransaction` replaces a variable that has no value (not sent, or sent as n
 Write optional filters against the empty string:
 
 ```sql
-SELECT ... FROM poste_pca
-WHERE ({rpcaId} = '' OR rpca_id = {rpcaId})
-  AND ({search} = '' OR LOWER(numero_poste) LIKE '%' || LOWER({search}) || '%')
+SELECT ... FROM orders
+WHERE ({ownerId} = '' OR owner_id = {ownerId})
+  AND ({search} = '' OR LOWER(order_number) LIKE '%' || LOWER({search}) || '%')
 ```
 
 Checked on HSQLDB, on an INTEGER column and a LIKE: without the variable every row comes back, with it only the matching ones, while the `IS NULL` form returns nothing. Keep the parameter bare: wrapping it in `NULLIF` or `COALESCE` makes HSQLDB refuse the statement at preparation ("data type cast needed for parameter", "incompatible data types in combination"). If a driver still asks for a type, cast the parameter itself, `CAST({x} AS VARCHAR(40))`, in both branches.

@@ -216,7 +216,7 @@ include("js/tools_generators.js");
     var kind = str(spec.kind);
     var title = str(spec.title) || name;
     if (!/^[A-Z][A-Za-z0-9]*$/.test(name)) {
-      errors.push("name must be a PascalCase page name (for example GererPostes).");
+      errors.push("name must be a PascalCase page name (for example ManageOrders).");
     } else if (childNamed(app, name)) {
       errors.push("page " + name + " already exists: delete it first, or pick another name.");
     }

@@ -818,7 +818,7 @@ C8O.generators = C8O.generators || {};
     var warnings = [];
     var name = str(args.name);
     if (!IDENT.test(name)) {
-      errors.push("name must be an identifier (for example poste_list).");
+      errors.push("name must be an identifier (for example order_list).");
     } else if (childNamed(projectDbo, name)) {
       errors.push("sequence " + projectName + "." + name + " already exists: delete it first, or pick another name.");
     }
@@ -830,7 +830,7 @@ C8O.generators = C8O.generators || {};
         "one namespace object such as var App = (function () { ... return {...}; })();).");
     }
     if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(logic)) {
-      errors.push("logic must be the JS function to call, for example App.posteList (defined in " + script + ").");
+      errors.push("logic must be the JS function to call, for example App.orderList (defined in " + script + ").");
     } else if (content !== null && content.indexOf(logic.split(".").pop()) < 0) {
       errors.push("logic " + logic + " is not found in " + script + ": add the function first. It receives ctx = {me, input, reads, today} and returns " +
         "{success, data, errors, meta} (optionally writes: {<write name>: row or [rows]}).");
