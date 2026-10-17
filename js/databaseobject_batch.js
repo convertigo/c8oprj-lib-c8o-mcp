@@ -832,7 +832,33 @@ include("js/crud_ui_refresh.js");
     if (typeof query !== "string") {
       return;
     }
-    var quoted = /'[^']*\{[A-Za-z_][\w]*\}[^']*'/.exec(query);
+    // Walk the SQL string literals ('...', '' being an escaped quote) and look for {variable} inside one.
+    var quoted = null;
+    var inLiteral = false;
+    var literal = "";
+    for (var qi = 0; qi < query.length && !quoted; qi++) {
+      var ch = query.charAt(qi);
+      if (!inLiteral) {
+        if (ch === "'") {
+          inLiteral = true;
+          literal = "";
+        }
+        continue;
+      }
+      if (ch === "'") {
+        if (query.charAt(qi + 1) === "'") {
+          literal += "''";
+          qi++;
+          continue;
+        }
+        inLiteral = false;
+        if (/\{[A-Za-z_][\w]*\}/.test(literal)) {
+          quoted = ["'" + literal + "'"];
+        }
+        continue;
+      }
+      literal += ch;
+    }
     if (quoted) {
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
         "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: col LIKE {x} || '%'.");
