@@ -1311,18 +1311,36 @@ include("js/crud_ui_refresh.js");
       registerRef(ctx, op.opId, created);
     }
 
-    applyProperties(ctx, created, op.properties, createdQName, report);
-    importStepVariables(ctx, created, op, report);
-    applyNodeExtras(ctx, created, op, report);
-    if (children.length) {
-      upsertChildren(
-        ctx,
-        created,
-        createdQName,
-        children,
-        { replaceOnClassMismatch: true, pruneMissing: false, reorder: false },
-        report
-      );
+    // All or nothing: a tree that fails halfway is removed, so a retry never meets the debris
+    // of the failed attempt (duplicated or misplaced steps).
+    try {
+      applyProperties(ctx, created, op.properties, createdQName, report);
+      importStepVariables(ctx, created, op, report);
+      applyNodeExtras(ctx, created, op, report);
+      if (children.length) {
+        upsertChildren(
+          ctx,
+          created,
+          createdQName,
+          children,
+          { replaceOnClassMismatch: true, pruneMissing: false, reorder: false },
+          report
+        );
+      }
+    } catch (treeError) {
+      var rolledBack = false;
+      try {
+        deleteObject(ctx, createdQName);
+        rolledBack = true;
+      } catch (_ignoreRollback) {}
+      var rollbackNote = rolledBack
+        ? " Nothing was kept: " + createdQName + " and the children created before the error were removed; fix the tree and send it again."
+        : " " + createdQName + " was created before the error and could not be removed: delete it before sending the tree again.";
+      if (treeError && typeof treeError === "object" && treeError.message !== undefined) {
+        treeError.message = String(treeError.message) + rollbackNote;
+        throw treeError;
+      }
+      throw new Error(String(treeError) + rollbackNote);
     }
   }
 
