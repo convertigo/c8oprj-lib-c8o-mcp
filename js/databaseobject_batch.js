@@ -848,6 +848,32 @@ include("js/crud_ui_refresh.js");
     applyTransactionHandlers(ctx, dbo, node, report);
     declareSqlVariables(ctx, dbo, node, report);
     warnQuotedSqlVariables(dbo, node, report);
+    warnAdjacentTexts(dbo, node, report);
+  }
+
+  // Two UIText siblings render on one line with no separator ("Postes actifs7"): each piece of
+  // information needs its own element (Label and Note, h3 and p, two classed spans).
+  function warnAdjacentTexts(dbo, node, report) {
+    var children = node && Array.isArray(node.children) ? node.children : [];
+    var previousText = "";
+    for (var ci = 0; ci < children.length; ci++) {
+      var child = children[ci] || {};
+      var className = String(child.className || "");
+      if (/UIAttribute|UIControlEvent|UIStyle|UIControlVariable|UIDynamicAction|UIDynamicAttr|UICustomAction/.test(className)) {
+        continue;
+      }
+      if (/UIText/.test(className)) {
+        if (previousText.length) {
+          pushReportWarning(report, safeQName(dbo) + ": UIText " + previousText + " and " + String(child.name || "") +
+            " are siblings, so they render glued on one line. Put each piece in its own element (Label and Note, " +
+            "Heading3 and Paragraph, two SpanTag with classes) or merge them into one UIText; see \"Basic presentation\" in convertigo-frontend-ngx.");
+          return;
+        }
+        previousText = String(child.name || "");
+      } else {
+        previousText = "";
+      }
+    }
   }
 
   // '{x}%' puts a bound parameter inside a SQL string literal: the driver then sees fewer parameters
