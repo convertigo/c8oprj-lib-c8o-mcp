@@ -849,6 +849,20 @@ include("js/crud_ui_refresh.js");
     declareSqlVariables(ctx, dbo, node, report);
     warnQuotedSqlVariables(dbo, node, report);
     warnAdjacentTexts(dbo, node, report);
+    warnTemplatePageReference(dbo, node, report);
+  }
+
+  // c8oPage is the page object inside action scripts; Angular templates (If/ForEach directives)
+  // see the page members directly, so c8oPage.local?.x there is undefined: write local?.x.
+  function warnTemplatePageReference(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    var expr = props ? props.directiveExpression : undefined;
+    if (expr && typeof expr === "object") {
+      expr = expr.expression !== undefined ? expr.expression : expr.value;
+    }
+    if (typeof expr === "string" && /\bc8oPage\./.test(expr)) {
+      pushReportWarning(report, safeQName(dbo) + ": directiveExpression uses c8oPage, which a template does not know; write local?.x instead of c8oPage.local?.x.");
+    }
   }
 
   // Two UIText siblings render on one line with no separator ("Postes actifs7"): each piece of
