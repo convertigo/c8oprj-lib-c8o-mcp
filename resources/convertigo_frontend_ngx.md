@@ -140,8 +140,11 @@ The generated code fixes the order, so the tree must express it:
 - the action's Failure handler runs only when the call is rejected (network, timeout, engine exception)
 - a sequence that returns a business failure as an `error` element, such as an `XMLErrorStep` or a facade contract field, resolves normally: the Failure handler does not run
 
+- inside the children of an `IfAction`, `out` is the `IfAction` result, not the result of the call above it
+
 Good pattern:
-- `CallSequenceAction` → child `IfAction` on `out?.error` → toast or error state, and a sibling child for the success path
+- `CallSequenceAction` → child `IfAction` on `out?.error` → toast or error state, and a sibling child for the success path, when those children do not read the call result
+- when they do: `CallSequenceAction` → child `SetLocalAction` storing `out` (for example `lastResult`) → its child `IfAction` on `c8oPage.local?.lastResult?.error` → toast and state updates reading `c8oPage.local?.lastResult`
 
 Bad pattern:
 - the result toast is a sibling of the `CallSequenceAction`: it runs before the response arrives and shows stale state
@@ -184,6 +187,7 @@ For a search app backed by an HTTP web service, use this shape. Open data APIs a
 ```
 
 - Use that shape for `UIControlVariable.varValue`, `UIControlDirective.directiveSource`, `UIText.textValue`, and dynamic component properties whenever the value comes from `SetLocalAction`.
+- Short form: `{"mode":"SOURCE","local":"?.results?.items"}` is expanded by the MCP to exactly that shape, with the object's project. Prefer it when writing trees; readbacks show the full form.
 - For input query binding, the same shape is known to apply cleanly as `DoubleBinding` when `path` is `?.searchQuery`. Do not stop at an "escaping is tricky" explanation and do not replace it with `ionChange`; apply the compact `SOURCE` value and read back the object.
 - For button handoff, a known-good minimal chain is `UIControlEvent#UIControlEvent(eventName:onClick)` -> `UIDynamicAction#SetLocalAction(Property:loading)` -> `UIDynamicAction#CallSequenceAction(requestable: plain:<Project>.<facade>)` -> `UIControlVariable#UIControlVariable(name:<facadeVar>, varValue:<Local SOURCE ?.searchQuery>)`.
 - Keep Local SmartSource `prefix` and `suffix` empty. For visible labels of displayed values, use separate static `UIText` objects around the bound value; form controls are different and use their own `Label` property. Affixes on Local SmartSources can generate invalid Angular interpolation.
@@ -240,7 +244,7 @@ Reading it on the target page:
 Global state:
 - `SetGlobalAction` (`Property`, `Value`) writes `router.sharedObject[Property]`; action SCRIPT values read the same object as `c8oPage.global?.<property>`
 - it lives in memory: it survives navigation, not a browser reload; restore it at startup (for example from the session sequence) if the app needs it after a reload
-- templates read it with a Global SmartSource; tree-apply shape:
+- templates read it with a Global SmartSource; write it as the short form `{"mode":"SOURCE","global":"?.currentUser?.role"}`, which the MCP expands to this tree-apply shape:
 
 ```json
 {
@@ -294,6 +298,7 @@ Do not put a control directly under the page or a card without its `FormItem`, a
 
 - When the form edits existing data, bind each control `Value` to a Local SmartSource of the loaded record (for example `?.draft?.email`) and still read the submitted values from the Form SmartSource.
 - A single search box that is not submitted as a form may keep its `DoubleBinding` on a Local SmartSource, as described in the HTTP search page pattern; it still sits in a `FormItem` with its `Label`.
+- A `Select` shows an option as selected only when its `Value` and the option `Value` have the same type. `SelectOption` values written in SCRIPT mode render as strings (`value="100"`), so a numeric record field leaves the select empty in edit mode. Give the `Select` a string too, for example SCRIPT `local?.draft?.rpcaId != null ? '' + local.draft.rpcaId : null`, and convert back to a number in the sequence. Template expressions cannot call `String(...)`; use `'' + value`.
 
 ### Submit chain
 - `SubmitButton` → the form `onSubmit` event → `CallSequenceAction` with the field variables → children for the result (see Execution order inside an event).

@@ -224,6 +224,13 @@ Read a called requestable's result in JavaScript:
 - `steps.SourceStep`: sets `variableName` to the matching DOM nodes
 - their `sourceDefinition` is `["<priority of the TransactionStep or SequenceStep>", "./document/..."]`: the xpath starts at the called requestable's `document`, e.g. `./document/sql_output` for an `SqlTransaction`, or `./document/*[@originalKeyName='result']` for a JSON field named `result`
 - check the exact path with `databaseobject-schema` or one `requestable-execute` of the called requestable before wiring it
+- under a `SequenceStep`, source `./document` and read the fields in JS (`.document.data`): a deeper xpath such as `./document/data` can return `null`
+- rows from `./document/sql_output` come as an array created in another Rhino scope: `rows instanceof Array` is `false`. Loop on `rows.length` (or copy into a local array first) instead of testing `instanceof Array`
+- sequence variables read in JS are Java strings (`typeof` is `object`): call `String(v)` before `split`, regular expressions or `===` comparisons
+
+Calling a requestable with parameters:
+- a `StepVariable` with no source and no value takes the value of the JavaScript variable of the same name in the sequence scope (a sequence variable or a `var` set by a previous `SimpleStep`), else its default value
+- create the step variables with `importVariables:true` on the `TransactionStep` or `SequenceStep` node (after `sourceTransaction`/`sourceSequence`): the MCP imports one `StepVariable` per variable of the called requestable, with its default value. Then set the JavaScript variables of the same names before the call
 
 Minimal chain:
 
