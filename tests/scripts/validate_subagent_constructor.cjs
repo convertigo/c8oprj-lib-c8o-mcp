@@ -201,8 +201,8 @@ test('constructor: one project, the caller bearer in the environment, the projec
     reportFormat: 'QNames', conversationId: 'agent-1', waitSec: 5 }, h);
   assert.equal(first.status, 'running');
   assert.equal(first.profile, 'constructor');
-  assert.equal(first.elapsedMs, 3000, 'the Studio runs one MCP call at a time: a constructor call waits 3 s at most');
-  assert.match(first.message, /sleep 60/);
+  assert.equal(first.elapsedMs, 5000, 'a constructor call waits waitSec server side, like a verifier call');
+  assert.match(first.message, /Call the same tool again with this runId alone/);
   assert.equal(first.model, 'glm-5-3');
   const start = seen.starts[0];
   assert.deepEqual(plain(start.command), ['/node', '/mcp/node/vibe_subagent_runner.cjs']);

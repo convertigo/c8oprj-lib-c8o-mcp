@@ -28,8 +28,6 @@ C8O.subagents = C8O.subagents || {};
   var LOCK_GRACE_MS = 90 * 1000;
   var RUN_ID = /^(verify|build|sa)-\d{8}-\d{6}-[0-9a-f]{8}$/;
   var ACTIVITY_SHOWN = 6;
-  var MCP_RUNNER_WAIT_SEC = 3;
-  api.MCP_RUNNER_WAIT_SEC = MCP_RUNNER_WAIT_SEC;
 
   api.GATEWAY_URL = GATEWAY_URL;
   api.RUN_ID = RUN_ID;
@@ -53,9 +51,6 @@ C8O.subagents = C8O.subagents || {};
       model: "glm-5-3",
       readOnly: false,
       idPrefix: "build",
-      // It works through the Convertigo MCP, and the Studio runs one MCP call at a time: a call waiting here for its
-      // report would hold its own tool calls back. Calls wait at most MCP_RUNNER_WAIT_SEC; the caller waits on its side.
-      usesMcp: true,
       limits: { maxSteps: 120, timeBudgetSec: 900, maxCostUsd: 1.5 },
       bounds: { maxSteps: [10, 400], timeBudgetSec: [60, 3600], maxCostUsd: [0.05, 10] }
     }
@@ -185,10 +180,6 @@ C8O.subagents = C8O.subagents || {};
     if (!run.exists) {
       throw new Error("Unknown runId " + runId + ": start a sub-agent with a profile and a task first.");
     }
-    var mcpRunner = api.PROFILES[run.profile] && api.PROFILES[run.profile].usesMcp === true;
-    if (mcpRunner) {
-      waitSec = Math.min(waitSec, MCP_RUNNER_WAIT_SEC);
-    }
     var deadline = host.now() + waitSec * 1000;
     var runner = runners[run.runner];
     while (true) {
@@ -213,12 +204,8 @@ C8O.subagents = C8O.subagents || {};
           task: run.task,
           elapsedMs: Math.max(0, host.now() - run.startedAt),
           activity: activityOf(run),
-          message: mcpRunner
-            ? "The sub-agent is still working through the Convertigo MCP, which runs one call at a time: do not wait inside " +
-              "a tool call. Wait about 60 s on your side (for example the shell command sleep 60), then call the same tool " +
-              "with this runId alone; do not write to the project meanwhile."
-            : "The sub-agent is still working. Call the same tool again with this runId alone to wait for its report; " +
-              "do not start another sub-agent on the same browser or project meanwhile."
+          message: "The sub-agent is still working. Call the same tool again with this runId alone to wait for its report; " +
+            "do not start another sub-agent on the same browser or project meanwhile."
         };
       }
       host.sleep(1000);
