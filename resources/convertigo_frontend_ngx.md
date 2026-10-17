@@ -437,6 +437,13 @@ Angular property bindings must use the correct SmartType mode:
 - Watch for generated output like `[value]="'searchQuery'"`, `disabled="{{loading}}"`, or `value="{{page.searchQuery}}"`; these are signs that the source object used the wrong binding mode, property, or scope.
 - Prefer the component's palette property when it models the dynamic input correctly; otherwise add a palette `UIAttribute` with the Angular binding name and an intentional `SC` or `TS` value.
 
+### Data along an action chain
+Checked in the generated page code (8.4 builder), each action of an event chain runs inside the event method:
+- `out` in an action's properties is the result of its direct parent action. Under a `CallSequenceAction`, it is the call's response. Under an `IfAction`, it is the If's own result, not the call's. To read a call's response deeper in the chain (a `SetLocalAction` or a toast under an `IfAction`), write `stack["<CallSequenceAction name>"].out`, for example `stack["LoadPostes"].out?.data`. `stack` is a local variable of the event method, so it is available in action properties.
+- Every action receives the event's inputs merged with its own variables (`{...stack["root"].in, ...vars}`). On a form submit, those inputs are the form's fields. A `CallSequenceAction` that reloads a list after the submit therefore also sends the form's fields, which act as filters. Give every variable of the called sequence explicitly on such a call, empty ones included.
+- A `CallSequenceAction` caches its response for 3 s by default (`cacheTtl` 3000). Set `cacheTtl` to 0 on a read that must show a write made just before, such as a reload after a create or a toggle.
+- A `UICustomAction` function receives `(page, props, vars, event)`, and nothing else: no `scope`, so `scope.poste` inside its code does not compile. To use the current `ForEach` item, add a variable on the custom action whose value is `scope.poste` (or `scope.poste.id`): action variables are evaluated in the event method, where `scope` exists. Then read `vars.poste` in the code. `props.stack`, `props.parent` and `props.out` are also passed.
+
 ### Custom action output handling
 Prefer direct source bindings over response-copying code. If a small `UICustomAction` is truly needed immediately after a `CallSequenceAction`, use the generated action parameters:
 - Actions that depend on the call response must be children of the `CallSequenceAction` or children of a normalizer under that call. Do not place `SetLocalAction(Value=script:out)` as a sibling of the call under the same click/page event; sibling actions are generated in a parallel `Promise.all` block and do not receive the call response.
