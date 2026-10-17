@@ -9,6 +9,9 @@ path: /mcp/
     inputContent: noConvert
     mappedVariableName: request
     required: true
+  ↓__context [rest.QueryParameter-1792274900001]: 
+    comment: 'Each MCP request runs in its own context. In the Studio, a context name not starting with studio_ is replaced by the shared studio_lib_ConvertigoMCP:S:mcp_endpoint, so every MCP call of the Studio waited for the previous one; studio_mcp* keeps the studio_ prefix and the trailing * numbers a fresh context in the request-scoped session, removed with it at the end of the request.'
+    value: studio_mcp*
   ↓jsonOnly [rest.QueryParameter-1764154409088]: 
     mappedVariableName: jsonOnly
     value: false
