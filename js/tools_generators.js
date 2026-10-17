@@ -756,11 +756,214 @@ C8O.generators = C8O.generators || {};
     return node;
   }
 
+  // Generated once in init when a facade calls more than SQL transactions. A transaction or a sequence answers a document:
+  // its error element (engine error, failed step), an HTTP status >= 400 in HttpInfo, or success false (a sequence that
+  // answers the facade contract) mark a failure; the data is the document without attr, error and HttpInfo, and the
+  // array or object of a JSON HTTP transaction is unwrapped.
+  var CALL_HELPERS = [
+    "function facadeFailure(d, source, infoTag) {",
+    "  if (!d) { return \"no response\"; }",
+    "  if (d.error) { return String(d.error.details || d.error.message); }",
+    "  var info = infoTag ? d[infoTag] : null;",
+    "  var code = info && info.status && info.status.attr ? Number(info.status.attr.code) : 0;",
+    "  if (code >= 400) { return \"HTTP \" + code + \" \" + String(info.status.attr.text || \"\"); }",
+    "  if (source === \"sequence\" && String(d.success) === \"false\") {",
+    "    var e = (d.errors && d.errors.length !== undefined) ? d.errors[0] : d.errors;",
+    "    return \"success false\" + (e && e.message ? \": \" + e.message : \"\");",
+    "  }",
+    "  return null;",
+    "}",
+    "function facadeBody(d, source, infoTag) {",
+    "  if (!d) { return null; }",
+    "  var out = {}, keys = [];",
+    "  for (var k in d) {",
+    "    // An element with attributes and no child (an empty document) comes as {text: \"\", attr}.",
+    "    if (k !== \"attr\" && k !== \"error\" && k !== infoTag && !(k === \"text\" && d[k] === \"\")) { out[k] = d[k]; keys.push(k); }",
+    "  }",
+    "  if (source === \"http\" && keys.length === 1 && (keys[0] === \"array\" || keys[0] === \"object\")) { return out[keys[0]]; }",
+    "  return out;",
+    "}",
+    "function facadePath(v, keys) { for (var i = 0; i < keys.length && v != null; i++) { v = v[keys[i]]; } return v === undefined ? null : v; }",
+    "function facadeEmpty(v) {",
+    "  if (v == null || v === \"\") { return true; }",
+    "  if (typeof v === \"object\") { if (v.length !== undefined) { return v.length === 0; } for (var k in v) { return false; } return true; }",
+    "  return false;",
+    "}"
+  ].join("\n");
+
+  // Step that calls a read or write: TransactionStep for any transaction, SequenceStep for a sequence.
+  function callStep(name, plan) {
+    return plan.source === "sequence"
+      ? { className: "steps.SequenceStep", name: name, properties: { sourceSequence: plan.qname }, importVariables: true }
+      : { className: "steps.TransactionStep", name: name, properties: { sourceTransaction: plan.qname }, importVariables: true };
+  }
+
+  function failureArgs(plan) {
+    return jsString(plan.source) + ", " + jsString(plan.source === "http" ? plan.httpInfoTag : "");
+  }
+
   function transactionQName(projectName, connectorName, transaction) {
     return projectName + "." + connectorName + "." + transaction;
   }
 
-  // Resolves a read or write entry: an existing transaction by name, or a new one from sql/select/insert...
+  // What a read or write calls: "sql" (SqlTransaction, rows in sql_output), "http" (any HTTP or REST transaction:
+  // HttpTransaction, JsonHttpTransaction, XmlHttpTransaction, DownloadHttpTransaction), "transaction" (any other
+  // connector) or "sequence".
+  function sourceOf(dbo) {
+    var cls = String(dbo.getClass().getName());
+    if (/SqlTransaction$/.test(cls)) {
+      return "sql";
+    }
+    return /HttpTransaction$/.test(cls) ? "http" : "transaction";
+  }
+
+  function connectorNamed(projectDbo, name) {
+    var connectors = projectDbo.getConnectorsList();
+    for (var i = 0; i < connectors.size(); i++) {
+      if (String(connectors.get(i).getName()) === name) {
+        return connectors.get(i);
+      }
+    }
+    return null;
+  }
+
+  // Every transaction of the project named so, whatever its connector.
+  function transactionsNamed(projectDbo, name) {
+    var hits = [];
+    var connectors = projectDbo.getConnectorsList();
+    for (var i = 0; i < connectors.size(); i++) {
+      var tx = childNamed(connectors.get(i), name);
+      if (tx) {
+        hits.push(tx);
+      }
+    }
+    return hits;
+  }
+
+  function loadedProject(name) {
+    try {
+      return Engine.theApp.databaseObjectsManager.getOriginalProjectByName(name);
+    } catch (_missing) {
+      return null;
+    }
+  }
+
+  function referencesProject(projectDbo, name) {
+    var refs = null;
+    try {
+      refs = projectDbo.getReferenceList();
+    } catch (_ignore) {
+      refs = null;
+    }
+    for (var i = 0; refs && i < refs.size(); i++) {
+      var parser = refs.get(i).getParser ? refs.get(i).getParser() : null;
+      if (parser && String(parser.getProjectName()) === name) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // The project holding a called object: this one, or a library it references (a call into a project it does not
+  // reference fails at deployment and is refused).
+  function calledProject(projectDbo, name, errors, label) {
+    if (!name.length || name === String(projectDbo.getName())) {
+      return projectDbo;
+    }
+    var importCall = "marketplace-import({project:\"" + name + "\", targetProject:\"" + String(projectDbo.getName()) + "\"})";
+    var lib = loadedProject(name);
+    if (lib == null) {
+      errors.push(label + ": project " + name + " is not loaded: import it with " + importCall + ".");
+      return null;
+    }
+    if (!referencesProject(projectDbo, name)) {
+      errors.push(label + ": " + String(projectDbo.getName()) + " does not reference " + name + ": add the reference with " + importCall +
+        " (it keeps the loaded library as it is).");
+      return null;
+    }
+    return lib;
+  }
+
+  // An existing transaction: "tx" (connector from entry.connector, the default connector, or the only transaction of that
+  // name), "connector.tx", or "library.connector.tx".
+  function resolveTransaction(projectDbo, entry, transaction, errors, label, defaultConnector) {
+    var parts = transaction.split(".");
+    if (parts.length > 3 || parts.some(function (p) { return !p.length; })) {
+      errors.push(label + ".transaction must be \"<transaction>\", \"<connector>.<transaction>\" or \"<library>.<connector>.<transaction>\".");
+      return null;
+    }
+    var owner = parts.length === 3 ? calledProject(projectDbo, parts[0], errors, label) : projectDbo;
+    if (!owner) {
+      return null;
+    }
+    var txName = parts[parts.length - 1];
+    var connectorName = parts.length > 1 ? parts[parts.length - 2] : str(entry.connector);
+    if (connectorName.length) {
+      var named = connectorNamed(owner, connectorName);
+      if (!named) {
+        errors.push(label + ": no connector " + connectorName + " in " + String(owner.getName()) + ".");
+        return null;
+      }
+      var direct = childNamed(named, txName);
+      if (!direct) {
+        errors.push(label + ": no transaction " + txName + " in " + qnameOf(named) + ".");
+      }
+      return direct;
+    }
+    // No connector given: the default SqlConnector first (the historical behaviour), then any connector of the project.
+    var sqlErrors = [];
+    var sqlConnector = findConnector(owner, defaultConnector, sqlErrors, label);
+    var sqlHit = sqlConnector ? childNamed(sqlConnector, txName) : null;
+    if (sqlHit) {
+      return sqlHit;
+    }
+    var hits = transactionsNamed(owner, txName);
+    if (hits.length === 1) {
+      return hits[0];
+    }
+    if (hits.length > 1) {
+      errors.push(label + ": " + txName + " exists in several connectors (" + hits.map(function (h) { return qnameOf(h); }).join(", ") +
+        "): write transaction:\"<connector>." + txName + "\".");
+    } else if (sqlConnector) {
+      errors.push(label + ": no transaction " + txName + " in " + qnameOf(sqlConnector) + " nor in another connector of " + String(owner.getName()) + ".");
+    } else {
+      errors.push(label + ": no transaction " + txName + " in " + String(owner.getName()) + (sqlErrors.length ? " (" + sqlErrors[0].replace(label + ": ", "") + ")" : "") + ".");
+    }
+    return null;
+  }
+
+  // A sequence: "seq" in this project or "library.seq" in a referenced library.
+  function resolveSequence(projectDbo, sequence, errors, label) {
+    var parts = sequence.split(".");
+    if (parts.length > 2 || parts.some(function (p) { return !p.length; })) {
+      errors.push(label + ".sequence must be \"<sequence>\" or \"<library>.<sequence>\".");
+      return null;
+    }
+    var owner = calledProject(projectDbo, parts.length === 2 ? parts[0] : "", errors, label);
+    if (!owner) {
+      return null;
+    }
+    var seqName = parts[parts.length - 1];
+    var dbo = null;
+    try {
+      var all = owner.getSequencesList();
+      for (var i = 0; i < all.size(); i++) {
+        if (String(all.get(i).getName()) === seqName) {
+          dbo = all.get(i);
+        }
+      }
+    } catch (_ignore) {
+      dbo = childNamed(owner, seqName);
+    }
+    if (!dbo) {
+      errors.push(label + ": no sequence " + seqName + " in " + String(owner.getName()) + (owner !== projectDbo ? " (marketplace-describe({project:\"" +
+        String(owner.getName()) + "\"}) lists its sequences)" : "") + ".");
+    }
+    return dbo;
+  }
+
+  // Resolves a read or write entry: an existing transaction of any connector, a sequence (local or from a referenced
+  // library), or a new SqlTransaction from sql/select/insert...
   function planCall(projectDbo, entry, errors, warnings, label, defaultConnector, role) {
     if (!isObj(entry)) {
       errors.push(label + " must be an object.");
@@ -768,14 +971,19 @@ C8O.generators = C8O.generators || {};
     }
     var name = str(entry.name);
     var transaction = str(entry.transaction);
+    var sequence = str(entry.sequence);
     var hasSql = entry.sql !== undefined || entry.select || entry.insert || entry.update || entry["delete"] || entry.deleteFrom;
     if (!name.length) {
-      name = transaction.replace(/^[qw]_/, "");
+      name = (sequence || transaction).split(".").pop().replace(/^[qw]_/, "");
     }
     if (!IDENT.test(name)) {
-      errors.push(label + ".name must be an identifier (it names the steps and the rows in ctx.reads).");
+      errors.push(label + ".name must be an identifier (it names the steps and the data in ctx.reads).");
     }
-    var plan = { name: name, label: label, entry: entry, newTransaction: null, transaction: null, variables: [] };
+    var plan = { name: name, label: label, entry: entry, newTransaction: null, transaction: null, variables: [], source: "sql" };
+    if (sequence.length && (transaction.length || hasSql)) {
+      errors.push(label + " gives sequence and " + (hasSql ? "sql" : "transaction") + ": a read or write calls one of them.");
+      return plan;
+    }
     if (hasSql) {
       if (!transaction.length) {
         transaction = (role === "read" ? "q_" : "w_") + name;
@@ -791,28 +999,47 @@ C8O.generators = C8O.generators || {};
       plan.qname = tplan.connectorQName + "." + transaction;
       plan.variables = tplan.variables;
       plan.kind = tplan.kind;
+    } else if (sequence.length) {
+      var seq = resolveSequence(projectDbo, sequence, errors, label);
+      plan.source = "sequence";
+      plan.sequence = seq;
+      plan.qname = seq ? qnameOf(seq) : "";
+      plan.variables = seq ? variableNames(seq) : [];
     } else {
       if (!transaction.length) {
-        errors.push(label + " needs transaction (an existing SqlTransaction name) or sql/select/insert/update/delete.");
+        errors.push(label + " needs transaction (an existing transaction of any connector: \"<transaction>\" or \"<connector>.<transaction>\"), " +
+          "sequence (\"<sequence>\" or \"<library>.<sequence>\") or sql/select/insert/update/delete (a new SqlTransaction).");
         return plan;
       }
-      var connector = findConnector(projectDbo, entry.connector || defaultConnector, errors, label);
-      var dbo = connector ? childNamed(connector, transaction) : null;
-      if (connector && !dbo) {
-        errors.push(label + ": no transaction " + transaction + " in " + qnameOf(connector) + ".");
-      }
+      var dbo = resolveTransaction(projectDbo, entry, transaction, errors, label, defaultConnector);
       plan.transaction = dbo;
       plan.qname = dbo ? qnameOf(dbo) : "";
       plan.variables = dbo ? variableNames(dbo) : [];
+      plan.source = dbo ? sourceOf(dbo) : "sql";
+      if (dbo && plan.source === "http") {
+        // Without HttpInfo a 4xx/5xx answer or a lost connection leaves an ordinary document: the facade could not tell it from data.
+        if (dbo.getHttpInfo && dbo.getHttpInfo() != true) {
+          errors.push(label + ": " + plan.qname + " has httpInfo off, so a 4xx/5xx answer or a lost connection would look like data. Turn it on first: " +
+            "databaseobject-tree-apply({target:\"" + plan.qname + "\", tree:{properties:{httpInfo:true}}}) (the facade then checks the status; " +
+            "HttpInfo never reaches ctx.reads).");
+        }
+        plan.httpInfoTag = dbo.getHttpInfoTagName ? str(dbo.getHttpInfoTagName()) || "HttpInfo" : "HttpInfo";
+      }
     }
     plan.transactionName = transaction;
+    var called = sequence.length ? sequence : transaction;
+    plan.variables.forEach(function (v) {
+      if (plan.source !== "sql" && !IDENT.test(v)) {
+        errors.push(label + ": variable " + v + " of " + called + " is not a JavaScript identifier, so the facade cannot set it; call it from a sequence of yours instead.");
+      }
+    });
     if (entry.vars !== undefined) {
       if (!isObj(entry.vars)) {
         errors.push(label + ".vars must be an object {variable: \"JS expression\"}.");
       } else {
         Object.keys(entry.vars).forEach(function (v) {
           if (plan.variables.length && plan.variables.indexOf(v) < 0) {
-            errors.push(label + ".vars." + v + " is not a variable of " + transaction + " (" + plan.variables.join(", ") + ").");
+            errors.push(label + ".vars." + v + " is not a variable of " + called + " (" + plan.variables.join(", ") + ").");
           }
         });
       }
@@ -869,8 +1096,10 @@ C8O.generators = C8O.generators || {};
     var connectorName = str(args.connector);
     var userPlan = null;
     if (authRequired) {
-      userPlan = planCall(projectDbo, { name: "me", transaction: str(auth.userTransaction || "q_user_by_email") }, errors, warnings, "auth.userTransaction",
-        connectorName, "read");
+      userPlan = str(auth.userSequence).length
+        ? planCall(projectDbo, { name: "me", sequence: str(auth.userSequence) }, errors, warnings, "auth.userSequence", connectorName, "read")
+        : planCall(projectDbo, { name: "me", transaction: str(auth.userTransaction || "q_user_by_email") }, errors, warnings, "auth.userTransaction",
+          connectorName, "read");
     }
     var emailVar = str(auth.emailVariable || "email");
     var roleField = str(auth.roleField || "role");
@@ -899,6 +1128,14 @@ C8O.generators = C8O.generators || {};
       }
     });
     reads.forEach(function (p) {
+      if (p.entry.path !== undefined) {
+        if (p.source === "sql") {
+          errors.push(p.label + ".path picks a part of the JSON a transaction of another connector or a sequence returns; the rows of a SQL read are " +
+            "ctx.reads." + p.name + " already.");
+        } else if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(str(p.entry.path))) {
+          errors.push(p.label + ".path must be a dotted key path such as \"people\" or \"data.items\".");
+        }
+      }
       var per = p.entry.perimeter;
       if (per !== undefined) {
         if (!isObj(per) || !str(per.field).length) {
@@ -927,6 +1164,10 @@ C8O.generators = C8O.generators || {};
       init.push("if (typeof " + n + " === \"undefined\" || " + n + " === null) { " + n + " = \"\"; } " + n + " = String(" + n + ");");
     });
     init.push("resp = null; me = null; reads = {}; written = {};");
+    var anyCall = (userPlan ? [userPlan] : []).concat(reads, writes).some(function (p) { return p.source !== "sql"; });
+    if (anyCall) {
+      init.push(CALL_HELPERS);
+    }
     init.push("facadeInput = {" + inputNames.map(function (n) { return n + ": " + n; }).join(", ") + "};");
     if (authRequired) {
       init.push("var sessionEmail = String(context.getAuthenticatedUser() || \"\");");
@@ -934,10 +1175,19 @@ C8O.generators = C8O.generators || {};
     }
     steps.push(simple("init", init.join("\n"), "Generated by facade-create: include, inputs, session user."));
     if (authRequired) {
-      steps.push({ className: "steps.TransactionStep", name: "callMe", properties: { sourceTransaction: userPlan.qname }, importVariables: true });
-      steps.push({ className: "steps.JsonSourceStep", name: "srcMe", properties: { sourceDefinition: { step: "callMe", xpath: "./document/sql_output" },
-        variableName: "meRows" } });
-      var authCode = ["me = (meRows && meRows.length) ? meRows[0] : null;"];
+      steps.push(callStep("callMe", userPlan));
+      var authCode = [];
+      if (userPlan.source === "sql") {
+        steps.push({ className: "steps.JsonSourceStep", name: "srcMe", properties: { sourceDefinition: { step: "callMe", xpath: "./document/sql_output" },
+          variableName: "meRows" } });
+      } else {
+        steps.push({ className: "steps.JsonSourceStep", name: "srcMe", properties: { sourceDefinition: { step: "callMe", xpath: "./document" },
+          variableName: "meDoc" } });
+        authCode.push("var dMe = (typeof meDoc !== \"undefined\" && meDoc) ? meDoc.document : null;");
+        authCode.push("var meBody = facadeFailure(dMe, " + failureArgs(userPlan) + ") === null ? facadeBody(dMe, " + failureArgs(userPlan) + ") : null;");
+        authCode.push("meRows = facadeEmpty(meBody) ? [] : (meBody.length !== undefined ? meBody : [meBody]);");
+      }
+      authCode.push("me = (meRows && meRows.length) ? meRows[0] : null;");
       var active = activeField.length ? " || !(me." + activeField + " === true || String(me." + activeField + ") === \"true\")" : "";
       authCode.push("if (!me" + active + ") { resp = " + failExpr(codes.unauthenticated) + "; }");
       if (roles.length) {
@@ -953,7 +1203,7 @@ C8O.generators = C8O.generators || {};
         if (assigns.length) {
           readSteps.push(simple("prep_" + p.name, assigns.join("\n")));
         }
-        readSteps.push({ className: "steps.TransactionStep", name: "call_" + p.name, properties: { sourceTransaction: p.qname }, importVariables: true });
+        readSteps.push(callStep("call_" + p.name, p));
         readSteps.push({ className: "steps.JsonSourceStep", name: "src_" + p.name, properties: { sourceDefinition: { step: "call_" + p.name, xpath: "./document" },
           variableName: "doc_" + p.name } });
       });
@@ -962,27 +1212,49 @@ C8O.generators = C8O.generators || {};
       var guard = ["if (resp === null) {"];
       reads.forEach(function (p) {
         guard.push("  var d_" + p.name + " = (typeof doc_" + p.name + " !== \"undefined\" && doc_" + p.name + ") ? doc_" + p.name + ".document : null;");
-        guard.push("  if (d_" + p.name + " && d_" + p.name + ".error) { resp = " + failExpr(codes.readFailed, "") +
-          "; resp.errors[0].message += \" (" + p.name + ": \" + String(d_" + p.name + ".error.details || d_" + p.name + ".error.message) + \")\"; }");
-        guard.push("  reads." + p.name + " = []; var s_" + p.name + " = d_" + p.name + " ? d_" + p.name + ".sql_output : null;");
-        guard.push("  for (var i_" + p.name + " = 0; s_" + p.name + " && s_" + p.name + ".length !== undefined && i_" + p.name + " < s_" + p.name +
-          ".length; i_" + p.name + "++) { reads." + p.name + ".push(s_" + p.name + "[i_" + p.name + "]); }");
         var per = p.entry.perimeter;
+        if (p.source === "sql") {
+          guard.push("  if (d_" + p.name + " && d_" + p.name + ".error) { resp = " + failExpr(codes.readFailed, "") +
+            "; resp.errors[0].message += \" (" + p.name + ": \" + String(d_" + p.name + ".error.details || d_" + p.name + ".error.message) + \")\"; }");
+          guard.push("  reads." + p.name + " = []; var s_" + p.name + " = d_" + p.name + " ? d_" + p.name + ".sql_output : null;");
+          guard.push("  for (var i_" + p.name + " = 0; s_" + p.name + " && s_" + p.name + ".length !== undefined && i_" + p.name + " < s_" + p.name +
+            ".length; i_" + p.name + "++) { reads." + p.name + ".push(s_" + p.name + "[i_" + p.name + "]); }");
+        } else {
+          var path = str(p.entry.path);
+          guard.push("  var f_" + p.name + " = facadeFailure(d_" + p.name + ", " + failureArgs(p) + ");");
+          guard.push("  if (f_" + p.name + " !== null) { resp = " + failExpr(codes.readFailed, "") + "; resp.errors[0].message += \" (" + p.name +
+            ": \" + f_" + p.name + " + \")\"; }");
+          guard.push("  reads." + p.name + " = f_" + p.name + " === null ? " + (path.length ? "facadePath(facadeBody(d_" + p.name + ", " + failureArgs(p) +
+            "), " + JSON.stringify(path.split(".")) + ")" : "facadeBody(d_" + p.name + ", " + failureArgs(p) + ")") + " : null;");
+        }
         if (per) {
           var bypass = list(per.bypassRoles).map(str);
           var userField = str(per.userField || "id");
           var cond = "String(r[" + jsString(str(per.field)) + "]) !== String(me[" + jsString(userField) + "])";
           var scoped = bypass.length ? "me && " + JSON.stringify(bypass) + ".indexOf(String(me." + roleField + ")) < 0" : "me";
-          if (str(per.mode || "filter") === "deny") {
-            guard.push("  if (resp === null && " + scoped + ") { for (var k_" + p.name + " = 0; k_" + p.name + " < reads." + p.name + ".length; k_" + p.name +
-              "++) { var r = reads." + p.name + "[k_" + p.name + "]; if (" + cond + ") { resp = " + failExpr(codes.forbidden) + "; reads." + p.name +
-              " = []; break; } } }");
+          var target = "reads." + p.name;
+          if (p.source === "sql") {
+            if (str(per.mode || "filter") === "deny") {
+              guard.push("  if (resp === null && " + scoped + ") { for (var k_" + p.name + " = 0; k_" + p.name + " < reads." + p.name + ".length; k_" + p.name +
+                "++) { var r = reads." + p.name + "[k_" + p.name + "]; if (" + cond + ") { resp = " + failExpr(codes.forbidden) + "; reads." + p.name +
+                " = []; break; } } }");
+            } else {
+              guard.push("  if (" + scoped + ") { reads." + p.name + " = reads." + p.name + ".filter(function (r) { return !(" + cond + "); }); }");
+            }
+          } else if (str(per.mode || "filter") === "deny") {
+            // The data may be a list or a single record: each record is checked, nothing is returned on a refusal.
+            guard.push("  if (resp === null && " + scoped + ") { var l_" + p.name + " = facadeEmpty(" + target + ") ? [] : (" + target +
+              ".length !== undefined ? " + target + " : [" + target + "]); for (var k_" + p.name + " = 0; k_" + p.name + " < l_" + p.name + ".length; k_" +
+              p.name + "++) { var r = l_" + p.name + "[k_" + p.name + "]; if (" + cond + ") { resp = " + failExpr(codes.forbidden) + "; " + target + " = (" +
+              target + " && " + target + ".length !== undefined) ? [] : null; break; } } }");
           } else {
-            guard.push("  if (" + scoped + ") { reads." + p.name + " = reads." + p.name + ".filter(function (r) { return !(" + cond + "); }); }");
+            guard.push("  if (" + scoped + " && " + target + " != null) { if (" + target + ".length !== undefined) { " + target + " = " + target +
+              ".filter(function (r) { return !(" + cond + "); }); } else { var r = " + target + "; if (" + cond + ") { " + target + " = null; } } }");
           }
         }
         if (p.entry.required === true) {
-          guard.push("  if (resp === null && reads." + p.name + ".length === 0) { resp = " + failExpr(codes.notFound) + "; }");
+          guard.push("  if (resp === null && " + (p.source === "sql" ? "reads." + p.name + ".length === 0" : "facadeEmpty(reads." + p.name + ")") + ") { resp = " +
+            failExpr(codes.notFound) + "; }");
         }
       });
       guard.push("}");
@@ -1006,13 +1278,17 @@ C8O.generators = C8O.generators || {};
         return v + " = (item." + v + " === undefined || item." + v + " === null) ? \"\" : String(item." + v + ");";
       });
       var check = "var d_w = (typeof docW_" + p.name + " !== \"undefined\" && docW_" + p.name + ") ? docW_" + p.name + ".document : null;\n" +
-        "if (d_w && d_w.error) { resp = " + failExpr(codes.writeFailed, "") + "; resp.errors[0].message += \" (" + p.name +
-        ": \" + String(d_w.error.details || d_w.error.message) + \")\"; } else { written." + p.name + "++; }";
+        (p.source === "sql"
+          ? "if (d_w && d_w.error) { resp = " + failExpr(codes.writeFailed, "") + "; resp.errors[0].message += \" (" + p.name +
+            ": \" + String(d_w.error.details || d_w.error.message) + \")\"; } else { written." + p.name + "++; }"
+          : "var f_w = facadeFailure(d_w, " + failureArgs(p) + ");\n" +
+            "if (f_w !== null) { resp = " + failExpr(codes.writeFailed, "") + "; resp.errors[0].message += \" (" + p.name +
+            ": \" + f_w + \")\"; } else { written." + p.name + "++; }");
       steps.push({ className: "steps.IfStep", name: "ifWrite_" + p.name, properties: { condition: "resp && resp.success === true && rows_" + p.name + ".length > 0" },
         children: [{ className: "steps.SimpleIteratorStep", name: "each_" + p.name, properties: { expression: "rows_" + p.name }, children: [
           simple("set_" + p.name, assign.join("\n") || "// no variable"),
           { className: "steps.IfStep", name: "ifOk_" + p.name, properties: { condition: "resp.success === true" }, children: [
-            { className: "steps.TransactionStep", name: "callW_" + p.name, properties: { sourceTransaction: p.qname }, importVariables: true },
+            callStep("callW_" + p.name, p),
             { className: "steps.JsonSourceStep", name: "srcW_" + p.name, properties: { sourceDefinition: { step: "callW_" + p.name, xpath: "./document" },
               variableName: "docW_" + p.name } },
             simple("check_" + p.name, check)
@@ -1069,9 +1345,11 @@ C8O.generators = C8O.generators || {};
       contract: {
         inputs: inputNames,
         response: "{success, data, errors:[{code, message, field}], meta} (four JsonToXmlStep, top-level keys; pages read out?.success and out?.data)",
-        logic: logic + "(ctx) with ctx = {me, input: {" + inputNames.join(", ") + "}, reads: {" + reads.map(function (r) { return r.name + ": [rows]"; }).join(", ") +
+        logic: logic + "(ctx) with ctx = {me, input: {" + inputNames.join(", ") + "}, reads: {" + reads.map(function (r) { return r.name + ": " + (r.source === "sql" ? "[rows]" : r.source === "sequence" ? "JSON of " +
+          r.qname + (str(r.entry.path).length ? " at " + str(r.entry.path) : "") : "JSON body of " + r.qname + (str(r.entry.path).length ? " at " +
+          str(r.entry.path) : "")); }).join(", ") +
           "}, today}; return {success, data, errors, meta" + (writes.length ? ", writes: {" + writes.map(function (w) { return w.name + ": row or [rows] with " +
-          w.variables.join(", "); }).join("; ") + "}" : "") + "}",
+          (w.variables.join(", ") || "no field"); }).join("; ") + "}" : "") + "}",
         errorCodes: Object.keys(codes).map(function (k) { return codes[k].code; }),
         roles: roles
       },
