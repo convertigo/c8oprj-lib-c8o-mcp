@@ -735,6 +735,21 @@ test('an existing AppLayout is completed with the missing rules only', () => {
   assert.equal(nodes.S1IfRecord.properties.directiveExpression, 'local?.data?.job');
 });
 
+test('a list filter takes its options from the page data with optionsFrom', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', title: 'P', kind: 'list', facade: 'poste_list', filterLabel: 'Filtrer',
+    filters: [{ name: 'rpcaId', label: 'RPCA', type: 'select', options: [{ value: '', label: 'Tous' }],
+      optionsFrom: { items: 'rpcas', item: 'r', value: 'id', label: 'nom' } }],
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.equal(nodes.EachRpcaId.properties.directiveItemName, 'r');
+  assert.deepEqual(plain(nodes.EachRpcaId.properties.directiveSource), { mode: 'SOURCE', local: 'data.rpcas' });
+  assert.equal(nodes.Opt0.properties.Value.value, '');
+  assert.match(JSON.stringify(nodes.EachRpcaId), /'' \+ r\?\.id/);
+});
+
 test('a form field initial value is computed at page enter, not written in the template', () => {
   const world = makeWorld();
   const G = load(world);

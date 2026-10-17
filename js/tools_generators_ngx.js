@@ -269,7 +269,7 @@ include("js/tools_generators.js");
     var filterNodes = [];
     filters.forEach(function (f, i) {
       if (!isObj(f) || !IDENT.test(str(f.name))) {
-        errors.push("filters[" + i + "] must be {name, label, type?: text|search|select|toggle, options?}.");
+        errors.push("filters[" + i + "] must be {name, label, type?: text|search|select|toggle, options?, optionsFrom?}.");
         return;
       }
       if (facadeVars && facadeVars.indexOf(str(f.name)) < 0) {
@@ -287,8 +287,17 @@ include("js/tools_generators.js");
           var opt = isObj(o) ? o : { value: o, label: o };
           return nx("SelectOption", "Opt" + oi, { Value: { mode: "PLAIN", value: String(opt.value) } }, [txt(str(opt.label) || String(opt.value))]);
         });
+        // Options read from the page data (a list of RPCA, of services...), after the fixed ones such as {value:"", label:"Tous"}.
+        if (isObj(f.optionsFrom)) {
+          var fsrc = f.optionsFrom;
+          var fit = str(fsrc.item || "opt");
+          var flabel = fsrc.label !== undefined ? fsrc.label : "label";
+          options.push(forEach("Each" + pascal(f.name), "data." + str(fsrc.items || "items"), fit, [nx("SelectOption", "Opt",
+            { Value: { mode: "SCRIPT", value: "'' + " + field(fsrc.value || "id", fit) } },
+            [expr(valueExpr(function (p) { return field(p, fit); }, flabel))])]));
+        }
         if (!options.length) {
-          errors.push("filters[" + i + "] is a select without options.");
+          errors.push("filters[" + i + "] is a select without options or optionsFrom.");
         }
         common.Interface = { mode: "PLAIN", value: "popover" };
         control = nx("Select", "Sel" + pascal(f.name), common, options);
