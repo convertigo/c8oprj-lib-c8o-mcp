@@ -34,13 +34,20 @@ function parseDateMillis(value) {
       return java.lang.Long.parseLong(text);
     } catch (_ignoreLong) {}
   }
+  // The form of the log lines themselves (2026-10-17 14:19:01,502), with T or a space and no offset,
+  // is the Studio's local time; Rhino's Date.parse rejects it.
+  var local = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3}))?)?)?$/.exec(text);
+  if (local) {
+    return new Date(+local[1], +local[2] - 1, +local[3], +(local[4] || 0), +(local[5] || 0),
+      +(local[6] || 0), +((local[7] || "0") + "00").substring(0, 3)).getTime();
+  }
   try {
     var stamp = Date.parse(text);
     if (!isNaN(stamp)) {
       return stamp;
     }
   } catch (_ignoreDateParse) {}
-  return null;
+  throw new Error("Unreadable date \"" + text + "\": use epoch millis or YYYY-MM-DD HH:mm:ss (Studio local time, as in the log lines).");
 }
 
 function lowerToken(value) {
