@@ -411,7 +411,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       lines.push('name = "Convertigo"');
       lines.push('transport = "http"');
       lines.push('url = "' + tomlEscape(mcpUrl) + '"');
-      lines.push("tool_timeout_sec = 180");
+      lines.push("tool_timeout_sec = 600");
       lines.push("");
       lines.push("[mcp_servers.auth]");
       lines.push('type = "static"');
@@ -421,7 +421,7 @@ C8O.setupVibe = C8O.setupVibe || {};
     }
     var section = lines.slice(range.start, range.end);
     var urlLine = 'url = "' + tomlEscape(mcpUrl) + '"';
-    var timeoutLine = "tool_timeout_sec = 180";
+    var timeoutLine = "tool_timeout_sec = 600";
     var hasUrl = false;
     var hasTimeout = false;
     var bridgeOwned = false;
@@ -475,7 +475,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       'name = "Convertigo"',
       'transport = "http"',
       'url = "' + tomlEscape(mcpUrl) + '"',
-      "tool_timeout_sec = 180",
+      "tool_timeout_sec = 600",
       "",
       "[mcp_servers.auth]",
       'type = "static"',
