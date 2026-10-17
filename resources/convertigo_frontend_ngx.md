@@ -39,6 +39,33 @@ For data-backed pages, run the recipe's final tree-readback self-audit before an
 - Prefer stable class names such as `admin-list-item` applied through `Attribute` objects over broad selectors that affect every Ionic component of the same type.
 - If a temporary inline style was used while probing a layout, remove it before completion and replace it with a palette `Attribute` class plus a dedicated `UIStyle` rule.
 
+## Basic presentation
+
+Wiring makes a page work; these patterns make it readable. Checked in a production build: each one renders as described.
+
+- Never put two `UIText` side by side for two pieces of information. Adjacent texts render on one line with no separator ("Postes actifs7", "continuitéRemise : …"). Each piece goes in its own element: a `Label` and a `Note`, an `h3` and a `p`, two `span` blocks with classes, or one `UIText` that holds the whole sentence.
+- Section: `UIDynamicElement#Heading2` with a `UIText` child, then the section content. Never a bare `UIText` as a title.
+- List of records: `List` > `UIControlDirective` (`ForEach`) > `ListItem` > `Label` (`Heading3` for the main field, `Paragraph` for the secondary one) and a `Note` for the value shown on the right (date, status, amount). Never one `UIText` per row joined with " • ".
+- Label and value (record details, form summary): a `List` with `lines` `none`, one `ListItem` per field, with a `Label` (the label) and a `Note` (the value).
+- Counters or KPIs: a `DivTag` with a grid class holding one `DivTag` per counter, each with two `SpanTag`, the value and the label, each with its own class.
+- Record card: `Card` > `CardHeader` (`CardTitle`, `CardSubTitle`) > `CardContent` with the label/value list, then a `DivTag` with an actions class holding the `Button`s.
+- Status: a `Badge` (or `Chip`) with a color class, next to the title, not glued inside a sentence.
+- Create one app-level `UIStyle` (for example `AppLayout`) in the first UI lot, before the pages, and put the shared layout classes there. Write a CSS rule only for markup the tree really produces: `.counter b` styles nothing if the value is a bare `UIText`.
+
+Minimal `AppLayout`:
+
+```css
+.app-page { max-width: 960px; margin: 0 auto; padding: 16px; }
+.app-section { margin: 24px 0 8px; }
+.app-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.app-kpi { padding: 16px; border-radius: 12px; background: var(--ion-color-step-50, rgba(127,127,127,0.08)); }
+.app-kpi-value { display: block; font-size: 28px; font-weight: 600; }
+.app-kpi-label { display: block; opacity: 0.7; margin-top: 4px; }
+.app-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+```
+
+Wrap the page content in a `DivTag` with class `app-page`. A text-only Playwright proof does not see glued texts or a missing layout: look at the page itself (a screenshot) before calling a UI lot done.
+
 ## NGX mental model
 
 ### Structure first, then wiring
