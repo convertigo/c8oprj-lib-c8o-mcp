@@ -38,6 +38,9 @@ comment: |
       resultStatus = directoryExists ? "missing" : "uninitialized";
       resultMessage = directoryExists ? "File not found" : "js directory not created";
       resultBytes = 0;
+    }
+    if (typeof includeContent !== "undefined" && includeContent != null && String(includeContent).trim().toLowerCase() === "false") {
+      fileContent = "";
     }'
 ↓result [steps.JsonObjectStep-1762350567243]: 
   key: 
@@ -186,3 +189,6 @@ comment: |
 ↓filename [variables.RequestableVariable-1762350567265]: 
   comment: Path relative to js/. Do not prefix with js/.
   description: Path relative to js/. Do not prefix with js/.
+↓includeContent [variables.RequestableVariable-1792171000071]: 
+  comment: Set false to get only status, path and size (bytes) without the file content.
+  description: Set false to get only status, path and size (bytes) without the file content.
