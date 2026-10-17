@@ -358,6 +358,29 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors, additionalDbos) {
         return String(component.hashCode());
       }
     };
+    // The application regenerates the routes and the page list (new pages included): find it even
+    // when the anchor is the application itself or the context could not resolve it.
+    var findApplication = function (start) {
+      var current = start;
+      for (var guard = 0; current && guard < 200; guard++) {
+        try {
+          if (/\.ngx\.components\.ApplicationComponent$/.test(String(current.getClass().getName()))) {
+            return current;
+          }
+          current = current.getParent ? current.getParent() : null;
+        } catch (_ignoreWalk) {
+          current = null;
+        }
+      }
+      return null;
+    };
+    if (application == null) {
+      application = findApplication(dbo);
+      var extraList = additionalDbos && additionalDbos.length ? additionalDbos : [];
+      for (var ai = 0; application == null && ai < extraList.length; ai++) {
+        application = findApplication(extraList[ai]);
+      }
+    }
     var applicationKey = application != null ? componentKey(application) : "";
     // Pages and shared components have no updateSourceFiles: regenerate them through the builder,
     // after resetting their computed-content cache. The application is regenerated below.
@@ -405,9 +428,7 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors, additionalDbos) {
       refreshStrategies.push(extraCount + " page(s)/component(s)");
       refreshed = true;
     }
-    if (application != null
-      && typeof application.updateSourceFiles === "function"
-      && application !== mainComponent) {
+    if (application != null && typeof application.updateSourceFiles === "function") {
       application.updateSourceFiles();
       refreshStrategies.push("application.updateSourceFiles");
       refreshed = true;
