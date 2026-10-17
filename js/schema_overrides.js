@@ -1726,7 +1726,34 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         additionalProperties: false
       };
     }
-    return null;
+    return {
+      type: "object",
+      properties: {
+        project: project,
+        name: { type: "string", description: "PascalCase page name; it must not exist yet." },
+        title: { type: "string", description: "Toolbar title (and section title unless heading is given)." },
+        kind: { type: "string", enum: ["list", "detail", "form", "dashboard"] },
+        facade: { type: "string", description: "Data facade called at page enter (required except for a form without data). Every variable of the facade is passed explicitly: filter, param, vars entry, else ''." },
+        params: { type: "array", items: { type: "string" }, description: "navParams data keys copied into locals of the same name at page enter (e.g. [\"id\"] for a detail page)." },
+        locals: open("Extra locals set at page enter: {local: \"TypeScript expression\"}, e.g. {today: \"new Date().toISOString().substring(0, 10)\"}; templates read them as local?.<name>."),
+        vars: open("Extra facade variables: {variable: \"TypeScript expression\"}, e.g. {statut: \"'A_RELANCER'\"}."),
+        filters: openArray("List filters bound to locals filter<Name> and passed to the facade variable of the same name: [{name:\"recherche\", label, type:\"search\"|\"text\"|\"date\"|\"select\", options:[{value, label}], value}]. A Filter button reloads the list (cacheTtl 0)."),
+        filterLabel: { type: "string", description: "Text of the filter button (default Filter)." },
+        list: open("List page: {items:\"items\" (path in out.data), item:\"row\", title:\"numeroPoste\", subtitle, note, badge:{field, labels:{CODE:\"Label\"}, colors:{CODE:\"success\"}}, empty:\"No record.\", onItem:{page, kind:\"push\", data:{id:\"id\"}}}. A field is a path in the row or {field, labels, prefix, suffix}."),
+        detail: open("Detail page: {record:\"poste\" (path in out.data, optional), fields:[{label, field, labels?}]} rendered as a label/value list."),
+        form: open("Form page: {submit:\"declaration_declare\", fields:[{name (the submit variable), label, type: text|email|password|number|tel|url|date|time|textarea|select|toggle, required, helper, value (TypeScript initial value), options:[{value,label}] | optionsFrom:{items:\"items\" (path in the page facade data), item, value:\"id\", label:\"numeroPoste\"}, multiple (sent comma-separated), maxLength, rows}], vars:{variable:\"TypeScript\"} (variables not in the form), success:{message, page, kind:\"root\"|\"push\"|\"pop\", data}, cancel:{page, kind} | false, submitLabel, cancelLabel}. Submit: UIForm onSubmit > CallSequenceAction with Form SmartSources > toast and navigation, or the first error message."),
+        dashboard: open("Dashboard page: {kpis:[{label, field:\"compteurs.postesActifs\"}], sections:[{heading, items:\"aRelancer\", item, title, subtitle, note, badge, empty} | {heading, record:\"dernierTraitement\", fields:[{label, field}]}]}."),
+        actions: openArray("Buttons under the content: [{label, page, kind:\"push\"|\"root\"|\"pop\", data:{key:\"TypeScript\"}, sequence (called first, e.g. auth_logout), fill, color}]."),
+        authRedirect: { type: "string", description: "Entry page opened with RootPageAction when the facade answers a lost-session code or Authentication required." },
+        authCodes: { type: "array", items: { type: "string" }, description: "Codes treated as a lost session; default NON_AUTHENTIFIE, COMPTE_INACTIF." },
+        heading: { type: "string", description: "Heading2 under the toolbar; default title, \"\" for none." },
+        inMenu: { type: "boolean", default: false },
+        segment: { type: "string", description: "Route segment; default path-to-<name in lower case>." },
+        icon: { type: "string", description: "Menu icon (ionicons name)." }
+      },
+      required: ["project", "name", "kind"],
+      additionalProperties: false
+    };
   }
 
   C8O.schemaOverrides._helpers = {
@@ -2017,7 +2044,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
-    if (seq === "tools_sql_transaction_create" || seq === "tools_facade_create") {
+    if (seq === "tools_sql_transaction_create" || seq === "tools_facade_create" || seq === "tools_ngx_page_create") {
       return generatorInputSchema(seq);
     }
 
