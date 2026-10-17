@@ -6,7 +6,7 @@ comment: |
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
 ↓Include [steps.SimpleStep-1792272000001]: 
-  expression: 'include("js/mcp_auth.js"); include("js/tools_image_describe.js"); include("js/tools_project_lint.js");'
+  expression: 'include("js/mcp_auth.js"); include("js/tools_image_describe.js"); include("js/sql_dialect.js"); include("js/tools_project_lint.js");'
 ↓Run [steps.SimpleStep-1792272000002]: 
   expression: 'var lintResult = C8O.lint.run(project, {checkTexts: String(checkTexts) !== "false", context: context});'
 ↓result [steps.JsonToXmlStep-1792272000003]: 

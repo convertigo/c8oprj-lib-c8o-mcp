@@ -12,6 +12,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '../..');
 const sources = {
+  'js/sql_dialect.js': fs.readFileSync(path.join(root, 'js/sql_dialect.js'), 'utf8'),
   'js/tools_generators.js': fs.readFileSync(path.join(root, 'js/tools_generators.js'), 'utf8'),
   'js/tools_generators_ngx.js': fs.readFileSync(path.join(root, 'js/tools_generators_ngx.js'), 'utf8')
 };
@@ -191,6 +192,24 @@ test('lintSql refuses the SQL guide mistakes and explains the fix', () => {
   assert.deepEqual(plain(good.errors), []);
   assert.equal(G.lintSql('UPDATE t SET a = {a} WHERE id = {id}; INSERT INTO j (r) VALUES ({r})').statements, 2);
   assert.match(G.lintSql('SELECT a AS "a" FROM {{table}}').warnings[0], /raw text substitution/);
+});
+
+test('the SQL rules and the written SQL follow the database of the connector', () => {
+  const G = load(makeWorld());
+  const date = "SELECT p.id AS \"id\" FROM p WHERE p.d > CURRENT_DATE - 30";
+  assert.match(G.lintSql(date, 'mysql').errors.join('\n'), /silently wrong.*CURRENT_DATE - INTERVAL 30 DAY/);
+  assert.deepEqual(plain(G.lintSql(date, 'postgresql').errors), [], 'a PostgreSQL date minus a number is days');
+  assert.match(G.lintSql("SELECT a AS \"a\" FROM t WHERE l LIKE '{q}%'", 'mysql').errors[0], /CONCAT\(\{x\}, '%'\)/);
+  const errors = [];
+  const sql = G.buildSql({ select: { from: 'orders o', columns: ['o.id'], where: [{ variable: 'q', column: 'o.label', op: 'contains' },
+    { variable: 'ids', column: 'o.id', op: 'in' }], limit: 5 } }, errors, 't', 'mysql');
+  assert.deepEqual(plain(errors), []);
+  assert.match(sql, /LOWER\(COALESCE\(CAST\(o\.label AS CHAR\), ''\)\) LIKE CONCAT\('%', LOWER\(\{q\}\), '%'\)/);
+  assert.match(sql, /FIND_IN_SET\(CAST\(o\.id AS CHAR\), \{ids\}\) > 0/);
+  assert.doesNotMatch(sql, /\|\|/, 'no || on MariaDB, where it is OR');
+  assert.deepEqual(plain(G.lintSql(sql, 'mysql').errors), []);
+  G.buildSql({ select: { from: 'orders o', columns: ['o.id'], limit: 5 } }, errors, 't', 'sqlserver');
+  assert.match(errors[0], /limit needs orderBy on SQL Server/);
 });
 
 test('a structured select writes aliases and the optional, contains, list and boolean filters', () => {

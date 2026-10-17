@@ -242,19 +242,21 @@
       if (!query.length) {
         return;
       }
+      var D = C8O.sqlDialect;
+      var dialect = D.of(dbo);
       var literals = query.match(/'(?:[^']|'')*'/g) || [];
       for (var li = 0; li < literals.length; li++) {
         var inner = literals[li].substring(1, literals[li].length - 1);
         if (/\{[A-Za-z_]\w*\}/.test(inner) && !/^\{[A-Za-z_]\w*\}$/.test(inner)) {
           add("SQL-QUOTED-VARIABLE", "error", dbo, "A {variable} shares a string literal with other text (" + literals[li] + "): the call fails with parameter index out of range.",
-            "Concatenate: col LIKE {x} || '%'.");
+            "Concatenate: " + D.likePrefix(dialect, "x") + ".");
           break;
         }
       }
-      var dateMath = /\b(CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))\s*[-+]\s*\d+(?!\d|\s*(DAY|MONTH|YEAR|HOUR|MINUTE|SECOND)S?\b)/i.exec(query);
+      var dateMath = D.dateMath(dialect, query);
       if (dateMath) {
-        add("SQL-DATE-UNIT", "error", dbo, "Bare number added to a date (" + dateMath[0] + "): HSQLDB refuses it (incompatible data types in combination).",
-          "Give the unit (" + dateMath[0] + " DAY) or use DATEADD('day', n, CURRENT_DATE).");
+        add("SQL-DATE-UNIT", "error", dbo, "Bare number added to a date (" + dateMath.expression + "): " + dateMath.message + ".",
+          "Write " + dateMath.fix + ".");
       }
       var inMatch = /\bIN\s*\(\s*\{([A-Za-z_]\w*)\}\s*\)/i.exec(query);
       if (inMatch) {
@@ -264,12 +266,14 @@
         } catch (_ignoreVariable) {}
         if (variable != null && /MultiValued/.test(String(variable.getClass().getName()))) {
           add("SQL-IN-LIST", "error", dbo, "IN ({" + inMatch[1] + "}) with a multivalued variable: it is bound as one value, never as a list.",
-            "Pass one comma-separated string and test POSITION(',' || CAST(col AS VARCHAR(20)) || ',' IN ',' || {" + inMatch[1] + "} || ',') > 0.");
+            "Pass one comma-separated string and test " + D.inList(dialect, "col", "{" + inMatch[1] + "}") + ".");
         }
       }
       var alias = /\bAS\s+([a-z][A-Za-z0-9_]*)\b/.exec(query);
-      if (alias && /^\s*(SELECT|WITH)\b/i.test(query)) {
-        add("SQL-ALIAS-CASE", "warning", dbo, "Unquoted alias " + alias[1] + ": HSQLDB returns it upper-cased (" + alias[1].toUpperCase() + "), so row." + alias[1] + " is undefined.",
+      var folding = D.aliasFolding(dialect);
+      if (alias && folding && (folding !== "lower-cases" || /[A-Z]/.test(alias[1])) && /^\s*(SELECT|WITH)\b/i.test(query)) {
+        add("SQL-ALIAS-CASE", "warning", dbo, "Unquoted alias " + alias[1] + ": " + (D.name(dialect) || "the database") + " " + folding +
+          " it (" + (folding === "lower-cases" ? alias[1].toLowerCase() : alias[1].toUpperCase()) + "), so row." + alias[1] + " is undefined.",
           "Quote the aliases: AS \"" + alias[1] + "\".");
       }
     }

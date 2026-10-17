@@ -20,6 +20,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
 }
 include("js/databaseobject_ops.js");
 include("js/crud_ui_refresh.js");
+include("js/sql_dialect.js");
 
 (function () {
   if (typeof C8O === "undefined") {
@@ -971,21 +972,22 @@ include("js/crud_ui_refresh.js");
     }
     if (quoted) {
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
-        "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: col LIKE {x} || '%'.");
+        "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: " + C8O.sqlDialect.likePrefix(C8O.sqlDialect.of(dbo), "x") + ".");
     }
-    // HSQLDB refuses CURRENT_DATE - 120 ("incompatible data types in combination"): the unit is required.
-    var dateMath = /\b(CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))\s*[-+]\s*\d+(?!\d|\s*(DAY|MONTH|YEAR|HOUR|MINUTE|SECOND)S?\b)/i.exec(query);
+    // A bare number added to a date: refused or misread depending on the database (js/sql_dialect.js).
+    var dialect = C8O.sqlDialect.of(dbo);
+    var dateMath = C8O.sqlDialect.dateMath(dialect, query);
     if (dateMath) {
-      pushReportWarning(report, safeQName(dbo) + ": sqlQuery adds a bare number to a date (" + dateMath[0] + "); HSQLDB refuses it " +
-        "with \"incompatible data types in combination\". Give the unit (" + dateMath[0] + " DAY) or use DATEADD('day', n, CURRENT_DATE).");
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery adds a bare number to a date (" + dateMath.expression + "); " +
+        dateMath.message + ". Write " + dateMath.fix + ".");
     }
     // A variable is always bound as one value: a multivalued one in IN ({x}) is never expanded to a list.
     var inMatch = /\bIN\s*\(\s*\{([A-Za-z_][\w]*)\}\s*\)/i.exec(query);
     if (inMatch && isMultiValuedVariable(dbo, node, inMatch[1])) {
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery uses IN ({" + inMatch[1] + "}) with a multivalued variable; " +
         "the engine binds it as one value (\"[a, b]\"), never as a list, so the filter matches nothing or fails on a cast. " +
-        "Pass the list as one comma-separated string and test POSITION(',' || CAST(col AS VARCHAR(20)) || ',' IN ',' || {" +
-        inMatch[1] + "} || ',') > 0 (see convertigo_integration_sql).");
+        "Pass the list as one comma-separated string and test " + C8O.sqlDialect.inList(dialect, "col", "{" + inMatch[1] + "}") +
+        " (see convertigo_integration_sql).");
     }
   }
 

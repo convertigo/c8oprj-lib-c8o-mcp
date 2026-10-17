@@ -11,6 +11,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
   include("js/databaseobject.js");
 }
 include("js/databaseobject_batch.js");
+include("js/sql_dialect.js");
 C8O.generators = C8O.generators || {};
 
 (function () {
@@ -330,7 +331,9 @@ C8O.generators = C8O.generators || {};
   }
 
   // The rules of convertigo_integration_sql, as errors (the statement would misbehave) and warnings.
-  G.lintSql = function (sql) {
+  G.lintSql = function (sql, dialect) {
+    var D = C8O.sqlDialect;
+    dialect = dialect || "";
     var errors = [];
     var warnings = [];
     var statements = splitTopLevel(String(sql), ";").map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
@@ -342,12 +345,12 @@ C8O.generators = C8O.generators || {};
     var m;
     while ((m = literalRe.exec(String(sql))) !== null) {
       if (/\{[A-Za-z_]\w*\}/.test(m[1]) && !/^\{[A-Za-z_]\w*\}$/.test(m[1])) {
-        errors.push("'" + m[1] + "' puts a {variable} inside a string literal: the call fails with parameter index out of range. Concatenate: col LIKE {x} || '%'.");
+        errors.push("'" + m[1] + "' puts a {variable} inside a string literal: the call fails with parameter index out of range. Concatenate: " + D.likePrefix(dialect, "x") + ".");
       }
     }
-    var dateMath = /\b(CURRENT_DATE|CURRENT_TIMESTAMP|NOW\(\))\s*[-+]\s*\d+(?!\d|\s*(DAY|MONTH|YEAR|HOUR|MINUTE|SECOND)S?\b)/i.exec(String(sql));
+    var dateMath = D.dateMath(dialect, sql);
     if (dateMath) {
-      errors.push(dateMath[0] + " adds a bare number to a date: HSQLDB refuses it. Give the unit (" + dateMath[0] + " DAY) or use DATEADD('day', n, CURRENT_DATE).");
+      errors.push(dateMath.expression + " adds a bare number to a date: " + dateMath.message + ". Write " + dateMath.fix + ".");
     }
     var isNull = /\{([A-Za-z_]\w*)\}\s+IS\s+(NOT\s+)?NULL/i.exec(String(sql));
     if (isNull) {
@@ -355,7 +358,7 @@ C8O.generators = C8O.generators || {};
     }
     var inList = /\bIN\s*\(\s*\{([A-Za-z_]\w*)\}\s*\)/i.exec(String(sql));
     if (inList) {
-      errors.push("IN ({" + inList[1] + "}) binds one value, never a list. Pass a comma-separated string and test ({" + inList[1] + "} = '' OR POSITION(',' || CAST(col AS VARCHAR(20)) || ',' IN ',' || {" + inList[1] + "} || ',') > 0).");
+      errors.push("IN ({" + inList[1] + "}) binds one value, never a list. Pass a comma-separated string and test ({" + inList[1] + "} = '' OR " + D.inList(dialect, "col", "{" + inList[1] + "}") + ").");
     }
     if (/\{\{[A-Za-z_]\w*\}\}/.test(String(sql))) {
       warnings.push("{{variable}} is raw text substitution (an injection point): keep it for identifiers or computed clauses, never for user input.");
@@ -388,7 +391,9 @@ C8O.generators = C8O.generators || {};
         }
       }
       if (bad.length) {
-        errors.push("every selected column needs a quoted camelCase alias (HSQLDB upper-cases unquoted names in sql_output): " + bad.join("; ") + ".");
+        var folding = D.aliasFolding(dialect);
+        errors.push("every selected column needs a quoted camelCase alias (" + (folding ? (D.name(dialect) || "the database") + " " + folding +
+          " unquoted names in sql_output" : "the facade reads camelCase keys") + "): " + bad.join("; ") + ".");
       }
     }
     return { errors: errors, warnings: warnings, statements: statements.length };
@@ -396,7 +401,8 @@ C8O.generators = C8O.generators || {};
 
   var FILTER_OPS = { "=": 1, "<>": 1, "<": 1, "<=": 1, ">": 1, ">=": 1, contains: 1, startsWith: 1, "in": 1, bool: 1 };
 
-  function filterSql(filter, errors, label) {
+  function filterSql(filter, errors, label, dialect) {
+    var D = C8O.sqlDialect;
     if (filter.sql !== undefined) {
       return "(" + str(filter.sql) + ")";
     }
@@ -418,13 +424,13 @@ C8O.generators = C8O.generators || {};
     var v = "{" + variable + "}";
     var tests = columns.map(function (col) {
       if (op === "contains") {
-        return "LOWER(COALESCE(CAST(" + col + " AS VARCHAR(4000)), '')) LIKE '%' || LOWER(" + v + ") || '%'";
+        return "LOWER(COALESCE(" + D.text(dialect, col, 4000) + ", '')) LIKE " + D.concat(dialect, ["'%'", "LOWER(" + v + ")", "'%'"]);
       }
       if (op === "startsWith") {
-        return "LOWER(" + col + ") LIKE LOWER(" + v + ") || '%'";
+        return "LOWER(" + col + ") LIKE " + D.concat(dialect, ["LOWER(" + v + ")", "'%'"]);
       }
       if (op === "in") {
-        return "POSITION(',' || CAST(" + col + " AS VARCHAR(40)) || ',' IN ',' || " + v + " || ',') > 0";
+        return D.inList(dialect, col, v);
       }
       if (op === "bool") {
         return col + " = (" + v + " = 'true')";
@@ -436,7 +442,7 @@ C8O.generators = C8O.generators || {};
   }
 
   // Builds the SQL of a structured select/insert/update/delete spec.
-  G.buildSql = function (spec, errors, label) {
+  G.buildSql = function (spec, errors, label, dialect) {
     if (spec.select) {
       var sel = spec.select;
       var from = str(sel.from);
@@ -459,7 +465,7 @@ C8O.generators = C8O.generators || {};
       if (!cols.length) {
         errors.push(label + ".select.columns is required: an object {alias: expression} or an array of columns.");
       }
-      var where = list(sel.where).map(function (f, i) { return filterSql(isObj(f) ? f : { sql: f }, errors, label + ".select.where[" + i + "]"); });
+      var where = list(sel.where).map(function (f, i) { return filterSql(isObj(f) ? f : { sql: f }, errors, label + ".select.where[" + i + "]", dialect); });
       var sql = "SELECT " + cols.join(", ") + "\nFROM " + from;
       if (where.length) {
         sql += "\nWHERE " + where.join("\n  AND ");
@@ -474,7 +480,12 @@ C8O.generators = C8O.generators || {};
         if (!/^\d+$/.test(str(sel.limit))) {
           errors.push(label + ".select.limit must be a number.");
         }
-        sql += "\nLIMIT " + str(sel.limit);
+        var limit = C8O.sqlDialect.limit(dialect, str(sel.limit), str(sel.orderBy).length > 0);
+        if (limit === null) {
+          errors.push(label + ".select.limit needs orderBy on SQL Server (OFFSET ... FETCH follows an ORDER BY).");
+        } else {
+          sql += "\n" + limit;
+        }
       }
       return sql;
     }
@@ -563,8 +574,9 @@ C8O.generators = C8O.generators || {};
       errors.push(label + ".name must be an identifier (q_* for reads, w_* for writes).");
     }
     var connector = findConnector(projectDbo, spec.connector || defaultConnector, errors, label);
-    var sql = spec.sql !== undefined ? str(spec.sql) : G.buildSql(spec, errors, label);
-    var lint = G.lintSql(sql);
+    var dialect = C8O.sqlDialect.of(connector);
+    var sql = spec.sql !== undefined ? str(spec.sql) : G.buildSql(spec, errors, label, dialect);
+    var lint = G.lintSql(sql, dialect);
     lint.errors.forEach(function (e) { errors.push(label + ": " + e); });
     lint.warnings.forEach(function (w) { warnings.push(label + ": " + w); });
     var kind = /^\s*(SELECT|WITH)\b/i.test(sql) ? "read" : "write";

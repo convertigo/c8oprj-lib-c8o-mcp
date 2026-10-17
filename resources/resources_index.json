@@ -797,7 +797,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "domain",
       "integration",

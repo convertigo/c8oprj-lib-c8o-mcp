@@ -125,13 +125,15 @@ Minimum validation proof:
 `sql-transaction-create` applies the rules of this section: from a structured `select` it writes the quoted camelCase aliases, the optional filters, the `contains` and `POSITION` list filters itself, and it refuses SQL text that breaks one of them, with the fix in the message.
 
 ### Result keys follow the database's identifier case
-`sql_output` rows are keyed by the column labels the driver returns. HSQLDB (and Oracle) upper-case unquoted identifiers: `SELECT id, numero_poste AS numPoste` gives `ID` and `NUMPOSTE`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", numero_poste AS "numeroPoste"`, and read those exact keys (checked on HSQLDB: the quoted alias `"libellePoste"` keeps its case).
+`sql_output` rows are keyed by the column labels the driver returns. HSQLDB and Oracle upper-case unquoted identifiers, PostgreSQL lower-cases them (MariaDB/MySQL and SQL Server keep them as written): `SELECT id, numero_poste AS numPoste` gives `ID` and `NUMPOSTE`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", numero_poste AS "numeroPoste"`, and read those exact keys (checked on HSQLDB: the quoted alias `"libellePoste"` keeps its case).
 
 ### A `{variable}` never shares a SQL string literal with other text
-`{variable}` becomes a bound parameter. `'{name}'` alone is the same parameter (the engine drops the quotes), but with other text in the quotes (`LIKE '{name}%'`) it is not a parameter for the driver while still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
+`{variable}` becomes a bound parameter. `'{name}'` alone is the same parameter (the engine drops the quotes), but with other text in the quotes (`LIKE '{name}%'`) it is not a parameter for the driver while still counted as one, and the call fails with "parameter index out of range". Build the pattern by concatenation: `name LIKE {name} || '%'`, `LOWER(name) LIKE '%' || LOWER({search}) || '%'`. On MariaDB/MySQL `||` is a logical OR: use `CONCAT({name}, '%')`; on SQL Server use `+`. A variable may appear many times in one query (checked with 8 occurrences on HSQLDB).
 
 ### Date arithmetic needs a unit on HSQLDB
 `CURRENT_DATE - 120` is refused with "incompatible data types in combination": HSQLDB does not subtract a bare number from a date. Give the unit, `CURRENT_DATE - 120 DAY` (also `MONTH`, `YEAR`, and `CURRENT_TIMESTAMP - 2 HOUR`), or use `DATEADD('day', -120, CURRENT_DATE)`. Both forms checked on HSQLDB, in a `SELECT` and in a `VALUES` row. The error names the cause right after "on connection," in `details`, before the statement text.
+
+Other databases, from their documentation (not checked here): MariaDB/MySQL accepts `CURRENT_DATE - 120` but turns the date into a number (`20261017 - 120`), so the result is silently wrong: write `CURRENT_DATE - INTERVAL 120 DAY`. PostgreSQL reads `CURRENT_DATE - 120` as days but refuses a number on a timestamp: write `CURRENT_TIMESTAMP - INTERVAL '2 hours'`. Oracle and SQL Server count a bare number as days. `project-lint`, `databaseobject-tree-apply` and `sql-transaction-create` read the driver of the transaction's connector and apply the rule of that database.
 
 ### A list filter (`IN`) takes one comma-separated string
 A variable is always bound as one value. A multivalued variable is never expanded into a list: `IN ({ids})` receives the single string `[56, 57]`, which matches nothing, or fails with "invalid character value for cast" on a numeric column. Pass the list as one comma-separated string (`"56,57"`, built in the sequence with `ids.join(",")`) and test membership with `POSITION`, which stays a bound parameter:
@@ -141,7 +143,7 @@ SELECT id AS "id" FROM poste_pca
 WHERE ({ids} = '' OR POSITION(',' || CAST(id AS VARCHAR(20)) || ',' IN ',' || {ids} || ',') > 0)
 ```
 
-Checked on HSQLDB: `"56,57"` returns those two rows, an absent variable returns every row. Do not reach for `{{ids}}` (raw text substitution, an injection point) or one transaction per element.
+Checked on HSQLDB (PostgreSQL has the same `POSITION` and `||`): `"56,57"` returns those two rows, an absent variable returns every row. On MariaDB/MySQL write `FIND_IN_SET(CAST(id AS CHAR), {ids}) > 0`, on SQL Server `CHARINDEX(',' + CAST(id AS VARCHAR(20)) + ',', ',' + {ids} + ',') > 0`, on Oracle `INSTR(',' || {ids} || ',', ',' || id || ',') > 0`; `sql-transaction-create` writes the form of the connector's database. Do not reach for `{{ids}}` (raw text substitution, an injection point) or one transaction per element.
 
 ### An absent variable is an empty string, never NULL
 A `SqlTransaction` replaces a variable that has no value (not sent, or sent as null) with an empty string before binding it. A `{variable} IS NULL` test is therefore never true, and an optional filter written that way returns no row when the filter is omitted.
