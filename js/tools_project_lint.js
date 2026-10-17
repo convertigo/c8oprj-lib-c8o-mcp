@@ -96,6 +96,8 @@
     return result;
   };
 
+  var REVIEW_BATCH = 40;
+  var REVIEW_MAX = 400;
   var REVIEW_PROMPT = "You proofread the user-facing strings of a software application. Each line is `id<TAB>text`. " +
     "Ellipses (…) mark values inserted at run time. Report only real problems: misspelled words, missing or wrong accents " +
     "or diacritics, typos, broken grammar, and strings written in another language than the one expected. Ignore product names, " +
@@ -108,15 +110,19 @@
     if (options.checkTexts === false) {
       return { skipped: "checkTexts is false" };
     }
+    // A long list makes the model skip strings: review at most REVIEW_BATCH strings per call.
     var groups = [];
-    if (order.length) {
-      groups.push({ label: "app texts", language: "", items: order.map(function (text) { return { text: text, where: owners[text].join(", ") }; }) });
-    }
+    var pushGroups = function (label, language, items) {
+      for (var from = 0; from < items.length && from < REVIEW_MAX; from += REVIEW_BATCH) {
+        groups.push({ label: label, language: language, items: items.slice(from, from + REVIEW_BATCH) });
+      }
+    };
+    pushGroups("app texts", "", order.map(function (text) { return { text: text, where: owners[text].join(", ") }; }));
     for (var lang in i18n.values) {
-      if (Object.prototype.hasOwnProperty.call(i18n.values, lang) && i18n.values[lang].length) {
-        groups.push({ label: lang + ".json", language: lang, items: i18n.values[lang].map(function (entry) {
+      if (Object.prototype.hasOwnProperty.call(i18n.values, lang)) {
+        pushGroups(lang + ".json", lang, i18n.values[lang].map(function (entry) {
           return { text: entry.text, where: "DisplayObjects/mobile/assets/i18n/" + lang + ".json#" + entry.key };
-        }) });
+        }));
       }
     }
     if (!groups.length) {
@@ -141,7 +147,7 @@
     var reviewed = 0;
     var problems = 0;
     for (var g = 0; g < groups.length; g++) {
-      var items = groups[g].items.slice(0, 400);
+      var items = groups[g].items;
       var lines = [];
       for (var it = 0; it < items.length; it++) {
         lines.push(it + "\t" + items[it].text.replace(/[\t\r\n]+/g, " ").substring(0, 300));
@@ -149,6 +155,7 @@
       var request = {
         model: model,
         max_tokens: 4000,
+        temperature: 0,
         reasoning_effort: "none",
         response_format: { type: "json_object" },
         messages: [
