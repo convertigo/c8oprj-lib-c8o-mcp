@@ -53,6 +53,7 @@
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
   ↓tools_databaseobject_tree_apply [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_apply.yaml
   ↓tools_databaseobject_tree_get [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_get.yaml
+  ↓tools_image_describe [sequences.GenericSequence]: 🗏 sequences/tools_image_describe.yaml
   ↓tools_log_view [sequences.GenericSequence]: 🗏 sequences/tools_log_view.yaml
   ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml

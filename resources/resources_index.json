@@ -992,7 +992,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_validation_and_evidence.md",
     "guideId": "convertigo/validation-and-evidence",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "validation",
       "evidence",
@@ -1006,6 +1006,7 @@
     "recommendedTools": [
       "requestable-execute",
       "log-view",
+      "image-describe",
       "databaseobject-tree-get",
       "batch-call",
       "project-save",

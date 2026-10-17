@@ -21,6 +21,16 @@ round trip on an owned disposable runtime/project (including named Flow
 configurations, rejected mutations and Save/Reload). In-memory tests do not
 replace that HTTP proof.
 
+## Image description (vision gateway)
+
+Run `node --test tests/scripts/validate_image_describe.cjs` after changing
+`image-describe`. The in-memory checks cover the image types read from the
+content (PNG, JPEG, WebP), the gateway request, the usage block the Agent
+Bridge sums per model (`usage.tool = "image-describe"`), key redaction in
+errors and the full-bearer gate. They mock the gateway: a live call through
+the MCP (with the Studio key file) is still the proof that the model reads
+the image.
+
 ## No-code capability isolation
 
 Run `node --test tests/scripts/validate_nocode_tool_policy.cjs` after changes to

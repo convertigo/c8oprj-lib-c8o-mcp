@@ -1,0 +1,41 @@
+accessibility: Private
+comment: |
+  Describe an image with a vision model
+  Sends one PNG, JPEG or WebP image (a Studio workspace file such as a Playwright screenshot, or base64) and a question to a vision model of the Convertigo LLM gateway, and returns its text answer with the call usage (model, tokens, cost). For agents whose model cannot read images: a visual check after a browser proof. The gateway key stays in the Studio.
+↓Include [steps.SimpleStep-1792260000001]: 
+  expression: 'include("js/mcp_auth.js"); include("js/tools_image_describe.js");'
+↓Run [steps.SimpleStep-1792260000002]: 
+  expression: 'var imageDescribeResult = C8O.imageDescribe.execute(context, {path: path, base64: base64, question: question, model: model, maxTokens: maxTokens});'
+↓result [steps.JsonToXmlStep-1792260000003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: imageDescribeResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓path [variables.RequestableVariable-1792260000004]: 
+  comment: 'Image file in the Studio workspace: absolute, or relative to the user workspace (where Playwright screenshots go) then to the projects folder.'
+  description: 'Image file in the Studio workspace: absolute, or relative to the user workspace (where Playwright screenshots go) then to the projects folder.'
+  value: ''
+↓base64 [variables.RequestableVariable-1792260000005]: 
+  comment: 'Image as base64 or a data:image/...;base64, URL, instead of path.'
+  description: 'Image as base64 or a data:image/...;base64, URL, instead of path.'
+  value: ''
+↓question [variables.RequestableVariable-1792260000006]: 
+  comment: 'What to check or describe; defaults to a general screenshot description.'
+  description: 'What to check or describe; defaults to a general screenshot description.'
+  value: ''
+↓model [variables.RequestableVariable-1792260000007]: 
+  comment: 'Vision model of the gateway; default mistral/mistral-large-4.'
+  description: 'Vision model of the gateway; default mistral/mistral-large-4.'
+  value: ''
+↓maxTokens [variables.RequestableVariable-1792260000008]: 
+  comment: 'Answer budget including the model reasoning, 200 to 8000; default 2000.'
+  description: 'Answer budget including the model reasoning, 200 to 8000; default 2000.'
+  value: ''

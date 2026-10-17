@@ -60,6 +60,7 @@ Never reload the active MCP server project itself; use `project-save` there beca
   - explicit loading, empty, error, and retry presence when the page depends on data
   - `project-save` after the last successful UI mutation
   - do not treat `mobile-builder-open ready=true` as a substitute for browser smoke
+  - when layout or style is an acceptance criterion and your model cannot read images, add one visual check: a Playwright screenshot saved with `filename`, then `image-describe` with that file as `path` and a precise question
 
 ### Concise vs noisy proof
 Acceptable proof:
@@ -74,6 +75,7 @@ Noisy proof:
 ## Recommended MCP tools
 - `requestable-execute`
 - `log-view`
+- `image-describe`
 - `databaseobject-tree-get`
 - `batch-call`
 - `project-save`

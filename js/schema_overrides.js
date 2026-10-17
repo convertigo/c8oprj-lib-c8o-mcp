@@ -1581,6 +1581,34 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function imageDescribeOutputSchema() {
+    return closedObjectSchema({
+      description: { type: "string", description: "The vision model's answer." },
+      model: { type: "string" },
+      usage: closedObjectSchema({
+        tool: { type: "string", enum: ["image-describe"] },
+        callId: { type: "string", description: "Gateway call id." },
+        model: { type: "string" },
+        inputTokens: { type: "number" },
+        cachedTokens: { type: "number" },
+        outputTokens: { type: "number" },
+        reasoningTokens: { type: "number" },
+        totalTokens: { type: "number" },
+        cost: { type: ["number", "null"], description: "Gateway cost of the call, null when the gateway does not give it." },
+        currency: { type: "string" },
+        durationMs: { type: "number" }
+      }),
+      image: closedObjectSchema({
+        source: { type: "string", enum: ["file", "base64"] },
+        path: { type: "string" },
+        mimeType: { type: "string" },
+        bytes: { type: "number" }
+      }),
+      truncated: { type: "boolean" },
+      warning: { type: "string" }
+    });
+  }
+
   function logViewOutputSchema() {
     return closedObjectSchema({
       lines: {
@@ -1924,6 +1952,20 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
+    if (seq === "tools_image_describe") {
+      return {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "PNG, JPEG or WebP file of the Studio workspace, e.g. the file a Playwright screenshot was saved to. Absolute, or relative to the Studio user workspace then to the projects folder." },
+          base64: { type: "string", description: "The image as base64 or a data:image/...;base64, URL, instead of path." },
+          question: { type: "string", description: "What to check, e.g. Is the Save button visible and aligned with the form? Defaults to a general screenshot description." },
+          model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
+          maxTokens: { type: "integer", minimum: 200, maximum: 8000, default: 2000, description: "Answer budget, reasoning included." }
+        },
+        additionalProperties: false
+      };
+    }
+
     if (seq === "tools_batch_call") {
       return batchCallInputSchema();
     }
@@ -2076,6 +2118,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_databaseobject_search") {
       return databaseobjectSearchOutputSchema();
+    }
+    if (seq === "tools_image_describe") {
+      return imageDescribeOutputSchema();
     }
     if (seq === "tools_log_view") {
       return logViewOutputSchema();
