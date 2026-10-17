@@ -90,7 +90,7 @@ Every page below is built from events and actions: no page loads data from `scri
 ## Order of work
 Keep `docs/generated/PROGRESS.md` up to date after each step below (object inventory, checks, next step), as the common skill's "Long tasks" section says: it is what a resumed or compacted conversation starts from.
 
-Keep your own context for the specification, the plan, the decisions and the reports, and delegate the heavy work to sub-agents (common skill, "Sub-agents"): close each page lot with one verifier run (`subagent-run`, profile `verifier`) whose paths are the user journeys through that page and whose checks are the specification's acceptance criteria with their exact texts. Copy its verdict and findings into `PROGRESS.md`; fix, rebuild and verify again only the paths that failed.
+Keep your own context for the specification, the plan, the decisions and the reports, and delegate the heavy work to sub-agents (common skill, "Sub-agents"): build each lot below with a constructor run (one per coherent piece: the transactions and facades of a lot, one page, the test sequences), read back the QNames it reports, and close each page lot with one verifier run (`subagent-run`, profile `verifier`) whose paths are the user journeys through that page and whose checks are the specification's acceptance criteria with their exact texts. Copy its verdict and findings into `PROGRESS.md`; fix, rebuild and verify again only the paths that failed.
 
 1. Data model and `SqlTransaction`s (`sql-transaction-create`, several per call), seeded with demo data by a reset sequence; prove each with `requestable-execute`.
 2. `js/<app>.js` with the rules, then the session facades, then the other facades (`facade-create`).
