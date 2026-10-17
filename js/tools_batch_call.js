@@ -523,6 +523,19 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return compactMutationPayload(payload);
   }
 
+  function isAutoCallId(callId) {
+    return /^call_\d+$/.test(asTrimmed(callId));
+  }
+
+  function isCleanMutation(report) {
+    if (!report || !isMutationSequence(report.sequence) || report.status !== "applied") {
+      return false;
+    }
+    var payload = report.payload || {};
+    var count = function (list) { return Array.isArray(list) ? list.length : 0; };
+    return count(report.warnings) + count(report.errors) + count(payload.warnings) + count(payload.errors) === 0;
+  }
+
   function outputReports(reports, responseDetail) {
     if (responseDetail === "full") {
       return reports;
@@ -530,6 +543,15 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var compactReports = [];
     for (var i = 0; i < reports.length; i++) {
       var report = reports[i] || {};
+      // A clean mutation is already counted in summary and mutationFinalize: keep only its slot.
+      if (isCleanMutation(report)) {
+        var slot = { index: report.index, tool: report.tool, status: report.status };
+        if (!isAutoCallId(report.callId)) {
+          slot.callId = report.callId;
+        }
+        compactReports.push(slot);
+        continue;
+      }
       var compact = {
         index: report.index,
         callId: report.callId,
@@ -566,6 +588,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var ids = Object.keys(refs);
     for (var j = 0; j < ids.length; j++) {
       var id = ids[j];
+      if (isAutoCallId(id)) {
+        continue;
+      }
       var matchingReport = reportsById[id] || {};
       var referencedPayload = refs[id] || {};
       compactRefs[id] = {

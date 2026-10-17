@@ -391,11 +391,10 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors, additionalDbos) {
       updatedMains[key] = true;
       return true;
     };
-    if (updateMain(mainComponent || C8O.dbo._ngxMainComponentOf(dbo))) {
-      refreshStrategies.push("mainScriptComponent");
-      refreshed = true;
-    }
     var extraCount = 0;
+    if (updateMain(mainComponent || C8O.dbo._ngxMainComponentOf(dbo))) {
+      extraCount++;
+    }
     var extras = additionalDbos && additionalDbos.length ? additionalDbos : [];
     for (var ei = 0; ei < extras.length; ei++) {
       if (updateMain(C8O.dbo._ngxMainComponentOf(extras[ei]))) {
@@ -403,7 +402,7 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors, additionalDbos) {
       }
     }
     if (extraCount > 0) {
-      refreshStrategies.push(extraCount + " more page(s)/component(s)");
+      refreshStrategies.push(extraCount + " page(s)/component(s)");
       refreshed = true;
     }
     if (application != null
