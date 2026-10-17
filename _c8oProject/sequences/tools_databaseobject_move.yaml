@@ -53,6 +53,10 @@ comment: |
     moveSummaryMoved = moveMoved ? 1 : 0;
     moveSummaryReordered = moveReordered ? 1 : 0;
     moveSummaryErrors = moveErrors.length;
+    // moved:false with reordered:true is a success: same parent, new place, steps run in the new order.
+    moveMessage = !moveDone ? "" : (moveReordered
+      ? "Reordered inside " + toParentText + " (same parent, so moved is false): steps run in the new order."
+      : "Moved under " + toParentText + ".");
     '
 ↓Export [steps.SimpleStep-1762369943166]: 
   comment: Export project if requested
@@ -211,6 +215,20 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: moveReordered
+  ↓FieldMessage [steps.JsonFieldStep-1792270000001]: 
+    comment: What happened, in one sentence
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: moveMessage
   ↓FieldDone [steps.JsonFieldStep-1762370066230]: 
     comment: Operation completed
     key: 
