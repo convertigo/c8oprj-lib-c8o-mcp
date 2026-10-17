@@ -106,6 +106,9 @@ function normalizeConfig(raw) {
     timeBudgetMs: clampInt(raw.timeBudgetMs, DEFAULTS.timeBudgetMs, 30000, 900000),
     actionTimeoutMs: clampInt(raw.actionTimeoutMs, DEFAULTS.actionTimeoutMs, 1000, 30000),
     maxTokens: clampInt(raw.maxTokens, DEFAULTS.maxTokens, 300, 8000),
+    maxCostUsd: isFinite(Number(raw.maxCostUsd)) && Number(raw.maxCostUsd) > 0 ? Number(raw.maxCostUsd) : 0,
+    usageTool: str(raw.usageTool) || "browser-verify",
+    profile: str(raw.profile) || "verifier",
     viewport: raw.viewport && raw.viewport.width && raw.viewport.height
       ? { width: clampInt(raw.viewport.width, 1280, 320, 3840), height: clampInt(raw.viewport.height, 800, 320, 2160) }
       : null,
@@ -251,8 +254,10 @@ function targetProps(extra) {
 
 function createGateway(config, key, fetchImpl) {
   var usage = {
-    tool: "browser-verify",
+    tool: config.usageTool,
     callId: config.callId,
+    runId: config.callId,
+    profile: config.profile,
     model: config.model,
     requests: 0,
     inputTokens: 0,
@@ -349,6 +354,9 @@ function createGateway(config, key, fetchImpl) {
         request.reasoning_effort = reasoning;
       }
       return post(request);
+    },
+    spentCost: function () {
+      return usage.cost;
     },
     finalUsage: function () {
       var result = {};
@@ -922,10 +930,12 @@ async function run(rawConfig, deps) {
 
   while (!report) {
     var elapsed = Date.now() - started;
-    var mustFinish = turns >= config.maxSteps - 1 || elapsed > config.timeBudgetMs - FINISH_RESERVE_MS;
+    // The last turns are kept for the report: the step, time or cost budget ends the walk a little before its limit.
+    var overCost = config.maxCostUsd > 0 && gateway.spentCost() >= config.maxCostUsd * 0.85;
+    var mustFinish = turns >= config.maxSteps - 1 || elapsed > config.timeBudgetMs - FINISH_RESERVE_MS || overCost;
     if (mustFinish && !forcing) {
       forcing = true;
-      stopReason = turns >= config.maxSteps - 1 ? "step budget" : "time budget";
+      stopReason = turns >= config.maxSteps - 1 ? "step budget" : (overCost ? "cost budget" : "time budget");
       messages.push({ role: "user", content: "The " + stopReason + " is used up. Call finish now with what you have seen; mark what you could not check as not_checked." });
     }
     if (forcing && turns > config.maxSteps + 1) {
@@ -977,6 +987,7 @@ async function run(rawConfig, deps) {
         }
       }
       trace.push({ turn: turns, tool: name, args: summarizeArgs(args), ms: Date.now() - callStarted, result: cut(outcome.text, 160).replace(/\s+/g, " ") });
+      logActivity(config, { at: Date.now(), turn: turns, text: activityText(name, args, outcome) });
       var progress = "\n[" + Math.round((Date.now() - started) / 1000) + " s of " + Math.round(config.timeBudgetMs / 1000) +
         " s, turn " + turns + " of " + config.maxSteps + "]";
       var toolMessage = { role: "tool", tool_call_id: call.id, content: outcome.text + progress };
@@ -1011,6 +1022,21 @@ async function run(rawConfig, deps) {
     fs.writeFileSync(path.join(config.outDir, (config.outPrefix || "") + "report.json"), JSON.stringify(result, null, 2));
   } catch (_noReportFile) {}
   return result;
+}
+
+// One line per step in activity.jsonl: the calling agent sees it while the run goes on, and Tigo shows it in the block of
+// the sub-agent.
+function activityText(name, args, outcome) {
+  args = args || {};
+  var target = str(args.target || args.url || args.name || args.text || args.key || args.to || args.expression);
+  var failed = /^Error:/.test(str(outcome && outcome.text));
+  return (failed ? "! " : "") + name + (target ? " " + cut(target, 80) : "") + (failed ? " — " + cut(str(outcome.text).substring(7), 100) : "");
+}
+
+function logActivity(config, entry) {
+  try {
+    fs.appendFileSync(path.join(config.outDir, "activity.jsonl"), JSON.stringify(entry) + "\n");
+  } catch (_noActivity) {}
 }
 
 function summarizeArgs(args) {

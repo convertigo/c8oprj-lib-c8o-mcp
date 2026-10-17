@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '../..');
-const source = fs.readFileSync(path.join(root, 'js/tools_browser_verify.js'), 'utf8');
+const sources = ['js/subagents.js', 'js/tools_browser_verify.js', 'js/tools_subagent_run.js'].map(f => fs.readFileSync(path.join(root, f), 'utf8'));
 const agent = require(path.join(root, 'node/browser_verify_agent.cjs'));
 const KEY = 'sk-test-0123456789abcdef';
 // Values built inside the vm sandbox have that realm's prototypes.
@@ -15,11 +15,12 @@ const plain = value => JSON.parse(JSON.stringify(value));
 // ---------------------------------------------------------------------------------------------------------------
 // MCP side (js/tools_browser_verify.js, run by Rhino in the Studio)
 
-function load(auth) {
+function loadAll(auth) {
   const sandbox = { C8O: { mcpAuth: { authenticateRequest: () => auth } } };
-  vm.runInNewContext(source, sandbox);
-  return sandbox.C8O.browserVerify;
+  for (const source of sources) vm.runInNewContext(source, sandbox);
+  return sandbox.C8O;
 }
+const load = auth => loadAll(auth).browserVerify;
 
 function agentOutput(extra) {
   return Object.assign({
@@ -44,41 +45,44 @@ function agentOutput(extra) {
   }, extra || {});
 }
 
-// An agent host whose agent finishes after `finishAfterMs` (fake clock, advanced by sleep).
+// A Studio host whose runner finishes after `finishAfterMs` (fake clock, advanced by sleep).
+const RUN = 'verify-20261017-221847-3d56e744';
 function host(overrides, finishAfterMs, output) {
   const seen = { starts: [], locks: [], unlocked: [], sleeps: 0 };
   let clock = 1000;
   let started = null;
+  let meta = null;
+  let runId = null;
   const result = output === undefined ? agentOutput() : output;
   const h = Object.assign({
     readKey: () => KEY,
+    readSettings: () => ({}),
     cdpEndpoint: params => load().normalizeCdpEndpoint(params.browserDebugPort, params.cdpEndpoint),
     probe: () => true,
     nodePath: () => '/studio/nodes/node/bin/node',
     playwrightModule: () => '/ws/agents/vibe/npm/node_modules/playwright-core',
     scriptPath: () => '/projects/lib_ConvertigoMCP/node/browser_verify_agent.cjs',
     workspaceRoot: () => '/ws',
-    newRun: () => ({ callId: 'verify-20261017-221847-3d56e744', outDir: '/ws/.playwright-mcp/verify/verify-20261017-221847-3d56e744' }),
-    lock: (endpoint, callId, budget) => { seen.locks.push({ endpoint, callId, budget }); return '/ws/.playwright-mcp/verify/.lock-x'; },
+    newRun: prefix => { runId = prefix === 'verify' ? RUN : prefix + '-20261017-221847-3d56e744'; return { runId, outDir: '/ws/subagents/' + runId }; },
+    lock: (key, id, budget) => { seen.locks.push({ key, id, budget }); return '/ws/subagents/.lock-x'; },
     unlock: lockPath => { seen.unlocked.push(lockPath); },
-    start: (command, env, stdinText, outDir) => { started = clock; seen.starts.push({ command, env, config: JSON.parse(stdinText), outDir }); },
+    start: (command, env, stdinText, outDir, m) => { started = clock; meta = m; seen.starts.push({ command, env, config: JSON.parse(stdinText), outDir, meta: m }); },
     readRun: id => {
-      if (started === null || id !== 'verify-20261017-221847-3d56e744') return { exists: false };
+      if (started === null || id !== runId) return { exists: false };
       const done = clock - started >= (finishAfterMs || 0);
       return {
-        exists: true,
-        outDir: '/ws/.playwright-mcp/verify/' + id,
+        exists: true, runId: id, outDir: '/ws/subagents/' + id, profile: meta.profile, runner: meta.runner, model: meta.model,
+        task: meta.task, limits: meta.limits,
         output: done ? 'noise\n' + (typeof result === 'string' ? result : JSON.stringify(result)) + '\n' : '',
-        alive: !done,
-        startedAt: started,
-        screenshots: ['/ws/.playwright-mcp/verify/' + id + '/login.png']
+        alive: !done, startedAt: started,
+        activity: [{ at: 1, turn: 1, text: 'navigate http://localhost:4200/home' }, { at: 2, turn: 2, text: 'click button "Login"' }],
+        screenshots: ['/ws/subagents/' + id + '/login.png']
       };
     },
-    finishRun: () => {},
     now: () => clock,
     sleep: ms => { seen.sleeps++; clock += ms; }
   }, overrides || {});
-  return { h, seen, startNow: () => { started = clock; } };
+  return { h, seen };
 }
 
 test('paths and checks: JSON array, objects or one per line, bullets dropped, bounded', () => {
@@ -116,22 +120,27 @@ test('a verification runs the agent with the key in its environment only and ret
   assert.deepEqual(plain(start.config.checks), ['Both À jour']);
   assert.equal(start.config.context, 'rpca.demo / demo');
   assert.equal(start.config.timeBudgetMs, 150000);
-  assert.equal(start.config.lockFile, '/ws/.playwright-mcp/verify/.lock-x', 'the agent releases the browser lock itself');
-  assert.deepEqual(plain(seen.locks), [{ endpoint: 'http://127.0.0.1:45991', callId: 'verify-20261017-221847-3d56e744', budget: 150000 }]);
+  assert.equal(start.config.lockFile, '/ws/subagents/.lock-x', 'the agent releases the browser lock itself');
+  assert.deepEqual(plain(seen.locks), [{ key: 'http://127.0.0.1:45991', id: RUN, budget: 150000 }]);
+  assert.equal(start.config.usageTool, 'browser-verify');
+  assert.equal(start.config.profile, 'verifier');
+  assert.equal(start.config.maxCostUsd, 0.5);
+  assert.deepEqual(plain(start.meta.limits), { maxSteps: 40, timeBudgetSec: 150, maxCostUsd: 0.5 });
+  assert.equal(start.meta.runner, 'vision-browser');
 
   assert.equal(result.status, 'finished');
-  assert.equal(result.verificationId, 'verify-20261017-221847-3d56e744');
+  assert.equal(result.verificationId, RUN);
   assert.equal(result.verdict, 'failed');
   assert.equal(result.checks[1].status, 'failed');
   assert.equal(result.checks[0].screenshot, '.playwright-mcp/verify/v1/list.png');
   assert.equal(result.visualDefects[0].screenshot, '.playwright-mcp/verify/v1/after.png');
   assert.deepEqual(plain(result.screenshots), [{ name: 'list', path: '.playwright-mcp/verify/v1/list.png', url: 'http://localhost:4200/postes' }]);
-  assert.equal(result.reportFile, '.playwright-mcp/verify/verify-20261017-221847-3d56e744/report.json');
+  assert.equal(result.reportFile, 'subagents/' + RUN + '/report.json');
   assert.equal(result.modelCalls, 6);
   assert.equal(result.browserActions, 12);
   assert.equal(result.trace, undefined, 'the step trace stays in report.json');
   assert.deepEqual(plain(result.usage), {
-    tool: 'browser-verify', callId: 'v1', model: 'mistral/mistral-large-4', requests: 6, inputTokens: 22000,
+    tool: 'browser-verify', callId: 'v1', runId: RUN, profile: 'verifier', model: 'mistral/mistral-large-4', requests: 6, inputTokens: 22000,
     cachedTokens: 0, outputTokens: 900, reasoningTokens: 0, totalTokens: 22900, cost: 0.0153, currency: 'USD', durationMs: 15000
   });
 });
@@ -141,10 +150,10 @@ test('a verification longer than waitSec answers running, and its id collects th
   const { h, seen } = host({}, 120000);
   const first = api.run({ browserDebugPort: '45991', paths: 'Log in' }, h);
   assert.equal(first.status, 'running');
-  assert.equal(first.verificationId, 'verify-20261017-221847-3d56e744');
+  assert.equal(first.verificationId, RUN);
   assert.equal(first.elapsedMs, 50000, 'the default wait fits under a one-minute host limit');
   assert.equal(first.usage, undefined, 'no usage before the report: it is counted once, with the report');
-  assert.deepEqual(plain(first.screenshots), [{ name: 'login', path: '.playwright-mcp/verify/verify-20261017-221847-3d56e744/login.png', url: '' }]);
+  assert.deepEqual(plain(first.activity).map(a => a.text), ['navigate http://localhost:4200/home', 'click button "Login"'], 'a running answer shows the latest steps');
   assert.match(first.message, /verificationId/);
   const second = api.run({ verificationId: first.verificationId }, h);
   assert.equal(second.status, 'running');
@@ -153,8 +162,8 @@ test('a verification longer than waitSec answers running, and its id collects th
   assert.equal(third.status, 'finished');
   assert.equal(third.verdict, 'failed');
   assert.equal(seen.starts.length, 1, 'collecting never starts another agent');
-  assert.throws(() => api.run({ verificationId: '../../etc/passwd' }, h), /verificationId must be/);
-  assert.throws(() => api.run({ verificationId: 'verify-20261017-000000-00000000' }, h), /Unknown verificationId/);
+  assert.throws(() => api.run({ verificationId: '../../etc/passwd' }, h), /runId must be the id/);
+  assert.throws(() => api.run({ verificationId: 'verify-20261017-000000-00000000' }, h), /Unknown runId/);
 });
 
 test('an unpriced verification keeps its cost unknown, never 0', () => {
@@ -182,14 +191,58 @@ test('no viewer, a dead viewer or no key: a clear error before any model call', 
 
 test('agent failures come back as errors, and a failed start releases the browser lock', () => {
   const api = load();
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, host({}, 0, { ok: false, error: 'No browser: cdpEndpoint is required.' }).h), /The verification failed: No browser/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, host({}, 0, { ok: false, error: 'No browser: cdpEndpoint is required.' }).h), /The verifier sub-agent failed: No browser/);
   let r = host({ start: () => { throw new Error('spawn failed'); } });
   assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /spawn failed/);
-  assert.deepEqual(plain(r.seen.unlocked), ['/ws/.playwright-mcp/verify/.lock-x']);
+  assert.deepEqual(plain(r.seen.unlocked), ['/ws/subagents/.lock-x']);
   // The agent died without writing its result.
   r = host({}, 0, 'Error: Cannot find module');
-  r.h.readRun = id => ({ exists: true, outDir: '/ws/.playwright-mcp/verify/' + id, output: 'Error: Cannot find module', alive: false, startedAt: 1000, screenshots: [] });
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /ended without a result.*agent\.log/);
+  r.h.readRun = id => ({ exists: true, runId: id, outDir: '/ws/subagents/' + id, profile: 'verifier', runner: 'vision-browser', output: 'Error: Cannot find module', alive: false, startedAt: 1000, activity: [], screenshots: [] });
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /verifier sub-agent ended without a report.*subagents\/verify-.*agent\.log/);
+});
+
+test('profiles: defaults, workspace overrides and call limits within bounds', () => {
+  const C8O = loadAll();
+  const sa = C8O.subagents;
+  let p = sa.resolveProfile('verifier', {}, {});
+  assert.deepEqual(plain(p), { name: 'verifier', label: 'Vérificateur', runner: 'vision-browser', model: 'mistral/mistral-large-4', readOnly: true, idPrefix: 'verify',
+    limits: { maxSteps: 40, timeBudgetSec: 150, maxCostUsd: 0.5 } });
+  p = sa.resolveProfile('Verifier', { maxSteps: '500', maxCostUsd: '0.001' }, { profiles: { verifier: { model: 'other/vision', timeBudgetSec: 200 } } });
+  assert.equal(p.model, 'other/vision', 'a workspace setting chooses the model of a profile');
+  assert.deepEqual(plain(p.limits), { maxSteps: 80, timeBudgetSec: 200, maxCostUsd: 0.02 });
+  assert.equal(sa.resolveProfile('verifier', { model: 'x/y' }, { profiles: { verifier: { model: 'other/vision' } } }).model, 'x/y');
+  p = sa.resolveProfile('constructor', {}, {});
+  assert.equal(p.model, 'glm-5-3');
+  assert.equal(p.readOnly, false);
+  assert.throws(() => sa.resolveProfile('poet', {}, {}), /Unknown profile poet: use one of verifier, constructor/);
+  assert.throws(() => sa.resolveProfile('verifier', { maxSteps: 'many' }, {}), /maxSteps must be a number/);
+});
+
+test('subagent-run: a task to a profile, a nested report, the same run store and usage', () => {
+  const C8O = loadAll();
+  const { h, seen } = host({}, 120000);
+  assert.throws(() => C8O.subagentRun.run({ profile: 'verifier' }, h), /task is required/);
+  const first = C8O.subagentRun.run({ profile: 'verifier', task: 'Open the posts page and check the 3 demo posts', browserDebugPort: '45991',
+    inputs: { url: 'http://localhost:4200/postes', checks: ['3 posts'] }, reportFormat: 'one line per post' }, h);
+  assert.equal(first.status, 'running');
+  assert.equal(first.runId, RUN);
+  assert.equal(first.profile, 'verifier');
+  assert.equal(first.model, 'mistral/mistral-large-4');
+  assert.match(first.task, /Open the posts page/);
+  const config = seen.starts[0].config;
+  assert.deepEqual(plain(config.paths), ['Open the posts page and check the 3 demo posts'], 'without paths the task is the path');
+  assert.equal(config.url, 'http://localhost:4200/postes');
+  assert.deepEqual(plain(config.checks), ['3 posts']);
+  assert.match(config.context, /Report format asked: one line per post/);
+  assert.equal(config.usageTool, 'subagent-run');
+  const done = C8O.subagentRun.run({ runId: first.runId, waitSec: 280 }, h);
+  assert.equal(done.status, 'finished');
+  assert.equal(done.report.verdict, 'failed');
+  assert.equal(done.report.checks.length, 2);
+  assert.equal(done.usage.profile, 'verifier');
+  assert.equal(done.usage.runId, RUN);
+  assert.equal(done.modelCalls, 6);
+  assert.throws(() => C8O.subagentRun.run({ profile: 'constructor', task: 'Build lot 3' }, host().h), /constructor profile is not available/);
 });
 
 test('the gateway credits are spent only with a full MCP bearer', () => {

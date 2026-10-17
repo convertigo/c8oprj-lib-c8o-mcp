@@ -197,6 +197,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_log-view",
       "Convertigo_image-describe",
       "Convertigo_browser-verify",
+      "Convertigo_subagent-run",
       "Convertigo_crud-status",
       "Convertigo_crud-proof",
       "Convertigo_upsert-crud",

@@ -87,6 +87,7 @@
   ↓tools_scheduler_list [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_list.yaml
   ↓tools_tags_apply [sequences.GenericSequence]: 🗏 sequences/tools_tags_apply.yaml
   ↓tools_tags_get [sequences.GenericSequence]: 🗏 sequences/tools_tags_get.yaml
+  ↓tools_subagent_run [sequences.GenericSequence]: 🗏 sequences/tools_subagent_run.yaml
   ↓tools_tigo_resources [sequences.GenericSequence]: 🗏 sequences/tools_tigo_resources.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
   ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml

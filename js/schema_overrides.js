@@ -1581,6 +1581,53 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  function subagentUsageSchema(tools) {
+    return closedObjectSchema({
+      tool: { type: "string", enum: tools },
+      callId: { type: "string" },
+      runId: { type: "string", description: "Run id, also the folder subagents/<runId> of the Studio user workspace." },
+      profile: { type: "string" },
+      model: { type: "string" },
+      requests: { type: "number", description: "Model calls of the run." },
+      inputTokens: { type: "number" },
+      cachedTokens: { type: "number" },
+      outputTokens: { type: "number" },
+      reasoningTokens: { type: "number" },
+      totalTokens: { type: "number" },
+      cost: { type: ["number", "null"], description: "Gateway cost of all the calls, null when the gateway did not price one of them." },
+      currency: { type: "string" },
+      durationMs: { type: "number" }
+    });
+  }
+
+  function subagentActivitySchema() {
+    return {
+      type: "array",
+      description: "The latest steps of the sub-agent.",
+      items: closedObjectSchema({ at: { type: "number" }, turn: { type: "number" }, text: { type: "string" } })
+    };
+  }
+
+  function subagentRunOutputSchema() {
+    return closedObjectSchema({
+      status: { type: "string", enum: ["finished", "running"], description: "running: call subagent-run again with runId alone to wait for the report." },
+      runId: { type: "string" },
+      profile: { type: "string" },
+      model: { type: "string" },
+      task: { type: "string" },
+      elapsedMs: { type: "number" },
+      activity: subagentActivitySchema(),
+      message: { type: "string" },
+      report: { type: "object", additionalProperties: true, description: "The profile's report. verifier: verdict, summary, checks, visualDefects, screenshots, finalUrl." },
+      reportFile: { type: "string", description: "Full report with the step trace, relative to the Studio user workspace." },
+      stopReason: { type: "string", description: "finished, or the budget (step, time, cost) that ended the run." },
+      modelCalls: { type: "number" },
+      actions: { type: "number" },
+      durationMs: { type: "number" },
+      usage: subagentUsageSchema(["subagent-run"])
+    });
+  }
+
   function browserVerifyOutputSchema() {
     var shot = { type: "string", description: "Screenshot file, relative to the Studio user workspace (readable by image-describe)." };
     return closedObjectSchema({
@@ -1588,6 +1635,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       verificationId: { type: "string" },
       elapsedMs: { type: "number", description: "With status running: time since the verification started." },
       message: { type: "string", description: "With status running: what to do next." },
+      activity: subagentActivitySchema(),
       verdict: { type: "string", enum: ["passed", "failed", "partial"], description: "passed only when every check passed and no blocking defect was seen; partial when something could not be checked." },
       summary: { type: "string" },
       checks: {
@@ -1620,20 +1668,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       modelCalls: { type: "number" },
       browserActions: { type: "number" },
       durationMs: { type: "number" },
-      usage: closedObjectSchema({
-        tool: { type: "string", enum: ["browser-verify"] },
-        callId: { type: "string", description: "Verification id, also the screenshot folder name." },
-        model: { type: "string" },
-        requests: { type: "number", description: "Model calls of the verification." },
-        inputTokens: { type: "number" },
-        cachedTokens: { type: "number" },
-        outputTokens: { type: "number" },
-        reasoningTokens: { type: "number" },
-        totalTokens: { type: "number" },
-        cost: { type: ["number", "null"], description: "Gateway cost of all the calls, null when the gateway did not price one of them." },
-        currency: { type: "string" },
-        durationMs: { type: "number" }
-      })
+      usage: subagentUsageSchema(["browser-verify"])
     });
   }
 
@@ -2009,6 +2044,30 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
+    if (seq === "tools_subagent_run") {
+      return {
+        type: "object",
+        properties: {
+          profile: { type: "string", enum: ["verifier", "constructor"], default: "verifier", description: "verifier: functional and visual browser proofs on the Studio viewer, read-only, vision model. constructor: builds a lot in the project through the Convertigo MCP (one at a time per project)." },
+          task: { type: "string", description: "What the sub-agent must do, in plain language and complete: it starts with a fresh context and knows only this task, its inputs and its profile." },
+          inputs: {
+            type: "object",
+            additionalProperties: true,
+            description: "Inputs of the profile. verifier: url (viewerHomeUrl), paths (one plain-language path per user journey), checks (acceptance criteria with exact expected texts), hints (demo accounts, expected values). constructor: project, files, qnames, notes."
+          },
+          reportFormat: { type: "string", description: "What the report must contain, for example: one line per check with the exact text seen." },
+          model: { type: "string", description: "Gateway model for this run; default the profile model." },
+          maxSteps: { type: "integer", description: "Model turns of the sub-agent; default and bounds per profile (verifier 40, 6 to 80)." },
+          timeBudgetSec: { type: "integer", description: "Time budget in seconds; default and bounds per profile (verifier 150, 30 to 540)." },
+          maxCostUsd: { type: "number", description: "Gateway cost budget in USD; default and bounds per profile (verifier 0.5)." },
+          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report; keep the default, it fits every agent host." },
+          runId: { type: "string", description: "To collect a running sub-agent: the runId of a status running answer, alone." },
+          cdpEndpoint: { type: "string", description: "Verifier, only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser." }
+        },
+        additionalProperties: false
+      };
+    }
+
     if (seq === "tools_browser_verify") {
       return {
         type: "object",
@@ -2208,6 +2267,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_browser_verify") {
       return browserVerifyOutputSchema();
+    }
+    if (seq === "tools_subagent_run") {
+      return subagentRunOutputSchema();
     }
     if (seq === "tools_image_describe") {
       return imageDescribeOutputSchema();

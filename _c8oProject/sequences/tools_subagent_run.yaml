@@ -1,0 +1,74 @@
+accessibility: Private
+comment: |
+  Hand a piece of work to a sub-agent with a fresh context
+  Starts a sub-agent with a profile (verifier: browser and vision proofs, read-only; constructor: builds in the project through the Convertigo MCP), a task, its inputs and the report wanted, with its own model and limits (turns, time, gateway cost). Returns a short report and the usage of its model calls; the sub-agent's context is thrown away. A call waits up to waitSec (50 s); a longer run answers status running with a runId, and the same tool called with that runId waits again.
+responseTimeout: 300
+↓Include [steps.SimpleStep-1792280000001]: 
+  expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js"); include("js/tools_subagent_run.js");'
+↓Run [steps.SimpleStep-1792280000002]: 
+  expression: 'var subagentResult = C8O.subagentRun.execute(context, {profile: profile, task: task, inputs: inputs, reportFormat: reportFormat, model: model, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, maxCostUsd: maxCostUsd, waitSec: waitSec, runId: runId, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, conversationId: conversationId});'
+↓result [steps.JsonToXmlStep-1792280000003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: subagentResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓profile [variables.RequestableVariable-1792280000004]: 
+  comment: 'verifier (browser and vision proofs, read-only) or constructor (builds in the project).'
+  description: 'verifier (browser and vision proofs, read-only) or constructor (builds in the project).'
+  value: ''
+↓task [variables.RequestableVariable-1792280000005]: 
+  comment: 'What the sub-agent must do, in plain language, with what it must know.'
+  description: 'What the sub-agent must do, in plain language, with what it must know.'
+  value: ''
+↓inputs [variables.RequestableVariable-1792280000006]: 
+  comment: 'JSON object of inputs for the profile: verifier url, paths, checks, hints; constructor files, qnames, notes.'
+  description: 'JSON object of inputs for the profile: verifier url, paths, checks, hints; constructor files, qnames, notes.'
+  value: ''
+↓reportFormat [variables.RequestableVariable-1792280000007]: 
+  comment: 'What the report must contain, in plain language.'
+  description: 'What the report must contain, in plain language.'
+  value: ''
+↓model [variables.RequestableVariable-1792280000008]: 
+  comment: 'Model of the gateway for this run; default the profile model.'
+  description: 'Model of the gateway for this run; default the profile model.'
+  value: ''
+↓maxSteps [variables.RequestableVariable-1792280000009]: 
+  comment: 'Maximum model turns of the sub-agent, within the profile bounds.'
+  description: 'Maximum model turns of the sub-agent, within the profile bounds.'
+  value: ''
+↓timeBudgetSec [variables.RequestableVariable-1792280000010]: 
+  comment: 'Time budget in seconds, within the profile bounds.'
+  description: 'Time budget in seconds, within the profile bounds.'
+  value: ''
+↓maxCostUsd [variables.RequestableVariable-1792280000011]: 
+  comment: 'Gateway cost budget in USD, within the profile bounds.'
+  description: 'Gateway cost budget in USD, within the profile bounds.'
+  value: ''
+↓waitSec [variables.RequestableVariable-1792280000012]: 
+  comment: 'Seconds this call waits for the report, 5 to 280; default 50.'
+  description: 'Seconds this call waits for the report, 5 to 280; default 50.'
+  value: ''
+↓runId [variables.RequestableVariable-1792280000013]: 
+  comment: 'Id of a running sub-agent returned by a previous call: call again with it alone to wait for its report.'
+  description: 'Id of a running sub-agent returned by a previous call: call again with it alone to wait for its report.'
+  value: ''
+↓cdpEndpoint [variables.RequestableVariable-1792280000014]: 
+  comment: 'Verifier only: loopback CDP endpoint of the Studio browser when the agent host sends no viewer debug port.'
+  description: 'Verifier only: loopback CDP endpoint of the Studio browser when the agent host sends no viewer debug port.'
+  value: ''
+↓browserDebugPort [variables.RequestableVariable-1792280000015]: 
+  comment: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  description: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  value: ''
+↓conversationId [variables.RequestableVariable-1792280000016]: 
+  comment: 'Set by the MCP router from the X-Convertigo-Conversation-Id header of the managed agent hosts.'
+  description: 'Set by the MCP router from the X-Convertigo-Conversation-Id header of the managed agent hosts.'
+  value: ''

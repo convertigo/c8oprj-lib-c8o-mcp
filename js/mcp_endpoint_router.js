@@ -44,6 +44,19 @@ try {
 } catch (_ignoreManagedViewerDebugPort) {
   managedViewerDebugPort = 0;
 }
+// The managed agent hosts name the Tigo conversation: sub-agent runs are recorded under it.
+var managedConversationId = "";
+try {
+  var managedConversationIdHeader = context && context.httpServletRequest
+    ? context.httpServletRequest.getHeader("X-Convertigo-Conversation-Id")
+    : null;
+  managedConversationId = String(managedConversationIdHeader || "").trim();
+  if (!/^[A-Za-z0-9._-]{1,128}$/.test(managedConversationId)) {
+    managedConversationId = "";
+  }
+} catch (_ignoreManagedConversationId) {
+  managedConversationId = "";
+}
 // Reveal mode requested by the agent host through the MCP client configuration:
 // inject reveal=true on the tools that support it when the model did not pass it.
 var managedRevealMode = false;
@@ -494,9 +507,14 @@ if (methodName === "initialize") {
       callSequence = targetSequence;
       responseStatus = "200";
       callVariables = coerceToolArguments(toolArgs || {}, targetSequence, requestable);
-      // browser-verify drives the same viewer as the agent's Playwright MCP: the conversation's debug port.
-      if ((targetSequence === "tools_mobile_builder_open" || targetSequence === "tools_browser_verify") && managedViewerDebugPort > 0) {
+      // Sub-agents drive the same viewer as the agent's Playwright MCP (the conversation's debug port) and are recorded
+      // under the conversation.
+      var subagentSequence = targetSequence === "tools_browser_verify" || targetSequence === "tools_subagent_run";
+      if ((targetSequence === "tools_mobile_builder_open" || subagentSequence) && managedViewerDebugPort > 0) {
         callVariables.browserDebugPort = managedViewerDebugPort;
+      }
+      if (subagentSequence && managedConversationId.length) {
+        callVariables.conversationId = managedConversationId;
       }
       if (managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true
           && (callVariables.reveal === undefined || callVariables.reveal === null || String(callVariables.reveal).trim().length === 0)) {
