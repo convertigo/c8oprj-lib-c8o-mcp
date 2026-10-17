@@ -695,8 +695,10 @@ include("js/tools_generators.js");
         ok.push(navAction("Next", { kind: "pop" }));
       }
       submitChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: "out?.success" } }, ok));
-      var koChildren = [setLocal("StoreSubmitError", "error", "out?.errors?.[0]?.message || 'Error'"),
-        nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: "out?.errors?.[0]?.message || 'Error'" }, IonColor: { mode: "PLAIN", value: "danger" },
+      // Under an IfAction, out is the If's own result: the call's response is stack["Submit"].out.
+      var submitError = "stack['Submit'].out?.errors?.[0]?.message || 'Error'";
+      var koChildren = [setLocal("StoreSubmitError", "error", submitError),
+        nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: submitError }, IonColor: { mode: "PLAIN", value: "danger" },
           duration: { mode: "PLAIN", value: "4000" } })];
       submitChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, koChildren));
       if (authRedirect.length) {

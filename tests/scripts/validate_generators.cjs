@@ -459,6 +459,15 @@ test('a form page wires its submit chain with Form SmartSources on the created U
   assert.equal(pageNodes.InitToday.properties.Value.value, "'2026-10-17'");
   assert.match(pageNodes.InitPosteIds.properties.Value.value, /^c8oPage\.navParams\?\.data\?\.posteIds/);
   assert.equal(call.children.find(c => c.name === 'IfOk').children[1].properties.page.value, 'Postes');
+  // Under an IfAction, out is the If's result: the error message comes from the call through stack.
+  const ko = call.children.find(c => c.name === 'IfKo');
+  assert.equal(ko.children.find(c => c.name === 'ToastKo').properties.message.value, "stack['Submit'].out?.errors?.[0]?.message || 'Error'");
+  const page = creates(world, 'ngx.components.PageComponent#PageComponent')[0];
+  [page, submit].forEach(tree => walk(tree, (n, parents) => {
+    if (parents.some(p => /IfAction/.test(p.className || '')) && /UIDynamicAction/.test(n.className || '')) {
+      assert.doesNotMatch(JSON.stringify(n.properties), /(^|[^.\]'])out\?/, n.name + ' reads out under an IfAction');
+    }
+  }));
 });
 
 test('ngx-page-create refuses a bad spec and creates nothing', () => {
