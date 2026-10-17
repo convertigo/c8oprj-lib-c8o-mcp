@@ -374,7 +374,7 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
       }
     } catch (_ignoreNameSuggestion) {}
     hints.push("QName shape: <Project>.sq:<sequence>, <Project>.cn:<connector>.tr:<transaction>, " +
-      "steps under a sequence as <sequence QName>.st:<step> (nested steps without the st: prefix); copy QNames from databaseobject-tree-get or databaseobject-search.");
+      "steps under a sequence as <sequence QName>.st:<step> (nested steps without the st: prefix), NGX pages <Project>.Application.NgxApp.pg:<Page>; copy QNames from databaseobject-tree-get or databaseobject-search.");
   }
   var ancestor = C8O.dbo._findExistingAncestor(qname);
   if (ancestor != null) {
