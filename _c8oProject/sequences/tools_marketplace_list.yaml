@@ -48,7 +48,8 @@ comment: |
     marketplaceListEndpoint = listResult.endpoint;
     marketplaceListPages = listResult.pagesFetched || [];
     marketplaceListEntries = entries;
-    marketplaceListSuggestions = [];
+    marketplaceListSuggestions = C8O.marketplace.annotateEntries(listResult.suggestions || [], {});
+    marketplaceListWarnings = listResult.warnings || [];
     marketplaceListTimestamp = java.lang.System.currentTimeMillis();'
 ↓result [steps.JsonObjectStep-1764301001002]: 
   key: 
