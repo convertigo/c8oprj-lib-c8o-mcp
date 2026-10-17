@@ -131,10 +131,12 @@ A `SqlTransaction` replaces a variable that has no value (not sent, or sent as n
 Write optional filters against the empty string:
 
 ```sql
-SELECT ... FROM poste_pca WHERE ({rpcaId} = '' OR rpca_id = {rpcaId})
+SELECT ... FROM poste_pca
+WHERE ({rpcaId} = '' OR rpca_id = {rpcaId})
+  AND ({search} = '' OR LOWER(numero_poste) LIKE '%' || LOWER({search}) || '%')
 ```
 
-Checked on HSQLDB: without `rpcaId` this returns every row, with `rpcaId` only the matching ones, while the `IS NULL` form returns nothing; `NULLIF({rpcaId}, '')` is refused at statement preparation. On a database with strict typing, compare the column through a text cast if the engine rejects a text parameter against a numeric column.
+Checked on HSQLDB, on an INTEGER column and a LIKE: without the variable every row comes back, with it only the matching ones, while the `IS NULL` form returns nothing. Keep the parameter bare: wrapping it in `NULLIF` or `COALESCE` makes HSQLDB refuse the statement at preparation ("data type cast needed for parameter", "incompatible data types in combination"). If a driver still asks for a type, cast the parameter itself, `CAST({x} AS VARCHAR(40))`, in both branches.
 
 ### Pattern 1: read-first validation
 Always validate the read path first.
