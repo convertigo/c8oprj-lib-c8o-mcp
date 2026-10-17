@@ -291,6 +291,52 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     }
   }
 
+  // Checks a call's arguments against the tool's declared variables before running it: a misnamed
+  // argument is otherwise dropped silently. Common misnamings (target for qname, newName for name)
+  // are renamed when the tool only declares the other one, with a warning.
+  function checkCallArguments(requestable, toolName, args, report, givenKeys) {
+    if (!requestable || !args || typeof args !== "object" || Array.isArray(args)) {
+      return;
+    }
+    var declared = {};
+    var names = [];
+    try {
+      var variables = requestable.getVariablesList();
+      for (var vi = 0; vi < variables.size(); vi++) {
+        var variable = variables.get(vi);
+        var vname = String(variable.getName());
+        declared[vname] = true;
+        if (vname.indexOf("__") !== 0) {
+          names.push(vname);
+        }
+      }
+    } catch (_ignoreVariables) {
+      return;
+    }
+    var aliases = { target: "qname", qname: "target", newName: "name", name: "newName" };
+    var keys = Object.keys(args);
+    for (var ki = 0; ki < keys.length; ki++) {
+      var key = keys[ki];
+      var wanted = aliases[key];
+      if (!declared[key] && wanted && declared[wanted] && args[wanted] === undefined) {
+        args[wanted] = args[key];
+        delete args[key];
+        report.warnings.push(toolName + " takes " + wanted + ", not " + key + ": the value was passed as " + wanted + ".");
+      }
+    }
+    // Only the caller's own arguments: batch-call adds finalize flags of its own.
+    var unknown = [];
+    keys = givenKeys || [];
+    for (var ui = 0; ui < keys.length; ui++) {
+      if (args[keys[ui]] !== undefined && !declared[keys[ui]] && keys[ui].indexOf("__") !== 0) {
+        unknown.push(keys[ui]);
+      }
+    }
+    if (unknown.length) {
+      report.warnings.push(toolName + " ignores " + unknown.join(", ") + " (it accepts: " + names.join(", ") + ").");
+    }
+  }
+
   // Tool names of the same family (scheduler-list, scheduler-apply for scheduler-remove).
   function sameFamilyTools(sequenceName) {
     var family = String(sequenceName).replace(/^tools_/, "").split("_")[0];
@@ -936,6 +982,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
           // The deferred finalize and $ref substitutions need every touched QName and applied entry.
           callArguments.responseDetail = "full";
         }
+        checkCallArguments(requestable, normalized.tool, callArguments, report, Object.keys(normalized.arguments || {}));
         var payload = internalCallSequence(sequenceName, callArguments);
         report.payload = payload;
         report.status = classifyPayloadStatus(payload);
