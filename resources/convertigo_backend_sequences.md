@@ -75,6 +75,10 @@ Use them to:
 - iterate over source rows/items deliberately
 - stop early when the facade already has enough evidence to return
 
+Pick the loop by what you iterate:
+- a JavaScript array or list built in a `SimpleStep` (rows from `sql_output`, ids split from a variable): `steps.SimpleIteratorStep` (jIterator) with `expression` set to it (`postes`, `rows || []`); its child steps read the current element as `item` and its position as `index`. Its `condition` is the stopping index, not a filter: filter with an `IfStep` inside the loop.
+- an XML node list of a source step: `steps.IteratorStep` with a `sourceDefinition` on that step. Given a JavaScript variable, it runs zero times without any error.
+
 Why this is the right way:
 - explicit flow steps make the orchestration readable in tree form
 - source picker and output behavior stay visible
