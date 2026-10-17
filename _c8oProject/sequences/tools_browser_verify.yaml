@@ -1,11 +1,12 @@
 accessibility: Private
 comment: |
   Verify paths in the Studio browser with a vision sub-agent
-  A vision model of the Convertigo LLM gateway (default mistral/mistral-large-4) drives the Studio browser of the conversation (the viewer opened by mobile-builder-open), walks the paths given in plain language, looks at its screenshots and returns a short report: each check passed or failed with evidence, the visual defects seen, the screenshots saved in the Studio workspace, and the usage of its model calls. It only observes and never edits the project. One call replaces a whole functional and visual browser proof.
+  A vision model of the Convertigo LLM gateway (default mistral/mistral-large-4) drives the Studio browser of the conversation (the viewer opened by mobile-builder-open), walks the paths given in plain language, looks at its screenshots and returns a short report: each check passed or failed with evidence, the visual defects seen, the screenshots saved in the Studio workspace, and the usage of its model calls. It only observes and never edits the project. One call replaces a whole functional and visual browser proof. A call waits up to waitSec (50 s) for the report; a longer verification answers status running with a verificationId to collect the report with.
+responseTimeout: 300
 ↓Include [steps.SimpleStep-1792270000001]: 
   expression: 'include("js/mcp_auth.js"); include("js/tools_browser_verify.js");'
 ↓Run [steps.SimpleStep-1792270000002]: 
-  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort});'
+  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId});'
 ↓result [steps.JsonToXmlStep-1792270000003]: 
   jsonObject: 
     - xmlizable: 
@@ -58,4 +59,12 @@ comment: |
 ↓browserDebugPort [variables.RequestableVariable-1792270000013]: 
   comment: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
   description: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  value: ''
+↓waitSec [variables.RequestableVariable-1792270000014]: 
+  comment: 'Seconds this call waits for the report, 5 to 280; default 50. A verification still running then answers status running with its verificationId.'
+  description: 'Seconds this call waits for the report, 5 to 280; default 50. A verification still running then answers status running with its verificationId.'
+  value: ''
+↓verificationId [variables.RequestableVariable-1792270000015]: 
+  comment: 'Id returned by a call that answered status running: call again with it alone to wait for that report.'
+  description: 'Id returned by a call that answered status running: call again with it alone to wait for that report.'
   value: ''

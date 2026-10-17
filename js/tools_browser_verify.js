@@ -25,7 +25,10 @@ C8O.browserVerify = C8O.browserVerify || {};
   var DEFAULT_MAX_STEPS = 40;
   var MAX_PATHS = 8;
   var MAX_CHECKS = 20;
-  var STALE_LOCK_MS = 15 * 60 * 1000;
+  var LOCK_GRACE_MS = 90 * 1000;
+  var DEFAULT_WAIT_SEC = 50;
+  var MAX_WAIT_SEC = 280;
+  var VERIFICATION_ID = /^verify-\d{8}-\d{6}-[0-9a-f]{8}$/;
 
   api.DEFAULT_MODEL = DEFAULT_MODEL;
   api.DEFAULT_TIME_BUDGET_SEC = DEFAULT_TIME_BUDGET_SEC;
@@ -189,11 +192,81 @@ C8O.browserVerify = C8O.browserVerify || {};
     };
   };
 
+  // The last JSON line of the agent output, or null while the agent still runs.
+  api.parseOutput = function (text) {
+    var lines = str(text).split(/\r?\n/);
+    for (var i = lines.length - 1; i >= 0; i--) {
+      if (str(lines[i]).charAt(0) === "{") {
+        try {
+          return JSON.parse(lines[i]);
+        } catch (_notJsonLine) {}
+      }
+    }
+    return null;
+  };
+
+  api.normalizeWaitSec = function (value) {
+    return intIn(value, DEFAULT_WAIT_SEC, 5, MAX_WAIT_SEC, "waitSec");
+  };
+
+  // Waits up to waitSec for the report of a started verification. A verification runs longer than some agent hosts let
+  // one tool call last (Vibe stops a call made from its code after about one minute), so a call that would outlast
+  // waitSec answers status "running" with the verificationId to collect the report with.
+  api.collect = function (verificationId, waitSec, host) {
+    var deadline = host.now() + waitSec * 1000;
+    var state = host.readRun(verificationId);
+    if (!state.exists) {
+      throw new Error("Unknown verificationId " + verificationId + ": start a verification with paths first.");
+    }
+    while (true) {
+      var output = api.parseOutput(state.output);
+      if (output !== null) {
+        host.finishRun(verificationId);
+        if (output.ok !== true) {
+          throw new Error("The verification failed: " + str(output.error));
+        }
+        output.reportFile = state.outDir + "/report.json";
+        var result = api.toResult(output, host.workspaceRoot());
+        result.status = "finished";
+        result.verificationId = verificationId;
+        return result;
+      }
+      if (!state.alive) {
+        host.finishRun(verificationId);
+        throw new Error("The verification agent ended without a result; its log is in " +
+          api.relativePath(host.workspaceRoot(), state.outDir) + "/agent.log.");
+      }
+      if (host.now() >= deadline) {
+        return {
+          status: "running",
+          verificationId: verificationId,
+          elapsedMs: Math.max(0, host.now() - state.startedAt),
+          screenshots: state.screenshots.map(function (file) {
+            return { name: file.replace(/^.*[\/\\]/, "").replace(/\.png$/, ""), path: api.relativePath(host.workspaceRoot(), file), url: "" };
+          }),
+          message: "The verification is still running. Call browser-verify again with this verificationId (and nothing " +
+            "else) to wait for its report; do not start another verification meanwhile."
+        };
+      }
+      host.sleep(1000);
+      state = host.readRun(verificationId);
+    }
+  };
+
   // host: readKey(), cdpEndpoint(params) -> "", probe(endpoint) -> true|false, nodePath(), playwrightModule(),
-  // scriptPath(), workspaceRoot(), newRun() -> {callId, outDir}, lock(endpoint) -> release function,
-  // spawn(command[], env, stdinText, timeoutMs, outDir) -> {exitCode, stdout, timedOut}.
+  // scriptPath(), workspaceRoot(), newRun() -> {callId, outDir}, lock(endpoint, callId) -> lock file path (throws when
+  // busy), start(command[], env, stdinText, outDir) -> starts the agent without waiting, readRun(id) -> {exists, outDir,
+  // output, alive, startedAt, screenshots[]}, finishRun(id), now(), sleep(ms).
   api.run = function (params, host) {
     params = params || {};
+    var waitSec = api.normalizeWaitSec(params.waitSec);
+    var resume = str(params.verificationId);
+    if (resume.length) {
+      if (!VERIFICATION_ID.test(resume)) {
+        throw new Error("verificationId must be the id a previous browser-verify call returned.");
+      }
+      return api.collect(resume, waitSec, host);
+    }
     var cdpEndpoint = host.cdpEndpoint(params);
     if (!cdpEndpoint.length) {
       throw new Error("No Studio browser for this conversation: open the application with mobile-builder-open first " +
@@ -215,39 +288,18 @@ C8O.browserVerify = C8O.browserVerify || {};
       callId: run.callId,
       playwrightModule: host.playwrightModule()
     });
-    var release = host.lock(cdpEndpoint);
-    var spawned;
+    // The agent removes the lock when it exits; a lock older than its budget is stale.
+    config.lockFile = host.lock(cdpEndpoint, run.callId, config.timeBudgetMs);
+    var env = {};
+    env[KEY_ENV] = key;
+    env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
     try {
-      var env = {};
-      env[KEY_ENV] = key;
-      env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
-      spawned = host.spawn([host.nodePath(), host.scriptPath()], env, JSON.stringify(config),
-        config.timeBudgetMs + 45000, run.outDir);
-    } finally {
-      release();
+      host.start([host.nodePath(), host.scriptPath()], env, JSON.stringify(config), run.outDir);
+    } catch (e) {
+      host.unlock(config.lockFile);
+      throw e;
     }
-    if (spawned.timedOut) {
-      throw new Error("The verification did not end within " + Math.round(config.timeBudgetMs / 1000 + 45) +
-        " s and was stopped; screenshots so far are in " + api.relativePath(host.workspaceRoot(), run.outDir) + ".");
-    }
-    var lines = str(spawned.stdout).split(/\r?\n/);
-    var output = null;
-    for (var i = lines.length - 1; i >= 0 && output === null; i--) {
-      if (str(lines[i]).charAt(0) === "{") {
-        try {
-          output = JSON.parse(lines[i]);
-        } catch (_notJsonLine) {}
-      }
-    }
-    if (output === null) {
-      throw new Error("The verification agent ended without a result (exit code " + spawned.exitCode + "); its log is in " +
-        api.relativePath(host.workspaceRoot(), run.outDir) + "/agent.log.");
-    }
-    if (output.ok !== true) {
-      throw new Error("The verification failed: " + str(output.error));
-    }
-    output.reportFile = run.outDir + "/report.json";
-    return api.toResult(output, host.workspaceRoot());
+    return api.collect(run.callId, waitSec, host);
   };
 
   api.javaHost = function (contextObject) {
@@ -347,26 +399,41 @@ C8O.browserVerify = C8O.browserVerify || {};
         dir.mkdirs();
         return { callId: callId, outDir: String(dir.getPath()) };
       },
-      // One verification at a time per browser: two agents clicking in the same viewer would spoil both proofs.
-      lock: function (endpoint) {
+      // One verification at a time per browser: two agents clicking in the same viewer would spoil both proofs. The lock
+      // names the running verification; the agent deletes it when it exits, and it expires after the agent's budget.
+      lock: function (endpoint, callId, timeBudgetMs) {
         var root = new File(new File(workspace, ".playwright-mcp"), "verify");
         root.mkdirs();
         var lockFile = new File(root, ".lock-" + String(endpoint).replace(/[^0-9A-Za-z]+/g, "_"));
-        if (lockFile.isFile() && java.lang.System.currentTimeMillis() - lockFile.lastModified() > STALE_LOCK_MS) {
-          lockFile["delete"]();
-        }
-        try {
-          Files.createFile(lockFile.toPath());
-        } catch (_busy) {
-          throw new Error("Another browser-verify call is running on this Studio browser: wait for its report.");
-        }
-        return function () {
+        if (lockFile.isFile()) {
+          var holder = {};
           try {
+            holder = JSON.parse(String(new java.lang.String(Files.readAllBytes(lockFile.toPath()), "UTF-8")));
+          } catch (_badLock) {}
+          var holderRun = VERIFICATION_ID.test(str(holder.callId)) ? this.readRun(str(holder.callId)) : { exists: false };
+          if (Number(holder.expiresAt || 0) < java.lang.System.currentTimeMillis() || !holderRun.exists || !holderRun.alive) {
             lockFile["delete"]();
-          } catch (_ignoreUnlock) {}
-        };
+          } else {
+            throw new Error("Another verification (" + holder.callId + ") is running on this Studio browser: call " +
+              "browser-verify with verificationId " + holder.callId + " to wait for its report.");
+          }
+        }
+        var content = JSON.stringify({ callId: callId, expiresAt: java.lang.System.currentTimeMillis() + timeBudgetMs + LOCK_GRACE_MS });
+        try {
+          Files.write(lockFile.toPath(), new java.lang.String(content).getBytes("UTF-8"),
+            java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
+        } catch (_busy) {
+          throw new Error("Another browser-verify call is starting on this Studio browser: wait for its report.");
+        }
+        return String(lockFile.getPath());
       },
-      spawn: function (command, env, stdinText, timeoutMs, outDir) {
+      unlock: function (lockPath) {
+        try {
+          new File(String(lockPath))["delete"]();
+        } catch (_ignoreUnlock) {}
+      },
+      // The agent runs on after this call returns: its output, log and process id stay in its run folder.
+      start: function (command, env, stdinText, outDir) {
         var list = new java.util.ArrayList();
         for (var i = 0; i < command.length; i++) {
           list.add(String(command[i]));
@@ -379,26 +446,59 @@ C8O.browserVerify = C8O.browserVerify || {};
           }
         }
         builder.directory(workspace);
-        var outFile = new File(outDir, "agent-output.json");
-        builder.redirectOutput(outFile);
+        builder.redirectOutput(new File(outDir, "agent-output.json"));
         builder.redirectError(new File(outDir, "agent.log"));
         var process = builder.start();
+        var run = JSON.stringify({ pid: Number(process.pid()), startedAt: java.lang.System.currentTimeMillis() });
+        Files.write(new File(outDir, "run.json").toPath(), new java.lang.String(run).getBytes("UTF-8"));
         var stdin = process.getOutputStream();
         try {
           stdin.write(new java.lang.String(stdinText).getBytes("UTF-8"));
         } finally {
           stdin.close();
         }
-        var finished = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
-        if (!finished) {
-          process.destroyForcibly();
-          return { exitCode: -1, stdout: "", timedOut: true };
+      },
+      readRun: function (callId) {
+        var dir = new File(new File(new File(workspace, ".playwright-mcp"), "verify"), callId);
+        var runFile = new File(dir, "run.json");
+        if (!runFile.isFile()) {
+          return { exists: false };
         }
-        var stdout = outFile.isFile() ? String(new java.lang.String(Files.readAllBytes(outFile.toPath()), "UTF-8")) : "";
+        var run = {};
         try {
-          outFile["delete"]();
-        } catch (_keepOutput) {}
-        return { exitCode: Number(process.exitValue()), stdout: stdout, timedOut: false };
+          run = JSON.parse(String(new java.lang.String(Files.readAllBytes(runFile.toPath()), "UTF-8")));
+        } catch (_badRun) {}
+        var outFile = new File(dir, "agent-output.json");
+        var alive = false;
+        try {
+          var handle = java.lang.ProcessHandle.of(Number(run.pid || 0));
+          alive = handle.isPresent() && handle.get().isAlive();
+        } catch (_noHandle) {}
+        var shots = [];
+        var files = dir.listFiles();
+        for (var i = 0; files !== null && i < files.length; i++) {
+          if (/\.png$/.test(String(files[i].getName()))) {
+            shots.push(String(files[i].getPath()));
+          }
+        }
+        shots.sort();
+        return {
+          exists: true,
+          outDir: String(dir.getPath()),
+          output: outFile.isFile() ? String(new java.lang.String(Files.readAllBytes(outFile.toPath()), "UTF-8")) : "",
+          alive: alive,
+          startedAt: Number(run.startedAt || 0),
+          screenshots: shots
+        };
+      },
+      finishRun: function (_callId) {
+        // The agent removes its lock itself; nothing else to release.
+      },
+      now: function () {
+        return Number(java.lang.System.currentTimeMillis());
+      },
+      sleep: function (ms) {
+        java.lang.Thread.sleep(ms);
       }
     };
   };

@@ -1584,6 +1584,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function browserVerifyOutputSchema() {
     var shot = { type: "string", description: "Screenshot file, relative to the Studio user workspace (readable by image-describe)." };
     return closedObjectSchema({
+      status: { type: "string", enum: ["finished", "running"], description: "running: call browser-verify again with verificationId alone to get the report." },
+      verificationId: { type: "string" },
+      elapsedMs: { type: "number", description: "With status running: time since the verification started." },
+      message: { type: "string", description: "With status running: what to do next." },
       verdict: { type: "string", enum: ["passed", "failed", "partial"], description: "passed only when every check passed and no blocking defect was seen; partial when something could not be checked." },
       summary: { type: "string" },
       checks: {
@@ -2026,9 +2030,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none is fast and cheap; high only for a hard case." },
           maxSteps: { type: "integer", minimum: 6, maximum: 80, default: 40 },
           timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "The sub-agent reports what it has when it runs out." },
-          cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open)." }
+          cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open)." },
+          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report. A verification still running then answers status running with its verificationId; keep the default, it fits every agent host." },
+          verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits up to waitSec again." }
         },
-        required: ["paths"],
         additionalProperties: false
       };
     }

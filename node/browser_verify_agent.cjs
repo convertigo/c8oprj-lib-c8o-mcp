@@ -1034,21 +1034,37 @@ function readStdin() {
   });
 }
 
+// The MCP tool returns before the agent ends; the agent releases the browser lock itself, and a watchdog makes sure it
+// ends even if the browser or the gateway hangs.
+function finish(output, lockFile) {
+  process.stdout.write(JSON.stringify(output) + "\n", function () {
+    if (lockFile) {
+      try {
+        fs.unlinkSync(lockFile);
+      } catch (_noLock) {}
+    }
+    // The CDP connection stays open on purpose (closing it could close the Studio browser): exit instead.
+    process.exit(0);
+  });
+}
+
 async function main() {
   var key = process.env.CONVERTIGO_LLM_API_KEY || "";
   var output;
+  var input = {};
   try {
-    var input = JSON.parse(await readStdin() || "{}");
+    input = JSON.parse(await readStdin() || "{}");
+    var budget = clampInt(input.timeBudgetMs, DEFAULTS.timeBudgetMs, 30000, 900000);
+    setTimeout(function () {
+      finish({ ok: false, error: "The verification agent was stopped after its time budget and 60 s more." }, str(input.lockFile));
+    }, budget + 60000).unref();
     var playwright = require(str(input.playwrightModule) || "playwright-core");
     output = await run(input, { key: key, playwright: playwright, fetch: fetch });
     output.ok = true;
   } catch (e) {
     output = { ok: false, error: redact(shortError(e), key) };
   }
-  process.stdout.write(JSON.stringify(output) + "\n", function () {
-    // The CDP connection stays open on purpose (closing it could close the Studio browser): exit instead.
-    process.exit(0);
-  });
+  finish(output, str(input.lockFile));
 }
 
 module.exports = {

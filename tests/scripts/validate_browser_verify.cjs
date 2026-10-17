@@ -44,24 +44,41 @@ function agentOutput(extra) {
   }, extra || {});
 }
 
-function host(overrides) {
-  const seen = { spawns: [], locks: 0, released: 0, probes: [] };
+// An agent host whose agent finishes after `finishAfterMs` (fake clock, advanced by sleep).
+function host(overrides, finishAfterMs, output) {
+  const seen = { starts: [], locks: [], unlocked: [], sleeps: 0 };
+  let clock = 1000;
+  let started = null;
+  const result = output === undefined ? agentOutput() : output;
   const h = Object.assign({
     readKey: () => KEY,
     cdpEndpoint: params => load().normalizeCdpEndpoint(params.browserDebugPort, params.cdpEndpoint),
-    probe: endpoint => { seen.probes.push(endpoint); return true; },
+    probe: () => true,
     nodePath: () => '/studio/nodes/node/bin/node',
     playwrightModule: () => '/ws/agents/vibe/npm/node_modules/playwright-core',
     scriptPath: () => '/projects/lib_ConvertigoMCP/node/browser_verify_agent.cjs',
     workspaceRoot: () => '/ws',
-    newRun: () => ({ callId: 'v1', outDir: '/ws/.playwright-mcp/verify/v1' }),
-    lock: () => { seen.locks++; return () => { seen.released++; }; },
-    spawn: (command, env, stdinText, timeoutMs, outDir) => {
-      seen.spawns.push({ command, env, config: JSON.parse(stdinText), timeoutMs, outDir });
-      return { exitCode: 0, stdout: 'noise\n' + JSON.stringify(agentOutput()) + '\n', timedOut: false };
-    }
+    newRun: () => ({ callId: 'verify-20261017-221847-3d56e744', outDir: '/ws/.playwright-mcp/verify/verify-20261017-221847-3d56e744' }),
+    lock: (endpoint, callId, budget) => { seen.locks.push({ endpoint, callId, budget }); return '/ws/.playwright-mcp/verify/.lock-x'; },
+    unlock: lockPath => { seen.unlocked.push(lockPath); },
+    start: (command, env, stdinText, outDir) => { started = clock; seen.starts.push({ command, env, config: JSON.parse(stdinText), outDir }); },
+    readRun: id => {
+      if (started === null || id !== 'verify-20261017-221847-3d56e744') return { exists: false };
+      const done = clock - started >= (finishAfterMs || 0);
+      return {
+        exists: true,
+        outDir: '/ws/.playwright-mcp/verify/' + id,
+        output: done ? 'noise\n' + (typeof result === 'string' ? result : JSON.stringify(result)) + '\n' : '',
+        alive: !done,
+        startedAt: started,
+        screenshots: ['/ws/.playwright-mcp/verify/' + id + '/login.png']
+      };
+    },
+    finishRun: () => {},
+    now: () => clock,
+    sleep: ms => { seen.sleeps++; clock += ms; }
   }, overrides || {});
-  return { h, seen };
+  return { h, seen, startNow: () => { started = clock; } };
 }
 
 test('paths and checks: JSON array, objects or one per line, bullets dropped, bounded', () => {
@@ -85,30 +102,31 @@ test('the browser is the conversation viewer on loopback only', () => {
 
 test('a verification runs the agent with the key in its environment only and returns a short report', () => {
   const api = load();
-  const { h, seen } = host();
+  const { h, seen } = host({}, 20000);
   const result = api.run({ browserDebugPort: '45991', url: 'http://localhost:4200/home', paths: '["Log in", "Declare two posts"]', checks: 'Both À jour', hints: 'rpca.demo / demo' }, h);
-  assert.equal(seen.spawns.length, 1);
-  const spawn = seen.spawns[0];
-  assert.deepEqual(plain(spawn.command), ['/studio/nodes/node/bin/node', '/projects/lib_ConvertigoMCP/node/browser_verify_agent.cjs']);
-  assert.equal(spawn.env.CONVERTIGO_LLM_API_KEY, KEY);
-  assert.ok(!JSON.stringify(spawn.config).includes(KEY), 'the key never goes to the agent input');
-  assert.equal(spawn.config.cdpEndpoint, 'http://127.0.0.1:45991');
-  assert.equal(spawn.config.model, 'mistral/mistral-large-4');
-  assert.equal(spawn.config.reasoning, 'none');
-  assert.deepEqual(spawn.config.paths, ['Log in', 'Declare two posts']);
-  assert.deepEqual(spawn.config.checks, ['Both À jour']);
-  assert.equal(spawn.config.context, 'rpca.demo / demo');
-  assert.equal(spawn.config.timeBudgetMs, 150000);
-  assert.equal(spawn.timeoutMs, 150000 + 45000);
-  assert.equal(seen.locks, 1);
-  assert.equal(seen.released, 1);
+  assert.equal(seen.starts.length, 1);
+  const start = seen.starts[0];
+  assert.deepEqual(plain(start.command), ['/studio/nodes/node/bin/node', '/projects/lib_ConvertigoMCP/node/browser_verify_agent.cjs']);
+  assert.equal(start.env.CONVERTIGO_LLM_API_KEY, KEY);
+  assert.ok(!JSON.stringify(start.config).includes(KEY), 'the key never goes to the agent input');
+  assert.equal(start.config.cdpEndpoint, 'http://127.0.0.1:45991');
+  assert.equal(start.config.model, 'mistral/mistral-large-4');
+  assert.equal(start.config.reasoning, 'none');
+  assert.deepEqual(plain(start.config.paths), ['Log in', 'Declare two posts']);
+  assert.deepEqual(plain(start.config.checks), ['Both À jour']);
+  assert.equal(start.config.context, 'rpca.demo / demo');
+  assert.equal(start.config.timeBudgetMs, 150000);
+  assert.equal(start.config.lockFile, '/ws/.playwright-mcp/verify/.lock-x', 'the agent releases the browser lock itself');
+  assert.deepEqual(plain(seen.locks), [{ endpoint: 'http://127.0.0.1:45991', callId: 'verify-20261017-221847-3d56e744', budget: 150000 }]);
 
+  assert.equal(result.status, 'finished');
+  assert.equal(result.verificationId, 'verify-20261017-221847-3d56e744');
   assert.equal(result.verdict, 'failed');
   assert.equal(result.checks[1].status, 'failed');
   assert.equal(result.checks[0].screenshot, '.playwright-mcp/verify/v1/list.png');
   assert.equal(result.visualDefects[0].screenshot, '.playwright-mcp/verify/v1/after.png');
   assert.deepEqual(plain(result.screenshots), [{ name: 'list', path: '.playwright-mcp/verify/v1/list.png', url: 'http://localhost:4200/postes' }]);
-  assert.equal(result.reportFile, '.playwright-mcp/verify/v1/report.json');
+  assert.equal(result.reportFile, '.playwright-mcp/verify/verify-20261017-221847-3d56e744/report.json');
   assert.equal(result.modelCalls, 6);
   assert.equal(result.browserActions, 12);
   assert.equal(result.trace, undefined, 'the step trace stays in report.json');
@@ -118,41 +136,60 @@ test('a verification runs the agent with the key in its environment only and ret
   });
 });
 
+test('a verification longer than waitSec answers running, and its id collects the report later', () => {
+  const api = load();
+  const { h, seen } = host({}, 120000);
+  const first = api.run({ browserDebugPort: '45991', paths: 'Log in' }, h);
+  assert.equal(first.status, 'running');
+  assert.equal(first.verificationId, 'verify-20261017-221847-3d56e744');
+  assert.equal(first.elapsedMs, 50000, 'the default wait fits under a one-minute host limit');
+  assert.equal(first.usage, undefined, 'no usage before the report: it is counted once, with the report');
+  assert.deepEqual(plain(first.screenshots), [{ name: 'login', path: '.playwright-mcp/verify/verify-20261017-221847-3d56e744/login.png', url: '' }]);
+  assert.match(first.message, /verificationId/);
+  const second = api.run({ verificationId: first.verificationId }, h);
+  assert.equal(second.status, 'running');
+  assert.equal(second.elapsedMs, 100000);
+  const third = api.run({ verificationId: first.verificationId, waitSec: '30' }, h);
+  assert.equal(third.status, 'finished');
+  assert.equal(third.verdict, 'failed');
+  assert.equal(seen.starts.length, 1, 'collecting never starts another agent');
+  assert.throws(() => api.run({ verificationId: '../../etc/passwd' }, h), /verificationId must be/);
+  assert.throws(() => api.run({ verificationId: 'verify-20261017-000000-00000000' }, h), /Unknown verificationId/);
+});
+
 test('an unpriced verification keeps its cost unknown, never 0', () => {
   const api = load();
   const output = agentOutput();
   output.usage.cost = null;
-  const { h } = host({ spawn: () => ({ exitCode: 0, stdout: JSON.stringify(output), timedOut: false }) });
-  const result = api.run({ browserDebugPort: '45991', paths: 'Log in' }, h);
+  const result = api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({}, 0, output).h);
   assert.equal(result.usage.cost, null);
   assert.equal(result.usage.currency, '');
 });
 
 test('no viewer, a dead viewer or no key: a clear error before any model call', () => {
   const api = load();
-  let spawned = 0;
-  const spawn = () => { spawned++; return { exitCode: 0, stdout: '', timedOut: false }; };
-  assert.throws(() => api.run({ paths: 'Log in' }, host({ spawn }).h), /mobile-builder-open first/);
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ spawn, probe: () => false }).h), /does not answer on http:\/\/127\.0\.0\.1:45991/);
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ spawn, readKey: () => '' }).h), /No Convertigo agent key/);
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: '' }, host({ spawn }).h), /paths is required/);
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x', reasoning: 'max' }, host({ spawn }).h), /reasoning must be none or high/);
-  assert.equal(spawned, 0);
+  let started = 0;
+  const start = () => { started++; };
+  assert.throws(() => api.run({ paths: 'Log in' }, host({ start }).h), /mobile-builder-open first/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ start, probe: () => false }).h), /does not answer on http:\/\/127\.0\.0\.1:45991/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ start, readKey: () => '' }).h), /No Convertigo agent key/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: '' }, host({ start }).h), /paths is required/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x', reasoning: 'max' }, host({ start }).h), /reasoning must be none or high/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x', waitSec: 'soon' }, host({ start }).h), /waitSec must be a number/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, host({ start, lock: () => { throw new Error('Another verification (verify-1) is running'); } }).h), /Another verification/);
+  assert.equal(started, 0);
 });
 
-test('agent failures come back as errors and the browser lock is always released', () => {
+test('agent failures come back as errors, and a failed start releases the browser lock', () => {
   const api = load();
-  let r = host({ spawn: () => ({ exitCode: 0, stdout: JSON.stringify({ ok: false, error: 'No browser: cdpEndpoint is required.' }), timedOut: false }) });
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /The verification failed: No browser/);
-  assert.equal(r.seen.released, 1);
-  r = host({ spawn: () => ({ exitCode: -1, stdout: '', timedOut: true }) });
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x', timeBudgetSec: '60' }, r.h), /did not end within 105 s/);
-  assert.equal(r.seen.released, 1);
-  r = host({ spawn: () => { throw new Error('spawn failed'); } });
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, host({}, 0, { ok: false, error: 'No browser: cdpEndpoint is required.' }).h), /The verification failed: No browser/);
+  let r = host({ start: () => { throw new Error('spawn failed'); } });
   assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /spawn failed/);
-  assert.equal(r.seen.released, 1);
-  r = host({ spawn: () => ({ exitCode: 1, stdout: 'Error: Cannot find module', timedOut: false }) });
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /without a result \(exit code 1\).*agent\.log/);
+  assert.deepEqual(plain(r.seen.unlocked), ['/ws/.playwright-mcp/verify/.lock-x']);
+  // The agent died without writing its result.
+  r = host({}, 0, 'Error: Cannot find module');
+  r.h.readRun = id => ({ exists: true, outDir: '/ws/.playwright-mcp/verify/' + id, output: 'Error: Cannot find module', alive: false, startedAt: 1000, screenshots: [] });
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /ended without a result.*agent\.log/);
 });
 
 test('the gateway credits are spent only with a full MCP bearer', () => {
