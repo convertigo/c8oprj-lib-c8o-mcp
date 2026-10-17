@@ -28,6 +28,7 @@ Most of such an app is made of the fixed objects this recipe describes: SQL tran
   - A SQL read gives `ctx.reads.<name>` its rows. Another read gives the JSON the call returns, without `attr`, `error` and `HttpInfo`; the array or object of a JSON HTTP transaction is unwrapped, and `path:"people"` keeps one part of it (`perimeter` and `required` then apply to it).
   - A call fails on `document.error`, an HTTP status >= 400, or a sequence answering `success:false`: `READ_FAILED` or `WRITE_FAILED` with the cause in the message. An HTTP transaction needs `httpInfo:true` first, otherwise a 404 or a lost connection looks like data and the generator refuses it.
   - `auth.userSequence` reloads the user through a sequence instead of `auth.userTransaction`.
+  - `session` makes the login and logout facades (see Session): `logic` alone never opens a session.
 - `ngx-page-create`: a `list` (filters, badges, row click), `detail`, `form` (UIForm, Form SmartSources, toast and navigation) or `dashboard` (KPI grid, sections) page wired to its facade, with the lost-session redirect, the `local?.x` templates and the `AppLayout` style.
 
 Each one validates the whole spec before writing and creates all or nothing: a refused call lists every problem and leaves the project untouched, so fix the spec and send it again. The answer lists the created QNames and the next proof to run. Pages may link to pages not created yet (a warning, not an error), so build them in any order.
@@ -71,9 +72,9 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 - Variables read in JS are Java strings and rows come from another Rhino scope: see `convertigo-backend-sequences` section 5.
 
 ## Session
-- `auth_login<...>` (Hidden, anonymous): verifies the identity, then `context.setAuthenticatedUser(<normalized email>)` and returns `{user, home}` where `home` is the page for the role.
+- `auth_login<...>` (Hidden, anonymous): verifies the identity, then `context.setAuthenticatedUser(<normalized email>)` and returns `{user, home}` where `home` is the page for the role. With `facade-create`: `auth:false`, the identity check in `logic` (it reads the user, or calls the sign-in sequence of a library), and `session:{login:"resp.data.email"}`, a JS expression of the user id. The facade opens the session with it only when `logic` and the writes succeed. Without `session` the login answers `success:true` but opens no session, and the app falls back to its entry page at the first protected call. A library sign-in sequence that opens the session itself needs no `session`.
 - `auth_getCurrentUser` (Hidden): returns the reloaded user. Either mark it `authenticatedContextRequired` (no session gives `Authentication required`) or keep it anonymous and return a business code such as `UNAUTHENTICATED`; the entry page handles whichever you chose.
-- `auth_logout`: clears the session.
+- `auth_logout`: clears the session. With `facade-create`: `auth:false` and `session:{logout:true}` (the authenticated user is removed, then the HTTP session ends after the response is written); the client calls it with `noAutoLogin`.
 - Sessions expire (timeout, engine restart). A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required` (no dedicated code); the client treats it exactly like the business code of a lost session (`UNAUTHENTICATED` by default in `facade-create` and `ngx-page-create`, or the code the application's contract names: pass it to both). The SDK auto-login replays the last login first, so a server-side logout is restored silently; test with the application's logout button, then a protected page.
 - For a real identity provider, keep this layer and follow `convertigo-authentication`.
 

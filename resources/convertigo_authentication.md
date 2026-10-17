@@ -54,8 +54,9 @@ Each flow authenticates the session with a provider-prefixed user id: `google:<s
    - only the values that genuinely come from the user reach the library from the client: the authorization `code` and `state`, or the email and password;
    - every other library input is set on the `StepVariable` from a symbol: `client_id`, `redirect_uri`, `keySecret`, endpoints, email subject, logo, and application name;
    - the facade does not declare those as its own `RequestableVariable`, so the client cannot override them.
+   - for a login checked by the application itself (its own user table or a library sequence that does not open the session), `facade-create` with `auth:false` and `session:{login:"resp.data.email"}` opens the session when `logic` succeeds; without that option nothing calls `context.setAuthenticatedUser`.
 5. **Protect business sequences.** Every business sequence is `Hidden` with `authenticatedContextRequired=true`. Helpers and every transaction stay `Private`.
-6. **Log out by ending the session.** A logout sequence runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep`. The client calls it with `__disableAutologin=true`; otherwise the SDK replays the last successful login request as soon as the session is lost.
+6. **Log out by ending the session.** A logout sequence runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep` (`facade-create` with `session:{logout:true}` builds it). The client calls it with `__disableAutologin=true`; otherwise the SDK replays the last successful login request as soon as the session is lost.
 
 ## OAuth / OpenID Connect with lib_OAuth
 
