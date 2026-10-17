@@ -2573,11 +2573,20 @@ C8O.dbo.suggestBeanClasses = function (className) {
     "references", "common", "rest", "couchdb", "transactions.couchdb", "screenclasses", "extractionrules",
     "criteria", "scheduler", "ngx.components", "mobile.components"];
   var found = [];
+  // An abstract class (core.Sequence, core.Step...) cannot be created: suggest only concrete ones, and the usual
+  // concrete class for the common abstract names.
+  var concrete = { Sequence: "sequences.GenericSequence" };
+  var Modifier = Packages.java.lang.reflect.Modifier;
   for (var i = 0; i < packages.length && simpleName.length; i++) {
     try {
-      Packages.java.lang.Class.forName(_BEANS_PREFIX + packages[i] + "." + simpleName);
-      found.push(packages[i] + "." + simpleName);
+      var cls = Packages.java.lang.Class.forName(_BEANS_PREFIX + packages[i] + "." + simpleName);
+      if (!Modifier.isAbstract(cls.getModifiers())) {
+        found.push(packages[i] + "." + simpleName);
+      }
     } catch (_notThere) {}
+  }
+  if (!found.length && concrete[simpleName]) {
+    found.push(concrete[simpleName]);
   }
   return found;
 };
