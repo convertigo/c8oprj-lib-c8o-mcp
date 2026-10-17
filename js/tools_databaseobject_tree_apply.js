@@ -56,6 +56,76 @@ if (!treeObject) {
   throw new Error("tree is required and must be a JSON object.");
 }
 
+// Node shortcuts expanded into ordinary children before the apply, so an app build does not
+// spell one object per HTML attribute or per local:
+//   attributes: {"class": "card", "[hidden]": {...SmartType}}  -> UIAttribute children
+//   setLocals:  {"loading": "false", "items": "[]"}            -> SetLocalAction children (SCRIPT values)
+// An explicit child with the same name wins. importVariables:true is handled by the batch engine.
+function treeApplyShortcutName(prefix, key) {
+  var cleaned = String(key).replace(/[^A-Za-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!cleaned.length) {
+    cleaned = "value";
+  }
+  return prefix + cleaned.charAt(0).toUpperCase() + cleaned.substring(1);
+}
+
+function treeApplyShortcutScript(value) {
+  if (value && typeof value === "object" && !Array.isArray(value) && value.mode !== undefined) {
+    return value;
+  }
+  return { mode: "SCRIPT", value: typeof value === "string" ? value : JSON.stringify(value) };
+}
+
+function treeApplyExpandShortcuts(node, path) {
+  if (!node || typeof node !== "object" || Array.isArray(node)) {
+    return;
+  }
+  var children = Array.isArray(node.children) ? node.children : [];
+  var existing = {};
+  for (var ci = 0; ci < children.length; ci++) {
+    if (children[ci] && children[ci].name !== undefined) {
+      existing[String(children[ci].name)] = true;
+    }
+  }
+  var added = [];
+  var shortcuts = [
+    { key: "attributes", build: function (attr, value) {
+      return { className: "ngx.components.UIAttribute#UIAttribute", name: treeApplyShortcutName("", attr),
+        properties: { attrName: String(attr), attrValue: value } };
+    } },
+    { key: "setLocals", build: function (prop, value) {
+      return { className: "ngx.components.UIDynamicAction#SetLocalAction", name: treeApplyShortcutName("Set", prop),
+        properties: { Property: String(prop), Value: treeApplyShortcutScript(value) } };
+    } }
+  ];
+  for (var si = 0; si < shortcuts.length; si++) {
+    var map = node[shortcuts[si].key];
+    if (map === undefined) {
+      continue;
+    }
+    if (!map || typeof map !== "object" || Array.isArray(map)) {
+      throw new Error(path + "." + shortcuts[si].key + " must be an object map.");
+    }
+    var keys = Object.keys(map);
+    for (var ki = 0; ki < keys.length; ki++) {
+      var built = shortcuts[si].build(keys[ki], map[keys[ki]]);
+      if (!existing[built.name]) {
+        existing[built.name] = true;
+        added.push(built);
+      }
+    }
+    delete node[shortcuts[si].key];
+  }
+  if (added.length) {
+    node.children = added.concat(children);
+    children = node.children;
+  }
+  for (var ri = 0; ri < children.length; ri++) {
+    treeApplyExpandShortcuts(children[ri], path + ".children[" + ri + "]");
+  }
+}
+treeApplyExpandShortcuts(treeObject, "tree");
+
 function treeApplyPropertyValue(properties, propertyName) {
   if (!properties) {
     return null;
@@ -215,6 +285,9 @@ if (atInput === "self") {
   }
   if (Array.isArray(treeObject.children) && treeObject.children.length > 0) {
     op.children = treeObject.children;
+  }
+  if (treeObject.importVariables === true) {
+    op.importVariables = true;
   }
 }
 

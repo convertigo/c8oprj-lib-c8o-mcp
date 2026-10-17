@@ -766,6 +766,23 @@ include("js/crud_ui_refresh.js");
     return moveInfo;
   }
 
+  // importVariables:true on a TransactionStep or SequenceStep creates the step variables of the
+  // called requestable (Studio's "import variables"), instead of listing each StepVariable.
+  function importStepVariables(ctx, dbo, node, report) {
+    if (!node || node.importVariables !== true || !dbo) {
+      return;
+    }
+    if (typeof dbo.importVariableDefinition !== "function") {
+      pushReportWarning(report, safeQName(dbo) + ": importVariables only applies to TransactionStep and SequenceStep.");
+      return;
+    }
+    var before = dbo.numberOfVariables ? dbo.numberOfVariables() : 0;
+    dbo.importVariableDefinition();
+    var after = dbo.numberOfVariables ? dbo.numberOfVariables() : before;
+    markDirty(ctx, dbo);
+    report.applied.push({ action: "importVariables", qname: safeQName(dbo), added: after - before });
+  }
+
   function applyProperties(ctx, dbo, rawProperties, scopeName, report) {
     var localErrors = [];
     var propertiesInput = rawProperties;
@@ -928,6 +945,7 @@ include("js/crud_ui_refresh.js");
         }
 
         applyProperties(ctx, createdChild, childPatch.properties, safeQName(createdChild), report);
+        importStepVariables(ctx, createdChild, childPatch, report);
         upsertChildren(ctx, createdChild, safeQName(createdChild), nestedChildren, strategy, report);
         continue;
       }
@@ -967,6 +985,7 @@ include("js/crud_ui_refresh.js");
         }
 
         applyProperties(ctx, recreated, childPatch.properties, safeQName(recreated), report);
+        importStepVariables(ctx, recreated, childPatch, report);
         upsertChildren(ctx, recreated, safeQName(recreated), nestedChildren, strategy, report);
         continue;
       }
@@ -975,6 +994,7 @@ include("js/crud_ui_refresh.js");
         registerRef(ctx, childPatch.id, runtimeChild);
       }
       applyProperties(ctx, runtimeChild, childPatch.properties, safeQName(runtimeChild), report);
+      importStepVariables(ctx, runtimeChild, childPatch, report);
       upsertChildren(ctx, runtimeChild, safeQName(runtimeChild), nestedChildren, strategy, report);
     }
 
@@ -1033,6 +1053,7 @@ include("js/crud_ui_refresh.js");
     }
 
     applyProperties(ctx, created, op.properties, createdQName, report);
+    importStepVariables(ctx, created, op, report);
     if (children.length) {
       upsertChildren(
         ctx,
@@ -1116,6 +1137,7 @@ include("js/crud_ui_refresh.js");
     if (patch.properties !== undefined) {
       applyProperties(ctx, root, patch.properties, qname, report);
     }
+    importStepVariables(ctx, root, patch, report);
 
     var childrenPatch = parseChildrenInput(patch.children, qname + ".children", []);
     upsertChildren(ctx, root, qname, childrenPatch, strategy, report);
