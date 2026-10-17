@@ -183,6 +183,16 @@ comment: |
       if (source.error) {
         out.status = "error";
         out.error = source.error;
+        // SQL errors give the driver cause inside details, after the generic message and before
+        // the statement text: lift it into error.cause and the message.
+        try {
+          var detailsText = String(source.error.details || "");
+          var causeMatch = /on connection, ([\s\S]+?) in statement \[/.exec(detailsText);
+          if (causeMatch && causeMatch[1]) {
+            out.error.cause = causeMatch[1];
+            out.error.message = String(source.error.message || "") + " Cause: " + causeMatch[1];
+          }
+        } catch (_ignoreCause) {}
         return out;
       }
       // Guide and prompt reads are how harnesses without native MCP resources (Vibe) read the method:
