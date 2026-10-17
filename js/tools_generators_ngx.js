@@ -630,7 +630,9 @@ include("js/tools_generators.js");
       className: "ngx.components.PageComponent#PageComponent", name: name, properties: pageProps, children: [
         nx("Header", "Header", {}, [nx("ToolBar", "ToolBar", {}, [nx("BarTitle", "BarTitle", {}, [txt(title)])])]),
         nx("Content", "Content", {}, content),
-        { className: "ngx.components.UIPageEvent#UIPageEvent", name: "PageEvent", properties: {}, children: pageEventChildren }
+        // pageWillEnter, not the default pageDidEnter: ionViewDidEnter does not fire when the app opens on this page's URL
+        // (reload, deep link), which left the page without its locals and data.
+        { className: "ngx.components.UIPageEvent#UIPageEvent", name: "PageEvent", properties: { viewEvent: "pageWillEnter" }, children: pageEventChildren }
       ]
     };
 

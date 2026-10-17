@@ -407,6 +407,7 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   assert.equal(nodes.Reload.properties.cacheTtl.value, '0');
   assert.match(nodes.IfSessionLost.properties.condition.value, /\['NON_AUTHENTIFIE','COMPTE_INACTIF'\]\.indexOf\(out\?\.errors\?\.\[0\]\?\.code\)/);
   assert.equal(nodes.GoEntry.properties.page.value, 'Login');
+  assert.equal(nodes.PageEvent.properties.viewEvent, 'pageWillEnter', 'pageDidEnter does not fire on a deep link');
   assert.equal(nodes.Open.properties.data.value, '{id: scope.poste?.id}');
   assert.equal(nodes.Call.properties.requestable.value, 'App.auth_logout');
   const style = creates(world, 'ngx.components.UIStyle#UIStyle')[0];
