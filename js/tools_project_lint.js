@@ -168,7 +168,14 @@
           add("NGX-C8OPAGE-TEMPLATE", "error", dbo, "c8oPage in a template text: the page has no c8oPage member and fails at run time.",
             "Write local?.x instead of c8oPage.local?.x.");
         }
-        var stripped = STRIPPED_WORDS.exec(text);
+        // Only words shown as written: skip bound values and {{ ... }} interpolations (variable names).
+        var textMode = "";
+        try {
+          var textSmart = call(dbo, "getTextSmartType");
+          textMode = textSmart && typeof textSmart.getMode === "function" ? String(textSmart.getMode()) : "";
+        } catch (_ignoreTextMode) {}
+        var shown = textMode.length && textMode !== "PLAIN" ? "" : text.replace(/\{\{[\s\S]*?\}\}/g, " ");
+        var stripped = STRIPPED_WORDS.exec(shown);
         if (stripped) {
           add("TEXT-ACCENTS", "info", dbo, "\"" + stripped[2] + "\" looks like a French word without its accent.",
             "Write the text with its accents; Convertigo objects are UTF-8.");
