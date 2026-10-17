@@ -338,7 +338,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         search: { type: "string", description: "Search text sent to the marketplace catalog." },
         topics: topicInputSchema("Optional topic filter. Accepts a single topic or an array of topic names."),
         limit: { type: "integer", minimum: 1, maximum: 200, default: 20, description: "Maximum entries returned in the final result page. 1 to 200; default 20." },
-        maxPages: { type: "integer", minimum: 1, maximum: 100, default: 20, description: "Maximum upstream pages scanned before returning. 1 to 100; default 20." }
+        maxPages: { type: "integer", minimum: 1, maximum: 100, default: 20, description: "Maximum upstream pages scanned before returning. 1 to 100; default 20." },
+        detail: { type: "string", enum: ["compact", "full"], default: "compact", description: "compact returns name, description, topics, status and shared component/action counts; full adds the shared lists and repository URLs." }
       },
       additionalProperties: false
     };

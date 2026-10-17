@@ -19,6 +19,20 @@ comment: |
       maxPages: maxPages
     });
     var entries = C8O.marketplace.annotateEntries(listResult.entries, {});
+    var detailText = (typeof detail !== "undefined" && detail != null) ? String(detail).trim().toLowerCase() : "";
+    if (detailText !== "full") {
+      for (var ce = 0; ce < entries.length; ce++) {
+        var entryCompact = entries[ce] || {};
+        if (entryCompact.description && String(entryCompact.description).length > 240) {
+          entryCompact.description = String(entryCompact.description).substring(0, 237) + "...";
+        }
+        entryCompact.sharedComponents = [];
+        entryCompact.sharedActions = [];
+        entryCompact.cloneUrl = "";
+        entryCompact.htmlUrl = "";
+        entryCompact.projectUrl = "";
+      }
+    }
     marketplaceListProjectRequested = "";
     marketplaceListProject = "";
     marketplaceListProjectFound = false;
@@ -960,3 +974,6 @@ comment: |
 ↓search [variables.RequestableVariable-1772794060147]: 
   comment: Search text sent to the marketplace catalog.
   description: Search text sent to the marketplace catalog.
+↓detail [variables.RequestableVariable-1792171000081]: 
+  comment: compact (default) returns name, description, topics, status and shared component/action counts; full adds the shared component and action lists and the repository URLs.
+  description: compact (default) returns name, description, topics, status and shared component/action counts; full adds the shared component and action lists and the repository URLs.
