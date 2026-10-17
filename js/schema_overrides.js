@@ -511,11 +511,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         qname: { type: "string", description: "Optional root QName. Omit to search across all loaded projects." },
-        filter: { type: "string", description: "Search text. Space-separated terms are combined; pair with useRegExp=true for a regex." },
+        filter: { type: "string", description: "Search text. Space-separated terms must all appear in the object's YAML (name, properties, comment); pair with useRegExp=true for a regex." },
         limit: integerSchema(1, 1000, 200, "Maximum matches returned per call. 1 to 1000; default 200."),
         matchCase: booleanFlagSchema(false, "Set true for case-sensitive matching."),
         useRegExp: booleanFlagSchema(false, "Set true to treat filter as a Java regular expression."),
-        objectType: { type: "string", description: "Optional object type filter. Use * or omit for any type." }
+        objectType: { type: "string", description: "Optional object type filter: the type returned in matches (Step, Sequence, Transaction, Variable, Connector...) or a class token such as steps.SequenceStep. Use * or omit for any type." }
       },
       additionalProperties: false
     };

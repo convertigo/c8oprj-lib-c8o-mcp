@@ -99,19 +99,29 @@ function buildRecord(dbo, depth, contextSnippet) {
   return record;
 }
 
+// objectType accepts the database type returned in matches ("Step", "Sequence", "Variable"...)
+// and the class tokens used everywhere else ("steps.SequenceStep", or "SequenceStep").
+var objectTypeLower = objectTypeText.toLowerCase();
 function matchesObjectType(dbo) {
   if (objectTypeText === "*" || objectTypeText.length === 0) {
     return true;
   }
+  var candidates = [];
   try {
-    return objectTypeText.equalsIgnoreCase ? objectTypeText.equalsIgnoreCase(dbo.getDatabaseType()) : objectTypeText === dbo.getDatabaseType();
-  } catch (_ignoredType) {
-    try {
-      return objectTypeText === String(dbo.getDatabaseType());
-    } catch (_ignoredStringType) {
-      return false;
+    candidates.push(String(dbo.getDatabaseType()));
+  } catch (_ignoredType) {}
+  try {
+    var fqcn = String(dbo.getClass().getName());
+    candidates.push(C8O.util.fromFqcn ? String(C8O.util.fromFqcn(fqcn)) : fqcn);
+    candidates.push(fqcn.substring(fqcn.lastIndexOf(".") + 1));
+    candidates.push(fqcn);
+  } catch (_ignoredClass) {}
+  for (var ci = 0; ci < candidates.length; ci++) {
+    if (candidates[ci].toLowerCase() === objectTypeLower) {
+      return true;
     }
   }
+  return false;
 }
 
 function extractSnippet(text, start, end) {
@@ -157,10 +167,26 @@ function matchesSearch(dbo) {
     } catch (_ignoredPatternMatch) {}
     return null;
   }
+  // Space-separated terms must all be present (as the tool description says); the snippet
+  // is taken around the first term.
   var haystack = matchCaseFlag ? text : text.toLowerCase();
-  var idx = haystack.indexOf(substringText);
-  if (idx !== -1) {
-    return extractSnippet(text, idx, idx + substringText.length);
+  var terms = substringText.split(/\s+/);
+  var firstIdx = -1;
+  for (var ti = 0; ti < terms.length; ti++) {
+    if (!terms[ti].length) {
+      continue;
+    }
+    var termIdx = haystack.indexOf(terms[ti]);
+    if (termIdx === -1) {
+      return null;
+    }
+    if (firstIdx === -1) {
+      firstIdx = termIdx;
+      var firstLength = terms[ti].length;
+    }
+  }
+  if (firstIdx !== -1) {
+    return extractSnippet(text, firstIdx, firstIdx + firstLength);
   }
   return null;
 }

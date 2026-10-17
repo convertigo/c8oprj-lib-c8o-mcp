@@ -189,8 +189,8 @@ comment: |
   comment: Optional root QName. Omit to search across all loaded projects.
   description: Optional root QName. Omit to search across all loaded projects.
 ↓filter [variables.RequestableVariable-1762941538776]: 
-  comment: Search text. Space-separated terms are combined; pair with useRegExp=true for a regex.
-  description: Search text. Space-separated terms are combined; pair with useRegExp=true for a regex.
+  comment: Search text. Space-separated terms must all appear in the object's YAML (name, properties, comment); pair with useRegExp=true for a regex.
+  description: Search text. Space-separated terms must all appear in the object's YAML (name, properties, comment); pair with useRegExp=true for a regex.
 ↓limit [variables.RequestableVariable-1762941551633]: 
   comment: Maximum matches returned per call. 1 to 1000; default 200.
   description: Maximum matches returned per call. 1 to 1000; default 200.
@@ -202,8 +202,8 @@ comment: |
   comment: Set true to treat filter as a Java regular expression.
   description: Set true to treat filter as a Java regular expression.
 ↓objectType [variables.RequestableVariable-1762942208132]: 
-  comment: Optional object type filter. Use * or omit for any type.
-  description: Optional object type filter. Use * or omit for any type.
+  comment: Optional object type filter: the type returned in matches (Step, Sequence, Transaction, Variable, Connector...) or a class token such as steps.SequenceStep. Use * or omit for any type.
+  description: Optional object type filter: the type returned in matches (Step, Sequence, Transaction, Variable, Connector...) or a class token such as steps.SequenceStep. Use * or omit for any type.
   value: '*'
 ↓_nextCursor [variables.RequestableVariable-1762957543690]: 
   comment: Opaque cursor from a previous response. Internal pagination token.
