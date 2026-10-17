@@ -799,6 +799,25 @@ C8O.requestable.configureExecutor = function (executionPlan) {
     return;
   }
 
+  // <project>.sequences.<name> (or .sq.<name>) is a sequence written like a transaction: when no
+  // connector has that name but a sequence does, run the sequence and answer with its real name.
+  if (executionPlan.connector && seqStep) {
+    try {
+      var planProject = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+      var hasConnector = false;
+      try {
+        hasConnector = planProject != null && planProject.getConnectorByName(executionPlan.connector) != null;
+      } catch (_noConnector) {
+        hasConnector = false;
+      }
+      if (planProject != null && !hasConnector && planProject.getSequenceByName(executionPlan.name) != null) {
+        executionPlan.isSequence = true;
+        executionPlan.connector = null;
+        executionPlan.requestable = executionPlan.project + '.' + executionPlan.name;
+        return C8O.requestable.configureExecutor(executionPlan);
+      }
+    } catch (_ignoreSequenceAlias) {}
+  }
   if (!executionPlan.connector) {
     throw new Error('connector is required for transactions');
   }
