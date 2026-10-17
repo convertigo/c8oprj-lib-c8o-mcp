@@ -1924,6 +1924,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_tags_get" || seq === "tools_tags_apply") {
       return tagsInputSchema(seq === "tools_tags_apply");
     }
+    if (seq === "tools_project_lint") {
+      return {
+        type: "object",
+        properties: {
+          project: { type: "string", description: "Project technical name to lint." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
+    }
     if (seq === "tools_scheduler_list") {
       return {
         type: "object",

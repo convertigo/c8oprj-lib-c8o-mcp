@@ -182,6 +182,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_project-list",
       "Convertigo_project-list-symbols",
       "Convertigo_project-security-audit",
+      "Convertigo_project-lint",
       "Convertigo_marketplace-list",
       "Convertigo_marketplace-import",
       "Convertigo_requestable-execute",

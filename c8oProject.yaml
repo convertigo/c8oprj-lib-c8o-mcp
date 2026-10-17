@@ -77,6 +77,7 @@
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_project_security_audit [sequences.GenericSequence]: 🗏 sequences/tools_project_security_audit.yaml
+  ↓tools_project_lint [sequences.GenericSequence]: 🗏 sequences/tools_project_lint.yaml
   ↓tools_rag_query [sequences.GenericSequence]: 🗏 sequences/tools_rag_query.yaml
   ↓tools_report_create [sequences.GenericSequence]: 🗏 sequences/tools_report_create.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml
