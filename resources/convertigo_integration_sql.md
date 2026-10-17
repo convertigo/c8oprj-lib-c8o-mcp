@@ -122,6 +122,17 @@ Minimum validation proof:
 - the variable appears on the transaction
 - one execution with representative input proves the intended substitution path
 
+### An absent variable is an empty string, never NULL
+A `SqlTransaction` replaces a variable that has no value (not sent, or sent as null) with an empty string before binding it. A `{variable} IS NULL` test is therefore never true, and an optional filter written that way returns no row when the filter is omitted.
+
+Write optional filters against the empty string:
+
+```sql
+SELECT ... FROM poste_pca WHERE ({rpcaId} = '' OR rpca_id = {rpcaId})
+```
+
+Checked on HSQLDB: without `rpcaId` this returns every row, with `rpcaId` only the matching ones, while the `IS NULL` form returns nothing; `NULLIF({rpcaId}, '')` is refused at statement preparation. On a database with strict typing, compare the column through a text cast if the engine rejects a text parameter against a numeric column.
+
 ### Pattern 1: read-first validation
 Always validate the read path first.
 
