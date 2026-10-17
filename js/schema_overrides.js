@@ -1841,7 +1841,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         authRedirect: { type: "string", description: "Entry page opened with RootPageAction when the facade answers a lost-session code or Authentication required." },
         authCodes: { type: "array", items: { type: "string" }, description: "Codes treated as a lost session; default UNAUTHENTICATED, the facade-create default; give the same code as facade-create's errors.unauthenticated when it was changed." },
         heading: { type: "string", description: "Heading2 under the toolbar; default title, \"\" for none." },
-        inMenu: { type: "boolean", default: false },
+        home: { type: "string", description: "Home page name. The header gets a home button that opens it, and its back button opens it when there is no page to go back to. The header always has the menu button (shown when the app has a menu) and the back button (shown when there is a page to go back to)." },
+        inMenu: { type: "boolean", description: "Entry in the app menu. Default: true for list and dashboard pages, false for forms and details (they need parameters)." },
         segment: { type: "string", description: "Route segment; default path-to-<name in lower case>." },
         icon: { type: "string", description: "Menu icon (ionicons name)." }
       },

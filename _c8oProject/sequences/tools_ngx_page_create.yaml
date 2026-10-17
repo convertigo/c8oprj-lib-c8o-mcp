@@ -5,7 +5,7 @@ comment: |
 ↓Include [steps.SimpleStep-1792270100034]: 
   expression: include("js/tools_generators_ngx.js");
 ↓Run [steps.SimpleStep-1792270100035]: 
-  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals});'
+  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home});'
 ↓result [steps.JsonToXmlStep-1792270100036]: 
   jsonObject: 
     - xmlizable: 
@@ -102,4 +102,8 @@ comment: |
 ↓locals [variables.RequestableVariable-1792270100057]: 
   comment: 'Extra locals set at page enter: {local: TypeScript expression}.'
   description: 'Extra locals set at page enter: {local: TypeScript expression}.'
+  value: ''
+↓home [variables.RequestableVariable-1792282000010]: 
+  comment: 'Home page name: a home button in the header opens it, and the back button opens it when there is no page to go back to.'
+  description: 'Home page name: a home button in the header opens it, and the back button opens it when there is no page to go back to.'
   value: ''

@@ -183,6 +183,42 @@ include("js/tools_generators.js");
     return nxAction(kind === "root" ? "RootPageAction" : "PushPageAction", name, props);
   }
 
+  // The auto menu shows a page through the translate pipe with a key made from its title, every character that is not an
+  // ASCII letter or digit turned into "_" ("Sélection" -> "S_lection"). A key missing from the i18n files shows as is, so
+  // an accented title read "S_lection" in the menu. The key is added, with the title as value, to each i18n file without it.
+  G.menuTitleKey = function (title) {
+    return String(title).replace(/[^A-Za-z0-9]/g, "_");
+  };
+
+  G.addMenuTranslation = function (projectDbo, title) {
+    var key = G.menuTitleKey(title);
+    var result = { key: key, added: [] };
+    if (key === String(title)) {
+      return result;
+    }
+    try {
+      var dir = new java.io.File(String(projectDbo.getDirPath()), "DisplayObjects/mobile/assets/i18n");
+      var files = dir.isDirectory() ? dir.listFiles() : null;
+      for (var i = 0; files && i < files.length; i++) {
+        var name = String(files[i].getName());
+        if (!/\.json$/.test(name)) {
+          continue;
+        }
+        var text = String(new java.lang.String(java.nio.file.Files.readAllBytes(files[i].toPath()), "UTF-8"));
+        var json = JSON.parse(text);
+        if (json[key] !== undefined) {
+          continue;
+        }
+        json[key] = String(title);
+        java.nio.file.Files.write(files[i].toPath(), new java.lang.String(JSON.stringify(json, null, 2) + "\n").getBytes("UTF-8"));
+        result.added.push(name);
+      }
+    } catch (i18nError) {
+      result.error = String(i18nError && i18nError.message ? i18nError.message : i18nError);
+    }
+    return result;
+  };
+
   G.ngxPageCreate = function (args) {
     var tool = "ngx-page-create";
     var projectDbo = projectOf(args.project, tool);
@@ -201,7 +237,7 @@ include("js/tools_generators.js");
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
     ["name", "title", "kind", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "actions", "heading",
-      "authCodes", "segment", "icon", "filterLabel", "locals"].forEach(function (k) {
+      "authCodes", "segment", "icon", "filterLabel", "locals", "home"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
         spec[k] = (["name", "title", "kind", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
@@ -713,13 +749,39 @@ include("js/tools_generators.js");
     }
 
     var segment = str(spec.segment) || "path-to-" + name.toLowerCase();
-    var pageProps = { title: title, segment: segment, inAutoMenu: spec.inMenu === true || String(spec.inMenu) === "true" };
+    // In the menu by default: list and dashboard pages, which need no parameter; forms and details open from a page.
+    var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard") : (spec.inMenu === true || String(spec.inMenu) === "true");
+    var pageProps = { title: title, segment: segment, inAutoMenu: inMenu };
     if (str(spec.icon).length) {
       pageProps.icon = str(spec.icon);
     }
+    // Header navigation: the menu button (shown when the app has a menu), the back button (shown when there is a page to
+    // go back to, else it opens the home page when one is given), the title, and a home button.
+    var home = str(spec.home);
+    var homeSegment = "";
+    if (home.length) {
+      var homePage = childNamed(app, home);
+      if (!homePage && home !== name) {
+        warnings.push("home " + home + " is not a page of " + projectName + " yet: create it before the build.");
+      }
+      try {
+        homeSegment = homePage ? str(homePage.getSegment()) : (home === name ? segment : "");
+      } catch (_noSegment) {}
+    }
+    var backProps = homeSegment.length ? { DefaultHref: { mode: "PLAIN", value: "/" + homeSegment.replace(/^\//, "") } } : {};
+    var headerChildren = [
+      nx("ButtonSet", "Start", { SetPosition: { mode: "PLAIN", value: "start" } }, [nx("MenuButton", "Menu", {}), nx("BackButton", "Back", backProps)]),
+      nx("BarTitle", "BarTitle", {}, [txt(title)])
+    ];
+    if (home.length && home !== name) {
+      headerChildren.push(nx("ButtonSet", "End", { SetPosition: { mode: "PLAIN", value: "end" } }, [
+        nx("Button", "Home", {}, [nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: "home" } }),
+          controlEvent("EventonClick", "onClick", [navAction("GoHome", { page: home, kind: "root" })])])
+      ]));
+    }
     var pageNode = {
       className: "ngx.components.PageComponent#PageComponent", name: name, properties: pageProps, children: [
-        nx("Header", "Header", {}, [nx("ToolBar", "ToolBar", {}, [nx("BarTitle", "BarTitle", {}, [txt(title)])])]),
+        nx("Header", "Header", {}, [nx("ToolBar", "ToolBar", {}, headerChildren)]),
         nx("Content", "Content", {}, content),
         // pageWillEnter, not the default pageDidEnter: ionViewDidEnter does not fire when the app opens on this page's URL
         // (reload, deep link), which left the page without its locals and data.
@@ -809,6 +871,7 @@ include("js/tools_generators.js");
       batchWarnings(wired).forEach(function (w) { session.warnings.push(w); });
     }
     var finish = session.finish(page);
+    var menuLabel = inMenu ? G.addMenuTranslation(projectDbo, title) : null;
     return {
       status: "ok",
       page: pageQName,
@@ -820,6 +883,7 @@ include("js/tools_generators.js");
         .concat(formPlan ? [projectName + "." + formPlan.submit + " on submit (" + formPlan.identifier + ")"] : []),
       saved: finish.saved,
       mobileBuilder: finish.mobileBuilder,
+      menuLabel: menuLabel,
       warnings: (defaulted.length ? ["English default texts were used for " + defaulted.join(", ") +
         ": if the app is in another language, change those texts on the page, or delete it and create it again with these fields in that language."] : [])
         .concat(warnings, session.warnings),

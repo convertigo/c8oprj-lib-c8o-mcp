@@ -735,6 +735,32 @@ test('an existing AppLayout is completed with the missing rules only', () => {
   assert.equal(nodes.S1IfRecord.properties.directiveExpression, 'local?.data?.job');
 });
 
+test('the menu translation key follows the Mobile Builder rule', () => {
+  const G = load(makeWorld());
+  assert.equal(G.menuTitleKey('Sélection'), 'S_lection');
+  assert.equal(G.menuTitleKey("Gestion des postes d'été (2) – à jour"), 'Gestion_des_postes_d__t___2______jour');
+  assert.equal(G.menuTitleKey('Liste'), 'Liste');
+});
+
+test('a page header has the menu and back buttons, a home button, and the page a comment and a menu entry', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', title: 'Postes', kind: 'list', facade: 'poste_list', home: 'Plist2',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  const page = world.ops.filter(op => op.type === 'create' && op.name === 'Plist')[0];
+  const nodes = {};
+  walk(page, n => { if (n.name) nodes[n.name] = n; });
+  assert.equal(page.properties.inAutoMenu, true, 'a list page is in the menu by default');
+  assert.equal(nodes.Menu.className, 'ngx.components.UIDynamicElement#MenuButton');
+  assert.equal(nodes.Back.className, 'ngx.components.UIDynamicElement#BackButton');
+  assert.equal(nodes.Start.properties.SetPosition.value, 'start');
+  assert.equal(nodes.GoHome.className, 'ngx.components.UIDynamicAction#RootPageAction');
+  const form = G.ngxPageCreate({ project: 'App', name: 'DeclarationForm', kind: 'form', facade: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK', page: 'Plist', kind: 'root' }, fields: [{ name: 'commentaire' }] } });
+  const fpage = world.ops.filter(op => op.type === 'create' && op.name === 'DeclarationForm')[0];
+  assert.equal(fpage.properties.inAutoMenu, false, 'a form is not in the menu by default');
+});
+
 test('a list page offers multiple selection with a checkbox per row and selection actions', () => {
   const world = makeWorld();
   const G = load(world);
