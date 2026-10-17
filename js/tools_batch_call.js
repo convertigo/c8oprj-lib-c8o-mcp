@@ -482,7 +482,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     var compact = {};
     var keys = [
       "status", "message", "targetQName", "qname", "parentQName", "newQName",
-      "summary", "warnings", "errors"
+      "summary", "notes", "warnings", "errors"
     ];
     for (var i = 0; i < keys.length; i++) {
       var key = keys[i];
@@ -908,6 +908,14 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         var payload = internalCallSequence(sequenceName, callArguments);
         report.payload = payload;
         report.status = classifyPayloadStatus(payload);
+        // Surface the callee's own warnings on the call, so a partial call always says why.
+        if (payload && Array.isArray(payload.warnings)) {
+          for (var pw = 0; pw < payload.warnings.length; pw++) {
+            if (report.warnings.indexOf(String(payload.warnings[pw])) < 0) {
+              report.warnings.push(String(payload.warnings[pw]));
+            }
+          }
+        }
         if (report.status === "failed") {
           var payloadErrorMessage = extractPayloadFailureMessage(payload);
           report.phase = "call_payload";

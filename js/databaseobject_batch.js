@@ -479,6 +479,18 @@ include("js/crud_ui_refresh.js");
     ctx.summary[kind] = (ctx.summary[kind] || 0) + 1;
   }
 
+  // Notes report expected outcomes (an upsert in place): unlike warnings they do not make the call partial.
+  function pushReportNote(report, message) {
+    var text = asTrimmed(message);
+    if (!text.length) {
+      return;
+    }
+    report.notes = Array.isArray(report.notes) ? report.notes : [];
+    if (report.notes.indexOf(text) < 0) {
+      report.notes.push(text);
+    }
+  }
+
   function pushReportWarning(report, message) {
     var text = asTrimmed(message);
     if (!text.length) {
@@ -1107,7 +1119,7 @@ include("js/crud_ui_refresh.js");
           " of class " + existingClass + "; delete it or choose another name.", "validate", "", parentQNameForExisting);
       }
       var existingQName = safeQName(existing);
-      pushReportWarning(report, name + " already exists under " + parentQNameForExisting +
+      pushReportNote(report, name + " already exists under " + parentQNameForExisting +
         ": updated in place (at:" + mode + " does not create " + name + "1).");
       report.applied.push({ action: "updateExisting", qname: existingQName, name: name, className: existingClass });
       if (op.opId !== undefined) {
@@ -1509,6 +1521,16 @@ include("js/crud_ui_refresh.js");
       saveResults = saveTouchedProjects(ctx, globalErrors);
     }
 
+    var globalNotes = [];
+    for (var noteIndex = 0; noteIndex < opReports.length; noteIndex++) {
+      var noteReport = opReports[noteIndex];
+      if (noteReport && Array.isArray(noteReport.notes)) {
+        for (var ni = 0; ni < noteReport.notes.length; ni++) {
+          globalNotes.push((noteReport.opId ? String(noteReport.opId) + ": " : "") + String(noteReport.notes[ni]));
+        }
+      }
+    }
+
     var globalWarnings = [];
     for (var w = 0; w < opReports.length; w++) {
       var warningReport = opReports[w];
@@ -1572,6 +1594,7 @@ include("js/crud_ui_refresh.js");
       touchedQNames: ctx.touchedQNames,
       refs: ctx.refs,
       operations: opReports,
+      notes: globalNotes,
       warnings: globalWarnings,
       errors: globalErrors,
       stop: stop,
