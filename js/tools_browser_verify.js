@@ -134,9 +134,14 @@ C8O.browserVerify = C8O.browserVerify || {};
         throw new Error("No Studio browser for this conversation: open the application with mobile-builder-open first " +
           "(it starts the viewer this sub-agent drives), then call again.");
       }
-      if (!host.probe(cdpEndpoint)) {
+      // The probe answers the loopback address where the viewer shows a page (true keeps the given one).
+      var live = host.probe(cdpEndpoint);
+      if (!live) {
         throw new Error("The Studio browser does not answer on " + cdpEndpoint + ": open the application with " +
           "mobile-builder-open (it restarts the viewer with its debug port), then call again.");
+      }
+      if (typeof live === "string") {
+        cdpEndpoint = live;
       }
       return {
         command: [host.nodePath(), host.scriptPath()],
@@ -261,16 +266,37 @@ C8O.browserVerify = C8O.browserVerify || {};
     host.cdpEndpoint = function (params) {
       return api.normalizeCdpEndpoint(params.browserDebugPort, params.cdpEndpoint);
     };
+    // A port can be held twice, on 127.0.0.1 and on [::1], by a stale browser and by the live viewer: the address
+    // whose target list shows a page wins, else the first that answers.
     host.probe = function (endpoint) {
-      try {
-        var Http = java.net.http;
-        var client = Http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(3)).build();
-        var request = Http.HttpRequest.newBuilder(java.net.URI.create(endpoint + "/json/version"))
-          .timeout(java.time.Duration.ofSeconds(5)).GET().build();
-        return Number(client.send(request, Http.HttpResponse.BodyHandlers.ofString()).statusCode()) === 200;
-      } catch (_noBrowser) {
-        return false;
+      var Http = java.net.http;
+      var client = Http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(3)).build();
+      var port = (/:(\d+)$/.exec(endpoint) || [])[1];
+      var candidates = [endpoint];
+      if (port) {
+        ["http://127.0.0.1:", "http://[::1]:"].forEach(function (base) {
+          if (candidates.indexOf(base + port) < 0) {
+            candidates.push(base + port);
+          }
+        });
       }
+      var answering = "";
+      for (var i = 0; i < candidates.length; i++) {
+        try {
+          var request = Http.HttpRequest.newBuilder(java.net.URI.create(candidates[i] + "/json/list"))
+            .timeout(java.time.Duration.ofSeconds(5)).GET().build();
+          var response = client.send(request, Http.HttpResponse.BodyHandlers.ofString());
+          if (Number(response.statusCode()) !== 200) {
+            continue;
+          }
+          answering = answering || candidates[i];
+          var targets = JSON.parse(String(response.body()));
+          if (targets.some(function (t) { return t && t.type === "page"; })) {
+            return candidates[i];
+          }
+        } catch (_noBrowser) {}
+      }
+      return answering;
     };
     host.nodePath = function () {
       var dirs = [];

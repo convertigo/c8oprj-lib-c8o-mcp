@@ -411,6 +411,10 @@ async function openBrowser(config, playwright) {
     page = pages.filter(function (p) { return /^https?:/.test(p.url()); })[0] || pages[0] || null;
   }
   if (!page) {
+    // The Studio viewer exposes one page and cannot open another one over CDP.
+    if (config.cdpEndpoint.length) {
+      throw new Error("The Studio browser shows no page: open the application with mobile-builder-open, then call again.");
+    }
     page = await context.newPage();
   }
   if (config.viewport && !config.cdpEndpoint.length) {
