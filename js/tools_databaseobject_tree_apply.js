@@ -266,6 +266,32 @@ if (treeQName.length) {
 
 var op = null;
 if (atInput === "self") {
+  // at:"self" (the default) patches the target itself. A tree that names another object is almost
+  // always a create/update of a child sent without at:"inside": refuse it instead of patching the
+  // parent with properties it does not have.
+  var selfTarget = null;
+  try {
+    selfTarget = C8O.dbo.resolve(targetInput, { optional: true });
+  } catch (_ignoreSelfTarget) {
+    selfTarget = null;
+  }
+  if (selfTarget) {
+    var selfName = String(C8O.dbo.safeName(selfTarget));
+    var selfClass = String(C8O.dbo.logicalClassNameForDbo(selfTarget));
+    var treeName = asTrimmed(treeObject.name);
+    var treeClass = asTrimmed(treeObject.className).split("#")[0];
+    var selfClassBase = selfClass.split("#")[0];
+    var lastSegment = function (value) {
+      return value.toLowerCase().split(".").pop();
+    };
+    var classDiffers = treeClass.length > 0 && treeClass.toLowerCase() !== selfClassBase.toLowerCase() &&
+      lastSegment(treeClass) !== lastSegment(selfClassBase);
+    if ((treeName.length && treeName !== selfName) || classDiffers) {
+      throw new Error("at:\"self\" (the default) patches the target itself, " + selfName + " (" + selfClass + "), but tree names " +
+        (treeName || selfName) + (treeClass ? " (" + treeClass + ")" : "") + ". To create or update that child, add at:\"inside\"; " +
+        "to patch an existing object, use its own QName as target. To rename the target, use databaseobject-rename.");
+    }
+  }
   op = {
     type: "upsertTree",
     opId: "tree_apply_root",
