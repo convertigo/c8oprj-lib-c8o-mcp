@@ -50,7 +50,8 @@ var pattern = null;
 var substringText = matchCaseFlag ? searchText : searchText.toLowerCase();
 if (useRegExpFlag && searchActive) {
   try {
-    pattern = matchCaseFlag ? Pattern.compile(searchText) : Pattern.compile(searchText, Pattern.CASE_INSENSITIVE);
+    // MULTILINE so ^ and $ also match line boundaries in the object's YAML.
+    pattern = matchCaseFlag ? Pattern.compile(searchText, Pattern.MULTILINE) : Pattern.compile(searchText, Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
   } catch (_ignoredPattern) {}
 }
 
@@ -159,6 +160,14 @@ function matchesSearch(dbo) {
   }
   text = String(text);
   if (useRegExpFlag && pattern != null) {
+    // The regex is tried on the object name first, so ^call finds callProbeA.
+    try {
+      var objectName = String(dbo.getName());
+      var nameMatcher = pattern.matcher(objectName);
+      if (nameMatcher.find()) {
+        return extractSnippet(objectName, nameMatcher.start(), nameMatcher.end());
+      }
+    } catch (_ignoredNameMatch) {}
     try {
       var matcher = pattern.matcher(text);
       if (matcher.find()) {
