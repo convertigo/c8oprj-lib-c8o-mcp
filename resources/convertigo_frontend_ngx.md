@@ -50,7 +50,7 @@ Wiring makes a page work; these patterns make it readable. Checked in a producti
 - Counters or KPIs: a `DivTag` with a grid class holding one `DivTag` per counter, each with two `SpanTag`, the value and the label, each with its own class.
 - Record card: `Card` > `CardHeader` (`CardTitle`, `CardSubTitle`) > `CardContent` with the label/value list, then a `DivTag` with an actions class holding the `Button`s.
 - Status: a `Badge` (or `Chip`) with a color class, next to the title, not glued inside a sentence.
-- Write every visible text in the user's language with its accents (« À relancer », « Gérer les postes », « échéance »). Convertigo objects are UTF-8 and accents render as typed; never strip them to ASCII.
+- Write every visible text in the user's language with its accents (« À relancer », « Gérer les postes », « échéance »). Convertigo objects are UTF-8 and accents render as typed; never strip them to ASCII. `project-lint` proofreads the shown texts and the i18n files and reports what is misspelled or missing its accents.
 - A `UIText` with `i18n` true, such as the toolbar title of the starter page, is a translation key, not a text: without an entry in the app's i18n files the page shows the key with spaces turned into underscores (« Suivi_des_mises_a_jour… »). When you write the text yourself, set `i18n` to false in the same patch.
 - Create one app-level `UIStyle` (for example `AppLayout`) in the first UI lot, before the pages, and put the shared layout classes there. Write a CSS rule only for markup the tree really produces: `.counter b` styles nothing if the value is a bare `UIText`.
 

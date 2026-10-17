@@ -2009,7 +2009,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       return {
         type: "object",
         properties: {
-          project: { type: "string", description: "Project technical name to lint." }
+          project: { type: "string", description: "Project technical name to lint." },
+          checkTexts: { type: "boolean", description: "false skips the review of the shown texts and i18n files (spelling, accents, language, any language) by the gateway model; default true." }
         },
         required: ["project"],
         additionalProperties: false

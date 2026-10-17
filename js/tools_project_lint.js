@@ -5,9 +5,9 @@
   C8O.lint = C8O.lint || {};
 
   var MAX_FINDINGS = 300;
+  // Ionic and action properties that hold text shown to the user.
+  var TEXT_PROPERTIES = /^(Label|label|placeholder|Placeholder|message|Message|header|Header|subHeader|SubHeader|title|Title|text|Text|cancelText|okText|buttonText|ButtonText|helperText|errorText|HelperText|ErrorText|closeButtonText)$/;
   var NON_RENDERING = /UIAttribute|UIControlEvent|UIStyle|UIControlVariable|UIDynamicAction|UIDynamicAttr|UICustomAction|UIEventSubscriber|UIPageEvent/;
-  // French words usually written with an accent, as they appear when accents are stripped.
-  var STRIPPED_WORDS = /(^|[^A-Za-zÀ-ÿ])(a jour|Gerer|gerer|echeance|Echeance|Repartition|repartition|Executer|executer|controle|Controle|libelle|Libelle|Numero|numero|Derniere|derniere|Creer|creer|Etat|Equipe|Ecran|Deconnexion|deconnexion|Selection|selection|Securite|Telecharger|Precedent|precedent|Resume|Periode|periode|Donnees|donnees|Parametres|parametres|Supprime|Cree le|Modifie le|Declare le)([^A-Za-zÀ-ÿ]|$)/;
 
   function str(value) {
     if (value === null || value === undefined) {
@@ -59,13 +59,166 @@
     return !endsOpen && !startsOpen;
   };
 
-  C8O.lint.run = function (projectName) {
+  // Translation files of an NGX app: DisplayObjects/mobile/assets/i18n/<lang>.json, flat or nested keys.
+  C8O.lint.readI18n = function (project) {
+    var result = { files: [], keys: {}, values: {} };
+    try {
+      var dir = new java.io.File(String(project.getDirPath()), "DisplayObjects/mobile/assets/i18n");
+      var list = dir.isDirectory() ? dir.listFiles() : null;
+      for (var i = 0; list && i < list.length; i++) {
+        var name = String(list[i].getName());
+        if (!/\.json$/.test(name)) {
+          continue;
+        }
+        var lang = name.replace(/\.json$/, "");
+        var json = JSON.parse(String(new java.lang.String(java.nio.file.Files.readAllBytes(list[i].toPath()), "UTF-8")));
+        var keys = {};
+        var values = [];
+        (function walk(node, prefix) {
+          for (var k in node) {
+            if (!Object.prototype.hasOwnProperty.call(node, k)) {
+              continue;
+            }
+            var full = prefix ? prefix + "." + k : k;
+            if (node[k] !== null && typeof node[k] === "object") {
+              walk(node[k], full);
+            } else {
+              keys[full] = true;
+              values.push({ key: full, text: String(node[k]) });
+            }
+          }
+        })(json, "");
+        result.files.push(lang);
+        result.keys[lang] = keys;
+        result.values[lang] = values;
+      }
+    } catch (_ignoreI18n) {}
+    return result;
+  };
+
+  var REVIEW_PROMPT = "You proofread the user-facing strings of a software application. Each line is `id<TAB>text`. " +
+    "Ellipses (…) mark values inserted at run time. Report only real problems: misspelled words, missing or wrong accents " +
+    "or diacritics, typos, broken grammar, and strings written in another language than the one expected. Ignore product names, " +
+    "codes, identifiers, units and abbreviations. Answer with JSON only: {\"language\":\"<detected or given language>\"," +
+    "\"issues\":[{\"id\":<id>,\"fixed\":\"<the corrected string>\",\"kind\":\"accents|spelling|grammar|language\"}]}. " +
+    "Return an empty issues array when everything is correct.";
+
+  // One review per language: the app's own texts (the language is detected) and each i18n file in its language.
+  C8O.lint.reviewTexts = function (options, order, owners, i18n, add, project) {
+    if (options.checkTexts === false) {
+      return { skipped: "checkTexts is false" };
+    }
+    var groups = [];
+    if (order.length) {
+      groups.push({ label: "app texts", language: "", items: order.map(function (text) { return { text: text, where: owners[text].join(", ") }; }) });
+    }
+    for (var lang in i18n.values) {
+      if (Object.prototype.hasOwnProperty.call(i18n.values, lang) && i18n.values[lang].length) {
+        groups.push({ label: lang + ".json", language: lang, items: i18n.values[lang].map(function (entry) {
+          return { text: entry.text, where: "DisplayObjects/mobile/assets/i18n/" + lang + ".json#" + entry.key };
+        }) });
+      }
+    }
+    if (!groups.length) {
+      return { reviewed: 0 };
+    }
+    if (!C8O.imageDescribe || !C8O.imageDescribe.javaHost) {
+      return { skipped: "gateway helper not loaded" };
+    }
+    if (options.context) {
+      var auth = C8O.mcpAuth.authenticateRequest(options.context);
+      if (!auth.authenticated || auth.kind === "nocode" || auth.scope !== "mcp:full") {
+        return { skipped: "the text review needs a full Convertigo MCP bearer token" };
+      }
+    }
+    var host = options.host || C8O.imageDescribe.javaHost();
+    var key = str(host.readKey());
+    if (!key.length) {
+      return { skipped: "no Convertigo agent key in this Studio (set it from the Tigo assistant)" };
+    }
+    var model = str(options.textModel) || C8O.imageDescribe.DEFAULT_MODEL;
+    var usages = [];
+    var reviewed = 0;
+    var problems = 0;
+    for (var g = 0; g < groups.length; g++) {
+      var items = groups[g].items.slice(0, 400);
+      var lines = [];
+      for (var it = 0; it < items.length; it++) {
+        lines.push(it + "\t" + items[it].text.replace(/[\t\r\n]+/g, " ").substring(0, 300));
+      }
+      var request = {
+        model: model,
+        max_tokens: 4000,
+        reasoning_effort: "none",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: REVIEW_PROMPT },
+          { role: "user", content: (groups[g].language ? "Expected language: " + groups[g].language + "\n" : "") + lines.join("\n") }
+        ]
+      };
+      var started = host.now();
+      var response;
+      try {
+        response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+      } catch (postError) {
+        return { skipped: "gateway call failed: " + C8O.imageDescribe.redact(String(postError), key), usages: usages };
+      }
+      if (response.status < 200 || response.status >= 300) {
+        return { skipped: "gateway answered " + response.status, usages: usages };
+      }
+      var body = JSON.parse(response.body);
+      var usage = C8O.imageDescribe.usageOf(body, model, response.header("x-litellm-response-cost"), host.now() - started, response.header("x-litellm-call-id"));
+      usage.tool = "project-lint";
+      usages.push(usage);
+      var content = String((((body.choices || [])[0] || {}).message || {}).content || "");
+      var jsonText = content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1);
+      var answer = {};
+      try {
+        answer = JSON.parse(jsonText);
+      } catch (_badAnswer) {
+        answer = { issues: [] };
+      }
+      reviewed += items.length;
+      var issues = Array.isArray(answer.issues) ? answer.issues : [];
+      for (var q = 0; q < issues.length; q++) {
+        var item = items[Number(issues[q].id)];
+        if (!item || !str(issues[q].fixed).length || str(issues[q].fixed) === item.text) {
+          continue;
+        }
+        problems++;
+        add("TEXT-REVIEW", "warning", item.where.split(", ")[0],
+          "\"" + item.text.substring(0, 80) + "\" (" + str(issues[q].kind || "spelling") + ", " + groups[g].label +
+          (answer.language ? ", " + answer.language : "") + ")" + (item.where.indexOf(",") > 0 ? "; also in " + item.where.substring(item.where.indexOf(",") + 2) : ""),
+          "Write \"" + str(issues[q].fixed).substring(0, 120) + "\".");
+      }
+    }
+    return { reviewed: reviewed, problems: problems, model: model, usages: usages };
+  };
+
+  C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName || ""));
     if (!project) {
       throw new Error("Project not found: " + projectName + ". project-list gives the loaded projects.");
     }
     var findings = [];
+    // Texts shown to the user, gathered for one review by a model of the gateway: text -> QNames.
+    var shownTexts = {};
+    var shownOrder = [];
+    function collectText(text, dbo, mode) {
+      var value = String(text || "").replace(/\{\{[\s\S]*?\}\}/g, "\u2026").trim();
+      if (mode !== "PLAIN" || value.length < 2 || !/[A-Za-z\u00C0-\u024F]{2}/.test(value)) {
+        return;
+      }
+      if (!shownTexts[value]) {
+        shownTexts[value] = [];
+        shownOrder.push(value);
+      }
+      if (shownTexts[value].length < 3) {
+        shownTexts[value].push(qnameOf(dbo));
+      }
+    }
+    var i18n = C8O.lint.readI18n(project);
     var counts = { byRule: {}, bySeverity: { error: 0, warning: 0, info: 0 } };
     var scanned = 0;
 
@@ -73,7 +226,7 @@
       counts.byRule[rule] = (counts.byRule[rule] || 0) + 1;
       counts.bySeverity[severity] = (counts.bySeverity[severity] || 0) + 1;
       if (findings.length < MAX_FINDINGS) {
-        findings.push({ rule: rule, severity: severity, qname: qnameOf(dbo), message: message, fix: fix });
+        findings.push({ rule: rule, severity: severity, qname: typeof dbo === "string" ? dbo : qnameOf(dbo), message: message, fix: fix });
       }
     }
 
@@ -160,25 +313,33 @@
     function lintNgx(dbo, className) {
       if (className === "UIText") {
         var text = smartText(call(dbo, "getTextSmartType") || call(dbo, "getTextValue"));
-        if (call(dbo, "isI18n") === true && /\s/.test(text)) {
-          add("NGX-I18N-KEY", "warning", dbo, "i18n is on, so \"" + text.substring(0, 60) + "\" is a translation key: without a translation the page shows it with underscores.",
-            "Set i18n to false, or add the translation.");
+        if (call(dbo, "isI18n") === true && text.length) {
+          var i18nKey = text.replace(/\s+/g, "_");
+          var missingIn = [];
+          for (var lang in i18n.keys) {
+            if (Object.prototype.hasOwnProperty.call(i18n.keys, lang) && i18n.keys[lang][text] !== true && i18n.keys[lang][i18nKey] !== true) {
+              missingIn.push(lang);
+            }
+          }
+          if (!i18n.files.length || missingIn.length) {
+            add("NGX-I18N-KEY", "warning", dbo, "i18n is on, so \"" + text.substring(0, 60) + "\" is a translation key" +
+              (i18n.files.length ? ", missing from " + missingIn.join(", ") + ".json" : " and the app has no i18n files") +
+              ": the page shows the key, spaces turned into underscores.",
+              "Set i18n to false, or add the key to DisplayObjects/mobile/assets/i18n/<lang>.json.");
+          }
         }
         if (/\bc8oPage\./.test(text)) {
           add("NGX-C8OPAGE-TEMPLATE", "error", dbo, "c8oPage in a template text: the page has no c8oPage member and fails at run time.",
             "Write local?.x instead of c8oPage.local?.x.");
         }
-        // Only words shown as written: skip bound values and {{ ... }} interpolations (variable names).
-        var textMode = "";
-        try {
-          var textSmart = call(dbo, "getTextSmartType");
-          textMode = textSmart && typeof textSmart.getMode === "function" ? String(textSmart.getMode()) : "";
-        } catch (_ignoreTextMode) {}
-        var shown = textMode.length && textMode !== "PLAIN" ? "" : text.replace(/\{\{[\s\S]*?\}\}/g, " ");
-        var stripped = STRIPPED_WORDS.exec(shown);
-        if (stripped) {
-          add("TEXT-ACCENTS", "info", dbo, "\"" + stripped[2] + "\" looks like a French word without its accent.",
-            "Write the text with its accents; Convertigo objects are UTF-8.");
+        // Shown texts are reviewed together at the end (spelling, accents, language), for any language.
+        if (!(call(dbo, "isI18n") === true)) {
+          collectText(text, dbo, (function () {
+            try {
+              var smartObj = call(dbo, "getTextSmartType");
+              return smartObj && typeof smartObj.getMode === "function" ? String(smartObj.getMode()) : "PLAIN";
+            } catch (_ignoreSmart) { return "PLAIN"; }
+          })());
         }
       } else if (className === "UIAttribute") {
         if (/\bc8oPage\./.test(smartText(call(dbo, "getAttrSmartType") || call(dbo, "getAttrValue")))) {
@@ -197,7 +358,21 @@
           add("NGX-SCOPE-IN-CUSTOM", "error", dbo, "scope used in a custom action: its function gets (page, props, vars, event) only, so it does not compile.",
             "Add an action variable whose value is scope.<item> and read vars.<item>.");
         }
-      } else if (className === "PageComponent") {
+      } else if (className === "UIDynamicElement" || className === "UIDynamicAction") {
+        var beanData = str(call(dbo, "getBeanData"));
+        if (beanData.length) {
+          try {
+            var bean = JSON.parse(beanData.replace(/^'|'$/g, ""));
+            for (var bk in bean) {
+              if (Object.prototype.hasOwnProperty.call(bean, bk) && TEXT_PROPERTIES.test(bk) && typeof bean[bk] === "string" && /^plain:/.test(bean[bk])) {
+                collectText(bean[bk].substring(6), dbo, "PLAIN");
+              }
+            }
+          } catch (_ignoreBean) {}
+        }
+      }
+      if (className === "PageComponent") {
+        collectText(str(call(dbo, "getTitle")), dbo, "PLAIN");
         if (/c8o\.callJson/.test(str(call(dbo, "getScriptContent")))) {
           add("NGX-CALLJSON", "error", dbo, "The page calls the backend from scriptContent with c8o.callJson.",
             "Use events with CallSequenceAction.");
@@ -250,8 +425,13 @@
       }
     }
 
+    var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
+    textReview.texts = shownOrder.length;
+    textReview.i18nFiles = i18n.files;
+
     return {
       project: String(project.getName()),
+      textReview: textReview,
       scanned: scanned,
       counts: counts,
       truncated: findings.length >= MAX_FINDINGS,
