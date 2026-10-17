@@ -785,6 +785,27 @@ C8O.requestable.configureExecutor = function (executionPlan) {
     if (!seqStep) {
       throw new Error('CallSequence step not found');
     }
+    // An unknown sequence gets a direct answer, and the MCP's own tools are pointed back to the tool list.
+    try {
+      var seqProject = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+      var knownSequence = null;
+      try {
+        knownSequence = seqProject != null ? seqProject.getSequenceByName(executionPlan.name) : null;
+      } catch (_noSuchSequence) {
+        knownSequence = null;
+      }
+      if (seqProject != null && knownSequence == null) {
+        var unknown = 'There is no sequence named ' + executionPlan.name + ' in project ' + executionPlan.project + '.';
+        if (String(executionPlan.project) === 'lib_ConvertigoMCP' && String(executionPlan.requestable).indexOf('mcp_resources_read') < 0) {
+          unknown += ' Convertigo MCP tools are not requestables: call the tool itself (palette-list, databaseobject-tree-get, ... as exposed by your client, for example Convertigo_palette-list). Through requestable-execute, lib_ConvertigoMCP only serves mcp_resources_read for guides.';
+        }
+        throw new Error(unknown);
+      }
+    } catch (unknownSequence) {
+      if (String(unknownSequence && unknownSequence.message || '').indexOf('There is no sequence named') === 0) {
+        throw unknownSequence;
+      }
+    }
     seqStep.setSourceSequence(executionPlan.project + '.' + executionPlan.name);
     C8O.requestable._clearVariables(seqStep);
     C8O.requestable._addVariables(seqStep, executionPlan.variables || {});
