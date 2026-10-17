@@ -488,6 +488,58 @@ function treeApplyCompactResult(result) {
   return result;
 }
 
+// A TransactionStep or SequenceStep that passes none of the variables its target declares sends empty
+// values without any error (the target runs with ""): say so while the tree is being written.
+function treeApplyStepVariableWarnings(result) {
+  var touched = result && Array.isArray(result.touchedQNames) ? result.touchedQNames : [];
+  var seen = {};
+  for (var ti = 0; ti < touched.length; ti++) {
+    var qn = String(touched[ti]);
+    if (seen[qn] || !/(\.st:|\.)[^.]+$/.test(qn)) {
+      continue;
+    }
+    seen[qn] = true;
+    var step = null;
+    try {
+      step = C8O.dbo.resolve(qn, { optional: true });
+    } catch (_ignoreStep) {
+      step = null;
+    }
+    if (!step || typeof step.numberOfVariables !== "function") {
+      continue;
+    }
+    var target = null;
+    try {
+      target = typeof step.getTargetTransaction === "function" ? step.getTargetTransaction()
+        : (typeof step.getTargetSequence === "function" ? step.getTargetSequence() : null);
+    } catch (_ignoreTarget) {
+      target = null;
+    }
+    if (!target || typeof target.numberOfVariables !== "function") {
+      continue;
+    }
+    var expected = target.numberOfVariables();
+    if (expected > 0 && step.numberOfVariables() === 0) {
+      var names = [];
+      try {
+        var it = target.getVariablesList().iterator();
+        while (it.hasNext() && names.length < 8) {
+          names.push(String(it.next().getName()));
+        }
+      } catch (_ignoreNames) {}
+      result.warnings = Array.isArray(result.warnings) ? result.warnings : [];
+      result.warnings.push(qn + " passes no variable to " + String(target.getName()) + ", which declares " + expected +
+        (names.length ? " (" + names.join(", ") + ")" : "") + ": they will arrive empty. Add importVariables:true on the step " +
+        "(the step variables then take the JavaScript variables of the same name) or explicit StepVariables.");
+    }
+  }
+}
+if (treeApplyResult && treeApplyResult.dryRun !== true) {
+  try {
+    treeApplyStepVariableWarnings(treeApplyResult);
+  } catch (_ignoreStepVariableCheck) {}
+}
+
 var responseDetailInput = (typeof responseDetail !== "undefined" && asTrimmed(responseDetail).toLowerCase() === "full") ? "full" : "compact";
 if (treeApplyResult && responseDetailInput !== "full") {
   treeApplyResult = treeApplyCompactResult(treeApplyResult);
