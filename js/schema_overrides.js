@@ -1186,6 +1186,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nullableObjectSchema(properties) {
+    var schema = openObjectSchema(properties);
+    schema.type = ["object", "null"];
+    return schema;
+  }
+
   function openObjectSchema(properties) {
     return {
       type: "object",
@@ -1694,7 +1700,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       browserDebugUrl: { type: "string", description: "JxBrowser remote debugging base URL for the Studio mobile viewer, when available." },
       browserDevToolsJsonUrl: { type: "string", description: "JxBrowser /json DevTools endpoint listing controllable pages, when available." },
       browserDevToolsWebSocketUrl: { type: "string", description: "DevTools WebSocket URL for the visible Studio mobile viewer page, when available." },
-      browserDevToolsTarget: openObjectSchema({
+      browserDevToolsTarget: nullableObjectSchema({
         id: { type: "string" },
         type: { type: "string" },
         title: { type: "string" },

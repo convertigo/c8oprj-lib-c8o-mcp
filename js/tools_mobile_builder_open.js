@@ -1223,7 +1223,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       error: editorResult && editorResult.error ? editorResult.error : ""
     };
 
-    return {
+    var builderState = {
       status: status,
       project: projectName,
       message: message,
@@ -1315,6 +1315,12 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       logs: snapshot.lines || [],
       logQuery: snapshot.query || {}
     };
+    // The output schema types this as an object: clients that validate structured content (Vibe,
+    // the MCP Python SDK) reject the whole call when it is null, so leave it out when there is none.
+    if (builderState.browserDevToolsTarget == null) {
+      delete builderState.browserDevToolsTarget;
+    }
+    return builderState;
   };
 })();
 
