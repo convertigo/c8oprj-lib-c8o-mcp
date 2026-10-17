@@ -124,7 +124,8 @@ var SYSTEM_PROMPT = [
   "- When a step's precondition already holds (for example the app is already signed in and shows its home page), say so in the evidence and go on. When a step stays blocked after two attempts, mark its checks not_checked with what you saw and go to the next path: every path must get its turn. Each tool result ends with the time and turns used so far.",
   "- Walk each path once, exactly as written. Never repeat an action that changes data (save, declare, delete, submit...) to get a better result: the first outcome is the result. Retry only an action that did not happen (the tool returned an error), once, another way.",
   "- Read the result right after the action that should produce it, and quote it exactly. A check passes only on evidence you saw: the exact text or value read, or what a screenshot shows. Anything different from what the path or check expects is a failure, even if it looks minor.",
-  "- Be fast: a few tool calls per path; several independent tool calls may go in one turn. The page snapshot (accessibility tree) comes back after each click, navigation and key press.",
+  "- Be fast: a few tool calls per path; several independent tool calls may go in one turn. The page snapshot (accessibility tree) comes back after each click, navigation, key press and scroll. Use evaluate only for a value no other tool gives.",
+  "- To see what lies below the screen, use scroll, then screenshot. Ionic apps scroll inside ion-content, not the body: a body with overflow hidden and a document as high as the screen are normal, never a defect; a full-page screenshot does not show such content.",
   "- Targets: copy them from the snapshot as role \"name\" (for example button \"Save\" or textbox \"Email\"), or use text=Some text, label=Email, placeholder=Search, or a CSS selector. Add nth (0-based) when several elements match.",
   "- On each page or state a check depends on: take a screenshot and LOOK at it, run layout_check, and read every visible text. Report as visual defects: texts glued together without a space, overlapping elements, cut or overflowing text, unreadable or low-contrast text, misaligned or broken layout, empty areas where data is expected, error messages or raw technical values shown to the user, and, for French text, every word missing its accent (for example Declarer for Déclarer, selection for sélection, Comptabilite for Comptabilité, a jour for à jour). layout_check lists geometric suspects: a hidden-text entry means a text is covered by another element (a card over a title, a block over a button), report it when the screenshot shows that text missing or partly covered; keep the other suspects a screenshot confirms.",
   "- Finish with the finish tool, in the language of the paths: one entry per acceptance check (or per path when there is none), and every visual defect seen. Keep it short.",
@@ -181,6 +182,9 @@ var TOOLS = [
     gone: { type: "boolean" },
     ms: { type: "integer", description: "Plain delay in milliseconds when no text is given." }
   }, []),
+  tool("scroll", "Scroll the page the way a user does: the app's own scroll container (Ionic scrolls inside ion-content, not the body), or bring a target into view. Returns the snapshot.", targetProps({
+    to: { type: "string", enum: ["down", "up", "top", "bottom"], description: "Without target: one screen down or up, or to the top or bottom." }
+  }), []),
   tool("read_text", "Visible text of the elements matching a target (all matches, up to 20), or of the whole page without target.", {
     target: { type: "string" }
   }, []),
@@ -736,6 +740,42 @@ function createTools(state, config) {
       }
       return withSnapshot("Pressed " + key + ".");
     },
+    scroll: async function (args) {
+      if (str(args.target).length) {
+        var found = await single(page(), args);
+        await found.locator.scrollIntoViewIfNeeded({ timeout: t });
+        return withSnapshot("Scrolled to the target" + found.note + ".");
+      }
+      var to = str(args.to) || "down";
+      var position = await page().evaluate(async function (direction) {
+        // The visible ion-content's scroll element first, then the largest scrollable element, then the document.
+        var scroller = null;
+        var contents = Array.prototype.slice.call(document.querySelectorAll("ion-content"));
+        for (var i = contents.length - 1; i >= 0 && !scroller; i--) {
+          var rect = contents[i].getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0 && contents[i].getScrollElement) {
+            scroller = await contents[i].getScrollElement();
+          }
+        }
+        if (!scroller) {
+          var best = null;
+          Array.prototype.forEach.call(document.querySelectorAll("*"), function (el) {
+            var style = getComputedStyle(el);
+            if (/(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 10 &&
+              (!best || el.clientHeight * el.clientWidth > best.clientHeight * best.clientWidth)) {
+              best = el;
+            }
+          });
+          scroller = best || document.scrollingElement || document.documentElement;
+        }
+        var step = Math.round(scroller.clientHeight * 0.8);
+        var top = direction === "top" ? 0 : direction === "bottom" ? scroller.scrollHeight :
+          scroller.scrollTop + (direction === "up" ? -step : step);
+        scroller.scrollTop = top;
+        return { scrollTop: Math.round(scroller.scrollTop), scrollHeight: scroller.scrollHeight, height: scroller.clientHeight };
+      }, to);
+      return withSnapshot("Scrolled " + to + ": " + position.scrollTop + " of " + Math.max(0, position.scrollHeight - position.height) + " px.");
+    },
     wait_for: async function (args) {
       var text = str(args.text);
       if (text.length) {
@@ -1106,6 +1146,7 @@ module.exports = {
   normalizeReport: normalizeReport,
   compactHistory: compactHistory,
   layoutScan: layoutScan,
+  createTools: createTools,
   locate: locate,
   run: run,
   TOOLS: TOOLS,

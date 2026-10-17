@@ -508,3 +508,32 @@ test('layout scan: glued texts, overlaps and cut texts on a real page', async t 
     await browser.close();
   }
 });
+
+test('scroll: the app own scroll container, as Ionic pages scroll inside ion-content', async t => {
+  const playwright = realPlaywright();
+  if (!playwright) {
+    t.skip('playwright-core not found (set PLAYWRIGHT_CORE_PATH)');
+    return;
+  }
+  let browser;
+  try {
+    browser = await playwright.chromium.launch({ channel: 'chrome', headless: true });
+  } catch (_noChrome) {
+    t.skip('no local Chrome');
+    return;
+  }
+  try {
+    const page = await browser.newPage({ viewport: { width: 800, height: 400 } });
+    await page.setContent('<style>html,body{height:100%;margin:0;overflow:hidden}#content{height:100%;overflow-y:auto}</style>' +
+      '<div id="content"><h1>Top</h1><div style="height:1500px"></div><button>Bottom button</button></div>');
+    const tools = agent.createTools({ page, screenshots: [] }, agent.normalizeConfig({ paths: ['x'], cdpEndpoint: 'x', outDir: os.tmpdir() }));
+    const down = await tools.scroll({ to: 'bottom' });
+    assert.match(down.text, /Scrolled bottom: \d+ of \d+ px/);
+    assert.ok(await page.evaluate(() => document.getElementById('content').scrollTop) > 1000, 'the inner container scrolled, not the body');
+    const into = await tools.scroll({ target: 'text=Top' });
+    assert.match(into.text, /Scrolled to the target/);
+    assert.equal(await page.evaluate(() => document.getElementById('content').scrollTop), 0);
+  } finally {
+    await browser.close();
+  }
+});
