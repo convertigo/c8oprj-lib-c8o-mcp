@@ -96,10 +96,10 @@
     return result;
   };
 
-  var REVIEW_BATCH = 40;
+  var REVIEW_BATCH = 20;
   var REVIEW_MAX = 400;
   var REVIEW_PROMPT = "You proofread the user-facing strings of a software application. Each line is `id<TAB>text`. " +
-    "Ellipses (…) mark values inserted at run time. Report only real problems: misspelled words, missing or wrong accents " +
+    "Ellipses (…) mark values inserted at run time. Check every line, short labels included: one missing accent is a problem. Report only real problems: misspelled words, missing or wrong accents " +
     "or diacritics, typos, broken grammar, and strings written in another language than the one expected. Ignore product names, " +
     "codes, identifiers, units and abbreviations. Answer with JSON only: {\"language\":\"<detected or given language>\"," +
     "\"issues\":[{\"id\":<id>,\"fixed\":\"<the corrected string>\",\"kind\":\"accents|spelling|grammar|language\"}]}. " +
