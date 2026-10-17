@@ -491,6 +491,18 @@ include("js/crud_ui_refresh.js");
     }
   }
 
+  // "vr:profile" is how a QName shows a variable, not its name: the engine would store vr_profile
+  // and callers would send a variable nobody declares. Keep the name after the type prefix.
+  function stripQNamePrefix(name, report) {
+    var match = /^([a-z]{2,3}):([A-Za-z_][\w-]*)$/.exec(String(name || ""));
+    if (!match) {
+      return name;
+    }
+    pushReportWarning(report, "name " + name + " carries the QName prefix \"" + match[1] + ":\"; the object is named " + match[2] +
+      " (object names never include the prefix shown in QNames).");
+    return match[2];
+  }
+
   function pushReportWarning(report, message) {
     var text = asTrimmed(message);
     if (!text.length) {
@@ -1082,7 +1094,7 @@ include("js/crud_ui_refresh.js");
         continue;
       }
 
-      var childName = asTrimmed(childPatch.name);
+      var childName = stripQNamePrefix(asTrimmed(childPatch.name), report);
       if (!childName.length) {
         report.errors.push(makeOpError("upsert_error", parentQName + ": child patch requires name.", "upsert_validate", "", parentQName));
         continue;
@@ -1196,7 +1208,7 @@ include("js/crud_ui_refresh.js");
     var relatedDbo = C8O.dbo.resolve(relatedQName, { messagePrefix: "related" });
     var mode = asTrimmed(op.mode || "inside").toLowerCase();
     var className = asTrimmed(resolveRefsInValue(ctx, op.className));
-    var name = asTrimmed(resolveRefsInValue(ctx, op.name));
+    var name = stripQNamePrefix(asTrimmed(resolveRefsInValue(ctx, op.name)), report);
     var children = parseChildrenInput(op.children, "create.children", []);
     var createCtx = resolveCreateContext(relatedDbo, mode);
     warnIfManagedCrudTarget(ctx, createCtx.parent, report);
