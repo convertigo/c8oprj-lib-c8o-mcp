@@ -1289,6 +1289,24 @@ include("js/crud_ui_refresh.js");
       if (children.length) {
         upsertChildren(ctx, existing, existingQName, children,
           { replaceOnClassMismatch: true, pruneMissing: false, reorder: false }, report);
+        // A tree meant to rebuild the object merges into it: say which old children stay.
+        var sentNames = {};
+        for (var sn = 0; sn < children.length; sn++) {
+          sentNames[String((children[sn] || {}).name || "")] = true;
+        }
+        var kept = [];
+        var existingChildren = getDirectChildren(existing);
+        for (var ec = 0; ec < existingChildren.length; ec++) {
+          var keptName = String(existingChildren[ec].getName());
+          if (!sentNames[keptName]) {
+            kept.push(keptName);
+          }
+        }
+        if (kept.length) {
+          pushReportWarning(report, existingQName + " already existed and was merged, not rebuilt: its children " +
+            kept.slice(0, 10).join(", ") + (kept.length > 10 ? " (+" + (kept.length - 10) + ")" : "") +
+            " are not in the tree and were kept. To rebuild it, delete it first (check with tree-get), or patch it with at:\"self\" and mode:\"replace\".");
+        }
       }
       return;
     }
