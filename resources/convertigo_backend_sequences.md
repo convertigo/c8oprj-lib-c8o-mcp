@@ -247,6 +247,8 @@ Minimal chain:
 ↓response         steps.JsonToXmlStep    jsonObject = JS "result", key "response", output=true
 ```
 
+The key of the output step is the top-level key of the response: here callers read `response.*`. A facade called by NGX pages emits its contract keys at top level instead (one `JsonToXmlStep` per key `success`, `data`, `errors`, `meta`, see `convertigo-recipe-multipage-app`), so `out?.success` works in the page.
+
 Common trap:
 - reading the transaction through `context.*` or re-executing it in JS instead of sourcing the `TransactionStep`
 
