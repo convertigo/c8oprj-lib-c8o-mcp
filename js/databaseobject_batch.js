@@ -850,6 +850,24 @@ include("js/crud_ui_refresh.js");
     warnQuotedSqlVariables(dbo, node, report);
     warnAdjacentTexts(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
+    warnI18nKeyText(dbo, node, report);
+  }
+
+  // A UIText whose i18n flag is on renders its textValue as a translation key: without a
+  // translation the page shows the key with underscores (run 5 toolbar title).
+  function warnI18nKeyText(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    if (!props || props.textValue === undefined || props.i18n !== undefined) {
+      return;
+    }
+    var i18nOn = false;
+    try {
+      i18nOn = typeof dbo.isI18n === "function" && dbo.isI18n() === true;
+    } catch (_ignoreI18n) {}
+    if (i18nOn) {
+      pushReportWarning(report, safeQName(dbo) + ": i18n is on, so textValue is a translation key; with no translation the page shows it with underscores. " +
+        "Send i18n:false with the text, or add the translation.");
+    }
   }
 
   // c8oPage is the page object inside action scripts; Angular templates (If/ForEach directives)
