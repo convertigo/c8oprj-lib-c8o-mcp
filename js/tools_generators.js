@@ -1148,6 +1148,27 @@ C8O.generators = C8O.generators || {};
         }
       }
     });
+    // session: {login: "JS expression of the user id"} opens the session after a successful logic and writes;
+    // {logout: true} ends it (authenticated user removed, then the HTTP session).
+    var session = parseJson(args.session, "session", "object");
+    var sessionLogin = "";
+    var sessionLogout = false;
+    if (session !== undefined) {
+      sessionLogin = str(session.login);
+      sessionLogout = session.logout === true || str(session.logout) === "true";
+      if (Object.keys(session).some(function (k) { return ["login", "logout"].indexOf(k) < 0; }) || (sessionLogin.length > 0) === sessionLogout) {
+        errors.push("session must be {login: \"<JS expression of the user id, e.g. resp.data.email>\"} or {logout: true}.");
+      } else if (sessionLogin.length) {
+        try {
+          new Function("return (" + sessionLogin + ");");
+        } catch (_syntax) {
+          errors.push("session.login must be a JavaScript expression (it sees resp, me, input, reads), for example resp.data.email.");
+        }
+        if (authRequired) {
+          errors.push("session.login opens the session, so the facade must be callable without one: add auth:false.");
+        }
+      }
+    }
     var accessibility = (str(args.accessibility) || "Hidden");
     if (["Hidden", "Private", "Public"].indexOf(accessibility) < 0) {
       errors.push("accessibility must be Hidden (default, called by the app), Private or Public.");
@@ -1299,10 +1320,26 @@ C8O.generators = C8O.generators || {};
           ] }
         ] }] });
     });
+    if (sessionLogin.length) {
+      // After the writes: a failed write opens no session.
+      steps.push({ className: "steps.IfStep", name: "ifLogin", properties: { condition: "resp && resp.success === true" }, children: [
+        simple("login", "var input = facadeInput;\nvar sessionUser = " + sessionLogin + ";\n" +
+          "if (sessionUser == null || String(sessionUser) === \"\") { resp = " + failExpr(codes.logic) +
+          "; resp.errors[0].message += \" (session.login gave no user id)\"; }\n" +
+          "else { context.setAuthenticatedUser(String(sessionUser)); }", "Opens the session: context.setAuthenticatedUser(" + sessionLogin + ").")
+      ] });
+    }
     steps.push(outputStep("outSuccess", "success", "(resp && resp.success) === true"));
     steps.push(outputStep("outData", "data", "resp ? (resp.data === undefined ? null : resp.data) : null"));
     steps.push(outputStep("outErrors", "errors", "resp && resp.errors ? resp.errors : []"));
     steps.push(outputStep("outMeta", "meta", "resp && resp.meta ? resp.meta : {}"));
+    if (sessionLogout) {
+      // Last: no step runs after RemoveSessionStep. The outputs are already written.
+      steps.push({ className: "steps.IfStep", name: "ifLogout", properties: { condition: "resp && resp.success === true" }, children: [
+        simple("logout", "context.removeAuthenticatedUser();", "Ends the session: the client calls this facade with __disableAutologin=true."),
+        { className: "steps.RemoveSessionStep", name: "endSession" }
+      ] });
+    }
     inputs.forEach(function (input) {
       var props = { description: str(input.description) || str(input.name) };
       if (input.value !== undefined && input.value !== null) {
@@ -1355,7 +1392,9 @@ C8O.generators = C8O.generators || {};
           "}, today}; return {success, data, errors, meta" + (writes.length ? ", writes: {" + writes.map(function (w) { return w.name + ": row or [rows] with " +
           (w.variables.join(", ") || "no field"); }).join("; ") + "}" : "") + "}",
         errorCodes: Object.keys(codes).map(function (k) { return codes[k].code; }),
-        roles: roles
+        roles: roles,
+        session: sessionLogin.length ? "opens the session with " + sessionLogin + " when logic and writes succeed" : (sessionLogout ?
+          "ends the session when logic succeeds; call it with __disableAutologin=true (noAutoLogin)" : "")
       },
       saved: finish.saved,
       warnings: warnings.concat(session.warnings),
