@@ -15,7 +15,8 @@ comment: |
       var s = String(internal).toLowerCase();
       internalFlag = (s === "true" || s === "1" || s === "yes");
     }
-    var schemaResult = C8O.schemaTool.describe({ qname: qname, type: effectiveType, internal: internalFlag });'
+    var schemaQName = (typeof qname !== "undefined" && qname != null && String(qname).trim().length) ? qname : ((typeof target !== "undefined" && target != null) ? target : qname);
+    var schemaResult = C8O.schemaTool.describe({ qname: schemaQName, type: effectiveType, internal: internalFlag });'
 ↓Result [steps.JsonObjectStep-1763749402740]: 
   key: 
     - xmlizable: 
@@ -115,6 +116,9 @@ comment: |
 ↓qname [variables.RequestableVariable-1763724006150]: 
   comment: Existing QName. Case-sensitive.
   description: Existing QName. Case-sensitive.
+↓target [variables.RequestableVariable-1763724006159]: 
+  comment: Alias of qname, as in databaseobject-tree-apply.
+  description: Alias of qname, as in databaseobject-tree-apply.
 ↓type [variables.RequestableVariable-1763724016646]: 
   comment: 'Allowed values: xml, json, jsonschema. Default: xml.'
   description: 'Allowed values: xml, json, jsonschema. Default: xml.'

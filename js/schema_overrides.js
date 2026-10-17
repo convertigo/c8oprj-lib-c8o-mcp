@@ -500,6 +500,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         qname: { type: "string", description: "Existing QName. Case-sensitive." },
+        target: { type: "string", description: "Alias of qname, as in databaseobject-tree-apply." },
         type: {
           type: "string",
           enum: ["xml", "json", "jsonschema"],
