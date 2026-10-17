@@ -821,6 +821,22 @@ include("js/crud_ui_refresh.js");
   function applyNodeExtras(ctx, dbo, node, report) {
     applyTransactionHandlers(ctx, dbo, node, report);
     declareSqlVariables(ctx, dbo, node, report);
+    warnQuotedSqlVariables(dbo, node, report);
+  }
+
+  // '{x}%' puts a bound parameter inside a SQL string literal: the driver then sees fewer parameters
+  // than Convertigo binds and every call fails with "parameter index out of range".
+  function warnQuotedSqlVariables(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    var query = props ? (props.sqlQuery !== undefined ? props.sqlQuery : props.SqlQuery) : undefined;
+    if (typeof query !== "string") {
+      return;
+    }
+    var quoted = /'[^']*\{[A-Za-z_][\w]*\}[^']*'/.exec(query);
+    if (quoted) {
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery has a {variable} inside quotes (" + quoted[0] +
+        "); it is bound as a parameter and the call fails with parameter index out of range. Concatenate instead: col LIKE {x} || '%'.");
+    }
   }
 
   // A SqlTransaction declares its {variable} parameters only when its queries are parsed, which
