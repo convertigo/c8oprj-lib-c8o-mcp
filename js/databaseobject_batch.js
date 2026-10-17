@@ -799,6 +799,30 @@ include("js/crud_ui_refresh.js");
     report.applied.push({ action: "importVariables", qname: safeQName(dbo), added: after - before });
   }
 
+  // A transaction's JavaScript handlers (onTransactionStarted, ...) are a plain field, not a bean
+  // property: tree-get shows them as the node key handlers and this writes it ("" removes them).
+  function applyTransactionHandlers(ctx, dbo, node, report) {
+    if (!dbo || !node || node.handlers === undefined || node.handlers === null) {
+      return;
+    }
+    if (dbo.handlers === undefined || typeof dbo.setExpression !== "function") {
+      pushReportWarning(report, safeQName(dbo) + ": handlers only applies to transactions.");
+      return;
+    }
+    var text = String(node.handlers);
+    if (String(dbo.getExpression() || "") === text) {
+      return;
+    }
+    dbo.setExpression(text);
+    markDirty(ctx, dbo);
+    report.applied.push({ action: "setHandlers", qname: safeQName(dbo), length: text.length });
+  }
+
+  function applyNodeExtras(ctx, dbo, node, report) {
+    applyTransactionHandlers(ctx, dbo, node, report);
+    declareSqlVariables(ctx, dbo, node, report);
+  }
+
   // A SqlTransaction declares its {variable} parameters only when its queries are parsed, which
   // otherwise happens at the first execution: parse them as soon as sqlQuery is written, so
   // importVariables on a TransactionStep can see them.
@@ -1015,7 +1039,7 @@ include("js/crud_ui_refresh.js");
 
         applyProperties(ctx, createdChild, childPatch.properties, safeQName(createdChild), report);
         importStepVariables(ctx, createdChild, childPatch, report);
-        declareSqlVariables(ctx, createdChild, childPatch, report);
+        applyNodeExtras(ctx, createdChild, childPatch, report);
         upsertChildren(ctx, createdChild, safeQName(createdChild), nestedChildren, strategy, report);
         continue;
       }
@@ -1056,7 +1080,7 @@ include("js/crud_ui_refresh.js");
 
         applyProperties(ctx, recreated, childPatch.properties, safeQName(recreated), report);
         importStepVariables(ctx, recreated, childPatch, report);
-        declareSqlVariables(ctx, recreated, childPatch, report);
+        applyNodeExtras(ctx, recreated, childPatch, report);
         upsertChildren(ctx, recreated, safeQName(recreated), nestedChildren, strategy, report);
         continue;
       }
@@ -1066,7 +1090,7 @@ include("js/crud_ui_refresh.js");
       }
       applyProperties(ctx, runtimeChild, childPatch.properties, safeQName(runtimeChild), report);
       importStepVariables(ctx, runtimeChild, childPatch, report);
-      declareSqlVariables(ctx, runtimeChild, childPatch, report);
+      applyNodeExtras(ctx, runtimeChild, childPatch, report);
       upsertChildren(ctx, runtimeChild, safeQName(runtimeChild), nestedChildren, strategy, report);
     }
 
@@ -1127,7 +1151,7 @@ include("js/crud_ui_refresh.js");
       }
       applyProperties(ctx, existing, op.properties, existingQName, report);
       importStepVariables(ctx, existing, op, report);
-      declareSqlVariables(ctx, existing, op, report);
+      applyNodeExtras(ctx, existing, op, report);
       if (children.length) {
         upsertChildren(ctx, existing, existingQName, children,
           { replaceOnClassMismatch: true, pruneMissing: false, reorder: false }, report);
@@ -1155,7 +1179,7 @@ include("js/crud_ui_refresh.js");
 
     applyProperties(ctx, created, op.properties, createdQName, report);
     importStepVariables(ctx, created, op, report);
-    declareSqlVariables(ctx, created, op, report);
+    applyNodeExtras(ctx, created, op, report);
     if (children.length) {
       upsertChildren(
         ctx,
@@ -1240,7 +1264,7 @@ include("js/crud_ui_refresh.js");
       applyProperties(ctx, root, patch.properties, qname, report);
     }
     importStepVariables(ctx, root, patch, report);
-    declareSqlVariables(ctx, root, patch, report);
+    applyNodeExtras(ctx, root, patch, report);
 
     var childrenPatch = parseChildrenInput(patch.children, qname + ".children", []);
     upsertChildren(ctx, root, qname, childrenPatch, strategy, report);

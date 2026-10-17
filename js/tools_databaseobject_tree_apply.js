@@ -87,6 +87,14 @@ function treeApplyExpandShortcuts(node, path) {
       existing[String(children[ci].name)] = true;
     }
   }
+  // handlers (a transaction's JavaScript handlers) is a node key too: it is not a bean property.
+  if (node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) &&
+      node.properties.handlers !== undefined) {
+    if (node.handlers === undefined) {
+      node.handlers = node.properties.handlers;
+    }
+    delete node.properties.handlers;
+  }
   // importVariables is a node key; accept it inside properties too, where agents tend to put it.
   if (node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) &&
       node.properties.importVariables !== undefined) {
@@ -296,6 +304,9 @@ if (atInput === "self") {
   }
   if (treeObject.importVariables === true) {
     op.importVariables = true;
+  }
+  if (treeObject.handlers !== undefined) {
+    op.handlers = treeObject.handlers;
   }
 }
 
