@@ -1675,6 +1675,60 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  // High-level generators (js/tools_generators.js): the specs stay open objects, their keys are
+  // described here so a caller can write a valid spec without reading the guides first.
+  function generatorInputSchema(seq) {
+    var open = function (description) { return { type: "object", additionalProperties: true, description: description }; };
+    var openArray = function (description) { return { type: "array", items: { type: "object", additionalProperties: true }, description: description }; };
+    var project = { type: "string", description: "Application project (exact technical name)." };
+    if (seq === "tools_sql_transaction_create") {
+      return {
+        type: "object",
+        properties: {
+          project: project,
+          connector: { type: "string", description: "SqlConnector name; optional when the project has only one." },
+          name: { type: "string", description: "Transaction name: q_<what> for a read, w_<what> for a write." },
+          sql: { type: "string", description: "SQL text with {variables}. Refused when it breaks a rule of convertigo-integration-sql: unaliased or non camelCase selected columns (write col AS \"camelCase\"), '{x}%' inside a literal, {x} IS NULL, IN ({x}), a bare number added to a date." },
+          select: open("Structured read instead of sql: {from:\"poste_pca p JOIN utilisateur u ON u.id = p.rpca_id\", columns:{id:\"p.id\", numeroPoste:\"p.numero_poste\"} (or an array of columns, aliased in camelCase), where:[{variable:\"rpcaId\", column:\"p.rpca_id\"}, {variable:\"recherche\", columns:[\"p.numero_poste\",\"p.libelle\"], op:\"contains\"}, {variable:\"ids\", column:\"p.id\", op:\"in\"}, {variable:\"actif\", column:\"p.actif\", op:\"bool\"}, {sql:\"p.actif = TRUE\"}], orderBy, groupBy, limit}. Each filter is optional ({x} = '' OR ...) unless required:true; ops =, <>, <, <=, >, >=, contains, startsWith, in (comma-separated list, POSITION), bool ('true'/'false')."),
+          insert: open("Structured insert: {table, values:{column: \"variable\" | {sql:\"CURRENT_TIMESTAMP\"}}}."),
+          update: open("Structured update: {table, set:{column: \"variable\" | {sql}}, where:{column: \"variable\"}}."),
+          deleteFrom: open("Structured delete: {table, where:{column: \"variable\"}}."),
+          variables: open("Defaults and descriptions of the declared variables: {name: {value, description}} or {name: defaultValue}. Variables are declared from the {placeholders}; an unknown name is refused."),
+          autoCommit: { type: "string", enum: ["0", "1", "2"], description: "0 manual, 1 after each query, 2 once at the end (default for a write with several statements separated by ;)." },
+          maxResult: { type: "string", description: "Optional max number of rows." },
+          comment: { type: "string" },
+          transactions: openArray("Several transactions in one call: an array of {name, connector?, sql | select | insert | update | delete, variables?, autoCommit?}. Replaces the single-transaction arguments."),
+          ifExists: { type: "string", enum: ["fail", "replace", "keep"], default: "fail", description: "replace rewrites the SQL and variables of an existing transaction in place (its callers keep working); keep leaves it untouched." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
+    }
+    if (seq === "tools_facade_create") {
+      return {
+        type: "object",
+        properties: {
+          project: project,
+          name: { type: "string", description: "Facade sequence name, e.g. poste_list. It must not exist yet." },
+          connector: { type: "string", description: "Default SqlConnector of the reads and writes; optional when the project has one." },
+          script: { type: "string", default: "js/app.js", description: "Business rules file, included by the init step. Must exist (project-js-set)." },
+          logic: { type: "string", description: "Function of script called by the logic step, e.g. App.posteList. It receives ctx = {me (user row), input: {<inputs> as strings}, reads: {<read name>: [rows]}, today} and returns {success, data, errors:[{code,message,field}], meta}, plus optional writes: {<write name>: row | [rows]} whose fields are the write transaction variables. Never called when the role or perimeter check already failed." },
+          inputs: { type: "array", items: { anyOf: [{ type: "string" }, { type: "object", additionalProperties: true }] }, description: "Sequence variables: names or {name, value (default), description}. They reach logic as ctx.input.<name> strings and the reads as JS variables of the same name." },
+          auth: { anyOf: [{ type: "boolean" }, open("")], description: "Default {required:true}: authenticatedContextRequired, user reloaded with userTransaction (default q_user_by_email, variable email = session user), refused with NON_AUTHENTIFIE when missing or activeField (default actif) is false, ACCES_INTERDIT when roleField (default role) is not in roles. false for an anonymous facade." },
+          roles: { type: "array", items: { type: "string" }, description: "Roles allowed (auth.roles); empty means any active user." },
+          reads: openArray("Reads, in order: [{name, transaction:\"q_postes\" | sql/select (creates q_<name>), vars:{variable:\"JS expression\"} (e.g. {rpcaId:\"me.role === 'ADMIN' ? rpcaId : me.id\"}; others take the input of the same name), perimeter:{field:\"rpcaId\", userField:\"id\", bypassRoles:[\"ADMIN\"], mode:\"filter\" (drop rows) | \"deny\" (ACCES_INTERDIT, no row returned)}, required:true (INTROUVABLE when no row)}]. Rows reach logic as ctx.reads.<name>; a failing read answers LECTURE_KO."),
+          writes: openArray("Writes, after logic and only when it succeeds: [{name, transaction:\"w_declaration_insert\" | sql/insert/update/delete (creates w_<name>)}]. Each row of resp.writes.<name> runs the transaction once with its fields as variables; document.error is checked and answers ECRITURE_KO, later rows are skipped. Several statements that must be atomic belong in one transaction (sql with ;)."),
+          errors: open("Override codes or messages: {unauthenticated, forbidden, notFound, readFailed, writeFailed, logic: {code, message} | \"message\"}."),
+          accessibility: { type: "string", enum: ["Hidden", "Private", "Public"], default: "Hidden" },
+          comment: { type: "string" }
+        },
+        required: ["project", "name", "logic"],
+        additionalProperties: false
+      };
+    }
+    return null;
+  }
+
   C8O.schemaOverrides._helpers = {
     booleanFlagSchema: booleanFlagSchema,
     openObjectSchema: openObjectSchema,
@@ -1961,6 +2015,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         required: ["name"],
         additionalProperties: false
       };
+    }
+
+    if (seq === "tools_sql_transaction_create" || seq === "tools_facade_create") {
+      return generatorInputSchema(seq);
     }
 
     if (seq === "tools_image_describe") {

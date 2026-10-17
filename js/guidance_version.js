@@ -172,6 +172,7 @@ C8O.guidance = C8O.guidance || {};
       "databaseobject-move": true,
       "databaseobject-rename": true,
       "databaseobject-tree-apply": true,
+      "facade-create": true,
       "marketplace-import": true,
       "nocode-baserow-schema-apply": true,
       "nocode-form-update": true,
@@ -181,6 +182,7 @@ C8O.guidance = C8O.guidance || {};
       "project-save": true,
       "requestable-stub-set": true,
       "scheduler-apply": true,
+      "sql-transaction-create": true,
       "upsert-crud": true,
       "upsert-ngx-crud-kit": true
     };

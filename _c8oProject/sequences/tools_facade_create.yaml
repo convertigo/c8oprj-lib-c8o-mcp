@@ -1,0 +1,73 @@
+accessibility: Private
+comment: |
+  Create a facade sequence with the multi-page recipe contract
+  Creates a facade sequence from a short description: init (include, inputs, session user), user read and role check, TransactionStep + JsonSourceStep pairs for the reads with perimeter checks, a logic step calling a function of js/app.js, guarded writes checking document.error, and the four JsonToXmlStep outputs success, data, errors, meta. All or nothing.
+↓Include [steps.SimpleStep-1792270100018]: 
+  expression: include("js/tools_generators.js");
+↓Run [steps.SimpleStep-1792270100019]: 
+  expression: 'var generatorResult = C8O.generators.facadeCreate({project: project, name: name, connector: connector, script: script, logic: logic, inputs: inputs, auth: auth, roles: roles, reads: reads, writes: writes, errors: errors, accessibility: accessibility, comment: comment});'
+↓result [steps.JsonToXmlStep-1792270100020]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: generatorResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792270100021]: 
+  comment: 'Application project.'
+  description: 'Application project.'
+  value: ''
+↓name [variables.RequestableVariable-1792270100022]: 
+  comment: 'Facade sequence name, for example poste_list.'
+  description: 'Facade sequence name, for example poste_list.'
+  value: ''
+↓connector [variables.RequestableVariable-1792270100023]: 
+  comment: 'Default SqlConnector of reads and writes.'
+  description: 'Default SqlConnector of reads and writes.'
+  value: ''
+↓script [variables.RequestableVariable-1792270100024]: 
+  comment: 'Business rules file, default js/app.js.'
+  description: 'Business rules file, default js/app.js.'
+  value: ''
+↓logic [variables.RequestableVariable-1792270100025]: 
+  comment: 'JS function called with ctx, for example App.posteList.'
+  description: 'JS function called with ctx, for example App.posteList.'
+  value: ''
+↓inputs [variables.RequestableVariable-1792270100026]: 
+  comment: 'Sequence variables: names or {name, value, description}.'
+  description: 'Sequence variables: names or {name, value, description}.'
+  value: ''
+↓auth [variables.RequestableVariable-1792270100027]: 
+  comment: '{required, roles, userTransaction, emailVariable, roleField, activeField}; false for an anonymous facade.'
+  description: '{required, roles, userTransaction, emailVariable, roleField, activeField}; false for an anonymous facade.'
+  value: ''
+↓roles [variables.RequestableVariable-1792270100028]: 
+  comment: 'Shortcut for auth.roles.'
+  description: 'Shortcut for auth.roles.'
+  value: ''
+↓reads [variables.RequestableVariable-1792270100029]: 
+  comment: 'Reads: [{name, transaction or sql/select, vars, perimeter, required}].'
+  description: 'Reads: [{name, transaction or sql/select, vars, perimeter, required}].'
+  value: ''
+↓writes [variables.RequestableVariable-1792270100030]: 
+  comment: 'Writes: [{name, transaction or sql/insert/update/delete}], rows from resp.writes.<name>.'
+  description: 'Writes: [{name, transaction or sql/insert/update/delete}], rows from resp.writes.<name>.'
+  value: ''
+↓errors [variables.RequestableVariable-1792270100031]: 
+  comment: 'Override error codes and messages: {unauthenticated, forbidden, notFound, readFailed, writeFailed, logic}.'
+  description: 'Override error codes and messages: {unauthenticated, forbidden, notFound, readFailed, writeFailed, logic}.'
+  value: ''
+↓accessibility [variables.RequestableVariable-1792270100032]: 
+  comment: 'Hidden (default), Private or Public.'
+  description: 'Hidden (default), Private or Public.'
+  value: ''
+↓comment [variables.RequestableVariable-1792270100033]: 
+  comment: 'Optional comment.'
+  description: 'Optional comment.'
+  value: ''

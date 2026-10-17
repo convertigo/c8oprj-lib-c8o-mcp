@@ -199,6 +199,8 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_image-describe",
       "Convertigo_crud-status",
       "Convertigo_crud-proof",
+      "Convertigo_sql-transaction-create",
+      "Convertigo_facade-create",
       "Convertigo_upsert-crud",
       "Convertigo_upsert-ngx-crud-kit",
       "Convertigo_rag-query"

@@ -53,6 +53,7 @@
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
   ↓tools_databaseobject_tree_apply [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_apply.yaml
   ↓tools_databaseobject_tree_get [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_get.yaml
+  ↓tools_facade_create [sequences.GenericSequence]: 🗏 sequences/tools_facade_create.yaml
   ↓tools_image_describe [sequences.GenericSequence]: 🗏 sequences/tools_image_describe.yaml
   ↓tools_log_view [sequences.GenericSequence]: 🗏 sequences/tools_log_view.yaml
   ↓tools_marketplace_import [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_import.yaml
@@ -85,6 +86,7 @@
   ↓tools_requestable_stub_set [sequences.GenericSequence]: 🗏 sequences/tools_requestable_stub_set.yaml
   ↓tools_scheduler_apply [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_apply.yaml
   ↓tools_scheduler_list [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_list.yaml
+  ↓tools_sql_transaction_create [sequences.GenericSequence]: 🗏 sequences/tools_sql_transaction_create.yaml
   ↓tools_tags_apply [sequences.GenericSequence]: 🗏 sequences/tools_tags_apply.yaml
   ↓tools_tags_get [sequences.GenericSequence]: 🗏 sequences/tools_tags_get.yaml
   ↓tools_tigo_resources [sequences.GenericSequence]: 🗏 sequences/tools_tigo_resources.yaml

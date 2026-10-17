@@ -1,0 +1,77 @@
+accessibility: Private
+comment: |
+  Create SQL transactions with the SQL guide rules built in
+  Creates one or several SqlTransaction objects from SQL text or a structured select/insert/update/delete spec, declares their variables and checks the rules of the SQL guide (quoted camelCase aliases, optional filters, list filters with POSITION, date units). All or nothing.
+↓Include [steps.SimpleStep-1792270100001]: 
+  expression: include("js/tools_generators.js");
+↓Run [steps.SimpleStep-1792270100002]: 
+  expression: 'var generatorResult = C8O.generators.sqlTransactionCreate({project: project, connector: connector, name: name, sql: sql, select: select, insert: insert, update: update, "delete": deleteFrom, variables: variables, autoCommit: autoCommit, maxResult: maxResult, comment: comment, transactions: transactions, ifExists: ifExists});'
+↓result [steps.JsonToXmlStep-1792270100003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: generatorResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792270100004]: 
+  comment: 'Application project.'
+  description: 'Application project.'
+  value: ''
+↓connector [variables.RequestableVariable-1792270100005]: 
+  comment: 'SqlConnector name; optional when the project has one.'
+  description: 'SqlConnector name; optional when the project has one.'
+  value: ''
+↓name [variables.RequestableVariable-1792270100006]: 
+  comment: 'Transaction name: q_* for a read, w_* for a write.'
+  description: 'Transaction name: q_* for a read, w_* for a write.'
+  value: ''
+↓sql [variables.RequestableVariable-1792270100007]: 
+  comment: 'SQL text, checked against the SQL guide rules.'
+  description: 'SQL text, checked against the SQL guide rules.'
+  value: ''
+↓select [variables.RequestableVariable-1792270100008]: 
+  comment: 'Structured read: {from, columns, where, groupBy, orderBy, limit}.'
+  description: 'Structured read: {from, columns, where, groupBy, orderBy, limit}.'
+  value: ''
+↓insert [variables.RequestableVariable-1792270100009]: 
+  comment: 'Structured insert: {table, values}.'
+  description: 'Structured insert: {table, values}.'
+  value: ''
+↓update [variables.RequestableVariable-1792270100010]: 
+  comment: 'Structured update: {table, set, where}.'
+  description: 'Structured update: {table, set, where}.'
+  value: ''
+↓deleteFrom [variables.RequestableVariable-1792270100011]: 
+  comment: 'Structured delete: {table, where}.'
+  description: 'Structured delete: {table, where}.'
+  value: ''
+↓variables [variables.RequestableVariable-1792270100012]: 
+  comment: 'Variable defaults and descriptions: {name: {value, description}}.'
+  description: 'Variable defaults and descriptions: {name: {value, description}}.'
+  value: ''
+↓autoCommit [variables.RequestableVariable-1792270100013]: 
+  comment: '0, 1 or 2; default 2 for a write with several statements.'
+  description: '0, 1 or 2; default 2 for a write with several statements.'
+  value: ''
+↓maxResult [variables.RequestableVariable-1792270100014]: 
+  comment: 'Optional max number of rows.'
+  description: 'Optional max number of rows.'
+  value: ''
+↓comment [variables.RequestableVariable-1792270100015]: 
+  comment: 'Optional comment.'
+  description: 'Optional comment.'
+  value: ''
+↓transactions [variables.RequestableVariable-1792270100016]: 
+  comment: 'Several transactions at once: an array of the same specs.'
+  description: 'Several transactions at once: an array of the same specs.'
+  value: ''
+↓ifExists [variables.RequestableVariable-1792270100017]: 
+  comment: 'fail (default), replace (rewrite SQL and variables in place) or keep.'
+  description: 'fail (default), replace (rewrite SQL and variables in place) or keep.'
+  value: ''
