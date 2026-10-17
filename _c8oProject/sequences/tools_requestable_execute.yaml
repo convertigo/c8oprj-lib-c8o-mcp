@@ -2,6 +2,7 @@ accessibility: Private
 comment: |
   Run a sequence or transaction
   Executes a requestable and returns its payload. Pass variables as an object or JSON string; enable includeLogs only for debugging, and use recordSchema only on transactions.
+  It runs without an HTTP session or authenticated user: a sequence marked authenticatedContextRequired answers Authentication required. To test protected sequences, run a Private test sequence that calls context.setAuthenticatedUser(<user>) and reaches them through SequenceStep, or call them over HTTP with a cookie jar after the login sequence.
 ↓IncludeUtil [steps.SimpleStep-1763053874391]: 
   comment: Load helper utilities
   expression: include("js/util.js");
