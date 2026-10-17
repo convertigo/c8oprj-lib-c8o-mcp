@@ -463,6 +463,14 @@
           "Give each one a one-line comment saying what it does (databaseobject-tree-apply, properties.comment).");
       }
     });
+    // The starter's default page (Page, "Default home page") left beside the application's own pages.
+    var starter = pages.filter(function (p) { return String(p.getName()) === "Page" && /^Default home page$/i.test(str(call(p, "getComment"))); })[0];
+    if (starter && pages.length > 1) {
+      add("NGX-STARTER-PAGE", "warning", starter, "The starter page Page (\"Default home page\") is still in the application" +
+        (call(starter, "isInAutoMenu") === true ? " and in its menu" : "") + ".",
+        "Delete it with databaseobject-delete, or turn it into the application's real home page.");
+    }
+
     var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
     textReview.texts = shownOrder.length;
     textReview.i18nFiles = i18n.files;
