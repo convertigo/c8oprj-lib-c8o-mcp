@@ -555,3 +555,16 @@ test('the gateway client waits on HTTP 429 as Retry-After asks, then succeeds', 
   assert.deepEqual(waits, [[429, 50]]);
   assert.ok(body);
 });
+
+test('viewport: desktop by default, mobile, WxH or an object, bounded', () => {
+  const ctx = { C8O: {} };
+  const src = fs.readFileSync(path.join(root, 'js/tools_browser_verify.js'), 'utf8');
+  const m = /api\.parseViewport = function[\s\S]*?\n  \};\n/.exec(src)[0];
+  const api = {};
+  const str = v => v == null ? '' : String(v).trim();
+  new Function('api', 'str', m)(api, str);
+  assert.deepEqual(api.parseViewport(undefined), { width: 1280, height: 800 });
+  assert.deepEqual(api.parseViewport('mobile'), { width: 390, height: 844 });
+  assert.deepEqual(api.parseViewport('1024x768'), { width: 1024, height: 768 });
+  assert.deepEqual(api.parseViewport({ width: 99999, height: 10 }), { width: 3840, height: 320 });
+});

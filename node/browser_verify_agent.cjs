@@ -411,6 +411,7 @@ function sleep(ms) {
 
 async function openBrowser(config, playwright) {
   var browser;
+  var emulation = null;
   if (config.cdpEndpoint.length) {
     browser = await playwright.chromium.connectOverCDP(config.cdpEndpoint, { timeout: 15000 });
   } else {
@@ -438,8 +439,29 @@ async function openBrowser(config, playwright) {
   }
   if (config.viewport && !config.cdpEndpoint.length) {
     await page.setViewportSize(config.viewport);
+  } else if (config.viewport) {
+    // The Studio viewer keeps the size of its pane: emulate the asked one for this verification. The override belongs
+    // to this CDP session, so the pane gets its size back when the verifier disconnects.
+    // The Studio browser keeps the override after the session ends: restoreViewport gives the pane its size back.
+    try {
+      var cdp = await context.newCDPSession(page);
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width: config.viewport.width, height: config.viewport.height,
+        deviceScaleFactor: 1, mobile: config.viewport.width < 600 });
+      emulation = cdp;
+    } catch (_noEmulation) {}
   }
-  return { browser: browser, context: context, page: page, startUrl: page.url() };
+  return { browser: browser, context: context, page: page, startUrl: page.url(), emulation: emulation };
+}
+
+// A zero override then a clear: the Studio browser only drops the emulated size this way.
+async function restoreViewport(browserState) {
+  if (!browserState || !browserState.emulation) {
+    return;
+  }
+  try {
+    await browserState.emulation.send("Emulation.setDeviceMetricsOverride", { width: 0, height: 0, deviceScaleFactor: 0, mobile: false });
+    await browserState.emulation.send("Emulation.clearDeviceMetricsOverride");
+  } catch (_ignoreRestore) {}
 }
 
 function originOf(url) {
@@ -830,7 +852,16 @@ function createTools(state, config) {
         buffer = await found.locator.screenshot({ path: file, timeout: t, animations: "disabled", scale: "css" });
       } else {
         // CSS pixels: a 2x screen would double the image tokens without showing the model more.
-        buffer = await page().screenshot({ path: file, fullPage: args.fullPage === true, timeout: 15000, animations: "disabled", scale: "css" });
+        try {
+          buffer = await page().screenshot({ path: file, fullPage: args.fullPage === true, timeout: 15000, animations: "disabled", scale: "css" });
+        } catch (shotError) {
+          if (/Timeout/i.test(String(shotError && shotError.message))) {
+            throw new Error("The screenshot timed out: the Studio viewer is probably hidden (another tab in front, window minimized), " +
+              "and a hidden viewer draws nothing. Read the texts and run layout_check instead, and say in the report that no " +
+              "screenshot could be taken.");
+          }
+          throw shotError;
+        }
       }
       shots.push({ name: name, file: file, url: page().url() });
       return { text: "Screenshot " + name + " (" + page().url() + "). Look at it:", image: buffer.toString("base64") };
@@ -974,6 +1005,7 @@ async function run(rawConfig, deps) {
   fs.mkdirSync(config.outDir, { recursive: true });
   var gateway = createGateway(config, key, deps.fetch || fetch);
   var browserState = await openBrowser(config, deps.playwright);
+  try {
   var state = { page: browserState.page, screenshots: [] };
   var tools = createTools(state, config);
   var messages = [
@@ -1081,6 +1113,9 @@ async function run(rawConfig, deps) {
     fs.writeFileSync(path.join(config.outDir, (config.outPrefix || "") + "report.json"), JSON.stringify(result, null, 2));
   } catch (_noReportFile) {}
   return result;
+  } finally {
+    await restoreViewport(browserState);
+  }
 }
 
 // One line per step in activity.jsonl: the calling agent sees it while the run goes on, and Tigo shows it in the block of

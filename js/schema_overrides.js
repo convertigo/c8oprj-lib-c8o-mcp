@@ -2148,7 +2148,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           inputs: {
             type: "object",
             additionalProperties: true,
-            description: "Inputs of the profile. verifier: url (viewerHomeUrl), paths (one plain-language path per user journey), checks (acceptance criteria with exact expected texts), hints (demo accounts, expected values). constructor: project (required, the one project it builds in), qnames (existing objects to use), files (workspace files to read), notes (rules and values that matter)."
+            description: "Inputs of the profile. verifier: url (viewerHomeUrl), paths (one plain-language path per user journey), checks (acceptance criteria with exact expected texts), hints (demo accounts, expected values). constructor: project (required, the one project it builds in), qnames (existing objects to use), files (workspace files to read), notes (rules and values that matter). viewport: desktop (default), mobile or <width>x<height>."
           },
           reportFormat: { type: "string", description: "What the report must contain, for example: one line per check with the exact text seen." },
           model: { type: "string", description: "Gateway model for this run; default the profile model." },
@@ -2180,6 +2180,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
             oneOf: [{ type: "array", items: { type: "string" } }, { type: "string" }]
           },
           hints: { type: "string", description: "Facts the sub-agent needs and cannot guess: demo accounts and passwords, expected values, what just changed." },
+          viewport: { type: "string", description: "Window of the verification: desktop (default, 1280x800), mobile (390x844) or <width>x<height>. The Studio viewer gets its own size back afterwards." },
           model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
           reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none is fast and cheap; high only for a hard case." },
           maxSteps: { type: "integer", minimum: 6, maximum: 80, default: 40 },

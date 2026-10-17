@@ -89,6 +89,24 @@ C8O.browserVerify = C8O.browserVerify || {};
     return sa().relativePath(root, file);
   };
 
+  // The window the verifier works in. The Studio viewer pane can be very narrow (197 px seen in run 6), which made
+  // layouts look broken: the verification emulates this size and the pane gets its own back when the verifier
+  // disconnects. "desktop" (default) 1280x800, "mobile" 390x844, "<width>x<height>" or {width, height}.
+  api.parseViewport = function (value) {
+    var text = str(value).toLowerCase();
+    if (value && typeof value === "object" && value.width && value.height) {
+      return { width: Math.max(320, Math.min(3840, Number(value.width) || 1280)), height: Math.max(320, Math.min(2160, Number(value.height) || 800)) };
+    }
+    if (text === "mobile") {
+      return { width: 390, height: 844 };
+    }
+    var m = /^(\d{3,4})\s*x\s*(\d{3,4})$/.exec(text);
+    if (m) {
+      return api.parseViewport({ width: Number(m[1]), height: Number(m[2]) });
+    }
+    return { width: 1280, height: 800 };
+  };
+
   // subagent-run passes its inputs in `inputs` (url, paths, checks, hints); browser-verify passes them flat. Without
   // paths, the task itself is the path to walk.
   function verifierInputs(params) {
@@ -102,6 +120,7 @@ C8O.browserVerify = C8O.browserVerify || {};
     }
     return {
       url: str(pick("url")),
+      viewport: api.parseViewport(pick("viewport")),
       paths: paths,
       checks: api.parseList(pick("checks"), "checks", MAX_CHECKS),
       hints: [str(pick("hints")), str(params.reportFormat).length ? "Report format asked: " + str(params.reportFormat) : ""]
@@ -146,6 +165,7 @@ C8O.browserVerify = C8O.browserVerify || {};
           reasoning: reasoning || "none",
           cdpEndpoint: cdpEndpoint,
           url: inputs.url,
+          viewport: inputs.viewport,
           paths: inputs.paths,
           checks: inputs.checks,
           context: inputs.hints.substring(0, 2000),
