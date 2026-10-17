@@ -938,6 +938,10 @@ C8O.generators = C8O.generators || {};
       steps.push({ className: "steps.JsonSourceStep", name: "srcMe", properties: { sourceDefinition: { step: "callMe", xpath: "./document/sql_output" },
         variableName: "meRows" } });
       var authCode = ["me = (meRows && meRows.length) ? meRows[0] : null;"];
+      if (inputNames.indexOf(emailVar) >= 0) {
+        // The user reload set the JS variable of the same name to the session email: give the input its value back.
+        authCode.push(emailVar + " = facadeInput." + emailVar + ";");
+      }
       var active = activeField.length ? " || !(me." + activeField + " === true || String(me." + activeField + ") === \"true\")" : "";
       authCode.push("if (!me" + active + ") { resp = " + failExpr(codes.unauthenticated) + "; }");
       if (roles.length) {

@@ -283,6 +283,24 @@ test('facade-create checks the active column the spec names', () => {
   assert.match(auth.properties.expression, /me\.enabled === true \|\| String\(me\.enabled\) === "true"/);
 });
 
+test('facade-create gives an input named like the session email variable its value back', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.facadeCreate(facadeSpec({ name: 'rpca_list', inputs: ['email'] }));
+  const seq = creates(world, 'sequences.GenericSequence')[0];
+  const byName = {};
+  walk({ children: seq.children }, n => { if (n.name) byName[n.name] = n; });
+  assert.match(byName.init.properties.expression, /var email = sessionEmail;/);
+  assert.match(byName.auth.properties.expression, /email = facadeInput\.email;/);
+  const scope = { context: { getAuthenticatedUser: () => 'admin@x.test' }, include: () => {}, email: 'alice' };
+  vm.createContext(scope);
+  vm.runInContext(byName.init.properties.expression, scope);
+  assert.equal(scope.email, 'admin@x.test', 'the user reload reads the session email');
+  scope.meRows = [{ id: 1, role: 'ADMIN' }];
+  vm.runInContext(byName.auth.properties.expression, scope);
+  assert.equal(scope.email, 'alice', 'later reads get the input');
+});
+
 test('facade-create builds the recipe shape and valid JavaScript', () => {
   const world = makeWorld();
   const G = load(world);
