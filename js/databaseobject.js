@@ -1204,7 +1204,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
   for (var i = 0; i < propertyNames.length; i++) {
     var requestedName = propertyNames[i];
     var requestedLookup = C8O.util.toTrimmedString(requestedName).toLowerCase();
-    var rawSpec = updates[requestedName];
+    var rawSpec = C8O.dbo._expandStepSourceShorthand(updates[requestedName], dbo, requestedLookup);
     var name = requestedName;
     var pd = descriptorMap[name];
     if (!pd) {
@@ -1462,6 +1462,61 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
 //   {"mode":"SOURCE","local":"?.results?.items"}   -> Local filter on page locals
 //   {"mode":"SOURCE","global":"?.currentUser"}     -> Global filter on router.sharedObject
 // Optional "prefix"/"suffix" keep their picker meaning. Anything else is returned unchanged.
+// Sequence step sources by name, resolved against the owning sequence so a tree can wire a step
+// to a sibling created earlier in the same call:
+//   sourceDefinition: {"step":"callMe","xpath":"./document/sql_output"} -> ["<priority>", xpath]
+//   SmartType {"mode":"SOURCE","step":"callMe","xpath":"..."}         -> {"mode":"SOURCE","sources":[...]}
+C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
+  var spec = rawSpec;
+  if (typeof spec === "string") {
+    var trimmed = spec.trim();
+    if (trimmed.charAt(0) !== "{" || trimmed.indexOf("\"step\"") < 0) {
+      return rawSpec;
+    }
+    try {
+      spec = JSON.parse(trimmed);
+    } catch (_notJson) {
+      return rawSpec;
+    }
+  }
+  if (!spec || typeof spec !== "object" || Array.isArray(spec) || spec.step == null) {
+    return rawSpec;
+  }
+  var isSourceDefinition = propertyLookup === "sourcedefinition";
+  var isSmartSource = spec.mode != null && String(spec.mode).toUpperCase() === "SOURCE";
+  if (!isSourceDefinition && !isSmartSource) {
+    return rawSpec;
+  }
+  var stepName = C8O.util.toTrimmedString(spec.step);
+  var sequence = dbo;
+  for (var guard = 0; sequence && guard < 200; guard++) {
+    if (typeof sequence.getAllSteps === "function" && typeof sequence.getStep === "function") {
+      break;
+    }
+    try {
+      sequence = sequence.getParent ? sequence.getParent() : null;
+    } catch (_ignoreParent) {
+      sequence = null;
+    }
+  }
+  if (!sequence || typeof sequence.getAllSteps !== "function") {
+    throw new Error("Step source {step:\"" + stepName + "\"} only works inside a sequence.");
+  }
+  var found = null;
+  var steps = sequence.getAllSteps();
+  for (var i = 0; i < steps.size() && !found; i++) {
+    if (String(steps.get(i).getName()) === stepName) {
+      found = steps.get(i);
+    }
+  }
+  if (!found) {
+    throw new Error("No step named " + stepName + " in sequence " + String(sequence.getName()) +
+      ": create it before the step that sources it (an earlier sibling in the same tree works), or pass [\"<priority>\", \"<xpath>\"].");
+  }
+  var source = [String(found.priority), C8O.util.toTrimmedString(spec.xpath) || "."];
+  return isSourceDefinition ? source : { mode: "SOURCE", sources: source };
+};
+
 C8O.dbo._smartSourcePath = function (path) {
   var text = C8O.util.toTrimmedString(path);
   if (!text.length) {

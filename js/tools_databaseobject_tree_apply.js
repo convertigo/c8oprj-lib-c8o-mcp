@@ -87,6 +87,14 @@ function treeApplyExpandShortcuts(node, path) {
       existing[String(children[ci].name)] = true;
     }
   }
+  // importVariables is a node key; accept it inside properties too, where agents tend to put it.
+  if (node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) &&
+      node.properties.importVariables !== undefined) {
+    if (node.importVariables === undefined) {
+      node.importVariables = node.properties.importVariables === true || String(node.properties.importVariables) === "true";
+    }
+    delete node.properties.importVariables;
+  }
   var added = [];
   var shortcuts = [
     { key: "attributes", build: function (attr, value) {

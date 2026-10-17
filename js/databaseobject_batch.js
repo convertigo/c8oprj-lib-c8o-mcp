@@ -893,7 +893,14 @@ include("js/crud_ui_refresh.js");
     var applyErrors = applyResult && applyResult.errors ? applyResult.errors : [];
 
     if (skipped.length) {
-      report.warnings.push(scopeName + ": " + skipped.length + " property(ies) skipped.");
+      var skippedNames = [];
+      for (var sk = 0; sk < skipped.length; sk++) {
+        var skippedEntry = skipped[sk];
+        skippedNames.push(skippedEntry && typeof skippedEntry === "object"
+          ? String(skippedEntry.name || skippedEntry.property || "?") + (skippedEntry.reason ? " (" + skippedEntry.reason + ")" : "")
+          : String(skippedEntry));
+      }
+      report.warnings.push(scopeName + ": " + skipped.length + " property(ies) skipped: " + skippedNames.join(", ") + ".");
     }
     for (var i = 0; i < applyErrors.length; i++) {
       var err = applyErrors[i];

@@ -222,7 +222,7 @@ Read a called requestable's result in JavaScript:
 - `steps.JsonSourceStep`: sets `variableName` to a JS value built from the producer's XML (JSON types restored when the requestable generates them, as SQL transactions do with `generateJsonTypes=true`)
 - `steps.SimpleSourceStep`: sets `variableName` to the text of the first matching node
 - `steps.SourceStep`: sets `variableName` to the matching DOM nodes
-- their `sourceDefinition` is `["<priority of the TransactionStep or SequenceStep>", "./document/..."]`: the xpath starts at the called requestable's `document`, e.g. `./document/sql_output` for an `SqlTransaction`, or `./document/*[@originalKeyName='result']` for a JSON field named `result`
+- write their `sourceDefinition` as `{"step":"<name of the TransactionStep or SequenceStep>","xpath":"./document/..."}`: the MCP resolves the name in the sequence (the step must be created first, an earlier sibling in the same tree works) and stores `["<priority>", "./document/..."]`; the xpath starts at the called requestable's `document`, e.g. `./document/sql_output` for an `SqlTransaction`, or `./document/*[@originalKeyName='result']` for a JSON field named `result`
 - check the exact path with `databaseobject-schema` or one `requestable-execute` of the called requestable before wiring it
 - under a `SequenceStep`, source `./document` and read the fields in JS (`.document.data`): a deeper xpath such as `./document/data` can return `null`
 - rows from `./document/sql_output` come as an array created in another Rhino scope: `rows instanceof Array` is `false`. Loop on `rows.length` (or copy into a local array first) instead of testing `instanceof Array`
