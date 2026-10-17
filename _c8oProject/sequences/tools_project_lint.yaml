@@ -2,14 +2,14 @@ accessibility: Private
 comment: |
   Lint a project for known build pitfalls
   Read-only pass over one project for pitfalls that break a Convertigo app silently or at run time: SQL (a variable inside a string literal, date arithmetic without a unit, IN with a multivalued variable, unquoted aliases), sequences (context.get on a sequence variable, writes whose errors are never read) and NGX pages (c8oPage in templates, scope in custom actions, glued texts, i18n keys shown as text, texts without accents, callJson in page scripts). Each finding gives the rule, the QName, what breaks and the fix. Run it before a build and before calling a lot done.
-↓IncludeHelpers [steps.SimpleStep-1792270100005]: 
+↓IncludeHelpers [steps.SimpleStep-1792272000005]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");
-↓Include [steps.SimpleStep-1792270100001]: 
+↓Include [steps.SimpleStep-1792272000001]: 
   expression: include("js/tools_project_lint.js");
-↓Run [steps.SimpleStep-1792270100002]: 
+↓Run [steps.SimpleStep-1792272000002]: 
   expression: 'var lintResult = C8O.lint.run(project);'
-↓result [steps.JsonToXmlStep-1792270100003]: 
+↓result [steps.JsonToXmlStep-1792272000003]: 
   jsonObject: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -22,7 +22,7 @@ comment: |
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-↓project [variables.RequestableVariable-1792270100004]: 
+↓project [variables.RequestableVariable-1792272000004]: 
   comment: Project technical name to lint.
   description: Project technical name to lint.
   value: ''
