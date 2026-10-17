@@ -897,6 +897,7 @@ include("js/crud_ui_refresh.js");
   function warnAdjacentTexts(dbo, node, report) {
     var children = node && Array.isArray(node.children) ? node.children : [];
     var previousText = "";
+    var previousPiece = null;
     for (var ci = 0; ci < children.length; ci++) {
       var child = children[ci] || {};
       var className = String(child.className || "");
@@ -904,7 +905,21 @@ include("js/crud_ui_refresh.js");
         continue;
       }
       if (/UIText/.test(className)) {
-        if (previousText.length) {
+        var rawValue = child.properties && typeof child.properties === "object" ? child.properties.textValue : undefined;
+        var piece = { plain: true, text: "" };
+        if (rawValue && typeof rawValue === "object") {
+          piece.plain = String(rawValue.mode || "PLAIN").toUpperCase() === "PLAIN";
+          piece.text = String(rawValue.value !== undefined ? rawValue.value : (rawValue.expression || ""));
+        } else if (typeof rawValue === "string") {
+          piece.plain = !/^(script|source):/.test(rawValue);
+          piece.text = rawValue.replace(/^plain:/, "");
+        }
+        // A composed sentence ("Date : ", value, " (" ...) is fine; only a join with no separator glues.
+        var endsOpen = previousPiece && previousPiece.plain && (previousPiece.text.length === 0 || /[\s:;,.!?\-\u2013\u2014(\[«]$/.test(previousPiece.text));
+        var startsOpen = piece.plain && (piece.text.length === 0 || /^[\s:;,.!?\-\u2013\u2014)\]»]/.test(piece.text));
+        var glued = previousText.length && !endsOpen && !startsOpen;
+        previousPiece = piece;
+        if (glued) {
           pushReportWarning(report, safeQName(dbo) + ": UIText " + previousText + " and " + String(child.name || "") +
             " are siblings, so they render glued on one line. Put each piece in its own element (Label and Note, " +
             "Heading3 and Paragraph, two SpanTag with classes) or merge them into one UIText; see \"Basic presentation\" in convertigo-frontend-ngx.");
@@ -913,6 +928,7 @@ include("js/crud_ui_refresh.js");
         previousText = String(child.name || "");
       } else {
         previousText = "";
+        previousPiece = null;
       }
     }
   }
