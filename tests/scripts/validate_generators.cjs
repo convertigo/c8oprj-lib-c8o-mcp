@@ -274,6 +274,17 @@ function facadeSpec(extra) {
     writes: [{ name: 'journal', transaction: 'w_journal_insert' }, { name: 'stamp', update: { table: 'p', set: { v: 'v' }, where: { id: 'id' } } }] }, extra || {});
 }
 
+test('ngx-page-create does not prefix a field path that already names the item', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', title: 'P', kind: 'list', facade: 'poste_list',
+    list: { item: 'p', title: 'p.numeroPoste', subtitle: 'libelle', empty: 'Aucun' } });
+  const texts = JSON.stringify(world.ops.filter(op => op.type === 'create'));
+  assert.match(texts, /p\?\.numeroPoste/);
+  assert.doesNotMatch(texts, /p\?\.p\?\./);
+  assert.match(texts, /p\?\.libelle/);
+});
+
 test('facade-create checks the active column the spec names', () => {
   const world = makeWorld();
   const G = load(world);

@@ -95,6 +95,11 @@ include("js/tools_generators.js");
 
   function field(path, item) {
     var p = str(path).replace(/^\.+/, "");
+    // A path that already starts with the item name ("p.numeroPoste" with item p) is not prefixed twice.
+    var itemName = String(item).replace(/\?/g, "").split(".").pop();
+    if (itemName && p.indexOf(itemName + ".") === 0) {
+      p = p.substring(itemName.length + 1);
+    }
     return item + "?." + p.split(".").join("?.");
   }
 
