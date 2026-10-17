@@ -241,7 +241,7 @@ include("js/tools_generators.js");
     });
     var vars = isObj(spec.vars) ? spec.vars : {};
     var filters = list(spec.filters);
-    var authCodes = list(spec.authCodes || ["NON_AUTHENTIFIE", "COMPTE_INACTIF"]).map(str);
+    var authCodes = list(spec.authCodes || ["UNAUTHENTICATED"]).map(str);
     var authRedirect = str(spec.authRedirect);
     var used = {};
     var classesUsed = { ".app-page": 1, ".app-error": 1 };

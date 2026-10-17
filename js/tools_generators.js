@@ -717,12 +717,12 @@ C8O.generators = C8O.generators || {};
   // --- facade ------------------------------------------------------------------------------------
 
   var FACADE_ERRORS = {
-    unauthenticated: { code: "NON_AUTHENTIFIE", message: "Session missing or account inactive." },
-    forbidden: { code: "ACCES_INTERDIT", message: "Access denied." },
-    notFound: { code: "INTROUVABLE", message: "Record not found." },
-    readFailed: { code: "LECTURE_KO", message: "A read failed." },
-    writeFailed: { code: "ECRITURE_KO", message: "A write failed." },
-    logic: { code: "LOGIQUE_KO", message: "The business function returned no response." }
+    unauthenticated: { code: "UNAUTHENTICATED", message: "Session missing or account inactive." },
+    forbidden: { code: "FORBIDDEN", message: "Access denied." },
+    notFound: { code: "NOT_FOUND", message: "Record not found." },
+    readFailed: { code: "READ_FAILED", message: "A read failed." },
+    writeFailed: { code: "WRITE_FAILED", message: "A write failed." },
+    logic: { code: "LOGIC_FAILED", message: "The business function returned no response." }
   };
 
   function failExpr(entry, field) {

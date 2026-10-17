@@ -293,18 +293,18 @@ test('facade-create builds the recipe shape and valid JavaScript', () => {
   assert.deepEqual(plain(byName.src_postes.properties.sourceDefinition), { step: 'call_postes', xpath: './document' });
   assert.equal(byName.call_last.properties.sourceTransaction, 'App.db.q_last');
   assert.equal(byName.ifAllowed.properties.condition, 'resp === null');
-  assert.match(byName.auth.properties.expression, /\["ADMIN","RPCA"\]\.indexOf\(String\(me\.role\)\) < 0\) \{ resp = \{ success: false, data: null, errors: \[\{ code: 'ACCES_INTERDIT'/);
+  assert.match(byName.auth.properties.expression, /\["ADMIN","RPCA"\]\.indexOf\(String\(me\.role\)\) < 0\) \{ resp = \{ success: false, data: null, errors: \[\{ code: 'FORBIDDEN'/);
   assert.doesNotMatch(byName.auth.properties.expression, /actif/, 'no active column unless the spec names one');
   assert.match(byName.prep_postes.properties.expression, /rpcaId = String\(me\.role === 'ADMIN' \? '' : me\.id\);/);
   assert.match(byName.guard.properties.expression, /\["ADMIN"\]\.indexOf\(String\(me\.role\)\) < 0/);
-  assert.match(byName.guard.properties.expression, /'INTROUVABLE'/);
-  assert.match(byName.guard.properties.expression, /'LECTURE_KO'/);
+  assert.match(byName.guard.properties.expression, /'NOT_FOUND'/);
+  assert.match(byName.guard.properties.expression, /'READ_FAILED'/);
   assert.match(byName.logic.properties.expression, /resp = App\.posteList\(\{ me: me, input: facadeInput, reads: reads, today: new Date\(\) \}\);/);
   assert.equal(byName.ifWrite_journal.properties.condition, 'resp && resp.success === true && rows_journal.length > 0');
   assert.equal(byName.set_journal.properties.expression.split('\n').length, 2);
   assert.match(byName.set_stamp.properties.expression, /^v = .*\nid = /);
   assert.equal(byName.ifOk_journal.properties.condition, 'resp.success === true');
-  assert.match(byName.check_journal.properties.expression, /d_w\.error\) \{ resp = .*'ECRITURE_KO'/);
+  assert.match(byName.check_journal.properties.expression, /d_w\.error\) \{ resp = .*'WRITE_FAILED'/);
   assert.deepEqual(plain(byName.outData.properties.key), { mode: 'PLAIN', expression: 'data' });
   assert.deepEqual(plain(byName.statut.properties), { description: 'statut', value: 'A' });
   for (const name of ['init', 'auth', 'prep_postes', 'guard', 'logic', 'set_journal', 'check_journal']) {
@@ -351,14 +351,14 @@ test('the generated facade runs: role, perimeter, logic and writes', () => {
   }
   const ok = (data, writes) => ctx => ({ success: true, data: data(ctx), errors: [], meta: {}, writes });
   let s = run(null, [], ok(() => 1));
-  assert.equal(s.resp.errors[0].code, 'NON_AUTHENTIFIE');
+  assert.equal(s.resp.errors[0].code, 'UNAUTHENTICATED');
   s = run({ id: 2, role: 'GUEST', actif: true }, [], ok(() => 1));
-  assert.equal(s.resp.errors[0].code, 'ACCES_INTERDIT');
+  assert.equal(s.resp.errors[0].code, 'FORBIDDEN');
   s = run({ id: 2, role: 'RPCA', actif: 'true' }, [{ id: 7, rpcaId: 3 }], ok(() => 1));
-  assert.equal(s.resp.errors[0].code, 'ACCES_INTERDIT', 'deny perimeter');
+  assert.equal(s.resp.errors[0].code, 'FORBIDDEN', 'deny perimeter');
   assert.deepEqual(plain(s.reads.postes), [], 'no out-of-perimeter row kept');
   s = run({ id: 2, role: 'RPCA', actif: true }, [], ok(() => 1));
-  assert.equal(s.resp.errors[0].code, 'INTROUVABLE');
+  assert.equal(s.resp.errors[0].code, 'NOT_FOUND');
   assert.equal(s.rpcaId, '2', 'read variable from vars');
   s = run({ id: 1, role: 'ADMIN', actif: true }, [{ id: 7, rpcaId: 3 }], ok(ctx => ctx.reads.postes.length + ':' + ctx.input.statut,
     { journal: [{ utilisateurId: 1, resume: 'r1' }, { utilisateurId: 1, resume: null }] }));
@@ -367,11 +367,11 @@ test('the generated facade runs: role, perimeter, logic and writes', () => {
   assert.deepEqual(plain(s.calls), [{ utilisateurId: '1', resume: 'r1' }, { utilisateurId: '1', resume: '' }]);
   assert.equal(s.written.journal, 2);
   s = run({ id: 1, role: 'ADMIN', actif: true }, [{ id: 7 }], ok(() => 1, { journal: [{ fail: true }, { resume: 'never' }] }));
-  assert.equal(s.resp.errors[0].code, 'ECRITURE_KO');
+  assert.equal(s.resp.errors[0].code, 'WRITE_FAILED');
   assert.match(s.resp.errors[0].message, /journal: no table/);
   assert.equal(s.calls.length, 1, 'later rows skipped after a failed write');
   s = run({ id: 1, role: 'ADMIN', actif: true }, [{ id: 7 }], () => null);
-  assert.equal(s.resp.errors[0].code, 'LOGIQUE_KO');
+  assert.equal(s.resp.errors[0].code, 'LOGIC_FAILED');
 });
 
 test('facade-create refuses a bad spec and removes what it created when a step fails', () => {
@@ -435,7 +435,7 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   assert.deepEqual(plain(load1.children.filter(c => /UIControlVariable/.test(c.className)).map(c => [c.name, c.properties.varValue])),
     [['recherche', { mode: 'SOURCE', local: 'filterRecherche' }], ['statut', { mode: 'SOURCE', local: 'filterStatut' }], ['rpcaId', { mode: 'SCRIPT', value: "''" }]]);
   assert.equal(nodes.Reload.properties.cacheTtl.value, '0');
-  assert.match(nodes.IfSessionLost.properties.condition.value, /\['NON_AUTHENTIFIE','COMPTE_INACTIF'\]\.indexOf\(out\?\.errors\?\.\[0\]\?\.code\)/);
+  assert.match(nodes.IfSessionLost.properties.condition.value, /\['UNAUTHENTICATED'\]\.indexOf\(out\?\.errors\?\.\[0\]\?\.code\)/);
   assert.equal(nodes.GoEntry.properties.page.value, 'Login');
   assert.equal(nodes.PageEvent.properties.viewEvent, 'pageWillEnter', 'pageDidEnter does not fire on a deep link');
   assert.equal(nodes.Open.properties.data.value, '{id: scope.poste?.id}');
