@@ -1551,13 +1551,27 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
   if (!sequence || typeof sequence.getAllSteps !== "function") {
     throw new Error("Step source {step:\"" + stepName + "\"} only works inside a sequence.");
   }
+  // Steps nested in IfStep, iterators or blocks count too: getAllSteps lists the top level only.
   var found = null;
-  var steps = sequence.getAllSteps();
-  for (var i = 0; i < steps.size() && !found; i++) {
-    if (String(steps.get(i).getName()) === stepName) {
-      found = steps.get(i);
+  var findIn = function (list, depth) {
+    for (var i = 0; list && i < list.size() && !found && depth < 50; i++) {
+      var step = list.get(i);
+      if (String(step.getName()) === stepName) {
+        found = step;
+        return;
+      }
+      var children = null;
+      try {
+        children = typeof step.getSteps === "function" ? step.getSteps() : null;
+      } catch (_ignoreChildren) {
+        children = null;
+      }
+      if (children) {
+        findIn(children, depth + 1);
+      }
     }
-  }
+  };
+  findIn(sequence.getAllSteps(), 0);
   if (!found) {
     throw new Error("No step named " + stepName + " in sequence " + String(sequence.getName()) +
       ": create it before the step that sources it (an earlier sibling in the same tree works), or pass [\"<priority>\", \"<xpath>\"].");
