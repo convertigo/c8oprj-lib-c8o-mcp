@@ -1352,6 +1352,16 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
     var applyNull = (rawSpec === null || rawSpec === undefined || (rawSpec && rawSpec.__isNull === true));
     var propertyType = pd.getPropertyType();
 
+    // A plain string property (directiveExpression, condition...) given as a SmartType wrapper
+    // {"mode":"SCRIPT","expression":"..."}: keep the text, the setter takes a string only.
+    if (!applyNull && rawSpec && typeof rawSpec === "object" && !Array.isArray(rawSpec) && rawSpec.mode !== undefined &&
+        propertyType != null && String(propertyType.getName()) === "java.lang.String") {
+      var wrapped = rawSpec.expression !== undefined ? rawSpec.expression : rawSpec.value;
+      if (typeof wrapped === "string") {
+        rawSpec = wrapped;
+      }
+    }
+
     try {
       if (applyNull) {
         setter.invoke(dbo, [null]);
