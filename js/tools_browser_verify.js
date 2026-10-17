@@ -92,15 +92,7 @@ C8O.browserVerify = C8O.browserVerify || {};
   // subagent-run passes its inputs in `inputs` (url, paths, checks, hints); browser-verify passes them flat. Without
   // paths, the task itself is the path to walk.
   function verifierInputs(params) {
-    var inputs = params.inputs;
-    if (typeof inputs === "string" && str(inputs).charAt(0) === "{") {
-      try {
-        inputs = JSON.parse(inputs);
-      } catch (_notJson) {
-        inputs = {};
-      }
-    }
-    inputs = inputs && typeof inputs === "object" ? inputs : {};
+    var inputs = sa().objectArg(params.inputs);
     var pick = function (key) {
       return params[key] !== undefined && params[key] !== null && str(params[key]).length ? params[key] : inputs[key];
     };

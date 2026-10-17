@@ -73,6 +73,25 @@ C8O.subagents = C8O.subagents || {};
   }
 
   api.str = str;
+
+  // An object argument as a plain JS object: the MCP router passes it to the sequence as JSON text (a Java string in
+  // Rhino, whose typeof is not "string").
+  api.objectArg = function (value) {
+    if (value === null || value === undefined) {
+      return {};
+    }
+    if (Object.prototype.toString.call(value) === "[object Object]") {
+      return value;
+    }
+    var text = str(value);
+    if (text.charAt(0) === "{") {
+      try {
+        var parsed = JSON.parse(text);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      } catch (_notJson) {}
+    }
+    return {};
+  };
   api.numberIn = numberIn;
 
   api.normalizeWaitSec = function (value) {
