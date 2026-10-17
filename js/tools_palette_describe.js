@@ -63,21 +63,27 @@ function mapTemplate(template) {
   };
 }
 
-function mapHints(hints, className) {
+// compact: names, types, defaults and allowed values only (cheap property list).
+// verbose: descriptions too, but the generic NGX SmartType text and hint are given once, on the
+// first NGX SmartType property, instead of being repeated on every one.
+function mapHints(hints, className, compact) {
   if (!hints || !hints.length) {
     return [];
   }
   var classLabel = C8O.util ? C8O.util.toTrimmedString(className || "") : String(className || "");
   var results = [];
+  var ngxSmartTypeExplained = false;
   for (var i = 0; i < hints.length; i++) {
     var hint = hints[i];
     if (!hint) {
       continue;
     }
+    var isNgxSmartType = toJsString(hint.type).indexOf("MobileSmartSourceType") !== -1;
+    var repeatNgxText = isNgxSmartType && ngxSmartTypeExplained;
     var hintPayload = {
       name: toJsString(hint.name),
       displayName: toJsString(hint.displayName || hint.name),
-      description: toJsString(hint.description || ""),
+      description: (compact || repeatNgxText) ? "" : toJsString(hint.description || ""),
       type: toJsString(hint.type || ""),
       kind: toJsString(hint.kind || ""),
       defaultValue: hint.defaultValue
@@ -100,13 +106,19 @@ function mapHints(hints, className) {
       }
       hintPayload.allowedValues = allowed.join("; ");
     }
-    if (classLabel && C8O && C8O.dbo && typeof C8O.dbo.resolveLlmHint === "function") {
+    if (!compact && !repeatNgxText && classLabel && C8O && C8O.dbo && typeof C8O.dbo.resolveLlmHint === "function") {
       try {
         var resolved = C8O.dbo.resolveLlmHint(classLabel, hint.name, hint);
         if (resolved) {
           hintPayload.llmHint = String(resolved);
         }
       } catch (_ignoreHint) {}
+    }
+    if (isNgxSmartType && !compact && !repeatNgxText) {
+      ngxSmartTypeExplained = true;
+      if (hintPayload.llmHint) {
+        hintPayload.llmHint += " This applies to every NGX SmartType property listed after this one.";
+      }
     }
     results.push(hintPayload);
   }
@@ -259,10 +271,9 @@ if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
 }
 
 var templateMeta = describeData && describeData.creationTemplate ? mapTemplate(describeData.creationTemplate) : null;
-var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints, hintClassLabel) : [];
+var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints, hintClassLabel, !verboseMode) : [];
 if (!verboseMode) {
   templateMeta = null;
-  hintsPayload = [];
 }
 
 paletteDescribeEntry = entryPayload;

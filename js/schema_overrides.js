@@ -527,7 +527,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         className: { type: "string", description: "Palette entry class token, usually copied from palette-list." },
-        verbose: booleanFlagSchema(false, "Set true to include longer property and creation details.")
+        verbose: booleanFlagSchema(false, "Default false returns the property list (names, types, defaults, allowed values). Set true to add property descriptions, hints and the creation template.")
       },
       additionalProperties: false
     };
