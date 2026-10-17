@@ -761,7 +761,10 @@ include("js/sql_dialect.js");
         throw new Error(shortClassName(dbo.getClass().getName()) + " cannot go under " + safeQName(parent) +
           " (" + shortClassName(parent.getClass().getName()) + ")" +
           (placeMode !== "inside" && sibling.length ? ": at:\"" + placeMode + "\" places it next to " + sibling +
-            ", under that object's parent. To add it inside " + sibling + ", use at:\"inside\"; to place it before or after a child, target that child." : ".") +
+            ", under that object's parent. To add it inside " + sibling + ", use at:\"inside\"; to place it before or after a child, target that child." :
+            (/(Transaction|Sequence)Step$/.test(String(parent.getClass().getName())) ? ": a call step only holds its variables. A step that reads its output (" +
+              "JsonSourceStep, SimpleStep, IfStep...) goes after it, under the same parent: target " + safeQName(parent) +
+              " with at:\"after\", or the parent with at:\"inside\"." : ".")) +
           " Engine: " + String(addError && addError.message ? addError.message : addError).replace(/^.*EngineException: /, ""));
       }
       if (createContext && createContext.mode && createContext.mode !== "inside" && createContext.sibling) {
