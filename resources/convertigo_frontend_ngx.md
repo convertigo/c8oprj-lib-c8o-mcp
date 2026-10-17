@@ -66,11 +66,11 @@ Minimal `AppLayout`:
 
 Wrap the page content in a `DivTag` with class `app-page`. A text-only Playwright proof does not see glued texts or a missing layout: look at the page itself (a screenshot) before calling a UI lot done.
 
-Before you call a UI lot done, check each page you built with a screenshot:
-- The cheapest way is the scripted proof described in the common skill (one Playwright script per path, run with `browser_run_code_unsafe`, saving one screenshot per page); otherwise:
-- Save it with Playwright `browser_take_screenshot({filename:"check-<page>.png"})`: with a `filename` the image is only saved, not sent to your model.
-- If your model reads images, look at it. If it cannot (GLM models of the Convertigo gateway have no image input), call `image-describe({path:"<the file the screenshot result names>", question:"..."})` and ask about readability, overlapping or cut-off elements, texts glued together without a separator, and empty areas. Example: `Is every label separated from its value? Is any text glued to another, cut off or overlapping? Is any area empty or unreadable?`
-- Fix what it reports in the source objects, rebuild, and check again. Keep the default `reasoning` and `maxTokens`; one call per page state is enough.
+Before you call a UI lot done, check each page you built, functionally and visually, with one `browser-verify` call (see Validation and evidence in the common skill):
+- Pass the `viewerHomeUrl` as `url`, one plain-language path per user journey through the new pages (log in, open the list, create or edit, read the result), the acceptance criteria as `checks` with the exact expected texts, and demo accounts or expected values as `hints`.
+- Its vision sub-agent drives the viewer, looks at every page it reaches and reports failed checks and visual defects: texts glued together without a separator, overlapping or cut-off elements, missing accents, empty or unreadable areas, raw technical values.
+- Fix what it reports in the source objects, rebuild, and verify the affected paths again. Do not drive the page click by click yourself.
+- Only when `browser-verify` is unavailable: save a screenshot with `browser_take_screenshot({filename:"check-<page>.png"})` and, if your model cannot read images (GLM models of the Convertigo gateway), ask `image-describe` about readability, glued, cut-off or overlapping texts and empty areas.
 
 ## NGX mental model
 

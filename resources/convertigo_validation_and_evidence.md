@@ -60,7 +60,8 @@ Never reload the active MCP server project itself; use `project-save` there beca
   - explicit loading, empty, error, and retry presence when the page depends on data
   - `project-save` after the last successful UI mutation
   - do not treat `mobile-builder-open ready=true` as a substitute for browser smoke
-  - when layout or style is an acceptance criterion and your model cannot read images, add one visual check: a Playwright screenshot saved with `filename`, then `image-describe` with that file as `path` and a precise question
+  - functional and visual browser proof: one `browser-verify` call with the paths in plain language and the acceptance checks; its vision sub-agent drives the viewer and reports each check with evidence, the visual defects and its screenshots. Fix what it reports and verify the affected paths again
+  - without `browser-verify`, when layout or style is an acceptance criterion and your model cannot read images: a Playwright screenshot saved with `filename`, then `image-describe` with that file as `path` and a precise question
 
 ### Concise vs noisy proof
 Acceptable proof:
@@ -75,6 +76,7 @@ Noisy proof:
 ## Recommended MCP tools
 - `requestable-execute`
 - `log-view`
+- `browser-verify`
 - `image-describe`
 - `databaseobject-tree-get`
 - `batch-call`

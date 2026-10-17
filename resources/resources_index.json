@@ -956,7 +956,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 27,
+    "revision": 28,
     "scopeTags": [
       "domain",
       "frontend",
@@ -975,6 +975,7 @@
       "palette-describe",
       "requestable-execute",
       "mobile-builder-open",
+      "browser-verify",
       "image-describe",
       "project-save"
     ],
@@ -993,7 +994,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_validation_and_evidence.md",
     "guideId": "convertigo/validation-and-evidence",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "validation",
       "evidence",
@@ -1007,6 +1008,7 @@
     "recommendedTools": [
       "requestable-execute",
       "log-view",
+      "browser-verify",
       "image-describe",
       "databaseobject-tree-get",
       "batch-call",
