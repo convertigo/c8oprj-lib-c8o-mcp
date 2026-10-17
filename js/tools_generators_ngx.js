@@ -553,7 +553,11 @@ include("js/tools_generators.js");
             props.HelperText = { mode: "PLAIN", value: str(f.helper) };
           }
           if (f.value !== undefined) {
-            props.Value = { mode: "SCRIPT", value: String(f.value) };
+            // The initial value is a TypeScript expression (new Date()..., c8oPage.navParams...): it is computed at page
+            // enter into a local and the control reads that local. Written in the template, it broke the Angular build.
+            var initLocal = "init" + pascal(f.name);
+            locals[initLocal] = String(f.value);
+            props.Value = { mode: "SOURCE", local: initLocal };
           }
           var control;
           var cname = pascal(f.name);

@@ -735,6 +735,19 @@ test('an existing AppLayout is completed with the missing rules only', () => {
   assert.equal(nodes.S1IfRecord.properties.directiveExpression, 'local?.data?.job');
 });
 
+test('a form field initial value is computed at page enter, not written in the template', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'DeclarationForm', kind: 'form', facade: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'Enregistrer', cancelLabel: 'Annuler', success: { message: 'OK', page: 'Postes', kind: 'root' },
+      fields: [{ name: 'dateEffective', type: 'date', value: 'new Date().toISOString().substring(0, 10)' }] } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.deepEqual(plain(nodes.InDateEffective.properties.Value), { mode: 'SOURCE', local: 'initDateEffective' });
+  assert.equal(nodes.InitInitDateEffective.properties.Value.value, 'new Date().toISOString().substring(0, 10)');
+  assert.equal(nodes.InitInitDateEffective.properties.Property.value, 'initDateEffective');
+});
+
 test('a form page wires its submit chain with Form SmartSources on the created UIForm', () => {
   const world = makeWorld();
   const G = load(world);
