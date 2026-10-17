@@ -39,7 +39,7 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 
 ## Session
 - `auth_login<...>` (Hidden, anonymous): verifies the identity, then `context.setAuthenticatedUser(<normalized email>)` and returns `{user, home}` where `home` is the page for the role.
-- `auth_getCurrentUser` (Hidden, `authenticatedContextRequired`): returns the reloaded user.
+- `auth_getCurrentUser` (Hidden): returns the reloaded user. Either mark it `authenticatedContextRequired` (no session gives `Authentication required`) or keep it anonymous and return a business code such as `NON_AUTHENTIFIE`; the entry page handles whichever you chose.
 - `auth_logout`: clears the session.
 - A call without session to an `authenticatedContextRequired` sequence returns an error whose message is `Authentication required`; the client treats it like the business codes `NON_AUTHENTIFIE` or `COMPTE_INACTIF`.
 - For a real identity provider, keep this layer and follow `convertigo-authentication`.
@@ -56,11 +56,11 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 1. Data model and `SqlTransaction`s, seeded with demo data by a reset sequence; prove each with `requestable-execute`.
 2. `js/<app>.js` with the rules, then the session facades, then the other facades.
 3. Pages, one lot per page through `callsFile`.
-4. Scheduled or batch logic as a sequence that takes an injectable date for tests. Schedule it with `scheduler-apply({name, project, sequence, cron:"0 0 8 * * ?"})` (Quartz syntax with seconds) and check it with `scheduler-list`. A scheduled run has no user session: the scheduled sequence must not require `authenticatedContextRequired`, and it does its own authorization (for example, it checks a technical parameter or symbol).
-5. Non-regression sequences that call the facades and assert the contract.
+4. Scheduled or batch logic as a sequence that takes an injectable date for tests. Schedule it with `scheduler-apply({name, project, sequence, cron:"0 0 8 * * ?"})` (Quartz syntax with seconds) and check it with `scheduler-list`. A scheduled run has no user session: the scheduled sequence must not require `authenticatedContextRequired`, and it does its own authorization (for example, it checks a technical parameter or symbol). When the business hour is a setting (for example `app.reminderHour=08:00`), schedule a frequent run (`0 */15 * * * ?`) whose sequence checks the configured hour and is idempotent per day, so changing the setting needs no rescheduling.
+5. Non-regression sequences that call the facades and assert the contract. A `Private` test sequence can open a session with `context.setAuthenticatedUser(<email>)` and call the protected facades through `SequenceStep`: the session reaches them, so one `requestable-execute` runs every acceptance case for one role, then for the next.
 
 ## Validation
-- `requestable-execute` runs without an HTTP session: use it for transactions, anonymous facades and the rules.
+- `requestable-execute` runs without an HTTP session: use it for transactions, anonymous facades, the rules, and the test sequences of step 5 that open their own session.
 - Test session-protected facades over HTTP with a cookie jar, one jar per role, on the Studio host name:
 
 ```bash
