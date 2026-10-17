@@ -685,6 +685,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       return value;
     }
     ensureSupportedRefStringSyntax(value);
+    // String form "$ref:<callId>.<path>", accepted like the object form {"$ref":"<callId>.<path>"}.
+    if (typeof value === "string" && value.indexOf("$ref:") === 0) {
+      return resolveRefToken(refs, value.substring(5));
+    }
     if (Array.isArray(value)) {
       var arr = [];
       for (var i = 0; i < value.length; i++) {

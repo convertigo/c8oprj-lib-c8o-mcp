@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Run a batch of MCP tool calls
-  Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches. Large generated batches can be read from a workspace .json file with callsFile instead of being re-typed as calls.
+  Supports stop or continue error policy, execution resumption, and deferred save, refresh, or builder finalization for mutation-heavy batches. Large generated batches can be read from a workspace .json file with callsFile instead of being re-typed as calls. Give a call an id to reuse its result later as {"$ref":"<id>.<path>"} or "$ref:<id>.<path>".
 ↓IncludeHelpers [steps.SimpleStep-1772625431444]: 
   comment: Load shared helpers for generic batch tool calls.
   expression: |

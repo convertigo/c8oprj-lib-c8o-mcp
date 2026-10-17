@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Write a project helper script
-  Creates or replaces one file under the js/ directory of the given project. Send the complete file content; partial patches are not supported. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
+  Creates or replaces one file under the js/ directory of the given project. Send the complete file content in content, or the path of a workspace file in contentFile (preferred for large scripts); partial patches are not supported and the response never echoes the content. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
 ↓InitContext [steps.SimpleStep-1762350567267]: 
   comment: Validate input and persist file content
   expression: |
@@ -26,7 +26,19 @@ comment: |
     var parentDir = targetFile.getParentFile();
     java.nio.file.Files.createDirectories(parentDir.toPath());
     var existed = targetFile.exists();
+    var contentFileText = (typeof contentFile !== "undefined" && contentFile != null) ? String(contentFile).trim() : "";
     var textContent = content == null ? "" : String(content);
+    if (contentFileText.length) {
+      if (textContent.length) { throw new Error("Pass either content or contentFile, not both."); }
+      var wsRoot = new java.io.File(String(Packages.com.twinsoft.convertigo.engine.Engine.PROJECTS_PATH)).getCanonicalFile();
+      var sourceFile = new java.io.File(contentFileText);
+      if (!sourceFile.isAbsolute()) { sourceFile = new java.io.File(wsRoot, contentFileText); }
+      sourceFile = sourceFile.getCanonicalFile();
+      if (!sourceFile.toPath().startsWith(wsRoot.toPath())) { throw new Error("contentFile must be inside the projects workspace " + wsRoot.getPath()); }
+      if (!sourceFile.isFile()) { throw new Error("contentFile not found: " + sourceFile.getPath()); }
+      if (sourceFile.length() > 5242880) { throw new Error("contentFile is larger than 5 MB."); }
+      textContent = String(new java.lang.String(java.nio.file.Files.readAllBytes(sourceFile.toPath()), "UTF-8"));
+    }
     var bytes = new java.lang.String(textContent).getBytes(java.nio.charset.StandardCharsets.UTF_8);
     java.nio.file.Files.write(
       targetPath,
@@ -44,7 +56,7 @@ comment: |
     fileRelativePath = basePath.relativize(targetPath).toString();
     fileExists = true;
     directoryExists = true;
-    fileContent = textContent;'
+    fileContent = "";'
 ↓result [steps.JsonObjectStep-1762350567269]: 
   key: 
     - xmlizable: 
@@ -181,3 +193,6 @@ comment: |
 ↓content [variables.RequestableVariable-1762350567291]: 
   comment: Full file content to write. Replaces the existing file when it already exists.
   description: Full file content to write. Replaces the existing file when it already exists.
+↓contentFile [variables.RequestableVariable-1792171000091]: 
+  comment: Instead of content, path of a file under the projects workspace whose text becomes the script (absolute or relative to the workspace). The response never echoes the content.
+  description: Instead of content, path of a file under the projects workspace whose text becomes the script (absolute or relative to the workspace). The response never echoes the content.
