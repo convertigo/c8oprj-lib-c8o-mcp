@@ -956,7 +956,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 28,
+    "revision": 29,
     "scopeTags": [
       "domain",
       "frontend",
@@ -975,6 +975,7 @@
       "palette-describe",
       "requestable-execute",
       "mobile-builder-open",
+      "subagent-run",
       "browser-verify",
       "image-describe",
       "project-save"
@@ -994,7 +995,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_validation_and_evidence.md",
     "guideId": "convertigo/validation-and-evidence",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "validation",
       "evidence",
@@ -1008,6 +1009,7 @@
     "recommendedTools": [
       "requestable-execute",
       "log-view",
+      "subagent-run",
       "browser-verify",
       "image-describe",
       "databaseobject-tree-get",
@@ -1117,7 +1119,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 7,
+    "revision": 8,
     "scopeTags": [
       "recipe",
       "ngx",
@@ -1137,6 +1139,7 @@
       "databaseobject-tree-get",
       "requestable-execute",
       "mobile-builder-open",
+      "subagent-run",
       "project-save"
     ],
     "promptNames": [
