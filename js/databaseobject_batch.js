@@ -714,10 +714,12 @@ include("js/crud_ui_refresh.js");
       );
     }
     if (!dbo) {
+      var sameName = C8O.dbo.suggestBeanClasses ? C8O.dbo.suggestBeanClasses(normalizedClassName) : [];
       throw new Error(
         "Unable to instantiate class " + normalizedClassName +
         " (child=" + String(name || "") +
-        ", parent=" + String(safeQName(parent) || "") + ")"
+        ", parent=" + String(safeQName(parent) || "") + ")" +
+        (sameName.length ? ": no such class, use className " + sameName.join(" or ") : "")
       );
     }
     dbo.bNew = true;

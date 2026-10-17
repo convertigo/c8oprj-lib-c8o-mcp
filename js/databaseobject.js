@@ -1215,6 +1215,21 @@ C8O.dbo._buildSmartType = function (spec) {
   return smart;
 };
 
+// "Unknown property", plus the real names that contain the requested one or that it contains
+// (defaultValue -> value), so the caller can fix its payload in one try.
+C8O.dbo._unknownPropertyReason = function (requestedLookup, descriptorMap) {
+  var close = [];
+  var names = Object.keys(descriptorMap || {});
+  for (var i = 0; i < names.length && close.length < 3; i++) {
+    var lower = names[i].toLowerCase();
+    if (lower.length >= 4 && requestedLookup.length >= 4 &&
+        (requestedLookup.indexOf(lower) !== -1 || lower.indexOf(requestedLookup) !== -1)) {
+      close.push(names[i]);
+    }
+  }
+  return close.length ? "Unknown property, did you mean " + close.join(" or ") + "?" : "Unknown property";
+};
+
 C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
   var NativeJavaObject = Packages.org.mozilla.javascript.NativeJavaObject;
   var MySimpleBeanInfo = Packages.com.twinsoft.convertigo.beans.core.MySimpleBeanInfo;
@@ -1303,7 +1318,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
     }
 
     if (!pd) {
-      skipped.push({ name: requestedName, reason: "Unknown property" });
+      skipped.push({ name: requestedName, reason: C8O.dbo._unknownPropertyReason(requestedLookup, descriptorMap) });
       continue;
     }
 
@@ -2432,6 +2447,32 @@ C8O.dbo.instantiateClass = function (className) {
   } catch (_ignoreInstantiation) {
     return null;
   }
+};
+
+// Same-name bean classes in other packages, for an error on a class that does not exist
+// (for instance core.RequestableVariable for variables.RequestableVariable).
+C8O.dbo.suggestBeanClasses = function (className) {
+  var text = C8O.util.toFqcn ? C8O.util.toFqcn(className || "") : String(className || "");
+  var hashIndex = text.indexOf("#");
+  if (hashIndex !== -1) {
+    text = text.substring(0, hashIndex);
+  }
+  try {
+    Packages.java.lang.Class.forName(text);
+    return [];
+  } catch (_missing) {}
+  var simpleName = text.substring(text.lastIndexOf(".") + 1);
+  var packages = ["steps", "core", "variables", "sequences", "transactions", "connectors", "statements",
+    "references", "common", "rest", "couchdb", "transactions.couchdb", "screenclasses", "extractionrules",
+    "criteria", "scheduler", "ngx.components", "mobile.components"];
+  var found = [];
+  for (var i = 0; i < packages.length && simpleName.length; i++) {
+    try {
+      Packages.java.lang.Class.forName(_BEANS_PREFIX + packages[i] + "." + simpleName);
+      found.push(packages[i] + "." + simpleName);
+    } catch (_notThere) {}
+  }
+  return found;
 };
 
 C8O.dbo._isXMLizableClass = function (propertyType) {
