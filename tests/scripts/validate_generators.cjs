@@ -735,6 +735,28 @@ test('an existing AppLayout is completed with the missing rules only', () => {
   assert.equal(nodes.S1IfRecord.properties.directiveExpression, 'local?.data?.job');
 });
 
+test('a list page offers multiple selection with a checkbox per row and selection actions', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Plist', title: 'P', kind: 'list', facade: 'poste_list',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun', select: { field: 'id', actions: [
+      { label: 'Déclarer la sélection', page: 'DeclarationForm', data: { ids: 'selection' } },
+      { label: 'Désactiver', sequence: 'declaration_declare', vars: { posteIds: 'selection' }, page: 'Plist', kind: 'root' }] } } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.equal(nodes.Pick.className, 'ngx.components.UIDynamicElement#CheckBox');
+  assert.match(nodes.Pick.properties.Checked.value, /\(local\?\.selected \|\| \[\]\)\.indexOf\('' \+ p\?\.id\) >= 0/);
+  assert.equal(nodes.EventonChange.properties.eventName, 'ionChange');
+  assert.match(nodes.Toggle.properties.Value.value, /scope\.p\?\.id/);
+  assert.equal(nodes.InitSelected.properties.Value.value, '[]');
+  const bar = JSON.stringify(nodes.PSelectionActions || nodes.ListSelectionActions || Object.values(nodes).find(n => /SelectionActions$/.test(n.name)));
+  assert.match(bar, /ids: \(c8oPage\.local\.selected \|\| \[\]\)\.join\(','\)/);
+  assert.match(bar, /"Disabled":\{"mode":"SCRIPT","value":"!\(local\?\.selected\?\.length\)"\}/);
+  assert.match(bar, /"name":"posteIds","properties":\{"varValue":\{"mode":"SCRIPT","value":"\(c8oPage\.local\.selected/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Plist2', title: 'P', kind: 'list', facade: 'poste_list',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun', select: { field: 'id' } } }), /select\.actions is required/);
+});
+
 test('a list filter takes its options from the page data with optionsFrom', () => {
   const world = makeWorld();
   const G = load(world);

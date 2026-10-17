@@ -387,6 +387,26 @@ include("js/tools_generators.js");
         rowChildren.push(nx("Note", "Nt", { IonSlot: { mode: "PLAIN", value: "end" } }, [expr(valueExpr(rowField, spec2.note))]));
       }
       var itemProps = {};
+      // Multiple selection: a checkbox per row adds or removes the row key in the local selected (an array of strings),
+      // and the select actions below the list receive it as a comma-separated list.
+      var selectSpec = spec2.select === true ? { field: "id" } : spec2.select;
+      if (selectSpec !== undefined) {
+        if (!isObj(selectSpec)) {
+          errors.push(label + ".select must be true or {field, actions:[...]}.");
+          selectSpec = null;
+        }
+      }
+      if (selectSpec) {
+        var keyPath = str(selectSpec.field || "id");
+        locals.selected = "[]";
+        var keyInTemplate = "'' + " + field(keyPath, item);
+        var keyInAction = "'' + scope." + field(keyPath, item);
+        rowChildren.unshift(nx("CheckBox", "Pick", { IonSlot: { mode: "PLAIN", value: "start" },
+          Checked: { mode: "SCRIPT", value: "(local?.selected || []).indexOf(" + keyInTemplate + ") >= 0" } }, [
+          controlEvent("EventonChange", "ionChange", [setLocal("Toggle", "selected",
+            "((s: any[], v: string) => s.indexOf(v) >= 0 ? s.filter((x: any) => x !== v) : s.concat([v]))((c8oPage.local.selected || []).slice(), " + keyInAction + ")")])
+        ]));
+      }
       if (isObj(spec2.onItem)) {
         if (!childNamed(app, str(spec2.onItem.page))) {
           warnings.push(label + ".onItem.page " + spec2.onItem.page + " is not a page of " + projectName + " yet: create it before the build.");
@@ -397,10 +417,22 @@ include("js/tools_generators.js");
       }
       classesUsed[".app-empty"] = 1;
       var empty = textOr(spec2.empty, "No record.", label + ".empty");
-      return [
+      var blocks = [
         ifDirective(prefix + "IfEmpty", "!local?.loading && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])]),
         nx("List", prefix + "List", {}, [forEach(prefix + "ForEach", itemsPath, item, [nx("ListItem", "Row", itemProps, rowChildren)])])
       ];
+      if (selectSpec) {
+        var selActions = list(selectSpec.actions);
+        if (!selActions.length) {
+          errors.push(label + ".select.actions is required: the buttons that use the selection, [{label, page, data:{ids:\"selection\"}} | {label, sequence, vars:{ids:\"selection\"}}].");
+        }
+        var bar = actionButtons(selActions, label + ".select.actions", { selection: true });
+        if (bar) {
+          bar.name = prefix + "SelectionActions";
+          blocks.push(bar);
+        }
+      }
+      return blocks;
     }
 
     function labelValueList(name, fields, base, label) {
@@ -421,7 +453,21 @@ include("js/tools_generators.js");
       }));
     }
 
-    function actionButtons(actions, label) {
+    // "selection" in data or vars is the comma-separated list of the selected rows (see recordList select).
+    var SELECTION_EXPR = "(c8oPage.local.selected || []).join(',')";
+    function withSelection(values) {
+      if (!isObj(values)) {
+        return values;
+      }
+      var out = {};
+      Object.keys(values).forEach(function (k) {
+        out[k] = str(values[k]) === "selection" ? SELECTION_EXPR : values[k];
+      });
+      return out;
+    }
+
+    function actionButtons(actions, label, options) {
+      options = options || {};
       if (!actions.length) {
         return null;
       }
@@ -440,10 +486,24 @@ include("js/tools_generators.js");
           if (sequenceVariables(projectDbo, str(a.sequence)) === null) {
             errors.push(label + "[" + i + "].sequence " + a.sequence + " is not a sequence of " + projectName + ".");
           }
-          chain = nxAction("CallSequenceAction", "Call", { requestable: { mode: "PLAIN", value: projectName + "." + str(a.sequence) }, noAutoLogin: { mode: "PLAIN", value: "true" } },
-            str(a.page).length ? [navAction("Go", { page: a.page, kind: a.kind || "root", data: a.data })] : []);
+          var callChildren = [];
+          if (isObj(a.vars)) {
+            var seqVars = sequenceVariables(projectDbo, str(a.sequence)) || [];
+            var avars = withSelection(a.vars);
+            Object.keys(avars).forEach(function (v) {
+              if (seqVars.length && seqVars.indexOf(v) < 0) {
+                errors.push(label + "[" + i + "].vars." + v + " is not a variable of " + a.sequence + " (" + seqVars.join(", ") + ").");
+              }
+              callChildren.push(callVariable(v, { mode: "SCRIPT", value: String(avars[v]) }));
+            });
+          }
+          if (str(a.page).length) {
+            callChildren.push(navAction("Go", { page: a.page, kind: a.kind || "root", data: withSelection(a.data) }));
+          }
+          chain = nxAction("CallSequenceAction", "Call", { requestable: { mode: "PLAIN", value: projectName + "." + str(a.sequence) }, noAutoLogin: { mode: "PLAIN", value: "true" },
+            cacheTtl: { mode: "PLAIN", value: "0" } }, callChildren);
         } else if (str(a.page).length || str(a.kind) === "pop") {
-          chain = navAction("Go", a);
+          chain = navAction("Go", { page: a.page, kind: a.kind, data: withSelection(a.data) });
         } else {
           errors.push(label + "[" + i + "] needs page (navigation) or sequence (a call, then page).");
           chain = null;
@@ -454,6 +514,9 @@ include("js/tools_generators.js");
         }
         if (str(a.color).length) {
           props.IonColor = { mode: "PLAIN", value: str(a.color) };
+        }
+        if (options.selection) {
+          props.Disabled = { mode: "SCRIPT", value: "!(local?.selected?.length)" };
         }
         return nx("Button", uniqueName("Btn" + pascal(a.label), usedButtons), props, [txt(a.label)].concat(chain ? [controlEvent("EventonClick", "onClick", [chain])] : []));
       })));
