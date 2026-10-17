@@ -2382,6 +2382,25 @@ C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, refer
 
 // Where an NGX object belongs when it is not allowed under the given parent: page-level and
 // application-level objects are the usual misplacements (a page event inside the page content).
+// "UIDynamicAction#UICustomAction": the logical id names an NGX class of its own (ngx.components.UICustomAction).
+C8O.dbo._ngxOwnClassForLogicalId = function (className) {
+  var text = String(className || "");
+  var hashIndex = text.indexOf("#");
+  if (hashIndex === -1) {
+    return "";
+  }
+  var logicalId = text.substring(hashIndex + 1);
+  if (!/^[A-Z][A-Za-z0-9]*$/.test(logicalId)) {
+    return "";
+  }
+  try {
+    Packages.java.lang.Class.forName(_BEANS_PREFIX + "ngx.components." + logicalId);
+    return "ngx.components." + logicalId;
+  } catch (_noOwnClass) {
+    return "";
+  }
+};
+
 C8O.dbo._ngxPlacementHint = function (baseClassFqcn, parentDbo) {
   var simple = String(baseClassFqcn || "").replace(/#.*$/, "");
   simple = simple.substring(simple.lastIndexOf(".") + 1);
@@ -2419,6 +2438,11 @@ C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
       }
       if (!resolved || !resolvedDbo) {
         var hints = C8O.dbo._formatNgxCandidates(candidates, 8);
+        var ownClass = C8O.dbo._ngxOwnClassForLogicalId(className);
+        if (ownClass.length) {
+          throw new Error("Unable to resolve NGX palette entry '" + className + "': " + ownClass +
+            " is a class of its own, not a " + C8O.util.fromFqcn(baseClassFqcn) + " entry. Use className " + ownClass + ".");
+        }
         if (hints.length) {
           throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent. Candidates: " + hints);
         }
