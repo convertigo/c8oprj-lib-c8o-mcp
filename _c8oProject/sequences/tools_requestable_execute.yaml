@@ -232,6 +232,19 @@ comment: |
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
+  ↓response [steps.JsonToXmlStep-1782106259677]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: requestableExecutionResult
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: result
   ↓IfIncludeLogs [steps.IfStep-1772727101001]: 
     condition: executionPlan && executionPlan.includeLogs === true
     ↓logs [steps.JsonToXmlStep-1772727101002]: 
@@ -247,19 +260,6 @@ comment: |
           - SmartType: 
             - ↑mode: PLAIN
             - →→: logs
-  ↓response [steps.JsonToXmlStep-1782106259677]: 
-    jsonObject: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: requestableExecutionResult
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: result
 ↓jIf [steps.IfStep-1763979594981]: 
   condition: recordSchema == "true"
   ↓response [steps.SourceStep-1763979641976]: 
