@@ -43,7 +43,7 @@ Each flow authenticates the session with a provider-prefixed user id: `google:<s
 
 ## Golden path (every flow)
 
-1. **Import the library, pinned.** `marketplace-list` to find it, then `marketplace-import`. Check the symbols it expects with `project-list-symbols`.
+1. **Import the library, pinned.** `marketplace-list` to find it, `marketplace-describe` to read its setup, then `marketplace-import({project, targetProject})`, which adds the reference in your project. Check the symbols it expects with `project-list-symbols`.
 2. **Configure with symbols, server side.** Client ids, endpoints, redirect URIs, scopes, and SMTP settings are symbols. Secrets use a name ending with `.secret` and no default value that holds the real secret.
 3. **Expose public configuration through a configuration sequence.** Symbols are resolved on the server only; NGX pages and TypeScript never see them. The client gets `client_id`, the authorization endpoint, the redirect URI, the scopes, and a per-login `state`/`nonce` from a configuration sequence, as the libraries already do (`lib_FranceConnect.getConfiguration`, `lib_OAuth.GetOAuthCredentials`). Rules for that sequence:
    - `Hidden`, anonymous by design (the client calls it before login). Record its `EXP-02` audit finding with `suppress` and the reason.
