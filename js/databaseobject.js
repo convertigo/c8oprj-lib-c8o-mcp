@@ -2380,6 +2380,27 @@ C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, refer
   return null;
 };
 
+// Where an NGX object belongs when it is not allowed under the given parent: page-level and
+// application-level objects are the usual misplacements (a page event inside the page content).
+C8O.dbo._ngxPlacementHint = function (baseClassFqcn, parentDbo) {
+  var simple = String(baseClassFqcn || "").replace(/#.*$/, "");
+  simple = simple.substring(simple.lastIndexOf(".") + 1);
+  var parentClass = "";
+  try {
+    parentClass = String(parentDbo.getClass().getSimpleName());
+  } catch (_ignoreParent) {}
+  var place = {
+    UIPageEvent: "directly under the page (target the pg:<Page> QName)",
+    UIEventSubscriber: "directly under the page (target the pg:<Page> QName)",
+    UIAppEvent: "directly under the application (target <Project>.Application.NgxApp)",
+    PageComponent: "directly under the application (target <Project>.Application.NgxApp)"
+  }[simple];
+  if (place) {
+    return ": " + simple + " is not allowed under " + (parentClass || "this parent") + "; it goes " + place + ".";
+  }
+  return parentClass ? ": not allowed under " + parentClass + "; palette-list with this target lists what it accepts." : "";
+};
+
 C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
   var parsed = C8O.dbo.parseLogicalClassToken(className || "");
   var baseClassFqcn = parsed.baseClassFqcn;
@@ -2401,13 +2422,13 @@ C8O.dbo.instantiateForCreate = function (className, parentDbo, updates) {
         if (hints.length) {
           throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent. Candidates: " + hints);
         }
-        throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
+        throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent" + C8O.dbo._ngxPlacementHint(baseClassFqcn, parentDbo));
       }
       return resolvedDbo;
     }
 
     if (!candidates.length) {
-      throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent");
+      throw new Error("Unable to resolve NGX palette entry '" + className + "' for the current parent" + C8O.dbo._ngxPlacementHint(baseClassFqcn, parentDbo));
     }
     if (candidates.length > 1) {
       throw new Error(
