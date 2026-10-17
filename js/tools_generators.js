@@ -830,8 +830,9 @@ C8O.generators = C8O.generators || {};
       }
       return input;
     });
-    var auth = parseJson(args.auth, "auth", "object");
-    var authRequired = !(args.auth !== undefined && str(args.auth) === "false") && !(auth && auth.required === false);
+    var authOff = args.auth === false || str(args.auth) === "false";
+    var auth = authOff ? { required: false } : parseJson(args.auth, "auth", "object");
+    var authRequired = !(auth && auth.required === false);
     auth = auth || {};
     var roles = list(auth.roles || parseJson(args.roles, "roles", "array")).map(str).filter(function (r) { return r.length; });
     var messages = parseJson(args.errors, "errors", "object") || {};
