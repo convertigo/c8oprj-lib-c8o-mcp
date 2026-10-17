@@ -1882,6 +1882,34 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_tags_get" || seq === "tools_tags_apply") {
       return tagsInputSchema(seq === "tools_tags_apply");
     }
+    if (seq === "tools_scheduler_list") {
+      return {
+        type: "object",
+        properties: {
+          project: { type: "string", description: "Optional project name: only its jobs and the schedules they use." }
+        },
+        additionalProperties: false
+      };
+    }
+    if (seq === "tools_scheduler_apply") {
+      return {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["upsert", "delete"], default: "upsert", description: "upsert creates or replaces the scheduled run; delete removes it." },
+          name: { type: "string", description: "Unique name shared by the job, the schedule and the scheduled job <name>@<name>." },
+          project: { type: "string", description: "Project of the sequence (upsert)." },
+          sequence: { type: "string", description: "Sequence name (upsert)." },
+          cron: { type: "string", description: "Quartz CRON expression with seconds, e.g. 0 0 8 * * ? for 08:00 every day (upsert)." },
+          enabled: { type: "boolean", default: true, description: "false keeps the run defined but inactive." },
+          parameters: { type: "object", additionalProperties: true, description: "Sequence variables sent at each run, as a JSON object." },
+          contextName: { type: "string", description: "Engine context name used by the runs; defaults to name." },
+          writeOutput: { type: "boolean", default: false, description: "true writes each run output to the engine output folder." },
+          description: { type: "string", description: "Optional description shown in the Administration Console." }
+        },
+        required: ["name"],
+        additionalProperties: false
+      };
+    }
 
     if (seq === "tools_batch_call") {
       return batchCallInputSchema();

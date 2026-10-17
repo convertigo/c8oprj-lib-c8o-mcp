@@ -180,6 +180,7 @@ C8O.guidance = C8O.guidance || {};
       "project-reload": true,
       "project-save": true,
       "requestable-stub-set": true,
+      "scheduler-apply": true,
       "upsert-crud": true,
       "upsert-ngx-crud-kit": true
     };

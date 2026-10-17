@@ -1,0 +1,25 @@
+accessibility: Private
+comment: |
+  List scheduled sequence runs
+  Lists the engine scheduler jobs, CRON schedules and scheduled jobs (the Administration Console Scheduler objects), optionally for one project. Read-only.
+↓Include [steps.SimpleStep-1792171000041]: 
+  expression: include("js/tools_scheduler.js");
+↓Run [steps.SimpleStep-1792171000042]: 
+  expression: 'var schedulerResult = C8O.scheduler.list({project: project});'
+↓result [steps.JsonToXmlStep-1792171000043]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: schedulerResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792171000044]: 
+  comment: 'Optional project name: only its jobs and the schedules they use.'
+  description: 'Optional project name: only its jobs and the schedules they use.'
+  value: ''

@@ -56,7 +56,7 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
 1. Data model and `SqlTransaction`s, seeded with demo data by a reset sequence; prove each with `requestable-execute`.
 2. `js/<app>.js` with the rules, then the session facades, then the other facades.
 3. Pages, one lot per page through `callsFile`.
-4. Scheduled or batch logic as a sequence that takes an injectable date for tests.
+4. Scheduled or batch logic as a sequence that takes an injectable date for tests. Schedule it with `scheduler-apply({name, project, sequence, cron:"0 0 8 * * ?"})` (Quartz syntax with seconds) and check it with `scheduler-list`. A scheduled run has no user session: the scheduled sequence must not require `authenticatedContextRequired`, and it does its own authorization (for example, it checks a technical parameter or symbol).
 5. Non-regression sequences that call the facades and assert the contract.
 
 ## Validation

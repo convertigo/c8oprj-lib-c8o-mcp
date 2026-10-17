@@ -1,0 +1,61 @@
+accessibility: Private
+comment: |
+  Schedule or unschedule a sequence
+  upsert creates or replaces one scheduled sequence run named name: a sequence job, a CRON schedule (Quartz syntax with seconds, e.g. 0 0 8 * * ? for 08:00 daily) and the scheduled job linking them, saved in the engine scheduler and active at once when enabled. delete removes them. Use scheduler-list first; scheduling runs the sequence with no user session.
+↓Include [steps.SimpleStep-1792171000051]: 
+  expression: include("js/tools_scheduler.js");
+↓Run [steps.SimpleStep-1792171000052]: 
+  expression: 'var schedulerResult = C8O.scheduler.apply({action: action, name: name, project: project, sequence: sequence, cron: cron, enabled: enabled, parameters: parameters, context: contextName, writeOutput: writeOutput, description: description});'
+↓result [steps.JsonToXmlStep-1792171000053]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: schedulerResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓action [variables.RequestableVariable-1792171000054]: 
+  comment: 'upsert (default) or delete.'
+  description: 'upsert (default) or delete.'
+  value: ''
+↓name [variables.RequestableVariable-1792171000055]: 
+  comment: 'Unique name shared by the job, the schedule and the scheduled job.'
+  description: 'Unique name shared by the job, the schedule and the scheduled job.'
+  value: ''
+↓project [variables.RequestableVariable-1792171000056]: 
+  comment: 'Project of the sequence (upsert).'
+  description: 'Project of the sequence (upsert).'
+  value: ''
+↓sequence [variables.RequestableVariable-1792171000057]: 
+  comment: 'Sequence name (upsert).'
+  description: 'Sequence name (upsert).'
+  value: ''
+↓cron [variables.RequestableVariable-1792171000058]: 
+  comment: 'Quartz CRON expression with seconds, e.g. 0 0 8 * * ? (upsert).'
+  description: 'Quartz CRON expression with seconds, e.g. 0 0 8 * * ? (upsert).'
+  value: ''
+↓enabled [variables.RequestableVariable-1792171000059]: 
+  comment: 'true (default) or false.'
+  description: 'true (default) or false.'
+  value: ''
+↓parameters [variables.RequestableVariable-1792171000060]: 
+  comment: 'Optional JSON object of sequence variables sent at each run.'
+  description: 'Optional JSON object of sequence variables sent at each run.'
+  value: ''
+↓contextName [variables.RequestableVariable-1792171000061]: 
+  comment: 'Optional context name; defaults to name.'
+  description: 'Optional context name; defaults to name.'
+  value: ''
+↓writeOutput [variables.RequestableVariable-1792171000062]: 
+  comment: 'true to write each run output to the engine output folder; default false.'
+  description: 'true to write each run output to the engine output folder; default false.'
+  value: ''
+↓description [variables.RequestableVariable-1792171000063]: 
+  comment: 'Optional description.'
+  description: 'Optional description.'
+  value: ''
