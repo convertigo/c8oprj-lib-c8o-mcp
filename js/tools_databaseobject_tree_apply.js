@@ -275,7 +275,7 @@ if (atInput === "self") {
   } catch (_ignoreSelfTarget) {
     selfTarget = null;
   }
-  if (selfTarget) {
+  if (selfTarget && typeof C8O.dbo.safeName === "function" && typeof C8O.dbo.logicalClassNameForDbo === "function") {
     var selfName = String(C8O.dbo.safeName(selfTarget));
     var selfClass = String(C8O.dbo.logicalClassNameForDbo(selfTarget));
     var treeName = asTrimmed(treeObject.name);
