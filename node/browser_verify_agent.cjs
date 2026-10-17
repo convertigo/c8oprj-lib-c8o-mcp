@@ -22,7 +22,7 @@ var DEFAULTS = {
   maxSteps: 40,
   timeBudgetMs: 240000,
   actionTimeoutMs: 6000,
-  maxTokens: 1500,
+  maxTokens: 3000,
   keepImages: 2,
   keepSnapshots: 3,
   keepResults: 6
@@ -964,7 +964,9 @@ async function run(rawConfig, deps) {
         report = normalizeReport(args, config, state.screenshots);
         outcome = { text: "Report received." };
       } else if (!args) {
-        outcome = { text: "Error: the arguments are not valid JSON." };
+        outcome = { text: name === "finish" && choice.finish_reason === "length"
+          ? "Error: the report was cut at the answer limit. Call finish again with shorter evidence."
+          : "Error: the arguments are not valid JSON." };
       } else if (!Object.prototype.hasOwnProperty.call(tools, name)) {
         outcome = { text: "Error: unknown tool " + name + "." };
       } else {

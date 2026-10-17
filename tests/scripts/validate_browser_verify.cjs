@@ -371,6 +371,21 @@ test('agent loop: drives the viewer page, shows its screenshots to the model, re
   assert.ok(!fs.readFileSync(path.join(outDir, 'report.json'), 'utf8').includes(KEY));
 });
 
+test('agent loop: a report cut at the answer limit is asked again, shorter', async () => {
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-verify-'));
+  const sent = [];
+  const replies = [
+    Object.assign(completion([{ id: 'f1', type: 'function', function: { name: 'finish', arguments: '{"verdict":"failed","summary":"Poste RH st' } }]), {}),
+    completion([{ id: 'f2', type: 'function', function: { name: 'finish', arguments: '{"verdict":"failed","summary":"Short.","checks":[]}' } }])
+  ];
+  replies[0].choices[0].finish_reason = 'length';
+  const fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return fakeResponse(200, replies.shift(), 0.001); };
+  const result = await agent.run({ cdpEndpoint: 'http://127.0.0.1:1', outDir, paths: ['x'] }, { key: KEY, playwright: fakePlaywright([]), fetch });
+  assert.equal(sent[0].max_tokens, 3000);
+  assert.match(sent[1].messages[sent[1].messages.length - 1].content, /cut at the answer limit/);
+  assert.equal(result.report.summary, 'Short.');
+});
+
 test('agent loop: at the step budget the model must call finish', async () => {
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-verify-'));
   const sent = [];
