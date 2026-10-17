@@ -87,6 +87,24 @@ function treeApplyExpandShortcuts(node, path) {
       existing[String(children[ci].name)] = true;
     }
   }
+  // Any other node key is a property written at the wrong level (tree:{scriptContent:...}): it used
+  // to be dropped without a word. Move it under properties, where it applies or is reported unknown.
+  var nodeKeys = { className: 1, name: 1, properties: 1, children: 1, attributes: 1, setLocals: 1,
+    importVariables: 1, handlers: 1, id: 1, qname: 1, priority: 1, depth: 1, hasChildren: 1,
+    directChildrenCount: 1, subtreeCount: 1, partial: 1, mode: 1 };
+  var strayKeys = Object.keys(node).filter(function (key) { return !nodeKeys[key]; });
+  if (strayKeys.length) {
+    if (!node.properties || typeof node.properties !== "object" || Array.isArray(node.properties)) {
+      node.properties = node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : {};
+    }
+    for (var sk = 0; sk < strayKeys.length; sk++) {
+      if (node.properties[strayKeys[sk]] === undefined) {
+        node.properties[strayKeys[sk]] = node[strayKeys[sk]];
+      }
+      delete node[strayKeys[sk]];
+    }
+    treeApplyWarnings.push((path || "tree") + ": " + strayKeys.join(", ") + " moved under properties (properties go in tree.properties).");
+  }
   // handlers (a transaction's JavaScript handlers) is a node key too: it is not a bean property.
   if (node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) &&
       node.properties.handlers !== undefined) {
