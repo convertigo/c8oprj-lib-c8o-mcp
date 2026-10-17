@@ -124,13 +124,12 @@ function buildNodeMeta(dbo, depth) {
     meta.priority = priority;
   }
   // A transaction's JavaScript handlers are not a bean property but change what it does (a starter
-  // placeholder cancels itself in onTransactionStarted): always show them. tree-apply writes the same key.
+  // placeholder cancels itself in onTransactionStarted): show them on every transaction. tree-apply writes the same key.
   try {
     if (dbo.handlers !== undefined && typeof dbo.getExpression === "function") {
+      // Always present on a transaction ("" when it has none), so its absence is never ambiguous.
       var handlersText = String(dbo.getExpression() || "");
-      if (handlersText.trim().length) {
-        meta.handlers = handlersText;
-      }
+      meta.handlers = handlersText.trim().length ? handlersText : "";
     }
   } catch (_ignoreHandlers) {}
   return meta;
@@ -159,7 +158,7 @@ treeData = {
 if (rootMeta.priority) {
   treeData.priority = rootMeta.priority;
 }
-if (rootMeta.handlers) {
+if (rootMeta.handlers !== undefined) {
   treeData.handlers = rootMeta.handlers;
 }
 applyPropertiesIfNeeded(treeData, root);
@@ -184,7 +183,7 @@ function ensureNode(meta, dbo, partial) {
     if (meta.priority) {
       node.priority = meta.priority;
     }
-    if (meta.handlers) {
+    if (meta.handlers !== undefined) {
       node.handlers = meta.handlers;
     }
     if (partial === true) {
