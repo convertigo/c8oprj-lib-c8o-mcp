@@ -24,7 +24,8 @@ var DEFAULTS = {
   actionTimeoutMs: 6000,
   maxTokens: 1500,
   keepImages: 2,
-  keepSnapshots: 3
+  keepSnapshots: 3,
+  keepResults: 6
 };
 
 var SNAPSHOT_LIMIT = 7000;
@@ -116,12 +117,13 @@ var SYSTEM_PROMPT = [
   "You are a browser verification agent. Another agent built a web application and asks you to prove that given paths work and look right. You drive the browser with the tools, you look at your screenshots, and you finish with a short factual report. You report; you never fix.",
   "",
   "Rules:",
-  "- You only observe and use the application like a user (log in, click, fill forms, as the paths say). You never change its code, configuration or files.",
+  "- You only observe and use the application like a user (log in, click, fill forms, as the paths say). You never change its code, configuration or files, and you never read its source: no fetch of scripts, bundles or routes, no study of how it is built.",
+  "- When a step's precondition already holds (for example the app is already signed in and shows its home page), say so in the evidence and go on. When a step stays blocked after two attempts, mark its checks not_checked with what you saw and go to the next path: every path must get its turn. Each tool result ends with the time and turns used so far.",
   "- Walk each path once, exactly as written. Never repeat an action that changes data (save, declare, delete, submit...) to get a better result: the first outcome is the result. Retry only an action that did not happen (the tool returned an error), once, another way.",
   "- Read the result right after the action that should produce it, and quote it exactly. A check passes only on evidence you saw: the exact text or value read, or what a screenshot shows. Anything different from what the path or check expects is a failure, even if it looks minor.",
   "- Be fast: a few tool calls per path; several independent tool calls may go in one turn. The page snapshot (accessibility tree) comes back after each click, navigation and key press.",
   "- Targets: copy them from the snapshot as role \"name\" (for example button \"Save\" or textbox \"Email\"), or use text=Some text, label=Email, placeholder=Search, or a CSS selector. Add nth (0-based) when several elements match.",
-  "- On each page or state a check depends on: take a screenshot and LOOK at it, run layout_check, and read every visible text. Report as visual defects: texts glued together without a space, overlapping elements, cut or overflowing text, unreadable or low-contrast text, misaligned or broken layout, empty areas where data is expected, error messages or raw technical values shown to the user, and, for French text, every word missing its accent (for example Declarer for Déclarer, selection for sélection, Comptabilite for Comptabilité, a jour for à jour). layout_check only lists geometric suspects: keep those a screenshot confirms.",
+  "- On each page or state a check depends on: take a screenshot and LOOK at it, run layout_check, and read every visible text. Report as visual defects: texts glued together without a space, overlapping elements, cut or overflowing text, unreadable or low-contrast text, misaligned or broken layout, empty areas where data is expected, error messages or raw technical values shown to the user, and, for French text, every word missing its accent (for example Declarer for Déclarer, selection for sélection, Comptabilite for Comptabilité, a jour for à jour). layout_check lists geometric suspects: a hidden-text entry means a text is covered by another element (a card over a title, a block over a button), report it when the screenshot shows that text missing or partly covered; keep the other suspects a screenshot confirms.",
   "- Finish with the finish tool, in the language of the paths: one entry per acceptance check (or per path when there is none), and every visual defect seen. Keep it short.",
 ].join("\n");
 
@@ -185,7 +187,7 @@ var TOOLS = [
     target: { type: "string", description: "Optional element to capture alone." }
   }, ["name"]),
   tool("layout_check", "Geometric scan of the visible page: overlapping texts or controls, text cut by its box, texts glued to their neighbour without a space, elements outside the viewport. Suspects only: confirm on a screenshot.", {}, []),
-  tool("evaluate", "Run a read-only JavaScript expression in the page and return its JSON value (computed style, counts, attribute values). Never change the page with it.", {
+  tool("evaluate", "Run a short read-only JavaScript expression on the current page and return its JSON value: a computed style, a count, an attribute or a value. Never change the page, never fetch anything, never read scripts or source code.", {
     expression: { type: "string" }
   }, ["expression"]),
   tool("finish", "Final report. Call it once, at the end.", {
@@ -521,8 +523,9 @@ function safeName(name, fallback) {
   return value.substring(0, 60) || fallback;
 }
 
-// Runs in the page. Visible text leaves and controls; reports overlaps between them, text cut by its own box, a
-// text touching the next one with no space between, and elements outside the viewport.
+// Runs in the page. Visible text leaves and controls, through open shadow roots. Reports, most reliable first: a text
+// hidden under another element (hit test at the text's own points), texts overlapping each other, a text touching the
+// next one with no space between, a text cut by its own box, and elements outside the viewport.
 function layoutScan() {
   var vw = window.innerWidth, vh = window.innerHeight;
   var items = [];
@@ -537,6 +540,29 @@ function layoutScan() {
   function label(el) {
     var text = (el.innerText || el.value || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
     return el.tagName.toLowerCase() + (text ? " \"" + text.substring(0, 50) + "\"" : "");
+  }
+  // Containment across shadow boundaries: an ion-button contains the button of its shadow root.
+  function within(outer, node) {
+    for (var n = node; n; n = n.parentNode || n.host) {
+      if (n === outer) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function related(x, y) {
+    return within(x, y) || within(y, x);
+  }
+  function hitAt(x, y) {
+    var hit = document.elementFromPoint(x, y);
+    while (hit && hit.shadowRoot && hit.shadowRoot.elementFromPoint) {
+      var inner = hit.shadowRoot.elementFromPoint(x, y);
+      if (!inner || inner === hit) {
+        break;
+      }
+      hit = inner;
+    }
+    return hit;
   }
   function collect(root) {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
@@ -564,44 +590,60 @@ function layoutScan() {
     }
   }
   collect(document.body);
-  var issues = [];
+  var hidden = [], others = [];
   var limit = 25;
-  for (var i = 0; i < items.length && issues.length < limit; i++) {
+  for (var i = 0; i < items.length; i++) {
     var a = items[i];
     var ra = a.rect;
-    if (ra.right < 0 || ra.bottom < 0 || ra.left > vw + 1) {
+    var inView = ra.bottom > 0 && ra.right > 0 && ra.top < vh && ra.left < vw;
+    if (!inView) {
       continue;
     }
-    if (ra.right > vw + 2 && ra.left < vw) {
-      issues.push({ kind: "outside-viewport", element: label(a.el), right: Math.round(ra.right), viewport: vw });
+    if (ra.right > vw + 2) {
+      others.push({ kind: "outside-viewport", element: label(a.el), right: Math.round(ra.right), viewport: vw });
     }
-    if (a.text.length && (a.el.scrollWidth > a.el.clientWidth + 2 || a.el.scrollHeight > a.el.clientHeight + 4)) {
-      var style = getComputedStyle(a.el);
-      if (style.overflow !== "visible" || style.textOverflow === "ellipsis") {
-        issues.push({ kind: "text-cut", element: label(a.el), scrollWidth: a.el.scrollWidth, width: a.el.clientWidth });
+    if (a.text.length) {
+      // The text's own points: its middle and near its start. Covered when the top element there is unrelated to it.
+      var points = [[ra.left + ra.width / 2, ra.top + ra.height / 2], [ra.left + Math.min(6, ra.width / 4), ra.top + ra.height / 2]];
+      for (var p = 0; p < points.length; p++) {
+        var x = points[p][0], y = points[p][1];
+        if (x < 0 || y < 0 || x >= vw || y >= vh) {
+          continue;
+        }
+        var hit = hitAt(x, y);
+        if (hit && !related(a.el, hit)) {
+          hidden.push({ kind: "hidden-text", element: label(a.el), coveredBy: label(hit) });
+          break;
+        }
+      }
+      if (a.el.scrollWidth > a.el.clientWidth + 2 || a.el.scrollHeight > a.el.clientHeight + 4) {
+        var style = getComputedStyle(a.el);
+        if (style.overflow !== "visible" || style.textOverflow === "ellipsis") {
+          others.push({ kind: "text-cut", element: label(a.el), scrollWidth: a.el.scrollWidth, width: a.el.clientWidth });
+        }
       }
     }
-    for (var j = i + 1; j < items.length && issues.length < limit; j++) {
+    for (var j = i + 1; j < items.length && others.length < limit; j++) {
       var b = items[j];
-      if (a.el.contains(b.el) || b.el.contains(a.el)) {
+      if (related(a.el, b.el) || !a.text.length || !b.text.length) {
         continue;
       }
       var rb = b.rect;
       var ix = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
       var iy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
       if (ix > 3 && iy > 3 && ix * iy > 0.15 * Math.min(ra.width * ra.height, rb.width * rb.height)) {
-        issues.push({ kind: "overlap", a: label(a.el), b: label(b.el), area: Math.round(ix * iy) });
+        others.push({ kind: "overlap", a: label(a.el), b: label(b.el), area: Math.round(ix * iy) });
         continue;
       }
       var sameLine = Math.abs((ra.top + ra.bottom) / 2 - (rb.top + rb.bottom) / 2) < Math.min(ra.height, rb.height) / 2;
       var gap = rb.left - ra.right;
-      if (a.text.length && b.text.length && sameLine && gap >= -1 && gap < 1.5 &&
+      if (sameLine && gap >= -1 && gap < 1.5 &&
         /[\p{L}\p{N}:;,.!?)]$/u.test(a.text) && /^[\p{L}\p{N}(]/u.test(b.text)) {
-        issues.push({ kind: "glued-text", a: label(a.el), b: label(b.el), gap: Math.round(gap * 10) / 10 });
+        others.push({ kind: "glued-text", a: label(a.el), b: label(b.el), gap: Math.round(gap * 10) / 10 });
       }
     }
   }
-  return { viewport: { width: vw, height: vh }, scanned: items.length, issues: issues };
+  return { viewport: { width: vw, height: vh }, scanned: items.length, issues: hidden.slice(0, limit).concat(others).slice(0, limit) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -746,7 +788,7 @@ function createTools(state, config) {
           }
         });
       }, expression);
-      return { text: cut(String(value), 4000) };
+      return { text: cut(String(value), 1500) };
     }
   };
 }
@@ -756,10 +798,10 @@ function cut(text, limit) {
   return value.length > limit ? value.substring(0, limit) + "... (cut)" : value;
 }
 
-// Older screenshots and snapshots are replaced by a short note, so the context stays small: the model keeps the
-// last keepImages images and keepSnapshots page texts.
+// Older screenshots and results are replaced by a short note, so the context stays small: the model keeps the last
+// keepImages images, keepSnapshots page texts and keepResults other results whole.
 function compactHistory(messages, config) {
-  var images = 0, snapshots = 0;
+  var images = 0, snapshots = 0, texts = 0;
   for (var i = messages.length - 1; i >= 0; i--) {
     var m = messages[i];
     if (m.role !== "tool") {
@@ -771,10 +813,14 @@ function compactHistory(messages, config) {
         m.content = m.content.filter(function (part) { return part.type === "text"; }).map(function (part) { return part.text; }).join("\n") +
           " (image no longer shown)";
       }
-    } else if (m._snapshot) {
-      snapshots++;
-      if (snapshots > DEFAULTS.keepSnapshots && m.content.length > 300) {
-        m.content = m.content.substring(0, 200) + "\n... (older page text elided)";
+    } else {
+      // Page texts: the last keepSnapshots stay whole; any other older result is cut short.
+      texts++;
+      if (m._snapshot) {
+        snapshots++;
+      }
+      if (m.content.length > 400 && (m._snapshot ? snapshots > DEFAULTS.keepSnapshots : texts > DEFAULTS.keepResults)) {
+        m.content = m.content.substring(0, 240) + "\n... (older result elided)";
         m._snapshot = false;
       }
     }
@@ -929,10 +975,12 @@ async function run(rawConfig, deps) {
         }
       }
       trace.push({ turn: turns, tool: name, args: summarizeArgs(args), ms: Date.now() - callStarted, result: cut(outcome.text, 160).replace(/\s+/g, " ") });
-      var toolMessage = { role: "tool", tool_call_id: call.id, content: outcome.text };
+      var progress = "\n[" + Math.round((Date.now() - started) / 1000) + " s of " + Math.round(config.timeBudgetMs / 1000) +
+        " s, turn " + turns + " of " + config.maxSteps + "]";
+      var toolMessage = { role: "tool", tool_call_id: call.id, content: outcome.text + progress };
       if (outcome.image) {
         toolMessage.content = [
-          { type: "text", text: outcome.text },
+          { type: "text", text: outcome.text + progress },
           { type: "image_url", image_url: { url: "data:image/png;base64," + outcome.image } }
         ];
       } else if (outcome.snapshot) {

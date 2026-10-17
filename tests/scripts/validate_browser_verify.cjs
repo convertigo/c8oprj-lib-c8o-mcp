@@ -191,7 +191,7 @@ test('the report never says passed over a failed check or a blocking defect, and
   assert.equal(report.checks[0].status, 'not_checked');
 });
 
-test('the context keeps the last two screenshots and the last three page texts', () => {
+test('the context keeps the last two screenshots, the last three page texts and the last six other results', () => {
   const image = n => ({ role: 'tool', content: [{ type: 'text', text: 'shot ' + n }, { type: 'image_url', image_url: { url: 'data:x' } }] });
   const page = n => ({ role: 'tool', content: 'page ' + n + ' ' + 'x'.repeat(400), _snapshot: true });
   const messages = [image(1), page(1), image(2), page(2), page(3), image(3), page(4)];
@@ -200,9 +200,15 @@ test('the context keeps the last two screenshots and the last three page texts',
   assert.match(messages[0].content, /shot 1 \(image no longer shown\)/);
   assert.ok(Array.isArray(messages[2].content));
   assert.ok(Array.isArray(messages[5].content));
-  assert.match(messages[1].content, /older page text elided/);
+  assert.match(messages[1].content, /older result elided/);
   assert.ok(messages[3].content.length > 300);
   assert.ok(messages[6].content.length > 300);
+  const result = n => ({ role: 'tool', content: 'result ' + n + ' ' + 'y'.repeat(600) });
+  const many = [1, 2, 3, 4, 5, 6, 7, 8].map(result);
+  agent.compactHistory(many, {});
+  assert.match(many[0].content, /^result 1 .*older result elided/s);
+  assert.match(many[1].content, /older result elided/);
+  assert.ok(many.slice(2).every(m => m.content.length > 600), 'the last six results stay whole');
 });
 
 function fakeResponse(status, body, cost) {
@@ -323,6 +329,7 @@ test('agent loop: drives the viewer page, shows its screenshots to the model, re
   assert.equal(result.usage.requests, 3);
   assert.equal(result.usage.cost, 0.003);
   assert.equal(result.stopReason, 'finished');
+  assert.match(sent[1].messages.find(m => m.role === 'tool').content, /\[\d+ s of 240 s, turn 1 of 40\]$/, 'each result says the time and turns used');
   assert.ok(fs.existsSync(path.join(outDir, 'report.json')));
   assert.ok(!fs.readFileSync(path.join(outDir, 'report.json'), 'utf8').includes(KEY));
 });
@@ -380,6 +387,18 @@ test('layout scan: glued texts, overlaps and cut texts on a real page', async t 
     assert.ok(scan.issues.some(i => i.kind === 'overlap' && /Enregistrer/.test(i.a) && /Annuler/.test(i.b)), JSON.stringify(scan.issues));
     assert.ok(kinds.includes('text-cut'), JSON.stringify(scan.issues));
     assert.ok(!scan.issues.some(i => /bold/.test(i.a || '') || /bold/.test(i.b || '')), 'spaced inline text is not glued');
+    // A card pulled up over the page header and its button (a negative margin): the covered texts are reported.
+    await page.setContent('<style>.card{background:#fff;border:1px solid #ccc;padding:12px}</style>' +
+      '<div class="card"><h2>Postes</h2><p>Select a record, edit it, or create a new one.</p></div>' +
+      '<button style="margin:8px 0">Back to home</button>' +
+      '<div class="card" style="position:relative;margin-top:-110px"><h2>Liste</h2><p>Rows: 3</p><p>Poste Accueil</p></div>' +
+      '<button><span>Inside a button</span></button>');
+    const covered = await page.evaluate(agent.layoutScan);
+    const hidden = covered.issues.filter(i => i.kind === 'hidden-text').map(i => i.element);
+    assert.ok(hidden.some(e => /Select a record/.test(e)), JSON.stringify(covered.issues));
+    assert.ok(hidden.some(e => /Back to home/.test(e)), JSON.stringify(covered.issues));
+    assert.equal(covered.issues[0].kind, 'hidden-text', 'covered texts come first');
+    assert.ok(!hidden.some(e => /Inside a button|Liste|Poste Accueil/.test(e)), 'a text inside its own control or on top is not hidden');
   } finally {
     await browser.close();
   }
