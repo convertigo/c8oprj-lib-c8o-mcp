@@ -566,6 +566,12 @@ C8O.generators = C8O.generators || {};
     if (!name.length && sqlConnectors.length === 1) {
       return sqlConnectors[0];
     }
+    // The NGX starter ships a placeholder SqlConnector named void: when the project has one real connector besides
+    // it, that one is meant.
+    var real = sqlConnectors.filter(function (c) { return String(c.getName()) !== "void"; });
+    if (!name.length && real.length === 1) {
+      return real[0];
+    }
     errors.push(label + (name.length ? ": no SqlConnector named " + name : ": connector is required (the project has " +
       sqlConnectors.length + " SqlConnector)") + " in " + String(projectDbo.getName()) + ".");
     return null;

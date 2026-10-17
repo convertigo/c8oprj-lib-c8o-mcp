@@ -212,6 +212,14 @@ test('the SQL rules and the written SQL follow the database of the connector', (
   assert.match(errors[0], /limit needs orderBy on SQL Server/);
 });
 
+test('the starter void SqlConnector does not make the connector argument required', () => {
+  const world = makeWorld();
+  bean('void', 'com.twinsoft.convertigo.beans.connectors.SqlConnector', world.project);
+  const G = load(world);
+  const out = G.sqlTransactionCreate({ project: 'App', name: 'q_probe', sql: 'SELECT a AS "a" FROM t' });
+  assert.equal(out.transactions[0].qname, 'App.db.q_probe');
+});
+
 test('a structured select writes aliases and the optional, contains, list and boolean filters', () => {
   const G = load(makeWorld());
   const errors = [];
