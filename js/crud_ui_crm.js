@@ -34,7 +34,7 @@ C8O.crudUiCrm = C8O.crudUiCrm || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardSubTitle",
                   "HeaderSubtitle",
-                  ctx.scriptTextNode("HeaderSubtitleText", "(this.global?.crmStatus === 'ok') ? 'Companies, contacts, and relations are live.' : (this.global?.crmLoading ? 'Loading CRM facade...' : (this.global?.crmError || 'Preparing CRM facade state.'))")
+                  ctx.scriptTextNode("HeaderSubtitleText", "(this.global?.crmStatus === 'ok') ? 'Companies, contacts, and relations are live.' : (this.global?.crmLoading ? 'Loading CRM business sequence...' : (this.global?.crmError || 'Preparing CRM business sequence state.'))")
                 )
               ]
             }
@@ -137,7 +137,7 @@ C8O.crudUiCrm = C8O.crudUiCrm || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "ErrorTitle",
-                  ctx.plainTextNode("ErrorTitleText", "Retry live CRM facade")
+                  ctx.plainTextNode("ErrorTitleText", "Retry live CRM business sequence")
                 )
               ]
             },
@@ -544,14 +544,14 @@ C8O.crudUiCrm = C8O.crudUiCrm || {};
             className: "ngx.components.UIDynamicElement#GridCol",
             name: "CompaniesCountCol",
             children: [
-              countCardNode(ctx, "CompaniesCountCard", "Companies", "'' + ((this.global?.crmCounts || {}).companies ?? 0)", "Loaded from public facade")
+              countCardNode(ctx, "CompaniesCountCard", "Companies", "'' + ((this.global?.crmCounts || {}).companies ?? 0)", "Loaded from public business sequence")
             ]
           },
           {
             className: "ngx.components.UIDynamicElement#GridCol",
             name: "ContactsCountCol",
             children: [
-              countCardNode(ctx, "ContactsCountCard", "Contacts", "'' + ((this.global?.crmCounts || {}).contacts ?? 0)", "Loaded from public facade")
+              countCardNode(ctx, "ContactsCountCard", "Contacts", "'' + ((this.global?.crmCounts || {}).contacts ?? 0)", "Loaded from public business sequence")
             ]
           }
         ]

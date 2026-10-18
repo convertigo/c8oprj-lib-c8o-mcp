@@ -1064,13 +1064,13 @@ C8O.crudProof = C8O.crudProof || {};
     }
 
     result.checks.push(proofCheck(ctx, "transactions", !(result.transactions && result.transactions.missing && result.transactions.missing.length), (result.transactions && result.transactions.missing && result.transactions.missing.length) ? "Missing SQL transactions remain." : "", result.connectorQname));
-    result.checks.push(proofCheck(ctx, "sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing CRUD facade or auth sequences remain." : "", result.project));
+    result.checks.push(proofCheck(ctx, "sequences", !(result.sequences && result.sequences.missing && result.sequences.missing.length), (result.sequences && result.sequences.missing && result.sequences.missing.length) ? "Missing CRUD business sequence or auth sequences remain." : "", result.project));
     result.checks.push(proofCheck(ctx, "relations", !(result.relations && result.relations.missing && result.relations.missing.length), (result.relations && result.relations.missing && result.relations.missing.length) ? "Missing relation CRUD requestables remain." : "", result.project));
     result.checks.push(proofCheck(
       ctx,
       "facade-hidden-authenticated",
       !!(result.auth && result.auth.insecureFacadeSequences && !result.auth.insecureFacadeSequences.length),
-      !!(result.auth && result.auth.insecureFacadeSequences && !result.auth.insecureFacadeSequences.length) ? "" : "CRUD facade sequences must be hidden and require an authenticated context.",
+      !!(result.auth && result.auth.insecureFacadeSequences && !result.auth.insecureFacadeSequences.length) ? "" : "CRUD business sequences must be hidden and require an authenticated context.",
       result.project
     ));
     result.checks.push(proofCheck(

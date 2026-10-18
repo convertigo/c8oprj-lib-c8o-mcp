@@ -1,7 +1,7 @@
 /*
  * ngx-page-create: a list, detail, form or dashboard page built with the patterns of the "Basic presentation"
  * section of convertigo_frontend_ngx and the NGX pages of convertigo_recipe_multipage_app: page-enter event
- * with locals and a CallSequenceAction of the data facade, lost-session redirect, record and label/value
+ * with locals and a CallSequenceAction of the data business sequence, lost-session redirect, record and label/value
  * lists, KPI grid, UIForm with Form SmartSources, toast and navigation, and the AppLayout style.
  * Uses the validation and all-or-nothing helpers of js/tools_generators.js.
  */
@@ -153,7 +153,7 @@ include("js/tools_generators.js");
     return str(text).replace(/[^A-Za-z0-9]+(.)?/g, function (_m, c) { return c ? c.toUpperCase() : ""; }).replace(/^./, function (c) { return c.toUpperCase(); });
   }
 
-  // Variables of a facade sequence, to give every one of them explicitly on each call.
+  // Variables of a business sequence, to give every one of them explicitly on each call.
   function sequenceVariables(projectDbo, seqName) {
     var seq = childNamed(projectDbo, seqName);
     return seq ? variableNames(seq) : null;
@@ -236,11 +236,11 @@ include("js/tools_generators.js");
       return fallback;
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
-    ["name", "title", "kind", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "actions", "heading",
+    ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "actions", "heading",
       "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
-        spec[k] = (["name", "title", "kind", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
+        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
       }
     });
     var app = null;
@@ -264,15 +264,16 @@ include("js/tools_generators.js");
     if (["list", "detail", "form", "dashboard"].indexOf(kind) < 0) {
       errors.push("kind must be list, detail, form or dashboard.");
     }
-    var facade = str(spec.facade);
+    // sequence: the business sequence the page calls at page enter (facade is its former name).
+    var facade = str(spec.sequence) || str(spec.facade);
     var facadeVars = null;
     if (facade.length) {
       facadeVars = sequenceVariables(projectDbo, facade);
       if (facadeVars === null) {
-        errors.push("facade " + facade + " is not a sequence of " + projectName + ": create it first (facade-create).");
+        errors.push("sequence " + facade + " is not a sequence of " + projectName + ": create it first (business-sequence-create).");
       }
     } else if (kind !== "form") {
-      errors.push("facade is required for a " + kind + " page (the sequence the page calls at page enter).");
+      errors.push("sequence is required for a " + kind + " page: the business sequence the page calls at page enter.");
     }
     var params = list(spec.params).map(str);
     params.forEach(function (p) {
@@ -637,7 +638,7 @@ include("js/tools_generators.js");
       } else {
         var submitVars = sequenceVariables(projectDbo, str(form.submit));
         if (submitVars === null) {
-          errors.push("form.submit " + form.submit + " is not a sequence of " + projectName + ": create the facade first.");
+          errors.push("form.submit " + form.submit + " is not a sequence of " + projectName + ": create the business sequence first.");
           submitVars = [];
         }
         var identifier = lowerFirst(name).replace(/Form$/, "") + "Form";

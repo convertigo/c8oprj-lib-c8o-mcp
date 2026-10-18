@@ -1,6 +1,6 @@
 /*
  * SQL dialect of a SqlConnector, for the rules and the SQL the MCP tools write (project-lint, tree-apply warnings,
- * sql-transaction-create, facade-create). What breaks depends on the database:
+ * sql-transaction-create, business-sequence-create). What breaks depends on the database:
  * - a bare number added to a date: HSQLDB refuses it, MariaDB/MySQL silently turns the date into a number,
  *   PostgreSQL accepts it on a date (days) but not on a timestamp, Oracle and SQL Server count days;
  * - unquoted aliases: HSQLDB and Oracle upper-case them, PostgreSQL lower-cases them, MariaDB/MySQL and SQL Server

@@ -133,7 +133,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
       ],
       {
         noLoading: true,
-        comment: "Establish the generated authenticated context before CRUD facade calls."
+        comment: "Establish the generated authenticated context before CRUD business sequence calls."
       }
     );
   }

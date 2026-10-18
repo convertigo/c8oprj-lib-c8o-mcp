@@ -1,5 +1,5 @@
 /*
- * High-level generators: sql-transaction-create and facade-create (ngx-page-create is in js/tools_generators_ngx.js).
+ * High-level generators: sql-transaction-create and business-sequence-create (ngx-page-create is in js/tools_generators_ngx.js).
  * Most of a Convertigo business app follows the fixed patterns of convertigo_recipe_multipage_app,
  * convertigo_backend_sequences, convertigo_integration_sql and the "Basic presentation" section of
  * convertigo_frontend_ngx. These tools build those objects from a short spec in one call, with the
@@ -412,7 +412,7 @@ C8O.generators = C8O.generators || {};
       if (bad.length) {
         var folding = D.aliasFolding(dialect);
         errors.push("every selected column needs a quoted camelCase alias (" + (folding ? (D.name(dialect) || "the database") + " " + folding +
-          " unquoted names in sql_output" : "the facade reads camelCase keys") + "): " + bad.join("; ") + ".");
+          " unquoted names in sql_output" : "the business sequence reads camelCase keys") + "): " + bad.join("; ") + ".");
       }
     }
     return { errors: errors, warnings: warnings, statements: statements.length };
@@ -472,7 +472,7 @@ C8O.generators = C8O.generators || {};
       if (isObj(sel.columns)) {
         Object.keys(sel.columns).forEach(function (alias) {
           if (!CAMEL.test(alias)) {
-            errors.push(label + ".select.columns key " + alias + " must be camelCase (it is the key the facade reads).");
+            errors.push(label + ".select.columns key " + alias + " must be camelCase (it is the key the business sequence reads).");
           }
           cols.push(str(sel.columns[alias]) + " AS \"" + alias + "\"");
         });
@@ -742,11 +742,11 @@ C8O.generators = C8O.generators || {};
       created: session.created,
       saved: finish.saved,
       warnings: warnings.concat(session.warnings),
-      next: "Prove each transaction with requestable-execute (" + out.map(function (t) { return t.qname; }).join(", ") + ") before wiring it in a facade."
+      next: "Prove each transaction with requestable-execute (" + out.map(function (t) { return t.qname; }).join(", ") + ") before wiring it in a business sequence."
     };
   };
 
-  // --- facade ------------------------------------------------------------------------------------
+  // --- business sequence ---------------------------------------------------------------------------
 
   var FACADE_ERRORS = {
     unauthenticated: { code: "UNAUTHENTICATED", message: "Session missing or account inactive." },
@@ -778,9 +778,9 @@ C8O.generators = C8O.generators || {};
     return node;
   }
 
-  // Generated once in init when a facade calls more than SQL transactions. A transaction or a sequence answers a document:
+  // Generated once in init when a business sequence calls more than SQL transactions. A transaction or a sequence answers a document:
   // its error element (engine error, failed step), an HTTP status >= 400 in HttpInfo, or success false (a sequence that
-  // answers the facade contract) mark a failure; the data is the document without attr, error and HttpInfo, and the
+  // answers the business sequence contract) mark a failure; the data is the document without attr, error and HttpInfo, and the
   // array or object of a JSON HTTP transaction is unwrapped.
   var CALL_HELPERS = [
     "function facadeFailure(d, source, infoTag) {",
@@ -1041,10 +1041,10 @@ C8O.generators = C8O.generators || {};
       plan.withDefault = dbo ? variablesWithDefault(dbo) : [];
       plan.source = dbo ? sourceOf(dbo) : "sql";
       if (dbo && plan.source === "http") {
-        // Without HttpInfo a 4xx/5xx answer or a lost connection leaves an ordinary document: the facade could not tell it from data.
+        // Without HttpInfo a 4xx/5xx answer or a lost connection leaves an ordinary document: the business sequence could not tell it from data.
         if (dbo.getHttpInfo && dbo.getHttpInfo() != true) {
           errors.push(label + ": " + plan.qname + " has httpInfo off, so a 4xx/5xx answer or a lost connection would look like data. Turn it on first: " +
-            "databaseobject-tree-apply({target:\"" + plan.qname + "\", tree:{properties:{httpInfo:true}}}) (the facade then checks the status; " +
+            "databaseobject-tree-apply({target:\"" + plan.qname + "\", tree:{properties:{httpInfo:true}}}) (the business sequence then checks the status; " +
             "HttpInfo never reaches ctx.reads).");
         }
         plan.httpInfoTag = dbo.getHttpInfoTagName ? str(dbo.getHttpInfoTagName()) || "HttpInfo" : "HttpInfo";
@@ -1054,7 +1054,7 @@ C8O.generators = C8O.generators || {};
     var called = sequence.length ? sequence : transaction;
     plan.variables.forEach(function (v) {
       if (plan.source !== "sql" && !IDENT.test(v)) {
-        errors.push(label + ": variable " + v + " of " + called + " is not a JavaScript identifier, so the facade cannot set it; call it from a sequence of yours instead.");
+        errors.push(label + ": variable " + v + " of " + called + " is not a JavaScript identifier, so the business sequence cannot set it; call it from a sequence of yours instead.");
       }
     });
     if (entry.vars !== undefined) {
@@ -1071,8 +1071,8 @@ C8O.generators = C8O.generators || {};
     return plan;
   }
 
-  G.facadeCreate = function (args) {
-    var tool = "facade-create";
+  G.businessSequenceCreate = function (args) {
+    var tool = "business-sequence-create";
     var projectDbo = projectOf(args.project, tool);
     var projectName = String(projectDbo.getName());
     var errors = [];
@@ -1089,7 +1089,7 @@ C8O.generators = C8O.generators || {};
       script = "js/" + script;
     }
     var logic = str(args.logic);
-    // A logout facade needs no business rule: without logic it just succeeds, then ends the session.
+    // A logout business sequence needs no business rule: without logic it just succeeds, then ends the session.
     var logoutOnly = !logic && (function () {
       try {
         var s = isObj(args.session) ? args.session : JSON.parse(String(args.session));
@@ -1117,7 +1117,7 @@ C8O.generators = C8O.generators || {};
       // no logic to check
     } else if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(logic)) {
       errors.push("logic must be the JS function to call, for example App.orderList (defined in " + script + ")" +
-        (logic ? "" : "; only a logout facade (session:{logout:true}) may leave it out") + ".");
+        (logic ? "" : "; only a logout business sequence (session:{logout:true}) may leave it out") + ".");
     } else if (content !== null && content.indexOf(logic.split(".").pop()) < 0) {
       errors.push("logic " + logic + " is not found in " + script + ": add the function first. It receives ctx = {me, input, reads, today} and returns " +
         "{success, data, errors, meta} (optionally writes: {<write name>: row or [rows]}).");
@@ -1194,7 +1194,7 @@ C8O.generators = C8O.generators || {};
           errors.push(p.label + ".perimeter.mode must be filter (drop out-of-perimeter rows) or deny (refuse the call).");
         }
         if (!authRequired) {
-          errors.push(p.label + ".perimeter needs an authenticated facade (auth is off).");
+          errors.push(p.label + ".perimeter needs an authenticated business sequence (auth is off).");
         }
       }
     });
@@ -1215,7 +1215,7 @@ C8O.generators = C8O.generators || {};
           errors.push("session.login must be a JavaScript expression (it sees resp, me, input, reads), for example resp.data.email.");
         }
         if (authRequired) {
-          errors.push("session.login opens the session, so the facade must be callable without one: add auth:false.");
+          errors.push("session.login opens the session, so the business sequence must be callable without one: add auth:false.");
         }
       }
     }
@@ -1258,7 +1258,7 @@ C8O.generators = C8O.generators || {};
       init.push("var sessionEmail = String(context.getAuthenticatedUser() || \"\");");
       init.push("var " + emailVar + " = sessionEmail;");
     }
-    steps.push(simple("init", init.join("\n"), "Generated by facade-create: include, inputs, session user."));
+    steps.push(simple("init", init.join("\n"), "Generated by business-sequence-create: include, inputs, session user."));
     if (authRequired) {
       steps.push(callStep("callMe", userPlan));
       var authCode = [];
@@ -1400,7 +1400,7 @@ C8O.generators = C8O.generators || {};
     if (sessionLogout) {
       // Last: no step runs after RemoveSessionStep. The outputs are already written.
       steps.push({ className: "steps.IfStep", name: "ifLogout", properties: { condition: "resp && resp.success === true" }, children: [
-        simple("logout", "context.removeAuthenticatedUser();", "Ends the session: the client calls this facade with __disableAutologin=true."),
+        simple("logout", "context.removeAuthenticatedUser();", "Ends the session: the client calls this business sequence with __disableAutologin=true."),
         { className: "steps.RemoveSessionStep", name: "endSession" }
       ] });
     }
@@ -1412,10 +1412,10 @@ C8O.generators = C8O.generators || {};
       steps.push({ className: "variables.RequestableVariable", name: str(input.name), properties: props });
     });
     var seqProps = { accessibility: accessibility, authenticatedContextRequired: authRequired,
-      comment: str(args.comment) || ("Facade " + name + ": " + (authRequired ? (roles.length ? "roles " + roles.join(", ") : "any signed-in user") : "anonymous") +
+      comment: str(args.comment) || ("Business sequence " + name + ": " + (authRequired ? (roles.length ? "roles " + roles.join(", ") : "any signed-in user") : "anonymous") +
         (reads.length ? "; reads " + reads.map(function (p) { return p.name; }).join(", ") : "") +
         (writes.length ? "; writes " + writes.map(function (p) { return p.name; }).join(", ") : "") +
-        (logoutOnly ? "; ends the session" : "; logic " + logic) + ". Generated by facade-create.") };
+        (logoutOnly ? "; ends the session" : "; logic " + logic) + ". Generated by business-sequence-create.") };
 
     var session = new Session(tool, projectDbo);
     var transactions = [];
@@ -1451,7 +1451,7 @@ C8O.generators = C8O.generators || {};
       contract: {
         inputs: inputNames,
         response: "{success, data, errors:[{code, message, field}], meta} (four JsonToXmlStep, top-level keys; pages read out?.success and out?.data)",
-        logic: logoutOnly ? "none: a logout facade succeeds, then ends the session" : logic + "(ctx) with ctx = {me, input: {" + inputNames.join(", ") + "}, reads: {" + reads.map(function (r) { return r.name + ": " + (r.source === "sql" ? "[rows]" : r.source === "sequence" ? "JSON of " +
+        logic: logoutOnly ? "none: a logout business sequence succeeds, then ends the session" : logic + "(ctx) with ctx = {me, input: {" + inputNames.join(", ") + "}, reads: {" + reads.map(function (r) { return r.name + ": " + (r.source === "sql" ? "[rows]" : r.source === "sequence" ? "JSON of " +
           r.qname + (str(r.entry.path).length ? " at " + str(r.entry.path) : "") : "JSON body of " + r.qname + (str(r.entry.path).length ? " at " +
           str(r.entry.path) : "")); }).join(", ") +
           "}, today}; return {success, data, errors, meta" + (writes.length ? ", writes: {" + writes.map(function (w) { return w.name + ": row or [rows] with " +
@@ -1468,6 +1468,8 @@ C8O.generators = C8O.generators || {};
         : "requestable-execute({requestable:\"" + projectName + "." + name + "\", variables:{...}})."
     };
   };
+  // Former name of the generator, kept for callers of facade-create.
+  G.facadeCreate = G.businessSequenceCreate;
 
   // Shared with js/tools_generators_ngx.js.
   G._ = { str: str, isObj: isObj, parseJson: parseJson, bool: bool, list: list, IDENT: IDENT, CAMEL: CAMEL, jsString: jsString,

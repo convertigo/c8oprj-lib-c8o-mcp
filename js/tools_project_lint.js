@@ -321,7 +321,7 @@
         }
       }
       if (writes.length && !/\.error\b|document\.error|\berror\b/.test(expressions.join("\n"))) {
-        add("SEQ-WRITE-UNCHECKED", "warning", writes[0], "The sequence writes through " + writes.length + " TransactionStep(s) and never reads an error: a failing write does not stop the sequence, and the facade still answers success.",
+        add("SEQ-WRITE-UNCHECKED", "warning", writes[0], "The sequence writes through " + writes.length + " TransactionStep(s) and never reads an error: a failing write does not stop the sequence, and the business sequence still answers success.",
           "Source the write step's ./document and test document.error before counting the write.");
       }
     }

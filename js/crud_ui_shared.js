@@ -48,7 +48,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardSubTitle",
                   "CrudPageHeaderSubtitleSlot",
-                  ctx.scriptTextNode("SubtitleText", "this.Subtitle || (this.global?.crudStatus === 'ok' ? 'Public facade data is live.' : (this.global?.crudLoading ? 'Loading public facade...' : (this.global?.crudError || 'Preparing public facade state.')))")
+                  ctx.scriptTextNode("SubtitleText", "this.Subtitle || (this.global?.crudStatus === 'ok' ? 'Public business sequence data is live.' : (this.global?.crudLoading ? 'Loading public business sequence...' : (this.global?.crudError || 'Preparing public business sequence state.')))")
                 )
               ]
             }
@@ -111,7 +111,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
       children: [
         ctx.compVariableNode("Title", "'Title'"),
         ctx.compVariableNode("EntityKey", "'items'"),
-        ctx.compVariableNode("Caption", "'Loaded from public facade'"),
+        ctx.compVariableNode("Caption", "'Loaded from public business sequence'"),
         {
           className: "ngx.components.UIDynamicElement#Card",
           name: "DashboardCard",
@@ -132,7 +132,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
               name: "DashboardContent",
               children: [
                 ctx.scriptTextNode("ValueText", "'' + (" + ctx.dashboardCountExpression("this.EntityKey") + ")"),
-                ctx.scriptTextNode("CaptionText", "this.Caption || (this.global?.crudLoading ? 'Loading public facade...' : (this.global?.crudError || 'Loaded from public facade'))")
+                ctx.scriptTextNode("CaptionText", "this.Caption || (this.global?.crudLoading ? 'Loading public business sequence...' : (this.global?.crudError || 'Loaded from public business sequence'))")
               ]
             }
           ]
@@ -157,7 +157,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "LoadingContent",
               children: [
-                ctx.scriptTextNode("LoadingText", "this.global?.crudLoading ? 'Loading public facade rows...' : ('State: ' + (this.global?.crudStatus ?? 'idle'))")
+                ctx.scriptTextNode("LoadingText", "this.global?.crudLoading ? 'Loading public business sequence rows...' : ('State: ' + (this.global?.crudStatus ?? 'idle'))")
               ]
             }
           ]
@@ -191,7 +191,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
                 ctx.textElementNode(
                   "ngx.components.UIDynamicElement#CardTitle",
                   "ErrorTitle",
-                  ctx.plainTextNode("ErrorTitleText", "Retry public facade")
+                  ctx.plainTextNode("ErrorTitleText", "Retry public business sequence")
                 )
               ]
             },
@@ -199,7 +199,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "ErrorContent",
               children: [
-                ctx.scriptTextNode("ErrorText", "this.global?.crudError || 'Retry if one public facade call fails.'"),
+                ctx.scriptTextNode("ErrorText", "this.global?.crudError || 'Retry if one public business sequence call fails.'"),
                 {
                   className: "ngx.components.UIDynamicElement#Button",
                   name: "RetryButton",
@@ -410,7 +410,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: componentName + "Content",
               children: [
-                ctx.scriptTextNode("HelperText", "'Facade rows available: ' + (" + ctx.dashboardCountExpression("this.EntityKey") + ") + ' for ' + (this.EntityKey || 'entity')"),
+                ctx.scriptTextNode("HelperText", "'Business sequence rows available: ' + (" + ctx.dashboardCountExpression("this.EntityKey") + ") + ' for ' + (this.EntityKey || 'entity')"),
                 ctx.scriptTextNode("SampleText", "'Sample live value: ' + (" + ctx.dynamicFieldAccessExpression(ctx.dashboardSampleExpression("this.EntityKey"), "this.SecondaryField", ctx.scriptLiteral("n/a")) + ")"),
                 {
                   className: "ngx.components.UIDynamicElement#Button",
@@ -483,7 +483,7 @@ C8O.crudUiShared = C8O.crudUiShared || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "ErrorContent",
               children: [
-                ctx.scriptTextNode("ErrorText", "this.global?.crudError || 'Retry if one facade call fails.'"),
+                ctx.scriptTextNode("ErrorText", "this.global?.crudError || 'Retry if one business sequence call fails.'"),
                 ctx.entityPagesButtonNode(
                   "RetryButton",
                   "Retry",

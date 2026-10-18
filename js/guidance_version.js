@@ -172,6 +172,7 @@ C8O.guidance = C8O.guidance || {};
       "databaseobject-move": true,
       "databaseobject-rename": true,
       "databaseobject-tree-apply": true,
+      "business-sequence-create": true,
       "facade-create": true,
       "marketplace-import": true,
       "ngx-page-create": true,

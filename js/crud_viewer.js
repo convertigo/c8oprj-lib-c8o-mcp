@@ -205,8 +205,8 @@ C8O.crudViewer = C8O.crudViewer || {};
     if (!markers.length) {
       markers = [
         "crudFacadeRequestables",
-        "Open an entity page to edit live facade data.",
-        "workspace to browse and edit live facade data."
+        "Open an entity page to edit live business sequence data.",
+        "workspace to browse and edit live business sequence data."
       ];
     }
     return markers;
@@ -391,8 +391,8 @@ C8O.crudViewer = C8O.crudViewer || {};
       var bundleTextJoined = bundleSources.join("\n");
       var markers = viewerBundleMarkers(ctx, projectName, facadePrefix, hasCrmRelation, sequenceQNames);
       var fallbackShellMarkers = [
-        "Open an entity page to edit live facade data.",
-        "workspace to browse and edit live facade data."
+        "Open an entity page to edit live business sequence data.",
+        "workspace to browse and edit live business sequence data."
       ];
       var fallbackShellFound = false;
       for (var shellIndex = 0; shellIndex < fallbackShellMarkers.length; shellIndex++) {

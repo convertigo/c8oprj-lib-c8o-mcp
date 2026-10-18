@@ -461,6 +461,11 @@ if (methodName === "initialize") {
       }
     }
   }
+  // Former tool names still answer: facade-create became business-sequence-create.
+  var RENAMED_TOOL_SEQUENCES = { tools_facade_create: "tools_business_sequence_create" };
+  if (!mappingError && RENAMED_TOOL_SEQUENCES[targetSequence]) {
+    targetSequence = RENAMED_TOOL_SEQUENCES[targetSequence];
+  }
   if (!mappingError) {
     if (String(toolNameRaw || "").trim().toLowerCase() === "requestable-execute") {
       var nestedRequestable = toolArgs && toolArgs.requestable != null ? String(toolArgs.requestable).trim() : "";

@@ -29,7 +29,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       ],
       {
         noLoading: true,
-        comment: "Establish the generated authenticated context before CRUD facade calls."
+        comment: "Establish the generated authenticated context before CRUD business sequence calls."
       }
     );
   }
@@ -526,7 +526,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
             }
           )
         ],
-        "Ensure a generated authenticated session exists before CRUD facade calls."
+        "Ensure a generated authenticated session exists before CRUD business sequence calls."
       )
     );
     qnames.push(bootstrapQName);

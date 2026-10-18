@@ -5,7 +5,7 @@ comment: |
 ↓Include [steps.SimpleStep-1792270100034]: 
   expression: include("js/tools_generators_ngx.js");
 ↓Run [steps.SimpleStep-1792270100035]: 
-  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home, comment: comment});'
+  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, sequence: sequence, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home, comment: comment});'
 ↓result [steps.JsonToXmlStep-1792270100036]: 
   jsonObject: 
     - xmlizable: 
@@ -35,9 +35,13 @@ comment: |
   comment: 'list, detail, form or dashboard.'
   description: 'list, detail, form or dashboard.'
   value: ''
+↓sequence [variables.RequestableVariable-1792319900001]: 
+  comment: 'Business sequence called at page enter.'
+  description: 'Business sequence called at page enter.'
+  value: ''
 ↓facade [variables.RequestableVariable-1792270100041]: 
-  comment: 'Data facade called at page enter.'
-  description: 'Data facade called at page enter.'
+  comment: 'Former name of sequence.'
+  description: 'Former name of sequence.'
   value: ''
 ↓params [variables.RequestableVariable-1792270100042]: 
   comment: 'navParams data keys copied into locals at page enter.'

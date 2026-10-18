@@ -1555,7 +1555,7 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
     throw new Error('Property "' + plainName + '" is a plain text, not a SmartType: {mode, expression} would be stored as "[object Object]". Give a text.' +
       (plainName === "value"
         ? " A variable's value is sent as is. For a JavaScript expression on a StepVariable, leave value empty and set the JS variable of the same name " +
-          "in a SimpleStep before the call (facade-create: reads[i].vars / writes[i].vars), or give the variable a sourceDefinition."
+          "in a SimpleStep before the call (business-sequence-create: reads[i].vars / writes[i].vars), or give the variable a sourceDefinition."
         : ""));
   }
 

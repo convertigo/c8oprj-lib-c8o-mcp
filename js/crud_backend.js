@@ -94,7 +94,7 @@ C8O.crudBackend = C8O.crudBackend || {};
   function sequenceComment(ctx, options) {
     var current = options || {};
     if (current.kind === "relation" && current.relation && current.entity) {
-      return "Facade exposing the relation list for " + entityLabel(ctx, current.entity) + " by " + current.relation.fromField + ".";
+      return "Business sequence exposing the relation list for " + entityLabel(ctx, current.entity) + " by " + current.relation.fromField + ".";
     }
     if (current.kind !== "crud" || !current.entity) {
       return "";
@@ -102,17 +102,17 @@ C8O.crudBackend = C8O.crudBackend || {};
     var label = entityLabel(ctx, current.entity);
     switch (current.verb) {
       case "list":
-        return "Facade listing " + label + ".";
+        return "Business sequence listing " + label + ".";
       case "count":
-        return "Facade counting " + label + ".";
+        return "Business sequence counting " + label + ".";
       case "read":
-        return "Facade reading one " + current.entity.singular + " by primary key.";
+        return "Business sequence reading one " + current.entity.singular + " by primary key.";
       case "create":
-        return "Facade creating one " + current.entity.singular + ".";
+        return "Business sequence creating one " + current.entity.singular + ".";
       case "update":
-        return "Facade updating one " + current.entity.singular + ".";
+        return "Business sequence updating one " + current.entity.singular + ".";
       case "delete":
-        return "Facade deleting one " + current.entity.singular + ".";
+        return "Business sequence deleting one " + current.entity.singular + ".";
       default:
         return "";
     }
@@ -1452,7 +1452,7 @@ C8O.crudBackend = C8O.crudBackend || {};
         requestable: spec.project + "." + spec.database.connector + ".list_company_contacts",
         status: "pending",
         ok: true,
-        message: "Relation facade created. Runtime relation proof happens in crud-proof."
+        message: "Relation business sequence created. Runtime relation proof happens in crud-proof."
       };
     }
     if (relations.length) {

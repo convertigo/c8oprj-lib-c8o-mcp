@@ -1,11 +1,11 @@
 accessibility: Private
 comment: |
-  Create a facade sequence with the multi-page recipe contract
-  Creates a facade sequence from a short description: init (include, inputs, session user), user read and role check, the reads with perimeter checks, a logic step calling a function of js/app.js, guarded writes, and the four JsonToXmlStep outputs success, data, errors, meta. Reads and writes call a transaction of any connector (SQL, HTTP/REST, other), a sequence of the project or of a referenced library, or a new SqlTransaction; a failed call (document.error, HTTP status >= 400, success false) answers READ_FAILED or WRITE_FAILED. session:{login} opens the session (login facade), session:{logout:true} ends it. All or nothing.
+  Create a business sequence with the multi-page recipe contract
+  Creates a business sequence (the sequence a page calls: session and role checks, reads, business rule, writes, {success, data, errors, meta}) from a short description: init (include, inputs, session user), user read and role check, the reads with perimeter checks, a logic step calling a function of js/app.js, guarded writes, and the four JsonToXmlStep outputs success, data, errors, meta. Reads and writes call a transaction of any connector (SQL, HTTP/REST, other), a sequence of the project or of a referenced library, or a new SqlTransaction; a failed call (document.error, HTTP status >= 400, success false) answers READ_FAILED or WRITE_FAILED. session:{login} opens the session (login facade), session:{logout:true} ends it. All or nothing.
 ↓Include [steps.SimpleStep-1792270100018]: 
   expression: include("js/tools_generators.js");
 ↓Run [steps.SimpleStep-1792270100019]: 
-  expression: 'var generatorResult = C8O.generators.facadeCreate({project: project, name: name, connector: connector, script: script, logic: logic, inputs: inputs, auth: auth, roles: roles, reads: reads, writes: writes, errors: errors, session: session, accessibility: accessibility, comment: comment});'
+  expression: 'var generatorResult = C8O.generators.businessSequenceCreate({project: project, name: name, connector: connector, script: script, logic: logic, inputs: inputs, auth: auth, roles: roles, reads: reads, writes: writes, errors: errors, session: session, accessibility: accessibility, comment: comment});'
 ↓result [steps.JsonToXmlStep-1792270100020]: 
   jsonObject: 
     - xmlizable: 

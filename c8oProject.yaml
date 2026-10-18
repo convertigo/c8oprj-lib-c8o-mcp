@@ -45,6 +45,7 @@
   ↓nocode_validate_token [sequences.GenericSequence]: 🗏 sequences/nocode_validate_token.yaml
   ↓tools_batch_call [sequences.GenericSequence]: 🗏 sequences/tools_batch_call.yaml
   ↓tools_browser_verify [sequences.GenericSequence]: 🗏 sequences/tools_browser_verify.yaml
+  ↓tools_business_sequence_create [sequences.GenericSequence]: 🗏 sequences/tools_business_sequence_create.yaml
   ↓tools_crud_proof [sequences.GenericSequence]: 🗏 sequences/tools_crud_proof.yaml
   ↓tools_crud_status [sequences.GenericSequence]: 🗏 sequences/tools_crud_status.yaml
   ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml
@@ -54,7 +55,6 @@
   ↓tools_databaseobject_search [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_search.yaml
   ↓tools_databaseobject_tree_apply [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_apply.yaml
   ↓tools_databaseobject_tree_get [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_tree_get.yaml
-  ↓tools_facade_create [sequences.GenericSequence]: 🗏 sequences/tools_facade_create.yaml
   ↓tools_image_describe [sequences.GenericSequence]: 🗏 sequences/tools_image_describe.yaml
   ↓tools_log_view [sequences.GenericSequence]: 🗏 sequences/tools_log_view.yaml
   ↓tools_marketplace_describe [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_describe.yaml
