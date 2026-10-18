@@ -135,13 +135,60 @@ function buildNodeMeta(dbo, depth) {
   return meta;
 }
 
+// Long values (an app's scriptContent or styles, a page template) made answers that agents refuse:
+// 115 000 characters for one NgxApp node (run 9a). A value over maxValueLength is cut in the middle,
+// with a marker that tree-apply refuses to write back; cutProperties gives the full lengths, and
+// maxValueLength=0 on that node returns the values whole.
+var TREE_GET_CUT_MARKER = "characters cut by databaseobject-tree-get";
+
+function normalizeMaxValueLength() {
+  var fallback = childrenDepthValue === 0 ? 20000 : 2000;
+  if (typeof maxValueLength === "undefined" || maxValueLength === null || !String(maxValueLength).trim().length) {
+    return fallback;
+  }
+  return parseIntBounded(maxValueLength, fallback, 0, 100000000);
+}
+
+var maxValueLengthValue = normalizeMaxValueLength();
+
+function cutLongValues(value, path, cut) {
+  if (typeof value === "string" || value instanceof java.lang.String) {
+    var text = String(value);
+    if (maxValueLengthValue > 0 && text.length > maxValueLengthValue) {
+      var keep = Math.floor(maxValueLengthValue / 2);
+      cut[path] = text.length;
+      return text.substring(0, keep) + "\n... [" + (text.length - 2 * keep) + " " + TREE_GET_CUT_MARKER +
+        "; call it on this node with maxValueLength=0 for the whole value] ...\n" + text.substring(text.length - keep);
+    }
+    return value;
+  }
+  // Only plain JS objects and arrays: a Java object's for-in would list its methods.
+  if (value && (Array.isArray(value) || Object.prototype.toString.call(value) === "[object Object]")) {
+    for (var key in value) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        value[key] = cutLongValues(value[key], path + "." + key, cut);
+      }
+    }
+  }
+  return value;
+}
+
 function applyPropertiesIfNeeded(node, dbo) {
   if (!includePropertiesFlag) {
     return;
   }
   var map = C8O.dbo.getCanonicalPropertiesMap(dbo, propertiesMode, { includeReadOnly: false });
   if (map && Object.keys(map).length > 0) {
+    var cut = {};
+    for (var name in map) {
+      if (Object.prototype.hasOwnProperty.call(map, name)) {
+        map[name] = cutLongValues(map[name], name, cut);
+      }
+    }
     node.properties = map;
+    if (Object.keys(cut).length) {
+      node.cutProperties = cut;
+    }
   }
 }
 

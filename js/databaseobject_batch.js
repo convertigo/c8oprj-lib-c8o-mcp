@@ -1193,6 +1193,17 @@ include("js/sql_dialect.js");
         }
         continue;
       }
+      // A value tree-get cut in the middle is not the property's value: writing it back would lose the cut part.
+      var updateText = "";
+      try {
+        updateText = JSON.stringify(updates[rawName]) || "";
+      } catch (_ignoreStringify) {}
+      if (updateText.indexOf("characters cut by databaseobject-tree-get") !== -1) {
+        report.errors.push(makeOpError("set_properties_error",
+          scopeName + ": property '" + rawName + "' holds a value that databaseobject-tree-get cut in the middle. Read the node with maxValueLength=0 and write the whole value.",
+          "parse_properties", "", safeQName(dbo)));
+        continue;
+      }
       filteredUpdates[rawName] = updates[rawName];
     }
 

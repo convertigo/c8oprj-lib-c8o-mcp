@@ -231,6 +231,9 @@ comment: |
   comment: Descendant levels to include. 0 returns only the target; default 1; max 20.
   description: Descendant levels to include. 0 returns only the target; default 1; max 20.
   value: 1
+↓maxValueLength [variables.RequestableVariable-1792360000001]: 
+  comment: Longest property value returned whole; a longer one is cut in the middle and listed in cutProperties. Default 2000, or 20000 when childrenDepth is 0; 0 returns every value whole.
+  description: Longest property value returned whole; a longer one is cut in the middle and listed in cutProperties. Default 2000, or 20000 when childrenDepth is 0; 0 returns every value whole.
 ↓_nextCursor [variables.RequestableVariable-1772627662380]: 
   comment: Opaque cursor from a previous response. Internal pagination token.
   description: Opaque cursor from a previous response. Internal pagination token.

@@ -210,6 +210,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: 200,
           description: "Maximum nodes returned per call. 1 to 5000; default 200."
         },
+        maxValueLength: {
+          type: "integer",
+          minimum: 0,
+          description: "Longest property value returned whole; a longer one is cut in the middle and listed in the node's cutProperties. Default 2000, or 20000 when childrenDepth is 0; 0 returns every value whole."
+        },
         _nextCursor: {
           type: "string",
           description: "Opaque cursor from a previous response. Internal pagination token."
@@ -1494,6 +1499,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       priority: { type: "string" },
       partial: { type: "boolean" },
       properties: openObjectSchema({}),
+      cutProperties: openObjectSchema({}),
       children: {
         type: "array",
         items: openObjectSchema({})
