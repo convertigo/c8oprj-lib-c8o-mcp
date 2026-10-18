@@ -288,6 +288,9 @@ include("js/tools_generators.js");
     var authRedirect = str(spec.authRedirect);
     var used = {};
     var classesUsed = { ".app-page": 1, ".app-error": 1 };
+    // pageWillEnter sets these locals while Angular checks the page that the menu or a link opens: a binding whose value
+    // changes then (undefined -> null) throws NG0100 in dev on every generated page (run 9a). The conditions are written so
+    // that the first render already reads the values set here: !!local?.error, and an unset loading counts as loading.
     var locals = { data: "null", error: "null", loading: "true" };
     params.forEach(function (p) {
       locals[p] = "c8oPage.navParams?.data?." + p + " != null ? '' + c8oPage.navParams.data." + p + " : ''";
@@ -457,7 +460,7 @@ include("js/tools_generators.js");
       classesUsed[".app-empty"] = 1;
       var empty = textOr(spec2.empty, "No record.", label + ".empty");
       var blocks = [
-        ifDirective(prefix + "IfEmpty", "!local?.loading && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])]),
+        ifDirective(prefix + "IfEmpty", "local?.loading === false && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])]),
         nx("List", prefix + "List", {}, [forEach(prefix + "ForEach", itemsPath, item, [nx("ListItem", "Row", itemProps, rowChildren)])])
       ];
       if (selectSpec) {
@@ -594,7 +597,7 @@ include("js/tools_generators.js");
           controlEvent("EventonClick", "onClick", [dataCall("Reload", 0)])]));
         content.push(nx("DivTag", "Filters", {}, [cls("app-filters")].concat(filterNodes)));
       }
-      content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
+      content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
       if (listSpec) {
         content = content.concat(recordList("Rec", listSpec, "list"));
       }
@@ -602,11 +605,11 @@ include("js/tools_generators.js");
       var detail = isObj(spec.detail) ? spec.detail : null;
       if (!detail && !facade.length) {
         // A page without data (login with demo buttons, home): header, heading and actions, and the error of an action.
-        content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
+        content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
       } else if (!detail) {
         errors.push("detail is required for a detail page with a sequence: {record?, fields:[{label, field}]}.");
       } else {
-        content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
+        content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         var base = "data" + (str(detail.record).length ? "." + str(detail.record) : "");
         var lv = labelValueList("Fields", detail.fields, base, "detail.fields");
         if (lv) {
@@ -618,7 +621,7 @@ include("js/tools_generators.js");
       if (!dash) {
         errors.push("dashboard is required for a dashboard page: {kpis:[{label, field}], sections?:[{title, items, title...}]}.");
       } else {
-        content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
+        content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         var kpis = list(dash.kpis);
         if (kpis.length) {
           classesUsed[".app-kpis"] = classesUsed[".app-kpi"] = classesUsed[".app-kpi-value"] = classesUsed[".app-kpi-label"] = 1;
@@ -738,7 +741,7 @@ include("js/tools_generators.js");
             controlEvent("EventonClick", "onClick", [navAction("Back", isObj(form.cancel) ? form.cancel : { kind: "pop" })])]));
         }
         formChildren.push(nx("SubmitButton", "BtnSubmit", { IonColor: { mode: "PLAIN", value: "primary" } }, [txt(textOr(form.submitLabel, "Save", "form.submitLabel"))]));
-        content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
+        content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         content.push({ className: "ngx.components.UIForm#UIForm", name: "Form", properties: { identifier: identifier }, children: formChildren });
         var success = isObj(form.success) ? form.success : {};
         if (str(success.page).length && !childNamed(app, str(success.page))) {
