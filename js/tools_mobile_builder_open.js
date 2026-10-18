@@ -339,7 +339,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 "var appRoot=document.querySelector('app-root');" +
                 "var appRootChildCount=appRoot&&appRoot.childElementCount?Number(appRoot.childElementCount):0;" +
                 "var overlayText='';" +
-                "try{overlayText=viteOverlay&&viteOverlay.shadowRoot?String(viteOverlay.shadowRoot.textContent||''):'';}catch(overlayError){}" +
+                // The overlay's shadow root holds its <style>: its whole textContent added about 2 000 tokens of CSS
+                // to the compile error (run 9a). Read the error window only, or every node but the styles.
+                "try{if(viteOverlay&&viteOverlay.shadowRoot){var win=viteOverlay.shadowRoot.querySelector('.window');" +
+                  "if(win){overlayText=String(win.innerText||win.textContent||'');}else{var parts=[];var nodes=viteOverlay.shadowRoot.childNodes;" +
+                  "for(var n=0;n<nodes.length;n++){if(nodes[n].nodeName!=='STYLE'){parts.push(String(nodes[n].textContent||''));}}overlayText=parts.join(' ');}}}catch(overlayError){}" +
                 "var diagnosticText=overlayText||preText;" +
                 "if(!diagnosticText&&(/\\b(?:NG|TS)[0-9]{4}\\b|\\[ERROR\\]|application bundle generation failed|failed to compile|plugin angular-compiler/i).test(bodyText)){diagnosticText=bodyText.substring(0,4000);}" +
                 "var progress=0;" +
