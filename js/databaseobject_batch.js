@@ -853,6 +853,7 @@ include("js/sql_dialect.js");
     declareSqlVariables(ctx, dbo, node, report);
     warnQuotedSqlVariables(dbo, node, report);
     warnAdjacentTexts(dbo, node, report);
+    warnNonBooleanCondition(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
     warnI18nKeyText(dbo, node, report);
   }
@@ -939,6 +940,91 @@ include("js/sql_dialect.js");
 
   // '{x}%' puts a bound parameter inside a SQL string literal: the driver then sees fewer parameters
   // than Convertigo binds and every call fails with "parameter index out of range".
+  // The condition of an IfStep, IfThenElseStep or loop step must evaluate to true or false (BlockStep.evaluateStep):
+  // anything else stops the sequence with "Invalid step condition". A JS && / || chain returns one of its operands,
+  // so "resp && resp.journal" gives an object. Flag a chain whose last operand is a bare value.
+  function splitTopLevel(text) {
+    var parts = [];
+    var depth = 0;
+    var quote = "";
+    var start = 0;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (quote) {
+        if (ch === "\\") {
+          i++;
+        } else if (ch === quote) {
+          quote = "";
+        }
+        continue;
+      }
+      if (ch === "'" || ch === '"' || ch === "`") {
+        quote = ch;
+      } else if (ch === "(" || ch === "[" || ch === "{") {
+        depth++;
+      } else if (ch === ")" || ch === "]" || ch === "}") {
+        depth--;
+      } else if (depth === 0 && (text.substr(i, 2) === "&&" || text.substr(i, 2) === "||")) {
+        parts.push(text.substring(start, i));
+        start = i + 2;
+        i++;
+      } else if (depth === 0 && ch === "?") {
+        return null; // a ternary decides its own value
+      }
+    }
+    parts.push(text.substring(start));
+    return parts;
+  }
+
+  // "(a && b)" -> "a && b", only when the first parenthesis closes at the very end.
+  function stripOuterParens(text) {
+    while (text.charAt(0) === "(" && text.charAt(text.length - 1) === ")") {
+      var depth = 0;
+      var closesAtEnd = true;
+      for (var i = 0; i < text.length; i++) {
+        var ch = text.charAt(i);
+        depth += ch === "(" ? 1 : (ch === ")" ? -1 : 0);
+        if (depth === 0 && i < text.length - 1) {
+          closesAtEnd = false;
+          break;
+        }
+      }
+      if (!closesAtEnd) {
+        break;
+      }
+      text = text.substring(1, text.length - 1).trim();
+    }
+    return text;
+  }
+
+  function warnNonBooleanCondition(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    var condition = props ? props.condition : undefined;
+    if (typeof condition !== "string") {
+      return;
+    }
+    try {
+      var Steps = Packages.com.twinsoft.convertigo.beans.steps;
+      if (!(dbo instanceof Steps.IfStep) && !(dbo instanceof Steps.LoopStep)) {
+        return;
+      }
+    } catch (_noClass) {
+      return;
+    }
+    var text = condition.trim();
+    text = stripOuterParens(text);
+    var parts = splitTopLevel(text);
+    if (!parts || parts.length < 2) {
+      return;
+    }
+    var last = stripOuterParens(parts[parts.length - 1].trim());
+    if (/^[A-Za-z_$][\w$]*(\s*\.\s*[A-Za-z_$][\w$]*|\[[^\]]+\])*$/.test(last) && !/^(true|false)$/.test(last)) {
+      pushReportWarning(report, safeQName(dbo) + ": condition \"" + condition + "\" evaluates to the value of " + last +
+        " (a && / || chain returns one of its operands), not to true or false; unless " + last + " is always a boolean, the step stops the sequence with " +
+        "\"Invalid step condition\". End with a comparison (" + last + " != null) or wrap it: !!(" + text + ").");
+    }
+  }
+
   function warnQuotedSqlVariables(dbo, node, report) {
     var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
     var query = props ? (props.sqlQuery !== undefined ? props.sqlQuery : props.SqlQuery) : undefined;

@@ -366,6 +366,9 @@ Use `databaseobject-schema` after runtime proof to:
 Common trap:
 - build the mapping blind, then discover picker/schema pain later when the raw shape differs from the first guess
 
+### `IfStep`, `IfThenElseStep` and `WhileStep` conditions are booleans
+The engine accepts only `true` or `false` from a block condition: any other value stops the sequence with `Invalid step condition. Step: "<name>"`. A JavaScript `&&` / `||` chain returns one of its operands, not a boolean, so `resp && resp.success && resp.journal` gives the `resp.journal` object (and `resp && ...` gives `null` when `resp` is null). End the chain with a comparison (`resp.journal != null`, `rows.length > 0`, `resp.success === true`) or wrap it: `!!(resp && resp.journal)`. The number of operands does not matter. tree-apply warns when the last operand is a bare value.
+
 ### `IteratorStep.condition` semantics
 `IteratorStep.condition` is not a free-form prose flag. Treat it as a normal conditional expression evaluated at runtime.
 
