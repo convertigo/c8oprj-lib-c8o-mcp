@@ -293,6 +293,29 @@ function coerceToolArguments(argumentsObject, sequenceName, requestableObject) {
   return coerceBySchema(argumentsObject, schema, 0);
 }
 
+// Arguments agents give under another name: the tool ignored them and answered as if they were absent
+// (databaseobject-search with query and project scanned nothing and found nothing, run 9a).
+var ARGUMENT_ALIASES = {
+  tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" }
+};
+
+function applyArgumentAliases(sequenceName, args) {
+  var aliases = ARGUMENT_ALIASES[sequenceName];
+  if (!aliases || !args || typeof args !== "object") {
+    return args;
+  }
+  for (var alias in aliases) {
+    if (Object.prototype.hasOwnProperty.call(aliases, alias) && Object.prototype.hasOwnProperty.call(args, alias)) {
+      var canonical = aliases[alias];
+      if (args[canonical] === undefined || args[canonical] === null || String(args[canonical]).trim() === "") {
+        args[canonical] = args[alias];
+      }
+      delete args[alias];
+    }
+  }
+  return args;
+}
+
 function injectMeta(target) {
   if (!target || typeof target !== "object") {
     return;
@@ -520,7 +543,7 @@ if (methodName === "initialize") {
     } else {
       callSequence = targetSequence;
       responseStatus = "200";
-      callVariables = coerceToolArguments(toolArgs || {}, targetSequence, requestable);
+      callVariables = coerceToolArguments(applyArgumentAliases(targetSequence, toolArgs || {}), targetSequence, requestable);
       // Sub-agents drive the same viewer as the agent's Playwright MCP (the conversation's debug port) and are recorded
       // under the conversation.
       var subagentSequence = targetSequence === "tools_browser_verify" || targetSequence === "tools_subagent_run";

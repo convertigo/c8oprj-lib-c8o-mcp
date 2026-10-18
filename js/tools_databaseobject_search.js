@@ -46,6 +46,10 @@ if (cursorRaw.length > 0) {
 var pageUpperBound = startIndex + limitValue;
 
 var searchActive = searchText.length > 0;
+if (!searchActive && objectTypeText === "*") {
+  // Without either, the search scanned nothing and answered no match, which read as "not found" (run 9a).
+  throw new Error("filter is required: the text to find (space-separated terms that must all appear in the object's YAML), or objectType to list one type. qname limits the search to a project or a subtree.");
+}
 var pattern = null;
 var substringText = matchCaseFlag ? searchText : searchText.toLowerCase();
 if (useRegExpFlag && searchActive) {
