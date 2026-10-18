@@ -1,5 +1,6 @@
 // Centralized dispatcher for MCP requests (initialize/tools/prompts/etc.).
 include("js/nocode_tool_policy.js");
+include("js/gateway_tool_policy.js");
 var paramsJson = "{}";
 try {
   paramsJson = JSON.stringify(paramsObject);
@@ -478,6 +479,13 @@ if (methodName === "initialize") {
         };
       }
     }
+  }
+  if (!mappingError && !C8O.gatewayToolPolicy.allows(targetSequence)) {
+    mappingError = { status: "403", code: "-32601", message: C8O.gatewayToolPolicy.refusal(targetSequence) };
+  }
+  // The text review of project-lint calls a gateway model too: the agent reviews the texts itself.
+  if (!mappingError && targetSequence === "tools_project_lint" && C8O.gatewayToolPolicy.active() && toolArgs) {
+    toolArgs.checkTexts = false;
   }
   if (!mappingError && C8O.nocodeToolPolicy.active() && !C8O.nocodeToolPolicy.allows(targetSequence)) {
     mappingError = {

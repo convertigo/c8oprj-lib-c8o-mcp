@@ -108,7 +108,7 @@
   // One review per language: the app's own texts (the language is detected) and each i18n file in its language.
   C8O.lint.reviewTexts = function (options, order, owners, i18n, add, project) {
     if (options.checkTexts === false) {
-      return { skipped: "checkTexts is false" };
+      return { skipped: "checkTexts is false: review the texts the user sees yourself (language, spelling, tone, no placeholder)" };
     }
     // A long list makes the model skip strings: review at most REVIEW_BATCH strings per call.
     var groups = [];

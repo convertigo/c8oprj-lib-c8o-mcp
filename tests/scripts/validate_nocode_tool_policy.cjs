@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const policySource = read('js/nocode_tool_policy.js');
+const gatewayPolicySource = read('js/gateway_tool_policy.js');
 const routerSource = read('js/mcp_endpoint_router.js');
 // Exercise the real dispatch decision, without executing its selected requestable.
 const start = routerSource.indexOf('  var toolNameRaw = paramsObject');
@@ -18,6 +19,7 @@ function fixture(header) {
     C8O: { guidance: { warningForToolCall: () => '', stripToolArguments: args => args } }
   };
   vm.runInNewContext(policySource, context);
+  vm.runInNewContext(gatewayPolicySource, context);
   return context;
 }
 function route(name, kind, header) {

@@ -93,6 +93,7 @@ C8O.setupClaude = C8O.setupClaude || {};
         }
       }
       headers["X-Convertigo-Guidance-Version"] = C8O.MCP_GUIDANCE_VERSION;
+      headers["X-Convertigo-Agent-Provider"] = "claude";
       if (token.length) {
         headers.Authorization = "Bearer " + token;
       } else if (!trim(headers.Authorization).length) {
