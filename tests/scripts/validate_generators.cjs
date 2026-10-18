@@ -918,6 +918,18 @@ test('a login page without data: heading and buttons, the call variables in vars
     /sequence is required for a list page/);
 });
 
+test('business-sequence-create lets the business rules namespace translate the error messages', () => {
+  const world = makeWorld();
+  load(world).businessSequenceCreate(sequenceSpec());
+  const seq = creates(world, 'sequences.GenericSequence')[0];
+  const auth = seq.children.find(c => c.name === 'auth').properties.expression;
+  assert.match(auth, /\(\(typeof App !== 'undefined' && App\.messages && App\.messages\.forbidden\) \|\| 'Access denied\.'\)/);
+  const given = makeWorld();
+  load(given).businessSequenceCreate(sequenceSpec({ errors: { forbidden: 'Accès refusé.' } }));
+  const auth2 = creates(given, 'sequences.GenericSequence')[0].children.find(c => c.name === 'auth').properties.expression;
+  assert.match(auth2, /message: 'Accès refusé\.'/, 'a message given in errors stays a literal');
+});
+
 test('the former names still work: facade-create and the facade parameter of ngx-page-create', () => {
   const G = load(makeWorld());
   assert.equal(G.facadeCreate, G.businessSequenceCreate);

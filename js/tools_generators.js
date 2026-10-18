@@ -801,7 +801,12 @@ C8O.generators = C8O.generators || {};
   };
 
   function failExpr(entry, field) {
-    return "{ success: false, data: null, errors: [{ code: " + jsString(entry.code) + ", message: " + jsString(entry.message) +
+    // messageFrom: the namespace of the business rules (App, Pca...): its messages object translates the defaults.
+    var message = entry.messageFrom
+      ? "((typeof " + entry.messageFrom + " !== 'undefined' && " + entry.messageFrom + ".messages && " + entry.messageFrom + ".messages." + entry.key +
+        ") || " + jsString(entry.message) + ")"
+      : jsString(entry.message);
+    return "{ success: false, data: null, errors: [{ code: " + jsString(entry.code) + ", message: " + message +
       ", field: " + (field ? field : "''") + " }], meta: {} }";
   }
 
@@ -1179,13 +1184,27 @@ C8O.generators = C8O.generators || {};
     var roles = list(auth.roles || parseJson(args.roles, "roles", "array")).map(str).filter(function (r) { return r.length; });
     var messages = parseJson(args.errors, "errors", "object") || {};
     var codes = {};
+    // The default messages are English. The namespace of the business rules can translate them once for every
+    // business sequence: <Namespace>.messages = {unauthenticated, forbidden, notFound, readFailed, writeFailed, logic}.
+    var namespace = /^([A-Za-z_$][\w$]*)\./.exec(logic);
+    var untranslated = [];
     Object.keys(FACADE_ERRORS).forEach(function (k) {
       var custom = messages[k];
+      var given = custom && custom.message ? str(custom.message) : (typeof custom === "string" ? custom : "");
       codes[k] = {
+        key: k,
         code: custom && custom.code ? str(custom.code) : FACADE_ERRORS[k].code,
-        message: custom && custom.message ? str(custom.message) : (typeof custom === "string" ? custom : FACADE_ERRORS[k].message)
+        message: given || FACADE_ERRORS[k].message,
+        messageFrom: given ? "" : (namespace ? namespace[1] : "")
       };
+      if (!given) {
+        untranslated.push(k);
+      }
     });
+    if (untranslated.length && namespace && content !== null && !/\bmessages\s*[:=]/.test(content)) {
+      warnings.push("The error messages of this business sequence are the English defaults. To give them in the app's language for every " +
+        "business sequence at once, add messages: {" + untranslated.join(", ") + "} (texts) to " + namespace[1] + " in " + script + ".");
+    }
     var connectorName = str(args.connector);
     var userPlan = null;
     if (authRequired) {

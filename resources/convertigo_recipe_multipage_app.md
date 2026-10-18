@@ -67,6 +67,8 @@ seq <service>                accessibility=Hidden, authenticatedContextRequired=
   out*      JsonToXmlStep    success, data, errors, meta from resp
 ```
 
+The generated error messages (unauthenticated, forbidden, notFound, readFailed, writeFailed, logic) are English by default. Translate them once for every business sequence in the business rules namespace: `var App = (function () { return { messages: { forbidden: "Accès refusé.", ... }, ... }; })();`. A message given in the `errors` argument of one call wins.
+
 - Check the role and the data perimeter in `logic`, from the user reloaded in the database on every call: a disabled account loses its rights at once. Hiding a button is not access control.
 - Refuse out-of-perimeter reads without returning the record (`FORBIDDEN`).
 - Variables read in JS are Java strings and rows come from another Rhino scope: see `convertigo-backend-sequences` section 5.
