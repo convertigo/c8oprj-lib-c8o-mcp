@@ -36,8 +36,8 @@ comment: |
   description: 'Business rules file, default js/app.js.'
   value: ''
 ↓logic [variables.RequestableVariable-1792270100025]: 
-  comment: 'JS function called with ctx, for example App.orderList.'
-  description: 'JS function called with ctx, for example App.orderList.'
+  comment: 'JS function called with ctx, for example App.orderList. A logout facade (session {logout:true}) may leave it out.'
+  description: 'JS function called with ctx, for example App.orderList. A logout facade (session {logout:true}) may leave it out.'
   value: ''
 ↓inputs [variables.RequestableVariable-1792270100026]: 
   comment: 'Sequence variables: names or {name, value, description}.'
