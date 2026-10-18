@@ -372,6 +372,32 @@ The engine accepts only `true` or `false` from a block condition: any other valu
 ### Object literals in a JS SmartType
 A JS expression `{}` or `{ seeded: true }` is read as a block of statements, not an object: it gives `undefined`, and the step fails with a bare `An exception occured while executing step` that names no step. Write `({ seeded: true })`. tree-apply adds the parentheses when an expression is an object literal, and requestable-execute lists the suspicious steps (`error.hints`) when a sequence fails with that empty message.
 
+### `SmtpStep` never fails the sequence
+When the send fails (no server, unknown host, closed port), `SmtpStep` logs an ERROR line `Beans (SmtpStep) An error occured while trying to send e-mail : ... Could not connect to SMTP host` and the sequence still answers success; its output holds no status either (checked on Studio 8.4.7). A sequence that must know whether a mail left, to record a failed notification or retry it, sends it from a `SimpleStep` with `javax.mail` and catches the error:
+
+```js
+mailResult = { ok: false, error: "" };
+try {
+  var props = new java.util.Properties();
+  props.put("mail.smtp.host", host); props.put("mail.smtp.port", port);
+  props.put("mail.smtp.connectiontimeout", "5000"); props.put("mail.smtp.timeout", "10000");
+  var session = javax.mail.Session.getInstance(props);
+  var msg = new javax.mail.internet.MimeMessage(session);
+  msg.setFrom(new javax.mail.internet.InternetAddress(String(sender)));
+  msg.setRecipients(java.lang.Class.forName("javax.mail.Message$RecipientType").getField("TO").get(null),
+    javax.mail.internet.InternetAddress.parse(String(to)));
+  msg.setSubject(String(subject), "UTF-8");
+  msg.setText(String(body), "UTF-8");
+  javax.mail.Transport.send(msg);
+  mailResult.ok = true;
+} catch (e) {
+  var cause = e && e.javaException ? e.javaException : e;
+  mailResult.error = String(cause.getMessage ? cause.getMessage() : cause).substring(0, 400);
+}
+```
+
+Take the server settings from symbols (`${app.smtp.server=localhost}`), with a `.secret` name for the password. With `SmtpStep`, check a send by hand: run the sequence, then `log-view` with `level:"error"` and `q:"SmtpStep"`.
+
 ### `IteratorStep.condition` semantics
 `IteratorStep.condition` is not a free-form prose flag. Treat it as a normal conditional expression evaluated at runtime.
 

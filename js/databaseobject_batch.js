@@ -858,6 +858,7 @@ include("js/sql_dialect.js");
     warnNonBooleanCondition(dbo, node, report);
     warnControlEventName(dbo, node, report);
     warnMenuItem(dbo, node, report);
+    warnSmtpStep(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
     warnI18nKeyText(dbo, node, report);
   }
@@ -1078,6 +1079,21 @@ include("js/sql_dialect.js");
     if (typeof title === "string" && title.trim().length && !/^\s*['"`]/.test(title) && !/[()?.+\[]/.test(title)) {
       pushReportWarning(report, qn + ": itemtitle is an expression: write '" + title.replace(/'/g, "\\'") + "' with quotes, " +
         "or the page shows {{" + title + "}} and the build fails.");
+    }
+  }
+
+  // A failed send only logs an error: the sequence answers success (checked on 8.4.7, run 9a and 9b).
+  function warnSmtpStep(dbo, node, report) {
+    if (!node || typeof node !== "object" || !node.className) {
+      return;
+    }
+    var className = "";
+    try {
+      className = String(dbo.getClass().getName());
+    } catch (_noClass) {}
+    if (/\.SmtpStep$/.test(className)) {
+      pushReportWarning(report, safeQName(dbo) + ": SmtpStep never fails the sequence: a failed send only logs an ERROR (log-view q:\"SmtpStep\"). " +
+        "When the sequence must know whether the mail left, send it from a SimpleStep with javax.mail and catch the error (convertigo-backend-sequences).");
     }
   }
 
