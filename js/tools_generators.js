@@ -1049,6 +1049,19 @@ C8O.generators = C8O.generators || {};
 
   // Resolves a read or write entry: an existing transaction of any connector, a sequence (local or from a referenced
   // library), or a new SqlTransaction from sql/select/insert...
+  // The variables a SQL treats as an optional filter, ({x} = '' OR ...): an empty value is what they expect.
+  function optionalSqlVariables(sql) {
+    var out = [];
+    var re = /\{([A-Za-z_]\w*)\}\s*=\s*''/g;
+    var m;
+    while ((m = re.exec(String(sql || ""))) !== null) {
+      if (out.indexOf(m[1]) < 0) {
+        out.push(m[1]);
+      }
+    }
+    return out;
+  }
+
   function planCall(projectDbo, entry, errors, warnings, label, defaultConnector, role) {
     if (!isObj(entry)) {
       errors.push(label + " must be an object.");
@@ -1083,6 +1096,7 @@ C8O.generators = C8O.generators || {};
       plan.newTransaction = tplan;
       plan.qname = tplan.connectorQName + "." + transaction;
       plan.variables = tplan.variables;
+      plan.optional = optionalSqlVariables(tplan.sql);
       plan.kind = tplan.kind;
     } else if (sequence.length) {
       var seq = resolveSequence(projectDbo, sequence, errors, label);
@@ -1103,6 +1117,7 @@ C8O.generators = C8O.generators || {};
       plan.variables = dbo ? variableNames(dbo) : [];
       plan.withDefault = dbo ? variablesWithDefault(dbo) : [];
       plan.source = dbo ? sourceOf(dbo) : "sql";
+      plan.optional = dbo && dbo.getSqlQuery ? optionalSqlVariables(dbo.getSqlQuery()) : [];
       if (dbo && plan.source === "http") {
         // Without HttpInfo a 4xx/5xx answer or a lost connection leaves an ordinary document: the business sequence could not tell it from data.
         if (dbo.getHttpInfo && dbo.getHttpInfo() != true) {
@@ -1305,13 +1320,15 @@ C8O.generators = C8O.generators || {};
     reads.forEach(function (p) {
       var mapped = isObj(p.entry.vars) ? Object.keys(p.entry.vars) : [];
       p.variables.forEach(function (v) {
-        if (mapped.indexOf(v) >= 0 || inputs.map(function (x) { return str(x.name); }).indexOf(v) >= 0 || (authRequired && v === emailVar) || (p.withDefault || []).indexOf(v) >= 0) {
+        // An optional filter of the SQL ({x} = '' OR ...) expects the empty value: warning on it was noise (run 9b).
+        if (mapped.indexOf(v) >= 0 || inputs.map(function (x) { return str(x.name); }).indexOf(v) >= 0 || (p.withDefault || []).indexOf(v) >= 0 ||
+            (p.optional || []).indexOf(v) >= 0) {
           return;
         }
         var like = inputs.map(function (x) { return str(x.name); }).filter(function (n) { return n.toLowerCase().slice(-v.length) === v.toLowerCase(); });
+        var suggestion = like.length ? like[0] : (authRequired && v === emailVar ? "sessionEmail" : "<JS expression, e.g. an input or me.id>");
         warnings.push(p.label + ": variable " + v + " of " + p.qname + " gets an empty string (no input named " + v + ", no vars entry, no default value). " +
-          "If it is not an optional filter, add vars:{" + v + ": \"" + (like.length ? like[0] : "<JS expression, e.g. an input or me.id>") + "\"}" +
-          (like.length ? "" : " or an input named " + v) + ".");
+          "If it is not an optional filter, add vars:{" + v + ": \"" + suggestion + "\"}" + (like.length ? "" : " or an input named " + v) + ".");
       });
     });
     if (errors.length) {
@@ -1353,6 +1370,10 @@ C8O.generators = C8O.generators || {};
       if (inputNames.indexOf(emailVar) >= 0) {
         // The user reload set the JS variable of the same name to the session email: give the input its value back.
         authCode.push(emailVar + " = facadeInput." + emailVar + ";");
+      } else {
+        // Left at the session email, it filtered every later read or write with a variable of that name: 0 rows, no error
+        // (run 9b). A call that needs the session email maps it: vars:{email: "sessionEmail"}.
+        authCode.push(emailVar + " = \"\";");
       }
       var active = activeField.length ? " || !(me." + activeField + " === true || String(me." + activeField + ") === \"true\")" : "";
       authCode.push("if (!me" + active + ") { resp = " + failExpr(codes.unauthenticated) + "; }");

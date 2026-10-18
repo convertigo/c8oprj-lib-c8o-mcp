@@ -366,6 +366,32 @@ test('business-sequence-create gives an input named like the session email varia
   assert.equal(scope.email, 'alice', 'later reads get the input');
 });
 
+test('business-sequence-create empties the session email variable after the reload when no input has its name (run 9b)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.businessSequenceCreate(sequenceSpec({ name: 'rpca_search', reads: [{ name: 'rpca', transaction: 'q_user_by_email' }] }));
+  const seq = creates(world, 'sequences.GenericSequence')[0];
+  const byName = {};
+  walk({ children: seq.children }, n => { if (n.name) byName[n.name] = n; });
+  const scope = { context: { getAuthenticatedUser: () => 'admin@x.test' }, include: () => {} };
+  vm.createContext(scope);
+  vm.runInContext(byName.init.properties.expression, scope);
+  scope.meRows = [{ id: 1, role: 'ADMIN' }];
+  vm.runInContext(byName.auth.properties.expression, scope);
+  assert.equal(scope.email, '', 'a later read with an email variable no longer filters on the session email');
+  assert.ok(out.warnings.some(w => /variable email of App\.db\.q_user_by_email gets an empty string/.test(w) && /vars:\{email: "sessionEmail"\}/.test(w)),
+    JSON.stringify(out.warnings));
+});
+
+test('business-sequence-create does not warn about an optional filter of the SQL (run 9b)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.businessSequenceCreate(sequenceSpec({ name: 'search', reads: [{ name: 'found',
+    sql: 'SELECT p.id AS "id" FROM p WHERE ({texte} = \'\' OR p.n = {texte}) AND p.k = {cle}' }] }));
+  assert.ok(!out.warnings.some(w => /variable texte of .* gets an empty string/.test(w)), JSON.stringify(out.warnings));
+  assert.ok(out.warnings.some(w => /variable cle of .* gets an empty string/.test(w)), 'a required filter still warns');
+});
+
 test('business-sequence-create builds the recipe shape and valid JavaScript', () => {
   const world = makeWorld();
   const G = load(world);
