@@ -856,6 +856,7 @@ include("js/sql_dialect.js");
     warnQuotedSqlVariables(dbo, node, report);
     warnAdjacentTexts(dbo, node, report);
     warnNonBooleanCondition(dbo, node, report);
+    warnControlEventName(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
     warnI18nKeyText(dbo, node, report);
   }
@@ -1025,6 +1026,27 @@ include("js/sql_dialect.js");
         " (a && / || chain returns one of its operands), not to true or false; unless " + last + " is always a boolean, the step stops the sequence with " +
         "\"Invalid step condition\". End with a comparison (" + last + " != null) or wrap it: !!(" + text + ").");
     }
+  }
+
+  // A control event fires on the names of its list (onClick, onChange, ionInput...): eventName "click" was accepted and the
+  // button did nothing, with no error (run 9a).
+  function warnControlEventName(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    var eventName = props ? props.eventName : undefined;
+    if (typeof eventName !== "string" || /^(on|ion)[A-Z]\w*$/.test(eventName.trim())) {
+      return;
+    }
+    var className = "";
+    try {
+      className = String(dbo.getClass().getName());
+    } catch (_noClass) {}
+    if (!/\.UIControlEvent$/.test(className)) {
+      return;
+    }
+    var guess = eventName.trim().replace(/^\(|\)$/g, "");
+    guess = "on" + guess.charAt(0).toUpperCase() + guess.substring(1);
+    pushReportWarning(report, safeQName(dbo) + ": eventName \"" + eventName + "\" is not one of the control events (onClick, onChange, onInput, " +
+      "onSubmit, ionChange...): the control gets no handler and does nothing. Write " + guess + ".");
   }
 
   function warnQuotedSqlVariables(dbo, node, report) {
