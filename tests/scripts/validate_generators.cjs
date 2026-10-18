@@ -149,24 +149,25 @@ function load(world) {
           return hit;
         },
         batchApply: args => {
-          const op = args.operations[0];
-          world.ops.push(JSON.parse(JSON.stringify(op)));
-          if (op.type === 'delete') {
-            const hit = find(world.project, op.qname);
-            if (hit) {
-              hit.parent.children.splice(hit.parent.children.indexOf(hit), 1);
-              world.deleted.push(op.qname);
+          for (const op of args.operations) {
+            world.ops.push(JSON.parse(JSON.stringify(op)));
+            if (op.type === 'delete') {
+              const hit = find(world.project, op.qname);
+              if (hit) {
+                hit.parent.children.splice(hit.parent.children.indexOf(hit), 1);
+                world.deleted.push(op.qname);
+              }
+              continue;
             }
-            return { status: 'ok', summary: {}, errors: [], operations: [], warnings: [] };
-          }
-          if (op.type === 'create') {
-            if (world.failOn === op.name) {
-              return { status: 'failed', summary: { failedOps: 1 }, errors: [], operations: [{ errors: [{ message: 'boom on ' + op.name }] }], warnings: [] };
+            if (op.type === 'create') {
+              if (world.failOn === op.name) {
+                return { status: 'failed', summary: { failedOps: 1 }, errors: [], operations: [{ errors: [{ message: 'boom on ' + op.name }] }], warnings: [] };
+              }
+              buildTree(find(world.project, op.related), op);
             }
-            buildTree(find(world.project, op.related), op);
-          }
-          if (op.type === 'setProperties') {
-            Object.assign(find(world.project, op.qname).props, op.properties);
+            if (op.type === 'setProperties') {
+              Object.assign(find(world.project, op.qname).props, op.properties);
+            }
           }
           return { status: 'ok', summary: {}, errors: [], operations: [], warnings: [] };
         },
@@ -286,7 +287,12 @@ test('sql-transaction-create validates everything first, then creates the transa
   assert.deepEqual(plain(two.children), [{ className: 'variables.RequestableVariable', name: 'id', properties: { description: 'Id', value: '0' } }]);
   const replaced = G.sqlTransactionCreate({ project: 'App', name: 'q_postes', sql: 'SELECT p.id AS "id" FROM p WHERE ({recherche} = \'\' OR p.n = {recherche})', ifExists: 'replace' });
   assert.equal(replaced.transactions[0].status, 'replaced');
-  assert.equal(world.ops[world.ops.length - 1].type, 'upsertTree');
+  const lastOps = world.ops.slice(-3);
+  assert.equal(lastOps[0].type, 'upsertTree');
+  // The variables the new SQL no longer uses are removed: a stale one still filtered the callers silently (run 8b F-01).
+  assert.deepEqual(plain(lastOps.slice(1).map(op => [op.type, op.qname])), [['delete', 'App.db.q_postes.rpcaId'], ['delete', 'App.db.q_postes.actif']]);
+  assert.ok(replaced.warnings.some(w => /no longer uses \(rpcaId, actif\)/.test(w)), JSON.stringify(replaced.warnings));
+  assert.equal(replaced.transactions[0].requestable, 'App.db.q_postes', 'requestable is the path requestable-execute takes');
 });
 
 // --- facade ------------------------------------------------------------------------------------

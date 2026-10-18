@@ -111,6 +111,16 @@ C8O.generators = C8O.generators || {};
     }
   }
 
+  // The Studio QName (Project.cn:db.tr:q_list) that databaseobject-* tools take, where qnameOf gives the
+  // runtime path (Project.db.q_list) that requestable-execute takes.
+  function studioQNameOf(dbo) {
+    try {
+      return String(dbo.getFullQName());
+    } catch (_ignore) {
+      return qnameOf(dbo);
+    }
+  }
+
   function childNamed(parent, name) {
     var all = null;
     try {
@@ -682,6 +692,27 @@ C8O.generators = C8O.generators || {};
         throw new Error(session.tool + ": replacing " + plan.name + " failed: " + batchErrors(result).join(" | "));
       }
       batchWarnings(result).forEach(function (w) { session.warnings.push(w); });
+      // The merge keeps the variables the new SQL no longer uses: a stale one is still imported by the callers
+      // and silently filters with the JS variable of the same name. Remove them.
+      // plan.variables lists every {placeholder} of the new SQL; node.children only those with explicit settings.
+      var wanted = (plan.variables || []).map(str).concat((plan.node.children || []).map(function (c) { return str(c.name); }));
+      var stale = [];
+      var vars = plan.existing.getVariablesList();
+      for (var v = 0; v < vars.size(); v++) {
+        if (wanted.indexOf(String(vars.get(v).getName())) < 0) {
+          stale.push(vars.get(v));
+        }
+      }
+      if (stale.length) {
+        var removal = C8O.dbo.batchApply({ operations: stale.map(function (dbo) { return { type: "delete", qname: studioQNameOf(dbo) }; }),
+          onError: "stop", autoSave: false, triggerMobileBuilder: false });
+        if (!removal || removal.status === "failed" || (removal.errors && removal.errors.length)) {
+          session.rollback();
+          throw new Error(session.tool + ": removing the former variables of " + plan.name + " failed: " + batchErrors(removal).join(" | "));
+        }
+        session.warnings.push(plan.name + ": removed the variables the new SQL no longer uses (" +
+          stale.map(function (dbo) { return String(dbo.getName()); }).join(", ") + ").");
+      }
       return plan.existing;
     }
     return session.create(plan.connectorQName, plan.node);
@@ -731,7 +762,8 @@ C8O.generators = C8O.generators || {};
     var out = [];
     plans.forEach(function (p) {
       var dbo = createTransaction(session, p, ifExists);
-      out.push({ qname: dbo ? qnameOf(dbo) : qnameOf(p.existing), status: p.exists ? (dbo ? "replaced" : "kept") : "created",
+      var target = dbo || p.existing;
+      out.push({ qname: studioQNameOf(target), requestable: qnameOf(target), status: p.exists ? (dbo ? "replaced" : "kept") : "created",
         kind: p.kind, variables: dbo ? variableNames(dbo) : p.variables, sql: p.sql });
     });
     var finish = session.finish(null);
@@ -742,7 +774,8 @@ C8O.generators = C8O.generators || {};
       created: session.created,
       saved: finish.saved,
       warnings: warnings.concat(session.warnings),
-      next: "Prove each transaction with requestable-execute (" + out.map(function (t) { return t.qname; }).join(", ") + ") before wiring it in a business sequence."
+      next: "Prove each transaction with requestable-execute (requestable " + out.map(function (t) { return t.requestable; }).join(", ") +
+        ") before wiring it in a business sequence; qname is the Studio QName for databaseobject-* tools."
     };
   };
 
@@ -1423,7 +1456,7 @@ C8O.generators = C8O.generators || {};
       if (p.newTransaction) {
         var dbo = createTransaction(session, p.newTransaction, "fail");
         p.variables = variableNames(dbo);
-        transactions.push({ qname: qnameOf(dbo), variables: p.variables, sql: p.newTransaction.sql });
+        transactions.push({ qname: studioQNameOf(dbo), requestable: qnameOf(dbo), variables: p.variables, sql: p.newTransaction.sql });
       }
     });
     // A write's set step assigns the variables the transaction really declares.
