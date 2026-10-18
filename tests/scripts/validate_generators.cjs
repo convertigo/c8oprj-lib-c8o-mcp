@@ -76,6 +76,8 @@ function makeWorld(options) {
   const submit = bean('declaration_declare', JAVA['sequences.GenericSequence'], project);
   ['posteIds', 'dateEffective', 'commentaire', 'source'].forEach(v => bean(v, JAVA['variables.RequestableVariable'], submit));
   bean('auth_logout', JAVA['sequences.GenericSequence'], project);
+  const demo = bean('auth_loginDemo', JAVA['sequences.GenericSequence'], project);
+  bean('profile', JAVA['variables.RequestableVariable'], demo);
   // Other sources: an HTTP connector, a local sequence, a referenced library and a loaded but unreferenced one.
   const api = bean('api', 'com.twinsoft.convertigo.beans.connectors.HttpConnector', project);
   const http = (name, vars, props) => {
@@ -897,6 +899,23 @@ test('sql-transaction-create warns that a {{variable}} statement carries one sta
   assert.ok(out.warnings.some(w => /\{\{seedSql\}\} is a whole statement/.test(w)), JSON.stringify(out.warnings));
   const clause = load(makeWorld()).sqlTransactionCreate({ project: 'App', name: 'q_sorted', sql: 'SELECT a AS "a" FROM t ORDER BY {{orderBy}}' });
   assert.ok(!clause.warnings.some(w => /whole statement/.test(w)), 'a {{clause}} inside a statement is not a whole statement');
+});
+
+test('a login page without data: heading and buttons, the call variables in vars, navigation only on success', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Welcome', title: 'Suivi', kind: 'detail', root: true,
+    actions: [{ label: 'Admin', sequence: 'auth_loginDemo', vars: { profile: "'ADMIN'" }, page: 'Login', kind: 'root' }] });
+  assert.equal(out.status, 'ok');
+  const tree = JSON.stringify(creates(world));
+  assert.match(tree, /"name":"profile"/, 'the variable goes to the call');
+  assert.match(tree, /"name":"IfOk".*RootPageAction/, 'the navigation waits for success');
+  assert.match(tree, /"name":"IfKo"/, 'a failure shows its error');
+  assert.throws(() => load(makeWorld()).ngxPageCreate({ project: 'App', name: 'Welcome', title: 'S', kind: 'detail',
+    actions: [{ label: 'Admin', sequence: 'auth_loginDemo', data: { profile: "'ADMIN'" }, page: 'Login' }] }),
+    /data\.profile is a variable of auth_loginDemo: pass it in vars/);
+  assert.throws(() => load(makeWorld()).ngxPageCreate({ project: 'App', name: 'Plist9', title: 'P', kind: 'list', list: { item: 'p', title: 'p.x' } }),
+    /sequence is required for a list page/);
 });
 
 test('the former names still work: facade-create and the facade parameter of ngx-page-create', () => {

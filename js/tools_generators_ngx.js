@@ -272,8 +272,9 @@ include("js/tools_generators.js");
       if (facadeVars === null) {
         errors.push("sequence " + facade + " is not a sequence of " + projectName + ": create it first (business-sequence-create).");
       }
-    } else if (kind !== "form") {
-      errors.push("sequence is required for a " + kind + " page: the business sequence the page calls at page enter.");
+    } else if (kind !== "form" && !(kind === "detail" && !(isObj(spec.detail) && list(spec.detail.fields).length))) {
+      errors.push("sequence is required for a " + kind + " page: the business sequence the page calls at page enter " +
+        "(a page with only a heading and buttons, such as a login or home page, is a detail page without sequence nor detail).");
     }
     var params = list(spec.params).map(str);
     params.forEach(function (p) {
@@ -535,9 +536,25 @@ include("js/tools_generators.js");
               callChildren.push(callVariable(v, { mode: "SCRIPT", value: String(avars[v]) }));
             });
           }
-          if (str(a.page).length) {
-            callChildren.push(navAction("Go", { page: a.page, kind: a.kind || "root", data: withSelection(a.data) }));
+          // data goes to the next page (navParams), vars to the called sequence: say it when data names its variables.
+          if (isObj(a.data)) {
+            var calledVars = sequenceVariables(projectDbo, str(a.sequence)) || [];
+            var misplaced = Object.keys(a.data).filter(function (k) { return calledVars.indexOf(k) >= 0 && !(isObj(a.vars) && a.vars[k] !== undefined); });
+            if (misplaced.length) {
+              errors.push(label + "[" + i + "].data." + misplaced[0] + " is a variable of " + a.sequence + ": pass it in vars:{" + misplaced[0] +
+                ": ...}. data is what the next page receives in navParams.");
+            }
           }
+          // The navigation waits for the sequence's success, as the form submit does; a failure shows its first error.
+          var callError = "stack['Call'].out?.errors?.[0]?.message || 'Error'";
+          var okChildren = str(a.page).length ? [navAction("Go", { page: a.page, kind: a.kind || "root", data: withSelection(a.data) })] : [];
+          if (okChildren.length) {
+            callChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: "out?.success" } }, okChildren));
+          }
+          callChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, [
+            setLocal("StoreCallError", "error", callError),
+            nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: callError }, IonColor: { mode: "PLAIN", value: "danger" },
+              duration: { mode: "PLAIN", value: "4000" } })]));
           chain = nxAction("CallSequenceAction", "Call", { requestable: { mode: "PLAIN", value: projectName + "." + str(a.sequence) }, noAutoLogin: { mode: "PLAIN", value: "true" },
             cacheTtl: { mode: "PLAIN", value: "0" } }, callChildren);
         } else if (str(a.page).length || str(a.kind) === "pop") {
@@ -583,8 +600,11 @@ include("js/tools_generators.js");
       }
     } else if (kind === "detail") {
       var detail = isObj(spec.detail) ? spec.detail : null;
-      if (!detail) {
-        errors.push("detail is required for a detail page: {record?, fields:[{label, field}]}.");
+      if (!detail && !facade.length) {
+        // A page without data (login with demo buttons, home): header, heading and actions, and the error of an action.
+        content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
+      } else if (!detail) {
+        errors.push("detail is required for a detail page with a sequence: {record?, fields:[{label, field}]}.");
       } else {
         content.push(ifDirective("IfError", "local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         var base = "data" + (str(detail.record).length ? "." + str(detail.record) : "");
