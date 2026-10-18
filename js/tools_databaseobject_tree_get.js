@@ -177,7 +177,7 @@ function applyPropertiesIfNeeded(node, dbo) {
   if (!includePropertiesFlag) {
     return;
   }
-  var map = C8O.dbo.getCanonicalPropertiesMap(dbo, propertiesMode, { includeReadOnly: false });
+  var map = C8O.dbo.getCanonicalPropertiesMap(dbo, propertiesMode, { includeReadOnly: false, symbolSources: true });
   if (map && Object.keys(map).length > 0) {
     var cut = {};
     for (var name in map) {

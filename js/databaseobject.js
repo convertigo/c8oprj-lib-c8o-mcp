@@ -3407,6 +3407,18 @@ C8O.dbo.getCurrentPropertiesMap = function (dbo, options) {
       rawValue = null;
     }
     map[String(descriptorName)] = C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(pd, rawValue) : rawValue;
+    // A property written with a global symbol reads as its resolved value: tree-get showed localhost for
+    // ${app.smtp.server=localhost}, and an agent rewriting it lost the symbol (run 9a). symbolSources gives the source.
+    if (options && options.symbolSources === true && typeof dbo.getCompilablePropertySourceValue === "function") {
+      try {
+        var symbolSource = dbo.getCompilablePropertySourceValue(String(descriptorName));
+        if (symbolSource != null) {
+          map[String(descriptorName)] = (symbolSource instanceof java.lang.String || typeof symbolSource === "string")
+            ? String(symbolSource)
+            : (C8O.dbo.normalizeValue ? C8O.dbo.normalizeValue(pd, symbolSource) : symbolSource);
+        }
+      } catch (_ignoreSymbolSource) {}
+    }
   }
 
   if (dynamicContext && dynamicContext.byName) {
