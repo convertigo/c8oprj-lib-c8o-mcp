@@ -4,6 +4,12 @@ This folder stores reproducible prompts/scripts for running Codex CLI scenarios 
 
 This entire folder is an internal lab surface for benchmark and observability work. It is not the recommended public MCP onboarding path during the mono-agent CRUD recovery cycle.
 
+## Preflight checks
+
+`tests/preflight/README.md` lists the checks to run on a disposable Studio before a supervised agent run: the MCP
+contract (`node --test tests/scripts/validate_preflight_contract.cjs` offline, `tests/preflight/contract_live.py`
+live). A test marked todo in the offline file is a defect found on the current code.
+
 ## Shared tag domain
 
 Run `node --test tests/scripts/validate_tags.cjs` after editing the tag tools.
