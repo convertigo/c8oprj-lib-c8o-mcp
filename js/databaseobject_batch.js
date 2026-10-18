@@ -859,6 +859,7 @@ include("js/sql_dialect.js");
     warnControlEventName(dbo, node, report);
     warnMenuItem(dbo, node, report);
     warnSmtpStep(dbo, node, report);
+    warnPageLoadEvent(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
     warnI18nKeyText(dbo, node, report);
   }
@@ -1094,6 +1095,24 @@ include("js/sql_dialect.js");
     if (/\.SmtpStep$/.test(className)) {
       pushReportWarning(report, safeQName(dbo) + ": SmtpStep never fails the sequence: a failed send only logs an ERROR (log-view q:\"SmtpStep\"). " +
         "When the sequence must know whether the mail left, send it from a SimpleStep with javax.mail and catch the error (convertigo-backend-sequences).");
+    }
+  }
+
+  // pageWillLoad and pageDidLoad generate ionViewWillLoad / ionViewDidLoad, which nothing calls under Ionic 4 and later
+  // (checked in a generated 8.4 NGX app and in c8ocaf): their actions never run.
+  function warnPageLoadEvent(dbo, node, report) {
+    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+    var viewEvent = props ? props.viewEvent : undefined;
+    if (typeof viewEvent !== "string" || !/^(page|on)(Will|Did)Load$/.test(viewEvent.trim())) {
+      return;
+    }
+    var className = "";
+    try {
+      className = String(dbo.getClass().getName());
+    } catch (_noClass) {}
+    if (/\.ngx\.components\.UIPageEvent$/.test(className)) {
+      pushReportWarning(report, safeQName(dbo) + ": viewEvent " + viewEvent + " never fires in an NGX app (Ionic calls no ionViewWillLoad or ionViewDidLoad): " +
+        "its actions never run. Use onWillEnter (pageWillEnter), which also fires when the app opens on this page's URL.");
     }
   }
 
