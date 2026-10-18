@@ -107,6 +107,8 @@ Common trap:
 - using `{{variable}}` for ordinary user input just because it “works everywhere”
 
 ### Variables are auto-declared from SQL placeholders
+A `{{variable}}` carries one statement at most: the engine splits the SQL on `;` before it replaces `{{...}}`, so a value holding several statements (a whole seed script) runs as one statement and fails with `unexpected token`. Write a multi-statement script in the transaction's SQL itself, separated by `;`, or use one transaction per statement.
+
 When the query contains `{variable}` or `{{variable}}`, Convertigo auto-declares the transaction variable if it does not already exist.
 
 What to expect:

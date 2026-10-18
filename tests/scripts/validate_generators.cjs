@@ -892,6 +892,13 @@ test('ngx-page-create refuses a bad spec and creates nothing', () => {
   assert.deepEqual(plain(world.deleted), ['App.Application.NgxApp.AppLayout']);
 });
 
+test('sql-transaction-create warns that a {{variable}} statement carries one statement only', () => {
+  const out = load(makeWorld()).sqlTransactionCreate({ project: 'App', name: 'w_seed', sql: '{{seedSql}}' });
+  assert.ok(out.warnings.some(w => /\{\{seedSql\}\} is a whole statement/.test(w)), JSON.stringify(out.warnings));
+  const clause = load(makeWorld()).sqlTransactionCreate({ project: 'App', name: 'q_sorted', sql: 'SELECT a AS "a" FROM t ORDER BY {{orderBy}}' });
+  assert.ok(!clause.warnings.some(w => /whole statement/.test(w)), 'a {{clause}} inside a statement is not a whole statement');
+});
+
 test('the former names still work: facade-create and the facade parameter of ngx-page-create', () => {
   const G = load(makeWorld());
   assert.equal(G.facadeCreate, G.businessSequenceCreate);

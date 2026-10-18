@@ -392,6 +392,15 @@ C8O.generators = C8O.generators || {};
     if (/\{\{[A-Za-z_]\w*\}\}/.test(String(sql))) {
       warnings.push("{{variable}} is raw text substitution (an injection point): keep it for identifiers or computed clauses, never for user input.");
     }
+    // The engine splits the SQL on ";" before it replaces {{...}}: a value holding several statements runs as one
+    // statement and fails ("unexpected token: DELETE"). Run 8f put a whole seed script in one {{seedSql}}.
+    for (var w = 0; w < statements.length; w++) {
+      var whole = /^\s*\{\{([A-Za-z_]\w*)\}\}\s*;?\s*$/.exec(statements[w]);
+      if (whole) {
+        warnings.push("{{" + whole[1] + "}} is a whole statement: it carries one statement only, because the engine splits the SQL on ';' before " +
+          "replacing {{...}}. Write the statements in sql itself (several, separated by ;), or one transaction per statement.");
+      }
+    }
     for (var s = 0; s < statements.length; s++) {
       var statement = statements[s];
       if (!/^\s*(SELECT|WITH)\b/i.test(statement)) {
