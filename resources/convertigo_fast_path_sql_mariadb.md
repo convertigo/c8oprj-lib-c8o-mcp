@@ -1,7 +1,7 @@
 # Convertigo Fast Path: MariaDB Docker SQL Scaffold
 
 ## When to use this
-Use this fast path when the brief selects MariaDB via local Docker Compose and the first milestone is a deterministic read path behind a stable facade contract.
+Use this fast path when the brief selects MariaDB via local Docker Compose and the first milestone is a deterministic read path behind a stable business sequence contract.
 
 ## Fast-path id
 - `mariadb-docker`
@@ -13,7 +13,7 @@ Drive the first SQL pass mechanically:
 - create `list_contacts` / `count_contacts`
 - create `list_companies` / `count_companies`
 - prove those transactions directly
-- only then hand back to backend for facade shaping
+- only then hand back to backend for business sequence shaping
 
 Prefer `upsert-crud` when the task matches this exact envelope. Hand-build the connector/tree only when the caller explicitly cannot use the deterministic tool.
 
@@ -21,7 +21,7 @@ Prefer `upsert-crud` when the task matches this exact envelope. Hand-build the c
 Only parameterize these placeholders:
 - `<PROJECT_NAME>`
 - `<CONNECTOR_NAME>`
-- `<FACADE_SEQUENCE>`
+- `<BUSINESS_SEQUENCE>`
 - `<DB_HOST>`
 - `<DB_PORT>`
 - `<DB_NAME>`

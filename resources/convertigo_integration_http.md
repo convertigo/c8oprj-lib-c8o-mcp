@@ -1,16 +1,16 @@
 # Convertigo HTTP Integration
 
 ## When to read this
-Read this when a feature needs an HTTP connector or HTTP transaction behind a Convertigo facade, especially when the endpoint is not a trivial JSON API.
+Read this when a feature needs an HTTP connector or HTTP transaction behind a Convertigo business sequence, especially when the endpoint is not a trivial JSON API.
 
 ## What this guide covers
 - HTTP payload worlds in Convertigo: XML, JSON, text/binary.
 - Connector and transaction setup rules that keep the transport coherent.
 - Handler and transport diagnostics that should stay visible while integrating.
-- Facade mapping patterns that prevent public contract drift.
+- Business sequence mapping patterns that prevent public contract drift.
 
 ## Read this after the recipe
-If the task is a standard HTTP-backed facade, read `convertigo/recipe-http-facade@1` first. Use this handbook when endpoint subtleties, payload shape, HTTP transaction type, or transport behavior go beyond the golden path.
+If the task is a standard HTTP-backed business sequence, read `convertigo/recipe-http-business-sequence@1` first. Use this handbook when endpoint subtleties, payload shape, HTTP transaction type, or transport behavior go beyond the golden path.
 
 ## HTTP payload worlds
 
@@ -29,7 +29,7 @@ Use JSON HTTP transactions when the service is JSON-native and you want Converti
 
 Why this matters:
 - JSON-to-tree conversion is already part of the intended workflow
-- facade mapping is easier than manual ad hoc parsing everywhere
+- business sequence mapping is easier than manual ad hoc parsing everywhere
 
 Common trap:
 - letting the upstream JSON shape leak directly into the public contract
@@ -43,7 +43,7 @@ Use the standard HTTP transaction when the endpoint is not fundamentally XML or 
 
 Why this matters:
 - the transaction type matches the transport reality
-- facade logic can decide how to expose the result safely
+- business sequence logic can decide how to expose the result safely
 
 Common trap:
 - forcing everything into JSON assumptions even when the endpoint is file- or text-oriented
@@ -80,15 +80,15 @@ When the endpoint is not fully trusted yet, enable `httpInfo` so transport evide
 
 Why this is the right way:
 - you can see status, headers, and request details early
-- failures are diagnosed as transport failures, not guessed from the final facade output
+- failures are diagnosed as transport failures, not guessed from the final business sequence output
 
 Common trap:
-- disabling transport visibility too early, then debugging the facade blind
+- disabling transport visibility too early, then debugging the business sequence blind
 
 ## Validation order that keeps you fast
 
 ### 1. Validate raw transaction first
-Before polishing the facade:
+Before polishing the business sequence:
 - make sure the connector and transaction actually reach the endpoint
 - confirm the payload world is the one you think it is
 
@@ -103,7 +103,7 @@ If the endpoint shape will feed:
 - source picker choices
 - later UI bindings
 
-then capture the transaction schema before building the final facade mapping.
+then capture the transaction schema before building the final business sequence mapping.
 
 Current MCP support already exists for this:
 - `requestable-execute(..., {"recordSchema": true})` on the transaction
@@ -111,16 +111,16 @@ Current MCP support already exists for this:
 
 Why this is the right way:
 - the agent stops guessing nested payload fields
-- facade mapping becomes an explicit transformation from a known transport shape
+- business sequence mapping becomes an explicit transformation from a known transport shape
 - later picker-dependent work starts from a real schema, not a remembered payload snippet
 
 Common trap:
 - build the mapping blind, then discover picker/schema pain later when the transport payload changes shape or nesting
 
-### 2. Validate the facade second
+### 2. Validate the business sequence second
 Only after the raw transaction behaves coherently:
 - map into the stable public contract
-- validate the facade requestable
+- validate the business sequence requestable
 - prove stub/live parity when the scenario depends on it
 
 ### 3. Validate stub/live parity explicitly
@@ -133,10 +133,10 @@ If the workflow uses a real Convertigo stub:
 Common trap:
 - assuming that “stub file exists” means runtime stub proof is already done
 
-## Facade mapping patterns
+## Business sequence mapping patterns
 
 ### Pattern: stable top-level fields
-Good public facade:
+Good public business sequence:
 
 ```json
 {
@@ -152,12 +152,12 @@ Why this is the right way:
 - the UI and planner can rely on one stable contract
 - changing the upstream provider later does not break consumers
 
-### Pattern: schema first, facade second
+### Pattern: schema first, business sequence second
 For non-trivial endpoints, the order should be:
 1. raw transaction works
 2. schema is captured
-3. facade mapping is written against that schema
-4. stub/live parity is proved after the facade is trustworthy
+3. business sequence mapping is written against that schema
+4. stub/live parity is proved after the business sequence is trustworthy
 
 Do not invert that order unless the endpoint shape is already fully known and intentionally tiny.
 
@@ -200,13 +200,13 @@ Do not override or customize these blindly. First confirm:
 - what the endpoint expects
 - which part belongs to the connector
 - which part belongs to the transaction
-- which part belongs to the facade mapping
+- which part belongs to the business sequence mapping
 
 ## Common HTTP integration mistakes
 
 ### Mistake: connector defines the public API
 Symptom:
-- the facade mirrors raw upstream fields and nesting
+- the business sequence mirrors raw upstream fields and nesting
 
 Fix:
 - remap the raw response into the agreed contract
@@ -220,7 +220,7 @@ Fix:
 
 ### Mistake: transport failure diagnosed too late
 Symptom:
-- the facade is blamed even though the connector never reached the service
+- the business sequence is blamed even though the connector never reached the service
 
 Fix:
 - validate the raw transaction first and keep `httpInfo=true` during setup
@@ -240,12 +240,12 @@ Symptom:
 Fix:
 - capture schema on the raw transaction first
 - inspect it with `databaseobject-schema`
-- only then finalize the facade mapping
+- only then finalize the business sequence mapping
 
 ## Minimum validation proof
-For a credible HTTP-backed facade, you need:
+For a credible HTTP-backed business sequence, you need:
 - one successful raw transaction proof or one clearly diagnosed transport error
-- one facade proof
+- one business sequence proof
 - one stub proof when the task depends on a stub
 - stable top-level fields before and after the live path is wired
 
@@ -270,6 +270,6 @@ For a credible HTTP-backed facade, you need:
 ## Completion checks
 - Connector configuration is internally coherent.
 - Raw transaction behavior is known.
-- The facade contract is explicit and stable.
+- The business sequence contract is explicit and stable.
 - Stub/live parity is proved when required.
 - Transport evidence exists for failures instead of guesswork.

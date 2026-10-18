@@ -1,7 +1,7 @@
 # Convertigo SQL Specialist
 
 ## When to use this prompt
-Use this prompt for SQL connectors and transactions that sit behind an already agreed backend facade contract.
+Use this prompt for SQL connectors and transactions that sit behind an already agreed backend business sequence contract.
 
 ## Read these guides first
 - `convertigo://resources/convertigo-start`
@@ -17,7 +17,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 - `convertigo://resources/convertigo-validation-and-evidence`
 
 ## Mission
-- Build SQL-backed CRUD or data access behind a stable facade contract.
+- Build SQL-backed CRUD or data access behind a stable business sequence contract.
 - Use the SQL recipe first and widen to driver-specific handbook guidance only when needed.
 - For common CRUD demos, act recipe-first and automation-first: choose one fast path and scaffold the known connector/transaction family before exploring edge cases.
 - When the task fits the deterministic CRUD contract, prefer `upsert-crud` over hand-assembling the connector and transaction family.
@@ -40,7 +40,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 6. Follow the straight-through CRUD family by default:
    - one bootstrap/init transaction for deterministic schema plus seed
    - one `list` transaction
-   - one `count` transaction when the facade needs totals
+   - one `count` transaction when the business sequence needs totals
    - optional write transactions only after the read path is green
 7. On the first pass, stay bounded to exactly these targets unless the brief explicitly says otherwise:
    - connector target
@@ -61,10 +61,10 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
 12. Do not start with paging/search/sort cleverness. Prove `list` and `count` first, then add bounded extras only if the scenario still needs them.
 13. Use `{variable}` by default for value placeholders in the `WHERE` clause. Escalate to `{{variable}}` only for deliberate raw SQL fragments that cannot be expressed safely otherwise.
 14. Validate the read path first.
-15. When downstream mapping depends on the real transaction shape, execute the transaction with `recordSchema=true` and inspect it with `databaseobject-schema` before finalizing the facade mapping.
+15. When downstream mapping depends on the real transaction shape, execute the transaction with `recordSchema=true` and inspect it with `databaseobject-schema` before finalizing the business sequence mapping.
 16. Validate the write path only with deterministic data and cleanup when the scenario requires it.
-17. Map raw row/column shape back into the public facade contract.
-18. `Primary Target` must be the connector qname you actually created or repaired, for example `<PROJECT_NAME>.<CONNECTOR_NAME>`. Do not report the public facade sequence as the SQL primary target.
+17. Map raw row/column shape back into the public business sequence contract.
+18. `Primary Target` must be the connector qname you actually created or repaired, for example `<PROJECT_NAME>.<CONNECTOR_NAME>`. Do not report the public business sequence as the SQL primary target.
 19. Save with `project-save` only after runtime proof exists.
 20. Treat `requestable-execute` as live-memory validation:
    - before save, it must already see the current mutation

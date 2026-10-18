@@ -17,9 +17,9 @@ Use this prompt as the exploratory bootstrap path before planning or specialist 
 
 Read the smallest matching recipe next:
 - fresh app or starter extension: `convertigo://resources/convertigo-recipe-starter-extension`
-- facade sequence or stub contract: `convertigo://resources/convertigo-recipe-facade-stub`
-- HTTP-backed facade: `convertigo://resources/convertigo-recipe-http-facade`
-- SQL CRUD behind facade: `convertigo://resources/convertigo-recipe-sql-crud`
+- business sequence or stub contract: `convertigo://resources/convertigo-recipe-business-sequence-stub`
+- HTTP-backed business sequence: `convertigo://resources/convertigo-recipe-http-business-sequence`
+- SQL CRUD behind business sequence: `convertigo://resources/convertigo-recipe-sql-crud`
 - direct CRUD proof flow: `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD case
 - preferred mono-agent CRUD rail: `convertigo://resources/convertigo-crud-fastpath` when the task is standard SQL CRUD + starter NGX UI
 - existing deterministic CRUD project edit rail: `convertigo://resources/convertigo-crud-edit-fastpath` when the project is already green and only needs CRUD extension
@@ -89,7 +89,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 | --- | --- |
 | Standard SQL CRUD + starter NGX UI | `convertigo-crud-fastpath` |
 | Contract-first planning or multi-track split | `convertigo-planner` |
-| Sequence or facade implementation | `convertigo-backend` |
+| Sequence or business sequence implementation | `convertigo-backend` |
 | SQL connector implementation | `convertigo-sql` |
 | HTTP connector implementation | `convertigo-http` |
 | NGX UI work | `convertigo-frontend-ngx` |
@@ -100,10 +100,10 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - Use `project-list`, `project-list-symbols`, `databaseobject-tree-get`, and `databaseobject-search` before asking configuration questions the runtime may already answer.
 - Inputs accept both flat legacy QNames and canonical prefixed QNames. Public outputs use the canonical `qname`; prefer copying that value into the next MCP call.
 - Use `resources/templates/list` only to pick a template-bearing guide quickly; read the actual content through `resources/read`.
-- When the task is a standard CRUD path, capture the deterministic `spec` inputs early: project, driver family, connector name, facade prefix, entities, seed choice, visible entry page, and UI variant.
+- When the task is a standard CRUD path, capture the deterministic `spec` inputs early: project, driver family, connector name, business sequence prefix, entities, seed choice, visible entry page, and UI variant.
 - For standard CRUD edits, capture the public contract directly from the guides instead of reverse-engineering it: `relations[]`, `ui.relationFields`, and `seed.data`.
 - When the task is a standard CRUD path and relations are obvious, capture them explicitly in `spec.relations[]`. Treat `field.references` as the compatibility layer, not the preferred authoring surface.
-- When the task is a standard CRUD path, remember that generated CRUD facades are hidden requestables with `authenticated context required=true`; generated CRUD UI apps initialize that session once on a `Login` root page that calls `auth_login(username,password)`, then the visible pages only bootstrap the CRUD data they need.
+- When the task is a standard CRUD path, remember that generated CRUD business sequences are hidden requestables with `authenticated context required=true`; generated CRUD UI apps initialize that session once on a `Login` root page that calls `auth_login(username,password)`, then the visible pages only bootstrap the CRUD data they need.
 - Use the exact project name requested by the user when it is technically valid. Do not append prefixes, suffixes, or dates unless the user explicitly asked for them.
 - For the generic CRUD UI, prefer `ui.variant=entity-pages`. Treat `dashboard` as a legacy single-page fallback.
 - For generic CRUD UI relation controls, prefer `ui.relationFields` over patching generated CRUD-kit components.

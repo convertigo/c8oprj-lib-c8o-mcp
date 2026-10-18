@@ -28,7 +28,7 @@ Before choosing a provider or mutating the project, write a short application co
 - the record fields that prove each item is a real application record for that request
 - adjacent artifacts that would not satisfy the request unless the user explicitly asked for them, such as labels, suggestions, documents, metadata, technical identifiers without usable fields, or generic lookup results
 
-Structured JSON is not enough by itself. A live proof is green only when at least one returned item satisfies that application contract. If the payload is structured but represents adjacent artifacts instead of the requested records, stop and report the contract proof incomplete; do not reinterpret adjacent data as success and do not move on to facade or UI work.
+Structured JSON is not enough by itself. A live proof is green only when at least one returned item satisfies that application contract. If the payload is structured but represents adjacent artifacts instead of the requested records, stop and report the contract proof incomplete; do not reinterpret adjacent data as success and do not move on to business sequence or UI work.
 
 Before mutation, choose a direct record endpoint, not a provider catalog, dataset discovery, autocomplete, documentation, generic search, generic normalization, or entity-lookup endpoint. You must be able to name:
 - the host-only `server`
@@ -44,7 +44,7 @@ Creating an `HttpConnector` commits the run to that HTTP rail. Do not create exp
 
 If the only endpoint you know requires uncertain dataset ids, fixed hidden variables, provider-specific headers, provider accounts, quota-limited demo credentials, catalog/discovery semantics, generic normalization or entity-lookup semantics, generic search semantics, or a static raw file URL with no server-side user filter variable, do not start mutating the project with that endpoint. Choose a simpler direct record endpoint when one is already known; otherwise report the HTTP proof incomplete.
 
-A static file endpoint such as a raw `.json`, `.csv`, `.ndjson`, or repository-hosted data file is not a web-service search/list endpoint for this fast path unless the user explicitly asked for static-file integration. Do not compensate by downloading all records and filtering them in the UI or facade; that hides the missing HTTP request contract and usually bloats the run.
+A static file endpoint such as a raw `.json`, `.csv`, `.ndjson`, or repository-hosted data file is not a web-service search/list endpoint for this fast path unless the user explicitly asked for static-file integration. Do not compensate by downloading all records and filtering them in the UI or business sequence; that hides the missing HTTP request contract and usually bloats the run.
 
 An endpoint whose result contract is selected by a technical query variable such as `dataset`, `table`, `source`, `index`, `catalog`, `collection`, `resource`, or equivalent is a catalog-style endpoint, not a direct record endpoint. Do not use that shape for this fast path unless the user explicitly supplied the exact dataset/resource identifier in the task.
 
@@ -68,7 +68,7 @@ Do not test public HTTP URLs through Convertigo MCP resource readers or non-exis
    - do not set guessed properties such as `url`, `parameters`, `httpParameters`, `subPath`, or `timeout`
 3. Execute the direct transaction with runtime path `<Project>.<Connector>.<Transaction>`, never a Studio QName.
 4. `status:"ok"` is not enough. The payload must expose application records with useful fields that satisfy the application contract proof.
-   After direct HTTP proof shows records, freeze that connector/transaction rail. Do not change `server`, provider, transaction name, or proven request variables while repairing the facade or UI.
+   After direct HTTP proof shows records, freeze that connector/transaction rail. Do not change `server`, provider, transaction name, or proven request variables while repairing the business sequence or UI.
 5. If direct proof is `status:"ok"` but only `attr`, `context`, `generated`, or empty `text`, treat it as HTTP wiring failure:
    - read back connector and transaction
    - verify `server`, `baseDir`, `subDir`, and `RequestableHttpVariable.httpName`
@@ -84,14 +84,14 @@ Do not test public HTTP URLs through Convertigo MCP resource readers or non-exis
 9. Do not call `Convertigo_log-view` in this fast path. Use direct `requestable-execute` proof and targeted object readback; broad or requestable-scoped logs consume the run budget and are not needed for the proof criteria.
 10. A direct HTTP proof that only succeeds when callers supply fixed technical variables such as `format`, `mode`, `action`, `type`, `limit`, `fields`, or headers is not yet a clean public contract. Put such constants behind backend defaults only after the public user-facing variable has already proven records, otherwise stop and report proof incomplete.
 
-## Facade
-1. Create a public `sequences.GenericSequence` facade. Set only known sequence properties such as `comment`; do not set guessed sequence flags such as `final` or `output`. Do not create hard-coded sample records as the primary contract.
+## Business sequence
+1. Create a public `sequences.GenericSequence` business sequence. Set only known sequence properties such as `comment`; do not set guessed sequence flags such as `final` or `output`. Do not create hard-coded sample records as the primary contract.
 2. Keep the same request variable object name across:
    - HTTP transaction `RequestableHttpVariable`
-   - public facade `variables.RequestableVariable`
+   - public business sequence `variables.RequestableVariable`
    - `variables.StepVariable` under the `TransactionStep`
    - UI `UIControlVariable`
-   Choose this name before creating the facade. When the HTTP transaction already has one primary request variable, use that exact object name end to end instead of creating a public alias and remapping it later. The public facade variable must be an actual child of the sequence, not only a `StepVariable` under the transaction step; otherwise external callers and UI actions have no stable public contract.
+   Choose this name before creating the business sequence. When the HTTP transaction already has one primary request variable, use that exact object name end to end instead of creating a public alias and remapping it later. The public business sequence variable must be an actual child of the sequence, not only a `StepVariable` under the transaction step; otherwise external callers and UI actions have no stable public contract.
 3. Add `steps.TransactionStep`:
    - `sourceTransaction`: runtime path `<Project>.<Connector>.<Transaction>`
    - `output`: `false`
@@ -101,9 +101,9 @@ Do not test public HTTP URLs through Convertigo MCP resource readers or non-exis
    - `output:true`
    - use the readback `priority`, never the QName, step name, or ordinal `"1"`
    - do not add guessed properties such as `outputDefinition`
-6. Prove the facade with `requestable-execute`. Final payload must expose records directly, for example top-level `array`, `items`, `features`, or equivalent. Do not leave useful records only under `transaction.document`, `HttpInfo`, or headers.
-   If the direct transaction proof is green but facade proof is empty or errors, repair only facade wiring: `sourceTransaction` must point to an existing runtime transaction path, `StepVariable` names/values must match the request variable, and `XMLCopyStep.sourceDefinition` must use the readback `TransactionStep.priority`. Do not switch provider, rename/delete the proven transaction, delete the `XMLCopyStep`, or set `TransactionStep.output:true` as a facade repair.
-   Do not change `XMLCopyStep.sourceDefinition` from `./document/array` to `array`, `./array`, `payload/array`, or guessed paths just because `requestable-execute` displays a top-level JSON `array`. That display is the serialized response body, not the internal step XPath. If the copy is empty, read back the producer priority and verify same-name variable pass-through; if it still cannot emit records, stop and report the facade proof incomplete instead of changing provider or moving to UI work.
+6. Prove the business sequence with `requestable-execute`. Final payload must expose records directly, for example top-level `array`, `items`, `features`, or equivalent. Do not leave useful records only under `transaction.document`, `HttpInfo`, or headers.
+   If the direct transaction proof is green but business sequence proof is empty or errors, repair only business sequence wiring: `sourceTransaction` must point to an existing runtime transaction path, `StepVariable` names/values must match the request variable, and `XMLCopyStep.sourceDefinition` must use the readback `TransactionStep.priority`. Do not switch provider, rename/delete the proven transaction, delete the `XMLCopyStep`, or set `TransactionStep.output:true` as a business sequence repair.
+   Do not change `XMLCopyStep.sourceDefinition` from `./document/array` to `array`, `./array`, `payload/array`, or guessed paths just because `requestable-execute` displays a top-level JSON `array`. That display is the serialized response body, not the internal step XPath. If the copy is empty, read back the producer priority and verify same-name variable pass-through; if it still cannot emit records, stop and report the business sequence proof incomplete instead of changing provider or moving to UI work.
 
 ## NGX Page
 Mutate `<Project>.Application.NgxApp.pg:Page`, especially `Page.Content`.
@@ -181,14 +181,14 @@ After `mobile-builder-open`, generated HTML is diagnostic-only but must be check
 
 Trigger action chain:
 - Preferred first write: create the submit/refresh button under the visible content with child `UIText` and the click subtree through `CallSequenceAction + UIControlVariable` in the same focused `tree`. Do not create a bare button and postpone the event chain to later reasoning; that wastes turns.
-- The first trigger subtree is: `Button -> UIText + UIControlEvent -> SetLocalAction(loading=true) + CallSequenceAction(requestable=<Project>.<Facade>) -> UIControlVariable`.
+- The first trigger subtree is: `Button -> UIText + UIControlEvent -> SetLocalAction(loading=true) + CallSequenceAction(requestable=<Project>.<BusinessSequence>) -> UIControlVariable`.
 - Then add `StoreResults` and `SetLoadingFalse` as separate `SetLocalAction` children under the exact `CallSequenceAction` QName, never under the `UIControlEvent`.
 - `SetLocalAction(Property=loading, Value=true)` uses `Value:{"mode":"SCRIPT","value":"true"}`.
-- `CallSequenceAction.requestable` must be the exact public facade requestable, including case.
-- Under the `CallSequenceAction`, child `UIControlVariable` is named exactly like the facade variable; do not use descriptive aliases.
+- `CallSequenceAction.requestable` must be the exact public business sequence requestable, including case.
+- Under the `CallSequenceAction`, child `UIControlVariable` is named exactly like the business sequence variable; do not use descriptive aliases.
 - the `UIControlVariable` must set property `varValue` to the Local `?.searchQuery` SmartSource. The property name is exactly `varValue`; do not use `value`, `Value`, child directives, or a separate binding object.
 - `UIControlVariable` does not store call results. Do not set guessed properties such as `storeResults`, `Variable`, `varName`, `target`, or similar result-storage aliases on `UIControlVariable`. Results must be stored by a separate child `SetLocalAction` under the `CallSequenceAction`.
-- example variable node: `{"name":"<facadeVariable>","className":"ngx.components.UIControlVariable#UIControlVariable","properties":{"varValue":{"mode":"SOURCE","value":"{\"filter\":\"Local\",\"project\":\"<Project>\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.searchQuery\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"}}}`
+- example variable node: `{"name":"<sequenceVariable>","className":"ngx.components.UIControlVariable#UIControlVariable","properties":{"varValue":{"mode":"SOURCE","value":"{\"filter\":\"Local\",\"project\":\"<Project>\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.searchQuery\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"}}}`
 - There is no `ngx.components.UIDynamicAction#StoreResults` class. `StoreResults` is only a useful object name; its class must be `ngx.components.UIDynamicAction#SetLocalAction` with `Property=results`.
 - under the `CallSequenceAction`, child `SetLocalAction(Property=results)` with this normalizer:
 
@@ -198,7 +198,7 @@ Trigger action chain:
 
 - under the `CallSequenceAction`, child `SetLocalAction(Property=loading, Value=false)` using `Value:{"mode":"SCRIPT","value":"false"}`
 - any action that reads `out` must be a descendant of the `CallSequenceAction`, not a sibling under the event.
-After `SetLocalAction(Property=results)` and `SetLocalAction(Property=loading,false)` are created under the call, stop repairing optional UI, save the project, open the mobile builder, run the facade proof once more, and answer. Do not loop on cosmetic reads or repeat the same action-chain explanation.
+After `SetLocalAction(Property=results)` and `SetLocalAction(Property=loading,false)` are created under the call, stop repairing optional UI, save the project, open the mobile builder, run the business sequence proof once more, and answer. Do not loop on cosmetic reads or repeat the same action-chain explanation.
 
 Results list:
 - Create `ResultsList` then one `UIControlDirective` child.
@@ -213,13 +213,13 @@ Results list:
 After creating the `UIControlDirective`, read it back with `properties:"all"`. The readback must show `directiveSource`, `directiveItemName`, and `directiveIndexName` as separate directive properties. If the apply result updated only `directiveSource`, if it updated only `directiveName`, or if readback misses `directiveItemName`, patch the directive itself before adding or proving row text. If row text uses `record.*`, readback must show `directiveItemName: record`; if row text uses `item.*`, readback must show `directiveItemName: item`. Generated HTML should contain `let <directiveItemName> of ...`, not only an auto-generated item variable.
 
 Headless completion rule:
-- After the facade proof is green, the minimum UI completion path is: delete starter content, initialize page locals, create heading, create a query/filter input, create a submit/refresh trigger with `UIText`, create button `UIControlEvent`, create `SetLocalAction(loading=true)`, create `CallSequenceAction`, add same-name `UIControlVariable`, add child `SetLocalAction(results)` normalizer, add child `SetLocalAction(loading=false)`, create a result collection view with `ForEach`, save, open builder, answer.
+- After the business sequence proof is green, the minimum UI completion path is: delete starter content, initialize page locals, create heading, create a query/filter input, create a submit/refresh trigger with `UIText`, create button `UIControlEvent`, create `SetLocalAction(loading=true)`, create `CallSequenceAction`, add same-name `UIControlVariable`, add child `SetLocalAction(results)` normalizer, add child `SetLocalAction(loading=false)`, create a result collection view with `ForEach`, save, open builder, answer.
 - Keep moving through that path with short direct MCP writes. Only stop to read back when a write returns `partial`, skipped properties, an error, or when a required `priority`/QName is needed for the next object.
 
 ## Proof And Stop
 Before final answer:
 1. Direct HTTP proof shows records.
-2. Facade proof shows records directly and query forwarding.
+2. Business sequence proof shows records directly and query forwarding.
 3. Readback confirms `TransactionStep.output=false`.
 4. Input and UI request variable use Local `?.searchQuery`.
 5. Store results and loading=false are children of `CallSequenceAction`.

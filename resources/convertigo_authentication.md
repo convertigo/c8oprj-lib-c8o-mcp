@@ -6,7 +6,7 @@ Read this when a feature adds or changes login, logout, sign-up, password reset,
 ## What this guide covers
 - The engine session model and what actually protects a requestable.
 - Choosing a flow and the marketplace library that implements it.
-- The application-side golden path shared by every flow: configuration sequence, login facades, protected business sequences, logout.
+- The application-side golden path shared by every flow: configuration sequence, login business sequences, protected business sequences, logout.
 - OAuth / OIDC with `lib_OAuth`, FranceConnect with `lib_FranceConnect`, email + password with `lib_UserManager`.
 - The NGX client side, secrets, validation proof, and completion checks.
 
@@ -50,17 +50,17 @@ Each flow authenticates the session with a provider-prefixed user id: `google:<s
    - It returns public values only. Never a `.secret` symbol, never a token.
    - It generates `state` and `nonce` with `SecureRandom` and keeps them in the session; the login sequence checks them once and removes them.
    - Never hard-code a client id or an identity-provider URL in NGX code.
-4. **Log in through application facades.** Create `Hidden` sequences in the application project (for example `auth_loginGoogle`, `auth_signIn`) that call the library with `SequenceStep` and `StepVariable` children:
+4. **Log in through application business sequences.** Create `Hidden` sequences in the application project (for example `auth_loginGoogle`, `auth_signIn`) that call the library with `SequenceStep` and `StepVariable` children:
    - only the values that genuinely come from the user reach the library from the client: the authorization `code` and `state`, or the email and password;
    - every other library input is set on the `StepVariable` from a symbol: `client_id`, `redirect_uri`, `keySecret`, endpoints, email subject, logo, and application name;
-   - the facade does not declare those as its own `RequestableVariable`, so the client cannot override them.
-   - for a login checked by the application itself (its own user table or a library sequence that does not open the session), `facade-create` with `auth:false` and `session:{login:"resp.data.email"}` opens the session when `logic` succeeds; without that option nothing calls `context.setAuthenticatedUser`.
+   - the business sequence does not declare those as its own `RequestableVariable`, so the client cannot override them.
+   - for a login checked by the application itself (its own user table or a library sequence that does not open the session), `business-sequence-create` with `auth:false` and `session:{login:"resp.data.email"}` opens the session when `logic` succeeds; without that option nothing calls `context.setAuthenticatedUser`.
 5. **Protect business sequences.** Every business sequence is `Hidden` with `authenticatedContextRequired=true`. Helpers and every transaction stay `Private`.
-6. **Log out by ending the session.** A logout sequence runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep` (`facade-create` with `session:{logout:true}` builds it). The client calls it with `__disableAutologin=true`; otherwise the SDK replays the last successful login request as soon as the session is lost.
+6. **Log out by ending the session.** A logout sequence runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep` (`business-sequence-create` with `session:{logout:true}` builds it). The client calls it with `__disableAutologin=true`; otherwise the SDK replays the last successful login request as soon as the session is lost.
 
 ## OAuth / OpenID Connect with lib_OAuth
 
-Entry points (the sequence the client-facing facade calls):
+Entry points (the sequence the client-facing business sequence calls):
 
 | Provider | Library sequence | User input | Server-side `StepVariable` values |
 |---|---|---|---|
@@ -74,7 +74,7 @@ Rules:
 - Never let the client choose `introspectURL`, `client_id`, `redirect_uri`, or `keySecret`. An attacker-controlled introspection or token endpoint can declare any user valid.
 - The public client configuration comes from `lib_OAuth.GetOAuthCredentials` (client ids, Azure tenant, OpenID endpoint) or from an application configuration sequence that also issues `state`.
 - `lib_OAuth.SignOut` removes the user and the stored provider token; call it with `__disableAutologin=true` and end the session.
-- NGX `OAuthLoginAction` (providers `azure`, `linkedin`, `openid`): set `clientid` from the configuration response, `callbackurl` to the registered redirect page, and `loginRequestable` explicitly to the application facade. For `openid` the built-in default `lib_OAuth.loginOpenID` does not exist, so the action fails without an explicit `loginRequestable`.
+- NGX `OAuthLoginAction` (providers `azure`, `linkedin`, `openid`): set `clientid` from the configuration response, `callbackurl` to the registered redirect page, and `loginRequestable` explicitly to the application business sequence. For `openid` the built-in default `lib_OAuth.loginOpenID` does not exist, so the action fails without an explicit `loginRequestable`.
 - Provider tokens stay in the session (`oAuthAccessToken`). Do not return them to the client.
 
 ## FranceConnect with lib_FranceConnect
@@ -98,7 +98,7 @@ Prerequisites and what to do when one is missing:
 
 ### Demo or first account without SMTP
 Use this recipe on a development engine to get a working account without a mail relay. It runs from the Studio with `requestable-execute` and adds nothing to the project:
-1. Call the application sign-up facade, or `lib_UserManager.CreateAccount`, with the demo email and password. The library hashes the password and writes the account document, then stores a confirmation key in it before it tries to send the email. Without a relay the call ends with an SMTP error, but the account and its key exist.
+1. Call the application sign-up business sequence, or `lib_UserManager.CreateAccount`, with the demo email and password. The library hashes the password and writes the account document, then stores a confirmation key in it before it tries to send the email. Without a relay the call ends with an SMTP error, but the account and its key exist.
 2. Read the account: `lib_UserManager.lib_usermanager_fullsync.GetAccountDocument` with `{"_use_docid":"<email>"}`, and take `account.passwordResetKey`.
 3. Confirm it: `lib_UserManager.ConfirmAccount` with `email` and that `passwordResetKey`. The account becomes `confirmed` and `SignIn` works.
 
@@ -116,12 +116,12 @@ Flows, in order:
 | Reset request | `lib_UserManager.ForgotPassword` (or `ForgotPasswordWithBrand`) | `email` | `emailSubject`, `emailBody`, `emailLogo`, `targetApplicationName` from application symbols |
 | Reset | `lib_UserManager.ForgotPassword` | `passwordResetKey`, `newPassword` | — |
 | Password change | `lib_UserManager.ModifyPassword` (authenticated) | `password` | `user` from `context.getAuthenticatedUser()`, never from input |
-| Sign-out | `lib_UserManager.SignOut` | optional remember-me `token` | removes the remember-me token and the authenticated user; the facade still ends the session |
+| Sign-out | `lib_UserManager.SignOut` | optional remember-me `token` | removes the remember-me token and the authenticated user; the business sequence still ends the session |
 
 Rules:
-- Wrap each step in an application facade. The facade never forwards `emailSubject`, `emailBody`, `emailLogo`, or `targetApplicationName` from the client: those let anyone send arbitrary content through your mail server.
-- The sign-in facade returns one generic error for every failure (unknown user, wrong password, unconfirmed account) so the response does not reveal which accounts exist.
-- Add a proof-of-work captcha on sign-up and reset requests: `lib_Captcha.altcha_createChallenge(action)` on the client side, then `lib_Captcha.altcha_verifyPayload(payload, expectedAction, preventReplay=true)` in the facade before calling `lib_UserManager`.
+- Wrap each step in an application business sequence. The business sequence never forwards `emailSubject`, `emailBody`, `emailLogo`, or `targetApplicationName` from the client: those let anyone send arbitrary content through your mail server.
+- The sign-in business sequence returns one generic error for every failure (unknown user, wrong password, unconfirmed account) so the response does not reveal which accounts exist.
+- Add a proof-of-work captcha on sign-up and reset requests: `lib_Captcha.altcha_createChallenge(action)` on the client side, then `lib_Captcha.altcha_verifyPayload(payload, expectedAction, preventReplay=true)` in the business sequence before calling `lib_UserManager`.
 - Configure the mail relay with the `lib_UserManager.smtp.*` symbols (`server`, `port`, `user`, `sender`, `authtype`).
 - Build links sent by email from a base-URL symbol, not from the request host: the host header is client-controlled.
 - Schedule `lib_UserManager.RemoveDraftedAccounts` to purge unconfirmed accounts.
@@ -131,14 +131,14 @@ Rules:
 
 - Symbols are not available in NGX. Every public setting arrives from the configuration sequence; keep the response in page or shared state, never in source code.
 - The login page is a form built as described in the NGX forms guidance: `UIForm` (for example `loginForm`) > `FormItem` > `Input` for the email (`Type` `email`, `Required`) and for the password (`Type` `password`, `Required`), each with its `Label` property and `LabelPlacement` `stacked`, then a `SubmitButton` and the form `onSubmit` event.
-- The `onSubmit` event calls the application facade with `CallSequenceAction`, whose `UIControlVariable` values come from the Form SmartSource. Set `noAutoLogin` ("Disable auto login") to `true` on the sign-in, sign-up, and sign-out calls; otherwise the SDK replays the stored login request and can loop.
+- The `onSubmit` event calls the application business sequence with `CallSequenceAction`, whose `UIControlVariable` values come from the Form SmartSource. Set `noAutoLogin` ("Disable auto login") to `true` on the sign-in, sign-up, and sign-out calls; otherwise the SDK replays the stored login request and can loop.
 - Sign-in failures come back as a normal response with an `error` element, so the action's Failure handler does not fire. Put an `IfAction` on `out?.error` as a child of the call to show the generic message, and the navigation in the success child. Below an `IfAction`, `out` is the `IfAction` result: if the message or the navigation needs the response (user, role, error text), store it first with a `SetLocalAction` or `SetGlobalAction` child of the call and put the `IfAction` under that action. The result toast is a child of the call, never a sibling: siblings under an event run in parallel (see the NGX authoring invariants).
-- The client knows it is authenticated from the facade response or the `X-Convertigo-Authenticated` response header; re-check with the library check sequence (`checkAccessOpenID`, `checkAccessToken*`) on application start.
-- Sessions expire (HTTP session timeout, engine restart). A call to an `authenticatedContextRequired` sequence without a valid session fails in the engine with the generic message `Authentication required` (no dedicated code) and its response has no `X-Convertigo-Authenticated` header. In NGX the call resolves normally: `out?.error?.message == 'Authentication required'`. Every page that calls protected facades treats it like the application's own not-authenticated codes and returns to the entry page.
+- The client knows it is authenticated from the business sequence response or the `X-Convertigo-Authenticated` response header; re-check with the library check sequence (`checkAccessOpenID`, `checkAccessToken*`) on application start.
+- Sessions expire (HTTP session timeout, engine restart). A call to an `authenticatedContextRequired` sequence without a valid session fails in the engine with the generic message `Authentication required` (no dedicated code) and its response has no `X-Convertigo-Authenticated` header. In NGX the call resolves normally: `out?.error?.message == 'Authentication required'`. Every page that calls protected business sequences treats it like the application's own not-authenticated codes and returns to the entry page.
 - Handle the loss once at application level as well: a `UIAppEvent` with `appEvent` `onSessionLost` (bound to `c8o.handleSessionLost()`) fires when the SDK sees that an authenticated session is gone and its auto-login cannot restore it; its actions clear the session globals and `RootPageAction` to the entry page. The failing call still returns its error to its page, so keep the per-call check.
 - The SDK auto-login comes first: when a session is lost, it replays the last login request it stored and, if that succeeds, the session comes back silently (`onAutoLogin`), so neither the page nor `onSessionLost` sees a failure. A server-side logout or a timeout is therefore not visible to the user while the stored login still works; only the application's own logout (a call with `noAutoLogin`) clears it. `onSessionLost` and the per-call check handle the case where the replay fails (credentials changed, account disabled, identity provider session gone).
 - Test both paths: sign in, call `auth_logout` from outside the app, then use a protected page: the SDK restores the session and the page keeps working. Then sign out with the application's logout button, go back with the browser and use a protected page: it returns to the entry page and never shows `Authentication required`.
-- Logout calls the logout facade with `noAutoLogin` set to `true` (it sends `__disableAutologin=true`), then clears client state in a child action.
+- Logout calls the logout business sequence with `noAutoLogin` set to `true` (it sends `__disableAutologin=true`), then clears client state in a child action.
 - After an OAuth or OIDC redirect, read `code` and `state` once from the URL, then remove them with `history.replaceState`.
 - Never store passwords, provider tokens, or `code` in `localStorage` or `sessionStorage`.
 
@@ -150,8 +150,8 @@ Rules:
 ## Minimum validation proof
 For a credible authentication feature, you need, with `requestable-execute`:
 - an anonymous call to one business sequence fails with an authentication error;
-- the login facade succeeds with a real test account or provider, then the same business sequence succeeds;
-- after the logout facade, the business sequence fails again;
+- the login business sequence succeeds with a real test account or provider, then the same business sequence succeeds;
+- after the logout business sequence, the business sequence fails again;
 - a wrong password (or an invalid `state`) fails with the generic message.
 
 Then run `project-security-audit({project})`: `AUTH-*`, `EXP-*`, and `SEC-*` rules are `passed`, `notApplicable`, or `suppressed` with a written reason (for example the anonymous configuration sequence). A login that "works" in the Studio is not an exposure proof.
@@ -167,7 +167,7 @@ Then run `project-security-audit({project})`: `AUTH-*`, `EXP-*`, and `SEC-*` rul
 - `project-save`
 
 ## Anti-patterns / do not do
-- Do not ship the `auth_login` skeleton generated by `upsert-crud`; replace its body with a facade that calls the library (`lib_UserManager.SignIn` for email + password).
+- Do not ship the `auth_login` skeleton generated by `upsert-crud`; replace its body with a business sequence that calls the library (`lib_UserManager.SignIn` for email + password).
 - Do not store, hash, or verify passwords in application code or tables, and do not replace a library flow because SMTP or a test provider is missing: implement with the library and report what could not be validated.
 - Do not rely on `Hidden` or `Private` to protect a business sequence.
 - Do not accept a client id, redirect URI, endpoint, introspection URL, secret, or email content from the client.
@@ -181,7 +181,7 @@ Then run `project-security-audit({project})`: `AUTH-*`, `EXP-*`, and `SEC-*` rul
 - The library is imported and pinned on a released tag or version branch.
 - Every required symbol is defined; secrets use `.secret` symbols without real defaults.
 - The configuration sequence returns public values only and issues `state`/`nonce` for redirect flows.
-- Login facades pass only user-provided values from the client; everything else comes from symbols.
+- Login business sequences pass only user-provided values from the client; everything else comes from symbols.
 - No password is stored, hashed, or verified in application code; email + password accounts live in `lib_UserManager`.
 - Every business sequence is `Hidden` with `authenticatedContextRequired=true`; helpers and transactions are `Private`.
 - Logout ends the session and the client calls it with `__disableAutologin=true`.

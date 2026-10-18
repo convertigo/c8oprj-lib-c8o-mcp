@@ -26,8 +26,8 @@ Use `bootstrap` as the canonical entrypoint when:
   - new project
 - primary recipe/pattern:
   - `starter-extension`
-  - `facade-stub`
-  - `http-facade`
+  - `business-sequence-stub`
+  - `http-business-sequence`
   - `sql-crud`
   - `ngx-data-page`
 

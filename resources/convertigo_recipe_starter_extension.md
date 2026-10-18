@@ -14,7 +14,7 @@ Read this for new POCs, demos, or benchmarks that start from a marketplace start
 1. Import `template_ngxBuilderIonic` under the exact requested project name unless the task or live catalog explicitly names another starter. The canonical call is `marketplace-import({"project":"template_ngxBuilderIonic","importedProjectName":"<targetProject>"})`; do not guess aliases or argument names.
 2. Confirm the project exists and is the only mutation target.
 3. Start the viewer once with `mobile-builder-open({"project":"<targetProject>","wait":false})`. Do not run a state-only readiness check before this launch.
-4. Add the minimal backend facade first.
+4. Add the minimal backend business sequence first.
 5. Add connector or transaction work second.
 6. If the UI will display backend, HTTP web-service, SQL, or FullSync results, read `convertigo://resources/convertigo-recipe-ngx-data-page` before any page mutation.
 7. Add or extend the UI page third, starting with the actual visible entry page instead of leaving the default starter body dominant.
@@ -49,7 +49,7 @@ When no starter is explicitly named, use `template_ngxBuilderIonic`. Do not gues
 ### Extension rules
 - Keep new work under the imported benchmark or POC project only.
 - Reuse existing app shell and page structure where it helps speed.
-- Replace or extend demo placeholders with stable facade-backed structures.
+- Replace or extend demo placeholders with stable business-sequence-backed structures.
 - Treat the visible starter entry page as the first UI target. In the default starter, this is usually `Application.NgxApp.pg:Page` and its `Page.Content` subtree.
 - Before changing a page `scriptContent`, read it with `properties:"all"`, preserve the complete existing string and every `Begin_c8o_...` / `End_c8o_...` section, then edit only the intended section. `mode:"merge"` replaces the whole string property; it does not merge script sections. Erasing template imports or generated event functions causes broad compile failures.
 - Every non-empty NGX `identifier` becomes an Angular/TypeScript reference and must match `[A-Za-z_$][A-Za-z0-9_$]*`, for example `clockDisplay`, never `clock-display`.
@@ -61,8 +61,8 @@ When no starter is explicitly named, use `template_ngxBuilderIonic`. Do not gues
 - Do not declare framework lifecycle methods such as `ngOnDestroy` in page `scriptContent` unless the live Convertigo contract explicitly provides that extension point. Use a supported page event for cleanup instead of guessing a generated method name.
 - When a timer, subscription, or external callback changes page state, mutate the state and call `page.ref.detectChanges()` in the same callback before claiming the UI updates live. Never use `this.c8o.page.detectChanges()`.
 - Keep contracts, not starter internals, as the long-term reference.
-- For facade-backed pages, the starter recipe is only the project bootstrap. The page implementation rules come from the NGX data-page recipe, and that recipe overrides any temptation to use one `UICustom` fragment or page `scriptContent` transport.
-- A starter page that searches or displays content from an HTTP web service must call the facade through `UIDynamicAction#CallSequenceAction` and pass query/filter values with `UIControlVariable`. Open data APIs are only one example. Do not implement the search by adding a page method that calls `this.c8o.callJsonObject(...).async()` or `this.c8o.callJson(...)`.
+- For business-sequence-backed pages, the starter recipe is only the project bootstrap. The page implementation rules come from the NGX data-page recipe, and that recipe overrides any temptation to use one `UICustom` fragment or page `scriptContent` transport.
+- A starter page that searches or displays content from an HTTP web service must call the business sequence through `UIDynamicAction#CallSequenceAction` and pass query/filter values with `UIControlVariable`. Open data APIs are only one example. Do not implement the search by adding a page method that calls `this.c8o.callJsonObject(...).async()` or `this.c8o.callJson(...)`.
 - The visible form, submit button, loading/empty/error states, and result list must be palette objects/directives. A compiling `UICustom#UICustom` fragment is not an acceptable shortcut for starter extension when palette objects can model the page.
 
 ### Why this is the right way
@@ -104,7 +104,7 @@ When no starter is explicitly named, use `template_ngxBuilderIonic`. Do not gues
 - New work leaks into the wrong workspace project.
 - Starter demo structure is copied without replacing contract assumptions.
 - The builder is green but the page is a raw `UICustom` fragment, so the Convertigo NGX tree does not expose the feature controls and action chain.
-- A page method calls the facade directly from TypeScript, bypassing `CallSequenceAction` and `UIControlVariable`.
+- A page method calls the business sequence directly from TypeScript, bypassing `CallSequenceAction` and `UIControlVariable`.
 - A secondary page is created while the default visible entry page still contains the starter body.
 
 ## Minimum validation proof

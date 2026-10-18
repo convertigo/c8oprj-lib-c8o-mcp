@@ -1,16 +1,16 @@
 # Convertigo Backend Sequences
 
 ## When to read this
-Read this when creating or changing backend sequences, facade requestables, helper orchestration, JSON output shaping, SmartType wiring, or step logic that must stay correct over time.
+Read this when creating or changing backend sequences, business sequence requestables, helper orchestration, JSON output shaping, SmartType wiring, or step logic that must stay correct over time.
 
 ## What this guide covers
-- How Convertigo sequences think: requestables, XML execution tree, JSON output steps, and facade ownership.
+- How Convertigo sequences think: requestables, XML execution tree, JSON output steps, and business sequence ownership.
 - Which step families matter most in enterprise backends.
 - Where SmartTypes, source picker, strict mode, and Rhino 1.9.2 scoping create real friction.
 - How to shape stable responses and validate them early.
 
 ## Read this after the recipe
-If the task is a standard facade + stub or facade + integration path, read `convertigo/recipe-facade-stub@1` first. Use this handbook when the recipe is not enough and you need the real semantics behind steps, SmartTypes, source picking, scoping, or output shaping.
+If the task is a standard business sequence + stub or business sequence + integration path, read `convertigo/recipe-business-sequence-stub@1` first. Use this handbook when the recipe is not enough and you need the real semantics behind steps, SmartTypes, source picking, scoping, or output shaping.
 
 ## Convertigo sequence mental model
 
@@ -21,10 +21,10 @@ A Convertigo sequence is a tree of beans that executes into a result DOM. Even w
 - output and ordering are structural, not only textual
 - helper logic can run without becoming part of the final contract
 
-### Public facade vs internal helper
+### Public business sequence vs internal helper
 Use two levels when the backend grows beyond a trivial path.
 
-Public facade sequence:
+Public business sequence:
 - owns the request and response contract
 - exposes stable nominal and error fields
 - is the only requestable the UI or external callers should depend on
@@ -73,7 +73,7 @@ Core family:
 Use them to:
 - branch on missing input or missing data
 - iterate over source rows/items deliberately
-- stop early when the facade already has enough evidence to return
+- stop early when the business sequence already has enough evidence to return
 
 Pick the loop by what you iterate:
 - a JavaScript array or list built in a `SimpleStep` (rows from `sql_output`, ids split from a variable): `steps.SimpleIteratorStep` (jIterator) with `expression` set to it (`orders`, `rows || []`); its child steps read the current element as `item` and its position as `index`. Its `condition` is the stopping index, not a filter: filter with an `IfStep` inside the loop.
@@ -90,7 +90,7 @@ Common trap:
 Minimum validation proof:
 - `requestable-execute` covers the happy path
 - `requestable-execute` covers one missing/empty/error path
-- the final facade output changes only where the contract says it should
+- the final business sequence output changes only where the contract says it should
 
 ### 2. Sequence and transaction calls
 These are the backbone of orchestration.
@@ -105,26 +105,26 @@ Use `CallTransaction` when:
 - the connector still should not define the public contract
 
 Good practice:
-- call source-specific requestables behind a facade
+- call source-specific requestables behind a business sequence
 - map their output back into the stable public response
-- validate the facade, not only the inner call
-- when a facade sequence wraps a `CallTransaction`, keep the `TransactionStep` as an internal source (`output=false`) and make the shaping step such as `XMLCopyStep` or JSON steps own the public payload (`output=true`)
-- if MCP/source-picker friction makes the shaping step hard to author, stop with a documented gap or create a minimal explicit copy/JSON shape; do not silently ship a facade whose public contract is only the raw connector subtree
+- validate the business sequence, not only the inner call
+- when a business sequence wraps a `CallTransaction`, keep the `TransactionStep` as an internal source (`output=false`) and make the shaping step such as `XMLCopyStep` or JSON steps own the public payload (`output=true`)
+- if MCP/source-picker friction makes the shaping step hard to author, stop with a documented gap or create a minimal explicit copy/JSON shape; do not silently ship a business sequence whose public contract is only the raw connector subtree
 
-### Output semantics on facade helpers
+### Output semantics on business sequence helpers
 `output` controls what leaves the sequence result tree. It does **not** control whether another step can source the data.
 
 Correct mental model:
 - `output=true`: the step contributes directly to the public sequence result
 - `output=false`: the step stays internal, but later steps can still source it normally
 
-Canonical CRUD facade wrapper:
+Canonical CRUD business sequence wrapper:
 - `CallTransaction.output=false`
 - `XMLCopyStep.output=true`
 
 Why this is the right way:
 - raw connector output stays internal
-- the facade chooses deliberately what becomes visible
+- the business sequence chooses deliberately what becomes visible
 - source picker still works because internal steps remain valid producers
 
 Common trap:
@@ -135,7 +135,7 @@ Common trap:
 
 Minimum validation proof:
 - one direct validation on the called requestable when the inner shape matters
-- one facade validation proving the public response stays stable
+- one business sequence validation proving the public response stays stable
 
 ### 3. JSON-building steps
 These are the canonical way to produce a stable JSON contract from Convertigo steps.
@@ -234,14 +234,14 @@ Read a called requestable's result in JavaScript:
 - sequence variables read in JS are Java strings (`typeof` is `object`): call `String(v)` before `split`, regular expressions or `===` comparisons
 
 A failing call does not stop the sequence:
-- when the transaction behind a `TransactionStep` fails (SQL error, type mismatch), the sequence goes on with the next steps and the facade still answers success. The error is in the step's document: source `./document` and test it before using the rows or counting a write, for example `if (doc && doc.document && doc.document.error) { resp = app.fail("ECRITURE_KO", String(doc.document.error.details || doc.document.error.message)); }` (checked: a failing INSERT left the following steps running)
+- when the transaction behind a `TransactionStep` fails (SQL error, type mismatch), the sequence goes on with the next steps and the business sequence still answers success. The error is in the step's document: source `./document` and test it before using the rows or counting a write, for example `if (doc && doc.document && doc.document.error) { resp = app.fail("ECRITURE_KO", String(doc.document.error.details || doc.document.error.message)); }` (checked: a failing INSERT left the following steps running)
 - pass dates to SQL as strings (`'2026-10-17'`, `'2026-10-17 08:00:00'`), never as a JavaScript `Date` object: the object becomes its English text form, which the column refuses
 
 Calling a requestable with parameters:
 - a `StepVariable` with no source and no value takes the value of the JavaScript variable of the same name in the sequence scope (a sequence variable or a `var` set by a previous `SimpleStep`), else its default value
 - create the step variables with `importVariables:true` on the `TransactionStep` or `SequenceStep` node (after `sourceTransaction`/`sourceSequence`): the MCP imports one `StepVariable` per variable of the called requestable, with its default value. Then set the JavaScript variables of the same names before the call
 
-`facade-create` builds this chain for a facade (include, user read and role check, reads, a logic step calling a function of the file, guarded writes, the four outputs): see `convertigo-recipe-multipage-app`, Generators. Build it by hand when the facade needs other steps.
+`business-sequence-create` builds this chain for a business sequence (include, user read and role check, reads, a logic step calling a function of the file, guarded writes, the four outputs): see `convertigo-recipe-multipage-app`, Generators. Build it by hand when the business sequence needs other steps.
 
 Minimal chain:
 
@@ -253,7 +253,7 @@ Minimal chain:
 ↓response         steps.JsonToXmlStep    jsonObject = JS "result", key "response", output=true
 ```
 
-The key of the output step is the top-level key of the response: here callers read `response.*`. A facade called by NGX pages emits its contract keys at top level instead (one `JsonToXmlStep` per key `success`, `data`, `errors`, `meta`, see `convertigo-recipe-multipage-app`), so `out?.success` works in the page.
+The key of the output step is the top-level key of the response: here callers read `response.*`. A business sequence called by NGX pages emits its contract keys at top level instead (one `JsonToXmlStep` per key `success`, `data`, `errors`, `meta`, see `convertigo-recipe-multipage-app`), so `out?.success` works in the page.
 
 Common trap:
 - reading the transaction through `context.*` or re-executing it in JS instead of sourcing the `TransactionStep`
@@ -321,7 +321,7 @@ The first token is the producer step priority. The second token is the exact ext
 - sourcing from a step whose execution is conditional, then assuming it always exists
 
 Why this matters:
-- these mistakes create silent empty values or wrong shapes that only appear later in the facade
+- these mistakes create silent empty values or wrong shapes that only appear later in the business sequence
 
 Minimum validation proof:
 - inspect the producer tree
@@ -344,7 +344,7 @@ Use this workflow:
 4. source and map against the learned structure, not a guessed one
 
 Why this is the right way:
-- facade mapping stops being speculative
+- business sequence mapping stops being speculative
 - source picker decisions become reproducible
 - later UI or specialist work inherits a real structure instead of a guess
 
@@ -411,18 +411,18 @@ Use output-bearing steps for:
 Keep helper/orchestration steps out of the public response when:
 - they are only intermediate
 - they leak raw source details
-- they would make the facade tree noisy or unstable
+- they would make the business sequence tree noisy or unstable
 
 Common trap:
 - leaving every helper step visible, then sourcing against accidental structure or exposing implementation details
 
 Rule of thumb:
-- facade response tree should contain contract structure
+- business sequence response tree should contain contract structure
 - helper steps should exist for orchestration, not public leakage
 
 ## Canonical backend patterns
 
-### Pattern 1: facade + stub
+### Pattern 1: business sequence + stub
 Use when:
 - planner must lock the contract fast
 - UI or specialist work must start now
@@ -445,7 +445,7 @@ Minimum validation proof:
 - `requestable-execute` on nominal path
 - `requestable-execute` with stub proof when the scenario requires it
 
-### Pattern 2: facade + orchestration behind it
+### Pattern 2: business sequence + orchestration behind it
 Use when:
 - the sequence must call connectors or helper sequences
 - the public contract must stay independent of source systems
@@ -457,14 +457,14 @@ Structure:
 4. final explicit public response
 
 Why this is the right way:
-- source-specific change stays behind the facade
+- source-specific change stays behind the business sequence
 
 Common trap:
 - connector response leaks into the public payload after a “temporary” shortcut
 
 Minimum validation proof:
 - direct inner validation if the source is new
-- facade validation afterward
+- business sequence validation afterward
 
 ### Pattern 3: explicit error payload
 Use when:
@@ -512,7 +512,7 @@ If an agent knows only a small set at first, prioritize these:
 - small JavaScript / simple expression steps
 - explicit error shaping steps
 
-These cover most enterprise facade work without forcing the agent to rediscover the whole step catalog.
+These cover most enterprise business sequence work without forcing the agent to rediscover the whole step catalog.
 
 ## When to escalate to references
 Read `convertigo://resources/convertigo-context-api` when:
@@ -563,7 +563,7 @@ Symptom:
 - public payload exposes row names, XML nodes, or transaction-only metadata
 
 Fix:
-- always remap into explicit facade JSON steps
+- always remap into explicit business sequence JSON steps
 
 ### Failure mode: Rhino script does too much
 Symptom:
@@ -583,11 +583,11 @@ Fix:
 - The backend sequence tree is readable and intentional from `databaseobject-tree-get`.
 - Public inputs and top-level outputs are explicit.
 - Source picker and SmartType choices are justified, not guessed.
-- Facade and helper responsibilities are distinct.
+- Business sequence and helper responsibilities are distinct.
 - `requestable-execute` proves the nominal path.
 - `requestable-execute` proves at least one empty/error or alternate path.
 - The final public contract remains stable after orchestration changes.
 For generated CRUD projects, apply that split with Convertigo accessibility:
-- facade sequences consumed by the app are typically `Hidden`
+- business sequences consumed by the app are typically `Hidden`
 - internal helpers stay `Private`
 - only intentionally public HTTP endpoints should be `Public`

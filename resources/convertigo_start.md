@@ -20,11 +20,11 @@ Read this when a managed skill cannot route the task directly, or when the agent
 
 | Task shape | Read next | Why |
 | --- | --- | --- |
-| Understand the platform before touching anything | `convertigo/platform-big-picture@1` | Explains what Convertigo is, why facades exist, and how the platform parts fit together. |
-| Single sequence or facade change | `convertigo/recipe-facade-stub@1`, then `convertigo/backend-sequences@1` | Start with the golden path, then go deeper on response shape, JSON steps, SmartTypes, and validation rules. |
+| Understand the platform before touching anything | `convertigo/platform-big-picture@1` | Explains what Convertigo is, why business sequences exist, and how the platform parts fit together. |
+| Single sequence or business sequence change | `convertigo/recipe-business-sequence-stub@1`, then `convertigo/backend-sequences@1` | Start with the golden path, then go deeper on response shape, JSON steps, SmartTypes, and validation rules. |
 | SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | Start with the CRUD scaffold recipe, then go deeper on driver and transaction subtleties. |
 | Standard SQL CRUD + starter NGX UI | `convertigo/crud-fastpath@1` | Preferred mono-agent public path for the current recovery cycle. |
-| HTTP-backed feature | `convertigo/recipe-http-facade@1`, then `convertigo/integration-http@1` | Start with the connector and facade recipe, then go deeper on payload, schema, and handler details. |
+| HTTP-backed feature | `convertigo/recipe-http-business-sequence@1`, then `convertigo/integration-http@1` | Start with the connector and business sequence recipe, then go deeper on payload, schema, and handler details. |
 | NGX UI task | `convertigo/recipe-ngx-data-page@22`, then `convertigo/frontend-ngx@17` | Start with the canonical data-page pattern, then go deeper on palette, actions, and bindings. |
 | New app or starter-based POC | `convertigo/recipe-starter-extension@4`; if it displays backend, HTTP web-service, SQL, or FullSync results, also `convertigo/recipe-ngx-data-page@22` before page mutation | Gives the fast path for importing a starter and prevents raw fragment pages for data-backed UI. |
 | Multi-track delivery across backend, integration, and UI | `convertigo/engineering-workflow@1`, then `convertigo/contract-first-delivery@1`, then the matching recipe | Planner rules, stub strategy, parallel handoff, and the first implementation pattern live there. |
@@ -89,7 +89,7 @@ tree/palette contract, not by writing a project metadata file manually.
 18. For generic CRUD UI relation controls, prefer `ui.relationFields` over direct edits on CRUD-kit-managed pages or shared components.
 19. For credible demo rows, prefer `seed.data` over patching `init_schema` manually after generation.
 20. Do not grep the local workspace to rediscover the public CRUD shapes of `relations[]`, `ui.relationFields`, or `seed.data` once the built-in guides already document them.
-21. Generated CRUD facade sequences are hidden requestables with `authenticated context required=true`; generated CRUD UI apps now initialize that session once on a `Login` root page that calls `auth_login(username,password)` and then redirects to the visible home page.
+21. Generated CRUD business sequences are hidden requestables with `authenticated context required=true`; generated CRUD UI apps now initialize that session once on a `Login` root page that calls `auth_login(username,password)` and then redirects to the visible home page.
 22. Prefer best-case-first code. Let the standard error bubble handle normal failures unless there is a clear UX reason to intercept them.
 23. In dev, the live mobile viewer is served from the viewer root or `viewerHomeUrl`. For UI tasks, the full loop is async open with `mobile-builder-open(wait=false)`, useful inspection or mutation while the builder warms up, a waited/state-only poll, then browser smoke only when `browserControlReady:true`. If `browserControlTargetUrl` is `about:blank`, the Studio loader is still building and you must keep polling. Use the configured Playwright/browser-control MCP for the ready endpoint; before browser smoke, inspect the current browser target and confirm it is the returned viewer, not `about:blank` or another URL. If it is unavailable, disabled, stale, or attached elsewhere, report the configuration problem instead of using Node scripts, raw CDP, or a separate browser. When `browserDebugPortRequested` is 0 the client has no managed browser: follow `browserControlHint` and navigate your own browser tool to `viewerHomeUrl`. Reserve `.../DisplayObjects/mobile/home` for production builds.
 24. Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated artifacts. Treat them as diagnostics only; correct the Convertigo source objects or the MCP generator instead.
@@ -135,8 +135,8 @@ Lock these decisions before the first mutation:
 - correct parent placement: `self`, `inside`, `before`, or `after`
 - correct palette entry or canonical `className`
 - expected response contract when the task changes runtime behavior
-- for HTTP integrations, confirmed transport is modeled by `HttpConnector` plus a typed HTTP transaction before writing the facade
-- for HTTP integrations, confirmed the facade will call the transaction through `TransactionStep` and will not contain `java.net.URL`, `fetch`, `XMLHttpRequest`, ad hoc HTTP clients, or equivalent transport code
+- for HTTP integrations, confirmed transport is modeled by `HttpConnector` plus a typed HTTP transaction before writing the business sequence
+- for HTTP integrations, confirmed the business sequence will call the transaction through `TransactionStep` and will not contain `java.net.URL`, `fetch`, `XMLHttpRequest`, ad hoc HTTP clients, or equivalent transport code
 - validation call to run immediately after the mutation
 - whether the task requires only `project-save` or also `project-reload`
 - whether the task truly needs rollback/reload proof; `project-reload` is not a freshness step for `requestable-execute`
@@ -152,9 +152,9 @@ Correct escalation for a multi-track feature:
 2. Read `convertigo/platform-big-picture@1`.
 3. Read `convertigo/engineering-workflow@1`.
 4. Read `convertigo/contract-first-delivery@1` before any write call.
-5. Read `convertigo/recipe-facade-stub@1` to define the facade sequence and stub.
-6. Read `convertigo/recipe-http-facade@1` or `convertigo/recipe-sql-crud@1` for the real data source.
-7. Read `convertigo/recipe-ngx-data-page@19` before UI work as soon as the page will display facade-backed data. Do not wait until after a raw UI shortcut has been created.
+5. Read `convertigo/recipe-business-sequence-stub@1` to define the business sequence and stub.
+6. Read `convertigo/recipe-http-business-sequence@1` or `convertigo/recipe-sql-crud@1` for the real data source.
+7. Read `convertigo/recipe-ngx-data-page@19` before UI work as soon as the page will display business-sequence-backed data. Do not wait until after a raw UI shortcut has been created.
 8. Read the matching deep handbook only if the recipe is not enough.
 9. Close with `convertigo/validation-and-evidence@1`.
 
@@ -176,7 +176,7 @@ Correct escalation for a multi-track feature:
 - Do not guess QNames, class names, or NGX palette entries.
 - Do not start with RAG when tool metadata and tracked guides already answer the question.
 - Do not generate defensive wrappers or catch-all error handling by default. Convertigo already surfaces standard execution failures; intercept only the cases where the UX truly needs it.
-- Do not put external HTTP transport inside a sequence facade. HTTP-backed features must use `HttpConnector` plus a typed HTTP transaction for transport, and the facade must call it with `TransactionStep`.
+- Do not put external HTTP transport inside a sequence business sequence. HTTP-backed features must use `HttpConnector` plus a typed HTTP transaction for transport, and the business sequence must call it with `TransactionStep`.
 - Do not validate only the tree shape when runtime behavior matters.
 - Do not read every handbook by default. Read the smallest recipe and handbook set that matches the task.
 

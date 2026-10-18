@@ -44,7 +44,7 @@ Collect or confirm:
   - landing page on `Home`
   - one generated entity page per CRUD entity
   - `seed.profile=realistic`
-  - generated CRUD facades stay `hidden` with `authenticated context required=true`
+  - generated CRUD business sequences stay `hidden` with `authenticated context required=true`
   - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`, with a `Login` root page that authenticates once before the visible CRUD home page opens
   - declare obvious many-to-one relations in `spec.relations[]`
   - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` when the user explicitly asks for better visible fields without a custom redesign
@@ -77,7 +77,7 @@ If some fields are missing, ask only for the missing CRUD spec items.
 15. Do not call planner, critic, or maintainer prompts from this flow.
 16. Prefer `spec.relations[]`, `field.references`, entity-level UI hints (`ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, `ui.relationFields`), and `seed.data` over direct edits on CRUD-kit-managed shared components or manual patches of `init_schema`.
 17. Once the CRUD guides already documented the contract, do not run shell searches to rediscover the shapes of `relations[]`, `ui.relationFields`, or `seed.data`.
-18. Do not make generated CRUD facades public just to get the demo running; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
+18. Do not make generated CRUD business sequences public just to get the demo running; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
 
 ## UI variant policy
 - `entity-pages` is the recommended generic CRUD UI.

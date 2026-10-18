@@ -21,14 +21,14 @@ var C8O_RESOURCES_BUILTIN = [
       "- Optional UI reveal mode is opt-in per call. When the host asks for live reveal, pass `reveal:true` only on supported mutation/viewer tools such as `databaseobject-tree-apply`, `mobile-builder-open`, `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update`; skipped or unsupported reveal results are UI hints, not mutation failures.",
       "- Security review starts with `project-security-audit({project})`: read-only findings with a deterministic 0-100 score and A-F grade; acknowledge accepted risks with `suppress` instead of ignoring them.",
       "- Runtime proof uses `requestable-execute`, `crud-status`, `crud-proof`, and `log-view` when execution feedback is not enough.",
-      "- HTTP integration must keep transport in `HttpConnector` plus typed HTTP transactions; facade sequences call them with `TransactionStep` and only orchestrate or shape contracts.",
+      "- HTTP integration must keep transport in `HttpConnector` plus typed HTTP transactions; business sequences call them with `TransactionStep` and only orchestrate or shape contracts.",
       "- New UI projects start from `marketplace-import` and `mobile-builder-open(wait=false)` so the live viewer opens asynchronously while the agent continues backend or UI work.",
       "- Canonical standard NGX import: `marketplace-import({project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"})`. Launch the viewer once after import; do not probe state before launch. When the launch reports Node download, npm install, or a cold Angular build, finish useful mutations and make one waited state call with `timeoutSec:180` instead of repeated 30-second polls.",
       "- For a new standard SQL CRUD + starter NGX UI task, the current recommended public rail is `marketplace-import` -> `mobile-builder-open(wait=false)` -> `upsert-crud` -> backend `crud-proof` -> `upsert-ngx-crud-kit stage=bootstrap` -> `mobile-builder-open(stateOnly=true, wait=true)` -> `upsert-ngx-crud-kit stage=final` -> final `crud-proof(viewerUrl)` -> `project-save`.",
       "- For an existing deterministic CRUD project that is already green, prefer the edit rail: `crud-status` -> `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open(stateOnly=true, wait=true)` -> final `crud-proof(viewerUrl)` -> `project-save`.",
       "- For a low-detail CRUD request, stop after that first green end-to-end scaffold plus seeded demo data. Do not improvise a second UX/layout pass unless the user asked for it.",
       "- Treat `spec.relations[]`, `entities[].ui.relationFields`, and `seed.data` as first-class public CRUD inputs. Do not reverse-engineer them from the local workspace once the CRUD guides were read.",
-      "- Generated CRUD facade sequences are hidden requestables that require an authenticated context. The generated `auth_login(username,password)` and `auth_logout()` skeleton sequences stay hidden, and the generated UI uses a `Login` page to establish that session once before the visible CRUD home page opens.",
+      "- Generated CRUD business sequences are hidden requestables that require an authenticated context. The generated `auth_login(username,password)` and `auth_logout()` skeleton sequences stay hidden, and the generated UI uses a `Login` page to establish that session once before the visible CRUD home page opens.",
       "- Prefer best-case-first generated code. Trust the standard runtime error bubble for ordinary failures instead of adding defensive wrappers by default.",
       "- In the live dev viewer, prefer `viewerHomeUrl` or `viewerBaseUrl`. Use `mobile-builder-open(wait=false)` early for async launch, continue useful inspection or mutation while it starts, then `mobile-builder-open(stateOnly=true, wait=true)` before final proof. A state-only `status:\"stopped\"` is terminal for that poll: call `mobile-builder-open(stateOnly=false, wait=false)` once instead of waiting again. Use Playwright only when both `browserDebugPortMatched:true` and `browserControlReady:true` are reported. Studio JxBrowser exposes one existing visible page over CDP, not a normal multi-tab browser. The known-good fast check is `playwright.browser_tabs` for list/URL confirmation, `playwright.browser_find` for visible UI, and `playwright.browser_evaluate` only for DOM state or timing; do not create or navigate tabs/pages or probe extra browser features first. If the target is `about:blank` with status `building`, poll; if status is `stopped`, launch asynchronously. If MCP browser tools are unavailable, stale, or attached elsewhere, report the managed Playwright configuration problem instead of using Node, raw CDP, or another browser. When browserDebugPortRequested is 0 the client has no managed browser: follow browserControlHint and navigate your own browser tool to viewerHomeUrl. Reserve `.../DisplayObjects/mobile/home` for production builds.",
       "- Do not use shell, PowerShell, `rg`, or filesystem scans to rediscover MCP signatures or examples. Never recursively search a drive root, user profile, workspace root, or generated frontend tree for browser/build diagnostics; use `mobile-builder-open`, `log-view`, and the managed Playwright target.",
@@ -51,7 +51,7 @@ var C8O_RESOURCES_BUILTIN = [
       "3. Decide whether the task really fits the deterministic CRUD fast path. For a new standard SQL CRUD + starter NGX UI project, prefer `convertigo-crud-fastpath`; for an existing deterministic CRUD project edit, prefer `convertigo://resources/convertigo-crud-edit-fastpath`; other tasks stay exploratory.",
       "4. For a new UI project, keep the exact requested project name, call `marketplace-import({project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"})`, then `mobile-builder-open` with `wait=false` immediately so the viewer starts while the rest of the scaffolding proceeds. Do not probe state before launch.",
       "5. For an existing deterministic CRUD project edit, do not run a bootstrap UI pass again: `crud-status` -> optional early `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> one `upsert-ngx-crud-kit stage=final` -> `mobile-builder-open(stateOnly=true, wait=true)` -> final `crud-proof`.",
-      "6. In generated CRUD UI apps, initialize the session once on the generated `Login` root page, then let the visible pages call only the CRUD facades they need.",
+      "6. In generated CRUD UI apps, initialize the session once on the generated `Login` root page, then let the visible pages call only the CRUD business sequences they need.",
       "7. For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second UX refinement pass unless the user explicitly asked for it.",
       "8. Once the fast path is chosen, do not call `rag-query` unless the built-in guides and tools are exhausted.",
       "9. Do not grep the local workspace to rediscover `relations[]`, `ui.relationFields`, or `seed.data` once the CRUD guides already document them.",
@@ -120,7 +120,22 @@ function c8oFindResourceByUri(resourceUri) {
   if (!resourceUri) {
     return null;
   }
-  return c8oFindCatalogEntry(c8oLoadResourcesIndex(), "uri", resourceUri);
+  var entries = c8oLoadResourcesIndex();
+  var found = c8oFindCatalogEntry(entries, "uri", resourceUri);
+  if (found) {
+    return found;
+  }
+  // A renamed guide still answers at its former URI (entry.aliases).
+  var wanted = String(resourceUri).toLowerCase();
+  for (var i = 0; i < entries.length; i++) {
+    var aliases = entries[i] && entries[i].aliases;
+    for (var k = 0; aliases && k < aliases.length; k++) {
+      if (String(aliases[k]).toLowerCase() === wanted) {
+        return entries[i];
+      }
+    }
+  }
+  return null;
 }
 
 function c8oReadResourceFile(entry) {

@@ -23,7 +23,7 @@
         "convertigo://resources/convertigo-vibe-http-ngx-fastpath"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-recipe-http-facade",
+        "convertigo://resources/convertigo-recipe-http-business-sequence",
         "convertigo://resources/convertigo-recipe-ngx-data-page"
       ]
     },
@@ -51,9 +51,9 @@
     },
     {
       "id": "http-backend",
-      "match": "Create or modify an HTTP connector, transaction, or facade without a new UI",
+      "match": "Create or modify an HTTP connector, transaction, or business sequence without a new UI",
       "required": [
-        "convertigo://resources/convertigo-recipe-http-facade"
+        "convertigo://resources/convertigo-recipe-http-business-sequence"
       ],
       "fallback": [
         "convertigo://resources/convertigo-integration-http",
@@ -88,9 +88,9 @@
     },
     {
       "id": "backend-sequence",
-      "match": "Create or modify a sequence or facade without HTTP or SQL integration",
+      "match": "Create or modify a sequence or business sequence without HTTP or SQL integration",
       "required": [
-        "convertigo://resources/convertigo-recipe-facade-stub"
+        "convertigo://resources/convertigo-recipe-business-sequence-stub"
       ],
       "fallback": [
         "convertigo://resources/convertigo-backend-sequences"

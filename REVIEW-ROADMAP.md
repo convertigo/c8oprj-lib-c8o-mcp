@@ -73,8 +73,8 @@ Current direction:
 First-wave deliverables:
 
 - `convertigo-platform-big-picture`
-- `convertigo-recipe-facade-stub`
-- `convertigo-recipe-http-facade`
+- `convertigo-recipe-business-sequence-stub`
+- `convertigo-recipe-http-business-sequence`
 - `convertigo-recipe-sql-crud`
 - `convertigo-recipe-ngx-data-page`
 - `convertigo-recipe-starter-extension`

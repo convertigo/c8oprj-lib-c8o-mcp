@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 40,
+    "revision": 41,
     "scopeTags": [
       "start",
       "onboarding",
@@ -41,7 +41,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_fastpath.md",
     "guideId": "convertigo/crud-fastpath",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -75,7 +75,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_vibe_start.md",
     "guideId": "convertigo/vibe-start",
-    "revision": 28,
+    "revision": 29,
     "scopeTags": [
       "start",
       "vibe",
@@ -107,7 +107,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_vibe_http_ngx_fastpath.md",
     "guideId": "convertigo/vibe-http-ngx-fastpath",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -178,7 +178,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_edit_fastpath.md",
     "guideId": "convertigo/crud-edit-fastpath",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -211,11 +211,11 @@
     "uri": "convertigo://resources/convertigo-platform-big-picture",
     "name": "Convertigo Platform Big Picture",
     "title": "Convertigo Platform Big Picture",
-    "description": "Platform overview, mindset, subsystems, and the reasons behind facade-first Convertigo design.",
+    "description": "Platform overview, mindset, subsystems, and the reasons behind business-sequence-first Convertigo design.",
     "mimeType": "text/markdown",
     "file": "convertigo_platform_big_picture.md",
     "guideId": "convertigo/platform-big-picture",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "start",
       "platform",
@@ -294,7 +294,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_bootstrap_decision_matrix.md",
     "guideId": "convertigo/bootstrap-decision-matrix",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "bootstrap",
@@ -325,11 +325,11 @@
     "uri": "convertigo://resources/convertigo-contract-first-delivery",
     "name": "Convertigo Contract-First Delivery",
     "title": "Convertigo Contract-First Delivery",
-    "description": "Planner workflow for facade contracts, stubs, parallel specialist work, and safe stub replacement.",
+    "description": "Planner workflow for business sequence contracts, stubs, parallel specialist work, and safe stub replacement.",
     "mimeType": "text/markdown",
     "file": "convertigo_contract_first_delivery.md",
     "guideId": "convertigo/contract-first-delivery",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "planner",
@@ -365,7 +365,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_starter_extension.md",
     "guideId": "convertigo/recipe-starter-extension",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -397,20 +397,21 @@
     "fallbackToRag": false
   },
   {
-    "uri": "convertigo://resources/convertigo-recipe-facade-stub",
-    "name": "Convertigo Facade Stub Recipe",
-    "title": "Convertigo Facade Stub Recipe",
-    "description": "Golden path for locking a facade contract and producing a minimal executable stub fast.",
+    "uri": "convertigo://resources/convertigo-recipe-business-sequence-stub",
+    "name": "Convertigo Business Sequence Stub Recipe",
+    "title": "Convertigo Business Sequence Stub Recipe",
+    "description": "Golden path for locking a business sequence contract and producing a minimal executable stub fast.",
     "mimeType": "text/markdown",
-    "file": "convertigo_recipe_facade_stub.md",
-    "guideId": "convertigo/recipe-facade-stub",
-    "revision": 1,
+    "file": "convertigo_recipe_business_sequence_stub.md",
+    "guideId": "convertigo/recipe-business-sequence-stub",
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "recipe",
       "backend",
       "facade",
-      "stub"
+      "stub",
+      "business sequence"
     ],
     "prerequisites": [
       "convertigo/start@1",
@@ -433,17 +434,20 @@
       "convertigo-maintainer"
     ],
     "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "fallbackToRag": false,
+    "aliases": [
+      "convertigo://resources/convertigo-recipe-facade-stub"
+    ]
   },
   {
     "uri": "convertigo://resources/convertigo-backend-sequences",
     "name": "Convertigo Backend Sequences",
     "title": "Convertigo Backend Sequences",
-    "description": "Sequence and facade design, JSON shaping, SmartTypes, and safe runtime validation.",
+    "description": "Sequence and business sequence design, JSON shaping, SmartTypes, and safe runtime validation.",
     "mimeType": "text/markdown",
     "file": "convertigo_backend_sequences.md",
     "guideId": "convertigo/backend-sequences",
-    "revision": 9,
+    "revision": 10,
     "scopeTags": [
       "domain",
       "backend",
@@ -462,7 +466,8 @@
       "palette-describe",
       "databaseobject-schema",
       "requestable-execute",
-      "log-view"
+      "log-view",
+      "business-sequence-create"
     ],
     "promptNames": [
       "convertigo-planner",
@@ -475,25 +480,26 @@
     "fallbackToRag": false
   },
   {
-    "uri": "convertigo://resources/convertigo-recipe-http-facade",
-    "name": "Convertigo HTTP Facade Recipe",
-    "title": "Convertigo HTTP Facade Recipe",
-    "description": "Golden path for building an HTTP connector and wiring it behind a stable facade contract.",
+    "uri": "convertigo://resources/convertigo-recipe-http-business-sequence",
+    "name": "Convertigo HTTP Business Sequence Recipe",
+    "title": "Convertigo HTTP Business Sequence Recipe",
+    "description": "Golden path for building an HTTP connector and wiring it behind a stable business sequence contract.",
     "mimeType": "text/markdown",
-    "file": "convertigo_recipe_http_facade.md",
-    "guideId": "convertigo/recipe-http-facade",
-    "revision": 13,
+    "file": "convertigo_recipe_http_business_sequence.md",
+    "guideId": "convertigo/recipe-http-business-sequence",
+    "revision": 15,
     "scopeTags": [
       "workflow",
       "recipe",
       "integration",
       "http",
-      "facade"
+      "facade",
+      "business sequence"
     ],
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
-      "convertigo/recipe-facade-stub@1"
+      "convertigo/recipe-business-sequence-stub@1"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
@@ -509,17 +515,20 @@
       "convertigo-maintainer"
     ],
     "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "fallbackToRag": false,
+    "aliases": [
+      "convertigo://resources/convertigo-recipe-http-facade"
+    ]
   },
   {
     "uri": "convertigo://resources/convertigo-integration-http",
     "name": "Convertigo HTTP Integration",
     "title": "Convertigo HTTP Integration",
-    "description": "HTTP connector and transaction setup, schema recording, transport diagnostics, and facade handoff.",
+    "description": "HTTP connector and transaction setup, schema recording, transport diagnostics, and business sequence handoff.",
     "mimeType": "text/markdown",
     "file": "convertigo_integration_http.md",
     "guideId": "convertigo/integration-http",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "domain",
       "integration",
@@ -549,11 +558,11 @@
     "uri": "convertigo://resources/convertigo-recipe-sql-crud",
     "name": "Convertigo SQL CRUD Recipe",
     "title": "Convertigo SQL CRUD Recipe",
-    "description": "Golden path for creating a SQL CRUD scaffold behind a stable facade contract.",
+    "description": "Golden path for creating a SQL CRUD scaffold behind a stable business sequence contract.",
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_sql_crud.md",
     "guideId": "convertigo/recipe-sql-crud",
-    "revision": 5,
+    "revision": 6,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -564,7 +573,7 @@
     "prerequisites": [
       "convertigo/start@1",
       "convertigo/platform-big-picture@1",
-      "convertigo/recipe-facade-stub@1"
+      "convertigo/recipe-business-sequence-stub@1"
     ],
     "recommendedTools": [
       "databaseobject-tree-get",
@@ -590,7 +599,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_hsqldb.md",
     "guideId": "convertigo/fast-path-sql-hsqldb",
-    "revision": 5,
+    "revision": 6,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -642,7 +651,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_postgresql.md",
     "guideId": "convertigo/fast-path-sql-postgresql",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -698,7 +707,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_mariadb.md",
     "guideId": "convertigo/fast-path-sql-mariadb",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -793,11 +802,11 @@
     "uri": "convertigo://resources/convertigo-integration-sql",
     "name": "Convertigo SQL Integration",
     "title": "Convertigo SQL Integration",
-    "description": "SQL connector and transaction practices behind a stable facade contract.",
+    "description": "SQL connector and transaction practices behind a stable business sequence contract.",
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "domain",
       "integration",
@@ -832,7 +841,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_authentication.md",
     "guideId": "convertigo/authentication",
-    "revision": 9,
+    "revision": 10,
     "scopeTags": [
       "domain",
       "auth",
@@ -872,7 +881,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_ngx_data_page.md",
     "guideId": "convertigo/recipe-ngx-data-page",
-    "revision": 41,
+    "revision": 42,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -910,7 +919,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_ngx_entry_shell.md",
     "guideId": "convertigo/fast-path-ngx-entry-shell",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -958,7 +967,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 31,
+    "revision": 32,
     "scopeTags": [
       "domain",
       "frontend",
@@ -998,7 +1007,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_validation_and_evidence.md",
     "guideId": "convertigo/validation-and-evidence",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "validation",
       "evidence",
@@ -1118,11 +1127,11 @@
     "uri": "convertigo://resources/convertigo-recipe-multipage-app",
     "name": "Convertigo Recipe Multipage App",
     "title": "Convertigo Recipe: Multi-page App with Roles",
-    "description": "Architecture and order of work for a specification-driven NGX business app: SQL transactions, shared JS rules, uniform facades with server-side role checks, session, role-based navigation, protected pages, cost rules for large builds, and session-aware validation.",
+    "description": "Architecture and order of work for a specification-driven NGX business app: SQL transactions, shared JS rules, uniform business sequences with server-side role checks, session, role-based navigation, protected pages, cost rules for large builds, and session-aware validation.",
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 17,
+    "revision": 18,
     "scopeTags": [
       "recipe",
       "ngx",
@@ -1146,7 +1155,8 @@
       "requestable-execute",
       "mobile-builder-open",
       "subagent-run",
-      "project-save"
+      "project-save",
+      "business-sequence-create"
     ],
     "promptNames": [
       "convertigo-backend",

@@ -17,14 +17,14 @@ Do not use this guide for:
 ## Preconditions
 Use this rail only when all of these are already true:
 - the project already exists
-- `crud-status` shows the expected connector/facade/UI rail
+- `crud-status` shows the expected connector/business sequence/UI rail
 - the project was already green earlier in the same thread or can be proven green immediately
 - the task still fits the deterministic CRUD envelope
 
 If those conditions do not hold, fall back to `convertigo://resources/convertigo-crud-fastpath`.
 
 ## Deterministic rail for an existing CRUD project
-1. Run `crud-status` to confirm the current project, connector, facade prefix, entry page, and UI variant.
+1. Run `crud-status` to confirm the current project, connector, business sequence prefix, entry page, and UI variant.
 2. Build the full updated CRUD `spec` in one pass.
 3. Run `upsert-crud` with `sequence=true` and `ui=false`.
 4. Run backend `crud-proof`.

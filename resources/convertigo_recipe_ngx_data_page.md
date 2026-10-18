@@ -6,14 +6,14 @@ Read this when building a page that loads backend data and must behave correctly
 ## What this guide covers
 - The fastest safe NGX page pattern for data-backed UI.
 - How to wire load, empty, error, and retry states.
-- How to bind to stable facade fields.
+- How to bind to stable business sequence fields.
 - How to validate both structure and runtime behavior.
 
 ## Mandatory workflow
 
 ### Golden path
-1. Confirm the backend facade contract first.
-   - For HTTP-backed pages, the facade contract must expose the application data the page will bind to, not only a raw `TransactionStep` subtree. If the UI is expected to render a list, prove a shaped list contract such as `{items:[...], total, query}` or an equivalent neutral shape before creating result UI.
+1. Confirm the backend business sequence contract first.
+   - For HTTP-backed pages, the business sequence contract must expose the application data the page will bind to, not only a raw `TransactionStep` subtree. If the UI is expected to render a list, prove a shaped list contract such as `{items:[...], total, query}` or an equivalent neutral shape before creating result UI.
 2. Inspect the target page subtree and identify the actual visible entry page.
 3. On starter-derived apps, replace the dominant starter body on the visible entry page first. In the default starter this is usually `Application.NgxApp.pg:Page` and `Page.Content`. Do not keep `WelcomeCard` or equivalent demo content as the main visible body while other work continues.
 4. The first visible pass must already make the real entry page look alive:
@@ -22,7 +22,7 @@ Read this when building a page that loads backend data and must behave correctly
    - one visible feature section exists
    - loading, empty, or retry states are visible
    - one contract-shaped slot exists for the eventual live count/item binding
-5. If stable facade proof already exists, bind one real count, value, or repeated item in that first pass. Otherwise treat this as `phase 1` shell progress and return for a second binding pass after backend proof. A raw HTTP transaction response shown only under `transaction.document` is not stable facade proof for an NGX page unless the page explicitly targets that raw diagnostic contract.
+5. If stable business sequence proof already exists, bind one real count, value, or repeated item in that first pass. Otherwise treat this as `phase 1` shell progress and return for a second binding pass after backend proof. A raw HTTP transaction response shown only under `transaction.document` is not stable business sequence proof for an NGX page unless the page explicitly targets that raw diagnostic contract.
 6. Use the palette or canonical tree shapes to create:
    - visible feature shell that replaces the default starter content early
    - first visible write on the actual visible entry page; for starter-derived projects this usually means replacing the dominant body under `Page.Content`
@@ -33,11 +33,11 @@ Read this when building a page that loads backend data and must behave correctly
    - error state
    - retry action
 5. Use `CallSequenceAction` or the equivalent built-in action for backend calls.
-6. For external HTTP/SQL/service data, the page calls only a stable Convertigo facade sequence through a palette action chain. Do not use browser `fetch`, direct `this.c8o.callJson()`, `this.c8o.callJsonObject(...).async()`, or custom action transport for normal data loading.
-7. Prefer `SC` source bindings for data already available from the facade/action output, current iterator scope, forms, or global/page context. Use `TS` only for small local expressions that are not cleanly sourceable.
-8. Bind only to stable facade fields. Do not make the page responsible for discovering or reshaping raw HTTP transaction internals.
+6. For external HTTP/SQL/service data, the page calls only a stable Convertigo business sequence through a palette action chain. Do not use browser `fetch`, direct `this.c8o.callJson()`, `this.c8o.callJsonObject(...).async()`, or custom action transport for normal data loading.
+7. Prefer `SC` source bindings for data already available from the business sequence/action output, current iterator scope, forms, or global/page context. Use `TS` only for small local expressions that are not cleanly sourceable.
+8. Bind only to stable business sequence fields. Do not make the page responsible for discovering or reshaping raw HTTP transaction internals.
 9. Keep the main page body on native NGX objects. Do not collapse a data page into one large `UICustom` / `htmlTemplate` fragment.
-10. Model lists with `UIControlDirective#UIControlDirective` (`directiveName=ForEach`) instead of raw `*ngFor` attributes whenever child actions, repeated controls, or repeated facade data are involved.
+10. Model lists with `UIControlDirective#UIControlDirective` (`directiveName=ForEach`) instead of raw `*ngFor` attributes whenever child actions, repeated controls, or repeated business sequence data are involved.
 11. Under a palette `ForEach`, pass iterator values through `scope.<itemName>` in child action variables. A generated action variable such as `vars:{record: record}` means the loop/action scope was modeled incorrectly. Bind the list source itself from page-local state, for example `directiveSource` on Local `?.results?.items`, but do not bind repeated row fields as fake page locals. Row fields belong to the current iterator item, for example `record.name` / `record.status`, or to a selected item local such as `selectedRecord.name`. If child text uses `record.*`, the `ForEach` must set `directiveItemName: record` and usually `directiveIndexName: recordIndex`; otherwise generated Angular will use an auto item variable and `record.name` will not resolve.
 12. For Angular property bindings such as `[value]`, `[disabled]`, and `[selectedText]`, use `SC` when sourceable or `TS` for short local expressions. Plain/TX mode is wrong if it produces generated output like `[value]="'searchQuery'"` or `disabled="{{loading}}"`.
 13. Page-local state must live in Convertigo locals, not TypeScript fields in `Begin_c8o_PageDeclaration`. Input-owned values such as `searchQuery` should be modeled with the input palette Binding/`DoubleBinding` property. Action-owned values such as `results`, `items`, `loading`, `error`, `errorMessage`, or selected item state should be created and updated with `UIDynamicAction#SetLocalAction`.
@@ -116,7 +116,7 @@ Known-good button event with backend handoff:
         "properties": {
           "requestable": {
             "mode": "PLAIN",
-            "value": "<ProjectName>.<FacadeSequence>"
+            "value": "<ProjectName>.<BusinessSequence>"
           }
         },
         "children": [
@@ -168,7 +168,7 @@ If a headless client struggles to emit the nested JSON above, build the same sha
 4. Create `vr:<requestVariable>`, `StoreResults`, and `SetLoadingFalse` under `CallSearch`.
 5. Read back `CallSearch` and require QNames ending in `.CallSearch.StoreResults` and `.CallSearch.SetLoadingFalse` before proof.
 
-Do not copy the `StoreResults` fallback blindly. After the facade runtime proof, inspect the actual JSON body and set `items` from the proven shaped facade contract. Accept final UI mappings from explicit facade fields such as `out.items`, `out.contract?.items`, `out.response?.items`, or another proven non-transport application object. Do not use `out.transaction`, `out?.transaction`, `response?.transaction`, `transaction.document`, `HttpInfo`, headers, or other raw transport subtrees in final `StoreResults`. If those paths seem necessary to reach records, the facade contract is incomplete: stop UI work, repair the facade so it emits `items`/`total`/`query` or equivalent application fields, rerun facade proof, then resume UI. If row bindings later use `record.properties.*`, the stored `items` array must be the shaped facade array whose elements really contain `properties`.
+Do not copy the `StoreResults` fallback blindly. After the business sequence runtime proof, inspect the actual JSON body and set `items` from the proven shaped business sequence contract. Accept final UI mappings from explicit business sequence fields such as `out.items`, `out.contract?.items`, `out.response?.items`, or another proven non-transport application object. Do not use `out.transaction`, `out?.transaction`, `response?.transaction`, `transaction.document`, `HttpInfo`, headers, or other raw transport subtrees in final `StoreResults`. If those paths seem necessary to reach records, the business sequence contract is incomplete: stop UI work, repair the business sequence so it emits `items`/`total`/`query` or equivalent application fields, rerun business sequence proof, then resume UI. If row bindings later use `record.properties.*`, the stored `items` array must be the shaped business sequence array whose elements really contain `properties`.
 
 Known-good Local text binding for an error message:
 
@@ -240,18 +240,18 @@ If `databaseobject-tree-apply` reports `argument type mismatch` on `directiveExp
 22. Before claiming completion, perform a tree readback self-audit of the page and fix any failed item before final response. A green builder does not override this audit.
 23. The self-audit must prove:
    - a real `CallSequenceAction` exists under a page/button event
-   - a `UIControlVariable` child passes the search/query value to the facade
+   - a `UIControlVariable` child passes the search/query value to the business sequence
    - no page `scriptContent` method calls `this.c8o.callJson`, `this.c8o.callJsonObject`, `fetch`, or an external HTTP client
    - no feature state such as `searchQuery`, `results`, `items`, `loading`, `error`, or `empty` is declared in `Begin_c8o_PageDeclaration`
    - every local used by Local SmartSources or `SetLocalAction` is initialized by `SetLocalAction` in a page-enter `UIPageEvent` such as the default `onDidEnter`
    - the search input uses Binding/`DoubleBinding` sourced from Local `?.searchQuery`
-   - the `CallSequenceAction` has its `requestable` property set to the public facade requestable, for example `plain:<ProjectName>.<FacadeSequence>`; a property named `Sequence` is ignored on current trees
+   - the `CallSequenceAction` has its `requestable` property set to the public business sequence requestable, for example `plain:<ProjectName>.<BusinessSequence>`; a property named `Sequence` is ignored on current trees
    - the `CallSequenceAction` query variable also uses a Local SmartSource `?.searchQuery`; it must not read the DOM or use a script expression such as `document.querySelector(...)`
    - action-owned UI state is written with `SetLocalAction`
    - custom code does not assign `page.local`, `page.local.results`, `page.local.loading`, or similar state directly
    - visible reads of page-local state use Local SmartSource/source mode with empty `prefix` and `suffix`
-   - the result surface reads the local/facade result contract with source bindings and displays at least one real contract field, not only an empty container or a generic "results" placeholder
-   - no result-mapping action script contains `out.transaction`, `out?.transaction`, `transaction.document`, `HttpInfo`, or `headers`; if it does, the facade contract is incomplete and must be repaired before UI completion
+   - the result surface reads the local/business sequence result contract with source bindings and displays at least one real contract field, not only an empty container or a generic "results" placeholder
+   - no result-mapping action script contains `out.transaction`, `out?.transaction`, `transaction.document`, `HttpInfo`, or `headers`; if it does, the business sequence contract is incomplete and must be repaired before UI completion
    - no `UIText.textValue` for count, empty, selected, or error page-local state contains `plain:` plus `local?.`, `local.`, or `{{ local`; use static text plus Local SOURCE values instead
    - the primary data page body is not a `UICustom`/`htmlTemplate` fragment
 24. If the readback shows `UICustom#UICustom` as the primary renderer, TypeScript page fields, missing page-enter local initialization, a direct `callJson` call, an input event copying `searchQuery`, a DOM selector used as an action variable, or direct `page.local.*` assignments, delete/replace that shortcut and rebuild with palette objects before any final answer. Do not report the project as done because backend proof, mobile builder proof, or browser smoke is green.
@@ -263,7 +263,7 @@ Before the first UI mutation, write the intended tree in terms of Convertigo obj
 - one visible submit/retry button, usually `UIDynamicElement#Button`
 - one event on that button/page, `UIControlEvent`
 - one backend action, `UIDynamicAction#CallSequenceAction`
-- one `UIControlVariable` per request variable that the facade needs
+- one `UIControlVariable` per request variable that the business sequence needs
 - visible loading, empty, and error branches
 - a repeated result structure using palette objects/directives, not a raw fragment loop
 
@@ -273,20 +273,20 @@ Passing the gate requires the visible structure itself to be palette-modeled. A 
 
 If this gate fails after an attempted implementation, do not finish by presenting the project. Rework the page until the tree readback passes the gate; the failure is structural, not cosmetic.
 
-### Search facade wiring example
-For any search/list page backed by an HTTP web service, use the same wiring pattern as a normal facade-backed search:
-0. Backend facade sequence: when the facade calls an HTTP transaction through `TransactionStep`, follow `convertigo-recipe-http-facade`. Set `TransactionStep.sourceTransaction` to the runtime path such as `Project.Connector.Transaction`, never to a Studio QName such as `Project.cn:Connector.tr:Transaction`. For simple pass-through variables, create a public facade variable with the same object name as the HTTP transaction variable, then create a same-named `StepVariable` under the transaction step with `value` set to that variable name. Do not rename the public variable to a UI label unless facade proof shows the renamed value is forwarded. Do not set `sourceDefinition` to a one-item XPath array such as `["./../vr:<requestVariable>/text()"]` or to an absolute QName such as `["Project.sq:search.vr:<requestVariable>/text()"]`; that shape can be saved but later crashes execution with `NumberFormatException`. Use `sourceDefinition` only when you deliberately have a real producer step priority plus XPath tuple such as `["1780000000000", "./field/text()"]`. Prove with `requestable-execute` that the outgoing HTTP URL, request payload, or returned application data contains the user value; a broad unfiltered response is a failed facade proof even if it contains records.
-   - The facade proof must be shaped before UI work. If the useful record array is only under `transaction.document` or another raw transaction subtree, read `convertigo://resources/convertigo-backend-sequences` and `convertigo://resources/convertigo-json-quickref`, add backend shaping steps that emit `items`/`total`/`query` or equivalent application fields, rerun facade proof, and only then create `CallSequenceAction` result bindings. Do not compensate by parsing `transaction.document` in `StoreResults`.
-   - For a JSON transaction whose records are at `./document/array`, the minimum proven repair is `TransactionStep.output=false` plus an `steps.XMLCopyStep` sibling with `sourceDefinition:["<TransactionStep priority>","./document/array"]`. The facade then returns a public top-level `array`; the UI `StoreResults` may read `out.array` and normalize it to local `results.items`. Keep that XPath stable even if a direct transaction proof displays a root JSON `array`; `requestable-execute` output is not the internal SmartSource XPath. If the facade copy is empty, verify producer priority/direct JSON proof. If it is broad or unfiltered, fix request variable pass-through, not the copy XPath.
+### Search business sequence wiring example
+For any search/list page backed by an HTTP web service, use the same wiring pattern as a normal business-sequence-backed search:
+0. Backend business sequence: when the business sequence calls an HTTP transaction through `TransactionStep`, follow `convertigo-recipe-http-business-sequence`. Set `TransactionStep.sourceTransaction` to the runtime path such as `Project.Connector.Transaction`, never to a Studio QName such as `Project.cn:Connector.tr:Transaction`. For simple pass-through variables, create a public business sequence variable with the same object name as the HTTP transaction variable, then create a same-named `StepVariable` under the transaction step with `value` set to that variable name. Do not rename the public variable to a UI label unless business sequence proof shows the renamed value is forwarded. Do not set `sourceDefinition` to a one-item XPath array such as `["./../vr:<requestVariable>/text()"]` or to an absolute QName such as `["Project.sq:search.vr:<requestVariable>/text()"]`; that shape can be saved but later crashes execution with `NumberFormatException`. Use `sourceDefinition` only when you deliberately have a real producer step priority plus XPath tuple such as `["1780000000000", "./field/text()"]`. Prove with `requestable-execute` that the outgoing HTTP URL, request payload, or returned application data contains the user value; a broad unfiltered response is a failed business sequence proof even if it contains records.
+   - The business sequence proof must be shaped before UI work. If the useful record array is only under `transaction.document` or another raw transaction subtree, read `convertigo://resources/convertigo-backend-sequences` and `convertigo://resources/convertigo-json-quickref`, add backend shaping steps that emit `items`/`total`/`query` or equivalent application fields, rerun business sequence proof, and only then create `CallSequenceAction` result bindings. Do not compensate by parsing `transaction.document` in `StoreResults`.
+   - For a JSON transaction whose records are at `./document/array`, the minimum proven repair is `TransactionStep.output=false` plus an `steps.XMLCopyStep` sibling with `sourceDefinition:["<TransactionStep priority>","./document/array"]`. The business sequence then returns a public top-level `array`; the UI `StoreResults` may read `out.array` and normalize it to local `results.items`. Keep that XPath stable even if a direct transaction proof displays a root JSON `array`; `requestable-execute` output is not the internal SmartSource XPath. If the business sequence copy is empty, verify producer priority/direct JSON proof. If it is broad or unfiltered, fix request variable pass-through, not the copy XPath.
 1. Page state keeps only local UI concerns such as `searchQuery`, `loading`, `error`, and optionally a selected item. Store those concerns in Convertigo locals: input-owned values through palette Binding/`DoubleBinding`, action-owned values through `SetLocalAction`.
 2. Create a page-enter `UIPageEvent` that initializes every local used on the page with `SetLocalAction`. Use the current NGX default `viewEvent` (`onDidEnter`) unless the tree already exposes another page-enter enum. For example initialize `searchQuery` to `script:''`, `loading` to `script:false`, `error` to `script:false`, `errorMessage` to `script:''`, `empty` to `script:false`, and `results` to a stable empty contract such as `script:{items:[], total:0, query:''}`. Add any other page local used by Local SmartSources or later `SetLocalAction` nodes to this same initialization event. Do not create page locals named after row fields just to display a result row; those fields should be read from the current `ForEach` item.
-   - The page search local is always `searchQuery`. A facade or HTTP request variable may use an upstream parameter name such as `q`, `query`, `filter`, or another provider-specific name, but that name belongs to backend request variables, not page-local state. Do not initialize page locals named after upstream parameters just to make names line up; initialize `searchQuery` and bind the input to `?.searchQuery`.
+   - The page search local is always `searchQuery`. A business sequence or HTTP request variable may use an upstream parameter name such as `q`, `query`, `filter`, or another provider-specific name, but that name belongs to backend request variables, not page-local state. Do not initialize page locals named after upstream parameters just to make names line up; initialize `searchQuery` and bind the input to `?.searchQuery`.
 3. The search input binds its Binding/`DoubleBinding` property directly to the local `?.searchQuery` in `SC`/source mode. Do not add an input `(ionChange)` / `InputChange` event only to copy `event.detail.value` into `searchQuery`. The search button must have a visible child `ngx.components.UIText#UIText` with plain text matching the intended action label; setting guessed label properties on the `Button` itself is often skipped and an empty `ion-button` passes compile but fails browser smoke. The search button event starts by setting `loading`, clearing `error`, and resetting `empty` through `SetLocalAction` nodes. Use a small `UICustomAction` only for validation or normalization that cannot be represented by palette actions.
    - If browser smoke shows the typed query is not reaching the call, do not repair it with `(ionChange)`, `InputChange`, `SetLocalAction(Property=searchQuery)`, or `document.querySelector('ion-input input')`. Read back the `Input` object and the `UIControlVariable` object, then fix their `DoubleBinding`/`varValue` SmartSources so both point to Local `?.searchQuery` in source mode.
-   - The page-local input value remains `searchQuery` even if the facade request variable is named after an upstream API parameter such as `q`, `query`, `filter`, or `search`. Keep the `UIControlVariable` object name equal to the facade variable, but keep its `varValue` SmartSource path on `?.searchQuery`.
+   - The page-local input value remains `searchQuery` even if the business sequence request variable is named after an upstream API parameter such as `q`, `query`, `filter`, or `search`. Keep the `UIControlVariable` object name equal to the business sequence variable, but keep its `varValue` SmartSource path on `?.searchQuery`.
    - After creating or patching `DoubleBinding`, `Binding`, `varValue`, `directiveSource`, or a Local `textValue`, read the object back. If the YAML shows `MobileSmartSourceType: source:[object Object]` or `beanData` shows `"source:[object Object]"`, the binding is broken. Replace it with the literal source SmartSource string/JSON shape from this recipe; do not continue to UI proof with `[object Object]`.
    - For common NGX page primitives, use existing palette class names, not semantic invented suffixes. Typical class names are `ngx.components.UIDynamicElement#Card`, `#CardHeader`, `#CardTitle`, `#CardContent`, `#Input`, `#Button`, `#DivTag`, `#Heading1`, `#Heading2`, `#Heading3`, `#List`, `#ListItem`, `#Spinner`, plus `ngx.components.UIText#UIText`, `ngx.components.UIControlEvent#UIControlEvent`, `ngx.components.UIControlDirective#UIControlDirective`, `ngx.components.UIDynamicAction#SetLocalAction`, `ngx.components.UIDynamicAction#CallSequenceAction`, and `ngx.components.UIControlVariable#UIControlVariable`. Do not create classes such as `UIDynamicElement#SearchForm`, `UIDynamicElement#ResultsList`, `UIDynamicElement#Heading`, or `UIDynamicElement#UIDynamicElement`; if a class is not in this known set, run `palette-list` on the exact parent once and use the returned className.
-4. The next child action is `UIDynamicAction#CallSequenceAction` pointing at the public facade sequence, for example `<Project>.<FacadeSequence>`.
+4. The next child action is `UIDynamicAction#CallSequenceAction` pointing at the public business sequence, for example `<Project>.<BusinessSequence>`.
    - With `databaseobject-tree-apply`, set the action property named `requestable`, not `Sequence`.
    - Use plain mode for the requestable value, for example:
 
@@ -297,21 +297,21 @@ For any search/list page backed by an HTTP web service, use the same wiring patt
   "properties": {
     "requestable": {
       "mode": "PLAIN",
-      "value": "<ProjectName>.<FacadeSequence>"
+      "value": "<ProjectName>.<BusinessSequence>"
     }
   }
 }
 ```
 
    - After creating the action, read it back. If `requestable` is empty or a property named `Sequence` was skipped, fix the action before adding variables or claiming proof.
-   - Do not point the UI at the raw connector transaction after a facade proof fails. Repair the facade and keep the UI requestable on the public facade sequence. A direct transaction proof is not a substitute for a facade contract.
-   - The `CallSequenceAction` should call a facade whose response already contains the records or value fields the UI needs. If browser smoke shows `out.transaction.document` only contains `HttpInfo`, `attr`, or other diagnostics, do not keep widening UI-side parsing. Repair the facade contract so it emits application fields directly, then bind/store those shaped fields.
-5. Under the call action, add `UIControlVariable` children for the facade variables, using the exact public facade variable names. For simple HTTP pass-through this is usually the same object name as the HTTP transaction variable. Source values from the local `searchQuery` using SmartSource/source mode on `Local` when possible.
+   - Do not point the UI at the raw connector transaction after a business sequence proof fails. Repair the business sequence and keep the UI requestable on the public business sequence. A direct transaction proof is not a substitute for a business sequence contract.
+   - The `CallSequenceAction` should call a business sequence whose response already contains the records or value fields the UI needs. If browser smoke shows `out.transaction.document` only contains `HttpInfo`, `attr`, or other diagnostics, do not keep widening UI-side parsing. Repair the business sequence contract so it emits application fields directly, then bind/store those shaped fields.
+5. Under the call action, add `UIControlVariable` children for the business sequence variables, using the exact public business sequence variable names. For simple HTTP pass-through this is usually the same object name as the HTTP transaction variable. Source values from the local `searchQuery` using SmartSource/source mode on `Local` when possible.
    - With `databaseobject-tree-apply`, create `ngx.components.UIControlVariable#UIControlVariable` under the call action.
    - Use the object `name` as the variable name sent to the sequence, for example `name: "<requestVariable>"`.
    - Set `varValue` to the local SmartSource; do not add a separate `varName` property unless tree readback proves that property exists in the current Studio version.
-   - The `UIControlVariable` object name and the `varValue` Local path are deliberately different when the facade variable has a provider name. For example, create `CallSearch.vr:q` when the facade variable is `q`, but set its `varValue` to Local `?.searchQuery`. Never set `varValue` to Local `?.q` unless the page already has a deliberate non-search local named `q` for a different reason.
-   - Do not create placeholder variable objects such as `queryParam`, `formatParam`, or `limitParam` and then try to set `varName`. If `varName` is skipped, the runtime sends the placeholder object name and the facade receives nothing useful. The object QName must end with `.vr:<requestVariable>`.
+   - The `UIControlVariable` object name and the `varValue` Local path are deliberately different when the business sequence variable has a provider name. For example, create `CallSearch.vr:q` when the business sequence variable is `q`, but set its `varValue` to Local `?.searchQuery`. Never set `varValue` to Local `?.q` unless the page already has a deliberate non-search local named `q` for a different reason.
+   - Do not create placeholder variable objects such as `queryParam`, `formatParam`, or `limitParam` and then try to set `varName`. If `varName` is skipped, the runtime sends the placeholder object name and the business sequence receives nothing useful. The object QName must end with `.vr:<requestVariable>`.
    - Do not put `UIControlVariable` as a sibling of `CallSequenceAction` under the event. It must be a child of the call action, so the QName ends like `...CallSearch.vr:<requestVariable>`.
    - Do not use `varValue: "script:this.local?.searchQuery"` for page locals. Use the same Local SmartSource/source JSON used by the input `DoubleBinding`.
    - Scope note: avoid TypeScript page fields and avoid `page.searchQuery` for page-local state. The local SmartSource is the stable representation for both visible widgets and action variables.
@@ -319,7 +319,7 @@ For any search/list page backed by an HTTP web service, use the same wiring patt
 6. Use the failure/error-handler class returned by `palette-list` on the exact parent to map call failures to page error state. On a `CallSequenceAction` parent, current NGX palettes commonly expose `ngx.components.UIActionFailureEvent#UIActionFailureEvent` as "Failure Handler"; on some event parents they expose `ngx.components.UIActionErrorEvent#UIActionErrorEvent`. Use whichever handler class appears in `palette-list` for that exact parent. Do not retry the same rejected handler class on the same parent, and do not place handlers directly under visual `UIDynamicElement` nodes.
    - Do not add ordinary `SetLocalAction(Property=error, Value=script:true)` or `SetLocalAction(Property=errorMessage, ...)` actions as siblings under the click/submit `UIControlEvent`. Sibling actions under an event are generated in a parallel `Promise.all` block and run on every click, even when the backend call succeeds. Put error-state writes only under the failure/error handler returned by the palette, or omit optional error handling until the success path is proven in the browser.
    - Do not read `out.message`, `out.error`, or any other bare `out` value inside failure/error-handler `SetLocalAction` nodes unless the generated code for that exact handler proves the scope. Prefer a static fallback message or a previously initialized local value, then display it through Local SmartSource/source mode on `?.errorMessage`.
-7. After successful calls, prefer source bindings from the action output. If the facade returns a raw legacy array shape, a small post-call `UICustomAction` may normalize the response, but it must not perform the backend call.
+7. After successful calls, prefer source bindings from the action output. If the business sequence returns a raw legacy array shape, a small post-call `UICustomAction` may normalize the response, but it must not perform the backend call.
    - Do not put `SetLocalAction(Value=script:out)` as a sibling of the `CallSequenceAction` under the same `UIControlEvent`. Sibling actions are generated in a parallel `Promise.all` block, so `out` is not the call response. Put success mapping actions as children of the `CallSequenceAction`, or use a small normalizer child under the call.
    - The required success subtree is structural: `SearchButton -> SearchClick -> CallSearch -> [vr:<requestVariable>, StoreResults, SetLoadingFalse]`. It is not enough for the final summary to list `StoreResults` after `CallSearch`; readback must show the `StoreResults` and `SetLoadingFalse` QNames under the `CallSequenceAction` QName. If readback shows `...SearchClick.StoreResults`, delete that action and recreate it under `...CallSearch.StoreResults`.
    - For `SetLocalAction` or any other SmartType property sent with `{ "mode": "SCRIPT" }`, do not include the `script:` prefix inside the `value`. `databaseobject-tree-apply` adds that prefix when it writes the SmartType. Use `{"mode":"SCRIPT","value":"{items: out.items || []}"}`, not `{"mode":"SCRIPT","value":"script:{items: out.items || []}"}`.
@@ -337,12 +337,12 @@ Minimal compliant local-state UI wiring:
 - search button -> `UIText` child with the intended action label; then `(click)` -> `SetLocalAction(Property=loading, Value=script:true)` -> `CallSequenceAction`
 - `CallSequenceAction.vr:<requestVariable>.varValue` -> Local SmartSource `?.searchQuery`, not `script:this.local?.searchQuery` and not `script:document.querySelector(...)`
 - when `<requestVariable>` is provider-specific, for example `q`, the object QName may end in `.vr:q` but the Local source path still remains `?.searchQuery`
-- `CallSequenceAction.requestable` -> plain requestable name such as `<ProjectName>.<FacadeSequence>`, not a skipped `Sequence` property and not an empty `requestable`
-- after success -> child action(s) under `CallSequenceAction`, not sibling actions under the click event. Prefer storing the explicit facade contract, for example `script:{items: out.items || out.array || out.contract?.items || out.response?.items || [], total: out.total || out.contract?.total || out.response?.total || ((out.array || []).length), query: c8oPage.local?.searchQuery}`. A sibling `SetLocalAction(Value=script:out)` consumes the click/parallel action scope and does not work.
+- `CallSequenceAction.requestable` -> plain requestable name such as `<ProjectName>.<BusinessSequence>`, not a skipped `Sequence` property and not an empty `requestable`
+- after success -> child action(s) under `CallSequenceAction`, not sibling actions under the click event. Prefer storing the explicit business sequence contract, for example `script:{items: out.items || out.array || out.contract?.items || out.response?.items || [], total: out.total || out.contract?.total || out.response?.total || ((out.array || []).length), query: c8oPage.local?.searchQuery}`. A sibling `SetLocalAction(Value=script:out)` consumes the click/parallel action scope and does not work.
 - Make the success reset part of the minimum backend-to-list path, not optional polish. The required order is `CallSequenceAction` child `StoreResults` first, then child `SetLoadingFalse` second, then readback/proof. If `ResultsIf`, `EmptyIf`, or another visibility branch contains `!local?.loading`, do not run final `project-save`, `mobile-builder-open`, or browser proof until that success reset exists.
 - Treat failure-handler resets as separate from success resets. Readback must show one success-path `SetLoadingFalse` directly under the `CallSequenceAction`; a reset nested under `UIActionFailureEvent` / `UIActionErrorEvent` is not sufficient.
 - error writes -> only under a `UIActionFailureEvent` / `UIActionErrorEvent` handler for the failing action. Never put `SetLocalAction(Property=error, Value=script:true)` as a normal sibling of `CallSequenceAction` or the search/submit event; it runs unconditionally and can hide successful results.
-- Do not leave result state as raw `out` for final UI. If the visible list is bound to `?.results?.items`, the backend success action must store a shape with an `items` array. Prefer `out.items`, `out.array`, `out.contract?.items`, `out.response?.items`, or another explicit facade shape that was proven before UI work. A final page mapper must not contain `out.transaction`, `out?.transaction`, `response?.transaction`, or `transaction.document`; if those paths seem necessary, the facade contract is incomplete and must be repaired before UI work continues.
+- Do not leave result state as raw `out` for final UI. If the visible list is bound to `?.results?.items`, the backend success action must store a shape with an `items` array. Prefer `out.items`, `out.array`, `out.contract?.items`, `out.response?.items`, or another explicit business sequence shape that was proven before UI work. A final page mapper must not contain `out.transaction`, `out?.transaction`, `response?.transaction`, or `transaction.document`; if those paths seem necessary, the business sequence contract is incomplete and must be repaired before UI work continues.
 - Treat `HttpInfo`, headers, and raw transaction subtrees in a final page mapper as the same failure as `transaction.document`. The UI is not the shaping layer for HTTP response contracts.
 - The visibility state, empty state, and repeated list must all read the same normalized local contract. A page is invalid when `ResultsIf` or `EmptyIf` tests `local?.results?.items` but the `ForEach` reads `local?.results?.transaction?.document?.array`, or when `StoreResults` writes raw `out`. Normalize once into `results.items`, then bind every result UI object to that contract.
 - post-call `SetLocalAction` scripts may use `out` for the call response and `c8oPage.local?.searchQuery` for page-local state; they must not use bare action-variable names such as `query`, `<requestVariable>`, or `searchQuery`
@@ -356,10 +356,10 @@ Minimal compliant local-state UI wiring:
 - count, empty, selected, and error display values that read page locals must use Local source SmartSources, not `MobileSmartSourceType: script:...local...`, not `mode:"SCRIPT"` text over `local?.*`, and not `plain:{{ local... }}`. For a count, prefer two text nodes: one static label and one Local SOURCE binding to `?.results?.total`. If the text needs concatenation, write a display string to a local with `SetLocalAction`, initialize it on page enter, and bind that local in source mode. If that is too much for the first pass, omit the count instead of creating a script-bound count sentence.
 - `UIText.textValue` may use plain Angular interpolation only for iterator variables from an explicit `ForEach`, such as `{{ record.name }}`. It must not use page-local interpolation such as `{{ local?.results?.total }}`, `{{ local.errorMessage }}`, or `{{ local?.errorMessage || '...' }}`; bind those with Local SOURCE.
 - A final self-audit must search the page readback for `plain:` text that also contains `local?.`, `local.`, or `{{ local`. Any match in count, empty, selected, or error UI is a failure to repair before final proof.
-- result rows/details show the relevant fields from the facade contract. In a `ForEach`, row text must read the iterator item such as `{{ record.name }}` or another contract field as a plain template expression. Do not use a Local SmartSource path such as `record.name`; that compiles as an invalid page-local path. Local SmartSource/source mode is for page-local collections like `?.results?.items`, not for iterator row fields.
+- result rows/details show the relevant fields from the business sequence contract. In a `ForEach`, row text must read the iterator item such as `{{ record.name }}` or another contract field as a plain template expression. Do not use a Local SmartSource path such as `record.name`; that compiles as an invalid page-local path. Local SmartSource/source mode is for page-local collections like `?.results?.items`, not for iterator row fields.
 - `UIText` row labels and details use the `textValue` property. Do not add `mode:"PLAIN"` to `UIText`; that property is skipped and should be treated as avoidable authoring noise.
 - For long headless UI builds, create the minimum visible backend-to-list path before optional polish: `PageEnter` locals, `Input` binding, `Button` event, `CallSequenceAction`, `UIControlVariable`, child `SetLocalAction(results)` normalized to `{items,total,query}`, `ForEach.directiveSource` on `?.results?.items`, and at least three real row details. Add loading spinners, empty copy, and failure handlers after that path exists and has been read back.
-- when the facade payload exposes several useful fields, render at least three distinct details in each repeated result row: a display label/name, one identifier or code-like field, and one additional quantitative, date, location, category, or status field. For nested contracts, use the iterator scope, for example `{{ record.properties.label }}`, `{{ record.properties.id || record.properties.code }}`, and another proven field. Do not hard-code contract-specific field names that were not present in the live facade proof.
+- when the business sequence payload exposes several useful fields, render at least three distinct details in each repeated result row: a display label/name, one identifier or code-like field, and one additional quantitative, date, location, category, or status field. For nested contracts, use the iterator scope, for example `{{ record.properties.label }}`, `{{ record.properties.id || record.properties.code }}`, and another proven field. Do not hard-code contract-specific field names that were not present in the live business sequence proof.
 - error message text -> Local SmartSource/source mode on `?.errorMessage`, not `plain:{{ local.errorMessage }}`, not `plain:{{ local?.errorMessage || 'fallback' }}`, and not `script:local?.errorMessage || 'fallback'`
 - error message fallback text belongs in the failure `SetLocalAction(Property=errorMessage)`, not in `UIText.textValue`. The `UIText` itself should be a pure Local SOURCE read of `?.errorMessage`.
 - error/failure handlers must not read `out`, `out.message`, or `out.error` for visible page-local error text. Use a static fallback string in the handler, because handler output scope differs by generated parent.
@@ -403,16 +403,16 @@ For a typical page-local state, keep explicit flags:
 The exact object tree may vary, but the semantics must be explicit. These flags belong in Convertigo local state updated by `SetLocalAction`, and visible bindings must read them with Local SmartSources.
 
 ### Binding rules
-- Bind to facade contract fields such as `status`, `items`, `total`, `item`, `error`, or similarly deliberate names.
+- Bind to business sequence contract fields such as `status`, `items`, `total`, `item`, `error`, or similarly deliberate names.
 - Do not bind directly to raw HTTP or SQL shapes.
 - If the requestable is stub-only, pass the runtime variable required to materialize the stub. For `probe_contract_stub`, that means `__stub=true`.
-- When a `CallSequenceAction` output is the source of list/detail UI, prefer direct `SC` bindings from the action/facade source to page TypeScript copies. A `UICustomAction` that only does `page.items = response...` is a smell unless there is no usable source binding path.
+- When a `CallSequenceAction` output is the source of list/detail UI, prefer direct `SC` bindings from the action/business sequence source to page TypeScript copies. A `UICustomAction` that only does `page.items = response...` is a smell unless there is no usable source binding path.
 
 ### Event rules
 - Put load behavior in the correct page event or explicit load chain.
 - Put retry on a real button event backed by a real action chain.
 - Avoid custom action calls for backend access when a built-in call sequence action exists.
-- Avoid custom action response mappers when `SC` bindings can consume the call/facade output directly.
+- Avoid custom action response mappers when `SC` bindings can consume the call/business sequence output directly.
 - Avoid one big `UICustom` fragment as the main implementation path for a data page.
 - Avoid “reference hunting” across the workspace to recover `directiveSource` snippets or wrapper placement from unrelated projects. If recipe + palette + target subtree are not enough, escalate the gap instead of copying opaque structures.
 - Avoid repeated `palette-list` loops for common page primitives after the first targeted read.
@@ -438,7 +438,7 @@ The exact object tree may vary, but the semantics must be explicit. These flags 
 ## Anti-patterns / do not do
 - Do not bind the page to raw connector output.
 - Do not use custom code when palette-backed actions can express the same flow.
-- Do not use direct frontend transport (`fetch`, direct `this.c8o.callJson()`, `this.c8o.callJsonObject(...).async()`) for backend data that belongs behind a facade sequence.
+- Do not use direct frontend transport (`fetch`, direct `this.c8o.callJson()`, `this.c8o.callJsonObject(...).async()`) for backend data that belongs behind a business sequence.
 - Do not use raw `*ngFor` attributes instead of palette `UIControlDirective#UIControlDirective` for repeated data UI.
 - Do not use plain/TX mode for dynamic Angular property bindings.
 - Do not ship only the success path.
@@ -472,26 +472,26 @@ The exact object tree may vary, but the semantics must be explicit. These flags 
 - Error-state `SetLocalAction` nodes are created as normal click-event siblings instead of under a failure/error handler. Because event children run in parallel, those actions run on success too and can keep the success list hidden.
 - A custom action after a call or failure handler references `out`, bare `parent`, `parent.out`, or `stack` instead of the generated `props.parent.out` context.
 - A custom action writes `page.local.results`, `page.local.empty`, `page.local.loading`, or similar state directly instead of resolving a value and using `SetLocalAction`.
-- The page method calls the facade with `this.c8o.callJsonObject(...).async()` instead of using `CallSequenceAction`.
+- The page method calls the business sequence with `this.c8o.callJsonObject(...).async()` instead of using `CallSequenceAction`.
 - The page compiles but renders empty or only partially because raw Angular directive attributes bypassed Convertigo's NGX scope model.
 
 ## Minimum validation proof
-- `requestable-execute` proves the facade contract that the UI binds to. For list/search pages, this means the facade response contains shaped application records, not only a raw transaction diagnostic subtree.
+- `requestable-execute` proves the business sequence contract that the UI binds to. For list/search pages, this means the business sequence response contains shaped application records, not only a raw transaction diagnostic subtree.
 - Tree readback proves loading, empty, error, and retry nodes/actions exist.
 - Tree readback or generated-output inspection proves repeated data UI uses palette directives, dynamic Angular inputs use source/script binding modes, and backend calls use `CallSequenceAction`.
 - Tree readback must show `CallSequenceAction` and `UIControlVariable` under a real NGX event for server-backed search/list pages.
 - Tree readback must not show the primary data page body implemented as `ngx.components.UICustom#UICustom` with a large `htmlTemplate`.
 - Tree readback must not show the primary data page body implemented as a `UICustom` renderer with nested palette actions; visible form/state/result nodes need to be first-class palette objects.
 - Tree readback must show page local initialization in a page-enter `UIPageEvent`, page state updates as `SetLocalAction`, and state reads as Local SmartSources, not `Begin_c8o_PageDeclaration` fields or `script:` bindings to page-local state.
-- Page `scriptContent` must not contain direct backend transport such as `this.c8o.callJson`, `this.c8o.callJsonObject`, `fetch`, or external HTTP calls for normal facade-backed loading.
+- Page `scriptContent` must not contain direct backend transport such as `this.c8o.callJson`, `this.c8o.callJsonObject`, `fetch`, or external HTTP calls for normal business-sequence-backed loading.
 - A final answer may only say the app is complete after the tree readback satisfies the mandatory data-page gate. Builder-ready plus backend-ready is insufficient when the NGX page shape is non-compliant.
 - `mobile-builder-open` proves build readiness or exposes the build error.
 - Browser smoke proves the happy path when the builder is healthy.
-- If browser smoke triggers the backend call but renders an empty list while facade proof has records only in a raw transaction subtree, the implementation is incomplete. Fix the facade contract and rerun the smoke instead of marking the page done.
+- If browser smoke triggers the backend call but renders an empty list while business sequence proof has records only in a raw transaction subtree, the implementation is incomplete. Fix the business sequence contract and rerun the smoke instead of marking the page done.
 - Save must succeed after the final UI mutation.
 
 ## Completion checks
-- The target page binds to a stable facade contract.
+- The target page binds to a stable business sequence contract.
 - Loading, empty, and error states are explicit.
 - Retry is a real action, not a visual placeholder.
 - Static placeholder labels such as `Contacts list placeholder` or `Companies list placeholder` do not count as a usable UX milestone.

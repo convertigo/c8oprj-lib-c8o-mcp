@@ -1,4 +1,4 @@
-# Convertigo Recipe: SQL CRUD Behind a Facade
+# Convertigo Recipe: SQL CRUD Behind a Business Sequence
 
 ## When to read this
 Read this when you need to scaffold SQL-backed create, read, update, or delete behavior quickly while keeping the public application contract stable.
@@ -6,7 +6,7 @@ Read this when you need to scaffold SQL-backed create, read, update, or delete b
 ## What this guide covers
 - The canonical Convertigo SQL path.
 - Driver and typing caveats that matter immediately.
-- How to keep SQL details behind facade sequences.
+- How to keep SQL details behind business sequences.
 - What a minimal CRUD setup should prove.
 
 ## Mandatory workflow
@@ -21,8 +21,8 @@ Read this when you need to scaffold SQL-backed create, read, update, or delete b
    - optional write transactions only after the read path is proven
 4. Keep query variables explicit and typed at the SQL level.
 5. Execute transactions directly and capture usable schema.
-6. Wrap transactions behind facade sequences.
-7. Normalize the facade response shape for the rest of the application.
+6. Wrap transactions behind business sequences.
+7. Normalize the business sequence response shape for the rest of the application.
 8. Save only after deterministic runtime proof.
 
 ### Fast default for common demos
@@ -43,7 +43,7 @@ For the first pass, do not improvise the connector family if one of these fast-p
 - `convertigo://resources/convertigo-fast-path-sql-hsqldb`
 - `convertigo://resources/convertigo-fast-path-sql-mariadb`
 
-On common demos, replay the matching template almost literally, changing only project, connector, facade, and database placeholders.
+On common demos, replay the matching template almost literally, changing only project, connector, business sequence, and database placeholders.
 
 ### Demo-first rule
 - Do not spend the first pass inventing a generic SQL engine.
@@ -51,12 +51,12 @@ On common demos, replay the matching template almost literally, changing only pr
 - The first successful milestone is always: connector green, deterministic seed green, `list` green, `count` green.
 
 ### Canonical CRUD split
-- `list` sequence or facade
-- `count` sequence or facade when the contract exposes totals
-- `getById` sequence or facade
-- `create` sequence or facade
-- `update` sequence or facade
-- `delete` sequence or facade
+- `list` sequence or business sequence
+- `count` sequence or business sequence when the contract exposes totals
+- `getById` sequence or business sequence
+- `create` sequence or business sequence
+- `update` sequence or business sequence
+- `delete` sequence or business sequence
 
 Not every POC needs all five immediately, but the contract should still anticipate a stable family of operations instead of one overloaded sequence. For demo speed, `bootstrap/init + list + count` is the expected first slice whenever the task asks for a list page or dashboard.
 
@@ -71,9 +71,9 @@ Not every POC needs all five immediately, but the contract should still anticipa
 - Use schema generation when source picker or downstream sequence mapping depends on it.
 - Treat schema as part of the developer experience, not as optional documentation.
 
-### Facade rules
-- The facade sequence owns the public shape.
-- SQL rows, column names, and driver quirks should stay behind the facade whenever possible.
+### Business sequence rules
+- The business sequence owns the public shape.
+- SQL rows, column names, and driver quirks should stay behind the business sequence whenever possible.
 - The UI should not need to know whether the source was PostgreSQL, MySQL, or something else.
 
 ### Why this is the right way
@@ -99,12 +99,12 @@ Not every POC needs all five immediately, but the contract should still anticipa
 ### Common failure modes
 - PostgreSQL parameters not casted, leading to silent query failure or empty results.
 - Transaction works once, but schema is never refreshed.
-- Facade leaks raw row nesting or database naming conventions.
+- Business sequence leaks raw row nesting or database naming conventions.
 - SQL transaction is validated, but the wrapping sequence is not.
 
 ## Minimum validation proof
 - A direct transaction execute succeeds with deterministic inputs.
-- The corresponding facade sequence execute succeeds.
+- The corresponding business sequence execute succeeds.
 - Response top-level fields are stable and connector-agnostic.
 - For write paths, test data policy and cleanup are explicit.
 
@@ -112,4 +112,4 @@ Not every POC needs all five immediately, but the contract should still anticipa
 - SQL driver choice and JDBC URL are correct.
 - Variable typing and casts are deliberate.
 - Schema exists when downstream binding needs it.
-- CRUD behavior is reachable through stable facade sequences.
+- CRUD behavior is reachable through stable business sequences.

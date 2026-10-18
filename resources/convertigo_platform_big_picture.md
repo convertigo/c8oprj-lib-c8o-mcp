@@ -17,7 +17,7 @@ Convertigo is a full-stack application platform. It is not only a source-code ge
 The right mindset is:
 - use Convertigo objects and patterns first
 - keep public contracts stable
-- hide source-specific complexity behind facades
+- hide source-specific complexity behind business sequences
 - use code only where the platform does not already provide a brick
 
 If an agent treats Convertigo as a generic code workspace, it will waste time searching, inventing object trees, and bypassing qualified components. That is exactly what this guide is meant to prevent.
@@ -55,10 +55,10 @@ Sequences are backend service flows. They orchestrate:
 - JSON or XML shaping
 - business rules
 
-In most application work, a sequence is the public facade that frontend or external callers should consume.
+In most application work, a sequence is the public business sequence that frontend or external callers should consume.
 
 #### URL mapper
-The URL mapper exposes REST-style endpoints on top of requestables. It matters when the application must expose clear HTTP APIs to external clients, but it still depends on the same contract discipline: stable facade shape first, exposure second.
+The URL mapper exposes REST-style endpoints on top of requestables. It matters when the application must expose clear HTTP APIs to external clients, but it still depends on the same contract discipline: stable business sequence shape first, exposure second.
 
 #### NGX application
 The NGX application is the low-code frontend tree. It is built from:
@@ -115,7 +115,7 @@ When a task depends on runtime mode, logging, symbols, or builder behavior, admi
 
 ### How the parts connect
 The usual enterprise flow is:
-1. a project hosts one or more facade sequences
+1. a project hosts one or more business sequences
 2. those sequences call transactions or helper sequences
 3. the sequence maps raw source payloads into a stable public contract
 4. the NGX application binds to that stable contract
@@ -126,15 +126,15 @@ This is why contract-first design matters so much in Convertigo. The connector s
 
 ### The Convertigo contract mindset
 For most application work, the right contract structure is:
-- facade sequence or mapped requestable
+- business sequence or mapped requestable
 - stable input names
 - stable top-level response fields
 - explicit nominal and error shapes
-- source-specific complexity hidden below the facade
+- source-specific complexity hidden below the business sequence
 
 Good pattern:
 - UI binds to `items`, `total`, `status`, `error`, or similarly deliberate fields
-- SQL rows, raw HTTP payloads, or FullSync document internals stay behind the facade
+- SQL rows, raw HTTP payloads, or FullSync document internals stay behind the business sequence
 
 Bad pattern:
 - UI binds directly to connector output
@@ -178,9 +178,9 @@ It should not force the agent to invent Convertigo from scratch.
 | Task shape | Read next | Why |
 | --- | --- | --- |
 | First serious session on Convertigo | `convertigo/start@1`, then this guide | Start explains MCP flow, this guide explains the platform itself. |
-| Facade or stub sequence | `convertigo/recipe-facade-stub@1`, then `convertigo/backend-sequences@1` | First get the golden path, then the deeper backend rules. |
-| HTTP-backed feature | `convertigo/recipe-http-facade@1`, then `convertigo/integration-http@1` | First get the pattern, then the connector subtleties. |
-| SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | First get the CRUD/facade path, then driver and typing subtleties. |
+| Business sequence or stub sequence | `convertigo/recipe-business-sequence-stub@1`, then `convertigo/backend-sequences@1` | First get the golden path, then the deeper backend rules. |
+| HTTP-backed feature | `convertigo/recipe-http-business-sequence@1`, then `convertigo/integration-http@1` | First get the pattern, then the connector subtleties. |
+| SQL-backed feature | `convertigo/recipe-sql-crud@1`, then `convertigo/integration-sql@1` | First get the CRUD/business sequence path, then driver and typing subtleties. |
 | NGX data page | `convertigo/recipe-ngx-data-page@1`, then `convertigo/frontend-ngx@1` | First get the page pattern, then deeper UI rules. |
 | New project or POC from a starter | `convertigo/recipe-starter-extension@4` | This is the fastest high-signal path for many demos. |
 

@@ -13,7 +13,7 @@ Drive the first SQL pass mechanically:
 - create `list_contacts` / `count_contacts`
 - create `list_companies` / `count_companies`
 - prove those transactions directly
-- only then hand back to backend for facade shaping
+- only then hand back to backend for business sequence shaping
 
 Prefer `upsert-crud` when the task matches this exact envelope. Hand-build the connector/tree only when the caller explicitly cannot use the deterministic tool.
 
@@ -21,7 +21,7 @@ Prefer `upsert-crud` when the task matches this exact envelope. Hand-build the c
 Only parameterize these placeholders:
 - `<PROJECT_NAME>`
 - `<CONNECTOR_NAME>`
-- `<FACADE_SEQUENCE>`
+- `<BUSINESS_SEQUENCE>`
 - `<CONTACTS_ENTITY>` (default `contacts`)
 - `<COMPANIES_ENTITY>` (default `companies`)
 
@@ -132,8 +132,8 @@ SELECT COUNT(*) AS total
 FROM companies
 ```
 
-## Contract-first facade stub example
-If the public facade already exists, keep its top-level shape stable and use a stub like:
+## Contract-first business sequence stub example
+If the public business sequence already exists, keep its top-level shape stable and use a stub like:
 
 ```xml
 <document>

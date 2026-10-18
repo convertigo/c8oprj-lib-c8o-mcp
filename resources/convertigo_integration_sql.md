@@ -1,10 +1,10 @@
 # Convertigo SQL Integration
 
 ## When to read this
-Read this when a feature needs SQL connectors or SQL transactions behind a Convertigo facade, especially when the endpoint must support repeatable CRUD work and fast validation.
+Read this when a feature needs SQL connectors or SQL transactions behind a Convertigo business sequence, especially when the endpoint must support repeatable CRUD work and fast validation.
 
 ## What this guide covers
-- SQL connector and transaction behavior behind a stable facade.
+- SQL connector and transaction behavior behind a stable business sequence.
 - JDBC driver variability and what changes across drivers.
 - CRUD scaffolding patterns that stay fast and predictable.
 - Validation, cleanup, and contract mapping rules.
@@ -16,7 +16,7 @@ If the task is a standard CRUD-style path, read `convertigo/recipe-sql-crud@1` f
 
 ### What should stay stable
 Regardless of driver, the AI agent should keep these stable:
-- the public facade contract
+- the public business sequence contract
 - deterministic validation data
 - explicit read-first then write validation order
 - no raw row/column leakage into the API
@@ -55,7 +55,7 @@ The connector should own:
 - username/password or JNDI reference
 - connection-test behavior
 
-The facade should not own these concerns.
+The business sequence should not own these concerns.
 
 ### Prefer portable connector guidance
 When the project does not explicitly require a vendor-specific behavior:
@@ -169,12 +169,12 @@ Validation order:
 1. connector exists and loads
 2. transaction executes
 3. result shape is understood
-4. facade mapping is correct
+4. business sequence mapping is correct
 
-### Pattern 2: CRUD behind a facade
+### Pattern 2: CRUD behind a business sequence
 Use SQL transactions as the implementation layer, not the public API.
 
-Good facade:
+Good business sequence:
 
 ```json
 {
@@ -195,7 +195,7 @@ Bad leakage:
 }
 ```
 
-The transaction may return raw rows, but the facade must not expose them directly unless the contract explicitly chose that shape.
+The transaction may return raw rows, but the business sequence must not expose them directly unless the contract explicitly chose that shape.
 
 ### Pattern 3: deterministic write validation
 When validating create/update/delete:
@@ -217,7 +217,7 @@ Do not bury dynamic SQL behavior inside brittle string assembly.
 
 Good principle:
 - treat input variables as parameters
-- keep the transaction query and facade contract readable
+- keep the transaction query and business sequence contract readable
 
 Common trap:
 - direct interpolation of untrusted values into SQL text
@@ -231,7 +231,7 @@ Escalate to `{{variable}}` only when:
 - the source is controlled and reviewed
 
 If the task says “support search, paging, sort, or a computed clause”:
-- keep the public facade contract stable
+- keep the public business sequence contract stable
 - decide explicitly which parts are values and which parts are raw SQL fragments
 - do not improvise the split inside a large query string
 
@@ -244,7 +244,7 @@ In Convertigo SQL work, the connector owns the connection and the transaction ow
 - output mode and row/column XML shape
 - optional execution details such as max results and auto-commit mode
 
-The facade owns:
+The business sequence owns:
 - API inputs
 - nominal/error output
 - remapping from transaction shape into public contract fields
@@ -261,12 +261,12 @@ After the first successful execution:
 - downstream backend and UI mapping becomes much safer
 
 Common trap:
-- writing a lot of facade mapping before the transaction has ever run once
+- writing a lot of business sequence mapping before the transaction has ever run once
 
 ## Schema learning workflow
 
 ### Use runtime first, then persist the schema
-When SQL work will feed facade mapping, source pickers, or later UI work:
+When SQL work will feed business sequence mapping, source pickers, or later UI work:
 1. execute the transaction with representative variables
 2. use `requestable-execute(..., {"recordSchema": true})` on the transaction path
 3. read the persisted shape with `databaseobject-schema`
@@ -280,16 +280,16 @@ Why this is the right way:
 ### Schema is not only documentation
 Treat schema as:
 - the current proof of the transaction shape
-- a mapping aid for facade design
+- a mapping aid for business sequence design
 - a prerequisite for later picker-assisted data binding
 
 Common trap:
-- building the facade blind, then discovering picker/schema pain later when the raw transaction shape finally differs
+- building the business sequence blind, then discovering picker/schema pain later when the raw transaction shape finally differs
 
 Minimum validation proof:
 - one transaction execution with `recordSchema=true`
 - one `databaseobject-schema` read proving the learned shape exists
-- one facade validation using the real transaction shape
+- one business sequence validation using the real transaction shape
 
 ### Double goal: speed and safety
 The agent should be fast, but not by skipping parameter discipline.
@@ -297,7 +297,7 @@ The agent should be fast, but not by skipping parameter discipline.
 Fast path:
 - simple deterministic read query
 - explicit variables
-- explicit facade mapping
+- explicit business sequence mapping
 
 Not acceptable fast path:
 - giant query string assembled ad hoc with unchecked values
@@ -305,7 +305,7 @@ Not acceptable fast path:
 ## CRUD scaffold pattern
 
 ### Read list
-1. public facade inputs for filter/search/paging if needed
+1. public business sequence inputs for filter/search/paging if needed
 2. SQL transaction for list
 3. explicit mapping into `items`
 4. explicit `total`
@@ -334,7 +334,7 @@ Even though SQL transactions produce XML-shaped output under `sql_output`, later
 
 If schema is missing:
 - source picker choices become fragile
-- facade mapping tends to hard-code guessed paths
+- business sequence mapping tends to hard-code guessed paths
 - UI work will inherit uncertainty
 
 ### Output mode changes picker ergonomics
@@ -346,7 +346,7 @@ If schema is missing:
 Rule of thumb:
 - pick the output mode deliberately
 - record the schema
-- source the exact text nodes or elements the facade needs
+- source the exact text nodes or elements the business sequence needs
 
 ## Driver-specific subtleties to teach the agent
 
@@ -374,7 +374,7 @@ Symptom:
 - raw column names become public fields
 
 Fix:
-- keep remapping in the facade
+- keep remapping in the business sequence
 
 ### Mistake: write validation has no cleanup
 Symptom:
@@ -398,7 +398,7 @@ Fix:
 - validate the path the scenario actually promises
 
 ## Minimum validation proof
-For a credible SQL-backed facade:
+For a credible SQL-backed business sequence:
 - read path proof is mandatory
 - write path proof is mandatory when the scenario claims CRUD, not just read
 - validation data is deterministic
@@ -423,6 +423,6 @@ For a credible SQL-backed facade:
 ## Completion checks
 - Driver and JDBC URL are appropriate for the target DB.
 - The read path is proven first.
-- CRUD scaffolding is explicit behind the facade.
+- CRUD scaffolding is explicit behind the business sequence.
 - Validation data and cleanup are deterministic.
 - The public response contract does not leak SQL shape.

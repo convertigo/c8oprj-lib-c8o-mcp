@@ -10,13 +10,13 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 - `convertigo://resources/convertigo-engineering-workflow`
 - `convertigo://resources/convertigo-bootstrap-decision-matrix`
 - `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-recipe-facade-stub`
+- `convertigo://resources/convertigo-recipe-business-sequence-stub`
 - `convertigo://resources/convertigo-fast-path-sql-hsqldb` when the task uses embedded HSQLDB
 - `convertigo://resources/convertigo-fast-path-sql-postgresql` when the task uses PostgreSQL
 - `convertigo://resources/convertigo-fast-path-sql-mariadb` when the task uses MariaDB Docker
 - `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD flow
 - `convertigo://resources/convertigo-fast-path-ngx-entry-shell` when the task includes visible UX
-- `convertigo://resources/convertigo-recipe-http-facade` when the task obviously calls an HTTP-backed source
+- `convertigo://resources/convertigo-recipe-http-business-sequence` when the task obviously calls an HTTP-backed source
 - `convertigo://resources/convertigo-recipe-sql-crud` when the task obviously calls for SQL-backed CRUD
 - `convertigo://resources/convertigo-recipe-ngx-data-page` when the task includes visible UX
 - `convertigo://resources/convertigo-recipe-starter-extension` when the task starts from a fresh starter or imported app
@@ -26,7 +26,7 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 - Identify the smallest known Convertigo recipe that fits the task.
 - Refuse to mutate until a bootstrap brief or equivalent explicit user brief is complete.
 - Lock a public contract fast.
-- Create or update the minimum executable facade/stub needed to unblock the rest.
+- Create or update the minimum executable business sequence/stub needed to unblock the rest.
 - Split work cleanly by backend, HTTP, SQL, and NGX.
 
 ## Mandatory workflow
@@ -34,8 +34,8 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
    - if a bootstrap brief exists, use it
    - if no bootstrap brief exists, stop and ask for the missing decisions before mutating
 2. Classify the task into one primary pattern before broad exploration:
-   - `facade-stub`
-   - `http-facade`
+   - `business-sequence-stub`
+   - `http-business-sequence`
    - `sql-crud`
    - `ngx-data-page`
    - `starter-extension`
@@ -44,13 +44,13 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 5. If environment-owned DB/service configuration matters, call `project-list-symbols` before asking the human or specialist to rediscover it.
    - when `project` is provided, assume project-local symbol scope by default
    - ask for `scope=all` only when you explicitly need global or cross-project context
-6. If the chosen pattern is `sql-crud` or `http-facade`, decide early whether downstream mapping will depend on real transport/transaction shape. If yes, require schema capture before deep mapping starts.
+6. If the chosen pattern is `sql-crud` or `http-business-sequence`, decide early whether downstream mapping will depend on real transport/transaction shape. If yes, require schema capture before deep mapping starts.
 7. Lock the contract:
    - inputs
    - nominal top-level fields
    - error top-level fields
    - one sample payload
-8. Create or reuse the smallest executable facade/stub that proves the contract.
+8. Create or reuse the smallest executable business sequence/stub that proves the contract.
 9. Validate it with `requestable-execute`.
    - `requestable-execute` reads live Studio memory; do not insert `project-reload` as a freshness step
    - use `project-reload` only when you intentionally want rollback-to-disk proof
@@ -60,13 +60,13 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 12. If the task includes UX, require the frontend specialist to replace the starter/default page content with a visible shell on the first pass:
    - real page title or header
    - at least one visible section tied to the target feature
-   - at least one contract-shaped data slot, card, or list container ready to host the agreed public facade fields
+   - at least one contract-shaped data slot, card, or list container ready to host the agreed public business sequence fields
    - explicit loading, empty, or retry state bound to the agreed contract or stub
    - when the run starts from a starter-derived NGX project, the first frontend pass must mutate the actual visible entry page subtree and remove or replace the dominant starter body such as `WelcomeCard`
    The default starter page must not remain the dominant visible content while backend work is still running.
 13. For UX work, split frontend delivery into two explicit passes whenever live backend proof is not ready yet:
    - `phase 1`: visible shell now, using the stable contract or stub shape, without waiting for final SQL/backend proof
-   - `phase 2`: bind one real datum, count, or repeated item from the live public facade, then collect builder/browser evidence
+   - `phase 2`: bind one real datum, count, or repeated item from the live public business sequence, then collect builder/browser evidence
 14. Launch the `frontend-ngx` shell pass in parallel as soon as the contract or stub is validated. Do not wait for final SQL/backend proof just to make the visible page look alive.
 13. If the task includes UX, require the frontend specialist to report all of these before the planner can close:
    - `project-save` status
@@ -81,7 +81,7 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 21. Hand off the remaining work explicitly by domain.
 22. For common SQL/list/dashboard demos, prefer a recipe-first execution style over fresh exploration:
    - planner: lock contract, stub, and work split fast
-   - sql/backend: use the standard bootstrap/list/count facade path first
+   - sql/backend: use the standard bootstrap/list/count business sequence path first
    - frontend: make the visible shell on the real entry page first, even if it is initially contract-shaped and loading-focused, then schedule the live-binding pass as soon as backend proof exists
 23. For common SQL/list/dashboard demos, force named fast paths in the work split:
    - SQL: `embedded-hsqldb` or `mariadb-docker`
@@ -97,7 +97,7 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 27. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
 28. When a known SQL or NGX fast path is selected, use `resources/templates/list` plus `resources/read` to retrieve the exact template guide instead of paraphrasing it from memory.
 29. When the task is a standard starter NGX + SQL CRUD case, prefer the exact practical order from `convertigo-crud-practical-cases` over an improvised planner breakdown.
-29. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public facade requestable.
+29. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public business sequence requestable.
 30. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
 
 ## Interactive contract

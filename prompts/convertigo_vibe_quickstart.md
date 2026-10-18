@@ -12,7 +12,7 @@ Use this prompt when the caller is Mistral Vibe and the task should run through 
 Then read the smallest matching shared recipe before mutation:
 
 - new starter app: `convertigo://resources/convertigo-recipe-starter-extension`
-- HTTP web-service backend facade: `convertigo://resources/convertigo-recipe-http-facade`
+- HTTP web-service backend business sequence: `convertigo://resources/convertigo-recipe-http-business-sequence`
 - data-backed NGX page: `convertigo://resources/convertigo-recipe-ngx-data-page`
 - new application from a specification (several pages, roles or a session, SQL): `convertigo://resources/convertigo-recipe-multipage-app`
 - standard SQL CRUD + starter NGX UI: `convertigo://resources/convertigo-crud-fastpath`
@@ -44,7 +44,7 @@ Then read the smallest matching shared recipe before mutation:
 - In CLI harnesses, repeat `--enabled-tools` once per allowed tool. A comma-separated value is treated as one tool pattern.
 - Do not invent Convertigo requestables. For guide content, call `lib_ConvertigoMCP.mcp_resources_read` with the exact guide URI.
 - For a fresh NGX starter app, import `template_ngxBuilderIonic` with the exact requested project name after reading the starter recipe.
-- For any app that consumes an HTTP web service, read `convertigo-recipe-http-facade` before creating the connector, transaction, or facade sequence. Open data APIs are only one example of this HTTP-backed rail.
+- For any app that consumes an HTTP web service, read `convertigo-recipe-http-business-sequence` before creating the connector, transaction, or business sequence. Open data APIs are only one example of this HTTP-backed rail.
 - Mutate the visible entry page first; do not leave the starter home dominant while creating only a secondary page.
 - Send independent reads in one message (Vibe runs them concurrently), put ordered changes in one `Convertigo_batch-call` or successive messages, and apply the common skill's Tool economy rules to put more work in each call. Prefer direct `Convertigo_databaseobject-tree-apply` calls for the first UI event/action chain. If `Convertigo_batch-call` is used later, nested `calls[].tool` values are unprefixed MCP ids such as `databaseobject-tree-apply`, not Vibe tool names such as `Convertigo_databaseobject-tree-apply`.
 

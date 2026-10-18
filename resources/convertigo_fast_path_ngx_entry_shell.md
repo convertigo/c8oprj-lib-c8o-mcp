@@ -57,7 +57,7 @@ The first visible shell must include:
 - a real feature title, not the starter title
 - a short subtitle or caption explaining the feature
 - at least one obvious content container for the main entity
-- at least one contract-shaped data slot or placeholder surface ready to host the public facade fields
+- at least one contract-shaped data slot or placeholder surface ready to host the public business sequence fields
 - one visible loading, empty, or retry state
 - one obvious action such as retry, refresh, or create
 
@@ -70,7 +70,7 @@ For a `MiniCRM`-style shell, the first visible pass can be as small as:
 
 ## Two phases
 - `phase 1`: visible shell now. Replace the starter body, make the page visibly feature-shaped, and leave contract-shaped placeholders/loading states if live data is not proved yet.
-- `phase 2`: live bindings. Once backend proof exists, replace placeholder copy with one real count, item, or repeated row/card from the public facade and collect browser smoke.
+- `phase 2`: live bindings. Once backend proof exists, replace placeholder copy with one real count, item, or repeated row/card from the public business sequence and collect browser smoke.
 
 ## Contract-backed proof rule
 The first visible pass is incomplete if it stops at untouched starter content.  
@@ -78,7 +78,7 @@ The overall UX flow is incomplete if it stops forever at static copy such as:
 - `Contacts list placeholder`
 - `Companies list placeholder`
 
-Before claiming the fast path complete, the page must show at least one real value that came from the stable public facade contract or the verified stub response.
+Before claiming the fast path complete, the page must show at least one real value that came from the stable public business sequence contract or the verified stub response.
 
 ## First proof sequence
 1. `upsert-ngx-crud-kit` creates shared components under `<PROJECT_NAME>.Application.NgxApp`
@@ -86,7 +86,7 @@ Before claiming the fast path complete, the page must show at least one real val
 3. `databaseobject-tree-get` on `<PROJECT_NAME>.Application.NgxApp.Page.Content` proves the page uses `UIUseShared`
 4. `project-save`
 5. `mobile-builder-open`
-6. if facade proof already exists, `requestable-execute` on the public facade plus one real bound value on screen
+6. if business sequence proof already exists, `requestable-execute` on the public business sequence plus one real bound value on screen
 7. browser smoke only after the visible shell exists
 
 ## Do not do on first pass

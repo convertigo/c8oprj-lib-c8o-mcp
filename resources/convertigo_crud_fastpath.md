@@ -16,7 +16,7 @@ This fast path is the recommended public path for the current mono-agent recover
 In scope:
 - starter NGX project or existing starter-derived project
 - SQL CRUD scaffold
-- hidden CRUD facade sequences plus the generated auth skeleton
+- hidden CRUD business sequences plus the generated auth skeleton
 - visible CRUD shell on the real entry page
 - deterministic proof of backend and UI state
 
@@ -39,7 +39,7 @@ Capture these before the first mutation:
 Default assumptions for the fast path:
 - starter-derived NGX app
 - visible entry page is `Home`
-- facade prefix is `crud`
+- business sequence prefix is `crud`
 - deterministic shared-component shell is acceptable for the first visible pass
 - use the exact requested project name when it is technically valid; do not invent prefixes, suffixes, or dates
 - for the generic CRUD UI, prefer `ui.variant=entity-pages`
@@ -55,7 +55,7 @@ Default assumptions for the fast path:
 - when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
 - for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` over direct edits on generated CRUD-kit shared components
 - relation controls default to `select`; use `ui.relationFields.<field>.control=autocomplete` only when the larger option set really needs it
-- generated CRUD facade sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences (the generated `auth_login` accepts any password; replace it with a real check from `convertigo://resources/convertigo-authentication` before delivery), and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
+- generated CRUD business sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences (the generated `auth_login` accepts any password; replace it with a real check from `convertigo://resources/convertigo-authentication` before delivery), and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
 - prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
 
 ## Deterministic rail
@@ -92,7 +92,7 @@ Do not:
 - `status` is `success`
 - `missing` is empty
 - `transactions.missing` is empty
-- `sequences.missing` is empty when facade sequences are expected
+- `sequences.missing` is empty when business sequences are expected
 - proof requestables report `ok=true`
 - when `expectUiShell=true`, `ui.visibleShellPresent == true`
 - when `expectUiShell=true`, `ui.starterDominant == false`
@@ -111,7 +111,7 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - declare the relation in `spec.relations[]`
 - optionally configure the UI through `entities[].ui.relationFields.company_id`
 - expect the backend to expose `company_id__label` in `list_employees` / `read_employee`
-- expect a derived CRUD facade such as `list_employees_by_company`
+- expect a derived CRUD business sequence such as `list_employees_by_company`
 
 ## Canonical examples
 
@@ -274,4 +274,4 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - Do not continue mutating the generated CRUD UI after the first green proof unless the user explicitly asked for more than the generic scaffold.
 - Do not patch CRUD-kit-managed shared components directly when `spec.relations[]`, `field.references`, `ui.listFields`, `ui.detailFields`, `ui.formFields`, or `ui.relationFields` can express the needed CRUD behavior.
 - Do not patch `init_schema` manually just to inject better demo rows when `seed.data` can express them in the spec.
-- Do not expose generated CRUD facades as public requestables; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
+- Do not expose generated CRUD business sequences as public requestables; keep the hidden/authenticated contract and customize the generated auth skeleton instead.

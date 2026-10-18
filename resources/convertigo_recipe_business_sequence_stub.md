@@ -1,10 +1,10 @@
-# Convertigo Recipe: Facade Sequence and Executable Stub
+# Convertigo Recipe: Business Sequence and Executable Stub
 
 ## When to read this
 Read this when you need a fast, stable backend contract that can unblock frontend, HTTP, SQL, or review work before the final integration path is ready.
 
 ## What this guide covers
-- The fastest safe pattern for a facade sequence.
+- The fastest safe pattern for a business sequence.
 - How to shape nominal and error payloads.
 - When to use JSON steps only and when to add a stub file.
 - The minimum runtime proof before handing off.
@@ -18,7 +18,7 @@ Read this when you need a fast, stable backend contract that can unblock fronten
    - nominal top-level fields
    - error top-level fields
    - one sample payload
-3. Create or reuse one facade sequence.
+3. Create or reuse one business sequence.
 4. Build the nominal contract shape explicitly with JSON steps or equivalent sequence structure.
 5. Add the minimal error shape explicitly, not as an unstructured string dump.
 6. If another layer needs a real Convertigo stub proof, write a stub file with `requestable-stub-set`.
@@ -53,7 +53,7 @@ Keep the top-level field names stable even when the real integration replaces th
 
 ### Canonical object pattern
 - project root
-- public sequence facade
+- public sequence business sequence
 - request variables first
 - JSON response shaping inside the sequence
 - optional internal helper sequence or connector call later
@@ -92,7 +92,7 @@ Keep the top-level field names stable even when the real integration replaces th
 - `databaseobject-schema` or focused tree readback confirms the intended contract shape when needed.
 
 ## Completion checks
-- One stable facade requestable exists.
+- One stable business sequence requestable exists.
 - Nominal and error shapes are explicit.
 - Stub path and final path are intended to preserve the same contract.
 - Runtime proof exists before handoff.

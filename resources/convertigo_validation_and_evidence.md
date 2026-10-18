@@ -45,7 +45,7 @@ Never reload the active MCP server project itself; use `project-save` there beca
   - one successful `requestable-execute`
   - one structural readback when the tree changed
 - HTTP integration:
-  - direct transaction or facade execution
+  - direct transaction or business sequence execution
   - transport or schema evidence when needed
 - SQL integration:
   - deterministic read-path proof

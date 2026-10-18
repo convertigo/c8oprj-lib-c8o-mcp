@@ -1,18 +1,18 @@
-# Convertigo Recipe: HTTP Connector Behind a Stable Facade
+# Convertigo Recipe: HTTP Connector Behind a Stable Business Sequence
 
 ## When to read this
 Read this when the feature needs data from a REST, SOAP, XML, JSON, raw HTTP, or binary endpoint and you want a fast, repeatable Convertigo pattern.
 
 ## What this guide covers
 - The connector and transaction decisions to make first.
-- How to keep the HTTP world behind a facade sequence.
+- How to keep the HTTP world behind a business sequence.
 - How to shape payloads safely for the rest of the application.
 - What to validate before frontend or planner handoff.
 
 ## Mandatory workflow
 
 ### Golden path
-1. Start with a stable facade sequence contract. For a new public sequence created through the MCP tree API, use the palette class `sequences.GenericSequence`; if the class is not available in the current target, run `palette-list` on the project before creating the node.
+1. Start with a stable business sequence contract. For a new public sequence created through the MCP tree API, use the palette class `sequences.GenericSequence`; if the class is not available in the current target, run `palette-list` on the project before creating the node.
 2. Create or inspect one `HttpConnector`.
 3. Set connector properties coherently:
    - `server` as the host only, for example `api.example.com`
@@ -29,37 +29,37 @@ Read this when the feature needs data from a REST, SOAP, XML, JSON, raw HTTP, or
 6. Keep `httpInfo=true` during setup so transport behavior stays visible.
 7. Execute the transaction directly.
 8. Capture schema when downstream mapping or source pickers need it.
-9. In the facade sequence, call the HTTP transaction through a `TransactionStep`.
-10. Map transaction output into the facade sequence contract.
-11. Validate the facade sequence, not just the raw transaction.
-12. Treat `status:"ok"` as only technical liveness. The facade proof is valid only when the payload contains the expected application data and contract fields.
+9. In the business sequence, call the HTTP transaction through a `TransactionStep`.
+10. Map transaction output into the business sequence contract.
+11. Validate the business sequence, not just the raw transaction.
+12. Treat `status:"ok"` as only technical liveness. The business sequence proof is valid only when the payload contains the expected application data and contract fields.
 13. In autonomous runs, reject providers that require missing credentials, demo usernames, exhausted quotas, or manual account setup unless the user supplied those credentials. A `401`, `403`, quota-limit body, or credential-required message is a live external-service proof failure, not a successful HTTP proof.
 14. Choose a provider that satisfies the requested data contract. If the feature is about searchable records, the endpoint must return records with useful fields for that requested contract. Generic article search, URL suggestions, autocomplete labels, documentation pages, or provider help payloads are not a valid substitute unless the user explicitly asked for those artifacts.
-15. Before any UI mutation, prove that the facade itself exposes the application contract the UI will bind to. For list/search pages, this usually means a top-level or clearly named object with `items`, `total`, `query`, `error`, or equivalent fields. A facade that only leaks `TransactionStep.output=true`, transport metadata, or a raw connector subtree is still a diagnostic facade, not a UI contract.
+15. Before any UI mutation, prove that the business sequence itself exposes the application contract the UI will bind to. For list/search pages, this usually means a top-level or clearly named object with `items`, `total`, `query`, `error`, or equivalent fields. A business sequence that only leaks `TransactionStep.output=true`, transport metadata, or a raw connector subtree is still a diagnostic business sequence, not a UI contract.
 
-### Business facade with `facade-create`
-When the HTTP data feeds an application page or business rule, let `facade-create` build the facade instead of shaping it by hand: it keeps the session user check, roles, perimeter, the `js/app.js` logic and the `{success, data, errors, meta}` contract of the other facades.
+### Business business sequence with `business-sequence-create`
+When the HTTP data feeds an application page or business rule, let `business-sequence-create` build the business sequence instead of shaping it by hand: it keeps the session user check, roles, perimeter, the `js/app.js` logic and the `{success, data, errors, meta}` contract of the other business sequences.
 1. Build and prove the connector and the transaction as below, with `httpInfo=true`: the generator refuses an HTTP transaction without it, because a 404 or a lost connection then returns an ordinary document.
-2. Name it in a read or a write: `{"name":"todos","transaction":"<connector>.<transaction>","vars":{"userId":"me.id"}}`. The transaction variables take `vars` or the facade input of the same name (a write: the fields of each row of `writes.<name>`).
+2. Name it in a read or a write: `{"name":"todos","transaction":"<connector>.<transaction>","vars":{"userId":"me.id"}}`. The transaction variables take `vars` or the business sequence input of the same name (a write: the fields of each row of `writes.<name>`).
 3. In `logic`, `ctx.reads.todos` is the JSON body: a JSON array or object comes unwrapped, `HttpInfo` and `attr` are removed; `path:"items"` keeps one part of it.
 4. A transport error or an HTTP status >= 400 answers `READ_FAILED` or `WRITE_FAILED` with the status in the message; later writes are skipped.
-5. Prove the facade with `requestable-execute` (with `authenticatedUser` when it is protected), including one failing call.
+5. Prove the business sequence with `requestable-execute` (with `authenticatedUser` when it is protected), including one failing call.
 
 ### Canonical object pattern
-- public facade sequence
+- public business sequence
 - internal call to HTTP transaction
 - mapping from raw response to stable contract fields
 - optional handler/error mapping
-- save only after direct transaction proof and facade proof
+- save only after direct transaction proof and business sequence proof
 
 ### Hard transport boundary
-The HTTP transport belongs only in `HttpConnector` plus a typed HTTP transaction. A facade sequence may orchestrate, call the transaction, and normalize the payload, but it must not perform the upstream HTTP call itself in JavaScript.
+The HTTP transport belongs only in `HttpConnector` plus a typed HTTP transaction. A business sequence may orchestrate, call the transaction, and normalize the payload, but it must not perform the upstream HTTP call itself in JavaScript.
 
 For HTTP-backed features:
-- use `TransactionStep` to call the typed HTTP transaction from the facade
+- use `TransactionStep` to call the typed HTTP transaction from the business sequence
 - keep JavaScript steps limited to small contract shaping or fallback logic
 - when the public contract matters, keep the raw `TransactionStep` internal (`output=false`) and make JSON steps, XML copy steps, or another explicit shaping step produce the public output
-- never use `java.net.URL`, `fetch`, `XMLHttpRequest`, ad hoc HTTP clients, or equivalent transport code inside the facade sequence
+- never use `java.net.URL`, `fetch`, `XMLHttpRequest`, ad hoc HTTP clients, or equivalent transport code inside the business sequence
 - do not rely on a broad RAG answer to invent how to read hidden step results from JavaScript; prefer sourceable steps and tree readback, or leave the transaction output visible only as a deliberate temporary diagnostic and record the gap
 
 ### Choosing the transaction type
@@ -80,32 +80,32 @@ Use:
 - When the connector and transaction are known, create the transaction and its fixed set of `RequestableHttpVariable` children in one tree mutation instead of adding each variable in separate turns. Then read back the transaction once and execute one direct proof.
 - Execute HTTP transactions with the requestable path `<Project>.<Connector>.<Transaction>`. Do not pass the database object QName `<Project>.cn:<Connector>.tr:<Transaction>` to `requestable-execute`.
 - Set `TransactionStep.sourceTransaction` with the same runtime requestable path, for example `<Project>.<Connector>.<Transaction>`. Do not set it to a Studio database object QName such as `<Project>.cn:<Connector>.tr:<Transaction>`; that value is saved but fails at runtime with messages such as `There is no connector named "cn:<Connector>"`.
-- For a `TransactionStep` that forwards a facade request variable to the HTTP transaction, create a `StepVariable` with the same object name and set its `value` to the facade variable name, for example a child `<requestVariable>` with `value: <requestVariable>`. The current palette class is `variables.StepVariable`; do not create `steps.StepVariable`.
-- Do not set guessed `output` properties on the sequence object itself. When creating `sequences.GenericSequence`, omit `output`; current trees skip it and that creates avoidable authoring noise. For early facade proof, `output=true` belongs on the `TransactionStep` or on explicit shaping steps that actually emit the public contract.
-- Also create the matching public sequence request variable, for example `variables.RequestableVariable` named `<requestVariable>` under the facade sequence. For simple pass-through in autonomous work, keep the same object name on the HTTP transaction variable, public sequence variable, and `StepVariable`. Read back the HTTP transaction first: if the transaction child is `tr:<Transaction>.vr:<requestVariable>`, the facade must contain `sq:<Facade>.vr:<requestVariable>` and `st:<TransactionStep>.vr:<requestVariable>` with `value: <requestVariable>`. Do not rename it to a UI label such as `query` and map it to an upstream name such as `q`, `name`, or `name_startsWith` unless two facade proofs with different input values prove the renamed value is forwarded.
-- Keep the public facade contract self-contained. Completion proof should execute the facade with the same small set of public input variables that the UI/user supplies. Fixed upstream parameters such as response format, action, namespace, limit, type, mode, or fixed field lists belong in transaction/facade defaults or another backend-owned mechanism. Do not rely on UI-only constants to make the backend call valid; a browser may work while the facade proof with only public inputs still returns provider help, HTML, or an unfiltered/default payload.
-- If the facade needs fixed technical values and `TransactionStep` variables/defaults do not carry them, do not move those values into the page as hidden `UIControlVariable` constants. Either repair the backend-owned contract, choose a simpler endpoint, or report the live proof incomplete.
-- Prove variable pass-through through the facade requestable itself, with at least two different request values for search/filter facades. The facade proof must show that the request variable affected the upstream URL, request payload, or returned application data. If direct transaction proof shows the parameter but facade proof omits it, repeats a default value, returns a broad unfiltered payload, or returns the same record set for different inputs, the facade is failing; do not continue to UI work and do not claim completion merely because the unfiltered payload contains records.
-- If a facade proof URL, request payload, or result set omits the submitted value while the direct transaction included it, repair the facade as the immediate next mutation. Delete or replace the mismatched public sequence variable and `StepVariable` so their object names match the HTTP transaction variable, rerun the direct transaction proof if needed, then rerun at least one facade proof that visibly includes or reflects the submitted value.
+- For a `TransactionStep` that forwards a business sequence request variable to the HTTP transaction, create a `StepVariable` with the same object name and set its `value` to the business sequence variable name, for example a child `<requestVariable>` with `value: <requestVariable>`. The current palette class is `variables.StepVariable`; do not create `steps.StepVariable`.
+- Do not set guessed `output` properties on the sequence object itself. When creating `sequences.GenericSequence`, omit `output`; current trees skip it and that creates avoidable authoring noise. For early business sequence proof, `output=true` belongs on the `TransactionStep` or on explicit shaping steps that actually emit the public contract.
+- Also create the matching public sequence request variable, for example `variables.RequestableVariable` named `<requestVariable>` under the business sequence. For simple pass-through in autonomous work, keep the same object name on the HTTP transaction variable, public sequence variable, and `StepVariable`. Read back the HTTP transaction first: if the transaction child is `tr:<Transaction>.vr:<requestVariable>`, the business sequence must contain `sq:<BusinessSequence>.vr:<requestVariable>` and `st:<TransactionStep>.vr:<requestVariable>` with `value: <requestVariable>`. Do not rename it to a UI label such as `query` and map it to an upstream name such as `q`, `name`, or `name_startsWith` unless two business sequence proofs with different input values prove the renamed value is forwarded.
+- Keep the public business sequence contract self-contained. Completion proof should execute the business sequence with the same small set of public input variables that the UI/user supplies. Fixed upstream parameters such as response format, action, namespace, limit, type, mode, or fixed field lists belong in transaction/business sequence defaults or another backend-owned mechanism. Do not rely on UI-only constants to make the backend call valid; a browser may work while the business sequence proof with only public inputs still returns provider help, HTML, or an unfiltered/default payload.
+- If the business sequence needs fixed technical values and `TransactionStep` variables/defaults do not carry them, do not move those values into the page as hidden `UIControlVariable` constants. Either repair the backend-owned contract, choose a simpler endpoint, or report the live proof incomplete.
+- Prove variable pass-through through the business sequence requestable itself, with at least two different request values for search/filter business sequences. The business sequence proof must show that the request variable affected the upstream URL, request payload, or returned application data. If direct transaction proof shows the parameter but business sequence proof omits it, repeats a default value, returns a broad unfiltered payload, or returns the same record set for different inputs, the business sequence is failing; do not continue to UI work and do not claim completion merely because the unfiltered payload contains records.
+- If a business sequence proof URL, request payload, or result set omits the submitted value while the direct transaction included it, repair the business sequence as the immediate next mutation. Delete or replace the mismatched public sequence variable and `StepVariable` so their object names match the HTTP transaction variable, rerun the direct transaction proof if needed, then rerun at least one business sequence proof that visibly includes or reflects the submitted value.
 - Do not set `sourceDefinition` to a bare variable name such as `"<requestVariable>"`. `sourceDefinition` is a picker/source tuple such as `["<stepPriority>","./xpath"]`; a plain string is invalid JSON for that property and should not be used for simple request-variable pass-through.
-- For POST/PUT style integrations, keep the payload-building logic close to the transaction and facade, not in the UI.
-- If the endpoint requires complex headers or handlers, keep that complexity inside the HTTP integration layer and return a normalized facade contract.
-- Treat DNS, TLS, timeout, 4xx/5xx, and provider-path failures from an external HTTP web service as runtime proof failures, not as permission to replace the integration with stubs or hard-coded examples. Keep the connector, transaction, facade `TransactionStep`, and UI facade call in place; report the live proof as incomplete when the upstream service is unavailable or rejects the call.
+- For POST/PUT style integrations, keep the payload-building logic close to the transaction and business sequence, not in the UI.
+- If the endpoint requires complex headers or handlers, keep that complexity inside the HTTP integration layer and return a normalized business sequence contract.
+- Treat DNS, TLS, timeout, 4xx/5xx, and provider-path failures from an external HTTP web service as runtime proof failures, not as permission to replace the integration with stubs or hard-coded examples. Keep the connector, transaction, business sequence `TransactionStep`, and UI business sequence call in place; report the live proof as incomplete when the upstream service is unavailable or rejects the call.
 - Treat a `200` response that is HTML, a documentation page, a login page, or an error envelope as a failed API payload proof for JSON/XML apps. Check content type and the body shape; fix slash placement, `baseDir`, `subDir`, query variables, headers, or provider choice before proceeding.
 - After one coherent repair for the same HTML/documentation/login/error payload, do not keep alternating between leading and non-leading slashes or between equivalent query placements. If the second direct proof still has the same payload class, choose a different endpoint that satisfies the same requested contract or keep the HTTP integration and mark the live proof incomplete.
-- Treat provider help signatures such as `ApiHelp`, `api-help.html`, `Special:ApiHelp`, documentation HTML, or an HTML response for an expected JSON/XML endpoint as failed proof. Do not count them as a usable facade response just because the transport status is `200`.
+- Treat provider help signatures such as `ApiHelp`, `api-help.html`, `Special:ApiHelp`, documentation HTML, or an HTML response for an expected JSON/XML endpoint as failed proof. Do not count them as a usable business sequence response just because the transport status is `200`.
 - Treat deprecation and sunset headers as provider-suitability evidence, not harmless metadata. If a live response includes headers such as `deprecation`, `sunset`, `x-api-deprecated`, `x-api-new-host`, or `x-api-migration`, compare any header date with the current run date. When the sunset date is current or past, the endpoint proof is stale even if it still returns `200`; switch to the advertised replacement host/path or another non-deprecated endpoint before UI work. If the replacement cannot be proven headlessly, keep the HTTP rail and mark the live proof incomplete.
 - Do not use public demo credentials, placeholder usernames, or guessed API keys as proof in headless loops. If the endpoint needs credentials and none were supplied, choose an unauthenticated/public endpoint that satisfies the task when one is available, otherwise keep the HTTP rail and report the external proof incomplete.
 - Do not count generic search suggestions, article titles, or raw URLs as application records unless the user explicitly requested those artifacts. The payload should expose fields the UI can use as real record details, such as names, identifiers, categories, locations, dates, quantitative values, statuses, or other properties meaningful for the requested contract.
-- A metadata-only facade response is not usable. If `requestable-execute` on the facade returns only sequence/context attributes and no application payload, the `TransactionStep` output or shaping step is missing. Fix the facade before UI completion proof.
-- During early headless proof, it is acceptable to set `TransactionStep.output=true` to expose the transaction payload and prove the facade path. If the final design requires a stable shaped contract, replace that diagnostic output with explicit shaping before completion. Do not continue to UI work while the facade returns only metadata.
-- A transport-only response is also not usable. `HttpInfo`, request headers, response headers, `project`, `sequence`, and `context` prove that a call happened, but they do not prove that the application has data. For JSON endpoints, the direct transaction and the facade must expose the JSON body or a shaped contract with application fields.
-- For search/list facades, prefer a stable facade contract such as `{items:[...], total, query}`. The UI should bind to that contract, not guess over raw transport metadata or over the internal `TransactionStep` shape.
-- For UI-facing HTTP facades, a public payload whose useful records are described as `transaction.document`, `transaction.document.array`, `HttpInfo`, or headers is not yet a stable facade. Read `convertigo://resources/convertigo-backend-sequences` and `convertigo://resources/convertigo-json-quickref`, keep the raw `TransactionStep` internal (`output=false`), and make explicit JSON/XML shaping steps produce public fields such as `items`, `total`, `query`, and optional `error`. If shaping cannot be authored from palette/readback, stop and report the missing shaping contract instead of moving the raw parsing into NGX.
-- Minimum proven repair for a JSON endpoint whose transaction produces an array at `./document/array`: set the `TransactionStep.output` property to `false`, add `steps.XMLCopyStep` under the facade sequence, and set `sourceDefinition` to `["<TransactionStep priority>","./document/array"]`. The facade proof should then expose a top-level `array` and no `transaction` object. A UI may normalize this public `out.array` into its local `{items,total,query}` contract; it must not read `out.transaction`.
-- Keep `["<TransactionStep priority>","./document/array"]` stable during repair. `requestable-execute` serializes a direct transaction response as a JSON body and may show `array` at the root; that is not evidence that the internal SmartSource XPath should become `./array`. If `./document/array` produces no public array, confirm the producer priority and direct JSON proof. If it produces records but ignores the submitted query/filter, repair the facade variable and child `StepVariable` mapping; the XPath is not the pass-through mechanism.
-- Do not solve a routine JSON facade by walking `context.outputDocument`, using `getElementById`, or re-exposing raw `TransactionStep.output=true` as the final contract. Those are diagnostic paths. Final UI-facing proof should come from JSON steps, XML copy steps, or another explicit backend shaping object with the raw transaction output hidden.
-- Do not rely on the NGX client to parse an HTTP transaction subtree. Browser/SDK action output may expose only diagnostic nodes such as `HttpInfo` and `attr` even when `requestable-execute` shows richer transaction arrays or XML. If the UI needs records, map those records into explicit facade fields first, prove those fields through the facade requestable, and only then wire `CallSequenceAction`.
+- A metadata-only business sequence response is not usable. If `requestable-execute` on the business sequence returns only sequence/context attributes and no application payload, the `TransactionStep` output or shaping step is missing. Fix the business sequence before UI completion proof.
+- During early headless proof, it is acceptable to set `TransactionStep.output=true` to expose the transaction payload and prove the business sequence path. If the final design requires a stable shaped contract, replace that diagnostic output with explicit shaping before completion. Do not continue to UI work while the business sequence returns only metadata.
+- A transport-only response is also not usable. `HttpInfo`, request headers, response headers, `project`, `sequence`, and `context` prove that a call happened, but they do not prove that the application has data. For JSON endpoints, the direct transaction and the business sequence must expose the JSON body or a shaped contract with application fields.
+- For search/list business sequences, prefer a stable business sequence contract such as `{items:[...], total, query}`. The UI should bind to that contract, not guess over raw transport metadata or over the internal `TransactionStep` shape.
+- For UI-facing HTTP business sequences, a public payload whose useful records are described as `transaction.document`, `transaction.document.array`, `HttpInfo`, or headers is not yet a stable business sequence. Read `convertigo://resources/convertigo-backend-sequences` and `convertigo://resources/convertigo-json-quickref`, keep the raw `TransactionStep` internal (`output=false`), and make explicit JSON/XML shaping steps produce public fields such as `items`, `total`, `query`, and optional `error`. If shaping cannot be authored from palette/readback, stop and report the missing shaping contract instead of moving the raw parsing into NGX.
+- Minimum proven repair for a JSON endpoint whose transaction produces an array at `./document/array`: set the `TransactionStep.output` property to `false`, add `steps.XMLCopyStep` under the business sequence, and set `sourceDefinition` to `["<TransactionStep priority>","./document/array"]`. The business sequence proof should then expose a top-level `array` and no `transaction` object. A UI may normalize this public `out.array` into its local `{items,total,query}` contract; it must not read `out.transaction`.
+- Keep `["<TransactionStep priority>","./document/array"]` stable during repair. `requestable-execute` serializes a direct transaction response as a JSON body and may show `array` at the root; that is not evidence that the internal SmartSource XPath should become `./array`. If `./document/array` produces no public array, confirm the producer priority and direct JSON proof. If it produces records but ignores the submitted query/filter, repair the business sequence variable and child `StepVariable` mapping; the XPath is not the pass-through mechanism.
+- Do not solve a routine JSON business sequence by walking `context.outputDocument`, using `getElementById`, or re-exposing raw `TransactionStep.output=true` as the final contract. Those are diagnostic paths. Final UI-facing proof should come from JSON steps, XML copy steps, or another explicit backend shaping object with the raw transaction output hidden.
+- Do not rely on the NGX client to parse an HTTP transaction subtree. Browser/SDK action output may expose only diagnostic nodes such as `HttpInfo` and `attr` even when `requestable-execute` shows richer transaction arrays or XML. If the UI needs records, map those records into explicit business sequence fields first, prove those fields through the business sequence requestable, and only then wire `CallSequenceAction`.
 - Do not disable `httpInfo` just to avoid an HTTP diagnostic error. If `httpInfo=false` makes the response metadata-only, that is a hidden failure, not a proof.
 
 ### Why this is the right way
@@ -125,16 +125,16 @@ Use:
 
 ## Anti-patterns / do not do
 - Do not bind UI directly to raw HTTP transaction output.
-- Do not perform HTTP transport in a facade sequence with JavaScript; use `HttpConnector` + typed HTTP transaction + `TransactionStep`.
+- Do not perform HTTP transport in a business sequence with JavaScript; use `HttpConnector` + typed HTTP transaction + `TransactionStep`.
 - Do not let the connector base URL and transaction subPath drift into an incoherent mix.
 - Do not replace a required live HTTP integration with a `SimpleStep` or hard-coded sample data just because the first `requestable-execute` failed. Keep the connector, transaction, and `TransactionStep` rail intact; diagnose the transport or mark the run incomplete.
 - Do not disable `httpInfo` during initial setup if transport visibility matters.
-- Do not call the run done because the transaction succeeds once while the facade contract is still unstable.
+- Do not call the run done because the transaction succeeds once while the business sequence contract is still unstable.
 
 ### Common failure modes
 - Wrong transaction type for the upstream payload.
 - Attempting to repair a wrong transaction type by replacing the existing node with another `className`; that keeps the old object type. Delete and recreate instead.
-- Facade sequence bypasses the connector and performs the HTTP call directly in JavaScript.
+- Business sequence bypasses the connector and performs the HTTP call directly in JavaScript.
 - Connector host/SSL/port/baseDir not coherent, often caused by setting skipped `url` instead of `server`.
 - Endpoint path drift, for example adding a guessed `/api` prefix or changing a documented path without proof.
 - Transaction query variables not modeled as `RequestableHttpVariable` children, often caused by setting skipped `parameters` or `httpParameters` properties.
@@ -144,27 +144,27 @@ Use:
 - Optional properties guessed from other frameworks, such as connector `timeout` or sequence-level `output`, are skipped and create false proof noise.
 - Schema never captured, then source picker and mapping work become guesswork.
 - Stub path and live path produce different top-level fields, or the live path is removed after a stub is added.
-- Facade validates only because raw `TransactionStep.output=true` leaks the connector response, while the claimed stable fields are not actually produced.
-- Facade proof shows useful data only inside a raw `transaction.document` subtree, while the intended UI contract object has only status/query/metadata. That is not a complete facade contract; add explicit shaping fields before UI work.
-- Facade `requestable-execute` returns `status:"ok"` but only metadata such as `project`, `sequence`, `context`, and `generated`. That means no application contract was emitted.
-- Facade `requestable-execute` returns records but the proof URL/request/payload omits the user-provided filter value while the direct transaction proof included it. That means request variable pass-through is broken.
-- Facade proofs with two different search/filter inputs return the same default or unfiltered result set. That usually means the public sequence variable, `StepVariable`, and HTTP transaction variable names are not aligned.
+- Business sequence validates only because raw `TransactionStep.output=true` leaks the connector response, while the claimed stable fields are not actually produced.
+- Business sequence proof shows useful data only inside a raw `transaction.document` subtree, while the intended UI contract object has only status/query/metadata. That is not a complete business sequence contract; add explicit shaping fields before UI work.
+- Business sequence `requestable-execute` returns `status:"ok"` but only metadata such as `project`, `sequence`, `context`, and `generated`. That means no application contract was emitted.
+- Business sequence `requestable-execute` returns records but the proof URL/request/payload omits the user-provided filter value while the direct transaction proof included it. That means request variable pass-through is broken.
+- Business sequence proofs with two different search/filter inputs return the same default or unfiltered result set. That usually means the public sequence variable, `StepVariable`, and HTTP transaction variable names are not aligned.
 - A direct HTTP proof is counted as successful when the body is actually a provider error such as missing credentials, quota exceeded, login required, HTML documentation, or another payload outside the requested contract.
-- The UI is made to pass fixed provider constants such as `action`, `format`, `limit`, `type`, `mode`, or `fields` so that the facade works. That means the UI owns upstream transport details and the facade is not self-contained.
+- The UI is made to pass fixed provider constants such as `action`, `format`, `limit`, `type`, `mode`, or `fields` so that the business sequence works. That means the UI owns upstream transport details and the business sequence is not self-contained.
 - A direct HTTP proof is counted as successful after the endpoint advertises that it is deprecated and past its sunset date. That endpoint may still answer during a grace period, but generated applications should not be built on it.
 
 ## Minimum validation proof
 - One direct `requestable-execute` on the transaction path succeeds.
-- One `requestable-execute` on the facade succeeds and the returned payload contains expected application values from the requested contract, not only runtime metadata, transport metadata, or generic search/navigation artifacts. For a search/list proof, the facade payload should contain at least one recognizable record plus useful fields from the facade contract.
-- For search/filter facades, one proof call with only the expected public input must still produce a valid application payload. If additional fixed technical variables are required from the caller, move them behind the facade or choose another provider before completion.
-- Facade top-level fields match the agreed contract in both stub and live modes.
-- Tree readback shows the public facade output is owned by shaping steps, not merely by a raw connector transaction subtree, unless the task explicitly accepts raw diagnostic output.
-- If a frontend will consume the facade, the proof must include the same shaped fields the page will bind to. Do not count raw transaction diagnostic output as the page contract.
+- One `requestable-execute` on the business sequence succeeds and the returned payload contains expected application values from the requested contract, not only runtime metadata, transport metadata, or generic search/navigation artifacts. For a search/list proof, the business sequence payload should contain at least one recognizable record plus useful fields from the business sequence contract.
+- For search/filter business sequences, one proof call with only the expected public input must still produce a valid application payload. If additional fixed technical variables are required from the caller, move them behind the business sequence or choose another provider before completion.
+- Business sequence top-level fields match the agreed contract in both stub and live modes.
+- Tree readback shows the public business sequence output is owned by shaping steps, not merely by a raw connector transaction subtree, unless the task explicitly accepts raw diagnostic output.
+- If a frontend will consume the business sequence, the proof must include the same shaped fields the page will bind to. Do not count raw transaction diagnostic output as the page contract.
 - If a real stub file is required, the proof explicitly shows that the stub materializes at runtime.
 
 ## Completion checks
 - HTTP connector and transaction are coherent.
 - Transport and payload behavior were validated directly.
-- Facade calls the HTTP transaction through `TransactionStep`; it does not own upstream transport code.
-- Facade contract hides upstream specifics.
-- Frontend can bind against the facade without knowing the raw HTTP payload shape.
+- Business sequence calls the HTTP transaction through `TransactionStep`; it does not own upstream transport code.
+- Business sequence contract hides upstream specifics.
+- Frontend can bind against the business sequence without knowing the raw HTTP payload shape.

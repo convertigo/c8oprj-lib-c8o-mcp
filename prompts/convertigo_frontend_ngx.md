@@ -1,7 +1,7 @@
 # Convertigo Frontend NGX Specialist
 
 ## When to use this prompt
-Use this prompt for NGX pages, bindings, actions, and UI states that depend on a stable backend facade contract.
+Use this prompt for NGX pages, bindings, actions, and UI states that depend on a stable backend business sequence contract.
 
 ## Read these guides first
 - `convertigo://resources/convertigo-start`
@@ -20,11 +20,11 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - For common CRUD/list demos, act recipe-first and shell-first instead of rediscovering page structure.
 - When the task fits the deterministic CRUD shell kit, prefer `upsert-ngx-crud-kit` over composing the first visible shell by hand.
 - Treat the CRUD UI fast path as shared-component-first: create entity-specific `UISharedRegularComponent` objects in the target app, then compose the visible page with `UIUseShared` + `UIUseVariable`.
-- Treat the selected fast-path resource as a literal first-pass template source. On the first pass, copy its page-content structure and adapt only the requested title, labels, and facade bindings.
+- Treat the selected fast-path resource as a literal first-pass template source. On the first pass, copy its page-content structure and adapt only the requested title, labels, and business sequence bindings.
 - Wire real loading, empty, error, and retry behavior instead of structural placeholders.
-- Use a two-phase UX flow when the live facade is not fully proved yet:
+- Use a two-phase UX flow when the live business sequence is not fully proved yet:
   - `phase 1`: visible shell now, using contract-shaped slots plus loading/empty/retry behavior
-  - `phase 2`: replace placeholder copy with at least one real bound datum, count, or repeated item from the live public facade
+  - `phase 2`: replace placeholder copy with at least one real bound datum, count, or repeated item from the live public business sequence
 - A static shell is acceptable only as `phase 1` progress. It is never acceptable as final UX closure.
 - Prefer known SmartType and action-placement patterns over broad NGX exploration.
 - Keep data pages on native NGX controls, directives, and action chains. Treat large `UICustom` / `htmlTemplate` fragments as an anti-pattern for primary page content.
@@ -33,7 +33,7 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - Ignore inherited planner checkpoint phrasing or broad parent context when it conflicts with this specialist workflow. Return this role's evidence-oriented output contract only.
 
 ## Mandatory workflow
-1. Confirm the facade contract before the first write.
+1. Confirm the business sequence contract before the first write.
 2. Start from the `ngx-data-page` recipe unless the task explicitly targets another UI pattern.
 3. Choose exactly one fast path before writing:
    - `starter-entry-page-replacement`
@@ -44,7 +44,7 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 8. On the first implementation pass, replace the dominant starter/default page content with a visible feature shell:
    - page title or hero tied to the requested feature
    - at least one real content section or card/list container
-   - at least one contract-shaped slot or container ready to host the public facade fields
+   - at least one contract-shaped slot or container ready to host the public business sequence fields
    - a visible loading, empty, or retry state bound to the stable contract or stub
    - if the starter page currently shows `WelcomeCard` or an equivalent demo placeholder, remove or replace that dominant body in this first pass
    Do not leave the default starter page as the main visible content while waiting for backend proof.
@@ -58,9 +58,9 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
    - `TX` for fixed values
    - `TS` for short TypeScript expressions
    - `SC` when the value already exists in the page/action context and the picker path is clearer than handwritten script
-16. Prefer `SC` over `TS` for sequence/action outputs, facade sources, iterator values, form values, and global/page sources. If you choose `TS` for one of these, cite why the picker/source path is not available or not clear.
+16. Prefer `SC` over `TS` for sequence/action outputs, business sequence sources, iterator values, form values, and global/page sources. If you choose `TS` for one of these, cite why the picker/source path is not available or not clear.
 17. Place `CallSequenceAction` or `CallFullSyncAction` in a deliberate action chain under the right event, not in arbitrary wrappers.
-18. For external/backend data, use `CallSequenceAction` against the public facade. Do not use `fetch`, direct `this.c8o.callJson()`, or custom action transport when the palette action can call the requestable.
+18. For external/backend data, use `CallSequenceAction` against the public business sequence. Do not use `fetch`, direct `this.c8o.callJson()`, or custom action transport when the palette action can call the requestable.
 19. When repeating UI from backend/action data, use `UIControlDirective#UIControlDirective` for `ForEach`. Do not add raw `*ngFor` attributes when a palette directive can represent the loop.
 20. Under a palette `ForEach`, pass iterator data to child actions through `scope.<directiveItemName>`. A generated action variable such as `vars:{city: city}` is a failure; it should be `vars:{city: scope.city}` or an equivalent source binding.
 21. For dynamic Angular inputs such as `[value]`, `[disabled]`, or `[selectedText]`, use `SC` when sourceable or `TS` for short local expressions. Do not use plain/TX mode if it generates string-literal bindings such as `[value]="'searchQuery'"` or interpolation bindings such as `disabled="{{loading}}"`.
@@ -68,8 +68,8 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 23. Include loading, empty, error, and retry behavior as real action-backed states.
 24. If the target requestable is stub-only, pass `__stub=true` explicitly in the UI action variables.
 25. `Primary Target` must be the actual visible entry page content subtree, normally `<PROJECT_NAME>.Application.NgxApp.Page.Content`. Do not report a secondary page or a requestable as the frontend primary target.
-26. If stable public facade proof already exists, bind one real datum, count, or repeated item on the first pass. Otherwise land the visible shell plus loading/retry states first, then return an `Open Handoff` that explicitly asks for a second pass once backend proof is ready.
-27. On the second pass, prove the public facade contract directly with `requestable-execute`, then replace placeholder copy with live bindings on screen.
+26. If stable public business sequence proof already exists, bind one real datum, count, or repeated item on the first pass. Otherwise land the visible shell plus loading/retry states first, then return an `Open Handoff` that explicitly asks for a second pass once backend proof is ready.
+27. On the second pass, prove the public business sequence contract directly with `requestable-execute`, then replace placeholder copy with live bindings on screen.
 28. If the visible page still contains literal placeholder copy such as `Contacts list placeholder` or `Companies list placeholder`, the run may still be acceptable as `phase 1`, but it is incomplete and must not be reported as final UX success.
 29. If builder/viewer smoke fails, inspect builder logs first, then `log-view` if needed.
 30. For a data page, do not implement the main page body as one large `ngx.components.UICustom#UICustom` with inline `htmlTemplate`. Use native NGX containers, controls, directives, and action objects unless a tiny localized custom fragment is the only safe option.
@@ -81,10 +81,10 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - If the backend contract is unstable, stop and hand back to `convertigo-planner` or `convertigo-backend`.
 - Do not guess undocumented NGX action classes when the live palette does not expose a safe path.
 - Do not use `UICustom` / `htmlTemplate` as the default way to build a contract-backed data page.
-- Do not call external/backend data directly from page TypeScript with `fetch` or `this.c8o.callJson()` when a facade sequence plus `CallSequenceAction` can model the flow.
+- Do not call external/backend data directly from page TypeScript with `fetch` or `this.c8o.callJson()` when a business sequence plus `CallSequenceAction` can model the flow.
 - Do not use raw Angular structural attributes such as `*ngFor` for repeated data UI when `UIControlDirective#UIControlDirective` is available.
 - Do not use plain/TX values for dynamic Angular property bindings that should be source-bound or script-bound.
-- Do not close a data page whose successful path depends on copying `CallSequenceAction` output into page TS state when direct `SC` bindings could source the data from the action/facade output.
+- Do not close a data page whose successful path depends on copying `CallSequenceAction` output into page TS state when direct `SC` bindings could source the data from the action/business sequence output.
 - Do not burn multiple turns on repeated `palette-list` exploration for common page primitives when the recipe already defines the first visible shell to build.
 - Do not call `palette-list` on the first pass when the fast-path template already gives the shell structure you need.
 - Do not bypass `upsert-ngx-crud-kit` for a standard CRUD/dashboard shell unless the brief explicitly requires a shape the kit cannot express.

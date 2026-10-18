@@ -5,14 +5,14 @@ Read this before planning or implementing any feature that spans backend flow, S
 
 ## What this guide covers
 - How the planner should split work so agents can move in parallel.
-- How to define a facade requestable contract first.
+- How to define a business sequence requestable contract first.
 - How to use a stub response to unblock UI and tests.
 - How to replace a stub with a real integration without breaking consumers.
 
 ## Mandatory workflow
 
-### Facade contract template
-Define the facade requestable before the first domain-specific mutation:
+### Business sequence contract template
+Define the business sequence requestable before the first domain-specific mutation:
 
 ```json
 {
@@ -46,16 +46,16 @@ Define the facade requestable before the first domain-specific mutation:
 
 ### Mandatory planner split
 1. Contract:
-   - lock facade name
+   - lock business sequence name
    - lock inputs
    - lock nominal and error payload shape
    - lock one sample response
 2. Stub:
-   - make the facade executable quickly
+   - make the business sequence executable quickly
    - return the agreed payload shape immediately
 3. Parallel work:
-   - backend specialist owns the facade sequence and orchestration
-   - SQL or HTTP specialist builds the real integration behind the facade
+   - backend specialist owns the business sequence and orchestration
+   - SQL or HTTP specialist builds the real integration behind the business sequence
    - UI specialist binds to the agreed payload shape, not to raw connector data
    - UI specialist replaces the dominant starter/default page content early with a visible shell driven by the stub or stable contract shape, so Studio shows feature progress before final backend proof
    - this visible shell may be a `phase 1` shell with loading/empty/retry states and contract-shaped placeholders before live data is ready
@@ -66,7 +66,7 @@ Define the facade requestable before the first domain-specific mutation:
    - replace stub internals
    - preserve the public contract
 5. Final validation:
-   - prove the facade still returns the agreed shape
+   - prove the business sequence still returns the agreed shape
    - prove consumers did not drift
 
 ### Stub example
@@ -93,10 +93,10 @@ This is drift because it changes field names, nesting, and the error convention.
 
 ### Handoff rules
 - Planner hands off a written contract, not only an idea.
-- Backend specialist owns the public facade sequence.
-- SQL specialist owns SQL transaction correctness and hands back a shape that the facade maps into the agreed contract.
-- HTTP specialist owns connector correctness and hands back a shape that the facade maps into the agreed contract.
-- UI specialist starts from the stable facade response or the stub, never from a raw connector payload.
+- Backend specialist owns the public business sequence.
+- SQL specialist owns SQL transaction correctness and hands back a shape that the business sequence maps into the agreed contract.
+- HTTP specialist owns connector correctness and hands back a shape that the business sequence maps into the agreed contract.
+- UI specialist starts from the stable business sequence response or the stub, never from a raw connector payload.
 - If the contract must change, the planner reopens the handoff explicitly and all consumers are updated deliberately.
 
 ## Recommended MCP tools
@@ -108,17 +108,17 @@ This is drift because it changes field names, nesting, and the error convention.
 - `log-view`
 
 ## Anti-patterns / do not do
-- Do not let the UI bind directly to a raw connector payload when a facade sequence should own the public contract.
+- Do not let the UI bind directly to a raw connector payload when a business sequence should own the public contract.
 - Do not start UI work from an unstable response shape.
 - Do not leave the starter/default page as the dominant visible content while claiming that frontend work is progressing.
 - Do not count a newly created secondary page as visible progress while the actual visible entry page still shows the untouched starter body.
 - Do not replace the stub with a real integration that silently changes field names, nesting, or error format.
-- Do not make the connector transaction itself the only public contract when the feature needs a stable facade.
+- Do not make the connector transaction itself the only public contract when the feature needs a stable business sequence.
 - Do not let the planner stop at “build the backend first, then the UI later” when parallel work is possible.
 
 ## Completion checks
-- A public facade requestable exists or is explicitly confirmed.
+- A public business sequence requestable exists or is explicitly confirmed.
 - A stub or real implementation returns the agreed response shape.
-- UI or downstream consumers bind to the facade contract, not to temporary raw payloads.
+- UI or downstream consumers bind to the business sequence contract, not to temporary raw payloads.
 - The real integration replaces the stub without contract drift.
 - If the contract changed, that change is explicit and validated across consumers.

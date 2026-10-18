@@ -46,19 +46,19 @@ under `<user workspace>/agents/vibe/npm/node_modules`); it is skipped otherwise.
 A live call on a Studio viewer is still the proof that the model drives the page
 and reads its screenshots.
 
-## Generators (sql-transaction-create, facade-create, ngx-page-create)
+## Generators (sql-transaction-create, business-sequence-create, ngx-page-create)
 
 Run `node --test tests/scripts/validate_generators.cjs` after changing
 `js/tools_generators.js` or `js/tools_generators_ngx.js`. The beans and the
 batch engine are faked in memory. The checks cover the SQL rules (refused SQL
-text, structured select filters), the facade tree (step order, sources by
+text, structured select filters), the business sequence tree (step order, sources by
 name, outputs) and its generated JavaScript, run in a sandbox for the role,
 perimeter, required, logic and write paths, including a failing write. They
 also cover the list, dashboard and form pages (no c8oPage in templates, every
-facade variable passed, Form SmartSources on the created UIForm priority,
+business sequence variable passed, Form SmartSources on the created UIForm priority,
 AppLayout created or completed) and the all-or-nothing rollback. A live run on
 a Studio is still the proof that the engine accepts the trees and that the
-pages build: `requestable-execute` on each facade, a production build, and a
+pages build: `requestable-execute` on each business sequence, a production build, and a
 browser check.
 
 ## No-code capability isolation
@@ -158,7 +158,7 @@ Exception: `scripts/run_fastpath_repeatability.py` is the dedicated repeatabilit
 - `prompt_http_facade_probe.txt`: HTTP-behind-facade probe. The runner should inject `convertigo-http`.
 - `prompt_ngx_contract_probe.txt`: NGX probe. The runner should inject `convertigo-frontend-ngx`.
 - `prompt_recovery_invalid_target.txt`: Recovery probe for invalid target assumptions. The runner should inject `convertigo-backend`.
-- `prompt_sql_facade_probe.txt`: PostgreSQL-backed SQL facade probe. The runner should inject `convertigo-sql`.
+- `prompt_sql_facade_probe.txt`: PostgreSQL-backed SQL business sequence probe. The runner should inject `convertigo-sql`.
 - `prompt_uistyle_stylecontent.txt`: UI regression scenario. The agent must fetch `convertigo-frontend-ngx`.
 - `prompt_critic_review.txt`: Legacy critic review of the latest prior probe log. Kept for history only.
 - `prompt_critic_run_review.txt`: Critic review of one explicit benchmark run. The runner should inject `convertigo-critic`.
