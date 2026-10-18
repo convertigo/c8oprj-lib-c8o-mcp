@@ -459,8 +459,8 @@ comment: |
         - xmlizable: 
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
-            - ↑mode: PLAIN
-            - →→: Use describe.tool with arguments.className to fetch creation template and property hints.
+            - ↑mode: JS
+            - →→: '"Use describe.tool with arguments.className to fetch creation template and property hints." + (resultInfo && resultInfo.parentQName && String(resultInfo.parentQName).indexOf(".") === -1 ? " This lists what goes directly under a project: steps go under a sequence (target <project>.<sequence>), variables under a sequence or a transaction." : "")'
   ↓NextCursorIf [steps.IfStep-1763569773859]: 
     condition: notEmpty(resultInfo && resultInfo.nextCursor)
     ↓NextCursor [steps.JsonFieldStep-1763569779641]: 
