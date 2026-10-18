@@ -764,7 +764,9 @@ include("js/sql_dialect.js");
             ", under that object's parent. To add it inside " + sibling + ", use at:\"inside\"; to place it before or after a child, target that child." :
             (/(Transaction|Sequence)Step$/.test(String(parent.getClass().getName())) ? ": a call step only holds its variables. A step that reads its output (" +
               "JsonSourceStep, SimpleStep, IfStep...) goes after it, under the same parent: target " + safeQName(parent) +
-              " with at:\"after\", or the parent with at:\"inside\"." : ".")) +
+              " with at:\"after\", or the parent with at:\"inside\"." :
+              (/StepVariable$/.test(String(dbo.getClass().getName())) ? ": a StepVariable passes a value to the requestable a TransactionStep or SequenceStep calls, " +
+                "so it only goes inside one of them. To declare or set a JavaScript variable, assign it in a SimpleStep (var x = ...;)." : "."))) +
           " Engine: " + String(addError && addError.message ? addError.message : addError).replace(/^.*EngineException: /, ""));
       }
       if (createContext && createContext.mode && createContext.mode !== "inside" && createContext.sibling) {
