@@ -73,6 +73,7 @@ Stay literal and boring on the first pass. Copy these statements first, then edi
 - create tables with `CREATE TABLE IF NOT EXISTS`
 - seed deterministically with `DELETE` then `INSERT`
 - do not start with `MERGE INTO`
+- a reseed that deletes the rows does not reset the identity counters: after `DELETE FROM t` the next ids go on from the last one, so a demo row that references another by a fixed id (`rpca_id = 2`) fails on the second seed with "foreign key no parent". Restart the counter in the reset (`ALTER TABLE t ALTER COLUMN id RESTART WITH 1` after its `DELETE`), or look the parent up by a natural key (`INSERT INTO child (parent_id, ...) SELECT id, ... FROM parent WHERE email = 'a@example.test'`). Remember that a failing write in a sequence does not stop it: check each `TransactionStep` result.
 
 Example shape:
 
