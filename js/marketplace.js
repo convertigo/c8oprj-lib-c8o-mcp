@@ -458,17 +458,58 @@ C8O.marketplace.list = function (options) {
   }
   result.suggestions = [];
   if (search.length && !result.entries.length && !C8O.marketplace._trim(opts.cursor).length) {
+    // Nothing matches whole words: rank the catalog by partial matches ("email" holds "mail") and return at most
+    // limit of them. Returning the whole catalog cost an agent tens of kilobytes for one empty search.
     var catalog = C8O.marketplace._listOne({ topics: opts.topics, limit: 200, cursor: 0, maxPages: 10, cacheTtl: opts.cacheTtl, headers: opts.headers });
+    var wanted = words.length ? words : [search.toLowerCase()];
+    var scored = [];
     for (var c = 0; c < catalog.entries.length; c++) {
       var entry = catalog.entries[c];
-      var description = C8O.marketplace._trim(entry.description);
-      result.suggestions.push({ name: entry.name, technicalName: entry.technicalName,
-        reason: description.length > 140 ? description.substring(0, 137) + "..." : description });
+      var tokens = [entry.name, entry.technicalName, entry.description, (entry.topics || []).join(" ")].join(" ").toLowerCase().split(/[^a-z0-9]+/);
+      var score = C8O.marketplace._partialScore(wanted, tokens);
+      if (score > 0) {
+        scored.push({ entry: entry, score: score });
+      }
     }
-    result.warnings.push("Nothing matches \"" + search + "\": the catalog is in English and matches whole words of names, descriptions " +
-      "and topics. suggestions lists the whole catalog: pick from it, or search one English keyword (csv, chart, grid, pdf, mail, auth, map).");
+    scored.sort(function (a, b) { return b.score - a.score; });
+    var suggestionLimit = C8O.marketplace._toInt(opts.limit, 10, 1, 20);
+    for (var k = 0; k < scored.length && k < suggestionLimit; k++) {
+      var description = C8O.marketplace._trim(scored[k].entry.description);
+      result.suggestions.push({ name: scored[k].entry.name, technicalName: scored[k].entry.technicalName,
+        reason: description.length > 100 ? description.substring(0, 97) + "..." : description });
+    }
+    result.catalogSize = catalog.entries.length;
+    result.warnings.push("Nothing matches \"" + search + "\" as whole words (the catalog is in English: names, descriptions, topics). " +
+      (result.suggestions.length ? "suggestions lists the closest entries by partial match. "
+        : "No entry matches even partly: the catalog probably has no library for it. ") +
+      "Browse the " + catalog.entries.length + " entries with marketplace-list without search (limit, cursor), or search one English keyword (csv, chart, grid, pdf, mail, auth, map).");
   }
   return result;
+};
+
+// Partial match score of search words against the words of an entry: a word inside a token or a token of 4+ letters
+// inside a word ("email" holds "mail"), or a shared prefix of 4+ letters ("authentication" / "auth").
+C8O.marketplace._partialScore = function (words, tokens) {
+  var score = 0;
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i];
+    var best = 0;
+    for (var j = 0; j < tokens.length; j++) {
+      var t = tokens[j];
+      if (t.length < 3) {
+        continue;
+      }
+      if (t === w) {
+        best = Math.max(best, 3);
+      } else if (t.indexOf(w) >= 0 || (t.length >= 4 && w.indexOf(t) >= 0)) {
+        best = Math.max(best, 2);
+      } else if (w.length >= 4 && t.length >= 4 && t.substring(0, 4) === w.substring(0, 4)) {
+        best = Math.max(best, 1);
+      }
+    }
+    score += best;
+  }
+  return score;
 };
 
 C8O.marketplace._listOne = function (options) {

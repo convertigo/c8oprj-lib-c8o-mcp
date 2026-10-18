@@ -44,8 +44,17 @@ assert.strictEqual(r.nextCursor, "1");
 
 r = M.list({ search: "graphique" });
 assert.strictEqual(r.entries.length, 0);
-assert.strictEqual(r.suggestions.length, catalog.length, "nothing found: the whole catalog is suggested");
+assert.strictEqual(r.suggestions.length, 0, "nothing matches even partly: no suggestion, not the whole catalog");
+assert.strictEqual(r.catalogSize, catalog.length);
 assert.ok(/English keyword/.test(r.warnings[0]));
+
+r = M.list({ search: "authentification" });
+assert.strictEqual(r.entries.length, 0, "a French word matches no whole word");
+assert.deepStrictEqual([...r.suggestions.map(x => x.name)].sort(), ["AuthStarter", "lib_UserManager"], "closest entries by shared prefix");
+assert.ok(/closest entries/.test(r.warnings[r.warnings.length - 1]));
+
+r = M.list({ search: "authentification", limit: 1 });
+assert.strictEqual(r.suggestions.length, 1, "suggestions follow limit");
 
 r = M.list({ search: "csv" });
 assert.strictEqual(r.entries.length, 1);
