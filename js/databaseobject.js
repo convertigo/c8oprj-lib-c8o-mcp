@@ -2570,8 +2570,11 @@ C8O.dbo.suggestBeanClasses = function (className) {
     text = text.substring(0, hashIndex);
   }
   try {
-    Packages.java.lang.Class.forName(text);
-    return [];
+    var existing = Packages.java.lang.Class.forName(text);
+    // A class that exists and can be created needs no suggestion; an abstract one (core.Sequence) gets the concrete ones.
+    if (!Packages.java.lang.reflect.Modifier.isAbstract(existing.getModifiers())) {
+      return [];
+    }
   } catch (_missing) {}
   var simpleName = text.substring(text.lastIndexOf(".") + 1);
   var packages = ["steps", "core", "variables", "sequences", "transactions", "connectors", "statements",

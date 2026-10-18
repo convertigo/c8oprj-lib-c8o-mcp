@@ -732,7 +732,7 @@ include("js/sql_dialect.js");
         "Unable to instantiate class " + normalizedClassName +
         " (child=" + String(name || "") +
         ", parent=" + String(safeQName(parent) || "") + ")" +
-        (sameName.length ? ": no such class, use className " + sameName.join(" or ") : "")
+        (sameName.length ? ": this class cannot be created (missing or abstract), use className " + sameName.join(" or ") : "")
       );
     }
     dbo.bNew = true;
