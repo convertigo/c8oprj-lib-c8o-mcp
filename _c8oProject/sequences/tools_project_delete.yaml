@@ -19,6 +19,7 @@ comment: |
     var deleteCarInput = (typeof deleteCar !== "undefined") ? deleteCar : true;
     var deleteCarFlag = C8O.util.toBoolean(deleteCarInput, true) === true;
     var errorEntries = [];
+    var hsqldbClosed = [];
     var foundBeforeDelete = false;
     var deletedFlag = false;
     var statusText = "missing";
@@ -48,6 +49,9 @@ comment: |
         messageText = "Project not found: " + providedName;
       } else {
         try {
+          try {
+            hsqldbClosed = C8O.dbo.shutdownProjectHsqldb(providedName);
+          } catch (_ignoreHsqldb) {}
           if (deleteCarFlag) {
             Engine.theApp.databaseObjectsManager.deleteProjectAndCar(providedName);
           } else {
@@ -107,6 +111,10 @@ comment: |
     projectDeleteDeleted = deletedFlag;
     projectDeleteDeleteCar = deleteCarFlag;
     projectDeleteStatus = statusText;
+    if (hsqldbClosed.length) {
+      messageText += (messageText.length ? (/[.!?]$/.test(messageText) ? " " : ". ") : "") + "HSQLDB databases closed before the deletion: " +
+        hsqldbClosed.map(function (h) { return h.connector + " (" + h.status + ")"; }).join(", ") + ".";
+    }
     projectDeleteMessage = messageText;
     projectDeleteStudioCleanup = studioCleanupResult;
     projectDeleteTimestamp = System.currentTimeMillis();

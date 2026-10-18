@@ -430,6 +430,73 @@ C8O.dbo._resolveNestedStepAlias = function (text) {
   }
 };
 
+// HSQLDB file databases of a project stay open in the Studio JVM after the project is deleted: the engine contexts
+// keep their connections. A project created again with the same connector URL then reads the former tables (run 8c
+// found run 7's). SHUTDOWN closes each of them; ifexists=true never creates a database that is not there.
+C8O.dbo.shutdownProjectHsqldb = function (projectName) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var out = [];
+  var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName, false);
+  if (project == null) {
+    return out;
+  }
+  // Databases still open in the JVM under the project folder, even with no connector naming them any more.
+  var projectDir = String(new java.io.File(project.getDirPath()).getCanonicalPath());
+  try {
+    var uris = Packages.org.hsqldb.DatabaseManager.getDatabaseURIs();
+    var it = uris.iterator();
+    while (it.hasNext()) {
+      var uri = String(it.next());
+      var openPath = uri.replace(/^file:/, "");
+      if (openPath.indexOf(projectDir) === 0) {
+        out.push(C8O.dbo._shutdownHsqldb("(open in the JVM)", openPath, "SA", ""));
+      }
+    }
+  } catch (_noDatabaseManager) {}
+  var connectors = project.getConnectorsList();
+  for (var i = 0; i < connectors.size(); i++) {
+    var connector = connectors.get(i);
+    var url = "";
+    try {
+      url = String(connector.getJdbcURL());
+    } catch (_notSql) {
+      continue;
+    }
+    if (url.indexOf("jdbc:hsqldb:file:") !== 0) {
+      continue;
+    }
+    var path = url.substring("jdbc:hsqldb:file:".length).split(";")[0];
+    path = String(Engine.theApp.filePropertyManager.getFilepathFromProperty(path, projectName));
+    var user = "";
+    var password = "";
+    try { user = String(connector.getRealJdbcUserName() || ""); } catch (_noUser) {}
+    try { password = String(connector.getRealJdbcUserPassword() || ""); } catch (_noPassword) {}
+    var already = out.some(function (o) { return o.database === path && o.status === "closed"; });
+    if (!already) {
+      out.push(C8O.dbo._shutdownHsqldb(String(connector.getName()), path, user || "SA", password));
+    }
+  }
+  return out;
+};
+
+C8O.dbo._shutdownHsqldb = function (label, path, user, password) {
+  var entry = { connector: label, database: path, status: "" };
+  try {
+    var jdbc = java.sql.DriverManager.getConnection("jdbc:hsqldb:file:" + path + ";ifexists=true", user, password);
+    try {
+      var statement = jdbc.createStatement();
+      statement.execute("SHUTDOWN");
+      statement.close();
+      entry.status = "closed";
+    } finally {
+      try { jdbc.close(); } catch (_closed) {}
+    }
+  } catch (e) {
+    entry.status = /does not exist|not found/i.test(String(e)) ? "not_open" : "error: " + String(e).substring(0, 160);
+  }
+  return entry;
+};
+
 C8O.dbo.resolve = function (qname, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
