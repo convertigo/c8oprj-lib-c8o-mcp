@@ -107,6 +107,10 @@ comment: |
   comment: Internal LogManager page size per fetch cycle. Increase only for large scans.
   description: Internal LogManager page size per fetch cycle. Increase only for large scans.
   value: 200
+↓order [variables.RequestableVariable-1792360000002]: 
+  comment: newest (default) returns the last lines first, from the last 24 hours unless since is given; oldest reads forward from since.
+  description: newest (default) returns the last lines first, from the last 24 hours unless since is given; oldest reads forward from since.
+  value: newest
 ↓_nextCursor [variables.RequestableVariable-1772719401020]: 
   comment: Opaque cursor from a previous response. Internal pagination token.
   description: Opaque cursor from a previous response. Internal pagination token.

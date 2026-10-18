@@ -321,7 +321,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         until: { type: "string", description: "Alias of endDate." },
         limit: { type: "integer", minimum: 1, maximum: 500, default: 100, description: "Maximum log lines returned. 1 to 500; default 100." },
         timeoutMs: { type: "integer", minimum: 0, maximum: 10000, default: 200, description: "Max wait time per fetch cycle in milliseconds. 0 disables waiting." },
-        fetchSize: { type: "integer", minimum: 20, maximum: 1000, default: 200, description: "Internal LogManager page size per fetch cycle. Increase only for large scans." }
+        fetchSize: { type: "integer", minimum: 20, maximum: 1000, default: 200, description: "Internal LogManager page size per fetch cycle. Increase only for large scans." },
+        order: { type: "string", enum: ["newest", "oldest"], default: "newest", description: "newest (default) returns the last lines first, from the last 24 hours unless since is given; oldest reads forward from since." }
       },
       additionalProperties: false
     };
@@ -1584,7 +1585,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       text: { type: "string" },
       startDate: nullableNumberSchema(),
       endDate: nullableNumberSchema(),
-      timeoutMs: { type: "number" }
+      timeoutMs: { type: "number" },
+      order: { type: "string" },
+      cutMessages: { type: "number" },
+      note: { type: "string" }
     });
   }
 

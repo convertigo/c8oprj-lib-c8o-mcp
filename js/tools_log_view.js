@@ -94,9 +94,13 @@ function buildFilterExpression(options) {
     parts.push(containsExpr("thread", threadValue));
   }
 
+  // A line that carries its project is kept only for that project: the message test brought back the Assistant's and the
+  // MCP's lines that quote the project name (run 9a). Lines without a project context are still matched on their message,
+  // except the MCP's own JSON-RPC answers, which quote the project of every tool call.
   var projectValue = lowerToken(options.project);
   if (projectValue.length) {
-    parts.push("(" + containsExpr("project", projectValue) + " || " + messageContainsExpr(projectValue) + ")");
+    parts.push("(typeof project !== 'undefined' ? String(project).toLowerCase().indexOf(" + JSON.stringify(projectValue) + ") !== -1 : (" +
+      messageContainsExpr(projectValue) + " && message.indexOf('jsonrpc') === -1))");
   }
 
   var requestableValue = lowerToken(options.requestable);
@@ -192,6 +196,19 @@ var filterExpression = buildFilterExpression({
 var startDateMillis = parseDateMillis(startDateInput);
 var endDateMillis = parseDateMillis(endDateInput);
 
+// The newest lines come first by default: an agent reading the logs after a failed call wants the last lines, and the
+// oldest-first page started hours earlier (run 9a). Without a lower bound, newest reads the last 24 hours.
+var orderValue = String(typeof order !== "undefined" && order !== null ? order : "").trim().toLowerCase() === "oldest" ? "oldest" : "newest";
+var sinceDefaulted = false;
+if (orderValue === "newest" && startDateMillis === null) {
+  startDateMillis = new Date().getTime() - 24 * 3600 * 1000;
+  sinceDefaulted = true;
+}
+var MAX_NEWEST_SCAN = 50000;
+var newestScanned = 0;
+var newestCapped = false;
+var readFromMillis = startDateMillis;
+
 var maxNeeded = startOffset + limitValue + 1;
 var fetchChunk = parseIntBounded(fetchSize, 200, 20, 1000);
 if (fetchChunk < limitValue) {
@@ -200,44 +217,99 @@ if (fetchChunk < limitValue) {
 
 var allLines = [];
 var hasMoreResults = false;
-var lm = null;
 
-try {
-  lm = new LogManager();
+function openLogManager(fromMillis) {
+  var manager = new LogManager();
   if (filterExpression.length) {
-    lm.setFilter(filterExpression);
+    manager.setFilter(filterExpression);
   }
-  if (startDateMillis !== null) {
-    lm.setDateStart(new java.util.Date(startDateMillis));
+  if (fromMillis !== null) {
+    manager.setDateStart(new java.util.Date(fromMillis));
   }
   if (endDateMillis !== null) {
-    lm.setDateEnd(new java.util.Date(endDateMillis));
+    manager.setDateEnd(new java.util.Date(endDateMillis));
   }
-  lm.setMaxLines(fetchChunk);
-  lm.setTimeout(timeoutValue);
-  lm.setContinue(true);
+  manager.setMaxLines(fetchChunk);
+  manager.setTimeout(timeoutValue);
+  manager.setContinue(true);
+  return manager;
+}
 
-  var guard = 0;
-  while (allLines.length < maxNeeded && lm.hasMoreResults() && guard < 10000) {
-    guard++;
-    var rows = lm.getLines();
-    var count = rows != null ? rows.length() : 0;
-    if (count <= 0) {
-      if (!lm.hasMoreResults()) {
+// Reads from fromMillis to the end of the range, keeping only the last maxNeeded lines. A fetch can come back empty
+// while the filter is still scanning (timeoutMs): only hasMoreResults ends the range, and deadline bounds the read.
+function readNewestTail(fromMillis, deadline) {
+  var manager = openLogManager(fromMillis);
+  var read = { tail: [], scanned: 0, capped: false };
+  try {
+    var guard = 0;
+    while (manager.hasMoreResults() && guard < 10000 && read.scanned < MAX_NEWEST_SCAN) {
+      guard++;
+      if (new Date().getTime() > deadline) {
+        read.capped = true;
         break;
       }
-      continue;
+      var rows = manager.getLines();
+      var count = rows != null ? rows.length() : 0;
+      for (var n = 0; n < count; n++) {
+        read.tail.push(rows.getJSONArray(n));
+        read.scanned++;
+        if (read.tail.length > maxNeeded) {
+          read.tail.shift();
+        }
+      }
     }
-    for (var i = 0; i < count; i++) {
-      allLines.push(parseLineEntry(rows.getJSONArray(i), allLines.length));
-      if (allLines.length >= maxNeeded) {
-        break;
-      }
+    read.capped = read.capped || read.scanned >= MAX_NEWEST_SCAN;
+  } finally {
+    try {
+      manager.close();
+    } catch (_ignoreClose) {}
+  }
+  return read;
+}
+
+if (orderValue === "newest") {
+  // The filter is evaluated on every line: reading 24 hours took 15 s. Without since, read the last 15 minutes,
+  // then 2 hours, then 24 hours, and stop as soon as a window holds enough lines.
+  var nowMillis = new Date().getTime();
+  var windows = sinceDefaulted ? [nowMillis - 15 * 60 * 1000, nowMillis - 2 * 3600 * 1000, startDateMillis] : [startDateMillis];
+  var deadline = nowMillis + 20000;
+  var read = null;
+  for (var w = 0; w < windows.length; w++) {
+    read = readNewestTail(windows[w], deadline);
+    readFromMillis = windows[w];
+    if (read.tail.length >= maxNeeded || read.capped) {
+      break;
     }
   }
-  hasMoreResults = lm.hasMoreResults();
-} finally {
-  if (lm != null) {
+  newestScanned = read.scanned;
+  newestCapped = read.capped;
+  for (var t = read.tail.length - 1; t >= 0; t--) {
+    allLines.push(parseLineEntry(read.tail[t], allLines.length));
+  }
+  hasMoreResults = newestScanned > allLines.length || readFromMillis !== startDateMillis;
+} else {
+  var lm = openLogManager(startDateMillis);
+  try {
+    var guard = 0;
+    while (allLines.length < maxNeeded && lm.hasMoreResults() && guard < 10000) {
+      guard++;
+      var rows = lm.getLines();
+      var count = rows != null ? rows.length() : 0;
+      if (count <= 0) {
+        if (!lm.hasMoreResults()) {
+          break;
+        }
+        continue;
+      }
+      for (var i = 0; i < count; i++) {
+        allLines.push(parseLineEntry(rows.getJSONArray(i), allLines.length));
+        if (allLines.length >= maxNeeded) {
+          break;
+        }
+      }
+    }
+    hasMoreResults = lm.hasMoreResults();
+  } finally {
     try {
       lm.close();
     } catch (_ignoreClose) {}
@@ -285,7 +357,7 @@ logViewQuery = {
   startIndex: effectiveStart,
   limit: limitValue,
   returned: returnedLines.length,
-  scanned: allLines.length,
+  scanned: orderValue === "newest" ? newestScanned : allLines.length,
   hasMore: hasMore,
   nextCursor: nextCursor,
   filterExpression: filterExpression,
@@ -293,10 +365,16 @@ logViewQuery = {
   startDate: startDateMillis,
   endDate: endDateMillis,
   timeoutMs: timeoutValue,
+  order: orderValue,
   cutMessages: cutMessages,
-  note: cutMessages || returnedLines.length < limitValue && hasMore
-    ? "Long messages are cut in the middle and a page stops near " + MAX_PAGE_CHARS + " characters: continue with cursor, or narrow with q, level or the dates."
-    : ""
+  note: [
+    orderValue === "newest" ? "Newest lines first" + (sinceDefaulted ? ", read back from now up to 24 hours (pass since for older ones)" : "") +
+      (newestCapped ? "; the read stopped after " + newestScanned + " matching lines (" + MAX_NEWEST_SCAN + " lines or 20 s), so newer ones may be missing: narrow with since or q" : "") +
+      "; the cursor goes back in time." : "",
+    cutMessages || returnedLines.length < limitValue && hasMore
+      ? "Long messages are cut in the middle and a page stops near " + MAX_PAGE_CHARS + " characters: continue with cursor, or narrow with q, level or the dates."
+      : ""
+  ].filter(function (x) { return x.length; }).join(" ")
 };
 logViewHasMore = hasMore;
 logViewNextCursor = nextCursor;
