@@ -104,7 +104,14 @@ function mapHints(hints, className, compact) {
         var valueText = typeof option.value === "number" ? String(option.value) : JSON.stringify(String(option.value));
         allowed.push(option.label ? valueText + " = " + option.label : valueText);
       }
-      hintPayload.allowedValues = allowed.join("; ");
+      // MenuItem's itemicon lists 1 227 icons (26 kB, run 9a): the compact answer keeps the first
+      // ones and says how many follow; verbose:true lists them all.
+      if (compact && allowed.length > 40) {
+        hintPayload.allowedValues = allowed.slice(0, 30).join("; ") + "; ... " + (allowed.length - 30) +
+          " more values: call palette-describe with verbose:true for the full list.";
+      } else {
+        hintPayload.allowedValues = allowed.join("; ");
+      }
     }
     if (!compact && !repeatNgxText && classLabel && C8O && C8O.dbo && typeof C8O.dbo.resolveLlmHint === "function") {
       try {
