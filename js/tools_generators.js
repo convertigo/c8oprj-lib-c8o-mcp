@@ -757,12 +757,21 @@ C8O.generators = C8O.generators || {};
       errors.push("ifExists must be fail, replace or keep.");
     }
     var plans = specs.map(function (spec, i) {
-      return planTransaction(projectDbo, isObj(spec) ? spec : {}, errors, warnings, specs.length > 1 ? "transactions[" + i + "]" : "transaction",
-        args.connector);
+      var label = specs.length > 1 ? "transactions[" + i + "]" : "transaction";
+      var plan = planTransaction(projectDbo, isObj(spec) ? spec : {}, errors, warnings, label, args.connector);
+      // ifExists may also sit on one element of transactions: it was ignored there, and the error
+      // asked to pass ifExists without saying where (run 9a).
+      var own = isObj(spec) && spec.ifExists !== undefined && spec.ifExists !== null ? str(spec.ifExists) : "";
+      if (own.length && ["fail", "replace", "keep"].indexOf(own) < 0) {
+        errors.push(label + ".ifExists must be fail, replace or keep.");
+      }
+      plan.ifExists = own || ifExists;
+      return plan;
     });
     plans.forEach(function (p) {
-      if (p.exists && ifExists === "fail") {
-        errors.push(p.name + " already exists in " + p.connectorQName + ": pass ifExists:\"replace\" to rewrite its SQL, or \"keep\".");
+      if (p.exists && p.ifExists === "fail") {
+        errors.push(p.name + " already exists in " + p.connectorQName + ": pass ifExists:\"replace\" to rewrite its SQL, or \"keep\" " +
+          "(at the top level for every transaction, or on this element of transactions).");
       }
     });
     if (errors.length) {
@@ -771,7 +780,7 @@ C8O.generators = C8O.generators || {};
     var session = new Session(tool, projectDbo);
     var out = [];
     plans.forEach(function (p) {
-      var dbo = createTransaction(session, p, ifExists);
+      var dbo = createTransaction(session, p, p.ifExists);
       var target = dbo || p.existing;
       out.push({ qname: studioQNameOf(target), requestable: qnameOf(target), status: p.exists ? (dbo ? "replaced" : "kept") : "created",
         kind: p.kind, variables: dbo ? variableNames(dbo) : p.variables, sql: p.sql });

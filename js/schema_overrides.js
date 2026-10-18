@@ -1796,7 +1796,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           autoCommit: { type: "string", enum: ["0", "1", "2"], description: "0 manual, 1 after each query, 2 once at the end (default for a write with several statements separated by ;)." },
           maxResult: { type: "string", description: "Optional max number of rows." },
           comment: { type: "string" },
-          transactions: openArray("Several transactions in one call: an array of {name, connector?, sql | select | insert | update | delete, variables?, autoCommit?}. Replaces the single-transaction arguments."),
+          transactions: openArray("Several transactions in one call: an array of {name, connector?, sql | select | insert | update | delete, variables?, autoCommit?, ifExists?}. Replaces the single-transaction arguments; an element's ifExists overrides the top-level one."),
           ifExists: { type: "string", enum: ["fail", "replace", "keep"], default: "fail", description: "replace rewrites the SQL and variables of an existing transaction in place (its callers keep working); keep leaves it untouched." }
         },
         required: ["project"],

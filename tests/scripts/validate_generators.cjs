@@ -297,6 +297,18 @@ test('sql-transaction-create validates everything first, then creates the transa
   assert.equal(replaced.transactions[0].requestable, 'App.db.q_postes', 'requestable is the path requestable-execute takes');
 });
 
+test('sql-transaction-create reads ifExists on an element of transactions too (run 9a)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  assert.throws(() => G.sqlTransactionCreate({ project: 'App', transactions: [{ name: 'q_postes', sql: 'SELECT b AS "b" FROM t' }] }),
+    err => /at the top level for every transaction, or on this element of transactions/.test(err.message));
+  assert.throws(() => G.sqlTransactionCreate({ project: 'App', transactions: [{ name: 'q_x', sql: 'SELECT b AS "b" FROM t', ifExists: 'maybe' }] }),
+    err => /transaction\.ifExists must be fail, replace or keep/.test(err.message));
+  const out = G.sqlTransactionCreate({ project: 'App', transactions: [
+    { name: 'q_postes', sql: 'SELECT b AS "b" FROM t', ifExists: 'replace' }, { name: 'q_new', sql: 'SELECT c AS "c" FROM t' }] });
+  assert.deepEqual(plain(out.transactions.map(t => t.status)), ['replaced', 'created']);
+});
+
 // --- facade ------------------------------------------------------------------------------------
 
 function sequenceSpec(extra) {
