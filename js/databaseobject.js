@@ -497,6 +497,60 @@ C8O.dbo._shutdownHsqldb = function (label, path, user, password) {
   return entry;
 };
 
+// A JS SmartType expression written as an object literal, {}, {a: 1}, is evaluated as a block and gives undefined:
+// a JsonToXmlStep then fails with a bare NullPointerException that names no step (run 8e). Wrap it: ({}).
+C8O.dbo._wrapObjectLiteral = function (mode, expression) {
+  var text = String(expression);
+  var trimmed = text.trim();
+  if (String(mode) === "JS" && trimmed.charAt(0) === "{" && trimmed.charAt(trimmed.length - 1) === "}") {
+    return "(" + trimmed + ")";
+  }
+  return text;
+};
+
+// When a sequence fails with "An exception occured while executing step" and no detail, the engine names no step.
+// Look over its steps for the causes seen in the runs and return hints with the step QNames.
+C8O.dbo.stepErrorHints = function (projectName, sequenceName) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var hints = [];
+  var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName), false);
+  var sequence = project ? project.getSequenceByName(String(sequenceName)) : null;
+  if (sequence == null) {
+    return hints;
+  }
+  var visit = function (dbo) {
+    try {
+      var descriptors = java.beans.Introspector.getBeanInfo(dbo.getClass()).getPropertyDescriptors();
+      for (var i = 0; i < descriptors.length; i++) {
+        var pd = descriptors[i];
+        if (pd.getPropertyType() == null || String(pd.getPropertyType().getName()) !== "com.twinsoft.convertigo.beans.steps.SmartType" ||
+            pd.getReadMethod() == null) {
+          continue;
+        }
+        var value = pd.getReadMethod().invoke(dbo);
+        if (value == null || String(value.getMode()) !== "JS") {
+          continue;
+        }
+        var expr = String(value.getExpression() || "").trim();
+        var where = String(dbo.getFullQName ? dbo.getFullQName() : dbo.getQName()) + " " + pd.getName();
+        if (expr.charAt(0) === "{" && expr.charAt(expr.length - 1) === "}") {
+          hints.push(where + ": the JS expression " + expr.substring(0, 60) + " is an object literal evaluated as a block (undefined); write (" + expr.substring(0, 40) + (expr.length > 40 ? "..." : "") + ").");
+        } else if (!expr.length) {
+          hints.push(where + ": empty JS expression.");
+        }
+      }
+    } catch (_ignoreIntrospection) {}
+    var kids = C8O.dbo.getDirectChildren ? C8O.dbo.getDirectChildren(dbo) : [];
+    for (var k = 0; k < kids.length; k++) {
+      visit(kids[k]);
+    }
+  };
+  visit(sequence);
+  hints.push("The engine does not name the failing step. To find it, disable steps from the end with databaseobject-tree-apply " +
+    "{properties:{isEnabled:false}} and run again, or add a SimpleStep log.info(\"here\") between steps (log-view).");
+  return hints;
+};
+
 C8O.dbo.resolve = function (qname, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
@@ -1307,7 +1361,7 @@ C8O.dbo._buildSmartType = function (spec) {
   if (mode === SmartTypeMode.SOURCE) {
     smart.setSourceDefinition(C8O.dbo._buildXMLVector(Array.isArray(sources) ? sources : []));
   } else {
-    smart.setExpression(expression != null ? expression : '');
+    smart.setExpression(expression != null ? C8O.dbo._wrapObjectLiteral(mode, expression) : '');
   }
   smart.pack();
   return smart;
