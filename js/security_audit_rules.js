@@ -33,6 +33,7 @@ C8O.securityAudit = C8O.securityAudit || {};
     "Authentication performed inside JavaScript (for example a bearer check) is not recognized; acknowledge such findings with suppress.",
     "Anonymous reachability follows SequenceStep and TransactionStep calls inside the audited project only; calls built in JavaScript or into other projects are not followed.",
     "Engine checks describe the engine running this audit, which may differ from the production server.",
+    "The Studio does not enforce Private: in Studio mode every requestable runs when called from outside, so an anonymous call that succeeds in the Studio does not mean a Private requestable is exposed. This audit reads the accessibility a server applies.",
     "Sensitive names are detected heuristically (password, secret, token, apiKey, authorization...)."
   ];
 
