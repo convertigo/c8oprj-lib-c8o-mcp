@@ -438,7 +438,8 @@ include("js/tools_generators.js");
         locals.selected = "[]";
         var keyInTemplate = "'' + " + field(keyPath, item);
         var keyInAction = "'' + scope." + field(keyPath, item);
-        rowChildren.unshift(nx("CheckBox", "Pick", { IonSlot: { mode: "PLAIN", value: "start" },
+        // ion-checkbox has no slot property (IonSlot is only on ion-note): first in the row, it sits at the start.
+        rowChildren.unshift(nx("CheckBox", "Pick", {
           Checked: { mode: "SCRIPT", value: "(local?.selected || []).indexOf(" + keyInTemplate + ") >= 0" } }, [
           controlEvent("EventonChange", "ionChange", [setLocal("Toggle", "selected",
             "((s: any[], v: string) => s.indexOf(v) >= 0 ? s.filter((x: any) => x !== v) : s.concat([v]))((c8oPage.local.selected || []).slice(), " + keyInAction + ")")])
