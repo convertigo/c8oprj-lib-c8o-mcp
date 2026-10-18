@@ -18,10 +18,6 @@ from pathlib import Path
 PARSE_RE = re.compile(r"( *)(- )?(↑)?(→)?(↓)?(.*?): (🗏 )?(.*)")
 BEAN_KEY_RE = re.compile(r"^(.*) \[[^\]]+\]$")
 BEAN_CLASS_RE = re.compile(r"^.* \[([^\]]+)\]$")
-XMLVECTOR_LINE_RE = re.compile(r"^( *)- com\.twinsoft\.convertigo\.beans\.common\.XMLVector:\s*$")
-JAVA_STRING_LINE_RE = re.compile(r"^( *)- java\.lang\.String:\s*$")
-VALUE_LINE_RE = re.compile(r"^( *)- ↑value: (.*)$")
-NUMERIC_PRIORITY_RE = re.compile(r"^\d{10,}$")
 
 
 @dataclass(frozen=True)
@@ -100,112 +96,6 @@ def external_ref_base(file_path: Path) -> Path:
     if file_path.name == "c8oProject.yaml":
         return file_path.parent / "_c8oProject"
     return file_path.parent
-
-
-def _line_indent(line: str) -> int:
-    return len(line) - len(line.lstrip(" "))
-
-
-def _next_content_line(lines: list[str], start: int, stop: int) -> int | None:
-    index = start
-    while index < stop:
-        line = lines[index]
-        if line != "" and not line.lstrip().startswith("#"):
-            return index
-        index += 1
-    return None
-
-
-def _read_java_string_value(lines: list[str], string_line: int, stop: int) -> tuple[int, str] | None:
-    string_match = JAVA_STRING_LINE_RE.fullmatch(lines[string_line])
-    if not string_match:
-        return None
-
-    value_line = _next_content_line(lines, string_line + 1, stop)
-    if value_line is None:
-        return None
-
-    value_match = VALUE_LINE_RE.fullmatch(lines[value_line])
-    if not value_match or len(value_match.group(1)) <= len(string_match.group(1)):
-        return None
-
-    return value_line, value_match.group(2)
-
-
-def _next_java_string_at_indent(lines: list[str], start: int, stop: int, indent: int) -> int | None:
-    index = start
-    while index < stop:
-        line = lines[index]
-        if line == "" or line.lstrip().startswith("#"):
-            index += 1
-            continue
-        current_indent = _line_indent(line)
-        if current_indent < indent:
-            return None
-        match = JAVA_STRING_LINE_RE.fullmatch(line)
-        if match and len(match.group(1)) == indent:
-            return index
-        index += 1
-    return None
-
-
-def _looks_like_source_xpath(value: str) -> bool:
-    return value == "." or value.startswith(("./", "/", "../"))
-
-
-def _lint_empty_xmlvector_source_references(file_path: Path, lines: list[str]) -> tuple[list[str], list[str]]:
-    errors: list[str] = []
-    warnings: list[str] = []
-
-    for index, line in enumerate(lines):
-        vector_match = XMLVECTOR_LINE_RE.fullmatch(line)
-        if not vector_match:
-            continue
-
-        vector_indent = len(vector_match.group(1))
-        lookahead_stop = min(len(lines), index + 24)
-        next_line = _next_content_line(lines, index + 1, lookahead_stop)
-        if next_line is None:
-            continue
-
-        first_string_match = JAVA_STRING_LINE_RE.fullmatch(lines[next_line])
-        if not first_string_match:
-            continue
-
-        field_indent = len(first_string_match.group(1))
-        if field_indent > vector_indent:
-            continue
-
-        first_value = _read_java_string_value(lines, next_line, lookahead_stop)
-        if first_value is None:
-            continue
-
-        source_priority = first_value[1]
-        if not NUMERIC_PRIORITY_RE.fullmatch(source_priority):
-            continue
-
-        second_string_line = _next_java_string_at_indent(
-            lines, first_value[0] + 1, lookahead_stop, field_indent
-        )
-        second_value = (
-            _read_java_string_value(lines, second_string_line, lookahead_stop)
-            if second_string_line is not None
-            else None
-        )
-
-        if second_value is not None and _looks_like_source_xpath(second_value[1]):
-            errors.append(
-                f"{file_path}:{index + 1}: XMLVector is empty, but following fields look like a dynamic "
-                f"source reference ({source_priority}, {second_value[1]}); indent them under this XMLVector "
-                "instead of leaving them at the default-value level"
-            )
-        else:
-            warnings.append(
-                f"{file_path}:{index + 1}: XMLVector is empty, but the following field is a numeric priority-like "
-                f"value ({source_priority}); if this is a source reference, it is probably indented at the wrong level"
-            )
-
-    return errors, warnings
 
 
 def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], list[str], list[RefEdge]]:
@@ -391,9 +281,6 @@ def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], li
 
         i += 1
 
-    vector_errors, vector_warnings = _lint_empty_xmlvector_source_references(file_path, lines)
-    errors.extend(vector_errors)
-    warnings.extend(vector_warnings)
     return errors, warnings, refs
 
 
