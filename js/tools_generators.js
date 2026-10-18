@@ -1066,12 +1066,25 @@ C8O.generators = C8O.generators || {};
     } else if (childNamed(projectDbo, name)) {
       errors.push("sequence " + projectName + "." + name + " already exists: delete it first, or pick another name.");
     }
-    var script = (str(args.script) || "js/app.js");
+    var script = (str(args.script) || "js/app.js").replace(/^\.?\//, "");
+    if (script.indexOf("/") < 0) {
+      // A bare file name means the project's js folder, where project-js-set writes.
+      script = "js/" + script;
+    }
     var logic = str(args.logic);
     var content = readProjectJs(projectDbo, script);
     if (content === null) {
-      errors.push(script + " does not exist in " + projectName + ": write it first with project-js-set (the business rules, " +
-        "one namespace object such as var App = (function () { ... return {...}; })();).");
+      var existing = [];
+      var jsDir = new java.io.File(projectDbo.getDirPath(), "js");
+      var jsFiles = jsDir.isDirectory() ? jsDir.listFiles() : null;
+      for (var f = 0; jsFiles && f < jsFiles.length; f++) {
+        if (/\.js$/.test(String(jsFiles[f].getName()))) {
+          existing.push("js/" + jsFiles[f].getName());
+        }
+      }
+      errors.push(script + " does not exist in " + projectName + (existing.length ? " (existing: " + existing.sort().join(", ") + ")" : "") +
+        ": write it first with project-js-set (the business rules, one namespace object such as var App = (function () { ... return {...}; })();), " +
+        "or pass script as its path under the project, for example js/app.js.");
     }
     if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(logic)) {
       errors.push("logic must be the JS function to call, for example App.orderList (defined in " + script + ").");
