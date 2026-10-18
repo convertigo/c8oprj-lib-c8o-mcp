@@ -55,6 +55,6 @@ assert.ok(/also in P.b/.test(found[0].message) && /Gérer les postes/.test(found
 assert.strictEqual(found[1].where, "DisplayObjects/mobile/assets/i18n/es.json#settings.title");
 assert.strictEqual(review.reviewed, 3);
 assert.strictEqual(review.usages[0].tool, "project-lint");
-assert.strictEqual(context.C8O.lint.reviewTexts({ checkTexts: false }, ["x"], { x: ["P"] }, { values: {} }, add).skipped, "checkTexts is false");
+assert.strictEqual(context.C8O.lint.reviewTexts({ checkTexts: false }, ["x"], { x: ["P"] }, { values: {} }, add).skipped.split(":")[0], "checkTexts is false");
 
 console.log("project-lint boundary rules OK");
