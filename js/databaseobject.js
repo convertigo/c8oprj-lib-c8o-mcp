@@ -430,6 +430,34 @@ C8O.dbo._resolveNestedStepAlias = function (text) {
   }
 };
 
+// A QName whose type prefixes are guessed (ct: on a nested component, pg: missing or wrong) was not found (run 9a): walk
+// it by object names, segment by segment, ignoring the prefixes, and accept it only when each name is one child.
+C8O.dbo._resolveByChildNames = function (text) {
+  var segments = String(text).split(".");
+  if (segments.length < 2) {
+    return null;
+  }
+  try {
+    var dbo = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(segments[0], false);
+    for (var i = 1; dbo != null && i < segments.length; i++) {
+      var name = segments[i].replace(/^[A-Za-z]{1,4}:/, "");
+      var kids = C8O.dbo.getDirectChildren(dbo);
+      var found = null;
+      var count = 0;
+      for (var k = 0; k < kids.length; k++) {
+        if (String(kids[k].getName()) === name) {
+          found = kids[k];
+          count++;
+        }
+      }
+      dbo = count === 1 ? found : null;
+    }
+    return dbo;
+  } catch (_noWalk) {
+    return null;
+  }
+};
+
 // HSQLDB file databases of a project stay open in the Studio JVM after the project is deleted: the engine contexts
 // keep their connections. A project created again with the same connector URL then reads the former tables (run 8c
 // found run 7's). SHUTDOWN closes each of them; ifexists=true never creates a database that is not there.
@@ -564,6 +592,9 @@ C8O.dbo.resolve = function (qname, options) {
       dbo = C8O.dbo._resolveNestedStepAlias(text);
     }
     if (dbo == null) {
+      dbo = C8O.dbo._resolveByChildNames(text);
+    }
+    if (dbo == null) {
       if (opts.optional) {
         return null;
       }
@@ -571,7 +602,7 @@ C8O.dbo.resolve = function (qname, options) {
     }
     return dbo;
   } catch (lookupError) {
-    var aliased = C8O.dbo._resolveNestedStepAlias(text);
+    var aliased = C8O.dbo._resolveNestedStepAlias(text) || C8O.dbo._resolveByChildNames(text);
     if (aliased != null) {
       return aliased;
     }
