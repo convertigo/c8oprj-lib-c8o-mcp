@@ -411,6 +411,25 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
   return error;
 };
 
+// A nested step has no st: prefix (<seq>.st:ifAllowed.call_x), but agents write <seq>.st:ifAllowed.st:call_x:
+// accept that spelling for the same object.
+C8O.dbo._resolveNestedStepAlias = function (text) {
+  var first = text.indexOf(".st:");
+  if (first < 0) {
+    return null;
+  }
+  var tail = text.substring(first + 4);
+  var fixed = tail.replace(/\.st:/g, ".");
+  if (fixed === tail) {
+    return null;
+  }
+  try {
+    return Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(text.substring(0, first + 4) + fixed);
+  } catch (_noAlias) {
+    return null;
+  }
+};
+
 C8O.dbo.resolve = function (qname, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
@@ -421,6 +440,9 @@ C8O.dbo.resolve = function (qname, options) {
   try {
     var dbo = Engine.theApp.databaseObjectsManager.getDatabaseObjectByQName(text);
     if (dbo == null) {
+      dbo = C8O.dbo._resolveNestedStepAlias(text);
+    }
+    if (dbo == null) {
       if (opts.optional) {
         return null;
       }
@@ -428,6 +450,10 @@ C8O.dbo.resolve = function (qname, options) {
     }
     return dbo;
   } catch (lookupError) {
+    var aliased = C8O.dbo._resolveNestedStepAlias(text);
+    if (aliased != null) {
+      return aliased;
+    }
     if (opts.optional) {
       return null;
     }
