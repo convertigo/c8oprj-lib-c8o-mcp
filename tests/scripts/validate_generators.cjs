@@ -318,6 +318,16 @@ test('facade-create checks the active column the spec names', () => {
   assert.match(auth.properties.expression, /me\.enabled === true \|\| String\(me\.enabled\) === "true"/);
 });
 
+test('facade-create warns about a read variable that nothing sets, and suggests the input', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.facadeCreate(facadeSpec({ inputs: ['texteRecherche'] }));
+  assert.ok(out.warnings.some(w => /variable recherche of App\.db\.q_postes gets an empty string/.test(w) && /vars:\{recherche: "texteRecherche"\}/.test(w)),
+    JSON.stringify(out.warnings));
+  const mapped = load(makeWorld()).facadeCreate(facadeSpec({ inputs: ['recherche'] }));
+  assert.ok(!mapped.warnings.some(w => /variable recherche of .* gets an empty string/.test(w)), 'an input of the same name sets it');
+});
+
 test('facade-create gives an input named like the session email variable its value back', () => {
   const world = makeWorld();
   const G = load(world);

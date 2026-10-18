@@ -163,6 +163,21 @@ C8O.generators = C8O.generators || {};
     return names;
   }
 
+  // Variables that have a default value: an unmapped one then keeps it instead of being left empty.
+  function variablesWithDefault(requestable) {
+    var names = [];
+    try {
+      var vars = requestable.getVariablesList();
+      for (var i = 0; i < vars.size(); i++) {
+        var value = vars.get(i).getDefaultValue();
+        if (value !== null && str(value).length) {
+          names.push(String(vars.get(i).getName()));
+        }
+      }
+    } catch (_ignore) {}
+    return names;
+  }
+
   function readProjectJs(projectDbo, path) {
     var file = new java.io.File(projectDbo.getDirPath(), path);
     if (!file.isFile()) {
@@ -1012,6 +1027,7 @@ C8O.generators = C8O.generators || {};
       plan.sequence = seq;
       plan.qname = seq ? qnameOf(seq) : "";
       plan.variables = seq ? variableNames(seq) : [];
+      plan.withDefault = seq ? variablesWithDefault(seq) : [];
     } else {
       if (!transaction.length) {
         errors.push(label + " needs transaction (an existing transaction of any connector: \"<transaction>\" or \"<connector>.<transaction>\"), " +
@@ -1022,6 +1038,7 @@ C8O.generators = C8O.generators || {};
       plan.transaction = dbo;
       plan.qname = dbo ? qnameOf(dbo) : "";
       plan.variables = dbo ? variableNames(dbo) : [];
+      plan.withDefault = dbo ? variablesWithDefault(dbo) : [];
       plan.source = dbo ? sourceOf(dbo) : "sql";
       if (dbo && plan.source === "http") {
         // Without HttpInfo a 4xx/5xx answer or a lost connection leaves an ordinary document: the facade could not tell it from data.
@@ -1084,13 +1101,14 @@ C8O.generators = C8O.generators || {};
     var content = readProjectJs(projectDbo, script);
     if (content === null && !logoutOnly) {
       var existing = [];
-      var jsDir = new java.io.File(projectDbo.getDirPath(), "js");
-      var jsFiles = jsDir.isDirectory() ? jsDir.listFiles() : null;
-      for (var f = 0; jsFiles && f < jsFiles.length; f++) {
-        if (/\.js$/.test(String(jsFiles[f].getName()))) {
-          existing.push("js/" + jsFiles[f].getName());
+      try {
+        var jsFiles = new java.io.File(projectDbo.getDirPath(), "js").listFiles();
+        for (var f = 0; jsFiles && f < jsFiles.length; f++) {
+          if (/\.js$/.test(String(jsFiles[f].getName()))) {
+            existing.push("js/" + jsFiles[f].getName());
+          }
         }
-      }
+      } catch (_noList) {}
       errors.push(script + " does not exist in " + projectName + (existing.length ? " (existing: " + existing.sort().join(", ") + ")" : "") +
         ": write it first with project-js-set (the business rules, one namespace object such as var App = (function () { ... return {...}; })();), " +
         "or pass script as its path under the project, for example js/app.js.");
@@ -1205,6 +1223,20 @@ C8O.generators = C8O.generators || {};
     if (["Hidden", "Private", "Public"].indexOf(accessibility) < 0) {
       errors.push("accessibility must be Hidden (default, called by the app), Private or Public.");
     }
+    // A read variable is set from the JS variable of the same name: with no input of that name, no vars entry and
+    // no default value, the call gets an empty string. Fine for an optional filter, a silent empty read otherwise.
+    reads.forEach(function (p) {
+      var mapped = isObj(p.entry.vars) ? Object.keys(p.entry.vars) : [];
+      p.variables.forEach(function (v) {
+        if (mapped.indexOf(v) >= 0 || inputs.map(function (x) { return str(x.name); }).indexOf(v) >= 0 || (authRequired && v === emailVar) || (p.withDefault || []).indexOf(v) >= 0) {
+          return;
+        }
+        var like = inputs.map(function (x) { return str(x.name); }).filter(function (n) { return n.toLowerCase().slice(-v.length) === v.toLowerCase(); });
+        warnings.push(p.label + ": variable " + v + " of " + p.qname + " gets an empty string (no input named " + v + ", no vars entry, no default value). " +
+          "If it is not an optional filter, add vars:{" + v + ": \"" + (like.length ? like[0] : "<JS expression, e.g. an input or me.id>") + "\"}" +
+          (like.length ? "" : " or an input named " + v) + ".");
+      });
+    });
     if (errors.length) {
       invalid(tool, errors);
     }
