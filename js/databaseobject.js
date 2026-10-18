@@ -1453,12 +1453,15 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
     var isStringProperty =
       propertyTypeName === "java.lang.String" ||
       propertyTypeName === "java.lang.CharSequence";
+    var looksJson = trimmedSpec.length > 0 && (trimmedSpec.charAt(0) === "{" || trimmedSpec.charAt(0) === "[");
+    // A plain text on a step SmartType ({key: "success"} on a JsonToXmlStep) is a PLAIN value, not JSON: it used to fail
+    // with "Unexpected token" and leave the step with its default key, its own name.
     var shouldTryParse =
       !isStringProperty &&
       (
-        C8O.dbo._isSmartTypeClass(propertyType) ||
+        (C8O.dbo._isSmartTypeClass(propertyType) && looksJson) ||
         C8O.dbo._isXMLVectorClass(propertyType) ||
-        (trimmedSpec.length && (trimmedSpec.charAt(0) === "{" || trimmedSpec.charAt(0) === "["))
+        looksJson
       );
     if (shouldTryParse) {
       try {
