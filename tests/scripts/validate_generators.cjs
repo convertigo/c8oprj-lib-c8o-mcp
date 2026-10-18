@@ -873,6 +873,19 @@ test('a form field initial value is computed at page enter, not written in the t
   assert.equal(nodes.InitInitDateEffective.properties.Property.value, 'initDateEffective');
 });
 
+test('a toggle field carries its label as a text child, not a Label property it does not have (run 9a)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'DeclarationForm', kind: 'form', sequence: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' },
+      fields: [{ name: 'commentaire', label: 'Compte actif', type: 'toggle' }] } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.equal(nodes.TgCommentaire.properties.Label, undefined);
+  assert.equal(nodes.TgCommentaire.properties.LabelPlacement, undefined);
+  assert.match(JSON.stringify(nodes.TgCommentaire.children), /Compte actif/);
+});
+
 test('a form page wires its submit chain with Form SmartSources on the created UIForm', () => {
   const world = makeWorld();
   const G = load(world);

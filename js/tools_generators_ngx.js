@@ -724,8 +724,11 @@ include("js/tools_generators.js");
             }
             control = nx("Select", "Sel" + cname, props, opts);
           } else if (type === "toggle") {
+            // A Toggle has no Label property (it was skipped, so the toggle showed no text, run 9a): its label is its text child.
+            var toggleLabel = props.Label.value;
+            delete props.Label;
             delete props.LabelPlacement;
-            control = nx("Toggle", "Tg" + cname, props);
+            control = nx("Toggle", "Tg" + cname, props, [txt(toggleLabel)]);
           } else {
             if (["text", "email", "password", "number", "tel", "url", "date", "time"].indexOf(type) < 0) {
               errors.push("form.fields[" + i + "].type must be text, email, password, number, tel, url, date, time, textarea, select or toggle.");
