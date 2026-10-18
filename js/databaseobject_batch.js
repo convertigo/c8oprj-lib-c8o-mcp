@@ -857,6 +857,7 @@ include("js/sql_dialect.js");
     warnAdjacentTexts(dbo, node, report);
     warnNonBooleanCondition(dbo, node, report);
     warnControlEventName(dbo, node, report);
+    warnMenuItem(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
     warnI18nKeyText(dbo, node, report);
   }
@@ -1047,6 +1048,37 @@ include("js/sql_dialect.js");
     guess = "on" + guess.charAt(0).toUpperCase() + guess.substring(1);
     pushReportWarning(report, safeQName(dbo) + ": eventName \"" + eventName + "\" is not one of the control events (onClick, onChange, onInput, " +
       "onSubmit, ionChange...): the control gets no handler and does nothing. Write " + guess + ".");
+  }
+
+  // Three silent dead ends of a menu item (run 9a, and checked on a test app): its attributes never reach the generated
+  // menu, itempage takes the page name (a QName gives routerLink ''), and itemtitle is an expression ({{Text}} breaks the build).
+  function warnMenuItem(dbo, node, report) {
+    var className = "";
+    try {
+      className = String(dbo.getClass().getName());
+    } catch (_noClass) {}
+    if (!/\.UIDynamicMenuItem$/.test(className) || !node || typeof node !== "object") {
+      return;
+    }
+    var qn = safeQName(dbo);
+    var children = Array.isArray(node.children) ? node.children : [];
+    var hasAttribute = (node.attributes && typeof node.attributes === "object") || children.some(function (child) {
+      return child && /UIAttribute|UIDynamicAttr/.test(String(child.className || ""));
+    });
+    if (hasAttribute) {
+      pushReportWarning(report, qn + ": a menu item's attributes are not rendered in the generated menu. To show the item only in some cases, " +
+        "wrap it in a UIControlDirective (directiveName If, directiveExpression ...).");
+    }
+    var props = node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : {};
+    var page = props.itempage;
+    if (typeof page === "string" && /[.:]/.test(page)) {
+      pushReportWarning(report, qn + ": itempage takes the page name (" + page.replace(/^.*[.:]/, "") + "), not a QName: this one gives an empty link.");
+    }
+    var title = props.itemtitle && typeof props.itemtitle === "object" ? props.itemtitle.value : props.itemtitle;
+    if (typeof title === "string" && title.trim().length && !/^\s*['"`]/.test(title) && !/[()?.+\[]/.test(title)) {
+      pushReportWarning(report, qn + ": itemtitle is an expression: write '" + title.replace(/'/g, "\\'") + "' with quotes, " +
+        "or the page shows {{" + title + "}} and the build fails.");
+    }
   }
 
   function warnQuotedSqlVariables(dbo, node, report) {
