@@ -8,7 +8,9 @@ This entire folder is an internal lab surface for benchmark and observability wo
 
 `tests/preflight/README.md` lists the checks to run on a disposable Studio before a supervised agent run: the MCP
 contract (`node --test tests/scripts/validate_preflight_contract.cjs` offline, `tests/preflight/contract_live.py`
-live). A test marked todo in the offline file is a defect found on the current code.
+live), the engine-pitfall battery (`tests/preflight/pitfalls_live.py`) and the engine-context soak of the Assistant
+(`lib_ConvertigoAssistant/tests/preflight/soak_contexts.py`). A test marked todo in the offline file is a defect
+found on the current code.
 
 ## Shared tag domain
 

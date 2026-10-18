@@ -1,7 +1,7 @@
 # Preflight checks
 
 Checks that catch MCP frictions before a supervised agent run finds them. Run them on a disposable Studio: they
-create and delete scratch projects (`PfContract`). The Studio of a supervised run (port
+create and delete scratch projects (`PfContract`, `PfTrap01`...`PfTrap10`). The Studio of a supervised run (port
 18110) is refused unless `--allow-port` names it. None of them sends a prompt to an agent or calls a gateway model.
 
 The bearer comes from `CONVERTIGO_MCP_TOKEN`, else from the `convertigo` proxy entry of `~/.claude.json`
@@ -11,6 +11,8 @@ The bearer comes from `CONVERTIGO_MCP_TOKEN`, else from the `convertigo` proxy e
 | --- | --- | --- |
 | MCP contract, offline | `node --test tests/scripts/validate_preflight_contract.cjs` | 1 s |
 | MCP contract, live | `python3 tests/preflight/contract_live.py [--port N] [--json out.json]` | 2 to 5 min |
+| Engine pitfalls, live | `python3 tests/preflight/pitfalls_live.py [--port N] [--only 1,6]` | 1 min |
+| Engine-context soak | `python3 ../lib_ConvertigoAssistant/tests/preflight/soak_contexts.py [--port N] [--minutes 10]` | 10 min |
 
 ## MCP contract (`contract_live.py`)
 
@@ -31,3 +33,27 @@ It builds `PfContract` with the tools an agent uses (starter import, connector, 
 
 `project-save` with an unknown project re-exports the MCP project itself while that defect is there: restore its
 YAML with `git checkout -- _c8oProject c8oProject.yaml` in a git clone.
+
+## Engine pitfalls (`pitfalls_live.py`)
+
+Each trap is built the way an agent builds it, in its own scratch project, then run. A trap is CAUGHT when the MCP
+refuses it, fixes it, warns about it (tool answer, `requestable-execute` hints, `project-lint`) or a served guide
+states it, MISSED otherwise. Several paths are tried when an agent has several (generator or tree-apply, map or
+array properties):
+
+1. object literal `{}` in a JS SmartType
+2. IfStep condition that is not a boolean
+3. `{{variable}}` holding several statements
+4. `IN ({list})` with a multivalued variable
+5. `{x} IS NULL`
+6. HSQLDB identity: first seed on a fresh database, reseed after `DELETE`
+7. project deleted then created again with the same HSQLDB URL
+8. `StepVariable` outside a call step
+9. nested `st:` QName
+10. SmartType object on a plain property
+
+## Engine-context soak (`lib_ConvertigoAssistant/tests/preflight/soak_contexts.py`)
+
+For 10 minutes, two Tigo tabs read `AgentReadResponseRouter` as the page does, the Assistant's `agent_events`
+read and a run pilot's read go to the Bridge, and `connections.List` is counted every 30 s. The count must stay flat
+once each poller has its own context; a control phase first proves that a new context per read shows up.
