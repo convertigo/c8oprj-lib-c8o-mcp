@@ -378,6 +378,12 @@ C8O.generators = C8O.generators || {};
     if (dateMath) {
       errors.push(dateMath.expression + " adds a bare number to a date: " + dateMath.message + ". Write " + dateMath.fix + ".");
     }
+    var shortCast = D.shortTextCast(dialect, sql);
+    if (shortCast) {
+      warnings.push(shortCast.expression + ": if " + shortCast.column + " is a TIMESTAMP, HSQLDB fails with \"string data, right truncation\" " +
+        "(it is up to 26 characters and HSQLDB never cuts). Write TO_CHAR(" + shortCast.column + ", 'YYYY-MM-DD HH24:MI:SS'), or CAST(CAST(" +
+        shortCast.column + " AS DATE) AS VARCHAR(10)) for the date alone.");
+    }
     var openQuote = D.unbalancedQuote(sql);
     if (openQuote !== null) {
       errors.push("a string literal is never closed near \"" + openQuote + "\": an apostrophe inside a text must be doubled ('d''année').");
