@@ -259,7 +259,8 @@ C8O.generators = C8O.generators || {};
     }
     var parent = C8O.dbo.resolve(parentQName);
     var created = childNamed(parent, node.name);
-    var qname = created ? qnameOf(created) : parentQName + "." + node.name;
+    // Studio QNames, the form databaseobject-* tools take (rollback deletes them too).
+    var qname = created ? studioQNameOf(created) : parentQName + "." + node.name;
     this.created.push(qname);
     return created;
   };
@@ -1488,6 +1489,7 @@ C8O.generators = C8O.generators || {};
     return {
       status: "ok",
       sequence: seqQName,
+      qname: studioQNameOf(seq),
       created: session.created,
       transactionsCreated: transactions,
       contract: {

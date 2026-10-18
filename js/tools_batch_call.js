@@ -274,6 +274,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       }
       targetSequence = "tools_" + catSlug + "_" + actionSlug;
     }
+    // Former tool names, as in the MCP router: facade-create became business-sequence-create.
+    if (targetSequence === "tools_facade_create") {
+      targetSequence = "tools_business_sequence_create";
+    }
     return targetSequence;
   }
 
@@ -598,8 +602,43 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
     return compact;
   }
 
+  // The generators answer with their whole contract (inputs, logic signature, error codes, next step): 23
+  // business-sequence-create calls in one batch made about 10 000 tokens (run 8g). Compact keeps what a batch
+  // needs to go on; responseDetail:"full" or a single call of the tool gives the rest.
+  var GENERATOR_SEQUENCES = { tools_business_sequence_create: true, tools_sql_transaction_create: true, tools_ngx_page_create: true };
+
+  function compactGeneratorPayload(payload) {
+    if (!payload || typeof payload !== "object") {
+      return payload;
+    }
+    var compact = {};
+    ["status", "sequence", "qname", "requestable", "page", "segment", "created", "warnings", "errors"].forEach(function (key) {
+      if (payload[key] !== undefined) {
+        compact[key] = payload[key];
+      }
+    });
+    if (Array.isArray(payload.transactions)) {
+      compact.transactions = payload.transactions.map(function (t) {
+        return { qname: t.qname, requestable: t.requestable, status: t.status, variables: t.variables };
+      });
+    }
+    if (Array.isArray(payload.transactionsCreated) && payload.transactionsCreated.length) {
+      compact.transactionsCreated = payload.transactionsCreated.map(function (t) { return t.qname; });
+    }
+    if (payload.contract && Array.isArray(payload.contract.inputs)) {
+      compact.inputs = payload.contract.inputs;
+    }
+    return compact;
+  }
+
   function outputPayload(sequenceName, payload, responseDetail) {
-    if (responseDetail === "full" || !isMutationSequence(sequenceName)) {
+    if (responseDetail === "full") {
+      return payload;
+    }
+    if (GENERATOR_SEQUENCES[sequenceName]) {
+      return compactGeneratorPayload(payload);
+    }
+    if (!isMutationSequence(sequenceName)) {
       return payload;
     }
     return compactMutationPayload(payload);
