@@ -446,6 +446,19 @@ Checked in the generated page code (8.4 builder), each action of an event chain 
 - A `CallSequenceAction` caches its response for 3 s by default (`cacheTtl` 3000). Set `cacheTtl` to 0 on a read that must show a write made just before, such as a reload after a create or a toggle.
 - A `UICustomAction` function receives `(page, props, vars, event)`, and nothing else: no `scope`, so `scope.order` inside its code does not compile. To use the current `ForEach` item, add a variable on the custom action whose value is `scope.order` (or `scope.order.id`): action variables are evaluated in the event method, where `scope` exists. Then read `vars.order` in the code. `props.stack`, `props.parent` and `props.out` are also passed.
 
+- An `AlertAction`'s `out` is the dismiss result `{data, role}`, not the values of its buttons or inputs: a condition under it reads `out?.data?.<key>`. `out?.confirm` is always undefined, so the action under it never runs, with no error.
+- A value that a `SetLocalAction` sets deep in a chain (under an `IfAction`, after a call) can show only at the next change detection, the page keeping its former state. When that happens, add a `UICustomAction` after it whose code is `page.ref.detectChanges(); resolve(true);`.
+- A `RootPageAction` to the page already shown does not run its page event again, so its data is not reloaded: call the page's read again instead.
+
+### Expression contexts
+Where an expression is written decides how it names things:
+
+| The expression is in | Page local `x` | Current `ForEach` item `item` | Result of the previous action |
+|---|---|---|---|
+| the template: a `UIText` expression, a directive condition, a property binding | `local?.x` | `item` (the `directiveItemName`) | not available |
+| an action property or an action variable | `c8oPage.local?.x` | `scope.item` | `out` (direct parent), `stack["<action name>"].out` |
+| a `UICustomAction` body | `page.local.x`, to read only (set it with a `SetLocalAction`) | an action variable valued `scope.item`, read as `vars.item` | `props.parent.out` |
+
 ### Custom action output handling
 Prefer direct source bindings over response-copying code. If a small `UICustomAction` is truly needed immediately after a `CallSequenceAction`, use the generated action parameters:
 - Actions that depend on the call response must be children of the `CallSequenceAction` or children of a normalizer under that call. Do not place `SetLocalAction(Value=script:out)` as a sibling of the call under the same click/page event; sibling actions are generated in a parallel `Promise.all` block and do not receive the call response.
@@ -534,6 +547,13 @@ If `viewerUrl` is unreachable or browser smoke fails:
    - the page exists structurally but runtime proof is missing
 
 Do not conclude success from tree shape alone when the build logs say otherwise.
+
+### Driving the viewer with Playwright
+- Ionic keeps the pages it navigated away from in the DOM, hidden: a locator on the whole document finds their copies first and times out or acts on a hidden page. Scope every locator to the page shown, `page.locator('.ion-page:not(.ion-page-hidden)').last()`, and wait for its title before acting.
+- `ion-checkbox`, `ion-radio` and `ion-toggle` keep their input in a shadow root: a click on the element can time out. Click it through the page, `locator.evaluate(e => e.click())`, or click its label.
+- The options of an `ion-select` and the buttons of an alert open in an overlay attached to `body`, outside the page: look for them in `ion-popover`, `ion-alert` or `ion-action-sheet`.
+- Right after a navigation the viewer may still show a loading canvas over the page; if a click lands on a `canvas`, wait for the page title and click again.
+- A file that the page downloads (an export) is saved by the managed Playwright in `.playwright-mcp/downloads/` under its working directory, without any dialog: read it there. In a viewer that no managed Playwright drives, a download opens the Studio's native Save dialog, which blocks the whole Studio, the MCP included, until someone closes it.
 
 ### Structural success is not runtime success
 Keep these checkpoints separate:
