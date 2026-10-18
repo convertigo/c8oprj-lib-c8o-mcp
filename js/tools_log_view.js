@@ -253,9 +253,28 @@ if (endOffset > allLines.length) {
   endOffset = allLines.length;
 }
 
+// A log line can hold a whole SQL result or a stack trace: 20 lines once made 80 000 characters, more than an
+// agent can read in one tool result. Long messages keep their start and end, and the page stops at ~24 000
+// characters; the cursor continues from the first line left out.
+var MAX_MESSAGE_CHARS = 2000;
+var MAX_PAGE_CHARS = 24000;
 var returnedLines = [];
+var pageChars = 0;
+var cutMessages = 0;
 for (var p = effectiveStart; p < endOffset; p++) {
-  returnedLines.push(allLines[p]);
+  var line = allLines[p];
+  if (line && typeof line.message === "string" && line.message.length > MAX_MESSAGE_CHARS) {
+    var cut = line.message.length - 1900;
+    line.message = line.message.substring(0, 1500) + " … [" + cut + " characters cut] … " + line.message.substring(line.message.length - 400);
+    cutMessages++;
+  }
+  var size = JSON.stringify(line).length;
+  if (returnedLines.length && pageChars + size > MAX_PAGE_CHARS) {
+    endOffset = p;
+    break;
+  }
+  pageChars += size;
+  returnedLines.push(line);
 }
 
 var hasMore = hasMoreResults || (allLines.length > endOffset);
@@ -273,7 +292,11 @@ logViewQuery = {
   text: textInput == null ? "" : String(textInput),
   startDate: startDateMillis,
   endDate: endDateMillis,
-  timeoutMs: timeoutValue
+  timeoutMs: timeoutValue,
+  cutMessages: cutMessages,
+  note: cutMessages || returnedLines.length < limitValue && hasMore
+    ? "Long messages are cut in the middle and a page stops near " + MAX_PAGE_CHARS + " characters: continue with cursor, or narrow with q, level or the dates."
+    : ""
 };
 logViewHasMore = hasMore;
 logViewNextCursor = nextCursor;
