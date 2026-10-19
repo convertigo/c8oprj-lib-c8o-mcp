@@ -662,8 +662,8 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       return reports;
     }
     var compactReports = [];
-    // 40 reads in one call answered 32 000 characters (preflight checks): past about 24 000 characters of payloads, a
-    // report keeps its status and says how much it left out.
+    // 40 reads in one call answered 32 000 characters (preflight checks): past about 20 000 characters of reports, a
+    // report keeps its status and says how much of its payload it left out.
     var payloadChars = 0;
     var omittedNoted = false;
     for (var i = 0; i < reports.length; i++) {
@@ -677,15 +677,22 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         compactReports.push(slot);
         continue;
       }
+      // Compact: the tool names the call (sequence is its implementation), and empty lists are left out.
       var compact = {
         index: report.index,
         callId: report.callId,
         tool: report.tool,
-        sequence: report.sequence,
-        status: report.status,
-        warnings: report.warnings || [],
-        errors: report.errors || []
+        status: report.status
       };
+      if (!report.tool) {
+        compact.sequence = report.sequence;
+      }
+      if (report.warnings && report.warnings.length) {
+        compact.warnings = report.warnings;
+      }
+      if (report.errors && report.errors.length) {
+        compact.errors = report.errors;
+      }
       if (report.phase !== undefined) {
         compact.phase = report.phase;
       }
@@ -698,10 +705,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         try {
           payloadSize = JSON.stringify(payloadOut).length;
         } catch (_noSize) {}
-        if (payloadChars > 0 && payloadChars + payloadSize > 24000) {
+        if (payloadChars > 0 && payloadChars + payloadSize > 20000) {
           compact.payloadOmitted = omittedNoted
             ? { characters: payloadSize }
-            : { characters: payloadSize, reason: "The answer reached about 24 000 characters: call these tools alone, or batch fewer calls." };
+            : { characters: payloadSize, reason: "The answer reached about 20 000 characters: call these tools alone, or batch fewer calls." };
           omittedNoted = true;
         } else {
           compact.payload = payloadOut;
@@ -709,6 +716,9 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         }
       }
       compactReports.push(compact);
+      try {
+        payloadChars += JSON.stringify(compact).length - (compact.payload !== undefined ? JSON.stringify(compact.payload).length : 0);
+      } catch (_noReportSize) {}
     }
     return compactReports;
   }
