@@ -1637,6 +1637,20 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       }
     }
 
+    if (!applyNull) {
+      var scalarCheck = null;
+      try {
+        scalarCheck = C8O.dbo._checkScalarPropertyValue(pd, rawSpec, dbo);
+      } catch (_ignoreScalarCheck) {}
+      if (scalarCheck && scalarCheck.error) {
+        errors.push({ name: name, message: scalarCheck.error });
+        continue;
+      }
+      if (scalarCheck) {
+        rawSpec = scalarCheck.value;
+      }
+    }
+
     try {
       if (applyNull) {
         setter.invoke(dbo, [null]);
@@ -1682,6 +1696,155 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
   }
 
   return { applied: applied, skipped: skipped, errors: errors };
+};
+
+// Number property types, with the Java parser compileProperty uses and the range of the whole ones.
+C8O.dbo._NUMBER_PROPERTY_TYPES = {
+  "byte": { wrapper: "Byte", parse: "parseByte", range: "-128 to 127" },
+  "short": { wrapper: "Short", parse: "parseShort", range: "-32768 to 32767" },
+  "int": { wrapper: "Integer", parse: "parseInt", range: "-2147483648 to 2147483647" },
+  "long": { wrapper: "Long", parse: "parseLong", range: "-9223372036854775808 to 9223372036854775807" },
+  "float": { wrapper: "Float", parse: "parseFloat", range: null },
+  "double": { wrapper: "Double", parse: "parseDouble", range: null }
+};
+
+// compileProperty stores 0 for a number it cannot parse, the first constant for an unknown enum value and false for any
+// text but "true", with no error: {"responseTimeout":"abc"} answered ok and stored 0, {"accessibility":"private"} stored
+// Public. The value of a number, boolean or enum property is checked against what the engine parses. Spaces around it are
+// dropped, an enum constant written in another case or as its label gives its name, and the label of an integer property
+// edited with tags gives its index. A global symbol ${name} is checked on its value and kept.
+// Returns { value } to set, or { error }.
+C8O.dbo._checkScalarPropertyValue = function (pd, value, dbo) {
+  var propertyType = pd != null ? pd.getPropertyType() : null;
+  if (propertyType == null || value === null || value === undefined) {
+    return { value: value };
+  }
+  var typeName = String(propertyType.getName());
+  var numberName = null;
+  for (var primitive in C8O.dbo._NUMBER_PROPERTY_TYPES) {
+    if (typeName === primitive || typeName === "java.lang." + C8O.dbo._NUMBER_PROPERTY_TYPES[primitive].wrapper) {
+      numberName = primitive;
+    }
+  }
+  var numberType = numberName ? C8O.dbo._NUMBER_PROPERTY_TYPES[numberName] : null;
+  var isBoolean = typeName === "boolean" || typeName === "java.lang.Boolean";
+  var isEnum = false;
+  if (!numberType && !isBoolean) {
+    try {
+      isEnum = propertyType.isEnum() == true;
+    } catch (_ignoreEnum) {}
+  }
+  if (!numberType && !isBoolean && !isEnum) {
+    return { value: value };
+  }
+
+  var name = String(pd.getName());
+  var expected = numberType ? (numberType.range ? "a whole number (" + numberName + ")" : "a number (" + numberName + ")") : "true or false";
+  var shape = Object.prototype.toString.call(value);
+  if (shape === "[object Object]" && Object.keys(value).length === 1 && value.hasOwnProperty("value")) {
+    return C8O.dbo._checkScalarPropertyValue(pd, value.value, dbo);
+  }
+  var constants = [];
+  if (isEnum) {
+    var enumConstants = propertyType.getEnumConstants();
+    for (var e = 0; e < enumConstants.length; e++) {
+      constants.push({ name: String(enumConstants[e].name()), label: String(enumConstants[e].toString()) });
+    }
+    expected = "one of " + constants.map(function (c) {
+      return c.label !== c.name ? c.name + " (" + c.label + ")" : c.name;
+    }).join(", ");
+  }
+  var refuse = function (given, detail) {
+    return { error: name + " takes " + expected + (detail || "") + ", not " + given + "." };
+  };
+  if (shape === "[object Object]" || shape === "[object Array]") {
+    return refuse(shape === "[object Array]" ? "a list" : "an object");
+  }
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+    return { value: value }; // a Java value built by an internal caller, taken as it is
+  }
+  if (isBoolean && typeof value === "boolean") {
+    return { value: value };
+  }
+
+  var text = String(value).trim();
+  var given = typeof value === "string" ? JSON.stringify(text.length > 80 ? text.substring(0, 80) + "..." : text) : text;
+  var compiled = text;
+  if (text.indexOf("${") !== -1) {
+    try {
+      compiled = String(Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getCompiledValue(text));
+    } catch (_undefinedSymbol) {
+      return { value: text }; // an undefined global symbol: the engine reports it on the object
+    }
+    given += " (the value of the symbol is " + JSON.stringify(compiled) + ")";
+  }
+  var symbolic = compiled !== text;
+
+  if (numberType) {
+    if (typeof value !== "boolean") {
+      try {
+        java.lang[numberType.wrapper][numberType.parse](compiled);
+        return { value: text };
+      } catch (_notANumber) {}
+    }
+    var tags = null;
+    if (numberType.range && dbo != null) {
+      try {
+        tags = C8O.dbo._describeAllowedValues(pd, dbo, "number");
+      } catch (_ignoreTags) {}
+    }
+    if (tags && tags.length && tags[0].label !== undefined) {
+      if (!symbolic) {
+        var tagIndex = C8O.dbo._matchConstant(compiled, tags.map(function (t) { return [t.label]; }));
+        if (tagIndex >= 0) {
+          return { value: String(tags[tagIndex].value) };
+        }
+      }
+      return refuse(given, ", the index of its value: " + tags.map(function (t) { return t.value + " (" + t.label + ")"; }).join(", "));
+    }
+    if (numberType.range && /^[+-]?\d+$/.test(compiled)) {
+      return refuse(given, " from " + numberType.range);
+    }
+    return refuse(given);
+  }
+
+  if (isBoolean) {
+    var lowered = compiled.toLowerCase();
+    if (lowered === "true" || lowered === "false") {
+      return { value: symbolic ? text : lowered === "true" };
+    }
+    return refuse(given);
+  }
+
+  for (var c = 0; c < constants.length; c++) {
+    if (compiled === constants[c].name || compiled === constants[c].label) {
+      return { value: symbolic ? text : constants[c].name };
+    }
+  }
+  if (!symbolic) {
+    var constantIndex = C8O.dbo._matchConstant(compiled, constants.map(function (k) { return [k.name, k.label]; }));
+    if (constantIndex >= 0) {
+      return { value: constants[constantIndex].name };
+    }
+  }
+  return refuse(given);
+};
+
+// The index of the entry with a form equal to text, else of the one entry equal to it case aside; -1 for none or several.
+C8O.dbo._matchConstant = function (text, forms) {
+  var lowered = String(text).toLowerCase();
+  var found = -1;
+  for (var i = 0; i < forms.length; i++) {
+    for (var f = 0; f < forms[i].length; f++) {
+      if (String(forms[i][f]) === String(text)) {
+        return i;
+      }
+      if (String(forms[i][f]).toLowerCase() === lowered) {
+        found = found === -1 || found === i ? i : -2;
+      }
+    }
+  }
+  return found < 0 ? -1 : found;
 };
 
 C8O.dbo._preparePropertyValue = function (pd, rawSpec) {

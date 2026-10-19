@@ -6,7 +6,8 @@ Builds a scratch project (PfContract) with the tools an agent uses, then checks:
             accepted by databaseobject-tree-get and databaseobject-delete;
   size    - every answer stays under the cap (default 30 000 characters) for realistic inputs;
   upsert  - ifExists:"replace", mode:"replace" and the other upserts leave no stale child;
-  errors  - error answers are JSON with a readable message, never an HTML page.
+  errors  - error answers are JSON with a readable message, never an HTML page; a property value the
+            engine cannot take (a text on a number, an unknown enum constant) is refused, not stored.
 
 Usage: python3 tests/preflight/contract_live.py [--port 18086] [--cap 30000] [--keep] [--json out.json]
 The Studio of a supervised run (port 18110) is refused. Nothing calls an agent or a gateway model.
@@ -400,6 +401,7 @@ class Contract:
                               seconds=time.time() - t0)
             if tool == "project-save" and a.get("project") not in (None, args.get("project")):
                 print(f"   note: project-save re-exported {a.get('project')}; restore its YAML with git checkout if it is a git clone")
+        self._property_values()
         n = len(self.structured_generic)
         if n:
             self.r.add("errors", "structuredContent of tool errors", "FAIL",
@@ -407,6 +409,41 @@ class Contract:
                        f"content has the readable one (e.g. {', '.join(self.structured_generic[:3])})",
                        fix="mcp_endpoint.yaml ToolCallErrorResult: build structuredContent from formatToolErrorText(toolError) instead of XMLCopyStep ./document/error")
         self._transport()
+
+    def _property_values(self):
+        """A value the engine cannot take (compileProperty stores 0, the first enum constant or false) is an op error,
+        not status ok; the forms it does take, spaces and case aside, still apply."""
+        seq, tx = P + ".sq:hand_seq", P + ".db.q_items"
+
+        def props(target):
+            t = self.m.call("databaseobject-tree-get", {"target": target, "childrenDepth": 0, "properties": "all"})
+            return t.get("tree", "properties", default={}) or {}
+
+        def apply(target, values):
+            a = self.m.call("databaseobject-tree-apply", {"target": target, "tree": {"properties": values}})
+            return a, str(a.get("status") or ""), str(a.get("stop", "message") or "")
+
+        before = {seq: props(seq), tx: props(tx)}
+        for label, target, values, words in (
+                ("tree-apply non-numeric text on a number property", seq, {"responseTimeout": "abc"}, ["responseTimeout", '"abc"', "whole number"]),
+                ("tree-apply unknown enum constant", seq, {"accessibility": "Bogus"}, ["accessibility", '"Bogus"', "Public, Hidden, Private"]),
+                ("tree-apply non-boolean text on a boolean property", seq, {"autoStart": "yes"}, ["autoStart", '"yes"', "true or false"]),
+                ("tree-apply unknown tag of an integer property", tx, {"xmlOutput": "tabular"}, ["xmlOutput", '"tabular"', "4 (FLAT_ELEMENT)"])):
+            a, status, msg = apply(target, values)
+            after = props(target)
+            unchanged = all(after.get(k) == before[target].get(k) for k in values)
+            self._expect("errors", label, status == "failed" and all(w in msg for w in words) and unchanged,
+                         f"status {status}, value {'unchanged' if unchanged else 'changed to ' + json.dumps({k: after.get(k) for k in values})}: {msg[:140]}")
+        a, status, msg = apply(seq, {"responseTimeout": " 75 ", "accessibility": "private", "autoStart": " TRUE "})
+        after = props(seq)
+        got = {k: after.get(k) for k in ("responseTimeout", "accessibility", "autoStart")}
+        self._expect("errors", "tree-apply number with spaces, enum and boolean in another case", status == "ok" and
+                     got == {"responseTimeout": 75, "accessibility": "Private", "autoStart": True}, f"status {status}, {got} {msg[:100]}")
+        a, status, msg = apply(tx, {"xmlOutput": "raw"})
+        self._expect("errors", "tree-apply tag label of an integer property", status == "ok" and props(tx).get("xmlOutput") == 0,
+                     f"status {status}, xmlOutput {props(tx).get('xmlOutput')} {msg[:100]}")
+        apply(tx, {"xmlOutput": before[tx].get("xmlOutput")})
+        apply(seq, {k: before[seq].get(k) for k in ("responseTimeout", "accessibility", "autoStart")})
 
     def _judge_error(self, label, a, provided=None, seconds=0.0):
         if a.looks_html():

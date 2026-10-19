@@ -326,3 +326,141 @@ test('project-js-set and project-js-get take js/app.js as app.js (run 11a F-02)'
     assert.match(read('_c8oProject/sequences/' + file + '.yaml'), /if \(normalized\.indexOf\("js\/"\) === 0\) \{ normalized = normalized\.substring\(3\); \}/);
   }
 });
+
+// --- values of number, boolean and enum properties -------------------------------------------------
+
+// Java's parsers as compileProperty uses them: Integer(String) takes no space, Double(String) trims.
+function javaNumbers() {
+  const whole = (min, max) => s => {
+    if (!/^[+-]?\d+$/.test(s) || BigInt(s) < min || BigInt(s) > max) { throw new Error('NumberFormatException: For input string: "' + s + '"'); }
+    return Number(s);
+  };
+  const real = s => {
+    if (!/^[+-]?(NaN|Infinity|(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fFdD]?)$/.test(s.trim())) { throw new Error('NumberFormatException'); }
+    return parseFloat(s);
+  };
+  return { Byte: { parseByte: whole(-128n, 127n) }, Short: { parseShort: whole(-32768n, 32767n) },
+    Integer: { parseInt: whole(-(2n ** 31n), 2n ** 31n - 1n) }, Long: { parseLong: whole(-(2n ** 63n), 2n ** 63n - 1n) },
+    Float: { parseFloat: real }, Double: { parseDouble: real } };
+}
+
+// Global symbols ${name} and ${name=default}, resolved like DatabaseObjectsManager.getCompiledValue.
+const SYMBOLS = { pf_timeout: '75', pf_bad: 'abc' };
+const compileSymbols = text => String(text).replace(/\$\{([^}=]+)(?:=([^}]*))?\}/g, (m, n, d) => {
+  if (n in SYMBOLS) { return SYMBOLS[n]; }
+  if (d !== undefined) { return d; }
+  throw new Error('UndefinedSymbolsException: ' + n);
+});
+
+const javaType = (name, constants) => ({ getName: () => name, isEnum: () => !!constants,
+  getEnumConstants: () => (constants || []).map(([n, label]) => ({ name: () => n, toString: () => label || n })) });
+const ACCESSIBILITY = javaType('com.twinsoft.convertigo.engine.enums.Accessibility', [['Public'], ['Hidden'], ['Private']]);
+const JSON_FIELD_TYPE = javaType('com.twinsoft.convertigo.engine.enums.JsonFieldType', [['string'], ['number', 'number'], ['bool', 'boolean'], ['nul', 'null']]);
+
+function propertyWorld() {
+  const source = read('js/databaseobject.js');
+  const fnOf = name => { const at = source.indexOf('C8O.dbo.' + name + ' = '); return source.slice(at, source.indexOf('\n};\n', at) + 3); };
+  const ctx = {
+    java: { lang: Object.assign(javaNumbers(), { Boolean: { TRUE: { equals: () => false } } }) },
+    Packages: { org: { mozilla: { javascript: { NativeJavaObject: function NativeJavaObject() {} } } },
+      com: { twinsoft: { convertigo: { beans: { core: { MySimpleBeanInfo: { NILLABLE: 'nillable' } } },
+        engine: { Engine: { theApp: { databaseObjectsManager: { getCompiledValue: compileSymbols } } } } } } } },
+    C8O: {
+      util: { toTrimmedString: v => (v == null ? '' : String(v).trim()), previewValue: v => (v == null ? '' : typeof v === 'string' ? v : JSON.stringify(v)) },
+      dbo: { _getDynamicPropertyContext: () => null, _expandStepSourceShorthand: v => v, _isPageRootField: () => false,
+        _isMobileSmartSourceTypeClass: () => false, _isFormatedContentClass: () => false, _isSmartTypeClass: () => false,
+        _isXMLVectorClass: () => false, _isXMLizableClass: () => false, _TEXT_ONLY_PROPERTIES: {},
+        // An integer property edited with Studio tags stores the index of the tag.
+        _describeAllowedValues: (pd, dbo) => ((dbo.tags || {})[pd.getName()] || null) && dbo.tags[pd.getName()].map((label, value) => ({ value, label })) }
+    }
+  };
+  vm.runInNewContext(['_NUMBER_PROPERTY_TYPES', '_checkScalarPropertyValue', '_matchConstant', 'applyPropertyUpdates', '_preparePropertyValue']
+    .map(fnOf).join(''), ctx);
+  const check = (name, type, value, dbo) => ctx.C8O.dbo._checkScalarPropertyValue({ getName: () => name, getPropertyType: () => type }, value, dbo || {});
+  return { ctx, check };
+}
+
+const taken = r => { assert.equal(r.error, undefined, r.error); return r.value; };
+const refused = r => { assert.ok(r.error, 'taken as ' + JSON.stringify(r.value)); return r.error; };
+
+test('a number property refuses a value that is not a number, instead of storing 0', () => {
+  const { check } = propertyWorld();
+  const LONG = javaType('long');
+  assert.equal(refused(check('responseTimeout', LONG, 'abc')), 'responseTimeout takes a whole number (long), not "abc".');
+  assert.equal(refused(check('responseTimeout', LONG, '63.5')), 'responseTimeout takes a whole number (long), not "63.5".');
+  assert.equal(refused(check('responseTimeout', LONG, 63.5)), 'responseTimeout takes a whole number (long), not 63.5.');
+  assert.equal(refused(check('responseTimeout', LONG, '')), 'responseTimeout takes a whole number (long), not "".');
+  assert.equal(refused(check('responseTimeout', LONG, true)), 'responseTimeout takes a whole number (long), not true.');
+  assert.equal(refused(check('responseTimeout', LONG, { mode: 'PLAIN', expression: '5' })), 'responseTimeout takes a whole number (long), not an object.');
+  assert.equal(refused(check('responseTimeout', LONG, [5])), 'responseTimeout takes a whole number (long), not a list.');
+  assert.equal(refused(check('port', javaType('int'), '99999999999')),
+    'port takes a whole number (int) from -2147483648 to 2147483647, not "99999999999".');
+  assert.equal(refused(check('ratio', javaType('java.lang.Double'), 'half')), 'ratio takes a number (double), not "half".');
+  assert.match(refused(check('responseTimeout', LONG, '${pf_bad}')), /not "\$\{pf_bad\}" \(the value of the symbol is "abc"\)\.$/);
+});
+
+test('a number given with spaces, as a JS number, as {value} or as a global symbol is still taken', () => {
+  const { check } = propertyWorld();
+  const LONG = javaType('long');
+  assert.equal(taken(check('responseTimeout', LONG, '60')), '60');
+  assert.equal(taken(check('responseTimeout', LONG, ' 60 ')), '60', 'Long(" 60 ") throws in the engine: the spaces go first');
+  assert.equal(taken(check('responseTimeout', LONG, 60)), '60');
+  assert.equal(taken(check('responseTimeout', LONG, { value: ' 61 ' })), '61');
+  assert.equal(taken(check('responseTimeout', LONG, '99999999999')), '99999999999');
+  assert.equal(taken(check('ratio', javaType('double'), '1e3')), '1e3');
+  assert.equal(taken(check('responseTimeout', LONG, '${pf_timeout}')), '${pf_timeout}', 'the symbol is kept, not its value');
+  assert.equal(taken(check('responseTimeout', LONG, '${pf_unset=70}')), '${pf_unset=70}');
+  assert.equal(taken(check('responseTimeout', LONG, '${pf_unset}')), '${pf_unset}', 'an undefined symbol is the engine\'s to report');
+  assert.equal(taken(check('responseTimeout', LONG, null)), null);
+  assert.equal(taken(check('comment', javaType('java.lang.String'), 'abc')), 'abc', 'a text property is not checked');
+});
+
+test('an enum property refuses an unknown constant and lists them, instead of storing the first one', () => {
+  const { check } = propertyWorld();
+  assert.equal(refused(check('accessibility', ACCESSIBILITY, 'Bogus')), 'accessibility takes one of Public, Hidden, Private, not "Bogus".');
+  assert.equal(refused(check('accessibility', ACCESSIBILITY, 2)), 'accessibility takes one of Public, Hidden, Private, not 2.');
+  assert.equal(refused(check('accessibility', ACCESSIBILITY, '')), 'accessibility takes one of Public, Hidden, Private, not "".');
+  assert.equal(refused(check('type', JSON_FIELD_TYPE, 'integer')), 'type takes one of string, number, bool (boolean), nul (null), not "integer".');
+  assert.equal(taken(check('accessibility', ACCESSIBILITY, 'Hidden')), 'Hidden');
+  assert.equal(taken(check('accessibility', ACCESSIBILITY, 'private')), 'Private', 'the engine stored Public for "private"');
+  assert.equal(taken(check('accessibility', ACCESSIBILITY, ' Public ')), 'Public');
+  assert.equal(taken(check('type', JSON_FIELD_TYPE, 'boolean')), 'bool', 'the label of a constant gives its name');
+  assert.equal(taken(check('type', JSON_FIELD_TYPE, 'NULL')), 'nul');
+});
+
+test('a boolean property takes true or false only, instead of storing false for any other text', () => {
+  const { check } = propertyWorld();
+  const BOOL = javaType('boolean');
+  assert.equal(refused(check('autoStart', BOOL, 'yes')), 'autoStart takes true or false, not "yes".');
+  assert.equal(refused(check('autoStart', BOOL, 1)), 'autoStart takes true or false, not 1.');
+  assert.equal(taken(check('autoStart', BOOL, ' TRUE ')), true);
+  assert.equal(taken(check('autoStart', BOOL, 'false')), false);
+  assert.equal(taken(check('autoStart', javaType('java.lang.Boolean'), false)), false);
+});
+
+test('an integer property edited with tags takes the label of a tag as its index', () => {
+  const { check } = propertyWorld();
+  const dbo = { tags: { httpVerb: ['GET', 'POST'] } };
+  assert.equal(taken(check('httpVerb', javaType('int'), 'POST', dbo)), '1');
+  assert.equal(taken(check('httpVerb', javaType('int'), 'post', dbo)), '1');
+  assert.equal(taken(check('httpVerb', javaType('int'), '0', dbo)), '0');
+  assert.equal(refused(check('httpVerb', javaType('int'), 'PUT', dbo)), 'httpVerb takes a whole number (int), the index of its value: 0 (GET), 1 (POST), not "PUT".');
+});
+
+test('tree-apply properties: a value the engine cannot take is an error and is not set (yaml-delta review)', () => {
+  const { ctx } = propertyWorld();
+  const set = [];
+  const descriptor = (name, type) => ({ getName: () => name, getPropertyType: () => type, getReadMethod: () => null, getValue: () => null,
+    getWriteMethod: () => ({ invoke: (dbo, args) => set.push([name, args[0]]) }) });
+  ctx.C8O.dbo._getDescriptorMap = () => ({ responseTimeout: descriptor('responseTimeout', javaType('long')),
+    accessibility: descriptor('accessibility', ACCESSIBILITY), autoStart: descriptor('autoStart', javaType('boolean')) });
+  const dbo = { compileProperty: (type, name, value) => value };
+  const out = ctx.C8O.dbo.applyPropertyUpdates(dbo, { responseTimeout: 'abc', accessibility: 'Bogus', autoStart: 'yes' });
+  assert.deepEqual([...out.errors].map(e => e.message), ['responseTimeout takes a whole number (long), not "abc".',
+    'accessibility takes one of Public, Hidden, Private, not "Bogus".', 'autoStart takes true or false, not "yes".']);
+  assert.equal(out.applied.length + set.length, 0, 'nothing set');
+  const good = ctx.C8O.dbo.applyPropertyUpdates(dbo, { responseTimeout: ' 60 ', accessibility: 'private', autoStart: 'TRUE' });
+  assert.equal(good.errors.length, 0);
+  assert.deepEqual(set, [['responseTimeout', '60'], ['accessibility', 'Private'], ['autoStart', true]]);
+  assert.deepEqual([...good.applied].map(a => a.newValue), ['60', 'Private', 'true']);
+});
