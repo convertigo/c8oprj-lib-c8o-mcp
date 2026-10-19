@@ -234,7 +234,13 @@ comment: |
       }
       var jsonText = JSON.stringify(payloadCopy);
       if (jsonText.length > 24000) {
-        out.payloadPreview = jsonText.substring(0, 24000);
+        // The preview is JSON text inside a JSON string: its escaped quotes made 24 000 characters weigh 29 000
+        // (preflight checks). It is cut on its encoded size.
+        var preview = jsonText.substring(0, 24000);
+        while (preview.length > 2000 && JSON.stringify(preview).length > 22000) {
+          preview = preview.substring(0, preview.length - 2000);
+        }
+        out.payloadPreview = preview;
         out.payloadBytes = jsonText.length;
         out.truncated = true;
         return out;
@@ -244,11 +250,11 @@ comment: |
     }
     requestableExecutionResult = _compactPayload(_json(requestableResponse));
     // The payload (up to 24 000 characters) and the logs (up to 16 000) together passed 35 000 (preflight checks): the
-    // logs keep the latest lines that fit beside the payload, 4 000 characters at least.
+    // logs keep the latest lines that fit beside the payload, 2 000 characters at least.
     try {
       if (executionLogsPayload && executionLogsPayload.lines && executionLogsPayload.lines.length) {
         var resultChars = JSON.stringify(requestableExecutionResult).length;
-        var logsRoom = Math.max(4000, 26000 - resultChars);
+        var logsRoom = Math.max(2000, 25000 - resultChars);
         var logsChars = JSON.stringify(executionLogsPayload.lines).length;
         var droppedMore = 0;
         while (executionLogsPayload.lines.length > 1 && logsChars > logsRoom) {
