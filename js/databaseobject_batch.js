@@ -901,6 +901,30 @@ include("js/sql_dialect.js");
         return;
       }
     }
+    // The properties of an element (Disabled, Checked, Value...) are written in the template too; an action's run in the
+    // page class, where c8oPage exists. A Disabled with c8oPage.navParams failed the build (run 13b F-10).
+    if (!isTemplateElement(dbo)) {
+      return;
+    }
+    for (var key in props) {
+      var value = props[key];
+      var mode = value && typeof value === "object" ? String(value.mode || "").toUpperCase() : "";
+      var code = value && typeof value === "object" ? (value.value !== undefined ? value.value : value.expression) : null;
+      if ((mode === "SCRIPT" || mode === "JS") && typeof code === "string" && /\bc8oPage\./.test(code)) {
+        pushReportWarning(report, safeQName(dbo) + ": " + key + " uses c8oPage, which the page template does not have, so the build fails " +
+          "(TS2339). Write local?.x instead of c8oPage.local?.x, and compute anything else (navParams...) into a local at page enter with a SetLocalAction.");
+        return;
+      }
+    }
+  }
+
+  function isTemplateElement(dbo) {
+    try {
+      var ngx = Packages.com.twinsoft.convertigo.beans.ngx.components;
+      return dbo instanceof ngx.UIDynamicElement && !(dbo instanceof ngx.IAction);
+    } catch (_notNgx) {
+      return false;
+    }
   }
 
   // Two UIText siblings render on one line with no separator ("Active orders7"): each piece of

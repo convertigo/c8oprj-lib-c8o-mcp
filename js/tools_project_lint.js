@@ -387,6 +387,22 @@
                 collectText(bean[bk].substring(6), dbo, "PLAIN");
               }
             }
+            // An element's properties are written in the template (Disabled, Checked, Value...): a Disabled with
+            // c8oPage.navParams failed the build (run 13b F-10). An action's properties run in the page class.
+            // beanData is {ionBean, Prop: "script:..."} in the YAML and {name, properties: {Prop: {mode, value}}} in memory.
+            if (className === "UIDynamicElement") {
+              var elementProps = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
+              for (var ek in elementProps) {
+                var ev = elementProps[ek];
+                var script = ev && typeof ev === "object" ? (String(ev.mode).toLowerCase() === "script" ? ev.value : null)
+                  : (typeof ev === "string" && /^script:/.test(ev) ? ev : null);
+                if (Object.prototype.hasOwnProperty.call(elementProps, ek) && typeof script === "string" && /\bc8oPage\./.test(script)) {
+                  add("NGX-C8OPAGE-TEMPLATE", "error", dbo, "c8oPage in the property " + ek + ", which the template renders: the page has no c8oPage member, " +
+                    "so the build fails (TS2339).", "Write local?.x instead of c8oPage.local?.x; compute anything else (navParams...) into a local at page enter with a SetLocalAction.");
+                  break;
+                }
+              }
+            }
           } catch (_ignoreBean) {}
         }
       }

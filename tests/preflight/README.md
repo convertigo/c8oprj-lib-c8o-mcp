@@ -53,6 +53,7 @@ array properties):
 8. `StepVariable` outside a call step
 9. nested `st:` QName
 10. SmartType object on a plain property
+11. `c8oPage` in a control property (the template has no `c8oPage`)
 
 ## Engine-context soak (`lib_ConvertigoAssistant/tests/preflight/soak_contexts.py`)
 

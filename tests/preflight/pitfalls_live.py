@@ -380,8 +380,19 @@ class Battery:
             self.verdict("10 SmartType object on a plain property", label, caught, outcome,
                          fix="applyPropertyUpdates: refuse an object on any property whose type is not a SmartType, naming the property")
 
+    def t11_c8opage_in_template(self):
+        """c8oPage in a control property (Disabled of a select): the template has no c8oPage, the build fails (run 13b F-10)."""
+        p = self.scratch(11, db=False)
+        a = self.apply(f"{p}.Application.NgxApp.pg:Page.Content", {"className": "ngx.components.UIDynamicElement#Select", "name": "SelIds",
+                       "properties": {"Label": {"mode": "PLAIN", "value": "Ids"},
+                                      "Disabled": {"mode": "SCRIPT", "value": "!!c8oPage.navParams?.data?.ids"}}}, triggerMobileBuilder=False)
+        caught = [("tree-apply warning", w) for w in warnings_of(a) if "c8oPage" in w]
+        caught += [("project-lint", f.get("message", "")) for f in self.lint(p) if f.get("rule") == "NGX-C8OPAGE-TEMPLATE"]
+        self.verdict("11 c8oPage in a control property", "Select Disabled", caught, "not built (the build fails with TS2339)",
+                     fix="warn on a SCRIPT property of a UIDynamicElement that names c8oPage (tree-apply and project-lint)")
+
     TRAPS = [t01_object_literal, t02_condition, t03_template_statements, t04_in_list, t05_is_null, t06_identity,
-             t07_recreated_project, t08_step_variable, t09_nested_st, t10_smarttype_plain]
+             t07_recreated_project, t08_step_variable, t09_nested_st, t10_smarttype_plain, t11_c8opage_in_template]
 
     def run_all(self):
         only = {int(x) for x in self.o.only.split(",") if x.strip()} if self.o.only else None
