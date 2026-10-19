@@ -242,7 +242,28 @@ comment: |
       out.payload = payloadCopy;
       return out;
     }
-    requestableExecutionResult = _compactPayload(_json(requestableResponse));'
+    requestableExecutionResult = _compactPayload(_json(requestableResponse));
+    // The payload (up to 24 000 characters) and the logs (up to 16 000) together passed 35 000 (preflight checks): the
+    // logs keep the latest lines that fit beside the payload, 4 000 characters at least.
+    try {
+      if (executionLogsPayload && executionLogsPayload.lines && executionLogsPayload.lines.length) {
+        var resultChars = JSON.stringify(requestableExecutionResult).length;
+        var logsRoom = Math.max(4000, 26000 - resultChars);
+        var logsChars = JSON.stringify(executionLogsPayload.lines).length;
+        var droppedMore = 0;
+        while (executionLogsPayload.lines.length > 1 && logsChars > logsRoom) {
+          logsChars -= JSON.stringify(executionLogsPayload.lines[0]).length + 1;
+          executionLogsPayload.lines.shift();
+          droppedMore++;
+        }
+        if (droppedMore) {
+          executionLogsPayload.lineCount = executionLogsPayload.lines.length;
+          if (executionLogsPayload.query) {
+            executionLogsPayload.query.droppedLines = (executionLogsPayload.query.droppedLines || 0) + droppedMore;
+          }
+        }
+      }
+    } catch (_ignoreLogsRoom) {}'
 ↓result [steps.JsonObjectStep-1763066359376]: 
   key: 
     - xmlizable: 
