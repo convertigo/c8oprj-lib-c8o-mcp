@@ -1163,6 +1163,78 @@ C8O.generators = C8O.generators || {};
     return plan;
   }
 
+  // The body of a function of a script, between its braces: name: function (...) {...}, name = function, function name(),
+  // name: (...) => {...}. Strings, template literals, comments and regular expressions are skipped while counting braces.
+  // null when the function is not found or its braces do not balance.
+  function functionBody(content, name) {
+    var esc = name.replace(/\$/g, "\\$");
+    var re = new RegExp("(?:\\b" + esc + "\\s*[:=]\\s*(?:async\\s+)?(?:function\\b[^(]*\\([^)]*\\)|\\([^)]*\\)\\s*=>|[A-Za-z_$][\\w$]*\\s*=>)|" +
+      "function\\s+" + esc + "\\s*\\([^)]*\\))\\s*\\{", "g");
+    var m = re.exec(content);
+    if (!m) {
+      return null;
+    }
+    var start = m.index + m[0].length;
+    var depth = 1;
+    var last = "{";
+    for (var i = start; i < content.length; i++) {
+      var c = content.charAt(i);
+      var next = content.charAt(i + 1);
+      if (c === "/" && next === "/") {
+        i = content.indexOf("\n", i);
+        if (i < 0) {
+          return null;
+        }
+        continue;
+      }
+      if (c === "/" && next === "*") {
+        i = content.indexOf("*/", i + 2);
+        if (i < 0) {
+          return null;
+        }
+        i++;
+        continue;
+      }
+      if (c === "\"" || c === "'" || c === "`" || (c === "/" && /[(,=:\[!&|?{};+\-*%<>~^]/.test(last))) {
+        // A string, a template literal or a regular expression: up to the same unescaped quote.
+        for (i++; i < content.length && content.charAt(i) !== c; i++) {
+          if (content.charAt(i) === "\\") {
+            i++;
+          } else if (c === "/" && content.charAt(i) === "\n") {
+            return null;
+          }
+        }
+        last = "a";
+        continue;
+      }
+      if (c === "{") {
+        depth++;
+      } else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          return content.substring(start, i);
+        }
+      }
+      if (!/\s/.test(c)) {
+        last = c;
+      }
+    }
+    return null;
+  }
+
+  // Names a body calls: helper(...), App.helper(...) -> helper.
+  function calledFunctions(body) {
+    var out = [];
+    var re = /([A-Za-z_$][\w$]*)\s*\(/g;
+    var m;
+    while ((m = re.exec(body)) !== null) {
+      if (["if", "for", "while", "switch", "catch", "function", "return", "typeof"].indexOf(m[1]) < 0 && out.indexOf(m[1]) < 0) {
+        out.push(m[1]);
+      }
+    }
+    return out;
+  }
+
   G.businessSequenceCreate = function (args) {
     var tool = "business-sequence-create";
     var projectDbo = projectOf(args.project, tool);
@@ -1270,13 +1342,17 @@ C8O.generators = C8O.generators || {};
       return planCall(projectDbo, w, errors, warnings, "writes[" + i + "]", connectorName, "write");
     }).filter(function (p) { return p; });
     // Declared writes run only for the rows the logic returns in writes: a logic function that never returns any made a
-    // business sequence that answered success and wrote nothing (run 11a F-04).
+    // business sequence that answered success and wrote nothing (run 11a F-04). The check reads the whole function body
+    // and the functions it calls in the script: the first 6000 characters missed a return further down (run 13b F-02)
+    // and a helper such as withWrites(...) (run 13a F-01). When the body cannot be delimited, nothing is said.
     if (writes.length && content !== null && logic) {
-      var logicName = logic.split(".").pop();
-      var logicAt = content.search(new RegExp("\\b" + logicName.replace(/\$/g, "\\$") + "\\s*[:=]\\s*function\\b|function\\s+" +
-        logicName.replace(/\$/g, "\\$") + "\\s*\\("));
-      if (logicAt >= 0 && content.substring(logicAt, logicAt + 6000).search(/\bwrites\b/) < 0) {
-        warnings.push(logic + " in " + script + " never returns writes: the declared writes (" + writes.map(function (w) { return w.name; }).join(", ") +
+      var logicBody = functionBody(content, logic.split(".").pop());
+      if (logicBody !== null && !/writes/i.test(logicBody) && !calledFunctions(logicBody).some(function (callee) {
+        var calleeBody = functionBody(content, callee);
+        return calleeBody !== null && /\bwrites\b/.test(calleeBody);
+      })) {
+        warnings.push(logic + " in " + script + " never returns writes (neither its body nor the functions of " + script + " it calls name writes): " +
+          "the declared writes (" + writes.map(function (w) { return w.name; }).join(", ") +
           ") run only for the rows it returns as writes: {<write name>: row or [rows]}. Without them the business sequence answers success and writes nothing.");
       }
     }

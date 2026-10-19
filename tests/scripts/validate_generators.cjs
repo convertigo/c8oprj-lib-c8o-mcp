@@ -1114,13 +1114,23 @@ test('the former names still work: facade-create and the facade parameter of ngx
 test('business-sequence-create says when the logic never returns the writes it declares (run 11a)', () => {
   const quiet = makeWorld();
   const out = load(quiet).businessSequenceCreate(sequenceSpec());
-  assert.ok(out.warnings.some(w => /App\.posteList in js\/app\.js never returns writes: the declared writes \(journal, stamp\)/.test(w)));
+  assert.ok(out.warnings.some(w => /App\.posteList in js\/app\.js never returns writes \(.*\): the declared writes \(journal, stamp\)/.test(w)));
   const seq = creates(quiet, 'sequences.GenericSequence')[0];
   const logic = seq.children.find(c => c.name === 'logic');
   assert.match(logic.properties.expression, /if \(resp && resp\.success === true && !resp\.writes\) \{ resp\.meta = resp\.meta \|\| \{\}; resp\.meta\.noWrites = "App\.posteList returned no writes: nothing was written\."; \}\npending = /);
   const writing = makeWorld({ files: { '/ws/App/js/app.js': 'var App = { posteList: function (ctx) { return { success: true, writes: { journal: {} } }; } };' } });
   const out2 = load(writing).businessSequenceCreate(sequenceSpec());
   assert.ok(!out2.warnings.some(w => /never returns writes/.test(w)));
+  // Whole body (a return after 6000 characters, run 13b F-02), a helper of the script (run 13a F-01), braces in strings.
+  const said = file => load(makeWorld({ files: { '/ws/App/js/app.js': file } })).businessSequenceCreate(sequenceSpec()).warnings
+    .some(w => /never returns writes/.test(w));
+  const long = '// ' + 'x'.repeat(7000);
+  assert.equal(said('var App = { posteList: function (ctx) { var s = "}"; var w = {};\n' + long + '\n w.journal = {}; return { success: true, writes: w }; } };'), false);
+  assert.equal(said('var App = (function () { function put(r, w) { r.writes = w; return r; }\n return { posteList: function (ctx) { return put({ success: true }, { journal: {} }); } }; })();'), false);
+  assert.equal(said('var App = { posteList: (ctx) => { return withWrites(ok(ctx), {}); } };'), false);
+  assert.equal(said('var App = { posteList: function (ctx) { var s = "{"; return { success: true }; }, declare: function () { return { writes: {} }; } };'), true,
+    'a writes of another function does not count');
+  assert.equal(said('var App = { posteList: function (ctx) { return { success: true };'), false, 'unbalanced: unsure, so nothing is said');
 });
 
 test('business-sequence-create takes auth:true as the default, a session required (run 11a)', () => {
