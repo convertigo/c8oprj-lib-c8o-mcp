@@ -1736,7 +1736,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       startMillis: { type: "number" },
       endMillis: { type: "number" },
       limit: { type: "number" },
-      scanned: { type: "number" }
+      scanned: { type: "number" },
+      cutMessages: { type: "number", description: "Messages cut in the middle (over 2 000 characters)." },
+      droppedLines: { type: "number", description: "Oldest lines left out to stay near 16 000 characters; log-view reads them." }
     });
   }
 

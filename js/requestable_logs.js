@@ -245,6 +245,25 @@ C8O.requestableLogs = C8O.requestableLogs || {};
       }
     }
 
+    // includeLogs added 39 000 characters to a requestable-execute answer (preflight checks): as in log-view, a long
+    // message keeps its start and end, and the lines stop near 16 000 characters, the latest ones kept (errors come last).
+    var cutMessages = 0;
+    var linesChars = 0;
+    for (var c = 0; c < lines.length; c++) {
+      var message = lines[c] && typeof lines[c].message === "string" ? lines[c].message : "";
+      if (message.length > 2000) {
+        lines[c].message = message.substring(0, 1500) + " … [" + (message.length - 1900) + " characters cut] … " + message.substring(message.length - 400);
+        cutMessages++;
+      }
+      linesChars += JSON.stringify(lines[c]).length;
+    }
+    var droppedLines = 0;
+    while (lines.length > 1 && linesChars > 16000) {
+      linesChars -= JSON.stringify(lines[0]).length;
+      lines.shift();
+      droppedLines++;
+    }
+
     return {
       lines: lines,
       lineCount: lines.length,
@@ -259,7 +278,9 @@ C8O.requestableLogs = C8O.requestableLogs || {};
         startMillis: startMillis,
         endMillis: endMillis,
         limit: limitValue,
-        scanned: scanned
+        scanned: scanned,
+        cutMessages: cutMessages,
+        droppedLines: droppedLines
       }
     };
   };
