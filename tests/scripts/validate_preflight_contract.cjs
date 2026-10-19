@@ -228,3 +228,47 @@ test('upsert-crud: a field left out of the spec leaves no step variable behind',
   B.ensureStepVariables(ctx, step, [{ name: 'title' }], result);
   assert.deepEqual(step.children.map(c => c.name), ['title']);
 });
+
+// --- QName resolution ---------------------------------------------------------------------------
+
+// The real C8O.dbo._resolveByChildNames and _childrenNamedLike, on a small NGX tree like lib_TreeTable's.
+function qnameWorld() {
+  const source = read('js/databaseobject.js');
+  const fnOf = name => {
+    const at = source.indexOf('C8O.dbo.' + name + ' = function');
+    return source.slice(at, source.indexOf('\n};\n', at) + 3);
+  };
+  const node = (name, cls, prefix, parent) => {
+    const n = { name, children: [], getName: () => name, getClass: () => ({ getSimpleName: () => cls }),
+      getFullQName: () => (parent ? parent.getFullQName() + '.' + prefix : '') + name };
+    if (parent) { parent.children.push(n); }
+    return n;
+  };
+  const project = node('lib_TreeTable', 'Project', '', null);
+  const app = node('NgxApp', 'ApplicationComponent', '', node('Application', 'MobileApplication', '', project));
+  const shared = node('treeTable', 'UISharedRegularComponent', 'sp:', app);
+  const page = node('testTreeTable', 'PageComponent', 'pg:', app);
+  node('Menu', 'UIDynamicMenu', 'mn:', app);
+  const ctx = { C8O: { dbo: { getDirectChildren: n => n.children } },
+    Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { databaseObjectsManager: {
+      getOriginalProjectByName: n => (n === 'lib_TreeTable' ? project : null) } } } } } } } } };
+  vm.runInNewContext(fnOf('_resolveByChildNames') + fnOf('_childrenNamedLike'), ctx);
+  return { dbo: ctx.C8O.dbo, app, shared, page };
+}
+
+test('a shared component written <ClassName>_<name> resolves to it, and only with the right class', () => {
+  const { dbo, shared } = qnameWorld();
+  assert.equal(dbo._resolveByChildNames('lib_TreeTable.Application.NgxApp.UISharedRegularComponent_treeTable'), shared,
+    'the form a colleague\'s agent wrote for lib_TreeTable.Application.NgxApp.sp:treeTable');
+  assert.equal(dbo._resolveByChildNames('lib_TreeTable.Application.NgxApp.treeTable'), shared, 'the form of the library readme');
+  assert.equal(dbo._resolveByChildNames('lib_TreeTable.Application.NgxApp.PageComponent_treeTable'), null, 'another class names nothing');
+});
+
+test('an object not found lists the children of its closest ancestor with a close name', () => {
+  const { dbo, app } = qnameWorld();
+  assert.deepEqual([...dbo._childrenNamedLike(app, 'lib_TreeTable.Application.NgxApp.TreeTable')],
+    ['lib_TreeTable.Application.NgxApp.sp:treeTable', 'lib_TreeTable.Application.NgxApp.pg:testTreeTable']);
+  assert.deepEqual([...dbo._childrenNamedLike(app, 'lib_TreeTable.Application.NgxApp.ct:SharedTreeTable')], ['lib_TreeTable.Application.NgxApp.sp:treeTable']);
+  assert.deepEqual([...dbo._childrenNamedLike(app, 'lib_TreeTable.Application.NgxApp.pg:x')], [], 'a name too short suggests nothing');
+  assert.match(read('js/databaseobject.js'), /pg:<Page>, sp:<shared component>, "/);
+});

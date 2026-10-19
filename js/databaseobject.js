@@ -374,10 +374,16 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
       }
     } catch (_ignoreNameSuggestion) {}
     hints.push("QName shape: <Project>.sq:<sequence>, <Project>.cn:<connector>.tr:<transaction>, " +
-      "steps under a sequence as <sequence QName>.st:<step> (nested steps without the st: prefix), NGX pages <Project>.Application.NgxApp.pg:<Page>; copy QNames from databaseobject-tree-get or databaseobject-search.");
+      "steps under a sequence as <sequence QName>.st:<step> (nested steps without the st: prefix), " +
+      "NGX objects under <Project>.Application.NgxApp with a type prefix and their name only: pg:<Page>, sp:<shared component>, " +
+      "sa:<shared action>, mn:<menu>; copy QNames from databaseobject-tree-get or databaseobject-search.");
   }
   var ancestor = C8O.dbo._findExistingAncestor(qname);
   if (ancestor != null) {
+    var close = C8O.dbo._childrenNamedLike(ancestor, qname);
+    if (close.length) {
+      hints.push("Children of the closest existing ancestor with a close name: " + close.join(", ") + ".");
+    }
     var ancestorQName = "";
     try {
       ancestorQName = ancestor.getFullQName ? String(ancestor.getFullQName()) : String(ancestor);
@@ -450,12 +456,46 @@ C8O.dbo._resolveByChildNames = function (text) {
           count++;
         }
       }
+      // <ClassName>_<name>, the class written before the name: accepted when that class and name select one child.
+      var classed = count !== 1 ? /^([A-Za-z][A-Za-z0-9]*)_(.+)$/.exec(name) : null;
+      if (classed) {
+        found = null;
+        count = 0;
+        for (var c = 0; c < kids.length; c++) {
+          if (String(kids[c].getName()) === classed[2] && String(kids[c].getClass().getSimpleName()) === classed[1]) {
+            found = kids[c];
+            count++;
+          }
+        }
+      }
       dbo = count === 1 ? found : null;
     }
     return dbo;
   } catch (_noWalk) {
     return null;
   }
+};
+
+// The direct children of `parent` whose name is close to the last segment of `qname`, as QNames: the same name in another
+// case, or a name the segment ends with (a colleague's agent wrote NgxApp.UISharedRegularComponent_treeTable for
+// NgxApp.sp:treeTable).
+C8O.dbo._childrenNamedLike = function (parent, qname) {
+  var squash = function (text) { return String(text).toLowerCase().replace(/[^a-z0-9]/g, ""); };
+  var wanted = squash(String(qname).split(".").pop().replace(/^[A-Za-z]{1,4}:/, ""));
+  var out = [];
+  if (wanted.length < 3) {
+    return out;
+  }
+  try {
+    var kids = C8O.dbo.getDirectChildren(parent);
+    for (var k = 0; k < kids.length && out.length < 5; k++) {
+      var name = squash(kids[k].getName());
+      if (name.length >= 3 && (name === wanted || wanted.slice(-name.length) === name || name.indexOf(wanted) >= 0)) {
+        out.push(String(kids[k].getFullQName ? kids[k].getFullQName() : kids[k].getQName()));
+      }
+    }
+  } catch (_ignoreCloseChildren) {}
+  return out;
 };
 
 // HSQLDB file databases of a project stay open in the Studio JVM after the project is deleted: the engine contexts
