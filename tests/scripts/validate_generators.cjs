@@ -888,6 +888,27 @@ test('a form field initial value is computed at page enter, not written in the t
   assert.equal(nodes.InitInitDateEffective.properties.Property.value, 'initDateEffective');
 });
 
+test('a read-only form field computes its condition at page enter: the template has no c8oPage (run 13b F-10)', () => {
+  const world = makeWorld();
+  load(world).ngxPageCreate({ project: 'App', name: 'DeclarationForm', kind: 'form', sequence: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' },
+      fields: [{ name: 'posteIds', type: 'select', multiple: true, options: [{ value: '1', label: 'P1' }], value: "(c8oPage.navParams?.data?.ids ?? '').split(',')",
+        disabled: '!!c8oPage.navParams?.data?.ids' }, { name: 'commentaire', disabled: true }, { name: 'source', disabled: false }] } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.deepEqual(plain(nodes.SelPosteIds.properties.Disabled), { mode: 'SCRIPT', value: 'local?.disabledPosteIds === true' });
+  assert.equal(nodes.InitDisabledPosteIds.properties.Value.value, '!!(!!c8oPage.navParams?.data?.ids)');
+  assert.equal(nodes.InitDisabledCommentaire.properties.Value.value, 'true');
+  assert.equal(nodes.InSource.properties.Disabled, undefined);
+  assert.equal(nodes.InitDisabledSource, undefined);
+  // No template-side property of the page carries c8oPage.
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => {
+    if (/UIDynamicElement|UIText|UIAttribute|UIControlDirective/.test(n.className || '')) {
+      assert.doesNotMatch(JSON.stringify(n.properties || {}), /c8oPage/, n.name + ' has c8oPage in the template');
+    }
+  }));
+});
+
 test('generated chains render the error and loading locals at once (runs 9b and 10)', () => {
   const world = makeWorld();
   const G = load(world);

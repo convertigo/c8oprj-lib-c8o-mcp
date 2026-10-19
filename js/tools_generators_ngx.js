@@ -680,7 +680,7 @@ include("js/tools_generators.js");
         var usedItems = {};
         var fieldsNodes = list(form.fields).map(function (f, i) {
           if (!isObj(f) || !IDENT.test(str(f.name))) {
-            errors.push("form.fields[" + i + "] must be {name, label, type?, required?, options?, optionsFrom?, multiple?, value?}.");
+            errors.push("form.fields[" + i + "] must be {name, label, type?, required?, options?, optionsFrom?, multiple?, value?, disabled?}.");
             return null;
           }
           if (submitVars.length && submitVars.indexOf(str(f.name)) < 0) {
@@ -702,6 +702,13 @@ include("js/tools_generators.js");
             var initLocal = "init" + pascal(f.name);
             locals[initLocal] = String(f.value);
             props.Value = { mode: "SOURCE", local: initLocal };
+          }
+          if (f.disabled !== undefined && f.disabled !== false && str(f.disabled) !== "false") {
+            // Read-only when the expression is true. Computed at page enter like value: written in the template, an
+            // expression with c8oPage.navParams broke the Angular build (TS2339, run 13b F-10); the template has no c8oPage.
+            var disabledLocal = "disabled" + pascal(f.name);
+            locals[disabledLocal] = f.disabled === true || str(f.disabled) === "true" ? "true" : "!!(" + String(f.disabled) + ")";
+            props.Disabled = { mode: "SCRIPT", value: "local?." + disabledLocal + " === true" };
           }
           var control;
           var cname = pascal(f.name);
