@@ -529,15 +529,47 @@ if (methodName === "initialize") {
     };
   } else {
     var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP");
-    var requestable = projectRef ? projectRef.getSequenceByName(targetSequence) : null;
+    // getSequenceByName throws for a missing name: an unknown tool answered "Internal MCP routing error" (preflight checks).
+    var requestable = null;
+    try {
+      requestable = projectRef ? projectRef.getSequenceByName(targetSequence) : null;
+    } catch (_unknownSequence) {
+      requestable = null;
+    }
     if (requestable == null) {
       callSequence = "mcp_error_response";
       responseStatus = "404";
+      var closeTools = [];
+      try {
+        var asked = String(toolNameRaw || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        var words = asked.split("-").filter(function (w) { return w.length > 2; });
+        var scored = [];
+        var sequences = projectRef ? projectRef.getSequencesList() : null;
+        for (var si = 0; sequences && si < sequences.size(); si++) {
+          var seqName = String(sequences.get(si).getName());
+          if (seqName.indexOf("tools_") !== 0) {
+            continue;
+          }
+          var toolName = seqName.substring(6).replace(/_/g, "-");
+          // A name that starts the asked one or the reverse first (project-save for project-saved), then shared words.
+          var score = (asked.indexOf(toolName) === 0 || toolName.indexOf(asked) === 0) ? 10 : 0;
+          words.forEach(function (w) {
+            if (toolName.indexOf(w) !== -1) {
+              score += 1;
+            }
+          });
+          if (score > 0) {
+            scored.push({ name: toolName, score: score });
+          }
+        }
+        scored.sort(function (a, b) { return b.score - a.score || (a.name < b.name ? -1 : 1); });
+        closeTools = scored.slice(0, 5).map(function (x) { return x.name; });
+      } catch (_noSuggestions) {}
       callVariables = {
         status: "404",
         code: "-32601",
-        message: "Unknown tool",
-        dataJson: JSON.stringify({ name: toolNameRaw, sequence: targetSequence }),
+        message: "Unknown tool " + toolNameRaw + (closeTools.length ? ". Close tools: " + closeTools.join(", ") : "") + ". tools/list gives every tool.",
+        dataJson: JSON.stringify({ name: toolNameRaw, sequence: targetSequence, closeTools: closeTools }),
         requestIdJson: requestIdJson
       };
     } else {

@@ -17,16 +17,19 @@ responseTimeout: 300
     } catch (_ignoreSessionRearm) {}
     
     var TOOL_CALL_INTERRUPTED = /Parent context stopped|already been invalidated|Session already invalidated/i;
-    function formatToolErrorText(err) {
+    function formatToolErrorObject(err) {
       err = err && err.error ? err.error : (err || {});
       var probe = [err.message, err.details, err.exception, err.context].join("\n");
       if (TOOL_CALL_INTERRUPTED.test(probe)) {
-        return JSON.stringify({ code: "server_call_interrupted", message: "The MCP call was interrupted on the server because its HTTP session ended during execution. Retry the same call once with identical arguments before trying anything else.", details: err.message || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
+        return { code: "server_call_interrupted", message: "The MCP call was interrupted on the server because its HTTP session ended during execution. Retry the same call once with identical arguments before trying anything else.", details: err.message || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} };
       }
       // A tool script error arrives wrapped in the generic engine message; lift the message of the script.
       var scriptError = /A Javascript error has occured: (?:Error: )?([\s\S]*?)(?: \([^()]*#\d+\))?\s*$/.exec(String(err.details || ""));
       var message = scriptError && scriptError[1] ? scriptError[1].trim() : (err.message || "Tool call failed");
-      return JSON.stringify({ code: err.code || "", message: message, details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} });
+      return { code: err.code || "", message: message, details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} };
+    }
+    function formatToolErrorText(err) {
+      return JSON.stringify(formatToolErrorObject(err));
     }
     
     const Engine = Packages.com.twinsoft.convertigo.engine.Engine;
@@ -364,15 +367,20 @@ responseTimeout: 300
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: structuredContent
-            ↓CopyError [steps.XMLCopyStep-1782105694343]: 
-              sourceDefinition: 
+            ↓error [steps.JsonToXmlStep-1792400000002]: 
+              comment: The error with the same lifted message as the text content (it kept the engine's generic message).
+              jsonObject: 
                 - xmlizable: 
-                  - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
-                  - com.twinsoft.convertigo.beans.common.XMLVector: 
-                    - java.lang.String: 
-                      - ↑value: 1761755111966
-                    - java.lang.String: 
-                      - ↑value: ./document/error
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: formatToolErrorObject(toolError)
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: error
           ↓GuidanceMetaIf [steps.IfStep-1782895357727]: 
             condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
             ↓_meta [steps.JsonObjectStep-1782895357729]: 
@@ -490,15 +498,20 @@ responseTimeout: 300
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: structuredContent
-            ↓CopyError [steps.XMLCopyStep-1782105694668]: 
-              sourceDefinition: 
+            ↓error [steps.JsonToXmlStep-1792400000001]: 
+              comment: The error with the same lifted message as the text content (it kept the engine's generic message).
+              jsonObject: 
                 - xmlizable: 
-                  - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
-                  - com.twinsoft.convertigo.beans.common.XMLVector: 
-                    - java.lang.String: 
-                      - ↑value: 1761755111966
-                    - java.lang.String: 
-                      - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: formatToolErrorObject(toolError)
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: error
           ↓GuidanceMetaIf [steps.IfStep-1782895357760]: 
             condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
             ↓_meta [steps.JsonObjectStep-1782895357762]: 
