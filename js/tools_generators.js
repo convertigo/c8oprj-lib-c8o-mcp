@@ -1413,7 +1413,8 @@ C8O.generators = C8O.generators || {};
       var readSteps = [];
       reads.forEach(function (p) {
         var vars = isObj(p.entry.vars) ? p.entry.vars : {};
-        var assigns = Object.keys(vars).map(function (v) { return v + " = String(" + vars[v] + ");"; });
+        // An empty expression gives "": the generated "String();" read as a syntax error to the run 11a agent.
+        var assigns = Object.keys(vars).map(function (v) { return v + " = " + (str(vars[v]).length ? "String(" + vars[v] + ")" : "\"\"") + ";"; });
         if (assigns.length) {
           readSteps.push(simple("prep_" + p.name, assigns.join("\n")));
         }
