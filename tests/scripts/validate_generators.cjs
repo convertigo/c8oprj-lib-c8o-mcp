@@ -915,6 +915,30 @@ test('a toggle field carries its label as a text child, not a Label property it 
   assert.match(JSON.stringify(nodes.TgCommentaire.children), /Compte actif/);
 });
 
+test('a toggle\'s initial value sets its Checked state, not the Value it submits (run 10)', () => {
+  const world = makeWorld();
+  load(world).ngxPageCreate({ project: 'App', name: 'DeclarationForm', kind: 'form', sequence: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' },
+      fields: [{ name: 'commentaire', label: 'Compte actif', type: 'toggle', value: 'true' }] } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.deepEqual(plain(nodes.TgCommentaire.properties.Checked), { mode: 'SOURCE', local: 'initCommentaire' });
+  assert.equal(nodes.TgCommentaire.properties.Value, undefined);
+  assert.equal(nodes.InitInitCommentaire.properties.Value.value, 'true');
+});
+
+test('a page entered again keeps its data, error, loading and filters until the data call replaces them (run 10)', () => {
+  const world = makeWorld();
+  load(world).ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list',
+    filters: [{ name: 'recherche', label: 'Search', type: 'search' }], list: { items: 'items', item: 'p', title: 'numeroPoste' } });
+  const nodes = {};
+  world.ops.filter(op => op.type === 'create').forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.equal(nodes.InitData.properties.Value.value, 'c8oPage.local?.data ?? null');
+  assert.equal(nodes.InitError.properties.Value.value, 'c8oPage.local?.error ?? null');
+  assert.equal(nodes.InitLoading.properties.Value.value, 'c8oPage.local?.loading ?? true');
+  assert.equal(nodes.InitFilterRecherche.properties.Value.value, "c8oPage.local?.filterRecherche ?? ''");
+});
+
 test('a form page wires its submit chain with Form SmartSources on the created UIForm', () => {
   const world = makeWorld();
   const G = load(world);

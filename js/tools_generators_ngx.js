@@ -298,7 +298,9 @@ include("js/tools_generators.js");
     // pageWillEnter sets these locals while Angular checks the page that the menu or a link opens: a binding whose value
     // changes then (undefined -> null) throws NG0100 in dev on every generated page (run 9a). The conditions are written so
     // that the first render already reads the values set here: !!local?.error, and an unset loading counts as loading.
-    var locals = { data: "null", error: "null", loading: "true" };
+    // On a page entered again (back, menu) the view still shows the previous data: setting data to null there threw NG0100
+    // (Previous value: '7', run 10). These locals keep their value on re-entry until the data call replaces them.
+    var locals = { data: "c8oPage.local?.data ?? null", error: "c8oPage.local?.error ?? null", loading: "c8oPage.local?.loading ?? true" };
     params.forEach(function (p) {
       locals[p] = "c8oPage.navParams?.data?." + p + " != null ? '' + c8oPage.navParams.data." + p + " : ''";
     });
@@ -324,7 +326,7 @@ include("js/tools_generators.js");
         errors.push("filters[" + i + "].name " + f.name + " is not a variable of " + facade + " (" + facadeVars.join(", ") + ").");
       }
       var localName = "filter" + upperFirst(str(f.name));
-      locals[localName] = f.value !== undefined ? jsString(String(f.value)) : "''";
+      locals[localName] = "c8oPage.local?." + localName + " ?? " + (f.value !== undefined ? jsString(String(f.value)) : "''");
       var type = str(f.type || "search");
       var item = uniqueName("Fi" + pascal(f.name), used);
       var control;
@@ -737,6 +739,12 @@ include("js/tools_generators.js");
             var toggleLabel = props.Label.value;
             delete props.Label;
             delete props.LabelPlacement;
+            // The toggle's state is Checked, which the template binds to ngModel; Value is only the value it submits when
+            // on, so value:"true" in Value showed the toggle off and created inactive records (run 10).
+            if (props.Value) {
+              props.Checked = props.Value;
+              delete props.Value;
+            }
             control = nx("Toggle", "Tg" + cname, props, [txt(toggleLabel)]);
           } else {
             if (["text", "email", "password", "number", "tel", "url", "date", "time"].indexOf(type) < 0) {
