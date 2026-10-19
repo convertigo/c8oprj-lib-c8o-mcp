@@ -303,3 +303,26 @@ test('a supervisor note reaches the agent in its next successful tool answer, on
   assert.match(endpoint, /↓OperatorNoteIf \[steps\.IfStep-1792407700007\]/);
   assert.match(read('resources/convertigo_common_skill.md'), /`operatorNote` is a note from the person who supervises your work/);
 });
+
+// --- tool errors for Vibe, js/ prefix -----------------------------------------------------------------
+
+test('a tool error reaches a Vibe client as a readable result, and every output schema accepts it (run 11a)', () => {
+  const router = read('js/mcp_endpoint_router.js');
+  assert.match(router, /mcpErrorsAsResult = \/\^MistralAI-VibeCLI\\\/\/\.test\(mcpUserAgent\);/);
+  const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
+  assert.match(endpoint, /var mcpErrorsAsResult = false;/);
+  assert.equal((endpoint.match(/- →→: mcpErrorsAsResult !== true/g) || []).length, 2, 'both error branches');
+  const ctx = { C8O: {}, include() {} };
+  vm.runInNewContext(read('js/schema_overrides.js'), ctx);
+  const tight = ctx.C8O.schemaOverrides.decorateOutput('tools_x', { type: 'object', additionalProperties: false,
+    properties: { status: { type: 'string' }, error: { type: 'object', properties: { context: { type: 'object' } } } } });
+  assert.deepEqual(Object.keys(tight.properties.error).sort(), ['description', 'type']);
+  assert.equal(tight.properties.error.type, 'object');
+  assert.match(read('resources/convertigo_vibe_start.md'), /check `result\.error` after each call/);
+});
+
+test('project-js-set and project-js-get take js/app.js as app.js (run 11a F-02)', () => {
+  for (const file of ['tools_project_js_set', 'tools_project_js_get']) {
+    assert.match(read('_c8oProject/sequences/' + file + '.yaml'), /if \(normalized\.indexOf\("js\/"\) === 0\) \{ normalized = normalized\.substring\(3\); \}/);
+  }
+});

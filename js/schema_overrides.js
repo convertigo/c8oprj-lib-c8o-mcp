@@ -2431,7 +2431,20 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return cloneObject(outputSchema, openObjectSchema({}));
   };
 
+  // A tool error comes back to a Vibe client as a result whose structured content is {error: {code, message, details}}:
+  // Vibe's run_typescript otherwise turns the error into an exception without its message. Every output schema accepts
+  // that field as any object, or the MCP client of Vibe rejects the answer as invalid (the typed error envelope had
+  // context as an object where the engine sends a string, and some schemas allow no other property).
   C8O.schemaOverrides.decorateOutput = function (_sequenceName, outputSchema, _requestable, _responseSample) {
+    if (!outputSchema || typeof outputSchema !== "object" || Array.isArray(outputSchema)) {
+      return outputSchema;
+    }
+    if (outputSchema.type === undefined || outputSchema.type === "object") {
+      if (!outputSchema.properties || typeof outputSchema.properties !== "object") {
+        outputSchema.properties = {};
+      }
+      outputSchema.properties.error = { type: "object", description: "Set instead of the result when the tool failed: {code, message, details}." };
+    }
     return outputSchema;
   };
 })();

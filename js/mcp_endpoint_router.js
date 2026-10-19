@@ -46,6 +46,12 @@ try {
   managedViewerDebugPort = 0;
 }
 // The managed agent hosts name the Tigo conversation: sub-agent runs are recorded under it.
+// Vibe's run_typescript turns a tool error (isError) into a bare exception that loses its message: the run 11a agent could
+// not read why a call failed. For a Vibe client the error comes back as a result (isError false) whose structured content
+// keeps the error field: {error: {code, message, details}}.
+var mcpUserAgent = context && context.httpServletRequest ? String(context.httpServletRequest.getHeader("User-Agent") || "") : "";
+mcpErrorsAsResult = /^MistralAI-VibeCLI\//.test(mcpUserAgent);
+
 var managedConversationId = "";
 try {
   var managedConversationIdHeader = context && context.httpServletRequest

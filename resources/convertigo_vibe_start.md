@@ -49,6 +49,7 @@ The Convertigo method is the shared one: the common skill (Tool economy, NGX and
 - Do not pass a guide URI to `mcp_resources_list`; list is for catalog discovery, read is for one URI.
 - When a guide URI is already known, skip list retries and call `lib_ConvertigoMCP.mcp_resources_read` directly.
 - Treat a `status:"partial"`, skipped property, or failed palette creation as a failed mutation to correct before continuing.
+- A Convertigo tool that fails answers Vibe with a result, not an exception: `{error: {code, message, details}}`, the message naming the cause. In `run_typescript`, check `result.error` after each call and read its message before retrying. A generator or a `databaseobject-tree-apply` that fails has changed nothing; a `batch-call` reports each of its calls.
 - In Vibe, the MCP tool calls of one assistant message run concurrently, each over its own MCP session. Send independent reads together. Delete then recreate, create then patch, patch then execute, create directive then add children, and save/open/readback sequences are ordered: one `Convertigo_batch-call`, or separate awaited messages, never side by side in one message. If an object name changes because create raced with delete, clean it up before continuing.
 - In headless mode, never end with an assistant message that only says work will continue in a later message. If the next step is a mutation, issue the MCP tool call in the same message. If you cannot continue, save if useful and provide a final answer that clearly says the run is incomplete and names the missing proof.
 

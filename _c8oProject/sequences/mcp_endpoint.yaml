@@ -73,6 +73,7 @@ responseTimeout: 300
     var mcpGuidanceWarning = "";
     var mcpArgumentWarning = "";
     var mcpOperatorNote = "";
+    var mcpErrorsAsResult = false;
     var mcpAuthentication = null;
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
@@ -327,7 +328,7 @@ responseTimeout: 300
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                 - SmartType: 
                   - ↑mode: JS
-                  - →→: true
+                  - →→: mcpErrorsAsResult !== true
           ↓content [steps.JsonArrayStep-1782105694333]: 
             key: 
               - xmlizable: 
@@ -458,7 +459,7 @@ responseTimeout: 300
                 - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                 - SmartType: 
                   - ↑mode: JS
-                  - →→: true
+                  - →→: mcpErrorsAsResult !== true
           ↓content [steps.JsonArrayStep-1782105694658]: 
             key: 
               - xmlizable: 
