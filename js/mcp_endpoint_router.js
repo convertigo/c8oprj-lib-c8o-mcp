@@ -370,6 +370,34 @@ function unknownArgumentsWarning(sequenceName, requestableObject, args) {
   }
 }
 
+// Notes for the agent at work from the person who supervises it: a file under <engine workspace>/agents/notes, named after
+// the conversation (the X-Convertigo-Conversation-Id the Bridge sends) or next.md for the next call of any conversation.
+// The next successful tool answer carries it once, as operatorNote, and the file is renamed .delivered. Vibe and Claude
+// read the user only between turns: in run 10 every note waited for the end of a 47 min turn and arrived too late.
+function takeOperatorNote() {
+  try {
+    var Files = java.nio.file.Files;
+    var dir = new java.io.File(new java.io.File(String(Packages.com.twinsoft.convertigo.engine.Engine.USER_WORKSPACE_PATH), "agents"), "notes");
+    var names = managedConversationId.length ? [managedConversationId + ".md", "next.md"] : ["next.md"];
+    for (var i = 0; i < names.length; i++) {
+      var file = new java.io.File(dir, names[i]);
+      if (!file.isFile()) {
+        continue;
+      }
+      // Renamed before it is read: of two calls at once, only one takes it.
+      var taken = new java.io.File(dir, names[i].replace(/\.md$/, "") + "." + java.lang.System.currentTimeMillis() + ".delivered.md");
+      if (!file.renameTo(taken)) {
+        continue;
+      }
+      var text = String(new java.lang.String(Files.readAllBytes(taken.toPath()), "UTF-8")).trim();
+      if (text.length) {
+        return text.length > 4000 ? text.substring(0, 4000) + " [cut]" : text;
+      }
+    }
+  } catch (_ignoreOperatorNote) {}
+  return "";
+}
+
 function injectMeta(target) {
   if (!target || typeof target !== "object") {
     return;

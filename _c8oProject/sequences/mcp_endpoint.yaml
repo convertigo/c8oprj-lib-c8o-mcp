@@ -72,6 +72,7 @@ responseTimeout: 300
     var pingInline = false;
     var mcpGuidanceWarning = "";
     var mcpArgumentWarning = "";
+    var mcpOperatorNote = "";
     var mcpAuthentication = null;
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
@@ -558,6 +559,8 @@ responseTimeout: 300
               - ↑value: ./document/*[@originalKeyName='result']
       ↓jIf [steps.IfStep-1762256059054]: 
         condition: methodName === "tools/call"
+        ↓TakeOperatorNote [steps.SimpleStep-1792407700005]: 
+          expression: mcpOperatorNote = takeOperatorNote();
         ↓result1 [steps.JsonSourceStep-1762256170522]: 
           sourceDefinition: 
             - xmlizable: 
@@ -610,7 +613,7 @@ responseTimeout: 300
                       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                       - SmartType: 
                         - ↑mode: JS
-                        - →→: '(function (value, warning, argumentWarning) { if (argumentWarning != null && String(argumentWarning).length > 0) { var withWarning = { argumentWarning: String(argumentWarning) }; if (value !== null && typeof value === "object" && !(value instanceof Array)) { for (var k in value) { withWarning[k] = value[k]; } } else { withWarning.result = value; } value = withWarning; } if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning, mcpArgumentWarning)'
+                        - →→: '(function (value, warning, argumentWarning, operatorNote) { if ((argumentWarning != null && String(argumentWarning).length > 0) || (operatorNote != null && String(operatorNote).length > 0)) { var withWarning = {}; if (operatorNote != null && String(operatorNote).length > 0) { withWarning.operatorNote = String(operatorNote); } if (argumentWarning != null && String(argumentWarning).length > 0) { withWarning.argumentWarning = String(argumentWarning); } if (value !== null && typeof value === "object" && !(value instanceof Array)) { for (var k in value) { withWarning[k] = value[k]; } } else { withWarning.result = value; } value = withWarning; } if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning, mcpArgumentWarning, mcpOperatorNote)'
           ↓structuredContent [steps.JsonObjectStep-1762256231591]: 
             key: 
               - xmlizable: 
@@ -618,6 +621,21 @@ responseTimeout: 300
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: structuredContent
+            ↓OperatorNoteIf [steps.IfStep-1792407700007]: 
+              condition: mcpOperatorNote !== null && mcpOperatorNote !== undefined && String(mcpOperatorNote).length > 0
+              ↓operatorNote [steps.JsonFieldStep-1792407700009]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: operatorNote
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: mcpOperatorNote
             ↓ArgumentWarningIf [steps.IfStep-1792407700001]: 
               condition: mcpArgumentWarning !== null && mcpArgumentWarning !== undefined && String(mcpArgumentWarning).length > 0
               ↓argumentWarning [steps.JsonFieldStep-1792407700003]: 

@@ -290,5 +290,16 @@ test('an argument a tool does not take is named in the answer, with the argument
   const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
   assert.match(endpoint, /var mcpArgumentWarning = "";/);
   assert.match(endpoint, /↓ArgumentWarningIf \[steps\.IfStep-1792407700001\]/, 'structuredContent carries it too');
-  assert.match(endpoint, /\(result, mcpGuidanceWarning, mcpArgumentWarning\)/, 'and the text content');
+  assert.match(endpoint, /\(result, mcpGuidanceWarning, mcpArgumentWarning, mcpOperatorNote\)/, 'and the text content');
+});
+
+test('a supervisor note reaches the agent in its next successful tool answer, once', () => {
+  const source = read('js/mcp_endpoint_router.js');
+  assert.match(source, /function takeOperatorNote\(\)/);
+  assert.match(source, /\[managedConversationId \+ "\.md", "next\.md"\]/, 'a note for one conversation, or for the next call');
+  assert.match(source, /if \(!file\.renameTo\(taken\)\)/, 'renamed before it is read, so two calls at once do not both take it');
+  const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
+  assert.match(endpoint, /↓TakeOperatorNote \[steps\.SimpleStep-1792407700005\]: \n\s+expression: mcpOperatorNote = takeOperatorNote\(\);/);
+  assert.match(endpoint, /↓OperatorNoteIf \[steps\.IfStep-1792407700007\]/);
+  assert.match(read('resources/convertigo_common_skill.md'), /`operatorNote` is a note from the person who supervises your work/);
 });
