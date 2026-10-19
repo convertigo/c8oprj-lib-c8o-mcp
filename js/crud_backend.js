@@ -318,6 +318,25 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
+  function pruneVariables(ctx, container, keptNames, className, result) {
+    if (!container || typeof container.getDatabaseObjectChildren !== "function") {
+      return;
+    }
+    var kept = {};
+    ctx.ensureArray(keptNames).forEach(function (name) { kept[String(name)] = true; });
+    var children = container.getDatabaseObjectChildren();
+    var toRemove = [];
+    for (var i = 0; i < children.size(); i++) {
+      var child = children.get(i);
+      if (ctx.logicalClassName(child) === className && !kept[String(child.getName())]) {
+        toRemove.push(child);
+      }
+    }
+    for (var r = 0; r < toRemove.length; r++) {
+      removeChild(container, toRemove[r], result);
+    }
+  }
+
   function pruneUnexpectedChildSteps(ctx, parent, allowedNames, result) {
     if (!parent || typeof parent.getDatabaseObjectChildren !== "function") {
       return;
@@ -518,6 +537,13 @@ C8O.crudBackend = C8O.crudBackend || {};
     if (!parent || !child || typeof parent.remove !== "function") {
       return false;
     }
+    // Its QName is read before it is detached: afterwards it was only "cn:void" or "st:body" (preflight checks).
+    var removedQName = "";
+    try {
+      removedQName = child.getFullQName ? String(child.getFullQName()) : String(child.getName());
+    } catch (_ignoreRemovedQName) {
+      removedQName = String(child.getName());
+    }
     try {
       parent.remove(child);
       try {
@@ -529,8 +555,10 @@ C8O.crudBackend = C8O.crudBackend || {};
           project.hasChanged = true;
         }
       } catch (_ignoreProjectChanged) {}
-      if (result && result.updated) {
-        result.updated.push(child.getFullQName ? String(child.getFullQName()) : String(child.getName()));
+      if (result && result.deleted) {
+        result.deleted.push(removedQName);
+      } else if (result && result.updated) {
+        result.updated.push(removedQName);
       }
       return true;
     } catch (_ignoreRemoveChild) {
@@ -538,17 +566,20 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
+  // The lists hold QNames only: a "... +N more" marker inside them read as a QName (preflight checks). The first ones
+  // are kept, without duplicates, and the counts give the rest.
   function compactMutationList(ctx, entries, limit) {
-    var items = ctx.ensureArray(entries);
+    var items = [];
+    var seen = {};
+    ctx.ensureArray(entries).forEach(function (item) {
+      var key = String(item);
+      if (!seen[key]) {
+        seen[key] = true;
+        items.push(key);
+      }
+    });
     var maxItems = Math.max(1, parseInt(limit, 10) || 20);
-    if (items.length <= maxItems) {
-      return items.slice();
-    }
-    var headSize = Math.max(1, Math.floor(maxItems / 2));
-    var tailSize = Math.max(1, maxItems - headSize - 1);
-    var compacted = items.slice(0, headSize);
-    compacted.push("... +" + String(items.length - headSize - tailSize) + " more");
-    return compacted.concat(items.slice(items.length - tailSize));
+    return items.slice(0, maxItems);
   }
 
   function finalizeUpsertCrudResult(ctx, result) {
@@ -557,7 +588,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     result.deletedCount = ctx.ensureArray(result.deleted).length;
     result.created = compactMutationList(ctx, result.created, 25);
     result.updated = compactMutationList(ctx, result.updated, 25);
-    result.deleted = compactMutationList(ctx, result.deleted, 15);
+    result.deleted = compactMutationList(ctx, result.deleted, 25);
     return result;
   }
 
@@ -1086,6 +1117,10 @@ C8O.crudBackend = C8O.crudBackend || {};
     tx.setSqlQuery(String(sqlQuery || ""));
     tx.setAutoCommit(autoCommit);
     tx.initializeQueries(true);
+    // initializeQueries adds the variables of the SQL but keeps the ones it no longer uses (a dropped field).
+    var sqlNames = [];
+    String(sqlQuery || "").replace(/\{\{?([A-Za-z_]\w*)\}?\}/g, function (_match, varName) { sqlNames.push(varName); return _match; });
+    pruneVariables(ctx, tx, sqlNames, "variables.RequestableVariable", result);
     var variableEntries = normalizeVariableEntries(ctx.ensureArray(currentOptions.variableEntries));
     for (var i = 0; i < variableEntries.length; i++) {
       var variable = ctx.findChild(tx, variableEntries[i].name, "variables.RequestableVariable");
@@ -1150,6 +1185,10 @@ C8O.crudBackend = C8O.crudBackend || {};
     txStep.setSourceTransaction(sourceTransaction);
     txStep.setOutput(false);
     C8O.crudBackend.ensureStepVariables(ctx, txStep, normalizedEntries, result);
+    // A field dropped from the spec left its variables on the sequence and its call (preflight checks).
+    var keptNames = normalizedEntries.map(function (entry) { return String(entry.name); });
+    pruneVariables(ctx, sequence, keptNames, "variables.RequestableVariable", result);
+    pruneVariables(ctx, txStep, keptNames, "variables.StepVariable", result);
     configurePublicSequencePayload(ctx, sequence, txStep, currentOptions, result);
     return sequence;
   };
