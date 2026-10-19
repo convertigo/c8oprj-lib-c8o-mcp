@@ -662,6 +662,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       return reports;
     }
     var compactReports = [];
+    // 40 reads in one call answered 32 000 characters (preflight checks): past about 24 000 characters of payloads, a
+    // report keeps its status and says how much it left out.
+    var payloadChars = 0;
+    var omittedNoted = false;
     for (var i = 0; i < reports.length; i++) {
       var report = reports[i] || {};
       // A clean mutation is already counted in summary and mutationFinalize: keep only its slot.
@@ -689,7 +693,20 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
         compact.optimizedMutation = true;
       }
       if (report.payload !== undefined) {
-        compact.payload = outputPayload(report.sequence, report.payload, responseDetail);
+        var payloadOut = outputPayload(report.sequence, report.payload, responseDetail);
+        var payloadSize = 0;
+        try {
+          payloadSize = JSON.stringify(payloadOut).length;
+        } catch (_noSize) {}
+        if (payloadChars > 0 && payloadChars + payloadSize > 24000) {
+          compact.payloadOmitted = omittedNoted
+            ? { characters: payloadSize }
+            : { characters: payloadSize, reason: "The answer reached about 24 000 characters: call these tools alone, or batch fewer calls." };
+          omittedNoted = true;
+        } else {
+          compact.payload = payloadOut;
+          payloadChars += payloadSize;
+        }
       }
       compactReports.push(compact);
     }
