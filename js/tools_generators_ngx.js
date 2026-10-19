@@ -89,6 +89,13 @@ include("js/tools_generators.js");
     return nxAction("SetLocalAction", name, { Property: { mode: "PLAIN", value: property }, Value: { mode: "SCRIPT", value: value } });
   }
 
+  // A value set deep in an action chain (under an IfAction, after a call) showed only at the next change detection: the
+  // form's error stayed hidden after a refusal (runs 9b and 10). The same custom action the guide gives renders it now.
+  function refreshView(name) {
+    return { className: "ngx.components.UICustomAction#UICustomAction", name: name || "RefreshView",
+      properties: { actionValue: "page.ref.detectChanges(); resolve(true);" } };
+  }
+
   function heading(name, level, value, mode) {
     return nx("Heading" + level, name, {}, [mode === "SCRIPT" ? expr(value) : txt(value)]);
   }
@@ -380,7 +387,9 @@ include("js/tools_generators.js");
       var children = dataCallVariables();
       children.push(setLocal("StoreData", "data", "out?.success ? (out?.data ?? null) : null"));
       children.push(setLocal("StoreError", "error", "out?.success ? null : (out?.errors?.[0]?.message || 'Error')"));
-      children.push(setLocal("StopLoading", "loading", "false"));
+      var stopLoading = setLocal("StopLoading", "loading", "false");
+      stopLoading.children = [refreshView()];
+      children.push(stopLoading);
       if (authRedirect.length) {
         children.push(authBranch("IfSessionLost"));
       }
@@ -880,7 +889,9 @@ include("js/tools_generators.js");
       submitChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: "out?.success" } }, ok));
       // Under an IfAction, out is the If's own result: the call's response is stack["Submit"].out.
       var submitError = "stack['Submit'].out?.errors?.[0]?.message || 'Error'";
-      var koChildren = [setLocal("StoreSubmitError", "error", submitError),
+      var storeSubmitError = setLocal("StoreSubmitError", "error", submitError);
+      storeSubmitError.children = [refreshView()];
+      var koChildren = [storeSubmitError,
         nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: submitError }, IonColor: { mode: "PLAIN", value: "danger" },
           duration: { mode: "PLAIN", value: "4000" } })];
       submitChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, koChildren));

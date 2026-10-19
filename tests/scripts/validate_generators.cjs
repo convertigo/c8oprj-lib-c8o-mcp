@@ -888,6 +888,20 @@ test('a form field initial value is computed at page enter, not written in the t
   assert.equal(nodes.InitInitDateEffective.properties.Property.value, 'initDateEffective');
 });
 
+test('generated chains render the error and loading locals at once (runs 9b and 10)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', title: 'P', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'p.numeroPoste' } });
+  const json = JSON.stringify(world.ops);
+  assert.match(json, /"name":"StopLoading"[^\]]*"children":\[\{"className":"ngx\.components\.UICustomAction#UICustomAction","name":"RefreshView","properties":\{"actionValue":"page\.ref\.detectChanges\(\); resolve\(true\);"/);
+  const nodes = {};
+  const world2 = makeWorld();
+  load(world2).ngxPageCreate({ project: 'App', name: 'DeclarationForm', kind: 'form', sequence: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' }, fields: [{ name: 'commentaire' }] } });
+  world2.ops.forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  assert.equal(nodes.StoreSubmitError.children[0].name, 'RefreshView');
+});
+
 test('a toggle field carries its label as a text child, not a Label property it does not have (run 9a)', () => {
   const world = makeWorld();
   const G = load(world);
