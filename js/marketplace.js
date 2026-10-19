@@ -407,6 +407,35 @@ C8O.marketplace._searchWords = function (search) {
   return words;
 };
 
+// limit 200 answered 62 000 characters for the 101 entries of the catalog (preflight checks): a page also stops near
+// 20 000 characters of entries, with hasMore and nextCursor. The descriptions count as the 240 characters listed.
+C8O.marketplace._boundPage = function (result) {
+  var entries = C8O.marketplace._asArray(result && result.entries);
+  var chars = 0;
+  var kept = [];
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i] || {};
+    var size = JSON.stringify(entry).length + 160;
+    var description = entry.description == null ? "" : String(entry.description);
+    if (description.length > 240) {
+      size -= description.length - 240;
+    }
+    if (kept.length && chars + size > 20000) {
+      break;
+    }
+    chars += size;
+    kept.push(entry);
+  }
+  if (kept.length < entries.length) {
+    var start = Number(result.startIndex) || 0;
+    result.entries = kept;
+    result.returned = kept.length;
+    result.hasMore = true;
+    result.nextCursor = String(start + kept.length);
+  }
+  return result;
+};
+
 C8O.marketplace.list = function (options) {
   var opts = options || {};
   var search = C8O.marketplace._trim(opts.search);
@@ -456,6 +485,7 @@ C8O.marketplace.list = function (options) {
     result = C8O.marketplace._listOne(opts);
     result.warnings = [];
   }
+  C8O.marketplace._boundPage(result);
   result.suggestions = [];
   if (search.length && !result.entries.length && !C8O.marketplace._trim(opts.cursor).length) {
     // Nothing matches whole words: rank the catalog by partial matches ("email" holds "mail") and return at most

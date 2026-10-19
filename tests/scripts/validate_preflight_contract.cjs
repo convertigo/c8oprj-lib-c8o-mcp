@@ -58,7 +58,7 @@ test('log-view: a page of long log lines stays under the cap', () => {
   assert.ok(ctx.logViewHasMore && ctx.logViewNextCursor, 'the cursor continues after the page');
 });
 
-test('marketplace-list: limit 200 over the whole catalog stays under the cap', { todo: 'live: 62 519 characters for the 101 entries' }, () => {
+test('marketplace-list: limit 200 over the whole catalog stays under the cap', () => {
   const context = { C8O: { dbo: {} }, Packages: {}, java: { lang: { System: { currentTimeMillis: () => 0 } } }, include: () => {} };
   vm.createContext(context);
   vm.runInContext(read('js/marketplace.js'), context);
