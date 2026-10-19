@@ -61,7 +61,10 @@ assert.strictEqual(D.unbalancedQuote("SELECT '{x}' FROM t"), null);
 
 // HSQLDB never cuts a TIMESTAMP to a short VARCHAR (run 9b): the cast is reported, longer casts and other databases are not.
 assert.strictEqual(D.shortTextCast("hsqldb", "SELECT CAST(n.date_traitement AS VARCHAR(19)) AS \"d\" FROM n").column, "n.date_traitement");
-assert.strictEqual(D.shortTextCast("", "SELECT CAST(d AS CHAR(10)) FROM n").size, 10);
+assert.strictEqual(D.shortTextCast("", "SELECT CAST(created_at AS CHAR(16)) FROM n").size, 16);
+// Run 10 F-01: an integer id, or a DATE in 10 characters, is not a timestamp cut short.
+assert.strictEqual(D.shortTextCast("hsqldb", "SELECT CAST(id AS VARCHAR(20)) FROM n"), null);
+assert.strictEqual(D.shortTextCast("hsqldb", "SELECT CAST(p.date_remise AS VARCHAR(10)) FROM n"), null);
 assert.strictEqual(D.shortTextCast("hsqldb", "SELECT CAST(d AS VARCHAR(30)) FROM n"), null);
 assert.strictEqual(D.shortTextCast("postgresql", "SELECT CAST(d AS VARCHAR(19)) FROM n"), null);
 

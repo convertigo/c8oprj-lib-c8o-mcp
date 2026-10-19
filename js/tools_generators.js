@@ -385,10 +385,19 @@ C8O.generators = C8O.generators || {};
     }
     var shortCast = D.shortTextCast(dialect, sql);
     if (shortCast) {
-      warnings.push(shortCast.expression + ": if " + shortCast.column + " is a TIMESTAMP, HSQLDB fails with \"string data, right truncation\" " +
-        "(it is up to 26 characters and HSQLDB never cuts). Write TO_CHAR(" + shortCast.column + ", 'YYYY-MM-DD HH24:MI:SS'), or CAST(CAST(" +
-        shortCast.column + " AS DATE) AS VARCHAR(10)) for the date alone.");
+      warnings.push(shortCast.expression + ": if " + shortCast.column + " is a TIMESTAMP with fractional seconds (the default TIMESTAMP(6)), HSQLDB fails " +
+        "with \"string data, right truncation\": it is 26 characters and HSQLDB never cuts (TIMESTAMP(0) fits in 19). Write TO_CHAR(" + shortCast.column +
+        ", 'YYYY-MM-DD HH24:MI:SS'), or CAST(CAST(" + shortCast.column + " AS DATE) AS VARCHAR(10)) for the date alone.");
     }
+    // A {variable} is a bound parameter, which DDL does not take: RESTART WITH {nextId} failed with "unexpected token: ?" (run 10 F-02).
+    statements.forEach(function (statement) {
+      var ddl = /^\s*(CREATE|ALTER|DROP|TRUNCATE)\b/i.exec(statement);
+      var bound = /(^|[^{])\{([A-Za-z_]\w*)\}(?!\})/.exec(statement);
+      if (ddl && bound) {
+        warnings.push(ddl[1].toUpperCase() + " statement with {" + bound[2] + "}: a DDL statement takes no bound parameter, so the call fails with " +
+          "\"unexpected token: ?\". Use {{" + bound[2] + "}} (raw text the sequence computes, never user input) or a literal.");
+      }
+    });
     var openQuote = D.unbalancedQuote(sql);
     if (openQuote !== null) {
       errors.push("a string literal is never closed near \"" + openQuote + "\": an apostrophe inside a text must be doubled ('d''année').");

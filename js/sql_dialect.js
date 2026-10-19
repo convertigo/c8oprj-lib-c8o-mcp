@@ -124,11 +124,15 @@ C8O.sqlDialect = C8O.sqlDialect || {};
     if (dialect && dialect !== "hsqldb") {
       return null;
     }
+    // Only a column named like a date or time and a size a DATE fits in (10) but a TIMESTAMP(6) does not: warning on every
+    // CAST to VARCHAR, an integer id or a DATE included, gave 20 warnings for 13 transactions (run 10 F-01).
     var re = /CAST\s*\(\s*([A-Za-z_][\w.]*)\s+AS\s+(?:VARCHAR|CHAR)\s*\(\s*(\d+)\s*\)\s*\)/gi;
     var m;
     while ((m = re.exec(String(sql || ""))) !== null) {
-      if (Number(m[2]) < 26) {
-        return { expression: m[0], column: m[1], size: Number(m[2]) };
+      var size = Number(m[2]);
+      var name = m[1].replace(/^.*\./, "");
+      if (size > 10 && size < 26 && /date|time|stamp|_at$|^at_/i.test(name)) {
+        return { expression: m[0], column: m[1], size: size };
       }
     }
     return null;
