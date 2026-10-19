@@ -604,6 +604,22 @@ C8O.dbo.requireTargetProject = function (name, verb) {
   return text;
 };
 
+// Plain text properties that nothing evaluates as JavaScript.
+C8O.dbo._TEXT_ONLY_PROPERTIES = { sqlQuery: true, comment: true, description: true };
+
+// The text of a JS string literal ('...' or "..."), or null when the expression is something else.
+C8O.dbo._jsStringLiteralText = function (expression) {
+  var m = /^\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*$/.exec(String(expression));
+  if (!m) {
+    return null;
+  }
+  try {
+    return m[2] !== undefined ? JSON.parse('"' + m[2] + '"') : JSON.parse('"' + m[1].replace(/\\'/g, "'").replace(/"/g, '\\"') + '"');
+  } catch (_notJsonEscapes) {
+    return m[2] !== undefined ? m[2] : m[1];
+  }
+};
+
 C8O.dbo.resolve = function (qname, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};
@@ -1566,6 +1582,17 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         propertyType != null && String(propertyType.getName()) === "java.lang.String") {
       var wrapped = rawSpec.expression !== undefined ? rawSpec.expression : rawSpec.value;
       if (typeof wrapped === "string") {
+        // {mode:"JS", value:"'SELECT ...'"} on sqlQuery or comment stored the expression's source, quotes included,
+        // with status ok (preflight checks). A string literal stands for its text; another JS expression on a text-only
+        // property is refused, since nothing evaluates it there.
+        var wrapMode = String(rawSpec.mode).toUpperCase();
+        var literalText = C8O.dbo._jsStringLiteralText(wrapped);
+        if ((wrapMode === "JS" || wrapMode === "SCRIPT") && literalText !== null) {
+          wrapped = literalText;
+        } else if (wrapMode === "JS" && C8O.dbo._TEXT_ONLY_PROPERTIES[String(name)]) {
+          errors.push({ name: name, message: name + " is plain text, never evaluated: the JS expression would be stored as its source. Give the text itself." });
+          continue;
+        }
         rawSpec = wrapped;
       }
     }
