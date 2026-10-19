@@ -207,12 +207,64 @@ function locateNgxEntry(classNameToken) {
   };
 }
 
+// NGX classes that are objects of their own, not palette entries of a dynamic class: tree-get names them
+// ngx.components.ApplicationComponent#ApplicationComponent; the application has no palette entry at all (run 13a F-08).
+var NGX_OWN_CLASSES = {
+  ApplicationComponent: "The NGX application (<Project>.Application.NgxApp): one per project, created with the project, never from the palette. " +
+    "Its pages, menus, shared components, styles and application events are its children.",
+  PageComponent: "An NGX page, directly under the application."
+};
+
+// isRoot is a field of the page, not a bean property: palette-describe never listed it (run 13a F-08).
+var PAGE_ROOT_HINT = {
+  name: "isRoot", displayName: "Root page", type: "boolean", kind: "boolean", defaultValue: false,
+  description: "Entry page of the application, the one it opens on (the default route). Exactly one page has it: " +
+    "databaseobject-tree-apply {properties:{isRoot:true}} on a page clears it on the others (ngx-page-create root:true does the same). " +
+    "It cannot be set to false on the current root: set it on the replacement page."
+};
+
+function ngxOwnClassName(parsed) {
+  var simple = String(parsed.baseClassFqcn).substring(String(parsed.baseClassFqcn).lastIndexOf(".") + 1);
+  return NGX_OWN_CLASSES[simple] && (!parsed.hasLogicalId || parsed.logicalId === simple) ? simple : "";
+}
+
+// An NGX class of its own described from its BeanInfo, when the palette has no entry for it.
+function describeNgxOwnClass(parsed, simple) {
+  var beanInfo = null;
+  try {
+    beanInfo = Packages.java.lang.Class.forName(parsed.baseClassFqcn + "BeanInfo").getConstructor().newInstance();
+  } catch (_noBeanInfo) {
+    return null;
+  }
+  var descriptor = beanInfo.getBeanDescriptor();
+  var parts = splitDescription(descriptor.getShortDescription());
+  var classLabel = (C8O.util.fromFqcn ? C8O.util.fromFqcn(parsed.baseClassFqcn) : parsed.baseClassFqcn) + "#" + simple;
+  return {
+    entry: {
+      className: classLabel,
+      name: toJsString(descriptor.getDisplayName()),
+      shortDescription: parts.short || NGX_OWN_CLASSES[simple],
+      longDescription: NGX_OWN_CLASSES[simple] + (parts.long ? " " + parts.long : ""),
+      description: NGX_OWN_CLASSES[simple],
+      icon: "",
+      group: "NGX",
+      category: "Application"
+    },
+    describe: C8O.palette.describeBeanTemplate({ className: classLabel, beanInfo: beanInfo, displayName: toJsString(descriptor.getDisplayName()) })
+  };
+}
+
 var requestedClassToken = C8O.util.toTrimmedString(className || "");
 if (!requestedClassToken.length) {
   throw new Error("className is required");
 }
 var verboseMode = parseOptionBoolean(typeof verbose !== "undefined" ? verbose : null, false);
 var parsedRequested = C8O.dbo.parseLogicalClassToken(requestedClassToken);
+var ngxOwnClass = C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn) ? ngxOwnClassName(parsedRequested) : "";
+if (ngxOwnClass && !parsedRequested.hasLogicalId) {
+  requestedClassToken = requestedClassToken + "#" + ngxOwnClass;
+  parsedRequested = C8O.dbo.parseLogicalClassToken(requestedClassToken);
+}
 
 var entryPayload = null;
 var describeData = null;
@@ -223,30 +275,36 @@ if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
     throw new Error("For NGX palette describe, className must include '#<logicalId>'");
   }
   var ngxEntry = locateNgxEntry(requestedClassToken);
-  if (!ngxEntry) {
+  var ownDescribed = !ngxEntry && ngxOwnClass ? describeNgxOwnClass(parsedRequested, ngxOwnClass) : null;
+  if (ownDescribed) {
+    entryPayload = ownDescribed.entry;
+    describeData = ownDescribed.describe;
+  } else if (!ngxEntry) {
     var closeEntries = C8O.dbo.suggestNgxLogicalClasses ? C8O.dbo.suggestNgxLogicalClasses(requestedClassToken, 6) : [];
     throw new Error("Palette entry not found for className '" + requestedClassToken + "'" +
       (closeEntries.length ? ". Close entries: " + closeEntries.join(", ") : "") +
       ". palette-list on the intended parent lists every entry it accepts.");
   }
-  var ngxDesc = splitDescription(ngxEntry.description);
-  entryPayload = {
-    className: ngxEntry.className,
-    name: ngxEntry.name,
-    shortDescription: ngxDesc.short,
-    longDescription: ngxDesc.long,
-    description: ngxEntry.description,
-    icon: ngxEntry.icon,
-    group: ngxEntry.group,
-    category: ngxEntry.category
-  };
-  try {
-    describeData = C8O.palette.describePaletteEntry({
+  if (ngxEntry) {
+    var ngxDesc = splitDescription(ngxEntry.description);
+    entryPayload = {
       className: ngxEntry.className,
       name: ngxEntry.name,
-      sampleDbo: ngxEntry.sampleDbo
-    });
-  } catch (_ignoreNgxDescribe) {}
+      shortDescription: ngxDesc.short,
+      longDescription: ngxDesc.long,
+      description: ngxEntry.description,
+      icon: ngxEntry.icon,
+      group: ngxEntry.group,
+      category: ngxEntry.category
+    };
+    try {
+      describeData = C8O.palette.describePaletteEntry({
+        className: ngxEntry.className,
+        name: ngxEntry.name,
+        sampleDbo: ngxEntry.sampleDbo
+      });
+    } catch (_ignoreNgxDescribe) {}
+  }
 } else {
   var requestedClass = parsedRequested.baseClassFqcn;
   var match = locateExplorerEntry(requestedClass);
@@ -282,6 +340,11 @@ if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
 
 var templateMeta = describeData && describeData.creationTemplate ? mapTemplate(describeData.creationTemplate) : null;
 var hintsPayload = describeData && describeData.propertyHints ? mapHints(describeData.propertyHints, hintClassLabel, !verboseMode) : [];
+if (ngxOwnClass === "PageComponent" && !hintsPayload.some(function (h) { return h.name === "isRoot"; })) {
+  hintsPayload.push({ name: PAGE_ROOT_HINT.name, displayName: PAGE_ROOT_HINT.displayName, description: PAGE_ROOT_HINT.description,
+    type: PAGE_ROOT_HINT.type, kind: PAGE_ROOT_HINT.kind, defaultValue: PAGE_ROOT_HINT.defaultValue });
+  hintsPayload.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+}
 if (!verboseMode) {
   templateMeta = null;
 }

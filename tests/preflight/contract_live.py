@@ -34,7 +34,7 @@ def args_parser():
     ap.add_argument("--allow-port", type=int, action="append", default=[])
     ap.add_argument("--cap", type=int, default=30000, help="answer size cap in characters")
     ap.add_argument("--keep", action="store_true", help="keep the scratch project")
-    ap.add_argument("--only", default="", help="comma list of sections: qnames,size,upsert,errors")
+    ap.add_argument("--only", default="", help="comma list of sections: qnames,size,upsert,errors,palette")
     ap.add_argument("--json", default="", help="write the result table to this file")
     return ap
 
@@ -513,6 +513,25 @@ class Contract:
             else:
                 self.r.add("errors", label, "PASS", f"HTTP {ans.status} {ans.text[:100] or ans.body[:100]}")
 
+    # --- palette -------------------------------------------------------------------------------
+
+    def check_palette(self):
+        """palette-describe takes every className tree-get gives on the NGX application, and the page lists isRoot
+        (run 13a F-08: the application had no entry and the page no isRoot)."""
+        tree = self.m.call("databaseobject-tree-get", {"target": P + ".Application.NgxApp", "childrenDepth": 1, "properties": "none"})
+        root = tree.get("tree") or {}
+        classes = sorted({n.get("className") for n in [root] + (root.get("children") or []) if n.get("className")})
+        refused = []
+        for cls in classes:
+            a = self.m.call("palette-describe", {"className": cls})
+            if a.is_error:
+                refused.append(f"{cls}: {_message(a)[:80]}")
+            elif cls.endswith("#PageComponent") and "isRoot" not in [h.get("name") for h in a.get("propertyHints") or []]:
+                refused.append(f"{cls}: no isRoot hint")
+        self.r.add("palette", "palette-describe of the classes tree-get gives (NGX app)", "FAIL" if refused else "PASS",
+                   "; ".join(refused) if refused else f"{len(classes)} classes described: {', '.join(c.split('#')[-1] for c in classes)}",
+                   fix="describe the NGX classes of their own (ApplicationComponent, PageComponent) from their BeanInfo, with isRoot")
+
     # --- run -----------------------------------------------------------------------------------
 
     def run(self):
@@ -524,6 +543,8 @@ class Contract:
                 self.check_sizes()
             if self.section("errors"):
                 self.check_errors()
+            if self.section("palette"):
+                self.check_palette()
             if self.section("qnames"):
                 self.check_qnames()
         finally:

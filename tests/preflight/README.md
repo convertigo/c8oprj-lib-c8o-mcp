@@ -32,6 +32,8 @@ It builds `PfContract` with the tools an agent uses (starter import, connector, 
   and the structured content carries the same message as the text. A tree-apply value the engine cannot take (a
   text on a number property, an unknown enum constant or tag, a text other than true/false) fails the op with the
   property, the value and what it takes, and leaves the property as it was.
+- **palette**: `palette-describe` takes every className `databaseobject-tree-get` gives on the NGX application
+  (ApplicationComponent included), and the page lists `isRoot`.
 
 `project-save` with an unknown project re-exports the MCP project itself while that defect is there: restore its
 YAML with `git checkout -- _c8oProject c8oProject.yaml` in a git clone.
