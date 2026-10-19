@@ -2344,11 +2344,9 @@ def compute_updates_for_qname(
             if wanted["value"] == NOT_SET and isinstance(current, dict) and current.get("value") == NOT_SET:
                 continue
             if current is None and wanted["mode"] == "PLAIN" and wanted["value"] in ("false", NOT_SET):
-                # The engine keeps "not set" as plain:false, and tree-get reads it as null when the property has a
-                # "not set" choice: setting it again never converged (run 12, SelectOption Value).
-                if wanted["value"] == "false":
-                    warnings.append(f"{qname}: beanData {prop} plain:false is the NGX \"not set\" value: the page renders "
-                                    f"no {prop}; write script:'false' for the text false")
+                # plain:false is the text false (the page renders value="false"), not "not set"; an MCP older than
+                # its not-set fix read it as null on a property with a "not set" choice, so setting it again never
+                # converged (run 12, SelectOption Value).
                 continue
             updates[prop] = ion_property_payload(wanted)
     for name, desired_value in desired_props.items():

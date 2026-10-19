@@ -380,6 +380,28 @@ function propertyWorld() {
   return { ctx, check };
 }
 
+test('an NGX property unset with null or "not set" gets the not-set text, and the text false stays a value (run 12 F-01)', () => {
+  const source = read('js/databaseobject.js');
+  const fnOf = name => { const at = source.indexOf('C8O.dbo.' + name + ' = '); return source.slice(at, source.indexOf('\n};\n', at) + 3); };
+  function MobileSmartSourceType(text) { this.text = text; }
+  const ctx = {
+    Packages: { com: { twinsoft: { convertigo: { beans: { ngx: { components: { MobileSmartSourceType } } } } } } },
+    C8O: { util: { toTrimmedString: v => (v == null ? '' : String(v).trim()) }, dbo: { _buildMobileSmartSourceType: spec => ({ built: spec }) } }
+  };
+  vm.runInNewContext('C8O.dbo._NGX_NOT_SET = "not set";' + ['_prepareDynamicPropertyValue', '_isNotSetSentinelValue'].map(fnOf).join(''), ctx);
+  const D = ctx.C8O.dbo;
+  const withChoice = { hasNotSetSentinel: true };
+  const notSet = { built: { mode: 'PLAIN', value: 'not set' } };
+  assert.deepEqual(JSON.parse(JSON.stringify(D._prepareDynamicPropertyValue(null, withChoice))), notSet, 'null unsets: before, it wrote the text false');
+  assert.deepEqual(JSON.parse(JSON.stringify(D._prepareDynamicPropertyValue(' Not set ', withChoice))), notSet);
+  assert.equal(D._prepareDynamicPropertyValue(null, { hasNotSetSentinel: false }), null);
+  assert.equal(D._prepareDynamicPropertyValue('plain:false', withChoice).text, 'plain:false', 'the text false is kept as a value');
+  assert.equal(D._isNotSetSentinelValue({ mode: 'PLAIN', value: 'false' }), false, 'tree-get shows the text false, not null');
+  assert.equal(D._isNotSetSentinelValue('false'), false);
+  assert.equal(D._isNotSetSentinelValue(false), true);
+  assert.equal(D._isNotSetSentinelValue({ mode: 'PLAIN', value: false }), true);
+});
+
 const taken = r => { assert.equal(r.error, undefined, r.error); return r.value; };
 const refused = r => { assert.ok(r.error, 'taken as ' + JSON.stringify(r.value)); return r.error; };
 

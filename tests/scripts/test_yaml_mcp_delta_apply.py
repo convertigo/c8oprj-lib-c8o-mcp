@@ -512,11 +512,15 @@ class IonNotSetTests(Base):
         updates, warnings, _p = m.compute_updates_for_qname(client, "P.App.NgxApp.pg:Page.Opt", {"beanData": bean}, runtime_tree=tree)
         return updates, warnings
 
-    def test_plain_false_matches_the_not_set_null(self) -> None:
-        # tree-get reads the engine's not-set sentinel (plain:false) as null: no update, a warning on what it means.
+    def test_plain_false_matches_the_null_of_an_older_mcp(self) -> None:
+        # An older MCP read the text false as null: no update, and no claim that the page renders no value.
         updates, warnings = self.updates("plain:false", None)
         self.assertEqual(updates, {})
-        self.assertTrue(any("not set" in w and "script:'false'" in w for w in warnings))
+        self.assertEqual(warnings, [])
+
+    def test_plain_false_matches_the_text_false(self) -> None:
+        updates, warnings = self.updates("plain:false", {"mode": "PLAIN", "value": "false"})
+        self.assertEqual((updates, warnings), ({}, []))
 
     def test_a_real_value_still_differs_from_null(self) -> None:
         updates, _w = self.updates("plain:active", None)

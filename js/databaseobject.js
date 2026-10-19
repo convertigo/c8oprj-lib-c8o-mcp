@@ -985,19 +985,25 @@ C8O.dbo._getDynamicPropertyContext = function (dbo) {
   return { ionBean: ionBean, byLookup: byLookup, byName: byName };
 };
 
+// An NGX property is "not set" when its value is the text "not set" (IonProperty turns it into the engine's
+// Boolean false sentinel; the page then renders no attribute and beanData leaves it out). The text "false" is a
+// value: plain:false renders value="false". Unsetting with false wrote the text false, so a Placeholder unset with
+// null showed "false" on the page.
+C8O.dbo._NGX_NOT_SET = "not set";
+
 C8O.dbo._prepareDynamicPropertyValue = function (rawSpec, dynamicMeta) {
   var MobileSmartSourceType = Packages.com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType;
   var effectiveSpec = rawSpec;
   if (typeof effectiveSpec === "string") {
     var trimmed = C8O.util.toTrimmedString(effectiveSpec);
-    if (dynamicMeta && dynamicMeta.hasNotSetSentinel && trimmed.toLowerCase() === "not set") {
-      effectiveSpec = false;
+    if (dynamicMeta && dynamicMeta.hasNotSetSentinel && trimmed.toLowerCase() === C8O.dbo._NGX_NOT_SET) {
+      effectiveSpec = null;
     }
   }
   var applyNull = (effectiveSpec === null || effectiveSpec === undefined || (effectiveSpec && effectiveSpec.__isNull === true));
   if (applyNull) {
     if (dynamicMeta && dynamicMeta.hasNotSetSentinel) {
-      return C8O.dbo._buildMobileSmartSourceType(false);
+      return C8O.dbo._buildMobileSmartSourceType({ mode: "PLAIN", value: C8O.dbo._NGX_NOT_SET });
     }
     return null;
   }
@@ -1010,22 +1016,15 @@ C8O.dbo._prepareDynamicPropertyValue = function (rawSpec, dynamicMeta) {
   return C8O.dbo._buildMobileSmartSourceType(effectiveSpec);
 };
 
+// The engine's own sentinel (Boolean false) only: the text "false" is a value (see _NGX_NOT_SET). Reading it as not
+// set showed a SelectOption Value "false" as null, so yaml_mcp_delta_apply set it again on every pass (run 12 F-01).
 C8O.dbo._isNotSetSentinelValue = function (value) {
-  if (value === false || value === "false") {
+  if (value === false) {
     return true;
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
-
-  var modeToken = "";
-  if (value.mode !== undefined && value.mode !== null) {
-    modeToken = String(value.mode);
-  } else if (value.type !== undefined && value.type !== null) {
-    modeToken = String(value.type);
-  }
-  modeToken = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(modeToken).toLowerCase() : String(modeToken || "").toLowerCase();
-
   var rawValue = null;
   if (Object.prototype.hasOwnProperty.call(value, "value")) {
     rawValue = value.value;
@@ -1035,13 +1034,7 @@ C8O.dbo._isNotSetSentinelValue = function (value) {
     rawValue = value.expression;
   }
 
-  if (rawValue === false) {
-    return true;
-  }
-  if (typeof rawValue === "string" && rawValue.toLowerCase() === "false") {
-    return modeToken.length === 0 || modeToken === "plain";
-  }
-  return false;
+  return rawValue === false;
 };
 
 C8O.dbo._isClass = function (className, value) {
