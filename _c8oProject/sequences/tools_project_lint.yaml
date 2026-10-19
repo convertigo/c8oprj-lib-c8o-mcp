@@ -27,6 +27,6 @@ comment: |
   description: Project technical name to lint.
   value: ''
 ↓checkTexts [variables.RequestableVariable-1792272000006]: 
-  comment: 'false skips the text review (spelling, accents, language) by the gateway model; default true.'
-  description: 'false skips the text review (spelling, accents, language) by the gateway model; default true.'
+  comment: 'false skips the text review (spelling, accents, language) by the gateway model; default true. An agent that calls no gateway model (Claude) always gets false: review the texts the user sees yourself.'
+  description: 'false skips the text review (spelling, accents, language) by the gateway model; default true. An agent that calls no gateway model (Claude) always gets false: review the texts the user sees yourself.'
   value: ''
