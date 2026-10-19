@@ -98,7 +98,7 @@ test('a tool error text lifts the message of the tool script', () => {
   assert.equal(out.message, 'ngx-page-create: invalid spec, nothing was created.');
 });
 
-test('a tool error structuredContent carries the same readable message as the text', { todo: 'live: 27 of 27 tool errors keep "An exception occured while executing step" in structuredContent.error.message' }, () => {
+test('a tool error structuredContent carries the same readable message as the text', () => {
   const yaml = read(endpoint);
   const block = yaml.slice(yaml.indexOf('↓ToolCallErrorResult'), yaml.indexOf('↓ReturnToolError'));
   const structured = block.slice(block.indexOf('↓structuredContent'));
@@ -109,9 +109,12 @@ test('a tool error structuredContent carries the same readable message as the te
 function route(name) {
   const routerSource = read('js/mcp_endpoint_router.js');
   const start = routerSource.indexOf('  var toolNameRaw = paramsObject');
-  const end = routerSource.indexOf('  if (mappingError) {', start);
-  const known = new Set(['tools_project_list', 'tools_databaseobject_tree_get']);
-  const project = { getName: () => 'lib_ConvertigoMCP', getSequenceByName: n => (known.has(String(n)) ? { getName: () => n } : null) };
+  const end = routerSource.indexOf('      callSequence = targetSequence;', start);
+  const known = ['tools_project_list', 'tools_project_save', 'tools_databaseobject_tree_get'];
+  // Like the engine, getSequenceByName throws for a missing name.
+  const project = { getName: () => 'lib_ConvertigoMCP',
+    getSequenceByName: n => { if (!known.includes(String(n))) { throw new Error('There is no sequence named ' + n); } return { getName: () => n }; },
+    getSequencesList: () => ({ size: () => known.length, get: i => ({ getName: () => known[i] }) }) };
   const ctx = {
     context: { project, httpServletRequest: { getHeader: () => null } },
     C8O: { guidance: { warningForToolCall: () => '', stripToolArguments: a => a } },
@@ -122,16 +125,27 @@ function route(name) {
   };
   vm.runInNewContext(read('js/nocode_tool_policy.js'), ctx);
   vm.runInNewContext(read('js/gateway_tool_policy.js'), ctx);
-  vm.runInNewContext(routerSource.slice(start, end), ctx);
+  ctx.Engine = ctx.Packages.com.twinsoft.convertigo.engine.Engine;
+  vm.runInNewContext(routerSource.slice(start, end) + '\n    }\n  }', Object.assign(ctx, { requestIdJson: 'null', JSON }));
   return ctx;
 }
 
-test('tools/call of an unknown tool names it instead of an internal routing error', { todo: 'live: "Internal MCP routing error"' }, () => {
-  assert.equal(route('project-list').mappingError, null);
-  const out = route('no-such-tool');
-  assert.ok(out.mappingError, 'the router maps no-such-tool to tools_no_such_tool without checking that it exists');
-  assert.match(out.mappingError.message, /no-such-tool/);
+test('tools/call of an unknown tool names it instead of an internal routing error', () => {
+  assert.equal(route('project-list').callSequence, undefined, 'a known tool goes on to its sequence');
+  const out = route('project-saved');
+  assert.equal(out.callSequence, 'mcp_error_response');
+  assert.match(out.callVariables.message, /Unknown tool project-saved\. Close tools: project-save/);
 });
+
+// The real C8O.dbo.requireTargetProject, run against the given workspace.
+function guardOf(projects) {
+  const source = read('js/databaseobject.js');
+  const fn = source.slice(source.indexOf('C8O.dbo.requireTargetProject = function'), source.indexOf('\n};\n', source.indexOf('C8O.dbo.requireTargetProject = function')) + 3);
+  const ctx = { C8O: { util: { toTrimmedString: v => (v == null ? '' : String(v).trim()) }, dbo: {} }, context: { project: { getName: () => 'lib_ConvertigoMCP' } },
+    Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { databaseObjectsManager: { existsProject: n => projects.includes(String(n)) } } } } } } } } };
+  vm.runInNewContext(fn, ctx);
+  return ctx.C8O.dbo.requireTargetProject;
+}
 
 function runInit(file, vars, projects) {
   const saved = [];
@@ -147,6 +161,7 @@ function runInit(file, vars, projects) {
     C8O: {
       util: { toTrimmedString: v => (v == null ? '' : String(v).trim()) },
       dbo: {
+        requireTargetProject: guardOf(projects),
         saveProject: p => { saved.push(p ? String(p.getName()) : null); return { saved: !!p }; },
         reloadProject: n => { reloaded.push(String(n)); return { reloaded: false, status: 'failed', message: 'Timed out' }; }
       }
@@ -156,16 +171,18 @@ function runInit(file, vars, projects) {
   return { ctx, saved, reloaded };
 }
 
-test('project-save of an unknown project saves nothing else', { todo: 'live: saved lib_ConvertigoMCP (24 YAML files rewritten) for project PfNoSuchProject' }, () => {
-  const { ctx, saved } = runInit('_c8oProject/sequences/tools_project_save.yaml', { project: 'PfNoSuchProject' }, ['App', 'lib_ConvertigoMCP']);
-  assert.deepEqual(saved.filter(Boolean), [], `saved ${saved.join(', ')}`);
-  assert.notEqual(ctx.projectSaveStatus, 'saved');
+test('project-save of an unknown project saves nothing else', () => {
+  assert.throws(() => runInit('_c8oProject/sequences/tools_project_save.yaml', { project: 'PfNoSuchProject' }, ['App', 'lib_ConvertigoMCP']),
+    /Unknown project: PfNoSuchProject/);
+  assert.throws(() => runInit('_c8oProject/sequences/tools_project_save.yaml', { project: '' }, ['App', 'lib_ConvertigoMCP']), /project is required/);
+  assert.throws(() => runInit('_c8oProject/sequences/tools_project_save.yaml', { project: 'lib_ConvertigoMCP' }, ['App', 'lib_ConvertigoMCP']),
+    /running MCP server project/);
+  assert.deepEqual(runInit('_c8oProject/sequences/tools_project_save.yaml', { project: 'App' }, ['App', 'lib_ConvertigoMCP']).saved, ['App']);
 });
 
-test('project-reload of an unknown project answers at once', { todo: 'live: 120 s before "Timed out waiting for project reload completion"' }, () => {
-  const { reloaded, ctx } = runInit('_c8oProject/sequences/tools_project_reload.yaml', { project: 'PfNoSuchProject' }, ['App', 'lib_ConvertigoMCP']);
-  assert.deepEqual(reloaded, [], 'reloadProject waited for a project that is not in the workspace');
-  assert.match(String(ctx.projectReloadMessage), /not found|PfNoSuchProject/i);
+test('project-reload of an unknown project answers at once', () => {
+  assert.throws(() => runInit('_c8oProject/sequences/tools_project_reload.yaml', { project: 'PfNoSuchProject' }, ['App', 'lib_ConvertigoMCP']),
+    /Unknown project: PfNoSuchProject/);
 });
 
 // --- upserts ------------------------------------------------------------------------------------
@@ -176,7 +193,9 @@ function crudWorld() {
   vm.runInContext(read('js/crud_backend.js'), context);
   const node = (name, cls, parent) => {
     const n = { name, cls, parent, children: [], getName: () => name, setComment() {}, setDescription() {},
-      getFullQName: () => (parent ? parent.getFullQName() + '.' : 'App.') + name };
+      getFullQName: () => (n.parent ? n.parent.getFullQName() + '.' : 'App.') + name,
+      getDatabaseObjectChildren: () => ({ size: () => n.children.length, get: i => n.children[i] }),
+      remove: child => { n.children.splice(n.children.indexOf(child), 1); child.parent = null; } };
     if (parent) { parent.children.push(n); }
     return n;
   };
@@ -185,25 +204,26 @@ function crudWorld() {
     trimmed: v => (v == null ? '' : String(v).trim()),
     findChild: (parent, name, cls) => parent.children.find(c => c.name === String(name) && (!cls || c.cls === cls)) || null,
     createChild: (parent, cls, name) => node(String(name), cls, parent),
-    removeChild: (parent, child) => { parent.children.splice(parent.children.indexOf(child), 1); },
+    logicalClassName: n => n.cls,
     applyUpdates() {}
   };
   return { B: context.C8O.crudBackend, ctx, node };
 }
 
-test('upsert-crud: a field left out of the spec leaves no sequence variable behind', { todo: 'live: body stays on ct_create_note and ct_update_note' }, () => {
+test('upsert-crud: a field left out of the spec leaves no sequence variable behind', () => {
   const { B, ctx, node } = crudWorld();
   const seq = node('ct_create_note', 'sequences.GenericSequence', null);
-  const result = { created: [], updated: [], removed: [] };
+  const result = { created: [], updated: [], deleted: [] };
   B.ensureRequestableVariables(ctx, seq, [{ name: 'title' }, { name: 'body' }], result);
   B.ensureRequestableVariables(ctx, seq, [{ name: 'title' }], result);
   assert.deepEqual(seq.children.map(c => c.name), ['title']);
+  assert.deepEqual(result.deleted, ['App.ct_create_note.body'], 'the removed variable is listed with its QName read before removal');
 });
 
-test('upsert-crud: a field left out of the spec leaves no step variable behind', { todo: 'live: body stays on CallCt_create_note' }, () => {
+test('upsert-crud: a field left out of the spec leaves no step variable behind', () => {
   const { B, ctx, node } = crudWorld();
   const step = node('CallCt_create_note', 'steps.TransactionStep', null);
-  const result = { created: [], updated: [], removed: [] };
+  const result = { created: [], updated: [], deleted: [] };
   B.ensureStepVariables(ctx, step, [{ name: 'title' }, { name: 'body' }], result);
   B.ensureStepVariables(ctx, step, [{ name: 'title' }], result);
   assert.deepEqual(step.children.map(c => c.name), ['title']);
