@@ -1158,6 +1158,9 @@ C8O.crudBackend = C8O.crudBackend || {};
       safeDescription(variable, normalizedEntries[i].description || "");
       safeComment(variable, normalizedEntries[i].comment || "");
     }
+    // These are all the variables of the container: a field dropped from the spec left its variable, which filtered
+    // silently (preflight checks).
+    pruneVariables(ctx, container, normalizedEntries.map(function (entry) { return String(entry.name); }), "variables.RequestableVariable", result);
   };
 
   C8O.crudBackend.ensureStepVariables = function (ctx, step, variableEntries, result) {
@@ -1172,6 +1175,9 @@ C8O.crudBackend = C8O.crudBackend || {};
       safeDescription(variable, normalizedEntries[i].description || "");
       safeComment(variable, normalizedEntries[i].comment || "");
     }
+    // These are all the variables of the container: a field dropped from the spec left its variable, which filtered
+    // silently (preflight checks).
+    pruneVariables(ctx, step, normalizedEntries.map(function (entry) { return String(entry.name); }), "variables.StepVariable", result);
   };
 
   C8O.crudBackend.ensurePublicSequence = function (ctx, project, sequenceName, sourceTransaction, variableEntries, result, options) {
@@ -1185,10 +1191,6 @@ C8O.crudBackend = C8O.crudBackend || {};
     txStep.setSourceTransaction(sourceTransaction);
     txStep.setOutput(false);
     C8O.crudBackend.ensureStepVariables(ctx, txStep, normalizedEntries, result);
-    // A field dropped from the spec left its variables on the sequence and its call (preflight checks).
-    var keptNames = normalizedEntries.map(function (entry) { return String(entry.name); });
-    pruneVariables(ctx, sequence, keptNames, "variables.RequestableVariable", result);
-    pruneVariables(ctx, txStep, keptNames, "variables.StepVariable", result);
     configurePublicSequencePayload(ctx, sequence, txStep, currentOptions, result);
     return sequence;
   };
