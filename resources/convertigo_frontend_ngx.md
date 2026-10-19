@@ -170,7 +170,8 @@ Common trap:
 
 ### Execution order inside an event
 The generated code fixes the order, so the tree must express it:
-- actions that are siblings under the same event start together (`Promise.all`); they do not wait for each other
+- actions that are siblings under the same event start together (`Promise.all`); they do not wait for each other's result
+- they start in tree order, and each one reads its properties and variables when it starts: a `SetLocalAction` placed above a call has already set its local when the call reads its variables (a page event that copies `navParams` into locals and then calls the data sequence gets the values). A sibling never sees another sibling's asynchronous result, such as a call's `out`
 - the children of an action start after that action resolves and read its result as `out`; several children of the same action again run in parallel
 - the action's Failure handler runs only when the call is rejected (network, timeout, engine exception)
 - a sequence that returns a business failure as an `error` element, such as an `XMLErrorStep` or a business sequence contract field, resolves normally: the Failure handler does not run

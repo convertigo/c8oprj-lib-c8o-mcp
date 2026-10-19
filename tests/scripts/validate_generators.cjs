@@ -926,6 +926,19 @@ test('generated chains render the error and loading locals at once (runs 9b and 
   assert.equal(nodes.StoreSubmitError.children[0].name, 'RefreshView');
 });
 
+test('the page event sets every local before the data call reads them (run 13a F-06)', () => {
+  const world = makeWorld();
+  load(world).ngxPageCreate({ project: 'App', name: 'PosteDetail', kind: 'detail', sequence: 'poste_list', params: ['rpcaId'],
+    locals: { today: "'2026-10-19'" }, vars: { statut: 'c8oPage.local?.today' }, detail: { fields: [{ label: 'N', field: 'numero' }] } });
+  const page = world.ops.find(op => op.type === 'create' && op.name === 'PosteDetail');
+  const event = page.children.find(c => c.name === 'PageEvent');
+  const names = event.children.map(c => c.name);
+  assert.equal(names[names.length - 1], 'Load', 'the call is the last sibling: siblings start in tree order');
+  assert.ok(names.indexOf('InitRpcaId') >= 0 && names.indexOf('InitToday') >= 0);
+  const call = event.children[names.length - 1];
+  assert.deepEqual(plain(call.children.find(c => c.name === 'rpcaId').properties.varValue), { mode: 'SOURCE', local: 'rpcaId' });
+});
+
 test('a toggle field carries its label as a text child, not a Label property it does not have (run 9a)', () => {
   const world = makeWorld();
   const G = load(world);

@@ -794,6 +794,8 @@ include("js/tools_generators.js");
     Object.keys(locals).forEach(function (l) {
       pageEventChildren.push(setLocal("Init" + upperFirst(l), l, locals[l]));
     });
+    // Last: siblings start in tree order and a SetLocalAction sets its local when it starts, so the call reads the
+    // params, filters and locals just set (run 13a F-06 took it for a race; checked live: push, deep link, re-entry).
     if (facade.length) {
       pageEventChildren.push(dataCall("Load"));
     } else {
