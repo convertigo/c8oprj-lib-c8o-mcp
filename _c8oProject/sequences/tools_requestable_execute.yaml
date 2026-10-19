@@ -193,6 +193,16 @@ comment: |
             out.error.message = String(source.error.message || "") + " Cause: " + causeMatch[1];
           }
         } catch (_ignoreCause) {}
+        // A script error of the called sequence came as the generic "An exception occured while executing step", its
+        // own message and the step only in details (preflight checks): lift both into the message.
+        try {
+          var scriptDetails = String(source.error.details || "");
+          var scriptError = /A Javascript error has occured: (?:Error: |JavaException: )?([\s\S]*?)(?: \([^()]*#\d+\))?\s*$/.exec(scriptDetails);
+          var scriptStep = /Step: "([^"]+?)(?: \(priority:\d+\))?"/.exec(scriptDetails);
+          if (scriptError && scriptError[1] && scriptError[1].trim().length) {
+            out.error.message = scriptError[1].trim() + (scriptStep ? " (step " + scriptStep[1] + ")" : "");
+          }
+        } catch (_ignoreScriptError) {}
         // "An exception occured while executing step" with no detail names no step: hint at the likely causes.
         try {
           if (executionPlan && executionPlan.isSequence && /executing step/i.test(String(source.error.message || "")) &&
