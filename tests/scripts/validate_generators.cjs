@@ -850,6 +850,9 @@ test('a list page offers multiple selection with a checkbox per row and selectio
   assert.equal(nodes.Pick.className, 'ngx.components.UIDynamicElement#CheckBox');
   assert.match(nodes.Pick.properties.Checked.value, /\(local\?\.selected \|\| \[\]\)\.indexOf\('' \+ p\?\.id\) >= 0/);
   assert.equal(nodes.EventonChange.properties.eventName, 'ionChange');
+  // A check does not reach the row and its onItem (run 13b F-09).
+  assert.deepEqual(plain(nodes.Attr_stopClick.properties), { attrName: '(click)', attrValue: { mode: 'PLAIN', value: '$event.stopPropagation()' } });
+  assert.equal(nodes.Pick.children[0].name, 'Attr_stopClick');
   assert.match(nodes.Toggle.properties.Value.value, /scope\.p\?\.id/);
   assert.equal(nodes.InitSelected.properties.Value.value, '[]');
   const bar = JSON.stringify(nodes.PSelectionActions || nodes.ListSelectionActions || Object.values(nodes).find(n => /SelectionActions$/.test(n.name)));

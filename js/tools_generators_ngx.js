@@ -454,8 +454,11 @@ include("js/tools_generators.js");
         var keyInTemplate = "'' + " + field(keyPath, item);
         var keyInAction = "'' + scope." + field(keyPath, item);
         // ion-checkbox has no slot property (IonSlot is only on ion-note): first in the row, it sits at the start.
+        // Its click stops there: it reached the row, whose onItem opened the next page on every check (run 13b F-09).
         rowChildren.unshift(nx("CheckBox", "Pick", {
           Checked: { mode: "SCRIPT", value: "(local?.selected || []).indexOf(" + keyInTemplate + ") >= 0" } }, [
+          { className: "ngx.components.UIAttribute#UIAttribute", name: "Attr_stopClick",
+            properties: { attrName: "(click)", attrValue: { mode: "PLAIN", value: "$event.stopPropagation()" } } },
           controlEvent("EventonChange", "ionChange", [setLocal("Toggle", "selected",
             "((s: any[], v: string) => s.indexOf(v) >= 0 ? s.filter((x: any) => x !== v) : s.concat([v]))((c8oPage.local.selected || []).slice(), " + keyInAction + ")")])
         ]));
