@@ -108,7 +108,10 @@
   // One review per language: the app's own texts (the language is detected) and each i18n file in its language.
   C8O.lint.reviewTexts = function (options, order, owners, i18n, add, project) {
     if (options.checkTexts === false) {
-      return { skipped: "checkTexts is false: review the texts the user sees yourself (language, spelling, tone, no placeholder)" };
+      // The router also sets it to false for an agent that calls no gateway model (Claude): checkTexts:true then reads as
+      // ignored (run 10 F-08). Say both.
+      return { skipped: "No text review: checkTexts is false, or this agent calls no gateway model (Claude agents always get false). " +
+        "Review the texts the user sees yourself (language, spelling, accents, tone, no placeholder)." };
     }
     // A long list makes the model skip strings: review at most REVIEW_BATCH strings per call.
     var groups = [];
