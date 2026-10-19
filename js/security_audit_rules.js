@@ -716,6 +716,18 @@ C8O.securityAudit = C8O.securityAudit || {};
   /*
    * Builds the tool result from a collected model. Pure, so tests can drive it.
    */
+  // The tool's answer listed every rule, passed and not applicable ones included, and went over 30 000 characters on a
+  // real project (preflight checks): with notableRulesOnly, summary.rules counts them and rules lists the ones with
+  // something to say.
+  api.notableRules = function (checks, opts) {
+    if (!opts || opts.notableRulesOnly !== true) {
+      return checks;
+    }
+    return (checks || []).filter(function (check) {
+      return check && check.status !== "passed" && check.status !== "notApplicable";
+    });
+  };
+
   api.buildReport = function (model, options) {
     var opts = options || {};
     var minRank = api.severityRank(opts.minSeverity || "low");
@@ -736,7 +748,7 @@ C8O.securityAudit = C8O.securityAudit || {};
       gradeCappedBy: scored.gradeCappedBy,
       summary: scored.summary,
       categories: scored.categories,
-      rules: rules.checks,
+      rules: api.notableRules(rules.checks, opts),
       findings: listed.slice(0, limit),
       coverage: {
         requestables: (model.requestables || []).length,
@@ -762,7 +774,7 @@ C8O.securityAudit = C8O.securityAudit || {};
         grade: engineScore.grade,
         gradeCappedBy: engineScore.gradeCappedBy,
         studioMode: model.engine.studioMode === true,
-        rules: api.ruleChecks(model, engineFindings, engineScore, true).checks,
+        rules: api.notableRules(api.ruleChecks(model, engineFindings, engineScore, true).checks, opts),
         findings: engineFindings
       };
     }

@@ -51,6 +51,7 @@ var auditModel = C8O.securityAudit.collect(auditProjectName, {
 });
 
 var auditResult = C8O.securityAudit.buildReport(auditModel, {
+  notableRulesOnly: true,
   minSeverity: auditMinSeverity,
   limit: auditLimit,
   suppress: auditSuppress,
