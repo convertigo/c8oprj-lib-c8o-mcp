@@ -56,8 +56,8 @@ comment: |
   description: 'Reads: [{name, transaction, sequence or sql/select, vars, path, perimeter, required}].'
   value: ''
 ↓writes [variables.RequestableVariable-1792270100030]: 
-  comment: 'Writes: [{name, transaction, sequence or sql/insert/update/delete}], rows from resp.writes.<name>.'
-  description: 'Writes: [{name, transaction, sequence or sql/insert/update/delete}], rows from resp.writes.<name>.'
+  comment: 'Writes: [{name, transaction, sequence or sql/insert/update/delete}], rows from resp.writes.<name>. Each read and write has its own name: the same name twice is refused.'
+  description: 'Writes: [{name, transaction, sequence or sql/insert/update/delete}], rows from resp.writes.<name>. Each read and write has its own name: the same name twice is refused.'
   value: ''
 ↓errors [variables.RequestableVariable-1792270100031]: 
   comment: 'Override error codes and messages: {unauthenticated, forbidden, notFound, readFailed, writeFailed, logic}.'
