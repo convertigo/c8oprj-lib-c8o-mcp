@@ -63,6 +63,10 @@ var manager = Engine.theApp.databaseObjectsManager;
 var matchesWindow = [];
 var scanned = 0;
 var totalMatches = 0;
+// A common word matched 200 objects with their comments and snippets: 50 000 characters (preflight checks). The page
+// also stops near 20 000 characters of matches; nextCursor goes on.
+var MAX_MATCHES_CHARS = 20000;
+var matchesChars = 0;
 var hasMore = false;
 var snippetRadius = 20;
 
@@ -249,9 +253,15 @@ if (searchActive) {
     if (searchMatch) {
       var currentIndex = totalMatches;
       totalMatches++;
+      if (currentIndex >= startIndex && matchesWindow.length < limitValue && matchesWindow.length > 0 && matchesChars >= MAX_MATCHES_CHARS) {
+        hasMore = true;
+        abortSearch = true;
+        break;
+      }
       if (currentIndex >= startIndex && matchesWindow.length < limitValue) {
         var record = buildRecord(dbo, depth, snippet);
         matchesWindow.push(record);
+        matchesChars += JSON.stringify(record).length;
       } else if (currentIndex >= pageUpperBound) {
         hasMore = true;
         abortSearch = true;
