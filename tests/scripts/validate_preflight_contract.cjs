@@ -272,3 +272,23 @@ test('an object not found lists the children of its closest ancestor with a clos
   assert.deepEqual([...dbo._childrenNamedLike(app, 'lib_TreeTable.Application.NgxApp.pg:x')], [], 'a name too short suggests nothing');
   assert.match(read('js/databaseobject.js'), /pg:<Page>, sp:<shared component>, "/);
 });
+
+// --- arguments a tool does not take ---------------------------------------------------------------
+
+test('an argument a tool does not take is named in the answer, with the arguments it takes', () => {
+  const source = read('js/mcp_endpoint_router.js');
+  const fnOf = name => { const at = source.indexOf('function ' + name + '('); return source.slice(at, source.indexOf('\n}\n', at) + 3); };
+  const ctx = { C8O: { schemaOverrides: { applyInput: () => ({ type: 'object', properties: { search: {}, limit: {} } }) } } };
+  vm.runInNewContext('var ROUTER_SET_ARGUMENTS = { browserDebugPort: true, conversationId: true, reveal: true };\n' +
+    fnOf('schemaPropertyNames') + fnOf('unknownArgumentsWarning'), ctx);
+  const sequence = { getVariablesList: () => ({ size: () => 2, get: i => ({ getName: () => ['search', 'detail'][i] }) }) };
+  assert.equal(ctx.unknownArgumentsWarning('tools_marketplace_list', sequence, { query: 'tree', limit: 2 }),
+    'Ignored argument query: not taken by this tool, the call ran without it. Its arguments: detail, limit, search.');
+  assert.equal(ctx.unknownArgumentsWarning('tools_marketplace_list', sequence, { search: 'tree', detail: 'full', __nolog: 'true', reveal: 'true' }), '',
+    'a sequence variable missing from the schema, an internal and a router-set argument are taken');
+  assert.match(source, /mcpArgumentWarning = unknownArgumentsWarning\(targetSequence, requestable, toolArgs \|\| \{\}\);/);
+  const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
+  assert.match(endpoint, /var mcpArgumentWarning = "";/);
+  assert.match(endpoint, /↓ArgumentWarningIf \[steps\.IfStep-1792407700001\]/, 'structuredContent carries it too');
+  assert.match(endpoint, /\(result, mcpGuidanceWarning, mcpArgumentWarning\)/, 'and the text content');
+});

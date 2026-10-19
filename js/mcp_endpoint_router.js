@@ -316,6 +316,60 @@ function applyArgumentAliases(sequenceName, args) {
   return args;
 }
 
+// Arguments that are neither in the tool's schema nor variables of its sequence were dropped with no word: marketplace-list
+// called with query instead of search listed the whole marketplace (2026-10-19). Name them, and the arguments the tool takes.
+var ROUTER_SET_ARGUMENTS = { browserDebugPort: true, conversationId: true, reveal: true };
+
+function schemaPropertyNames(schema, into, depth) {
+  if (!schema || typeof schema !== "object" || depth > 4) {
+    return into;
+  }
+  if (schema.properties && typeof schema.properties === "object") {
+    for (var name in schema.properties) {
+      if (Object.prototype.hasOwnProperty.call(schema.properties, name)) {
+        into[name] = true;
+      }
+    }
+  }
+  ["oneOf", "anyOf", "allOf"].forEach(function (union) {
+    if (Array.isArray(schema[union])) {
+      schema[union].forEach(function (part) { schemaPropertyNames(part, into, depth + 1); });
+    }
+  });
+  return into;
+}
+
+function unknownArgumentsWarning(sequenceName, requestableObject, args) {
+  try {
+    var schema = null;
+    try {
+      schema = C8O.schemaOverrides.applyInput(sequenceName, null, requestableObject);
+    } catch (_noSchema) {}
+    if (schema && (schema.additionalProperties === true || (schema.additionalProperties && typeof schema.additionalProperties === "object"))) {
+      return "";
+    }
+    var allowed = schemaPropertyNames(schema, {}, 0);
+    var variables = requestableObject ? requestableObject.getVariablesList() : null;
+    for (var v = 0; variables != null && v < variables.size(); v++) {
+      allowed[String(variables.get(v).getName())] = true;
+    }
+    var unknown = [];
+    for (var key in args) {
+      if (Object.prototype.hasOwnProperty.call(args, key) && allowed[key] !== true && key.charAt(0) !== "_" && ROUTER_SET_ARGUMENTS[key] !== true) {
+        unknown.push(key);
+      }
+    }
+    if (!unknown.length) {
+      return "";
+    }
+    var names = Object.keys(allowed).filter(function (k) { return k.charAt(0) !== "_"; }).sort();
+    return (unknown.length > 1 ? "Ignored arguments " : "Ignored argument ") + unknown.join(", ") +
+      ": not taken by this tool, the call ran without " + (unknown.length > 1 ? "them" : "it") + ". Its arguments: " + names.join(", ") + ".";
+  } catch (_ignoreArgumentCheck) {
+    return "";
+  }
+}
+
 function injectMeta(target) {
   if (!target || typeof target !== "object") {
     return;
@@ -576,6 +630,7 @@ if (methodName === "initialize") {
       callSequence = targetSequence;
       responseStatus = "200";
       callVariables = coerceToolArguments(applyArgumentAliases(targetSequence, toolArgs || {}), targetSequence, requestable);
+      mcpArgumentWarning = unknownArgumentsWarning(targetSequence, requestable, toolArgs || {});
       // Sub-agents drive the same viewer as the agent's Playwright MCP (the conversation's debug port) and are recorded
       // under the conversation.
       var subagentSequence = targetSequence === "tools_browser_verify" || targetSequence === "tools_subagent_run";

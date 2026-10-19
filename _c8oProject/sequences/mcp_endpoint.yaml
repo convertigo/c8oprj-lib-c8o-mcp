@@ -71,6 +71,7 @@ responseTimeout: 300
     var responseHasBody = true;
     var pingInline = false;
     var mcpGuidanceWarning = "";
+    var mcpArgumentWarning = "";
     var mcpAuthentication = null;
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
@@ -609,7 +610,7 @@ responseTimeout: 300
                       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                       - SmartType: 
                         - ↑mode: JS
-                        - →→: '(function (value, warning) { if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning)'
+                        - →→: '(function (value, warning, argumentWarning) { if (argumentWarning != null && String(argumentWarning).length > 0) { var withWarning = { argumentWarning: String(argumentWarning) }; if (value !== null && typeof value === "object" && !(value instanceof Array)) { for (var k in value) { withWarning[k] = value[k]; } } else { withWarning.result = value; } value = withWarning; } if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning, mcpArgumentWarning)'
           ↓structuredContent [steps.JsonObjectStep-1762256231591]: 
             key: 
               - xmlizable: 
@@ -617,6 +618,21 @@ responseTimeout: 300
                 - SmartType: 
                   - ↑mode: PLAIN
                   - →→: structuredContent
+            ↓ArgumentWarningIf [steps.IfStep-1792407700001]: 
+              condition: mcpArgumentWarning !== null && mcpArgumentWarning !== undefined && String(mcpArgumentWarning).length > 0
+              ↓argumentWarning [steps.JsonFieldStep-1792407700003]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: argumentWarning
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: mcpArgumentWarning
             ↓CopyResult [steps.XMLCopyStep-1762256686684]: 
               sourceDefinition: 
                 - xmlizable: 
