@@ -565,7 +565,7 @@ test('business-sequence-create calls transactions of any connector and library s
   assert.equal(byName.callW_post.properties.sourceTransaction, 'App.api.postTodo');
   assert.equal(byName.callW_boom.className, 'steps.SequenceStep');
   assert.match(byName.set_post.properties.expression, /^title = .*\nownerId = /);
-  assert.match(byName.init.properties.expression, /function facadeFailure\(d, source, infoTag\)/);
+  assert.match(byName.init.properties.expression, /function facadeFailure\(d, source, infoTag, allowRefusal\)/);
   assert.match(byName.guard.properties.expression, /facadeFailure\(d_todos, 'http', 'HttpInfo'\)/);
   assert.match(byName.guard.properties.expression, /facadePath\(facadeBody\(d_people, 'sequence', ''\), \["people"\]\)/);
   assert.match(byName.check_boom.properties.expression, /facadeFailure\(d_w, 'sequence', ''\)/);
@@ -661,6 +661,29 @@ test('the generated calls detect HTTP and sequence failures and expose the JSON'
   assert.equal(s.resp.errors[0].code, 'WRITE_FAILED');
   assert.match(s.resp.errors[0].message, /boom: boom asked/);
   assert.deepEqual(plain(s.calls), ['boom', 'boom'], 'the third sequence call is skipped');
+});
+
+test('a sequence read with allowFailure passes a business refusal to logic (run 13b F-04)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.businessSequenceCreate({ project: 'App', name: 'check_refusal', logic: 'App.posteList', auth: false,
+    reads: [{ name: 'attempt', sequence: 'boom', allowFailure: true }] });
+  const byName = stepsByName(creates(world, 'sequences.GenericSequence')[0]);
+  const meta = { project: 'App' };
+  const run = doc => {
+    const scope = { context: {}, include: () => {}, App: { posteList: ctx => ({ success: true, data: ctx.reads.attempt, errors: [], meta: {} }) } };
+    vm.createContext(scope);
+    ['init', 'guard', 'logic'].forEach(n => { if (n === 'guard') { scope.doc_attempt = { document: doc }; } vm.runInContext(byName[n].properties.expression, scope); });
+    return scope.resp;
+  };
+  let resp = run({ success: false, errors: [{ code: 'DATE_FUTURE', message: 'future' }], data: null, attr: meta });
+  assert.equal(resp.success, true, 'not READ_FAILED');
+  assert.deepEqual(plain(resp.data), { success: false, errors: [{ code: 'DATE_FUTURE', message: 'future' }], data: null });
+  resp = run({ error: { message: 'm', details: 'engine down' }, attr: meta });
+  assert.equal(resp.errors[0].code, 'READ_FAILED', 'an engine error still fails');
+  assert.throws(() => G.businessSequenceCreate({ project: 'App', name: 'bad_allow', logic: 'App.posteList', auth: false,
+    reads: [{ name: 'rows', transaction: 'q_postes', allowFailure: true }], writes: [{ name: 'w', sequence: 'boom', allowFailure: true }] }),
+    /reads\[0\]\.allowFailure applies to a read of a sequence[^]*writes\[0\]\.allowFailure applies to a read of a sequence/);
 });
 
 test('business-sequence-create refuses calls it cannot reach or check', () => {

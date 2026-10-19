@@ -860,13 +860,13 @@ C8O.generators = C8O.generators || {};
   // answers the business sequence contract) mark a failure; the data is the document without attr, error and HttpInfo, and the
   // array or object of a JSON HTTP transaction is unwrapped.
   var CALL_HELPERS = [
-    "function facadeFailure(d, source, infoTag) {",
+    "function facadeFailure(d, source, infoTag, allowRefusal) {",
     "  if (!d) { return \"no response\"; }",
     "  if (d.error) { return String(d.error.details || d.error.message); }",
     "  var info = infoTag ? d[infoTag] : null;",
     "  var code = info && info.status && info.status.attr ? Number(info.status.attr.code) : 0;",
     "  if (code >= 400) { return \"HTTP \" + code + \" \" + String(info.status.attr.text || \"\"); }",
-    "  if (source === \"sequence\" && String(d.success) === \"false\") {",
+    "  if (source === \"sequence\" && String(d.success) === \"false\" && !allowRefusal) {",
     "    var e = (d.errors && d.errors.length !== undefined) ? d.errors[0] : d.errors;",
     "    return \"success false\" + (e && e.message ? \": \" + e.message : \"\");",
     "  }",
@@ -898,7 +898,7 @@ C8O.generators = C8O.generators || {};
   }
 
   function failureArgs(plan) {
-    return jsString(plan.source) + ", " + jsString(plan.source === "http" ? plan.httpInfoTag : "");
+    return jsString(plan.source) + ", " + jsString(plan.source === "http" ? plan.httpInfoTag : "") + (plan.allowFailure ? ", true" : "");
   }
 
   function transactionQName(projectName, connectorName, transaction) {
@@ -1149,6 +1149,15 @@ C8O.generators = C8O.generators || {};
         errors.push(label + ": variable " + v + " of " + called + " is not a JavaScript identifier, so the business sequence cannot set it; call it from a sequence of yours instead.");
       }
     });
+    // allowFailure: a sequence read whose answer is a business refusal (success false) reaches logic as it is, so a
+    // business sequence can check a refusal (run 13b F-04, the non-regression sequences of negative cases).
+    if (entry.allowFailure !== undefined && entry.allowFailure !== false && str(entry.allowFailure) !== "false") {
+      if (role !== "read" || plan.source !== "sequence") {
+        errors.push(label + ".allowFailure applies to a read of a sequence (its answer with success false reaches logic); " +
+          (role !== "read" ? "a write fails on success false." : "a transaction failure is not a business answer."));
+      }
+      plan.allowFailure = true;
+    }
     if (entry.vars !== undefined) {
       if (!isObj(entry.vars)) {
         errors.push(label + ".vars must be an object {variable: \"JS expression\"}.");
@@ -1660,7 +1669,7 @@ C8O.generators = C8O.generators || {};
         inputs: inputNames,
         response: "{success, data, errors:[{code, message, field}], meta} (four JsonToXmlStep, top-level keys; pages read out?.success and out?.data)",
         logic: logoutOnly ? "none: a logout business sequence succeeds, then ends the session" : logic + "(ctx) with ctx = {me, input: {" + inputNames.join(", ") + "}, reads: {" + reads.map(function (r) { return r.name + ": " + (r.source === "sql" ? "[rows]" : r.source === "sequence" ? "JSON of " +
-          r.qname + (str(r.entry.path).length ? " at " + str(r.entry.path) : "") : "JSON body of " + r.qname + (str(r.entry.path).length ? " at " +
+          r.qname + (str(r.entry.path).length ? " at " + str(r.entry.path) : "") + (r.allowFailure ? ", also when it answers success false" : "") : "JSON body of " + r.qname + (str(r.entry.path).length ? " at " +
           str(r.entry.path) : "")); }).join(", ") +
           "}, today}; return {success, data, errors, meta" + (writes.length ? ", writes: {" + writes.map(function (w) { return w.name + ": row or [rows] with " +
           (w.variables.join(", ") || "no field"); }).join("; ") + "}" : "") + "}",
