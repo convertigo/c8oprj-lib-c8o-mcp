@@ -1041,3 +1041,22 @@ test('the former names still work: facade-create and the facade parameter of ngx
   load(world).ngxPageCreate({ project: 'App', name: 'Plist', title: 'P', kind: 'list', facade: 'poste_list', list: { item: 'p', title: 'p.numeroPoste' } });
   assert.ok(JSON.stringify(world.ops).includes('App.poste_list'), 'the page calls the sequence given as facade');
 });
+
+test('business-sequence-create says when the logic never returns the writes it declares (run 11a)', () => {
+  const quiet = makeWorld();
+  const out = load(quiet).businessSequenceCreate(sequenceSpec());
+  assert.ok(out.warnings.some(w => /App\.posteList in js\/app\.js never returns writes: the declared writes \(journal, stamp\)/.test(w)));
+  const seq = creates(quiet, 'sequences.GenericSequence')[0];
+  const logic = seq.children.find(c => c.name === 'logic');
+  assert.match(logic.properties.expression, /if \(resp && resp\.success === true && !resp\.writes\) \{ resp\.meta = resp\.meta \|\| \{\}; resp\.meta\.noWrites = "App\.posteList returned no writes: nothing was written\."; \}\npending = /);
+  const writing = makeWorld({ files: { '/ws/App/js/app.js': 'var App = { posteList: function (ctx) { return { success: true, writes: { journal: {} } }; } };' } });
+  const out2 = load(writing).businessSequenceCreate(sequenceSpec());
+  assert.ok(!out2.warnings.some(w => /never returns writes/.test(w)));
+});
+
+test('business-sequence-create takes auth:true as the default, a session required (run 11a)', () => {
+  const world = makeWorld();
+  const out = load(world).businessSequenceCreate(sequenceSpec({ auth: true }));
+  assert.equal(out.status || 'ok', 'ok');
+  assert.ok(creates(world, 'sequences.GenericSequence')[0].children.some(c => c.name === 'auth'));
+});

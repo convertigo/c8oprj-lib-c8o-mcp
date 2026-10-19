@@ -1222,7 +1222,9 @@ C8O.generators = C8O.generators || {};
       return input;
     });
     var authOff = args.auth === false || str(args.auth) === "false";
-    var auth = authOff ? { required: false } : parseJson(args.auth, "auth", "object");
+    // auth:true means the default, a session required (refused as "must be a JSON object" in run 11a).
+    var authOn = args.auth === true || str(args.auth) === "true";
+    var auth = authOff ? { required: false } : (authOn ? {} : parseJson(args.auth, "auth", "object"));
     var authRequired = !(auth && auth.required === false);
     auth = auth || {};
     var roles = list(auth.roles || parseJson(args.roles, "roles", "array")).map(str).filter(function (r) { return r.length; });
@@ -1267,6 +1269,17 @@ C8O.generators = C8O.generators || {};
     var writes = list(parseJson(args.writes, "writes", "array")).map(function (w, i) {
       return planCall(projectDbo, w, errors, warnings, "writes[" + i + "]", connectorName, "write");
     }).filter(function (p) { return p; });
+    // Declared writes run only for the rows the logic returns in writes: a logic function that never returns any made a
+    // business sequence that answered success and wrote nothing (run 11a F-04).
+    if (writes.length && content !== null && logic) {
+      var logicName = logic.split(".").pop();
+      var logicAt = content.search(new RegExp("\\b" + logicName.replace(/\$/g, "\\$") + "\\s*[:=]\\s*function\\b|function\\s+" +
+        logicName.replace(/\$/g, "\\$") + "\\s*\\("));
+      if (logicAt >= 0 && content.substring(logicAt, logicAt + 6000).search(/\bwrites\b/) < 0) {
+        warnings.push(logic + " in " + script + " never returns writes: the declared writes (" + writes.map(function (w) { return w.name; }).join(", ") +
+          ") run only for the rows it returns as writes: {<write name>: row or [rows]}. Without them the business sequence answers success and writes nothing.");
+      }
+    }
     var seen = {};
     reads.concat(writes).forEach(function (p) {
       if (seen[p.name]) {
@@ -1469,6 +1482,11 @@ C8O.generators = C8O.generators || {};
       "pending = (resp && resp.success === true && resp.writes) ? resp.writes : {};",
       "if (resp && resp.writes !== undefined) { delete resp.writes; }"
     ];
+    if (writes.length) {
+      // Said in meta at run time too: success with nothing written is otherwise silent.
+      logicCode.splice(4, 0, "if (resp && resp.success === true && !resp.writes) { resp.meta = resp.meta || {}; resp.meta.noWrites = \"" + logic +
+        " returned no writes: nothing was written.\"; }");
+    }
     writes.forEach(function (p) {
       logicCode.push("rows_" + p.name + " = pending." + p.name + " == null ? [] : (pending." + p.name + ".length !== undefined ? pending." + p.name + " : [pending." +
         p.name + "]); written." + p.name + " = 0;");
