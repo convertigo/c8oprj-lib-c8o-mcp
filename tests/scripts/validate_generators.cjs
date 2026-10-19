@@ -686,6 +686,25 @@ test('a sequence read with allowFailure passes a business refusal to logic (run 
     /reads\[0\]\.allowFailure applies to a read of a sequence[^]*writes\[0\]\.allowFailure applies to a read of a sequence/);
 });
 
+test('reads[].vars apply to their call only: an input they change gets its value back (run 13a F-07)', () => {
+  const world = makeWorld();
+  const out = load(world).businessSequenceCreate({ project: 'App', name: 'poste_create', logic: 'App.posteList', auth: false, inputs: ['rpcaId'],
+    reads: [{ name: 'dup', transaction: 'q_postes', vars: { rpcaId: "''", recherche: "'PCA-1'" } }, { name: 'rpca', transaction: 'q_postes', vars: { actif: 'rpcaId' } }] });
+  const byName = stepsByName(creates(world, 'sequences.GenericSequence')[0]);
+  assert.equal(byName.restore_dup.properties.expression, 'rpcaId = facadeInput.rpcaId;');
+  assert.equal(byName.restore_rpca, undefined, 'actif is not an input');
+  const order = byName.ifAllowed.children.map(c => c.name);
+  assert.deepEqual(order.slice(0, 5), ['prep_dup', 'call_dup', 'src_dup', 'restore_dup', 'prep_rpca']);
+  const scope = { include: () => {}, rpcaId: '7' };
+  vm.createContext(scope);
+  ['init', 'prep_dup'].forEach(n => vm.runInContext(byName[n].properties.expression, scope));
+  assert.equal(scope.rpcaId, '', 'the dup call sees its vars');
+  ['restore_dup', 'prep_rpca'].forEach(n => vm.runInContext(byName[n].properties.expression, scope));
+  assert.equal(scope.actif, '7', 'the next read sees the input again');
+  assert.ok(out.warnings.some(w => /reads\[1\]: variable recherche of App\.db\.q_postes gets the value reads\[0\]\.vars\.recherche set/.test(w)));
+  assert.ok(!out.warnings.some(w => /variable rpcaId of .* gets the value/.test(w)), 'an input is given back: no warning');
+});
+
 test('business-sequence-create refuses calls it cannot reach or check', () => {
   const world = makeWorld();
   const G = load(world);

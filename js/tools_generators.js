@@ -1443,6 +1443,21 @@ C8O.generators = C8O.generators || {};
           "If it is not an optional filter, add vars:{" + v + ": \"" + suggestion + "\"}" + (like.length ? "" : " or an input named " + v) + ".");
       });
     });
+    // A vars entry that is not an input stays set after its read: a later read with a variable of that name and no vars
+    // entry of its own gets that value.
+    reads.forEach(function (p, i) {
+      Object.keys(isObj(p.entry.vars) ? p.entry.vars : {}).forEach(function (v) {
+        if (inputs.some(function (x) { return str(x.name) === v; }) || (authRequired && v === emailVar)) {
+          return;
+        }
+        reads.slice(i + 1).forEach(function (later) {
+          if (later.variables.indexOf(v) >= 0 && !(isObj(later.entry.vars) && later.entry.vars[v] !== undefined)) {
+            warnings.push(later.label + ": variable " + v + " of " + later.qname + " gets the value " + p.label + ".vars." + v +
+              " set (vars are JS variables of the sequence, kept after their read). Give " + later.label + " its own vars:{" + v + ": ...}.");
+          }
+        });
+      });
+    });
     if (errors.length) {
       invalid(tool, errors);
     }
@@ -1506,6 +1521,14 @@ C8O.generators = C8O.generators || {};
         readSteps.push(callStep("call_" + p.name, p));
         readSteps.push({ className: "steps.JsonSourceStep", name: "src_" + p.name, properties: { sourceDefinition: { step: "call_" + p.name, xpath: "./document" },
           variableName: "doc_" + p.name } });
+        // vars are for this call only. They are JS variables of the sequence: an input of the same name kept the value of
+        // vars, so a later read got it instead of the input (run 13a F-07). The input, or the emptied session email, comes back.
+        var restores = Object.keys(vars).map(function (v) {
+          return inputNames.indexOf(v) >= 0 ? v + " = facadeInput." + v + ";" : (authRequired && v === emailVar ? v + " = \"\";" : "");
+        }).filter(function (line) { return line.length; });
+        if (restores.length) {
+          readSteps.push(simple("restore_" + p.name, restores.join("\n"), "Gives the inputs that vars of " + p.name + " changed their value back."));
+        }
       });
       steps.push({ className: "steps.IfStep", name: "ifAllowed", properties: { condition: "resp === null" }, children: readSteps });
       // Rows into ctx.reads, read errors, perimeter checks.
