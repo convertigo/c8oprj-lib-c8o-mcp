@@ -226,6 +226,36 @@ include("js/tools_generators.js");
     return result;
   };
 
+  // The pages of the application and its entry page (isRoot): the app opens on it.
+  function appPages(app) {
+    var out = [];
+    var children = app.getAllChildren();
+    for (var i = 0; i < children.size(); i++) {
+      var child = children.get(i);
+      if (/PageComponent/.test(String(child.getClass().getName()))) {
+        out.push(child);
+      }
+    }
+    return out;
+  }
+
+  function isRootPage(page) {
+    try {
+      return page.isRoot === true || String(page.isRoot) === "true";
+    } catch (_noRoot) {
+      return false;
+    }
+  }
+
+  // The starter's own page (Page, "Default home page"), which apps delete once they have theirs.
+  function isStarterPage(page) {
+    var comment = "";
+    try {
+      comment = str(page.getComment());
+    } catch (_noComment) {}
+    return String(page.getName()) === "Page" && /^Default home page$/i.test(comment);
+  }
+
   G.ngxPageCreate = function (args) {
     var tool = "ngx-page-create";
     var projectDbo = projectOf(args.project, tool);
@@ -805,6 +835,12 @@ include("js/tools_generators.js");
       invalid(tool, errors);
     }
 
+    // Entry page: root:true makes this page the one the app opens on; with no root page at all (the starter page
+    // deleted), the new page becomes it, else the viewer stayed on /home, "Cannot match any routes" (run 13a F-09).
+    var askedRoot = spec.root === true || str(spec.root) === "true";
+    var currentRoot = appPages(app).filter(isRootPage)[0] || null;
+    var makeRoot = askedRoot || !currentRoot;
+
     var segment = str(spec.segment) || "path-to-" + name.toLowerCase();
     // In the menu by default: list and dashboard pages, which need no parameter; forms and details open from a page.
     var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard") : (spec.inMenu === true || String(spec.inMenu) === "true");
@@ -931,6 +967,23 @@ include("js/tools_generators.js");
       }
       batchWarnings(wired).forEach(function (w) { session.warnings.push(w); });
     }
+    if (makeRoot) {
+      var rooted = C8O.dbo.batchApply({ target: pageQName, operations: [{ type: "setProperties", qname: pageQName, properties: { isRoot: true } }],
+        onError: "stop", autoSave: false, triggerMobileBuilder: false });
+      if (!rooted || rooted.status === "failed" || (rooted.errors && rooted.errors.length)) {
+        var rootWhy = batchErrors(rooted).join(" | ");
+        session.rollback();
+        throw new Error(tool + ": making " + name + " the root page failed: " + rootWhy + " Nothing was kept.");
+      }
+      if (!askedRoot) {
+        session.warnings.push("The application had no root page: " + name + " is now its entry page (isRoot), the one it opens on. " +
+          "Give root:true to the page that must be the entry page (a login page...).");
+      }
+    } else if (isStarterPage(currentRoot)) {
+      session.warnings.push("The application still opens on the starter page Page: give root:true to the entry page (a login page...) " +
+        "before deleting Page, or the app has no root page.");
+    }
+    var rootPage = makeRoot ? name : String(currentRoot.getName());
     var finish = session.finish(page);
     var menuLabel = inMenu ? G.addMenuTranslation(projectDbo, title) : null;
     return {
@@ -939,6 +992,7 @@ include("js/tools_generators.js");
       kind: kind,
       created: session.created,
       style: "AppLayout " + styleStatus,
+      rootPage: rootPage,
       locals: Object.keys(locals),
       calls: (facade.length ? [projectName + "." + facade + " at page enter" + (filters.length ? " and on the filter button" : "")] : [])
         .concat(formPlan ? [projectName + "." + formPlan.submit + " on submit (" + formPlan.identifier + ")"] : []),

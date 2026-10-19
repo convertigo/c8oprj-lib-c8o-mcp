@@ -939,6 +939,38 @@ test('the page event sets every local before the data call reads them (run 13a F
   assert.deepEqual(plain(call.children.find(c => c.name === 'rpcaId').properties.varValue), { mode: 'SOURCE', local: 'rpcaId' });
 });
 
+test('ngx-page-create sets the entry page: root:true, or the first page of an app without one (run 13a F-09)', () => {
+  const spec = name => ({ project: 'App', name, kind: 'detail', heading: 'Hello' });
+  const rootOps = world => world.ops.filter(op => op.type === 'setProperties' && op.properties.isRoot === true).map(op => op.qname);
+  // The starter page is the root: the new page is not, and the answer says how to change it.
+  let world = makeWorld();
+  world.appComp.children.find(c => c.name === 'Login').isRoot = true;
+  world.appComp.children.find(c => c.name === 'Login').getComment = () => '';
+  let out = load(world).ngxPageCreate(spec('Home'));
+  assert.equal(out.rootPage, 'Login');
+  assert.deepEqual(rootOps(world), []);
+  // The starter's Page ("Default home page") is the root: warn before it is deleted.
+  world = makeWorld();
+  const starter = bean('Page', 'x.PageComponent', world.appComp);
+  starter.isRoot = true;
+  starter.getComment = () => 'Default home page';
+  out = load(world).ngxPageCreate(spec('Home'));
+  assert.equal(out.rootPage, 'Page');
+  assert.match(out.warnings.join(' '), /still opens on the starter page Page: give root:true/);
+  // root:true makes it the entry page.
+  out = load(world).ngxPageCreate(Object.assign(spec('Login2'), { root: true }));
+  assert.equal(out.rootPage, 'Login2');
+  assert.equal(rootOps(world).length, 1);
+  assert.match(rootOps(world)[0], /Login2$/);
+  assert.doesNotMatch(out.warnings.join(' '), /root/);
+  // No root page at all: the new page becomes it, and the answer says so.
+  world = makeWorld();
+  out = load(world).ngxPageCreate(spec('Home'));
+  assert.equal(out.rootPage, 'Home');
+  assert.equal(rootOps(world).length, 1);
+  assert.match(out.warnings.join(' '), /had no root page: Home is now its entry page/);
+});
+
 test('a toggle field carries its label as a text child, not a Label property it does not have (run 9a)', () => {
   const world = makeWorld();
   const G = load(world);

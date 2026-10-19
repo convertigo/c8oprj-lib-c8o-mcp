@@ -1858,6 +1858,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         home: { type: "string", description: "Home page name. The header gets a home button that opens it, and its back button opens it when there is no page to go back to. The header always has the menu button (shown when the app has a menu) and the back button (shown when there is a page to go back to)." },
         comment: { type: "string", description: "What the page is for, kept as its comment in the project; a generated one otherwise." },
         inMenu: { type: "boolean", description: "Entry in the app menu. Default: true for list and dashboard pages, false for forms and details (they need parameters)." },
+        root: { type: "boolean", description: "true: this page is the entry page of the app (isRoot), the one it opens on, in place of the current one (the starter page Page at first). An app with no root page gets the new page as root; the result gives rootPage." },
         segment: { type: "string", description: "Route segment; default path-to-<name in lower case>." },
         icon: { type: "string", description: "Menu icon (ionicons name)." }
       },

@@ -484,10 +484,23 @@
     });
     // The starter's default page (Page, "Default home page") left beside the application's own pages.
     var starter = pages.filter(function (p) { return String(p.getName()) === "Page" && /^Default home page$/i.test(str(call(p, "getComment"))); })[0];
+    var isRoot = function (p) {
+      try {
+        return p.isRoot === true || String(p.isRoot) === "true";
+      } catch (_noRoot) {
+        return false;
+      }
+    };
     if (starter && pages.length > 1) {
       add("NGX-STARTER-PAGE", "warning", starter, "The starter page Page (\"Default home page\") is still in the application" +
-        (call(starter, "isInAutoMenu") === true ? " and in its menu" : "") + ".",
-        "Delete it with databaseobject-delete, or turn it into the application's real home page.");
+        (call(starter, "isInAutoMenu") === true ? " and in its menu" : "") + (isRoot(starter) ? ", and the app opens on it (isRoot)" : "") + ".",
+        (isRoot(starter) ? "First make the entry page the root (databaseobject-tree-apply {properties:{isRoot:true}} on it), then delete " +
+          "Page with databaseobject-delete" : "Delete it with databaseobject-delete") + ", or turn it into the application's real home page.");
+    }
+    // Without a root page the app opens on no route: the viewer stayed on /home, "Cannot match any routes" (run 13a F-09).
+    if (pages.length && !pages.some(isRoot)) {
+      add("NGX-NO-ROOT-PAGE", "error", pages[0], "No page of the application is its root page (isRoot): the app opens on no route " +
+        "(\"Cannot match any routes\").", "Set isRoot on the entry page: databaseobject-tree-apply {properties:{isRoot:true}} on it.");
     }
 
     var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
