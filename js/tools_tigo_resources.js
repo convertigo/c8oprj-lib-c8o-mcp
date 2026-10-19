@@ -40,6 +40,10 @@ var resourceAction = String(action || "list"),
 if (!resourceProject || resourceProject === "lib_ConvertigoAssistant") {
   throw new Error("Choose an editable target project");
 }
+// An unknown project answered ok with no item, which read as a project without resources (preflight checks).
+if (!Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.existsProject(resourceProject)) {
+  throw new Error("Unknown project: " + resourceProject + ". project-list gives the loaded projects.");
+}
 if (
   [
     "list",

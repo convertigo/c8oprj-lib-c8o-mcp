@@ -3,7 +3,7 @@ const source=fs.readFileSync(path.resolve(__dirname,'../../js/tools_tigo_resourc
 function fixture(auth,request={}){
  const seen=[];
  function File(){this.getCanonicalFile=()=>this;this.toPath=()=>({relativize:()=> 'relative/resource.js'});}
- const sandbox={include(){},Packages:{com:{twinsoft:{convertigo:{engine:{Engine:{theApp:{databaseObjectsManager:{getOriginalProjectByName:()=>({getDirFile:()=>new File()})}}}}}}}},java:{io:{File}},context:{project:{getDirFile:()=>new File()}},project:'Demo',action:'list',kind:'prompt',key:'',revision:'',input:{},language:'en',...request};
+ const sandbox={include(){},Packages:{com:{twinsoft:{convertigo:{engine:{Engine:{theApp:{databaseObjectsManager:{getOriginalProjectByName:()=>({getDirFile:()=>new File()}),existsProject:n=>String(n)!=='NoSuchProject'}}}}}}}},java:{io:{File}},context:{project:{getDirFile:()=>new File()}},project:'Demo',action:'list',kind:'prompt',key:'',revision:'',input:{},language:'en',...request};
  sandbox.C8O={mcpAuth:{authenticateRequest:()=>auth},util:{parseObjectInput:v=>v},tigoResources:{javaHost:(_ctx,projectOnly)=>{assert.equal(projectOnly,true);return {};},create:()=>({execute:args=>{seen.push(args);return {ok:true,items:[{scope:'project',project:'Demo'},{scope:'project',project:'Other'},{scope:'workspace'}],errors:[],favorites:['private'],selection:{},missingSelections:[],secrets:['PRIVATE'],projects:[],canManageMcp:true};}})}};
  return {run:()=>vm.runInNewContext(source,sandbox),sandbox,seen};
 }
