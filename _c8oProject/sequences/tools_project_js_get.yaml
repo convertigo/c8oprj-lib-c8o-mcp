@@ -16,6 +16,7 @@ comment: |
     var normalized = filenameText.replace(/\\/g, "/");
     while (normalized.indexOf("//") >= 0) { normalized = normalized.replace("//", "/"); }
     if (normalized.startsWith("/")) { normalized = normalized.substring(1); }
+    if (normalized.indexOf("js/") === 0) { normalized = normalized.substring(3); }
     requestedName = normalized;
     var baseFile = jsDir.getCanonicalFile();
     var basePath = baseFile.toPath();
@@ -187,8 +188,8 @@ comment: |
   comment: Technical name of the project whose js/ folder is targeted (the application project, never the MCP server project).
   description: Technical name of the project whose js/ folder is targeted (the application project, never the MCP server project).
 ↓filename [variables.RequestableVariable-1762350567265]: 
-  comment: Path relative to js/. Do not prefix with js/.
-  description: Path relative to js/. Do not prefix with js/.
+  comment: Path relative to the project's js/ folder; a leading js/ is accepted (js/app.js and app.js read the same file).
+  description: Path relative to the project's js/ folder; a leading js/ is accepted (js/app.js and app.js read the same file).
 ↓includeContent [variables.RequestableVariable-1792171000071]: 
   comment: Set false to get only status, path and size (bytes) without the file content.
   description: Set false to get only status, path and size (bytes) without the file content.
