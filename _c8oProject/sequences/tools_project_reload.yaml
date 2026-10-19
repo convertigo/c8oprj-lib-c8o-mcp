@@ -13,8 +13,8 @@ comment: |
     if (context && context.project) {
       currentProjectName = String(context.project.getName());
     }
-    if (!providedName.length && context && context.project) {
-      providedName = currentProjectName;
+    if (providedName.length && providedName !== currentProjectName) {
+      providedName = C8O.dbo.requireTargetProject(providedName, "reload");
     }
     
     var errorEntries = [];
@@ -174,5 +174,5 @@ comment: |
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
 ↓project [variables.RequestableVariable-1762445963717]: 
-  comment: Project technical name. Omit only when the current context project is unambiguous.
-  description: Project technical name. Omit only when the current context project is unambiguous.
+  comment: Project technical name (project-list gives them).
+  description: Project technical name (project-list gives them).

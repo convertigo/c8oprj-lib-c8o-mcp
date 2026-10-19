@@ -579,6 +579,31 @@ C8O.dbo.stepErrorHints = function (projectName, sequenceName) {
   return hints;
 };
 
+// The tools that act on a whole project refuse no name, a name the engine does not know, and the MCP server's own
+// project. project-save fell back to it for an unknown name and saved it (24 YAML files rewritten), project-delete
+// fell back to it for an empty name, and project-reload waited 120 s on an unknown project.
+C8O.dbo.requireTargetProject = function (name, verb) {
+  var text = C8O.util.toTrimmedString(name);
+  if (!text.length) {
+    throw new Error("project is required: the technical name of the project to " + verb + " (project-list gives them).");
+  }
+  var exists = false;
+  try {
+    exists = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.existsProject(text) === true;
+  } catch (_noExists) {}
+  if (!exists) {
+    throw new Error("Unknown project: " + text + ". project-list gives the loaded projects.");
+  }
+  var own = "";
+  try {
+    own = typeof context !== "undefined" && context && context.project ? String(context.project.getName()) : "";
+  } catch (_noContext) {}
+  if (own.length && text === own) {
+    throw new Error("The running MCP server project " + own + " cannot be the target of project-" + verb + ".");
+  }
+  return text;
+};
+
 C8O.dbo.resolve = function (qname, options) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var opts = options || {};

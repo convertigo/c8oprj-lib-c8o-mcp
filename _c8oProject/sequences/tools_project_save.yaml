@@ -10,20 +10,11 @@ comment: |
   expression: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     
-    var providedName = C8O.util.toTrimmedString(project);
-    if (!providedName.length && context && context.project) {
-      providedName = String(context.project.getName());
-    }
-    
+    var providedName = C8O.dbo.requireTargetProject(project, "save");
     var projectRef = null;
-    if (providedName.length) {
-      try {
-        projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(providedName);
-      } catch (_ignoredLookup) {}
-    }
-    if (projectRef == null && context && context.project) {
-      projectRef = context.project;
-    }
+    try {
+      projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(providedName);
+    } catch (_ignoredLookup) {}
     
     var resolvedName = projectRef != null ? String(projectRef.getName()) : providedName;
     var errorEntries = [];

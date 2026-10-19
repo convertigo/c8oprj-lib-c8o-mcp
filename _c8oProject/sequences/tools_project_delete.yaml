@@ -11,10 +11,7 @@ comment: |
     'var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var System = java.lang.System;
     
-    var providedName = C8O.util.toTrimmedString(project);
-    if (!providedName.length && context && context.project) {
-      providedName = String(context.project.getName());
-    }
+    var providedName = C8O.dbo.requireTargetProject(project, "delete");
     
     var deleteCarInput = (typeof deleteCar !== "undefined") ? deleteCar : true;
     var deleteCarFlag = C8O.util.toBoolean(deleteCarInput, true) === true;
@@ -277,8 +274,8 @@ comment: |
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
 ↓project [variables.RequestableVariable-1773102101017]: 
-  comment: Project technical name. Omit only when the current context project is unambiguous.
-  description: Project technical name. Omit only when the current context project is unambiguous.
+  comment: Project technical name (project-list gives them).
+  description: Project technical name (project-list gives them).
 ↓deleteCar [variables.RequestableVariable-1773102101018]: 
   comment: Delete the exported .car archive when present. Default true.
   description: Delete the exported .car archive when present. Default true.
