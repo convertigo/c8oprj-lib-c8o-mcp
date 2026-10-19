@@ -280,6 +280,22 @@ var scannedNodes = 0;
 var hasMore = false;
 var stopTraversal = false;
 var fullyScanned = true;
+// A deep tree with its properties went over 60 000 characters within the node limit (preflight checks: a project at
+// childrenDepth 20, 66 kB; an NgxApp, 86 kB). The page also stops near 20 000 characters of nodes; nextCursor goes on.
+var MAX_PAGE_CHARS = 20000;
+var pageChars = 0;
+
+function nodeChars(qname) {
+  var node = nodeMap[qname];
+  if (!node) {
+    return 0;
+  }
+  try {
+    return JSON.stringify({ q: node.qname, c: node.className, p: node.properties, h: node.handlers }).length + 120;
+  } catch (_noSize) {
+    return 200;
+  }
+}
 
 function visitChildren(parentDbo, depth, pathItems) {
   if (stopTraversal) {
@@ -303,9 +319,10 @@ function visitChildren(parentDbo, depth, pathItems) {
     cursor += 1;
 
     if (currentIndex >= startOffset) {
-      if (returnedNodes < limitValue) {
+      if (returnedNodes < limitValue && (returnedNodes === 0 || pageChars < MAX_PAGE_CHARS)) {
         includeNode(pathItems, meta, child);
         returnedNodes += 1;
+        pageChars += nodeChars(meta.qname);
       } else {
         hasMore = true;
         fullyScanned = false;
