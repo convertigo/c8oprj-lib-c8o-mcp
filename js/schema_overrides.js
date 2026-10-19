@@ -582,7 +582,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           enum: ["project", "all"],
           description: "Optional symbol scope. Defaults to project when project is provided, otherwise all."
-        }
+        },
+        _nextCursor: { type: "string", description: "Opaque cursor from a previous response (summary.nextCursor). Internal pagination token." }
       },
       additionalProperties: false
     };

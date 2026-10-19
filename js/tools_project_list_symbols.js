@@ -249,6 +249,45 @@ for (var pi = 0; pi < projectNames.size(); pi++) {
   }
 }
 
+// 309 symbols answered 98 000 characters, 150 of them per symbol for the full path of global_symbols.properties
+// (preflight checks). That file is named once in globalSymbolsFile, other sources are relative to the workspace, and a
+// page stops near 20 000 characters, continued by _nextCursor.
+var symbolsTotal = symbolsList.size();
+var symbolsStart = 0;
+try {
+  symbolsStart = Math.max(0, parseInt(String(typeof _nextCursor !== "undefined" && _nextCursor != null ? _nextCursor : "0"), 10) || 0);
+} catch (_noCursor) {}
+var globalSourcePath = globalSymbolsFile != null ? String(globalSymbolsFile.getAbsolutePath()) : "";
+var workspacePrefix = "";
+try {
+  workspacePrefix = String(new File(String(Engine.PROJECTS_PATH)).getAbsolutePath()) + File.separator;
+} catch (_noWorkspace) {}
+var pagedSymbols = new java.util.ArrayList();
+var symbolsChars = 0;
+var symbolsHasMore = false;
+for (var si = symbolsStart; si < symbolsTotal; si++) {
+  var symbolEntry = symbolsList.get(si);
+  var symbolSource = String(symbolEntry.get("source") || "");
+  if (globalSourcePath.length && symbolSource === globalSourcePath) {
+    symbolEntry.put("source", "global_symbols.properties");
+  } else if (workspacePrefix.length && symbolSource.indexOf(workspacePrefix) === 0) {
+    symbolEntry.put("source", symbolSource.substring(workspacePrefix.length));
+  }
+  var symbolChars = 60;
+  var symbolKeys = symbolEntry.keySet().iterator();
+  while (symbolKeys.hasNext()) {
+    var symbolKey = symbolKeys.next();
+    symbolChars += String(symbolKey).length + String(symbolEntry.get(symbolKey)).length + 6;
+  }
+  if (pagedSymbols.size() > 0 && symbolsChars + symbolChars > 20000) {
+    symbolsHasMore = true;
+    break;
+  }
+  symbolsChars += symbolChars;
+  pagedSymbols.add(symbolEntry);
+}
+symbolsList = pagedSymbols;
+
 var summaryMap = new LinkedHashMap();
 summaryMap.put("status", symbolsStatus);
 summaryMap.put("scopeApplied", scopeApplied);
@@ -259,3 +298,6 @@ summaryMap.put("projectCount", java.lang.Integer.valueOf(projectNames.size()));
 summaryMap.put("referenceScanEnabled", java.lang.Boolean.valueOf(referenceScanEnabled));
 summaryMap.put("scannedReferenceProjects", java.lang.Integer.valueOf(scannedReferenceProjects));
 summaryMap.put("globalSymbolsFile", scopeApplied === "all" && globalSymbolsFile != null ? globalSymbolsFile.getAbsolutePath() : "");
+summaryMap.put("total", java.lang.Integer.valueOf(symbolsTotal));
+summaryMap.put("hasMore", java.lang.Boolean.valueOf(symbolsHasMore));
+summaryMap.put("nextCursor", symbolsHasMore ? String(symbolsStart + symbolsList.size()) : "");

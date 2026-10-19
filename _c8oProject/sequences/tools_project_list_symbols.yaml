@@ -275,6 +275,47 @@ comment: |
           - SmartType: 
             - ↑mode: JS
             - →→: summaryMap.get("globalSymbolsFile")
+    ↓Total [steps.JsonFieldStep-1792400000011]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: total
+      type: number
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryMap.get("total")
+    ↓HasMore [steps.JsonFieldStep-1792400000012]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: hasMore
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryMap.get("hasMore")
+    ↓NextCursor [steps.JsonFieldStep-1792400000013]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: nextCursor
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: summaryMap.get("nextCursor")
 ↓project [variables.RequestableVariable-1762876000141]: 
   comment: Optional project technical name. Omit to scan all loaded projects.
 ↓filter [variables.RequestableVariable-1762876000143]: 
@@ -284,3 +325,6 @@ comment: |
   value: false
 ↓scope [variables.RequestableVariable-1764249400005]: 
   comment: Optional symbol scope. Defaults to project when project is provided, otherwise all.
+↓_nextCursor [variables.RequestableVariable-1792400000014]: 
+  comment: Opaque cursor from a previous response (summary.nextCursor). Internal pagination token.
+  description: Opaque cursor from a previous response (summary.nextCursor). Internal pagination token.
