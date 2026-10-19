@@ -599,7 +599,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_hsqldb.md",
     "guideId": "convertigo/fast-path-sql-hsqldb",
-    "revision": 7,
+    "revision": 8,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -1131,7 +1131,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 21,
+    "revision": 22,
     "scopeTags": [
       "recipe",
       "ngx",
