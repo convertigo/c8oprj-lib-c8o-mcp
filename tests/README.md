@@ -12,6 +12,16 @@ live), the engine-pitfall battery (`tests/preflight/pitfalls_live.py`) and the e
 (`lib_ConvertigoAssistant/tests/preflight/soak_contexts.py`). A test marked todo in the offline file is a defect
 found on the current code.
 
+## YAML delta apply
+
+Run `python3 tests/scripts/test_yaml_mcp_delta_apply.py` after changing `scripts/yaml_mcp_delta_apply.py`. The
+offline checks (standard library, a fake MCP client) cover the comparisons (a `${symbol}` compared as written),
+the tree-get reads (whole values, pages), the step sources kept on the step they name across a rename or a create,
+the batch judgment (a warning is no error, the deletes in a second batch), the rollback check, the `--save` checks
+(another folder, a failed save, the version the save raises, the files it deletes) and what a run without
+`--structural` leaves out. A run on a disposable project in a Studio is still the proof that the MCP keeps what is
+sent.
+
 ## Shared tag domain
 
 Run `node --test tests/scripts/validate_tags.cjs` after editing the tag tools.
