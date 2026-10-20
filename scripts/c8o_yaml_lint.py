@@ -16,8 +16,56 @@ from pathlib import Path
 
 
 PARSE_RE = re.compile(r"( *)(- )?(↑)?(→)?(↓)?(.*?): (🗏 )?(.*)")
+# BufferedReader.readLine() does not split on these, and the YamlConverter regex ('.' in Java) does not
+# match them: a line holding one makes the project fail to load.
+JAVA_REGEX_LINE_TERMINATORS = ("\u0085", "\u2028", "\u2029")
+
+
+def read_java_lines(text: str) -> list[str]:
+    """Lines as the engine reads them: split on \\n, \\r\\n or \\r only (not like str.splitlines())."""
+    lines = re.split(r"\r\n|\r|\n", text)
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
+# Why the YamlConverter port could not be imported, once: main reports it, the check is then skipped.
+ENGINE_IMPORT_ERRORS: list[str] = []
+
+
+def engine_read_errors(file_path: Path, text: str) -> list[tuple[int, str]]:
+    """Errors of the YamlConverter port of yaml_mcp_delta_apply.py, when it sits next to this script:
+    it also finds an indentation that makes the engine stop reading a file and drop the lines below."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        sys.dont_write_bytecode = True  # no __pycache__ inside the project folder
+        import yaml_mcp_delta_apply as engine  # noqa: PLC0415
+    except Exception as exc:
+        if not ENGINE_IMPORT_ERRORS:
+            ENGINE_IMPORT_ERRORS.append(f"{type(exc).__name__}: {exc}")
+        return []
+    finally:
+        sys.path.pop(0)
+    try:
+        engine.EngineYamlReader(text, file_path).read_document()
+    except engine.YamlSyntaxError as exc:
+        message = str(exc)
+        prefix = f"{file_path}:"
+        rest = message[len(prefix):] if message.startswith(prefix) else message
+        line_text, _sep, detail = rest.partition(": ")
+        try:
+            return [(int(line_text), detail)]
+        except ValueError:
+            return [(0, rest)]
+    return []
 BEAN_KEY_RE = re.compile(r"^(.*) \[[^\]]+\]$")
 BEAN_CLASS_RE = re.compile(r"^.* \[([^\]]+)\]$")
+# Steps, variables and UI components are ordered by priority; written without one, a bean gets 0.
+UNNUMBERED_BEAN_RE = re.compile(r"^.* \[(steps|variables|ngx\.components|mobile\.components)\.([A-Za-z0-9]+)\]$")
+XMLVECTOR_LINE_RE = re.compile(r"^( *)- com\.twinsoft\.convertigo\.beans\.common\.XMLVector:\s*$")
+JAVA_STRING_LINE_RE = re.compile(r"^( *)- java\.lang\.String:\s*$")
+VALUE_LINE_RE = re.compile(r"^( *)- ↑value: (.*)$")
+NUMERIC_PRIORITY_RE = re.compile(r"^\d{10,}$")
 
 
 @dataclass(frozen=True)
@@ -98,14 +146,122 @@ def external_ref_base(file_path: Path) -> Path:
     return file_path.parent
 
 
+def _line_indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _next_content_line(lines: list[str], start: int, stop: int) -> int | None:
+    index = start
+    while index < stop:
+        line = lines[index]
+        if line != "" and not line.lstrip().startswith("#"):
+            return index
+        index += 1
+    return None
+
+
+def _read_java_string_value(lines: list[str], string_line: int, stop: int) -> tuple[int, str] | None:
+    string_match = JAVA_STRING_LINE_RE.fullmatch(lines[string_line])
+    if not string_match:
+        return None
+
+    value_line = _next_content_line(lines, string_line + 1, stop)
+    if value_line is None:
+        return None
+
+    value_match = VALUE_LINE_RE.fullmatch(lines[value_line])
+    if not value_match or len(value_match.group(1)) <= len(string_match.group(1)):
+        return None
+
+    return value_line, value_match.group(2)
+
+
+def _next_java_string_at_indent(lines: list[str], start: int, stop: int, indent: int) -> int | None:
+    index = start
+    while index < stop:
+        line = lines[index]
+        if line == "" or line.lstrip().startswith("#"):
+            index += 1
+            continue
+        current_indent = _line_indent(line)
+        if current_indent < indent:
+            return None
+        match = JAVA_STRING_LINE_RE.fullmatch(line)
+        if match and len(match.group(1)) == indent:
+            return index
+        index += 1
+    return None
+
+
+def _looks_like_source_xpath(value: str) -> bool:
+    return value == "." or value.startswith(("./", "/", "../"))
+
+
+def _lint_empty_xmlvector_source_references(file_path: Path, lines: list[str]) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for index, line in enumerate(lines):
+        vector_match = XMLVECTOR_LINE_RE.fullmatch(line)
+        if not vector_match:
+            continue
+
+        vector_indent = len(vector_match.group(1))
+        lookahead_stop = min(len(lines), index + 24)
+        next_line = _next_content_line(lines, index + 1, lookahead_stop)
+        if next_line is None:
+            continue
+
+        first_string_match = JAVA_STRING_LINE_RE.fullmatch(lines[next_line])
+        if not first_string_match:
+            continue
+
+        field_indent = len(first_string_match.group(1))
+        if field_indent > vector_indent:
+            continue
+
+        first_value = _read_java_string_value(lines, next_line, lookahead_stop)
+        if first_value is None:
+            continue
+
+        source_priority = first_value[1]
+        if not NUMERIC_PRIORITY_RE.fullmatch(source_priority):
+            continue
+
+        second_string_line = _next_java_string_at_indent(
+            lines, first_value[0] + 1, lookahead_stop, field_indent
+        )
+        second_value = (
+            _read_java_string_value(lines, second_string_line, lookahead_stop)
+            if second_string_line is not None
+            else None
+        )
+
+        if second_value is not None and _looks_like_source_xpath(second_value[1]):
+            errors.append(
+                f"{file_path}:{index + 1}: XMLVector is empty, but following fields look like a dynamic "
+                f"source reference ({source_priority}, {second_value[1]}); indent them under this XMLVector "
+                "instead of leaving them at the default-value level"
+            )
+        else:
+            warnings.append(
+                f"{file_path}:{index + 1}: XMLVector is empty, but the following field is a numeric priority-like "
+                f"value ({source_priority}); if this is a source reference, it is probably indented at the wrong level"
+            )
+
+    return errors, warnings
+
+
 def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], list[str], list[RefEdge]]:
     errors: list[str] = []
     warnings: list[str] = []
     refs: list[RefEdge] = []
     try:
-        lines = file_path.read_text(encoding="utf-8").splitlines()
+        text = file_path.read_text(encoding="utf-8")
     except Exception as exc:
         return [f"cannot read file: {exc}"], warnings, refs
+    lines = read_java_lines(text)
+    error_lines: set[int] = set()
 
     i = 0
     previous_indent: int | None = None
@@ -121,17 +277,29 @@ def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], li
         line_no = i + 1
         line = lines[i]
 
-        if line == "":
+        if line.strip() == "":
+            # Outside a '|' block (blocks are read below), the engine fails on an empty line.
+            errors.append(f"{file_path}:{line_no}: empty line: Convertigo cannot load a YAML file with a blank line outside a '|' block")
+            error_lines.add(line_no)
             i += 1
             continue
 
         if line.lstrip().startswith("#"):
+            errors.append(f"{file_path}:{line_no}: '#' comment: the Convertigo YAML has no comments, the project would not load")
+            error_lines.add(line_no)
+            i += 1
+            continue
+
+        if any(ch in line for ch in JAVA_REGEX_LINE_TERMINATORS):
+            errors.append(f"{file_path}:{line_no}: U+0085, U+2028 or U+2029 in a line: Convertigo cannot load it")
+            error_lines.add(line_no)
             i += 1
             continue
 
         match = PARSE_RE.fullmatch(line)
         if not match:
             errors.append(f"{file_path}:{line_no}: line does not match Convertigo YAML grammar")
+            error_lines.add(line_no)
             previous_was_block = False
             previous_array_item_with_empty_value = False
             i += 1
@@ -173,6 +341,13 @@ def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], li
                 ui_attr_name_by_indent.pop(popped_indent, None)
 
         if is_child:
+            unnumbered = UNNUMBERED_BEAN_RE.fullmatch(key)
+            if unnumbered and unnumbered.group(2) not in ("ApplicationComponent",):
+                warnings.append(
+                    f"{file_path}:{line_no}: '{key}' has no -<priority>: after a project-reload it gets priority 0, "
+                    "and step sources and the order of its siblings rely on unique priorities; create it with "
+                    "yaml_mcp_delta_apply.py --structural --save (the Studio then writes its priority) or give it a unique number"
+                )
             parent_path = tuple(item[1] for item in parent_stack)
             scope = (parent_path, indent)
             seen = sibling_child_keys.setdefault(scope, set())
@@ -281,6 +456,12 @@ def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], li
 
         i += 1
 
+    vector_errors, vector_warnings = _lint_empty_xmlvector_source_references(file_path, lines)
+    errors.extend(vector_errors)
+    warnings.extend(vector_warnings)
+    for line_no, detail in engine_read_errors(file_path, text):
+        if line_no not in error_lines:
+            errors.append(f"{file_path}:{line_no}: {detail}")
     return errors, warnings, refs
 
 
@@ -368,6 +549,11 @@ def main(argv: list[str]) -> int:
             graph_errors, graph_warnings = lint_reference_graph(project_root, refs_by_file)
             all_errors.extend(graph_errors)
             all_warnings.extend(graph_warnings)
+    if ENGINE_IMPORT_ERRORS:
+        all_warnings.append(
+            f"{Path(__file__).resolve().parent / 'yaml_mcp_delta_apply.py'} could not be imported "
+            f"({ENGINE_IMPORT_ERRORS[0]}): the engine reading check (lines a project-reload drops) was not run"
+        )
 
     for error in all_errors:
         print(f"ERROR: {error}")
