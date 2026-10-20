@@ -373,7 +373,15 @@ The engine accepts only `true` or `false` from a block condition: any other valu
 A JS expression `{}` or `{ seeded: true }` is read as a block of statements, not an object: it gives `undefined`, and the step fails with a bare `An exception occured while executing step` that names no step. Write `({ seeded: true })`. tree-apply adds the parentheses when an expression is an object literal, and requestable-execute lists the suspicious steps (`error.hints`) when a sequence fails with that empty message.
 
 ### `SmtpStep` never fails the sequence
-When the send fails (no server, unknown host, closed port), `SmtpStep` logs an ERROR line `Beans (SmtpStep) An error occured while trying to send e-mail : ... Could not connect to SMTP host` and the sequence still answers success; its output holds no status either (checked on Studio 8.4.7). A sequence that must know whether a mail left, to record a failed notification or retry it, sends it from a `SimpleStep` with `javax.mail` and catches the error:
+Send a mail with the native `steps.SmtpStep`, as the multipage recipe does: server, port, sender, recipients and subject are its properties, and the body is its source with one `contentType`. Take the server settings from symbols (`${app.smtp.server=localhost}`), with a `.secret` name for the password.
+
+When the send fails (no server, unknown host, closed port), `SmtpStep` logs an ERROR line `Beans (SmtpStep) An error occured while trying to send e-mail : ... Could not connect to SMTP host` and the sequence still answers success; its output holds no status either (checked on Studio 8.4.7). Check a send by hand: run the sequence, then `log-view` with `level:"error"` and `q:"SmtpStep"`.
+
+Send from a `SimpleStep` with `javax.mail` only in two cases:
+- the sequence must know whether the mail left, to record a failed notification or retry it: `SmtpStep` gives no status;
+- the mail must carry a text and an HTML version (`multipart/alternative`): `SmtpStep` has one body.
+
+The step below sends a `multipart/alternative` message in UTF-8 and catches the error with short connection timeouts: `mailResult` is `{ok: true}`, or `{ok: false, error}` with the cause (`Could not connect to SMTP host: <host>, port: <port> | Connection refused` for an unreachable relay, `Unknown SMTP host: <host>` for a wrong name). Its `MailcapCommandMap` gives JavaMail the content handlers the engine does not find by itself: without it the send fails with `IOException while sending message` (`no object DCH for MIME type multipart/alternative`). Give it to the message and its parts as below; never call `javax.activation.CommandMap.setDefaultCommandMap`, which changes the default of the whole JVM, so of every project of the Studio or server.
 
 ```js
 mailResult = { ok: false, error: "" };
@@ -387,16 +395,33 @@ try {
   msg.setRecipients(java.lang.Class.forName("javax.mail.Message$RecipientType").getField("TO").get(null),
     javax.mail.internet.InternetAddress.parse(String(to)));
   msg.setSubject(String(subject), "UTF-8");
-  msg.setText(String(body), "UTF-8");
+  var mailcap = new javax.activation.MailcapCommandMap();
+  mailcap.addMailcap("text/plain;; x-java-content-handler=com.sun.mail.handlers.text_plain");
+  mailcap.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html");
+  mailcap.addMailcap("multipart/*;; x-java-content-handler=com.sun.mail.handlers.multipart_mixed");
+  var textPart = new javax.mail.internet.MimeBodyPart();
+  textPart.setText(String(body), "UTF-8");
+  var htmlPart = new javax.mail.internet.MimeBodyPart();
+  htmlPart.setContent(String(bodyHtml), "text/html; charset=UTF-8");
+  var multipart = new javax.mail.internet.MimeMultipart("alternative");
+  multipart.addBodyPart(textPart); // plain text first, HTML last: the client shows the last one it can
+  multipart.addBodyPart(htmlPart);
+  msg.setContent(multipart);
+  [msg, textPart, htmlPart].forEach(function (part) { part.getDataHandler().setCommandMap(mailcap); });
   javax.mail.Transport.send(msg);
   mailResult.ok = true;
 } catch (e) {
   var cause = e && e.javaException ? e.javaException : e;
-  mailResult.error = String(cause.getMessage ? cause.getMessage() : cause).substring(0, 400);
+  var reasons = [];
+  for (var c = cause, n = 0; c && n < 4; n++) {
+    reasons.push(String(c.getMessage ? c.getMessage() : c));
+    c = c.getNextException ? c.getNextException() : (c.getCause ? c.getCause() : null);
+  }
+  mailResult.error = reasons.join(" | ").substring(0, 400);
 }
 ```
 
-Take the server settings from symbols (`${app.smtp.server=localhost}`), with a `.secret` name for the password. With `SmtpStep`, check a send by hand: run the sequence, then `log-view` with `level:"error"` and `q:"SmtpStep"`.
+Escape the values you put in `bodyHtml`. Checked on Studio 8.4.7: against a local SMTP server the message arrives as `multipart/alternative` with both parts in UTF-8 (accented subject and bodies) and the JVM default is left as it was; against a closed port or an unknown host it answers `ok: false` with the cause.
 
 ### `IteratorStep.condition` semantics
 `IteratorStep.condition` is not a free-form prose flag. Treat it as a normal conditional expression evaluated at runtime.
