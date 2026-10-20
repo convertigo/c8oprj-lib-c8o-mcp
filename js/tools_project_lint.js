@@ -382,16 +382,20 @@
         if (beanData.length) {
           try {
             var bean = JSON.parse(beanData.replace(/^'|'$/g, ""));
-            for (var bk in bean) {
-              if (Object.prototype.hasOwnProperty.call(bean, bk) && TEXT_PROPERTIES.test(bk) && typeof bean[bk] === "string" && /^plain:/.test(bean[bk])) {
-                collectText(bean[bk].substring(6), dbo, "PLAIN");
+            // beanData is {ionBean, Prop: "plain:..."} in the YAML and {name, properties: {Prop: {mode, value}}} in memory,
+            // where a property left unset holds false (or the text "not set"): a live lint read no Label of a form.
+            var elementProps = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
+            for (var bk in elementProps) {
+              var bv = Object.prototype.hasOwnProperty.call(elementProps, bk) && TEXT_PROPERTIES.test(bk) ? elementProps[bk] : null;
+              var plain = bv && typeof bv === "object" ? (String(bv.mode).toLowerCase() === "plain" ? bv.value : null)
+                : (typeof bv === "string" && /^plain:/.test(bv) ? bv.substring(6) : null);
+              if (typeof plain === "string" && plain.trim().toLowerCase() !== C8O.dbo._NGX_NOT_SET) {
+                collectText(plain, dbo, "PLAIN");
               }
             }
             // An element's properties are written in the template (Disabled, Checked, Value...): a Disabled with
             // c8oPage.navParams failed the build (run 13b F-10). An action's properties run in the page class.
-            // beanData is {ionBean, Prop: "script:..."} in the YAML and {name, properties: {Prop: {mode, value}}} in memory.
             if (className === "UIDynamicElement") {
-              var elementProps = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
               for (var ek in elementProps) {
                 var ev = elementProps[ek];
                 var script = ev && typeof ev === "object" ? (String(ev.mode).toLowerCase() === "script" ? ev.value : null)
