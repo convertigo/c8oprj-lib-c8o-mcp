@@ -4167,6 +4167,60 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       };
     }
   };
+  // What the form tools answer an agent: the form without its empty values and empty condition groups, the write
+  // without the CouchDB transport details (internal host and headers) and the authentication without the token
+  // payload. Sources and actions stay exactly as saved, since an agent copies them into its edits. A three-page
+  // application went from 21 KB to 10 KB, for each create, edit and read.
+  var AGENT_VIEW_VERBATIM_KEYS = { sources: true, sourcesMarkers: true, sourcesCircles: true, sourcesPolygons: true, actions: true };
+  function agentView(value) {
+    if (Array.isArray(value)) {
+      return value.map(function (item) { return agentView(item); });
+    }
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+    var out = {};
+    Object.keys(value).forEach(function (key) {
+      var item = value[key];
+      if (key === "_c8oMeta") { return; }
+      if (AGENT_VIEW_VERBATIM_KEYS[key] === true) { out[key] = item; return; }
+      if (key === "conditions" && item && typeof item === "object" && !Array.isArray(item)) {
+        var kept = {};
+        Object.keys(item).forEach(function (name) {
+          var group = item[name];
+          if (group && typeof group === "object" && (ensureArray(group.conds).length || ensureArray(group.groups).length)) { kept[name] = group; }
+        });
+        if (Object.keys(kept).length) { out[key] = kept; }
+        return;
+      }
+      var compact = agentView(item);
+      if (compact === "" || compact == null) { return; }
+      if (typeof compact === "object" && !Array.isArray(compact) && !Object.keys(compact).length) { return; }
+      out[key] = compact;
+    });
+    return out;
+  }
+  function agentResult(result) {
+    if (!result || typeof result !== "object" || Array.isArray(result)) {
+      return result;
+    }
+    var out = {};
+    Object.keys(result).forEach(function (key) { out[key] = result[key]; });
+    if (out.form && typeof out.form === "object") { out.form = agentView(out.form); }
+    if (out.response && typeof out.response === "object") { out.response = agentView(out.response); }
+    if (out.authentication && typeof out.authentication === "object") {
+      var auth = { status: out.authentication.status, authenticated: out.authentication.authenticated === true, user: out.authentication.user };
+      if (out.authentication.error) { auth.error = out.authentication.error; }
+      out.authentication = auth;
+    }
+    delete out.allTypesPath;
+    return out;
+  }
+  ["create", "update", "edit"].forEach(function (name) {
+    var raw = C8O.nocodeForms[name];
+    C8O.nocodeForms[name] = function () { return agentResult(raw.apply(null, arguments)); };
+  });
+  C8O.nocodeForms.agentView = agentView;
   C8O.nocodeForms.parseObject = parseObject;
   C8O.nocodeForms.assertStrictJsonText = assertStrictJsonText;
   C8O.nocodeForms.parseArray = parseArray;

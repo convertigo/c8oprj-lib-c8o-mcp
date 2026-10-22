@@ -1255,7 +1255,8 @@ test('review regressions: never=false, null and empty conditions, native if_else
   const created = h.client.create(input, h.auth);
   const cleared = h.client.edit(created.form._id, [{ action: 'update_field', fieldName: 'open', patch: { visibleIf: null, disabledIf: null } }], h.auth);
   assert.equal(cleared.saved, true, JSON.stringify(cleared.error || cleared.validation));
-  const open = cleared.form.formulaire.find(f => f.name === 'open');
+  // The answer drops empty condition groups: check the saved document.
+  const open = h.state.forms[created.form._id].formulaire.find(f => f.name === 'open');
   assert.equal(open.conditions.visibleIf, undefined);
   assert.equal(open.conditions.buttonStateIf, undefined);
 });
@@ -1270,7 +1271,8 @@ test('review regressions: button edits keep designer colors and switch variant b
     { action: 'update_field', fieldName: 'alt', patch: { variant: 'danger' } }
   ], h.auth);
   assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
-  const config = name => edited.form.formulaire.find(f => f.name === name).config;
+  // The answer drops empty values: read the saved document.
+  const config = name => h.state.forms[created.form._id].formulaire.find(f => f.name === name).config;
   assert.deepEqual([config('open').fill, config('open').backgroundColor, config('open').color], ['outline', 'transparent', '#000000']);
   assert.deepEqual([config('alt').fill, config('alt').backgroundColor, config('alt').componentBoxStyle.border], ['solid', '#B91C1C', '']);
   assert.throws(() => api().compile({ name: 'Bad', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', variant: 'toString' }] }] }), /Unknown button variant/);
@@ -1560,6 +1562,24 @@ test('sticky: compiled into config, validated, and an edit puts reduced config k
   assert.equal(saved.config.sticky, 'always');
   assert.equal(saved.deselectOnSecondClick, undefined);
   assert.equal(saved.sticky, undefined);
+});
+
+test('agent answers: the saved form without empty values, transport details or token payload; sources as saved', () => {
+  const h = creationHarness();
+  const created = h.client.create(connectedWithoutIdentities(), h.auth);
+  assert.equal(created.saved, true, JSON.stringify(created.validation));
+  const text = JSON.stringify(created);
+  assert.doesNotMatch(text, /_c8oMeta|"payload"|allTypesPath/);
+  assert.doesNotMatch(JSON.stringify(created.form.formulaire.map(f => f.config)), /:""/, 'no empty config value');
+  const saved = h.state.forms[created.form._id];
+  assert.ok(text.length < JSON.stringify(saved).length);
+  const grid = saved.formulaire.find(f => f.sources && f.sources['lib_BaseRow.formssource_GetTableData']);
+  const answered = created.form.formulaire.find(f => f.id === grid.id);
+  assert.deepEqual(clone(answered.sources), clone(grid.sources), 'sources are answered exactly as saved');
+  assert.equal(saved.formulaire[0].config.boxStyle.margin !== undefined, true, 'the saved document keeps its full shape');
+  const edited = h.client.edit(created.form._id, [{ action: 'set_root', patch: { name: 'Renamed' } }], h.auth);
+  assert.equal(edited.form.name, 'Renamed');
+  assert.doesNotMatch(JSON.stringify(edited), /_c8oMeta|"payload"/);
 });
 test('new questions: no preselected select or checkbox answer, no prototype icon or question, required fields checked on submit', () => {
   const r = api().compile({ name: 'Defaults', navigationMode: 'custom', pages: [{ name: 'P', fields: [

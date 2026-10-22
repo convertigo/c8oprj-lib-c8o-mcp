@@ -7,7 +7,7 @@ comment: |
     'include("js/nocode_forms.js");
     try {
       var current = C8O.nocodeForms.get(id, { project: "C8Oforms", rev: rev, token: token });
-      result = current && current.fetched === false ? current : { status: "ok", fetched: true, form: current };
+      result = current && current.fetched === false ? current : { status: "ok", fetched: true, form: C8O.nocodeForms.agentView(current) };
     } catch (e) {
       result = { status: "error", fetched: false, error: { code: "form_read_failed", message: "Unable to read the form through the No Code API." } };
     }'
