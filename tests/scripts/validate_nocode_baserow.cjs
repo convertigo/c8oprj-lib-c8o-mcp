@@ -72,6 +72,11 @@ function fakeBaserow(options = {}) {
         state.lastTableBody = body;
         return { document: { object: { id: table.id, name: table.name } } };
       }
+      case 'TableCreateView': {
+        if (options.refuseViews) return { document: {} };
+        const body = JSON.parse(params.data);
+        return { document: { object: { id: state.nextId++, name: body.name } } };
+      }
       default: throw new Error('unexpected call ' + name);
     }
   }
@@ -214,4 +219,15 @@ test('the form tools check new columns past the stale cache', () => {
   assert.ok(!r.validation.issues.some(i => i.code === 'unknown_baserow_column'), JSON.stringify(r.validation.issues));
   assert.equal(r.saved, true);
   assert.ok(fake.state.calls.some(c => c.name === '_api_database_fields_table__table_id___GET' && c.params.__header_Authorization === 'JWT user-token'));
+});
+
+test('a view Baserow did not create is reported, not counted as created', () => {
+  const refused = fakeBaserow({ refuseViews: true });
+  const r = load(refused.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals', views: [{ name: 'Open deals' }] }] } });
+  assert.equal(r.status, 'ok');
+  assert.deepEqual(plain(r.created.views), []);
+  assert.equal(r.warnings[0].code, 'view_not_created');
+  const created = load(fakeBaserow().transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals', views: [{ name: 'Open deals' }] }] } });
+  assert.deepEqual(plain(created.created.views.map(v => v.name)), ['Open deals']);
+  assert.deepEqual(plain(created.warnings), []);
 });

@@ -1524,6 +1524,19 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         throw new Error(formatLibWriteError("Create view " + tableSpec.name + "." + body.name, error));
       }
       var viewObject = firstObject(response);
+      // lib_BaseRow.TableCreateView answers nothing when the view is not created (on test-nocode its transaction
+      // declares a variable named include, which hides include() in its handler): an agent announced a view that did
+      // not exist. Say so instead, and leave its filters.
+      if (!viewObject || numberOrNull(viewObject.id) == null) {
+        plan.warnings.push({
+          code: "view_not_created",
+          table: tableSpec.name,
+          view: body.name,
+          message: "Baserow did not create this view (lib_BaseRow.TableCreateView returned no view). The table and its fields are not affected; do not tell the user the view exists."
+        });
+        continue;
+      }
+      plan.created.views.push({ table: tableSpec.name, name: body.name, id: numberOrNull(viewObject.id) });
       var filters = ensureArray(view.filters);
       for (var f = 0; f < filters.length; f++) {
         var filter = filters[f] || {};
