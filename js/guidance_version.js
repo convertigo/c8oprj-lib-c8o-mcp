@@ -177,6 +177,7 @@ C8O.guidance = C8O.guidance || {};
       "marketplace-import": true,
       "ngx-page-create": true,
       "nocode-baserow-schema-apply": true,
+      "nocode-form-publish": true,
       "nocode-form-update": true,
       "project-delete": true,
       "project-js-set": true,

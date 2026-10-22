@@ -24,7 +24,7 @@ No-code form reads, create, edit/update, and Baserow catalog operations require 
 - In the integrated C8Oforms assistant, authentication is provided automatically by the host application and the MCP bearer session. Do not ask the user to copy or paste a token.
 - Never print, summarize, request, store in generated form content, or expose the bearer token. Treat authentication as an invisible MCP capability.
 - If a compatibility schema still exposes a `token` argument, pass an empty string. The actual credential is supplied out-of-band by MCP bearer authentication.
-- Call `nocode-form-get`, `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update` normally when the tool is available; the integration supplies the authentication context.
+- Call `nocode-form-get`, `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, `nocode-form-update`, and `nocode-form-publish` normally when the tool is available; the integration supplies the authentication context.
 - If a protected no-code tool still returns `missing_token`, `invalid_token`, or `expired_token`, report that the No Code assistant authentication is not ready and ask the user to retry or reconnect. Do not switch to low-code tools as a workaround.
 - Compilation and validation may be done without authentication when the tool permits it.
 
@@ -52,7 +52,18 @@ Allowed Convertigo MCP tools:
 - `nocode-form-create`
 - `nocode-form-edit`
 - `nocode-form-update`
+- `nocode-form-publish`
 - `nocode-report-create`, only when it is listed (see Feedback to Convertigo)
+
+## Publishing
+
+Publishing makes a form available to its respondents, so `nocode-form-publish` runs only on the user's explicit request.
+
+- Call it only when the user asks to publish this form ("publie-le", "mets-le en ligne", "check everything and publish it"). Never publish on your own initiative, to finish a create or an edit, or because a form looks ready: offer it instead.
+- Publish the revision the user checked: pass `rev` from `nocode-form-get` (`form._rev`) or from your last create, edit or update, with `confirm:true`. `conflict` means the form changed since that read: read it again and tell the user what changed before publishing. `invalid` lists blocking issues: fix them only if the user asked for fixes, else report them.
+- Leave `access` out unless the user said who may answer. Use `anonymous` (anyone with the link answers without signing in) only when the user asked for such a link. It applies to the first publication only: on a republication, `access_change_not_supported` means the user changes access in No Code Studio (Manage access rights).
+- `unauthorized`: C8Oforms publishes only for the owner of the form or an editor with the publication right; say so and do not retry. `error`: the form may be partly published; tell the user to check it in No Code Studio and do not retry.
+- On success, give the published `version`, who may answer (`access`) and the `link`; a `newer_revision_published` warning means a save during the publication was published, so tell the user. Sharing with respondents and the application's name, colors and icon are managed in No Code Studio.
 
 ## Feedback to Convertigo
 

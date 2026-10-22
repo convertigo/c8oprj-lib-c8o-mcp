@@ -1065,6 +1065,35 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeFormPublishInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: nocodeFormsProjectProperty(),
+        id: {
+          type: "string",
+          description: "Draft form document id from the current No Code context, without the published_ prefix."
+        },
+        rev: {
+          type: "string",
+          description: "Revision of the draft the user checked: form._rev from nocode-form-get, or rev from the last create/edit/update. A newer saved revision is refused as a conflict and nothing is published."
+        },
+        confirm: {
+          type: "boolean",
+          description: "Set true only when the user explicitly asked to publish this form in the conversation. Never publish on your own initiative or as a next step of a create or an edit."
+        },
+        access: {
+          type: "string",
+          enum: ["authenticated", "anonymous"],
+          description: "First publication only. authenticated (default): only signed-in users the form is shared with may answer. anonymous: anyone with the link may answer without signing in; use it only when the user asked for such a link. Omit it on a republication, which keeps the current access."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["id", "rev", "confirm"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeFormEditOperationSchema() {
     return {
       type: "object",
@@ -2314,6 +2343,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_form_update") {
       return nocodeFormUpdateInputSchema();
+    }
+    if (seq === "tools_nocode_form_publish") {
+      return nocodeFormPublishInputSchema();
     }
     if (seq === "tools_rag_query") {
       return ragQueryInputSchema();

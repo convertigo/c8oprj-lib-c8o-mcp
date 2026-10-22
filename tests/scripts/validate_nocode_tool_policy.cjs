@@ -31,7 +31,7 @@ function route(name, kind, header) {
 }
 const tools = [
   'nocode-form-get', 'nocode-form-contract-get', 'nocode-form-compile',
-  'nocode-form-validate', 'nocode-form-create', 'nocode-form-edit', 'nocode-form-update',
+  'nocode-form-validate', 'nocode-form-create', 'nocode-form-edit', 'nocode-form-update', 'nocode-form-publish',
   'nocode-baserow-catalog-list', 'nocode-baserow-schema-apply'
 ];
 
