@@ -1253,6 +1253,21 @@ test('add_flow compiles reduced elements and keeps elements read back from a sav
   assert.equal(elements[2].parentRef, elements[1].id);
   assert.deepEqual(elements[3], nativeToast);
 });
+test('Baserow data needs no native contract section', () => {
+  // 22/10 on test-nocode: the skill sent agents to baserowSources and backendActions (28 KB) for any Baserow data;
+  // the answer was spilled to a file and read with 14 to 20 shell commands per turn.
+  const core = api().contract({});
+  const shorthand = core.authoringContract.baserowShorthand;
+  const all = api().contract({ sections: ['baserowSources'] }).sections.baserowSources.filter.operators;
+  const listed = Object.values(shorthand.operators).filter(Array.isArray).flat();
+  assert.ok(listed.length >= 15);
+  assert.deepEqual(listed.filter(op => !all.includes(op)), []);
+  assert.doesNotMatch(shorthand.filter, /baserowSources/);
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  const step1 = skill.split('\n').find(line => line.startsWith('1. Read the no-code contract'));
+  assert.match(step1, /Baserow data needs no section: `baserowShorthand`/);
+  assert.doesNotMatch(step1, /`baserowSources` and `backendActions` for Baserow data/);
+});
 test('contract documents the readable UI patterns and its examples compile', () => {
   const contract = api().contract({ sections: ['all'] }).authoringContract;
   const quality = contract.generationQuality;
