@@ -4032,7 +4032,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var answer = { status: unknown.length && !Object.keys(sections).length ? "invalid" : "ok", contractVersion: authoring.contractVersion, sections: sections };
       if (unknown.length) {
         answer.unknownSections = unknown;
-        answer.availableSections = Object.keys(parts).concat(["all"]);
+        answer.availableSections = Object.keys(parts);
       }
       return answer;
     }
@@ -4050,7 +4050,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       allTypes: opts.includeAllTypes === true ? contract.catalog : null
     };
     if (!whole) {
-      answer.moreSections = "Ask nocode-form-contract-get with sections:[...] for the sections not included in sectionIndex: generationQuality (design rules, read before generating an application), baserowSources and backendActions (Baserow sources, filters, saves), dynamicReferences (SmartSource references), rootFields, styleObjectFields, styleRendering. sections:[\"all\"] returns the whole contract.";
+      answer.moreSections = "Ask nocode-form-contract-get with sections:[...] for the sections not included in sectionIndex: generationQuality (design rules, read before generating an application), baserowSources and backendActions (Baserow sources, filters, saves), dynamicReferences (SmartSource references), rootFields, styleObjectFields, styleRendering. Ask only for the sections the task needs.";
     }
     return answer;
   };

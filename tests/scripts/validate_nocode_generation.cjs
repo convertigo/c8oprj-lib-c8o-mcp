@@ -1670,5 +1670,6 @@ test('the contract answers its core with an index of every section, the sections
   assert.ok(client.contract({ includeAllTypes: true }).authoringContract.baserowSources, 'includeAllTypes keeps the whole contract');
   const wrong = client.contract({ sections: ['nope'] });
   assert.equal(wrong.status, 'invalid');
-  assert.ok(wrong.availableSections.includes('flowAuthoring') && wrong.availableSections.includes('all'));
+  assert.ok(wrong.availableSections.includes('flowAuthoring'));
+  assert.ok(!wrong.availableSections.includes('all') && !/\ball\b/.test(core.moreSections), 'the whole contract is not offered to agents');
 });
