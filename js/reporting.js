@@ -20,10 +20,35 @@ C8O.reporting.resolveMode = function () {
     rawValue = "off";
   }
   var mode = C8O.util.toTrimmedString(rawValue).toLowerCase();
-  if (!C8O.reporting._ALLOWED_MODES[mode]) {
-    return "off";
+  if (!C8O.reporting._ALLOWED_MODES[mode] || mode === "off") {
+    // Without a benchmark mode, the Studio user's consent to send feedback to Convertigo (Tigo /retours) opens it.
+    return C8O.reporting.tigoMode() === "off" ? "off" : "tigo";
   }
   return mode;
+};
+
+// Consent of Tigo's feedback to Convertigo (lib_ConvertigoAssistant docs/tigo-feedback.md): the administrator's
+// assistant.feedback.policy symbol, else the user's choice in <engine workspace>/agents/feedback/settings.json.
+C8O.reporting.tigoMode = function () {
+  try {
+    var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+    if (!Engine.isStudioMode()) {
+      return "off";
+    }
+    var policy = C8O.util.toTrimmedString(Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.feedback.policy")).toLowerCase();
+    if (policy === "off" || policy === "ask" || policy === "auto") {
+      return policy;
+    }
+    var file = new java.io.File(String(Engine.USER_WORKSPACE_PATH), "agents/feedback/settings.json");
+    if (!file.isFile() || file.length() > 65536) {
+      return "off";
+    }
+    var settings = JSON.parse(String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8")));
+    var mode = C8O.util.toTrimmedString(settings && settings.mode).toLowerCase();
+    return mode === "ask" || mode === "auto" ? mode : "off";
+  } catch (_ignoredConsent) {
+    return "off";
+  }
 };
 
 C8O.reporting.isEnabled = function () {
@@ -31,7 +56,7 @@ C8O.reporting.isEnabled = function () {
 };
 
 C8O.reporting.promptSuffix = function (mode) {
-  if (mode === "suggest") {
+  if (mode === "suggest" || mode === "tigo") {
     return [
       "## Optional MCP feedback",
       "If you hit reusable MCP, guide, or prompt friction during this run, submit at most one short `report-create` call.",
@@ -129,6 +154,10 @@ C8O.reporting.writeReport = function (input) {
     throw new Error("Reporting is disabled");
   }
 
+  if (mode === "tigo") {
+    return C8O.reporting.writeTigoReport(input);
+  }
+
   var info = C8O.reporting._resolveProjectInfo();
   var area = C8O.reporting._validateEnum("area", input && input.area, {
     tool: true,
@@ -207,6 +236,66 @@ C8O.reporting.writeReport = function (input) {
     mode: mode,
     path: String(targetFile.getPath()),
     relativePath: String(projectPath.relativize(targetPath).toString()),
+    createdAt: createdAt
+  };
+};
+
+// With Tigo's consent, the report is a raw agent friction for the Assistant's feedback outbox: it masks it, counts it
+// with the same ones, and shows it to the user before it is sent (or sends it after the turn in automatic mode).
+C8O.reporting.writeTigoReport = function (input) {
+  var area = C8O.reporting._validateEnum("area", input && input.area, {
+    tool: true,
+    guide: true,
+    prompt: true,
+    scenario: true,
+    fixture: true,
+    "product-knowledge-gap": true
+  });
+  var severity = C8O.reporting._validateEnum("severity", input && input.severity, { low: true, medium: true, high: true });
+  var subjectId = C8O.util.toTrimmedString(input && input.subjectId);
+  var summary = C8O.util.toTrimmedString(input && input.summary);
+  if (!subjectId.length || !summary.length) {
+    throw new Error("subjectId and summary are required");
+  }
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var createdAt = new Date().toISOString();
+  var reportId = String(Packages.java.util.UUID.randomUUID().toString());
+  var workspace = java.nio.file.Paths.get(String(Engine.USER_WORKSPACE_PATH)).toRealPath();
+  var incoming = workspace.resolve("agents").resolve("feedback").resolve("incoming");
+  for (var p = incoming; p != null && !p.equals(workspace); p = p.getParent()) {
+    if (java.nio.file.Files.isSymbolicLink(p)) {
+      throw new Error("Unsafe feedback path");
+    }
+  }
+  java.nio.file.Files.createDirectories(incoming);
+  var payload = {
+    kind: "agent_friction",
+    createdAt: createdAt,
+    finding: {
+      area: area,
+      subject: subjectId.substring(0, 120),
+      severity: severity,
+      summary: summary.substring(0, 2000),
+      suggestion: C8O.util.toTrimmedString(input && input.suggestion).substring(0, 2000)
+    },
+    provider: C8O.reporting._optionalString(input && input.provider),
+    model: C8O.reporting._optionalString(input && input.model)
+  };
+  java.nio.file.Files.write(
+    incoming.resolve(reportId + ".json"),
+    new java.lang.String(JSON.stringify(payload, null, 2) + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8),
+    java.nio.file.StandardOpenOption.CREATE_NEW,
+    java.nio.file.StandardOpenOption.WRITE
+  );
+  return {
+    status: "written",
+    message: C8O.reporting.tigoMode() === "auto"
+      ? "Friction queued: Tigo sends it to Convertigo after this turn, masked."
+      : "Friction queued: the user reviews it before it is sent to Convertigo.",
+    reportId: reportId,
+    mode: "tigo",
+    path: "",
+    relativePath: "agents/feedback/incoming/" + reportId + ".json",
     createdAt: createdAt
   };
 };
