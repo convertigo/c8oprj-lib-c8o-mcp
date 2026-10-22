@@ -104,7 +104,8 @@ C8O.nocodeApp = C8O.nocodeApp || {};
         apply: "Rechercher",
         all: "Tous",
         saved: capitalize(one) + " enregistré" + (fem ? "e" : ""),
-        empty: function (hasForm) { return "Aucun" + (fem ? "e " : " ") + one + " pour l'instant." + (hasForm ? " Utilisez « " + newTitle + " » pour " + (fem ? "créer la première." : "créer le premier.") : ""); },
+        // Shown under the list whether it has rows or not: a hint, not an empty state.
+        empty: function (hasForm) { return "Les " + many + " enregistré" + (fem ? "es" : "s") + " apparaissent ici." + (hasForm ? " Utilisez « " + newTitle + " » pour en ajouter " + (fem ? "une." : "un.") : ""); },
         saveFlow: "Enregistrer " + frenchArticle(one, fem) + one,
         cancelFlow: "Annuler la saisie",
         clearFlow: "Effacer la recherche",
@@ -135,7 +136,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
       apply: "Search",
       all: "All",
       saved: capitalize(one) + " saved",
-      empty: function (hasForm) { return "No " + many + " yet." + (hasForm ? " Use “New " + one + "” to create the first one." : ""); },
+      empty: function (hasForm) { return "Saved " + many + " show here." + (hasForm ? " Use “New " + one + "” to add one." : ""); },
       saveFlow: "Save the " + one,
       cancelFlow: "Cancel the entry",
       clearFlow: "Clear the search",
@@ -546,7 +547,9 @@ C8O.nocodeApp = C8O.nocodeApp || {};
             var apply = button(claim(k + "_apply", "a button"), t.apply, "search", "secondary", flow("apply_" + k, t.applyFlow, [{ type: "refresh_grid", targetGrid: listName }]));
             var widths = inputs.length === 1 ? [12] : (inputs.length === 2 ? [7, 5] : [6, 3, 3]);
             // Inside the bar the compiler gives no role spacing: the group of buttons is made transparent here.
-            var searchActions = actionLayout(claim(k + "_search_actions", "the search actions"), [apply, clear]);
+            apply.expand = "false";
+            clear.expand = "false";
+            var searchActions = { type: "layout", name: claim(k + "_search_actions", "the search actions"), cols: cols([3, 3]), tablet: cols([4, 4]), phoneL: cols([6, 6]), phoneP: cols([6, 6]), children: [apply, clear] };
             searchActions.boxStyle = { margin: "0 0 12px 0", padding: "0", border: "0", backgroundColor: "transparent" };
             searchActions.layoutChildrenStyle = { "default": { margin: "0", padding: "0 8px 0 0", border: "0", backgroundColor: "transparent" } };
             bar = { type: "layout", name: claim(k + "_search_bar", "the search bar"), cols: cols([12]), tablet: cols([12]), phoneL: cols([12]), phoneP: cols([12]), children: [
@@ -578,15 +581,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
 
       if (screens.detail) {
         var detailFields = spec.detailColumns.map(function (column) {
-          var field = {
-            type: "text",
-            name: claim(k + "_detail_" + slug(column.name), "a detail field"),
-            label: column.name,
-            disabled: true,
-            defaultFrom: { source: "field", field: listName, path: [column.name, "value"], mode: "reactive", fallback: "" }
-          };
-          if (column.type === "long_text") { field.short = false; field.fullWidth = true; }
-          return field;
+          return detailField(column, claim(k + "_detail_" + slug(column.name), "a detail field"), listName, app, t);
         });
         page(titles.detail, "detail", { title: titles.detail, subtitle: trimmed(screens.detail.subtitle) || t.detailSubtitle }, [
           { type: "section", name: claim(k + "_detail_main", "the detail section"), title: t.section, columns: 2, fields: detailFields },
@@ -649,6 +644,31 @@ C8O.nocodeApp = C8O.nocodeApp || {};
 
   function escapeHtml(value) {
     return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // A read-only field showing a column of the row selected in the list. The grid row holds Baserow cells as
+  // { value }: a single select's value is { id, value, color }, a link or a multiple select a list of { id, value }, a
+  // date an ISO text (test-nocode, lean cells of lib_BaseRow): each is read so that it shows its text.
+  function detailField(column, name, listName, app, t) {
+    var type = trimmed(column.type);
+    var field = { type: "text", name: name, label: column.name, disabled: true };
+    var cell = "(fields[" + JSON.stringify(listName) + "] ? fields[" + JSON.stringify(listName) + "][" + JSON.stringify(column.name) + "] : null)";
+    if (type === "single_select") {
+      field.defaultFrom = { source: "field", field: listName, path: [column.name, "value", "value"], mode: "reactive", fallback: "" };
+    } else if (type === "date") {
+      field.type = "datetime";
+      field.display_format = app.language === "fr" ? "DD/MM/YYYY" : "MM/DD/YYYY";
+      field.picker_format = field.display_format;
+      field.defaultFrom = { source: "field", field: listName, path: [column.name, "value"], mode: "reactive", fallback: "" };
+    } else if (type === "link_row" || type === "multiple_select" || type === "lookup") {
+      field.defaultFrom = { source: "expression", mode: "reactive", expression: "(function (c) { var v = c && c.value; return Array.isArray(v) ? v.map(function (x) { return x && typeof x === 'object' ? (x.value != null ? x.value : '') : x; }).join(', ') : (v == null ? '' : v); })" + cell };
+    } else if (type === "boolean") {
+      field.defaultFrom = { source: "expression", mode: "reactive", expression: "(function (c) { var v = c && c.value; return v === true || v === 'true' ? " + JSON.stringify(t.yesNo[0]) + " : (v === false || v === 'false' ? " + JSON.stringify(t.yesNo[1]) + " : ''); })" + cell };
+    } else {
+      field.defaultFrom = { source: "field", field: listName, path: [column.name, "value"], mode: "reactive", fallback: "" };
+    }
+    if (type === "long_text") { field.short = false; field.fullWidth = true; }
+    return field;
   }
 
   function inputField(input, spec, entity, app, t) {

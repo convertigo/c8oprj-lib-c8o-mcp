@@ -1956,6 +1956,14 @@ test('nocode-app-create: a ticket list with search OR, a choice filter, a detail
   assert.equal(detail.config.disabled, true);
   assert.deepEqual(detail.config.contextDefault, { source: 'field', field: 'ticket_list', path: ['Titre', 'value'], mode: 'reactive', fallback: '' });
   assert.equal(byName(form, 'ticket_list_detail').conditions.buttonStateIf.conds[0].val1.str, String(grid.id), 'detail disabled until a row is selected');
+  // A single select cell is { id, value, color } and a date an ISO text (viewer, test-nocode): the detail reads their text.
+  assert.deepEqual(byName(form, 'ticket_detail_priorite').config.contextDefault.path, ['Priorité', 'value', 'value']);
+  assert.equal(byName(form, 'ticket_detail_echeance').type, 'datetime');
+  assert.equal(byName(form, 'ticket_detail_echeance').config.display_format, 'DD/MM/YYYY');
+  const cellText = (name, cell) => evaluateDefault(byName(form, name), { fields: { ticket_list: cell } });
+  assert.equal(cellText('ticket_detail_priorite', { 'Priorité': { value: { id: 12787, value: 'Haute', color: 'light-orange' } } }), 'Haute');
+  assert.equal(cellText('ticket_detail_priorite', null), '');
+  assert.match(byName(form, 'ticket_empty').config.html, /Les tickets enregistrés apparaissent ici. Utilisez « Nouveau ticket » pour en ajouter un./);
   // Entry form: inputs named after the writable columns, typed after Baserow; the read-only column is left out.
   const inputs = form.formulaire.filter(i => i.config.page === pageOf(form, 'Nouveau ticket').pageTechName && ['text', 'select', 'datetime'].includes(i.type));
   assert.deepEqual(inputs.map(i => [i.name, i.type]), [['Titre', 'text'], ['Description', 'text'], ['Priorité', 'select'], ['Statut', 'select'], ['Échéance', 'datetime'], ['Montant', 'text']]);
