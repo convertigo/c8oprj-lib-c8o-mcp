@@ -1627,3 +1627,26 @@ test('a create refused before its first save does not ask to finalize a saved id
   const empty = api().compile({ name: 'E', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }], flows: [{ id: 'f', name: 'F', elements: [{ type: 'submit', actions: {} }] }] });
   assert.match(empty.validation.issues.find(i => i.code === 'unconfigured_submit').message, /automatic submit of its last page.*forms_AddRow/);
 });
+test('a source or an action written with plain values gets the UI-authored encoding', () => {
+  const r = api().compile({ name: 'Plain', navigationMode: 'custom', pages: [{ name: 'P', fields: [
+    { type: 'text', name: 'Name', label: 'Name' },
+    { type: 'grid', name: 'deals', label: 'Deals', sources: { 'lib_BaseRow.formssource_GetTableData': { vars: {
+      forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, columns: ['Name'], hidden: [], link_row_table_id: [] },
+      forms_tableSort: { conds: [{ name: 'Name', order: 'asc' }] },
+      forms_tableGroupBy: 'Name'
+    } } } },
+    { type: 'button', name: 'save', label: 'Save', flow: 'save' }
+  ] }], flows: [{ id: 'save', name: 'Save', elements: [{ type: 'submit', actions: { 'lib_BaseRow.forms_AddRow': { vars: {
+    forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, link_row_table_id: [] }, forms_id: '', forms_createColumn: false
+  } } } }] }] });
+  const grid = r.form.formulaire.find(f => f.name === 'deals').sources['lib_BaseRow.formssource_GetTableData'];
+  assert.equal(grid.enabled, true, 'an entry given without enabled is meant to run');
+  assert.equal(JSON.parse(grid.vars.forms_config.str).table_id_int, 30);
+  assert.equal(grid.vars.forms_config.html, false);
+  assert.deepEqual(clone(grid.vars.forms_tableSort), { conds: [{ name: 'Name', order: 'asc' }], str: '', html: false, type: 'sort' });
+  assert.deepEqual(clone(grid.vars.forms_tableGroupBy), { str: 'Name', html: false });
+  const action = r.form.flows.find(f => f.id === 'save').elements[0].actions['lib_BaseRow.forms_AddRow'];
+  assert.deepEqual(clone(action.vars.forms_id), { str: '', html: false });
+  assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
+  assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
+});

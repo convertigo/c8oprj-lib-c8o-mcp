@@ -1259,6 +1259,35 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
   }
 
+  // Sources and backend actions keep the UI-authored encoding of their variables: { str, html:false }, forms_config
+  // and forms_freeVars as JSON text in str, filters and sorts with their conds. An agent that wrote forms_config as an
+  // object, or a variable as a plain value, was refused ("forms_config must be a JSON string") and spent several calls
+  // finding the native shape: encode them here. Only qualified requestable entries (lib_BaseRow.formssource_GetTableData,
+  // lib_BaseRow.forms_AddRow...) are touched, not the self source; null is kept (a merge patch removes with it).
+  function normalizeRequestableEntries(entries) {
+    if (!entries || typeof entries !== "object" || Array.isArray(entries)) { return entries; }
+    Object.keys(entries).forEach(function (key) {
+      var entry = entries[key];
+      if (key.indexOf(".") < 1 || !entry || typeof entry !== "object" || Array.isArray(entry)) { return; }
+      if (!hasOwn(entry, "enabled")) { entry.enabled = true; }
+      if (entry.vars == null || typeof entry.vars !== "object" || Array.isArray(entry.vars)) { entry.vars = {}; }
+      Object.keys(entry.vars).forEach(function (name) {
+        var value = entry.vars[name];
+        if (value === null) { return; }
+        if (typeof value !== "object") {
+          entry.vars[name] = { str: String(value), html: false };
+        } else if (Array.isArray(value) || (!hasOwn(value, "str") && !hasOwn(value, "conds") && !hasOwn(value, "groups"))) {
+          entry.vars[name] = { str: JSON.stringify(value), html: false };
+        } else if (!hasOwn(value, "str")) {
+          value.str = "";
+          if (!hasOwn(value, "html")) { value.html = false; }
+          if (!hasOwn(value, "type")) { value.type = /sort/i.test(name) ? "sort" : "filter"; }
+        }
+      });
+    });
+    return entries;
+  }
+
   function copyObjectValues(target, source, keys) {
     for (var i = 0; i < keys.length; i++) {
       if (hasOwn(source, keys[i])) {
@@ -1980,6 +2009,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     }
     copyObjectValues(out, element, ["sources", "actions", "children", "childrenRefs", "childrenRefsElse", "parentRef", "vars"]);
+    if (out.actions) { out.actions = normalizeRequestableEntries(clone(out.actions, {})); }
     copyConfigValues(out, element, ["condition", "operator", "message", "target", "page", "flow", "delay", "loopSource", "itemName"]);
     copyConfigValues(out, element, ["targetPage", "targetGrid", "position", "duration", "color", "closeBtn", "scope", "targetElement"]);
     if (type === "toast") {
@@ -2233,10 +2263,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       out.config.columns = ensureArray(field.columns);
     }
     if (field.sources) {
-      out.sources = field.sources;
+      out.sources = normalizeRequestableEntries(clone(field.sources, {}));
     }
     if (field.actions) {
-      out.actions = field.actions;
+      out.actions = normalizeRequestableEntries(clone(field.actions, {}));
     }
     if (field.flow) {
       out.flow = field.flow;
@@ -3801,6 +3831,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         delete mergePatch.variant;
         if (mergePatch.config) { delete mergePatch.config.variant; }
       }
+      if (mergePatch.sources) { normalizeRequestableEntries(mergePatch.sources); }
+      if (mergePatch.actions) { normalizeRequestableEntries(mergePatch.actions); }
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);
       if (Object.keys(conditionPatch).length) {
         var compiledConditions = {};

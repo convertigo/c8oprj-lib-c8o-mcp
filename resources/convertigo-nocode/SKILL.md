@@ -237,6 +237,7 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 - The catalog tool is read-only discovery. It must not be used as permission to call low-code requestables or raw Baserow APIs.
 - A component is connected to Baserow when it has an enabled `sources["lib_BaseRow.formssource_GetTableData"]` entry.
 - The live Baserow binding is stored in `sources["lib_BaseRow.formssource_GetTableData"].vars.forms_config.str`, a JSON string. Parse that string instead of reading it as plain text.
+- When you write a source or a backend action, you may give `forms_config` and `forms_freeVars` as JSON objects and the other variables as plain values (`"forms_id": ""`, `"forms_tableGroupBy": "Status"`): the tools encode them as the UI-authored `{ str, html:false }` objects. Filters and sorts keep their `conds` shape.
 - Treat `forms_config.str` as the source of truth for the Baserow table and dynamic output columns. Inspect `table_id`, `table_id_int`, `columns`, `hidden`, `link_row_table_id`, `source_id`, and `source_owner`.
 - `table_id` is the human-readable Baserow path, commonly shaped like `Workspace~>Database~>Table`; `table_id_int` is the numeric Baserow table id.
 - The effective Baserow output columns are dynamically deduced from `forms_config.columns`, with `forms_config.hidden` indicating hidden columns.
