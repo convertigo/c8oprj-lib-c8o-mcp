@@ -310,7 +310,16 @@ test('nocode-app-create refuses a destination it cannot use, and a plan writes n
   const spec = { ...purchases, baserow: undefined };
   const r = h.create(spec);
   assert.equal(r.error.code, 'workspace_required');
-  assert.deepEqual(r.error.workspaces.map(w => w.name), ['Team', 'Other']);
+  assert.deepEqual(r.error.workspaces.map(w => [w.name, w.baseCount]), [['Team', 1], ['Other', 1]], 'each workspace with its number of bases, not all of them');
+  // The workspace No Code Studio gives the user, named after their e-mail, is the default one.
+  h.fake.state.workspaces.push({ id: 12, name: 'Convertigo NoCode Databases - person@example.invalid' });
+  h.fake.state.bases.push({ id: 22, name: 'Mine', workspaceId: 12 });
+  const own = h.create({ ...spec, mode: 'plan' });
+  assert.equal(own.status, 'ok', JSON.stringify(own));
+  assert.deepEqual(own.baserow.base, { id: null, name: "Demandes d'achat", created: true });
+  assert.ok(own.baserow.actions.includes('create_base'));
+  h.fake.state.workspaces.pop();
+  h.fake.state.bases.pop();
   const plan = h.create({ ...purchases, mode: 'plan' });
   assert.equal(plan.status, 'ok', JSON.stringify(plan));
   assert.equal(plan.saved, false);

@@ -1929,6 +1929,11 @@ test('nocode-app-create: a ticket list with search OR, a choice filter, a detail
   const bar = byName(form, 'ticket_search_bar');
   assert.equal(bar.config.sticky, 'always');
   assert.equal(bar.parentRef, undefined, 'the bar sits directly on the page');
+  // Choosing an option does not reload the list in the viewer: a button applies the filters, the other clears them.
+  assert.deepEqual(flowOf(form, 'apply_ticket').elements.map(e => [e.type, e.config.targetGrid]), [['refresh_grid', byName(form, 'ticket_list').id]]);
+  assert.equal(byName(form, 'ticket_apply').parentRef, byName(form, 'ticket_search_actions').id);
+  assert.equal(byName(form, 'ticket_search_actions').parentRef, bar.id);
+  assert.equal(byName(form, 'ticket_search_fields').parentRef, bar.id);
   const search = byName(form, 'ticket_search');
   const choice = byName(form, 'ticket_filter_priorite');
   assert.deepEqual(JSON.parse(choice.sources['lib_BaseRow.formssource_GetFieldValues'].vars.forms_config.str).columns, ['Priorité']);
@@ -1941,7 +1946,8 @@ test('nocode-app-create: a ticket list with search OR, a choice filter, a detail
   assert.equal(grid.config.returned_value, 'row_selected');
   const filter = source.forms_tableFilter;
   assert.equal(filter.condVisible, 'and');
-  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, refTarget(c.val2.str)]), [['Priorité', 'contains', choice.id]]);
+  // The choice list submits the id of the option: single_select_equal, not contains.
+  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, refTarget(c.val2.str)]), [['Priorité', 'single_select_equal', choice.id]]);
   assert.equal(filter.groups.length, 1);
   assert.equal(filter.groups[0].condVisible, 'or');
   assert.deepEqual(filter.groups[0].conds.map(c => [c.val1.name, refTarget(c.val2.str)]), [['Titre', search.id], ['Description', search.id]]);
@@ -1971,7 +1977,9 @@ test('nocode-app-create: a ticket list with search OR, a choice filter, a detail
   assert.equal(byName(form, 'ticket_save').config.checkMandatoryInCurrentPage, true);
   // The outline is what the agent reads: short, with the ids it needs.
   assert.ok(JSON.stringify(result).length < 3000, JSON.stringify(result).length + ' characters');
-  assert.match(JSON.stringify(result.pages), /search in Titre OR Description, filter by Priorité/);
+  assert.match(JSON.stringify(result.pages), /search in Titre OR Description, filter by Priorité \(applied by its Rechercher button\)/);
+  // The detail subtitle keeps the space after its article.
+  assert.match(byName(form, 'header_ticket').config.html, /Le ticket sélectionné dans la liste/);
 });
 test('nocode-app-create: a home page with an entry form and a history on a new table (S3)', () => {
   const { result, form, validation, calls } = planApp({ name: 'Suivi des visites', home: true, entities: [{ name: 'visite', plural: 'visites', feminine: true,

@@ -27,10 +27,10 @@ C8O.nocodeApp = C8O.nocodeApp || {};
   var NUMERIC_TYPES = ["number", "rating", "count", "rollup", "autonumber"];
   var PAGE_ICONS = { home: "home", list: "list", form: "add", detail: "document-text", dashboard: "stats-chart" };
   var LIST_COLUMN_LIMIT = 5;
-  // A search across columns is an OR sub-group, and lib_BaseRow sends grouped filters to Baserow without turning an
-  // option name into its id: single_select_equal "Haute" would match nothing. contains compares the option text, and
-  // an empty choice or search is ignored by Baserow, so an empty filter keeps every row.
-  var CHOICE_FILTER_OPERATOR = "contains";
+  // A choice list fed by the options of a column (formssource_GetFieldValues) submits the id of the option: the
+  // viewer sent "12779" for Haute on test-nocode, which contains never matches. The viewer drops a condition whose
+  // value is empty, so an empty choice or search keeps every row.
+  var CHOICE_FILTER_OPERATOR = "single_select_equal";
   var SEARCH_OPERATOR = "contains";
   var SEARCH_BAR_STYLE = { margin: "0 0 16px 0", padding: "12px 12px 0 12px", border: "1px solid #E2E8F0", borderRadius: "12px", backgroundColor: "#FFFFFF" };
   var THUMBNAIL_COLOR = "#2563EB";
@@ -89,7 +89,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
         formTitle: newTitle,
         formSubtitle: "Remplissez les champs puis enregistrez.",
         detailTitle: capitalize(one),
-        detailSubtitle: capitalize(frenchArticle(one, fem)) + one + " sélectionné" + (fem ? "e" : "") + " dans la liste.",
+        detailSubtitle: capitalize(frenchArticle(one, fem) + one) + " sélectionné" + (fem ? "e" : "") + " dans la liste.",
         dashboardTitle: multiple ? "Tableau de bord des " + many : "Tableau de bord",
         chartLabel: function (groupBy) { return capitalize(many) + " par " + lowerFirst(groupBy); },
         section: capitalize(one),
@@ -101,12 +101,14 @@ C8O.nocodeApp = C8O.nocodeApp || {};
         search: "Rechercher",
         searchPlaceholder: function (columns) { return "Rechercher dans " + columns.map(lowerFirst).join(", "); },
         clear: "Effacer",
+        apply: "Rechercher",
         all: "Tous",
         saved: capitalize(one) + " enregistré" + (fem ? "e" : ""),
         empty: function (hasForm) { return "Aucun" + (fem ? "e " : " ") + one + " pour l'instant." + (hasForm ? " Utilisez « " + newTitle + " » pour " + (fem ? "créer la première." : "créer le premier.") : ""); },
         saveFlow: "Enregistrer " + frenchArticle(one, fem) + one,
         cancelFlow: "Annuler la saisie",
         clearFlow: "Effacer la recherche",
+        applyFlow: "Appliquer les filtres",
         open: function (title) { return "Afficher " + lowerFirst(title); },
         aggregation: { count: "Nombre de " + many, sum: "Total ", avg: "Moyenne ", min: "Minimum ", max: "Maximum " },
         yesNo: ["Oui", "Non"]
@@ -130,12 +132,14 @@ C8O.nocodeApp = C8O.nocodeApp || {};
       search: "Search",
       searchPlaceholder: function (columns) { return "Search in " + columns.map(lowerFirst).join(", "); },
       clear: "Clear",
+      apply: "Search",
       all: "All",
       saved: capitalize(one) + " saved",
       empty: function (hasForm) { return "No " + many + " yet." + (hasForm ? " Use “New " + one + "” to create the first one." : ""); },
       saveFlow: "Save the " + one,
       cancelFlow: "Cancel the entry",
       clearFlow: "Clear the search",
+      applyFlow: "Apply the filters",
       open: function (title) { return "Open " + lowerFirst(title); },
       aggregation: { count: "Number of " + many, sum: "Total ", avg: "Average ", min: "Minimum ", max: "Maximum " },
       yesNo: ["Yes", "No"]
@@ -305,15 +309,28 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     return catalog.tables.filter(function (table) { return Number(table.baseId) === Number(baseId) && trimmed(table.name).toLowerCase() === trimmed(name).toLowerCase(); })[0] || null;
   }
 
+  // The workspaces to choose from, without listing every base: a test account answered more than 30 of them.
   function workspaceSummary(catalog) {
     return catalog.workspaces.map(function (workspace) {
-      return { id: workspace.id, name: workspace.name, bases: catalog.bases.filter(function (base) { return base.workspaceId === workspace.id; }).map(function (base) { return { id: base.id, name: base.name }; }) };
+      var bases = catalog.bases.filter(function (base) { return base.workspaceId === workspace.id; });
+      var out = { id: workspace.id, name: workspace.name, baseCount: bases.length };
+      if (bases.length) { out.bases = bases.slice(0, 5).map(function (base) { return { id: base.id, name: base.name }; }); }
+      return out;
     });
+  }
+
+  // No Code Studio gives each user a workspace of their own, named after their e-mail ("Convertigo NoCode Databases -
+  // <e-mail>" on test-nocode): with several workspaces it is the one an application of the user goes to.
+  function ownWorkspace(catalog, user) {
+    var email = trimmed(user).toLowerCase().split(":").pop();
+    if (email.indexOf("@") < 0) { return null; }
+    var own = catalog.workspaces.filter(function (workspace) { return trimmed(workspace.name).toLowerCase().indexOf(email) >= 0; });
+    return own.length === 1 ? own[0] : null;
   }
 
   // The base of the new tables: the one given, else the one of the existing tables, else a base named after the
   // application in the user's only workspace. Several workspaces and nothing given: the user chooses.
-  function destination(app, catalog) {
+  function destination(app, catalog, user) {
     var given = app.baserow;
     var existing = app.entities.filter(function (entity) { return entity.tableId != null; }).map(function (entity) { return catalogTable(catalog, entity.tableId); });
     var needsBase = app.entities.some(function (entity) { return entity.tableId == null; });
@@ -338,6 +355,8 @@ C8O.nocodeApp = C8O.nocodeApp || {};
         workspace = catalog.workspaces.filter(function (item) { return item.id === existing[0].workspaceId; })[0];
       } else if (catalog.workspaces.length === 1) {
         workspace = catalog.workspaces[0];
+      } else if (ownWorkspace(catalog, user)) {
+        workspace = ownWorkspace(catalog, user);
       } else {
         return { error: { code: catalog.workspaces.length ? "workspace_required" : "no_workspace", message: catalog.workspaces.length ? "The user has several Baserow workspaces: give baserow.baseId (an existing base) or baserow.workspaceId with baserow.baseName (a new base)." : "The user has no Baserow workspace: ask them to open the No Code Studio data tab once.", workspaces: workspaceSummary(catalog) } };
       }
@@ -506,22 +525,39 @@ C8O.nocodeApp = C8O.nocodeApp || {};
           conditions.push(search.length > 1 ? { any: search } : search[0]);
         }
         if (searchColumns.length || filterColumns.length) {
-          var children = [];
+          if (filterColumns.length > 2) { fail("entities[" + app.entities.indexOf(entity) + "].screens.list.filters", "a list takes at most two filters next to its search"); }
+          var inputs = [];
           if (searchColumns.length) {
-            children.push({ type: "text", name: claim(searchName, "the search field"), label: t.search, placeholder: t.searchPlaceholder(searchColumns), config: { type: "search" } });
+            inputs.push({ type: "text", name: claim(searchName, "the search field"), label: t.search, placeholder: t.searchPlaceholder(searchColumns), config: { type: "search" } });
           }
           filterColumns.forEach(function (column) {
-            children.push({ type: "select", name: claim(k + "_filter_" + slug(column), "a filter"), label: column, placeholder: t.all, source: { table: spec.table, field: column } });
+            inputs.push({ type: "select", name: claim(k + "_filter_" + slug(column), "a filter"), label: column, placeholder: t.all, source: { table: spec.table, field: column } });
           });
-          children.push(button(claim(k + "_clear", "a button"), t.clear, "close", "ghost", flow("clear_" + k, t.clearFlow, [
+          var clear = button(claim(k + "_clear", "a button"), t.clear, "close", "ghost", flow("clear_" + k, t.clearFlow, [
             { type: "reset_fields", scope: "component", targetField: k + "_search_bar" },
             { type: "refresh_grid", targetGrid: listName }
-          ])));
-          var inputCount = children.length - 1;
-          var widths = inputCount === 1 ? [9, 3] : (inputCount === 2 ? [5, 4, 3] : [4, 3, 3, 2]);
-          if (inputCount > 3) { fail("entities[" + app.entities.indexOf(entity) + "].screens.list.filters", "a list takes at most two filters next to its search"); }
-          fields.push({ type: "layout", name: claim(k + "_search_bar", "the search bar"), sticky: "always", cols: cols(widths), tablet: cols(widths), phoneL: cols([12]), phoneP: cols([12]), boxStyle: SEARCH_BAR_STYLE, children: children });
-          notes.push(k + "_search_bar: always visible" + (searchColumns.length ? ", search in " + searchColumns.join(" OR ") : "") + (filterColumns.length ? ", filter by " + filterColumns.join(", ") : ""));
+          ]));
+          var bar;
+          if (!filterColumns.length) {
+            // A typed search reloads the list by itself.
+            bar = { type: "layout", name: claim(k + "_search_bar", "the search bar"), cols: cols([9, 3]), tablet: cols([9, 3]), phoneL: cols([12]), phoneP: cols([12]), children: inputs.concat([clear]) };
+          } else {
+            // Choosing an option does not reload the list (C8Oforms viewer, 22/10 on test-nocode): a button applies it.
+            var apply = button(claim(k + "_apply", "a button"), t.apply, "search", "secondary", flow("apply_" + k, t.applyFlow, [{ type: "refresh_grid", targetGrid: listName }]));
+            var widths = inputs.length === 1 ? [12] : (inputs.length === 2 ? [7, 5] : [6, 3, 3]);
+            // Inside the bar the compiler gives no role spacing: the group of buttons is made transparent here.
+            var searchActions = actionLayout(claim(k + "_search_actions", "the search actions"), [apply, clear]);
+            searchActions.boxStyle = { margin: "0 0 12px 0", padding: "0", border: "0", backgroundColor: "transparent" };
+            searchActions.layoutChildrenStyle = { "default": { margin: "0", padding: "0 8px 0 0", border: "0", backgroundColor: "transparent" } };
+            bar = { type: "layout", name: claim(k + "_search_bar", "the search bar"), cols: cols([12]), tablet: cols([12]), phoneL: cols([12]), phoneP: cols([12]), children: [
+              { type: "layout", name: claim(k + "_search_fields", "the search fields"), cols: cols(widths), tablet: cols(widths), phoneL: cols([12]), phoneP: cols([12]), children: inputs },
+              searchActions
+            ] };
+          }
+          bar.sticky = "always";
+          bar.boxStyle = SEARCH_BAR_STYLE;
+          fields.push(bar);
+          notes.push(k + "_search_bar: always visible" + (searchColumns.length ? ", search in " + searchColumns.join(" OR ") : "") + (filterColumns.length ? ", filter by " + filterColumns.join(", ") + " (applied by its " + t.apply + " button)" : ""));
         }
         var source = { table: spec.table, columns: spec.gridColumns, hidden: spec.gridColumns.filter(function (column) { return listColumns.indexOf(column) < 0; }) };
         if (conditions.length) { source.filter = conditions.length > 1 ? { all: conditions } : conditions[0]; }
@@ -784,7 +820,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
         if (!catalogTable(catalog, entity.tableId)) { fail("entities[" + e + "].table", "table " + entity.tableId + " is not in the Baserow catalog of the authenticated user (nocode-baserow-catalog-list)"); }
         columnsByEntity[entity.key] = readColumns(entity.tableId);
       });
-      var target = destination(app, catalog);
+      var target = destination(app, catalog, user);
       if (target.error) { return { status: "error", saved: false, error: target.error }; }
       var schema = buildSchema(app, catalog, target, columnsByEntity);
       result.baserow = { base: { id: target.base.id, name: target.base.name, created: false }, tables: [] };
@@ -871,7 +907,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
       result.validation = compactValidation(saved && saved.validation);
       if (saved && saved.error) { result.error = saved.error; }
       if (result.saved && result.status === "ok") {
-        result.next = "The application is saved. Change it with nocode-form-edit on id " + result.id + "; never call nocode-app-create again for this application.";
+        result.next = "The application is saved, read back and validated (validation above): report this outline to the user without reading the form again. Change it with nocode-form-edit on id " + result.id + "; never call nocode-app-create again for this application.";
       } else if (result.saved) {
         result.next = "The form is saved but not finished: follow bindings.recovery on id " + result.id + "; never call nocode-app-create again for this application.";
       } else {
