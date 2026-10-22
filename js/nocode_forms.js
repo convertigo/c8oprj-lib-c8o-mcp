@@ -3040,7 +3040,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return response;
   }
 
-  function readBaserowTableFields(tableId, authentication) {
+  function readBaserowTableFields(tableId, authentication, session) {
+    // lib_BaseRow serves the fields of a table from a 60-second cache: a column nocode-baserow-schema-apply had just
+    // created was refused as unknown. nocode_baserow.js reads them past that cache with the user's Baserow account.
+    try {
+      if ((typeof C8O.nocodeBaserow === "undefined" || !C8O.nocodeBaserow.tableFields) && typeof include === "function") {
+        include("js/nocode_baserow.js");
+      }
+      if (typeof C8O.nocodeBaserow !== "undefined" && C8O.nocodeBaserow.tableFields) {
+        var read = C8O.nocodeBaserow.tableFields(tableId, authentication.user, session && session.bearer);
+        if (session) { session.bearer = read.bearer; }
+        if (read.fields && read.fields.length) { return ensureArray(read.fields); }
+      }
+    } catch (_freshFieldsError) {}
     var response = callC8oSequence("lib_BaseRow", "formscommon_FieldsList", { forms_config: JSON.stringify({ table_id: tableId, editor: authentication.user }) });
     var error = apiError(response);
     var envelope = response && (response.document || response.doc && response.doc.document || response);
@@ -3049,6 +3061,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function validateBaserowColumns(form, authentication, options, validation) {
     var cache = {};
+    var baserowSession = { bearer: "" };
     // formscommon_FieldsList reuses the Baserow token already stored in the HTTP
     // session; with an explicit editor it never resolves the account itself. A
     // fresh MCP session has no token, so the first empty answer primes the
@@ -3072,9 +3085,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var table = String(binding.config.table_id_int);
       if (!hasOwn(cache, table)) {
         var fetched = null;
-        try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication); } catch (_fieldsError) { fetched = null; }
+        try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication, baserowSession); } catch (_fieldsError) { fetched = null; }
         if ((!fetched || !fetched.length) && primeBaserowSession()) {
-          try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication); } catch (_retryError) { fetched = null; }
+          try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication, baserowSession); } catch (_retryError) { fetched = null; }
         }
         cache[table] = fetched;
       }

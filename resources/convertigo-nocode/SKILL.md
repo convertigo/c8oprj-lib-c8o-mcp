@@ -104,7 +104,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
 5. For Baserow no-code catalog discovery:
    - Use `nocode-baserow-catalog-list` when the user asks to list or discover available No Code Baserow workspaces, bases, or tables for the current No Code user.
    - The tool uses the integrated No Code Studio authentication context.
-   - Treat the returned `workspaces`, `bases`, `tables`, and `counts` as the discovery source of truth for selecting Baserow-backed no-code sources.
+   - Treat the returned `workspaces` tree (each with its `bases`, each with its `tables`) and `counts` as the discovery source of truth for selecting Baserow-backed no-code sources.
    - Never call Baserow HTTP APIs directly and never bypass `lib_BaseRow`; this catalog tool authenticates like the form tools and delegates discovery to `lib_BaseRow.formscommon_ApplicationsList`.
 6. For Baserow no-code schema creation or updates:
    - Use `nocode-baserow-schema-apply` when the user asks to create or update No Code Baserow workspaces, bases, tables, fields, link-row relationships, lookup/reported fields, views, filters, or sample rows.
@@ -115,6 +115,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
    - Sample row keys are matched case-insensitively to real Baserow field names. It is acceptable to generate business keys like `nom` when the existing primary Baserow field is `Nom`.
    - When explicitly requested sample rows have relationships, use verified returned row ids or stable business-key references resolved by the schema tool. Never guess ids from insertion order or apply a numeric offset. Put referenced tables before dependent tables for same-run key resolution; unresolved references are blockers, not empty relationships.
    - Use `mode:"plan"` first for non-trivial schemas. Use `mode:"apply"` only when the user asked to persist.
+   - `created` lists what an apply created (bases, tables with their primary field, fields with their ids); `readBack` and `nocode-baserow-catalog-list` show the new columns at once, and the form tools accept them right away. A new table holds only its primary field: `primaryField`, else the first text field of the schema.
    - By default, workspace creation is disabled. Set `create.workspace=true` only when the user explicitly wants a new workspace.
    - Do not add or modify `lib_BaseRow` sequences. The MCP tool delegates to existing `lib_BaseRow` sequences and its existing Baserow connector transactions.
 7. When an allowed tool returns an error:
@@ -232,7 +233,7 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 - Use `nocode-baserow-schema-apply` for schema work. It can plan or apply canonical schema JSON with `workspaceName`/`workspaceId`, `baseName`/`baseId`, `tables[].fields`, `tables[].views`, and `tables[].sampleRows`.
 - Use `tables[].upsertKey` whenever applying sample rows to an existing table, so reruns update existing rows instead of creating duplicates.
 - `nocode-baserow-schema-apply` follows Baserow semantics: tables are Baserow tables; relationships are `link_row` fields; reported fields are `lookup` fields depending on an existing link field.
-- The catalog tool returns normalized `workspaces`, `bases`, `tables`, and `counts`; base ids are Baserow database ids, and table ids are Baserow table ids.
+- The catalog tool returns `workspaces` > `bases` > `tables`, each listed once, and `counts`; base ids are Baserow database ids, and table ids are Baserow table ids. With `includeColumns`, each table lists its `columns`: `name`, `type`, `primary`, `readOnly`, the choices of a select (`options`) and the table a link points to (`linksTo`). `view:"full"` returns every raw Baserow property instead; you do not need it.
 - The catalog tool is read-only discovery. It must not be used as permission to call low-code requestables or raw Baserow APIs.
 - A component is connected to Baserow when it has an enabled `sources["lib_BaseRow.formssource_GetTableData"]` entry.
 - The live Baserow binding is stored in `sources["lib_BaseRow.formssource_GetTableData"].vars.forms_config.str`, a JSON string. Parse that string instead of reading it as plain text.

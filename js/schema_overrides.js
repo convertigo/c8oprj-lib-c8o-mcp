@@ -789,10 +789,20 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         tableId: {
           type: "integer",
           description: "Optional Baserow table id filter. With includeColumns=true, fields are listed only for this table."
-        }
+        },
+        view: nocodeBaserowViewProperty()
       },
       required: [],
       additionalProperties: false
+    };
+  }
+
+  function nocodeBaserowViewProperty() {
+    return {
+      type: "string",
+      enum: ["compact", "full"],
+      default: "compact",
+      description: "compact (default): workspaces > bases > tables once, columns with type, select options and link target. full: every raw Baserow property, repeated per workspace, base and table."
     };
   }
 
@@ -937,6 +947,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: true,
           description: "Read the resulting catalog and fields back through lib_BaseRow after planning/applying."
         },
+        view: nocodeBaserowViewProperty(),
         schema: {
           description: "Canonical Baserow schema. Agents may translate Markdown, YAML, PDFs, or ER diagrams to this strict JSON before calling the tool.",
           oneOf: [

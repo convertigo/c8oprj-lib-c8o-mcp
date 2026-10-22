@@ -305,6 +305,26 @@ var ARGUMENT_ALIASES = {
   tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" }
 };
 
+// Arguments an agent gets by default when it does not give them; a direct sequence call (the Assistant's table picker)
+// keeps the sequence's own default.
+var AGENT_ARGUMENT_DEFAULTS = {
+  tools_nocode_baserow_catalog_list: { view: "compact" },
+  tools_nocode_baserow_schema_apply: { view: "compact" }
+};
+
+function applyAgentArgumentDefaults(sequenceName, args) {
+  var defaults = AGENT_ARGUMENT_DEFAULTS[sequenceName];
+  if (!defaults || !args || typeof args !== "object") {
+    return args;
+  }
+  Object.keys(defaults).forEach(function (key) {
+    if (args[key] === undefined || args[key] === null || String(args[key]).trim() === "") {
+      args[key] = defaults[key];
+    }
+  });
+  return args;
+}
+
 function applyArgumentAliases(sequenceName, args) {
   var aliases = ARGUMENT_ALIASES[sequenceName];
   if (!aliases || !args || typeof args !== "object") {
@@ -663,7 +683,7 @@ if (methodName === "initialize") {
     } else {
       callSequence = targetSequence;
       responseStatus = "200";
-      callVariables = coerceToolArguments(applyArgumentAliases(targetSequence, toolArgs || {}), targetSequence, requestable);
+      callVariables = applyAgentArgumentDefaults(targetSequence, coerceToolArguments(applyArgumentAliases(targetSequence, toolArgs || {}), targetSequence, requestable));
       mcpArgumentWarning = unknownArgumentsWarning(targetSequence, requestable, toolArgs || {});
       // Sub-agents drive the same viewer as the agent's Playwright MCP (the conversation's debug port) and are recorded
       // under the conversation.
