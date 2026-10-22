@@ -2156,6 +2156,12 @@ test('aggregation labels: documented, kept by compile', () => {
   assert.match(aggregations.labels.rules, /128 characters/);
   assert.ok(aggregations.examples.some(example => /=Montant/.test(example)));
   assert.match(contract.generationQuality.dataViews.headers, /groupAggregations\.labels/);
+  // the aggregations of the footer of a Baserow grid, by group or for the whole table
+  assert.deepEqual([...aggregations.operators], ['count', 'sum', 'avg', 'min', 'max', 'median', 'std_dev', 'variance', 'empty_count',
+    'not_empty_count', 'empty_percentage', 'not_empty_percentage', 'unique_count', 'checked_count', 'not_checked_count',
+    'checked_percentage', 'not_checked_percentage', 'earliest_date', 'latest_date', 'distribution']);
+  assert.match(aggregations.summary, /Without forms_tableGroupBy/);
+  assert.match(aggregations.plugin, /c8oforms plugin/);
   const input = connectedExample();
   const vars = input.pages[1].fields[0].sources['lib_BaseRow.formssource_GetTableData'].vars;
   vars.forms_tableGroupBy = { str: 'Status', html: false };
