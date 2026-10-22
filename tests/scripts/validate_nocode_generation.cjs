@@ -8,7 +8,8 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 const source = fs.readFileSync(path.join(root, 'js/nocode_forms.js'), 'utf8');
-function api(transport) {
+// extraFiles are loaded in the same context (js/nocode_app.js); api then answers C8O instead of C8O.nocodeForms.
+function api(transport, extraFiles) {
   class File {
     constructor(parent, child) { this.path = child ? path.join(String(parent), child) : String(parent); }
     isFile() { return fs.statSync(this.path).isFile(); }
@@ -35,7 +36,12 @@ function api(transport) {
     return empty;
   } });
   const sandbox = { Packages: packages, java: { lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } } } };
-  vm.runInNewContext(source, sandbox, { filename: 'nocode_forms.js' });
+  vm.createContext(sandbox);
+  vm.runInContext(source, sandbox, { filename: 'nocode_forms.js' });
+  if (extraFiles) {
+    extraFiles.forEach(file => vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), sandbox, { filename: file }));
+    return sandbox.C8O;
+  }
   return sandbox.C8O.nocodeForms;
 }
 const clone = x => JSON.parse(JSON.stringify(x));
@@ -1793,4 +1799,200 @@ test('forms_freeVars: a column map becomes the editor list, JSON text still runs
   const legacy = h.client.create(input, h.auth);
   assert.equal(legacy.status, 'ok');
   assert.ok(legacy.validation.warnings.some(w => w.code === 'freevars_text_shape'));
+});
+
+// nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
+// stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
+const TICKETS = { id: 5277, name: 'Tickets', columns: [
+  { id: 1, name: 'Titre', type: 'text', primary: true },
+  { id: 2, name: 'Description', type: 'long_text' },
+  { id: 3, name: 'Priorité', type: 'single_select', select_options: [{ id: 11, value: 'Basse' }, { id: 12, value: 'Haute' }] },
+  { id: 4, name: 'Statut', type: 'single_select', select_options: [{ id: 21, value: 'Ouvert' }, { id: 22, value: 'Fermé' }] },
+  { id: 5, name: 'Créé le', type: 'created_on', read_only: true },
+  { id: 6, name: 'Échéance', type: 'date' },
+  { id: 7, name: 'Montant', type: 'number' }
+] };
+function planApp(spec, tables = [TICKETS], options = {}) {
+  const C8O = api(undefined, ['js/nocode_app.js']);
+  const calls = [];
+  C8O.nocodeBaserow = {
+    catalogList: () => ({ status: 'ok', authentication: { authenticated: true, user: 'person@example.invalid' },
+      workspaces: options.workspaces || [{ id: 10, name: 'Team', bases: [{ id: 20, name: 'Support', tables: tables.map(t => ({ id: t.id, name: t.name })) }] }] }),
+    tableFields: id => { calls.push('fields ' + id); return { bearer: 'JWT test', fields: clone((tables.find(t => t.id === Number(id)) || {}).columns || []) }; },
+    schemaApply: o => {
+      calls.push('schema ' + o.mode);
+      const schema = clone(o.schema);
+      return { status: 'ok', schema, actions: schema.tables.filter(t => t.id == null).map(t => ({ type: 'create_table', table: t.name })), created: {} };
+    }
+  };
+  let compiled = null;
+  const compile = C8O.nocodeForms.compile;
+  C8O.nocodeForms.compile = (reduced, o) => (compiled = compile(reduced, o));
+  const result = C8O.nocodeApp.create({ mode: 'plan', ...spec }, { token: 't' });
+  return { result: clone(result), form: compiled && clone(compiled.form), validation: compiled && clone(compiled.validation), calls };
+}
+const byName = (form, name) => form.formulaire.find(item => item.name === name);
+const flowOf = (form, id) => form.flows.find(flow => flow.id === id);
+const pageOf = (form, name) => form.pages.find(page => page.name === name);
+function refTarget(str) {
+  const match = /^\$\$START(\d+)\{.*\}END(\d+)\$\$$/.exec(str);
+  assert.ok(match, 'a SmartSource reference: ' + str);
+  assert.equal(match[1], match[2]);
+  return Number(match[1]);
+}
+const ticketsSpec = (screens = {}) => ({ name: 'Suivi des tickets', entities: [{ name: 'ticket', plural: 'tickets', table: 5277, screens: {
+  list: { columns: ['Titre', 'Priorité', 'Statut', 'Échéance'], search: ['Titre', 'Description'], filters: ['Priorité'] }, detail: true, form: true, ...screens } }] });
+function buttonsReach(form) {
+  // Every button opens an existing flow, every push_page targets an existing page, and every page but the first is
+  // reached by a button and has a button that leaves it.
+  const techNames = form.pages.map(page => page.pageTechName);
+  const reached = new Set();
+  const leaving = new Set();
+  for (const item of form.formulaire.filter(i => i.type === 'button')) {
+    const flow = flowOf(form, item.flow);
+    assert.ok(flow && flow.elements.length, item.name + ' has a flow');
+    for (const element of flow.elements.filter(e => e.type === 'push_page')) {
+      assert.ok(techNames.includes(element.config.targetPage), item.name + ' targets an existing page');
+      reached.add(element.config.targetPage);
+      leaving.add(item.config.page);
+    }
+  }
+  form.pages.slice(1).forEach(page => {
+    assert.ok(reached.has(page.pageTechName), page.name + ' is reached');
+    assert.ok(leaving.has(page.pageTechName), page.name + ' has a way back');
+  });
+}
+test('nocode-app-create: a ticket list with search OR, a choice filter, a detail and an entry form (S11)', () => {
+  const { result, form, validation } = planApp(ticketsSpec());
+  assert.equal(result.status, 'ok', JSON.stringify(result));
+  assert.equal(validation.issueCount, 0, JSON.stringify(validation.issues));
+  assert.deepEqual(validation.warnings.filter(w => w.code !== 'baserow_identity_pending_creation'), []);
+  assert.equal(result.validation.warningCount, 0, 'the identities bound by the creation are not reported to the agent');
+  assert.deepEqual(form.pages.map(p => p.name), ['Tickets', 'Ticket', 'Nouveau ticket'], 'the list is the hub: no home page');
+  assert.ok(form.pages.every(p => p.enabledTab === false && p.enabledButtons === false && p.isNameDisplayed === false && p.iconName));
+  buttonsReach(form);
+  // Search bar: always visible, the search across Titre OR Description inside the AND of the choice filter.
+  const bar = byName(form, 'ticket_search_bar');
+  assert.equal(bar.config.sticky, 'always');
+  assert.equal(bar.parentRef, undefined, 'the bar sits directly on the page');
+  const search = byName(form, 'ticket_search');
+  const choice = byName(form, 'ticket_filter_priorite');
+  assert.deepEqual(JSON.parse(choice.sources['lib_BaseRow.formssource_GetFieldValues'].vars.forms_config.str).columns, ['Priorité']);
+  const grid = byName(form, 'ticket_list');
+  const source = grid.sources['lib_BaseRow.formssource_GetTableData'].vars;
+  const config = JSON.parse(source.forms_config.str);
+  assert.equal(config.table_id_int, 5277);
+  assert.equal(config.table_id, 'Team~>Support~>Tickets');
+  assert.deepEqual(config.hidden, ['Description', 'Créé le', 'Montant'], 'what only the detail shows is read but hidden');
+  assert.equal(grid.config.returned_value, 'row_selected');
+  const filter = source.forms_tableFilter;
+  assert.equal(filter.condVisible, 'and');
+  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, refTarget(c.val2.str)]), [['Priorité', 'contains', choice.id]]);
+  assert.equal(filter.groups.length, 1);
+  assert.equal(filter.groups[0].condVisible, 'or');
+  assert.deepEqual(filter.groups[0].conds.map(c => [c.val1.name, refTarget(c.val2.str)]), [['Titre', search.id], ['Description', search.id]]);
+  // Detail: read-only fields fed by the selected row.
+  const detail = byName(form, 'ticket_detail_titre');
+  assert.equal(detail.config.disabled, true);
+  assert.deepEqual(detail.config.contextDefault, { source: 'field', field: 'ticket_list', path: ['Titre', 'value'], mode: 'reactive', fallback: '' });
+  assert.equal(byName(form, 'ticket_list_detail').conditions.buttonStateIf.conds[0].val1.str, String(grid.id), 'detail disabled until a row is selected');
+  // Entry form: inputs named after the writable columns, typed after Baserow; the read-only column is left out.
+  const inputs = form.formulaire.filter(i => i.config.page === pageOf(form, 'Nouveau ticket').pageTechName && ['text', 'select', 'datetime'].includes(i.type));
+  assert.deepEqual(inputs.map(i => [i.name, i.type]), [['Titre', 'text'], ['Description', 'text'], ['Priorité', 'select'], ['Statut', 'select'], ['Échéance', 'datetime'], ['Montant', 'text']]);
+  assert.equal(byName(form, 'Description').config.short, false);
+  assert.equal(byName(form, 'Montant').config.type, 'number');
+  assert.equal(byName(form, 'Échéance').config.display_format, 'DD/MM/YYYY');
+  assert.deepEqual(result.baserow.tables[0].notEntered, ['Créé le (created_on): shown, not entered']);
+  // Save: add the row from the inputs, confirm, refresh the list, reset the page, back to the list.
+  const save = flowOf(form, 'save_ticket');
+  assert.equal(save.name, 'Enregistrer le ticket');
+  assert.deepEqual(save.elements.map(e => e.type), ['submit', 'toast', 'refresh_grid', 'reset_fields', 'push_page']);
+  const action = save.elements[0].actions['lib_BaseRow.forms_AddRow'];
+  assert.equal(JSON.parse(action.vars.forms_config.str).table_id_int, 5277);
+  assert.equal(action.vars.forms_id.str, '', 'a new row');
+  assert.equal(save.elements[1].sources.self.vars.selfVar.str, 'Ticket enregistré');
+  assert.equal(save.elements[2].config.targetGrid, grid.id);
+  assert.equal(save.elements[3].config.targetPage, pageOf(form, 'Nouveau ticket').pageTechName);
+  assert.equal(save.elements[4].config.targetPage, pageOf(form, 'Tickets').pageTechName);
+  assert.equal(byName(form, 'ticket_save').config.checkMandatoryInCurrentPage, true);
+  // The outline is what the agent reads: short, with the ids it needs.
+  assert.ok(JSON.stringify(result).length < 3000, JSON.stringify(result).length + ' characters');
+  assert.match(JSON.stringify(result.pages), /search in Titre OR Description, filter by Priorité/);
+});
+test('nocode-app-create: a home page with an entry form and a history on a new table (S3)', () => {
+  const { result, form, validation, calls } = planApp({ name: 'Suivi des visites', home: true, entities: [{ name: 'visite', plural: 'visites', feminine: true,
+    fields: [{ name: 'Visiteur', required: true, default: 'user' }, { name: 'Date de visite', type: 'date', default: 'today' }, { name: 'Motif', type: 'long_text' }],
+    screens: { form: { title: 'Nouvelle visite' }, list: { title: 'Historique' } } }] }, [], { workspaces: [{ id: 10, name: 'Team', bases: [] }] });
+  assert.equal(result.status, 'ok', JSON.stringify(result));
+  assert.deepEqual(validation.issues.map(i => i.code), ['missing_baserow_table', 'missing_baserow_table'], 'only the table the plan has not created yet');
+  assert.equal(result.validation.issueCount, 0);
+  assert.deepEqual(calls, ['schema plan'], 'a plan writes nothing');
+  assert.deepEqual(result.baserow.base, { id: null, name: 'Suivi des visites', created: true }, 'a base named after the application in the only workspace');
+  assert.deepEqual(result.baserow.tables.map(t => [t.name, t.created]), [['Visites', true]]);
+  assert.deepEqual(form.pages.map(p => [p.name, p.iconName]), [['Accueil', 'home'], ['Historique', 'list'], ['Nouvelle visite', 'add']]);
+  buttonsReach(form);
+  const home = form.formulaire.filter(i => i.config.page === form.pages[0].pageTechName && i.type === 'button');
+  assert.deepEqual(home.map(b => [b.config.label, b.config.fill]), [['Nouvelle visite', 'solid'], ['Historique', 'outline']], 'one primary action on the home page');
+  assert.equal(byName(form, 'Visiteur').config.mandatory, true);
+  assert.equal(byName(form, 'Visiteur').config.contextDefault.source, 'user');
+  assert.equal(byName(form, 'Date de visite').config.contextDefault.property, 'today');
+  assert.equal(flowOf(form, 'save_visite').elements[1].sources.self.vars.selfVar.str, 'Visite enregistrée');
+});
+test('nocode-app-create: a dashboard chart grouped by a column with labelled aggregations, behind a home page', () => {
+  const { result, form, validation } = planApp(ticketsSpec({ dashboard: { groupBy: 'Statut', aggregations: ['count', 'sum:Montant=Montant total'] } }));
+  assert.equal(validation.issueCount, 0, JSON.stringify(validation.issues));
+  assert.deepEqual(form.pages.map(p => p.name), ['Accueil', 'Tickets', 'Ticket', 'Nouveau ticket', 'Tableau de bord']);
+  buttonsReach(form);
+  const chart = byName(form, 'ticket_chart');
+  const vars = chart.sources['lib_BaseRow.formssource_GetTableData'].vars;
+  assert.equal(vars.forms_tableGroupBy.str, 'Statut');
+  assert.equal(vars.forms_tableAggregations.str, 'count=Nombre de tickets,sum:Montant=Montant total');
+  assert.deepEqual(JSON.parse(vars.forms_config.str).columns, ['Statut', 'Montant']);
+  assert.equal(chart.config.label, 'Tickets par statut');
+  assert.ok(flowOf(form, 'save_ticket').elements.some(e => e.type === 'refresh_grid' && e.config.targetGrid === chart.id), 'a save refreshes the chart too');
+  assert.match(JSON.stringify(result.pages), /bar grouped by Statut/);
+});
+test('nocode-app-create: inputs named after their columns, an explicit mapping when two tables share a column name', () => {
+  const clients = { id: 40, name: 'Clients', columns: [{ name: 'Nom', type: 'text', primary: true }, { name: 'Ville', type: 'text' }] };
+  const contacts = { id: 41, name: 'Contacts', columns: [{ name: 'Nom', type: 'text', primary: true }, { name: 'Client', type: 'link_row', link_row_table_id: 40 }, { name: 'Actif', type: 'boolean' }] };
+  const { result, form, validation } = planApp({ name: 'CRM', entities: [
+    { name: 'client', table: 40, screens: { list: true, form: true } },
+    { name: 'contact', table: 41, screens: { list: true, form: true } }
+  ] }, [clients, contacts]);
+  assert.equal(validation.issueCount, 0, JSON.stringify(validation.issues));
+  assert.equal(form.pages[0].name, 'Accueil', 'two entities share a home page');
+  buttonsReach(form);
+  assert.ok(flowOf(form, 'save_client').elements[0].actions['lib_BaseRow.forms_AddRow'], 'the first table keeps forms_AddRow');
+  const action = flowOf(form, 'save_contact').elements[0].actions['lib_BaseRow.forms_AddRowFromData'];
+  assert.ok(action, 'the second table writes its columns explicitly');
+  const values = Object.fromEntries(action.vars.forms_freeVars.map(entry => [entry.name, entry.str]));
+  assert.deepEqual(Object.keys(values), ['Nom', 'Client']);
+  assert.equal(refTarget(values.Nom), byName(form, 'contact_nom').id);
+  assert.equal(refTarget(values.Client), byName(form, 'Client').id, 'a name nobody took stays the column name');
+  const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
+  assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
+  assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
+  assert.deepEqual(result.baserow.tables[1].notEntered, ['Actif (boolean): shown, not entered']);
+});
+test('nocode-app-create: French and English labels follow the entity', () => {
+  const labels = spec => { const { form } = planApp(spec); return [form.pages.map(p => p.name), flowOf(form, 'save_' + spec.entities[0].name).elements[1].sources.self.vars.selfVar.str]; };
+  assert.deepEqual(labels({ name: 'A', entities: [{ name: 'article', table: 5277, screens: { list: true, form: true } }] }), [['Articles', 'Nouvel article'], 'Article enregistré']);
+  assert.deepEqual(labels({ name: 'A', entities: [{ name: 'demande', feminine: true, table: 5277, screens: { list: true, form: true } }] }), [['Demandes', 'Nouvelle demande'], 'Demande enregistrée']);
+  assert.deepEqual(labels({ name: 'A', language: 'en', entities: [{ name: 'request', table: 5277, screens: { list: true, form: true } }] }), [['Requests', 'New request'], 'Request saved']);
+});
+test('nocode-app-create: a spec it cannot build is refused with the path and the way out, before anything is read or written', () => {
+  const refused = (spec, path, pattern) => {
+    const { result, calls } = planApp(spec);
+    assert.equal(result.status, 'invalid_spec', JSON.stringify(result));
+    assert.equal(result.error.path, path);
+    assert.match(result.error.message, pattern);
+    return calls;
+  };
+  const one = screens => ({ name: 'A', entities: [{ name: 'ticket', table: 5277, screens }] });
+  assert.deepEqual(refused(one({ detail: true }), 'entities[0].screens.detail', /ask for the list too/), []);
+  refused(one({ list: { filters: ['Titre'] } }), 'entities[0].screens.list.filters', /single select/);
+  refused(one({ list: { columns: ['Nom'] } }), 'entities[0].screens.list.columns', /no column Nom \(its columns: Titre, Description/);
+  refused(one({ list: true, dashboard: { groupBy: 'Statut', aggregations: ['sum:Titre'] } }), 'entities[0].screens.dashboard.aggregations', /needs a number column/);
+  refused({ name: 'A', entities: [{ name: 'ticket', fields: [{ name: 'Montant', type: 'number' }] }] }, 'entities[0].fields', /needs a text field/);
+  refused({ name: 'A', entities: [{ name: 'ticket', table: 999 }] }, 'entities[0].table', /not in the Baserow catalog/);
 });

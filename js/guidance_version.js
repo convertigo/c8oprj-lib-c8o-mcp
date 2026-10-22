@@ -176,6 +176,7 @@ C8O.guidance = C8O.guidance || {};
       "facade-create": true,
       "marketplace-import": true,
       "ngx-page-create": true,
+      "nocode-app-create": true,
       "nocode-baserow-schema-apply": true,
       "nocode-form-publish": true,
       "nocode-form-update": true,

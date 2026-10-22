@@ -1,0 +1,40 @@
+accessibility: Private
+comment: |
+  Create a Baserow application of No Code from a business spec
+  The fast path for a new data application: call it first, without reading the contract, when the user asks for screens over business records (a list, an entry form, the detail of a selected row, a dashboard). One call creates the Baserow base, tables and fields it needs (or reuses an existing table by its id), then the form with the proven patterns: custom navigation with a home page and return buttons, a list with an always visible search bar (OR across columns) and choice filters, a read-only detail of the selected row, an entry form whose inputs are named after the columns and whose save adds the row, shows a toast, refreshes the list, empties the page and goes back, and a chart grouped by a column with named series. Answers a short outline: the form id, the tables and their columns, the pages and their components, the bindings. mode plan answers the same without writing anything. Change the application afterwards with nocode-form-edit; never call this tool again for it.
+responseTimeout: 300
+↓Run [steps.SimpleStep-1792840000001]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    include("js/nocode_baserow.js");
+    include("js/nocode_app.js");
+    try {
+      var specObject = C8O.nocodeForms.parseObject(spec, "spec", {});
+      result = C8O.nocodeApp.create(specObject, { project: project, token: token });
+    } catch (e) {
+      result = { status: "error", saved: false, error: { code: "app_create_failed", message: String(e && e.message ? e.message : e) } };
+    }'
+↓result [steps.JsonToXmlStep-1792840000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792840000003]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓spec [variables.RequestableVariable-1792840000004]: 
+  comment: Business spec of the application, a JSON object { name, language, baserow, entities, home, mode }.
+  description: Business spec of the application, a JSON object { name, language, baserow, entities, home, mode }.
+  required: true
+↓token [variables.RequestableVariable-1792840000005]: 
+  comment: No Code Studio bearer token used to authenticate the Baserow and C8Oforms calls.
+  description: No Code Studio bearer token used to authenticate the Baserow and C8Oforms calls.

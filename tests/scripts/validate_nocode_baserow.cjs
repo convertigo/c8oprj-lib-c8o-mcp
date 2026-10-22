@@ -231,3 +231,101 @@ test('a view Baserow did not create is reported, not counted as created', () => 
   assert.deepEqual(plain(created.created.views.map(v => v.name)), ['Open deals']);
   assert.deepEqual(plain(created.warnings), []);
 });
+
+// nocode-app-create end to end: the fake lib_BaseRow above and an in-memory C8Oforms store.
+function appHarness(options = {}) {
+  const fake = fakeBaserow(options);
+  const forms = {};
+  const writes = [];
+  const transport = (name, params) => {
+    if (name === 'APIV2_updateFormulaireDocument') {
+      writes.push(name);
+      const form = JSON.parse(params.meta);
+      form._id = form._id || 'form-' + (Object.keys(forms).length + 1);
+      form._rev = String(Number(String(forms[form._id] ? forms[form._id]._rev : '0').split('-')[0]) + 1) + '-x';
+      form.creator = form.creator || 'person@example.invalid';
+      forms[form._id] = JSON.parse(JSON.stringify(form));
+      return { document: { res: { ok: true, id: form._id, rev: form._rev } } };
+    }
+    if (name === 'APIV2_getDocument') return { document: { res: JSON.parse(JSON.stringify(forms[params.id] || {})) } };
+    if (/POST$|TableCreateColumn|TableCreateView/.test(name)) writes.push(name);
+    return fake.transport(name, params);
+  };
+  const sandbox = load(transport, ['js/nocode_forms.js', 'js/nocode_app.js']);
+  return { fake, forms, writes, create: spec => plain(sandbox.C8O.nocodeApp.create(spec, { token: 't' })) };
+}
+const purchases = { name: "Demandes d'achat", baserow: { workspaceId: 10, baseName: 'Achats' }, entities: [{ name: 'demande', plural: 'demandes', feminine: true, table: 'Demandes',
+  fields: [{ name: 'Demandeur', required: true, default: 'user' }, { name: 'Article', required: true }, { name: 'Quantité', type: 'number' }, { name: 'Prix', type: 'number', decimals: 2 },
+    { name: 'Statut', type: 'single_select', options: ['Nouvelle', 'Validée', 'Refusée'] }],
+  screens: { list: { columns: ['Article', 'Quantité', 'Prix', 'Statut'] }, form: true } }] };
+
+test('nocode-app-create creates the base, the table and its fields, then the bound form, in one call (S5)', () => {
+  const h = appHarness();
+  const r = h.create(purchases);
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.equal(r.saved, true);
+  assert.equal(r.bindings.status, 'ready');
+  assert.equal(r.validation.issueCount, 0, JSON.stringify(r.validation));
+  assert.equal(r.baserow.base.created, true);
+  const table = h.fake.state.tables.find(t => t.name === 'Demandes');
+  assert.ok(table, 'the table exists in Baserow');
+  assert.deepEqual(h.fake.state.fields[table.id].map(f => [f.name, f.type]), [['Demandeur', 'text'], ['Article', 'text'], ['Quantité', 'number'], ['Prix', 'number'], ['Statut', 'single_select']]);
+  assert.equal(h.fake.state.fields[table.id].find(f => f.name === 'Prix').number_decimal_places, 2);
+  assert.deepEqual(r.baserow.tables.map(t => [t.id, t.name, t.created]), [[table.id, 'Demandes', true]]);
+  // The saved form reads and writes that table: inputs named after its columns, forms_AddRow, list refreshed.
+  const form = h.forms[r.id];
+  assert.deepEqual(r.form, { _id: r.id, _rev: form._rev, name: "Demandes d'achat" }, 'what the Assistant opens');
+  const grid = form.formulaire.find(i => i.name === 'demande_list');
+  const gridConfig = JSON.parse(grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str);
+  assert.deepEqual([gridConfig.table_id_int, gridConfig.table_id, gridConfig.form_id, gridConfig.source_id], [table.id, 'Team~>Achats~>Demandes', r.id, grid.id]);
+  const save = form.flows.find(f => f.id === 'save_demande');
+  assert.deepEqual(save.elements.map(e => e.type), ['submit', 'toast', 'refresh_grid', 'reset_fields', 'push_page']);
+  assert.equal(JSON.parse(save.elements[0].actions['lib_BaseRow.forms_AddRow'].vars.forms_config.str).table_id_int, table.id);
+  const inputs = form.formulaire.filter(i => ['text', 'select'].includes(i.type) && i.config.page === form.pages.find(p => p.name === 'Nouvelle demande').pageTechName);
+  assert.deepEqual(inputs.map(i => i.name), ['Demandeur', 'Article', 'Quantité', 'Prix', 'Statut']);
+  assert.ok(JSON.stringify(r).length < 3000, 'a short outline: ' + JSON.stringify(r).length);
+  // Called again (a retry after a lost answer), the tables and fields are reused; only a second form is saved.
+  const again = h.create(purchases);
+  assert.equal(again.status, 'ok');
+  assert.equal(h.fake.state.tables.filter(t => t.name === 'Demandes').length, 1);
+  assert.equal(again.baserow.tables[0].created, false);
+});
+
+test('nocode-app-create on an existing table reads its columns and writes nothing to Baserow (S4)', () => {
+  const h = appHarness();
+  const r = h.create({ name: 'Deals', entities: [{ name: 'deal', table: 30, screens: { list: true, form: true } }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.deepEqual(h.writes, ['APIV2_updateFormulaireDocument', 'APIV2_updateFormulaireDocument'], 'only the form is saved (then its identities)');
+  const form = h.forms[r.id];
+  assert.deepEqual(form.pages.map(p => p.name), ['Deals', 'Nouveau deal']);
+  assert.ok(form.formulaire.find(i => i.name === 'Stage' && i.type === 'select' && i.sources['lib_BaseRow.formssource_GetFieldValues']));
+  assert.equal(form.formulaire.find(i => i.name === 'Company'), undefined, 'a link to a table outside the catalog is not entered');
+  assert.deepEqual(r.baserow.tables[0].notEntered, ['Company (link_row): shown, not entered']);
+});
+
+test('nocode-app-create refuses a destination it cannot use, and a plan writes nothing', () => {
+  const h = appHarness();
+  h.fake.state.workspaces.push({ id: 11, name: 'Other' });
+  h.fake.state.bases.push({ id: 21, name: 'Elsewhere', workspaceId: 11 });
+  const spec = { ...purchases, baserow: undefined };
+  const r = h.create(spec);
+  assert.equal(r.error.code, 'workspace_required');
+  assert.deepEqual(r.error.workspaces.map(w => w.name), ['Team', 'Other']);
+  const plan = h.create({ ...purchases, mode: 'plan' });
+  assert.equal(plan.status, 'ok', JSON.stringify(plan));
+  assert.equal(plan.saved, false);
+  assert.deepEqual(h.writes, [], 'neither Baserow nor C8Oforms was written');
+  assert.ok(plan.baserow.actions.includes('create_table Demandes'));
+  const outside = h.create({ name: 'X', entities: [{ name: 'deal', table: 99, screens: { list: true } }] });
+  assert.equal(outside.status, 'invalid_spec');
+  assert.equal(outside.error.path, 'entities[0].table');
+});
+
+test('nocode-app-create saves no form when Baserow refuses the schema, and says the retry is safe', () => {
+  const h = appHarness({ refuseFields: true });
+  const r = h.create(purchases);
+  assert.notEqual(r.status, 'ok');
+  assert.equal(r.saved, false);
+  assert.ok(!h.writes.includes('APIV2_updateFormulaireDocument'), 'no form');
+  assert.match(r.next || r.error.message, /same spec|reused|not found/);
+});
