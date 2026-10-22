@@ -1,0 +1,91 @@
+accessibility: Private
+comment: |
+  Report a Tigo friction to Convertigo
+  Queues one short friction of a Convertigo no-code tool, guide or prompt that you had to work around, for the No Code Studio user's review before it is sent to Convertigo (or after the turn when they chose automatic sending). Listed only when the user agreed to send feedback. Describe the product problem only: never name the user's forms, pages, fields, Baserow workspaces, databases, tables or their data.
+↓IncludeHelpers [steps.SimpleStep-1792730000001]: 
+  comment: Load reporting helper
+  expression: include("js/reporting.js");
+↓Init [steps.SimpleStep-1792730000003]: 
+  comment: Validate the friction and queue it in the user's feedback folder, with their consent
+  expression: |
+    'reportResult = C8O.reporting.writeTigoReport({
+      area: area,
+      subjectId: subjectId,
+      severity: severity,
+      summary: summary,
+      suggestion: suggestion
+    });'
+↓result [steps.JsonObjectStep-1792730000005]: 
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+  ↓status [steps.JsonFieldStep-1792730000007]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: status
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.status
+  ↓message [steps.JsonFieldStep-1792730000009]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.message
+  ↓reportId [steps.JsonFieldStep-1792730000011]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: reportId
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.reportId
+  ↓createdAt [steps.JsonFieldStep-1792730000013]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: createdAt
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: reportResult.createdAt
+↓area [variables.RequestableVariable-1792730000015]: 
+  comment: 'Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.'
+  description: 'Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.'
+↓subjectId [variables.RequestableVariable-1792730000017]: 
+  comment: 'Short stable identifier of the subject being reported, such as the no-code tool name.'
+  description: 'Short stable identifier of the subject being reported, such as the no-code tool name.'
+↓severity [variables.RequestableVariable-1792730000019]: 
+  comment: 'Feedback severity. Allowed values: low, medium, high.'
+  description: 'Feedback severity. Allowed values: low, medium, high.'
+↓summary [variables.RequestableVariable-1792730000021]: 
+  comment: 'Short reusable summary of the friction: what you expected, what happened, how you got past it. No names of the user forms, pages, fields or tables.'
+  description: 'Short reusable summary of the friction: what you expected, what happened, how you got past it. No names of the user forms, pages, fields or tables.'
+↓suggestion [variables.RequestableVariable-1792730000023]: 
+  comment: 'Optional suggested improvement for the no-code tools, guides, or prompts.'
+  description: 'Optional suggested improvement for the no-code tools, guides, or prompts.'

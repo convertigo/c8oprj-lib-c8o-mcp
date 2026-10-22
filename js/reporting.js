@@ -27,19 +27,120 @@ C8O.reporting.resolveMode = function () {
   return mode;
 };
 
+// The folder of Tigo's feedback for this request: the Studio's, or on a server the No Code Studio user's
+// (agents/feedback/users/<userKey>), or "" when there is none.
+C8O.reporting._feedbackDirectory = function (userKey) {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  if (Engine.isStudioMode()) {
+    return "agents/feedback";
+  }
+  if (!C8O.reporting.serverFeedbackKeyInstalled()) {
+    return "";
+  }
+  var key = C8O.util.toTrimmedString(userKey === undefined ? C8O.reporting.requestFeedbackUserKey() : userKey);
+  if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,159}$/.test(key) || key.indexOf("..") !== -1 || key === "studio") {
+    return "";
+  }
+  return "agents/feedback/users/" + key;
+};
+
+// A server sends Tigo's feedback with the feedback key Convertigo ops installed: the TIGO_FEEDBACK_KEY environment
+// variable, else <workspace>/agents/feedback/server-key (lib_ConvertigoAssistant docs/tigo-feedback.md).
+C8O.reporting.serverFeedbackKeyInstalled = function () {
+  try {
+    var key = C8O.util.toTrimmedString(java.lang.System.getenv("TIGO_FEEDBACK_KEY"));
+    if (!key.length) {
+      var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+      var file = new java.io.File(String(Engine.USER_WORKSPACE_PATH), "agents/feedback/server-key");
+      if (file.isFile() && file.length() < 512 && !java.nio.file.Files.isSymbolicLink(file.toPath())) {
+        key = C8O.util.toTrimmedString(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
+      }
+    }
+    return /^sk-[A-Za-z0-9_-]{32,128}$/.test(key);
+  } catch (_ignoredServerKey) {
+    return false;
+  }
+};
+
+// The key of a No Code Studio user's Tigo conversations and feedback, from the user C8Oforms signs their MCP token for
+// (the engine's authenticated user): the email of an OAuth user (provider:subject:email), the whole name otherwise.
+// Same rule as lib_ConvertigoAssistant agent_bridge_client.js (callerUserId, then userPathSlug).
+C8O.reporting.feedbackUserKey = function (user) {
+  var text = C8O.util.toTrimmedString(user);
+  var parts = text.split(":");
+  var last = parts[parts.length - 1];
+  if (parts.length > 2 && last.indexOf("@") > 0) {
+    text = last;
+  }
+  if (!text.length || text.toLowerCase() === "studio") {
+    return "";
+  }
+  var readable = text.toLowerCase().replace(/[^A-Za-z0-9_.-]/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+  if (!readable.length) {
+    readable = "user";
+  }
+  if (readable.length > 80) {
+    readable = readable.substring(0, 80).replace(/[_.-]+$/g, "");
+  }
+  var digest = java.security.MessageDigest.getInstance("SHA-256").digest(new java.lang.String(text).getBytes("UTF-8"));
+  var hex = "";
+  for (var i = 0; i < digest.length && hex.length < 16; i++) {
+    var n = Number(digest[i]);
+    if (n < 0) {
+      n += 256;
+    }
+    hex += (n < 16 ? "0" : "") + n.toString(16);
+  }
+  return readable + "--" + hex.substring(0, 16);
+};
+
+// The No Code Studio user of this MCP request on a server: only a token C8Oforms signed names one.
+C8O.reporting.requestFeedbackUserKey = function () {
+  try {
+    if (typeof context === "undefined" || !context) {
+      return "";
+    }
+    if (typeof C8O.mcpAuth === "undefined" || typeof C8O.mcpAuth.authenticateRequest !== "function") {
+      include("js/mcp_auth.js");
+    }
+    var authentication = C8O.mcpAuth.authenticateRequest(context);
+    if (!authentication || authentication.authenticated !== true || authentication.kind !== "nocode") {
+      return "";
+    }
+    return C8O.reporting.feedbackUserKey(authentication.user);
+  } catch (_ignoredRequestUser) {
+    return "";
+  }
+};
+
+// The report tool this request lists: a No Code Studio token has its own (nocode-report-create).
+C8O.reporting.reportToolName = function () {
+  try {
+    if (typeof C8O.mcpAuth === "undefined" || typeof C8O.mcpAuth.authenticateRequest !== "function") {
+      include("js/mcp_auth.js");
+    }
+    var authentication = typeof context !== "undefined" && context ? C8O.mcpAuth.authenticateRequest(context) : null;
+    return authentication && authentication.authenticated === true && authentication.kind === "nocode" ? "nocode-report-create" : "report-create";
+  } catch (_ignoredToolName) {
+    return "report-create";
+  }
+};
+
 // Consent of Tigo's feedback to Convertigo (lib_ConvertigoAssistant docs/tigo-feedback.md): the administrator's
-// assistant.feedback.policy symbol, else the user's choice in <engine workspace>/agents/feedback/settings.json.
-C8O.reporting.tigoMode = function () {
+// assistant.feedback.policy symbol, else the user's choice in <engine workspace>/agents/feedback/settings.json, or on a
+// server (once its feedback key is installed) in the No Code Studio user's agents/feedback/users/<userKey>/settings.json.
+C8O.reporting.tigoMode = function (userKey) {
   try {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-    if (!Engine.isStudioMode()) {
+    var directory = C8O.reporting._feedbackDirectory(userKey);
+    if (!directory.length) {
       return "off";
     }
     var policy = C8O.util.toTrimmedString(Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.feedback.policy")).toLowerCase();
     if (policy === "off" || policy === "ask" || policy === "auto") {
       return policy;
     }
-    var file = new java.io.File(String(Engine.USER_WORKSPACE_PATH), "agents/feedback/settings.json");
+    var file = new java.io.File(String(Engine.USER_WORKSPACE_PATH), directory + "/settings.json");
     if (!file.isFile() || file.length() > 65536) {
       return "off";
     }
@@ -243,6 +344,13 @@ C8O.reporting.writeReport = function (input) {
 // With Tigo's consent, the report is a raw agent friction for the Assistant's feedback outbox: it masks it, counts it
 // with the same ones, and shows it to the user before it is sent (or sends it after the turn in automatic mode).
 C8O.reporting.writeTigoReport = function (input) {
+  // On a server, the No Code Studio user of this request, read once: their consent and their incoming/ folder.
+  var userKey = Packages.com.twinsoft.convertigo.engine.Engine.isStudioMode() ? undefined : C8O.reporting.requestFeedbackUserKey();
+  var directory = C8O.reporting._feedbackDirectory(userKey);
+  var mode = directory.length ? C8O.reporting.tigoMode(userKey) : "off";
+  if (mode === "off") {
+    throw new Error("Reporting is disabled");
+  }
   var area = C8O.reporting._validateEnum("area", input && input.area, {
     tool: true,
     guide: true,
@@ -261,7 +369,7 @@ C8O.reporting.writeTigoReport = function (input) {
   var createdAt = new Date().toISOString();
   var reportId = String(Packages.java.util.UUID.randomUUID().toString());
   var workspace = java.nio.file.Paths.get(String(Engine.USER_WORKSPACE_PATH)).toRealPath();
-  var incoming = workspace.resolve("agents").resolve("feedback").resolve("incoming");
+  var incoming = workspace.resolve(directory).resolve("incoming");
   for (var p = incoming; p != null && !p.equals(workspace); p = p.getParent()) {
     if (java.nio.file.Files.isSymbolicLink(p)) {
       throw new Error("Unsafe feedback path");
@@ -289,13 +397,13 @@ C8O.reporting.writeTigoReport = function (input) {
   );
   return {
     status: "written",
-    message: C8O.reporting.tigoMode() === "auto"
+    message: mode === "auto"
       ? "Friction queued: Tigo sends it to Convertigo after this turn, masked."
       : "Friction queued: the user reviews it before it is sent to Convertigo.",
     reportId: reportId,
     mode: "tigo",
     path: "",
-    relativePath: "agents/feedback/incoming/" + reportId + ".json",
+    relativePath: directory + "/incoming/" + reportId + ".json",
     createdAt: createdAt
   };
 };

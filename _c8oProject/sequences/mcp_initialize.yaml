@@ -134,7 +134,7 @@ comment: Builds the MCP initialize response
               - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
               - SmartType: 
                 - ↑mode: JS
-                - →→: '"report-create"'
+                - →→: C8O.reporting.reportToolName()
   ↓serverInfo [steps.JsonObjectStep-1761754374065]: 
     key: 
       - xmlizable: 
