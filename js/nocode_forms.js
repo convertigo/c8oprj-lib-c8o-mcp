@@ -864,7 +864,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-22.baserow-shorthand-v10",
+      contractVersion: "2026-10-22.editor-migration-v11",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1169,7 +1169,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         toast: "message is translated into sources.self.vars.selfVar.str (text, html=false). Explicit sources take precedence. position (top, middle, bottom), duration (seconds), color and closeBtn map into config. color must be a 6-digit hex or success/danger/warning/info (compiled to readable hex); default success. See generationQuality.toasts.",
         ifElse: {
           shape: "{ type: 'if_else', condition: <reduced condition, see conditionFields.reducedShape>, then: [elements], else: [elements] }",
-          compilation: "then/else elements are compiled after the if_else with parentRef set to it and listed in childrenRefs/childrenRefsElse. Branches can be nested. In edits, use add_flow_element: add_flow and update_flow_element store native elements as given.",
+          compilation: "then/else elements are compiled after the if_else with parentRef set to it and listed in childrenRefs/childrenRefsElse. Branches can be nested. In edits, add_flow and add_flow_element compile reduced elements; update_flow_element stores native elements as given.",
           example: { type: "if_else", condition: { field: "amount", operator: "greater", value: "1000" }, then: [{ type: "push_page", targetPage: "Approval" }], else: [{ type: "submit", actions: {} }, { type: "toast", message: "Saved", color: "success" }] },
           submit: "Do not test the outcome of a submit with if_else: a failed submit stops the flow (see generationQuality.toasts.afterSubmit). An if_else without a condition always runs its then branch: it is refused at creation and reported on existing forms."
         },
@@ -1629,6 +1629,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  // The page description as the block No Code Studio's 1.0.17 migration makes of a page desc.
+  function pageDescriptionField(page, html) {
+    var slug = trimmed(page.name).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    return { type: "description", name: slug.length ? "description_" + slug : "", description: html };
+  }
+
   function normalizeConditionOperator(value) {
     var text = trimmed(value);
     var operator = hasOwn(CONDITION_OPERATOR_ALIASES, text.toLowerCase()) ? CONDITION_OPERATOR_ALIASES[text.toLowerCase()] : text;
@@ -1823,7 +1829,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       namePosition: "text-center",
       descformPosition: "text-left",
       respNameRequired: false,
-      technicalVersion: "1.0.16",
+      // No Code Studio migrates a form older than its own version when it opens it and saves the result. From 1.0.16
+      // its migration turns each page desc into a description block and sets isNameDisplayed=true on every other
+      // page: the form name came back in a title card on all the pages of a compiled application (22/10 on
+      // test-nocode, revealed forms). The compiler does that migration itself (compileReduced); the later ones only
+      // fill navigation defaults and still run.
+      technicalVersion: "1.0.17",
       lang: trimmed(reduced.language) || "en",
       loopToForm: true,
       progressIndicator: false,
@@ -2710,8 +2721,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         // does not set this flag; a custom application gives each page a header.
         if (!hasOwn(pages[p], "isNameDisplayed")) { page.isNameDisplayed = false; }
       }
+      // A 1.0.17 document has no page desc: like the editor's migration, it becomes the first block after the header
+      // and the page drops the title card.
+      var pageDescription = page.desc;
+      delete page.desc;
+      if (pageDescription.length && !hasOwn(pages[p], "isNameDisplayed")) { page.isNameDisplayed = false; }
       doc.pages.push(page);
       var fields = ensureArray(pages[p].fields || pages[p].formulaire || pages[p].components);
+      if (pageDescription.length) { fields = [pageDescriptionField(pages[p], pageDescription)].concat(fields); }
       var header = pageHeaderField(pages[p]);
       if (header) { fields = [header].concat(fields); }
       for (var f = 0; f < fields.length; f++) {
@@ -4165,7 +4182,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       flow.id = trimmed(flow.id || op.flowId || op.id || op.name) || ("flow_" + nextId());
       flow.name = trimmed(flow.name || op.flowName || op.name);
       flow.name = flowDisplayName(flow, form.formulaire);
-      flow.elements = ensureArray(flow.elements);
+      // An element read back from a saved flow (id and config) is kept as given; the others are reduced elements,
+      // compiled like add_flow_element does. A reduced push_page given here used to be stored as is and refused.
+      flow.elements = ensureArray(flow.elements).reduce(function (all, element) {
+        var native = element && typeof element === "object" && element.id != null && element.config && typeof element.config === "object";
+        return all.concat(native ? [element] : compileFlowElements(element, catalogByType));
+      }, []);
       form.flows.splice(normalizeIndex(op.index, form.flows.length, form.flows.length), 0, flow);
       summary.push({ action: action, flowId: flow.id });
       return;

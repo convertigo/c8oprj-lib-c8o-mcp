@@ -1214,6 +1214,45 @@ test('edits accept reduced conditions, button variants and page headers', () => 
   assert.equal(back[1].parentRef, back[0].id);
   assert.equal(back[1].config.color, '#B45309');
 });
+test('compiled forms skip the editor page migration that brings the form title back', () => {
+  // No Code Studio runs it on a form older than 1.0.17 when it opens it: page desc becomes a block and every other
+  // page gets isNameDisplayed=true.
+  const input = example();
+  input.pages[1].description = '<p>All the requests</p>';
+  input.pages[1].header = { title: 'Requests' };
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok');
+  assert.equal(r.form.technicalVersion, '1.0.17');
+  assert.ok(r.form.pages.every(p => !('desc' in p) && p.isNameDisplayed === false));
+  const blocks = r.form.formulaire.filter(f => f.config.page === r.form.pages[1].pageTechName && !f.parentRef);
+  assert.deepEqual(clone(blocks.slice(0, 2).map(f => [f.type, f.name])), [['description', 'header_requests'], ['description', 'description_requests']]);
+  assert.equal(blocks[1].config.html, '<p>All the requests</p>');
+  const questionnaire = api().compile({ name: 'Survey', navigationMode: 'buttons', pages: [{ name: 'One', description: '<p>Intro</p>', fields: [{ type: 'text', name: 'q1', label: 'Q1' }] }, { name: 'Two', fields: [{ type: 'text', name: 'q2', label: 'Q2' }] }] });
+  assert.deepEqual(Array.from(questionnaire.form.pages, p => p.isNameDisplayed), [false, undefined], 'as the migration: no title card on a described page');
+});
+test('add_flow compiles reduced elements and keeps elements read back from a saved flow', () => {
+  const h = creationHarness();
+  const created = h.client.create(example(), h.auth);
+  const id = created.form._id;
+  const saved = h.state.forms[id];
+  const nativeToast = clone(saved.flows.find(f => f.id === 'example').elements[1]);
+  nativeToast.id = 1900000000777;
+  const edited = h.client.edit(id, [
+    { action: 'add_flow', flowData: { id: 'open_home', name: 'Open home', elements: [
+      { type: 'push_page', targetPage: 'Home' },
+      { type: 'if_else', condition: { field: 'requests', operator: 'is_filled' }, then: [{ type: 'toast', message: 'Rows', color: 'warning' }] },
+      nativeToast
+    ] } },
+    { action: 'add_field', pageName: 'Requests', fieldObject: { type: 'button', name: 'home2', label: 'Home', flow: 'open_home' } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.validation || edited.error));
+  const elements = h.state.forms[id].flows.find(f => f.id === 'open_home').elements;
+  assert.deepEqual(clone(elements.map(e => e.type)), ['push_page', 'if_else', 'toast', 'toast']);
+  assert.ok(elements.every(e => e.id != null && e.config));
+  assert.equal(elements[0].config.targetPage, saved.pages[0].pageTechName);
+  assert.equal(elements[2].parentRef, elements[1].id);
+  assert.deepEqual(elements[3], nativeToast);
+});
 test('contract documents the readable UI patterns and its examples compile', () => {
   const contract = api().contract({ sections: ['all'] }).authoringContract;
   const quality = contract.generationQuality;
