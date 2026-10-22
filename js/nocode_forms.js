@@ -1771,6 +1771,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  var DATA_VIEW_TYPES = ["grid", "gallery", "chart", "map"];
+
+  function isPrototypeQuestion(html) {
+    return typeof html === "string" && /^exemple de question[.!?]?$/i.test(trimmed(html.replace(/<[^>]*>/g, "")));
+  }
+
   function labelToHtml(value) {
     // SmartSource envelopes are parsed by Forms; keep their JSON intact while
     // escaping literal text, including markup-looking user labels.
@@ -1877,7 +1883,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
   }
 
-  function optionChildren(values) {
+  // A new select or checkbox list has no answer chosen, like the C8Oforms prototypes; a radio list has its first
+  // option chosen, like the radio prototype. Explicit option objects keep their selected flag.
+  function optionChildren(values, firstSelected) {
     var out = [];
     var list = ensureArray(values);
     for (var i = 0; i < list.length; i++) {
@@ -1886,14 +1894,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         var child = clone(current, {});
         child.id = child.id != null ? String(child.id) : String(nextId());
         if (child.selected == null) {
-          child.selected = i === 0;
+          child.selected = firstSelected !== false && i === 0;
         }
         if (child.position == null) {
           child.position = "unset";
         }
         out.push(child);
       } else {
-        out.push({ value: String(current), selected: i === 0, label_color: "#202124", position: "unset", id: String(nextId()) });
+        out.push({ value: String(current), selected: firstSelected !== false && i === 0, label_color: "#202124", position: "unset", id: String(nextId()) });
       }
     }
     return out;
@@ -2170,7 +2178,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       out.parentRef = parentId;
     }
     applyCommonFieldConfig(out, field, pageTechName);
+    if (DATA_VIEW_TYPES.indexOf(type) >= 0 && isPrototypeQuestion(out.config.html) && field.label == null && field.description == null
+        && !(field.config && (hasOwn(field.config, "html") || hasOwn(field.config, "label")))) {
+      // A list or a chart without a label showed "Exemple de question" above it.
+      out.config.html = "";
+    }
     if (type === "button") {
+      // The prototype's icon (bulb) would show on every button.
+      if (!hasOwn(field, "icon") && !(field.config && hasOwn(field.config, "icon"))) { out.config.icon = ""; }
+      if (opts.explicitMandatoryChecks && (hasOwn(field, "checkMandatoryInCurrentPage") || (field.config && hasOwn(field.config, "checkMandatoryInCurrentPage")))) {
+        opts.explicitMandatoryChecks[String(out.id)] = true;
+      }
       applyButtonVariant(out, field);
       out.config.boxStyle = out.config.boxStyle || {};
       // Only new buttons receive these defaults; explicit custom surfaces win.
@@ -2201,7 +2219,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       return out;
     }
     if ((type === "radio" || type === "checkbox" || type === "select") && field.values != null) {
-      out.children = optionChildren(field.values);
+      out.children = optionChildren(field.values, type === "radio");
     }
     if ((type === "radio_group" || type === "checkbox_group") && field.rows != null) {
       out.lines = optionChildren(field.rows).map(function (row) {
@@ -2380,7 +2398,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     // Applications (custom or tab navigation) get role spacing; a linear
     // questionnaire keeps the card around each question.
-    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode) };
+    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode), explicitMandatoryChecks: {} };
     for (var p = 0; p < pages.length; p++) {
       var page = pageDefaults(pages[p], p, useTabMode);
       if (input.navigationMode === "custom") {
@@ -2432,6 +2450,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       doc.subTag = Array.isArray(input.subTag) ? input.subTag : [String(input.subTag)];
     }
     ensureButtonFlows(doc);
+    // A button that submits checks the required fields of its page, unless the reduced JSON says otherwise.
+    doc.formulaire.forEach(function (item) {
+      if (!item || item.type !== "button" || fieldOptions.explicitMandatoryChecks[String(item.id)] === true) { return; }
+      var buttonFlow = doc.flows.filter(function (flow) { return flow && flow.id === item.flow; })[0];
+      if (buttonFlow && ensureArray(buttonFlow.elements).some(function (element) { return element && element.type === "submit"; })) {
+        item.config.checkMandatoryInCurrentPage = true;
+      }
+    });
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
@@ -2507,7 +2533,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         incomplete("invalid_baserow_row_id", "forms_id must be a positive row id or a supported dynamic expression", path + "/vars/forms_id");
       }
       if (!trimmed(binding.form_id) || !trimmed(binding.source_owner) || binding.source_id == null) {
-        warning(opts.generation === true ? "baserow_identity_pending_creation" : "baserow_identity_incomplete", opts.generation === true ? "Expected before creation: nocode-form-create automatically binds the saved form id, actual component ids and authenticated owner. Continue with create; do not invent identities or stop for this warning" : "Baserow identity is incomplete. For an unfinished creation, use nocode-form-edit with finalize_baserow_bindings on this saved id, not another create", path + "/vars/forms_config");
+        // A form not saved yet (create refused before its first save) has no id to finalize either.
+        var beforeFirstSave = opts.generation === true || !trimmed(form._id).length;
+        warning(beforeFirstSave ? "baserow_identity_pending_creation" : "baserow_identity_incomplete", beforeFirstSave ? "Expected before creation: nocode-form-create automatically binds the saved form id, actual component ids and authenticated owner. Continue with create; do not invent identities or stop for this warning" : "Baserow identity is incomplete. For an unfinished creation, use nocode-form-edit with finalize_baserow_bindings on this saved id, not another create", path + "/vars/forms_config");
       } else if (form._id != null && String(binding.form_id) !== String(form._id)) {
         incomplete("baserow_form_identity_mismatch", "Baserow binding belongs to a different form; use the saved owning document id", path + "/vars/forms_config");
       }
@@ -2696,7 +2724,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             }
           }
           if (element.type === "submit" && !enabledEntries(element.actions).length) {
-            incomplete("unconfigured_submit", "Select an actual backend action. An empty submit is not an implemented business save", path + "/actions");
+            incomplete("unconfigured_submit", "This submit step has no backend action, so its button saves nothing. A plain questionnaire stores its responses through the automatic submit of its last page: leave the custom button out. To save from a button, give the submit an action, for example lib_BaseRow.forms_AddRow (a Baserow row) or lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple (an e-mail); see authoringContract.backendActions", path + "/actions");
           }
           enabledEntries(element.actions).forEach(function (key) {
             var action = element.actions[key];
@@ -2739,6 +2767,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         itemById[String(item.id)] = item;
         if (item.parentRef != null) { (childrenByParent[String(item.parentRef)] = childrenByParent[String(item.parentRef)] || []).push(item); }
       });
+      // The spacing a layout gives its children (layoutChildrenStyle), as the section the compiler builds does.
+      function childSpacingFromParent(item) {
+        var parent = item.parentRef != null ? itemById[String(item.parentRef)] : null;
+        var styles = parent && parent.config && parent.config.layoutChildrenStyle;
+        return !!styles && typeof styles === "object" && ["default", "first", "last"].some(function (scope) {
+          return styles[scope] && (trimmed(styles[scope].margin).length || trimmed(styles[scope].padding).length);
+        });
+      }
       function descendants(item) {
         var out = [], queue = (childrenByParent[String(item.id)] || []).slice();
         while (queue.length && out.length < 500) {
@@ -2806,7 +2842,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (typeof config.layoutChildrenStyle !== "object" || Array.isArray(config.layoutChildrenStyle)) { issue("invalid_style_object", "layoutChildrenStyle must contain default/first/last style objects", path + "/config/layoutChildrenStyle"); }
           else { Object.keys(config.layoutChildrenStyle).forEach(function (scope) { validateStyle(config.layoutChildrenStyle[scope], path + "/config/layoutChildrenStyle/" + scope, true); }); }
         }
-        if (item.type === "description" && /style\s*=/.test(config.html || "") && !(config.boxStyle && (config.boxStyle.margin || config.boxStyle.padding))) {
+        if (item.type === "description" && /style\s*=/.test(config.html || "") && !(config.boxStyle && (config.boxStyle.margin || config.boxStyle.padding)) && !childSpacingFromParent(item)) {
           warning("html_spacing_without_container_style", "Styled HTML has no explicit Forms container spacing; check outer margin and avoid double padding", path + "/config/boxStyle");
         }
         var parentItem = item.parentRef != null ? itemById[String(item.parentRef)] : null;
@@ -2896,7 +2932,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (boolLike(item.config.componentDisabled)) { return; }
           var parent = item.parentRef != null && content.filter(function (other) { return String(other.id) === String(item.parentRef); })[0];
           var inherited = parent && parent.config && parent.config.layoutChildrenStyle;
-          if (!hasSpacing(item.config.boxStyle) && !hasSpacing(parent && parent.config.boxStyle) && !hasSpacing(inherited && inherited.default)) {
+          if (applicationPages && !hasSpacing(item.config.boxStyle) && !hasSpacing(parent && parent.config.boxStyle) && !hasSpacing(inherited && inherited.default)) {
             warning("missing_block_spacing", "Review native margin/padding on " + item.name + "; surface color alone is not spacing. Intentional defaults are allowed", "/formulaire/" + form.formulaire.indexOf(item) + "/config/boxStyle");
           }
           var childItems = ensureArray(item.childrenRefs).map(function (id) { return content.filter(function (child) { return String(child.id) === String(id); })[0]; }).filter(function (child) { return !!child; });

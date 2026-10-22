@@ -1561,3 +1561,49 @@ test('sticky: compiled into config, validated, and an edit puts reduced config k
   assert.equal(saved.deselectOnSecondClick, undefined);
   assert.equal(saved.sticky, undefined);
 });
+test('new questions: no preselected select or checkbox answer, no prototype icon or question, required fields checked on submit', () => {
+  const r = api().compile({ name: 'Defaults', navigationMode: 'custom', pages: [{ name: 'P', fields: [
+    { type: 'select', name: 's', label: 'S', values: ['A', 'B'] },
+    { type: 'checkbox', name: 'c', label: 'C', values: ['A', 'B'] },
+    { type: 'radio', name: 'r', label: 'R', values: ['A', 'B'] },
+    { type: 'grid', name: 'g', sourceEnabled: false, columns: [{ name: 'A', type: 'text' }] },
+    { type: 'button', name: 'save', label: 'Save', flow: 'save' },
+    { type: 'button', name: 'go', label: 'Go', flow: 'go', icon: 'arrow-forward' },
+    { type: 'button', name: 'free', label: 'Free', flow: 'save', checkMandatoryInCurrentPage: false }
+  ] }], flows: [
+    { id: 'save', name: 'Save', elements: [{ type: 'submit', actions: { 'lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple': { enabled: true, fullsync: false, vars: {} } } }] },
+    { id: 'go', name: 'Go', elements: [{ type: 'push_page', targetPage: 'P' }] }
+  ] });
+  const field = name => r.form.formulaire.find(f => f.name === name);
+  assert.deepEqual(clone(field('s').children.map(o => o.selected)), [false, false]);
+  assert.deepEqual(clone(field('c').children.map(o => o.selected)), [false, false]);
+  assert.deepEqual(clone(field('r').children.map(o => o.selected)), [true, false], 'a radio list keeps the prototype default');
+  assert.equal(field('g').config.html, '');
+  assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_question_label'));
+  assert.equal(field('save').config.icon, '');
+  assert.equal(field('go').config.icon, 'arrow-forward');
+  assert.equal(field('save').config.checkMandatoryInCurrentPage, true);
+  assert.equal(field('free').config.checkMandatoryInCurrentPage, false);
+  assert.equal(field('go').config.checkMandatoryInCurrentPage, false);
+  const saveIndex = r.form.formulaire.findIndex(f => f.name === 'save');
+  assert.ok(!r.validation.warnings.some(w => w.code === 'submit_without_required_check' && w.path.startsWith('/formulaire/' + saveIndex + '/')));
+  assert.ok(r.validation.warnings.some(w => w.code === 'submit_without_required_check'), 'an explicit false is still reported');
+});
+test('spacing warnings: none on a questionnaire\'s questions or on a section title, still on a bare application block', () => {
+  const questionnaire = api().compile({ name: 'Q', pages: [{ name: 'P', fields: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] }] });
+  assert.ok(!questionnaire.validation.warnings.some(w => w.code === 'missing_block_spacing'));
+  const app = api().compile({ name: 'App', navigationMode: 'custom', pages: [{ name: 'P', header: { title: 'P' }, fields: [
+    { type: 'section', name: 'sec', title: 'Section', fields: [{ type: 'text', name: 'a', label: 'A' }] },
+    { type: 'description', name: 'note', description: '<p style="margin:0">Note</p>', boxStyle: { margin: '', padding: '' }, config: { boxStyle: { margin: '', padding: '' } } }
+  ] }], styleDefaults: false });
+  assert.ok(!app.validation.warnings.some(w => w.code === 'html_spacing_without_container_style' && /formulaire\/2\//.test(w.path)), JSON.stringify(app.validation.warnings));
+  assert.ok(app.validation.warnings.some(w => w.code === 'missing_block_spacing'), 'a bare application block is still reported');
+});
+test('a create refused before its first save does not ask to finalize a saved id', () => {
+  const h = creationHarness({ columns: [{ name: 'Other', type: 'text' }] });
+  const r = h.client.create(connectedWithoutIdentities(), h.auth);
+  assert.equal(r.saved, false);
+  assert.ok(!r.validation.warnings.some(w => w.code === 'baserow_identity_incomplete'), JSON.stringify(r.validation.warnings));
+  const empty = api().compile({ name: 'E', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }], flows: [{ id: 'f', name: 'F', elements: [{ type: 'submit', actions: {} }] }] });
+  assert.match(empty.validation.issues.find(i => i.code === 'unconfigured_submit').message, /automatic submit of its last page.*forms_AddRow/);
+});
