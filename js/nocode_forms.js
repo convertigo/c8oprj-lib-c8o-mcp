@@ -4286,8 +4286,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!result || typeof result !== "object" || Array.isArray(result)) {
       return result;
     }
+    // The id and the revision first: an agent that cut a long answer to summarize it lost the id of its new form.
     var out = {};
-    Object.keys(result).forEach(function (key) { out[key] = result[key]; });
+    var savedId = (result.response && result.response.id) || (result.form && result.form._id);
+    var savedRev = (result.response && result.response.rev) || (result.form && result.form._rev);
+    if (savedId != null) { out.id = String(savedId); }
+    if (savedRev != null) { out.rev = String(savedRev); }
+    Object.keys(result).forEach(function (key) { if (!hasOwn(out, key)) { out[key] = result[key]; } });
     if (out.form && typeof out.form === "object") { out.form = agentView(out.form); }
     if (out.response && typeof out.response === "object") { out.response = agentView(out.response); }
     if (out.authentication && typeof out.authentication === "object") {

@@ -1577,8 +1577,11 @@ test('agent answers: the saved form without empty values, transport details or t
   const answered = created.form.formulaire.find(f => f.id === grid.id);
   assert.deepEqual(clone(answered.sources), clone(grid.sources), 'sources are answered exactly as saved');
   assert.equal(saved.formulaire[0].config.boxStyle.margin !== undefined, true, 'the saved document keeps its full shape');
+  assert.deepEqual(Object.keys(created).slice(0, 2), ['id', 'rev'], 'the id and the revision come first');
+  assert.equal(created.id, created.form._id);
   const edited = h.client.edit(created.form._id, [{ action: 'set_root', patch: { name: 'Renamed' } }], h.auth);
   assert.equal(edited.form.name, 'Renamed');
+  assert.equal(edited.rev, edited.form._rev);
   assert.doesNotMatch(JSON.stringify(edited), /_c8oMeta|"payload"/);
 });
 test('new questions: no preselected select or checkbox answer, no prototype icon or question, required fields checked on submit', () => {
