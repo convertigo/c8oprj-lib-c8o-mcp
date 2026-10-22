@@ -3989,18 +3989,46 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return { form: edited, operations: summary, allTypesPath: contract.file };
   }
 
+  // The whole contract is about 100 KB. An agent calling it again for each part it needed (24 calls in one turn),
+  // and cutting the answer to a few KB, missed the Baserow encoding it was looking for: sections returns only the
+  // parts asked for, and the whole contract lists its sections and their sizes.
+  function contractSectionList(value) {
+    if (value == null || value === "") { return []; }
+    var list = Array.isArray(value) ? value : String(value).replace(/^\s*\[|\]\s*$/g, "").split(",");
+    return list.map(function (name) { return trimmed(String(name).replace(/^["']|["']$/g, "")); }).filter(function (name) { return name.length > 0; });
+  }
+
   C8O.nocodeForms.contract = function (options) {
     var opts = options || {};
     var contract = readAllTypes(opts.project || opts.projectName || "C8Oforms");
     var types = contract.catalog.map(function (item) { return item.type; });
+    var authoring = detailedAuthoringContract(types);
+    var parts = { types: types, aliases: clone(aliases, {}), reducedSample: sampleContract() };
+    Object.keys(authoring).forEach(function (key) { parts[key] = authoring[key]; });
+    var sectionIndex = Object.keys(parts).map(function (key) { return { name: key, bytes: JSON.stringify(parts[key]).length }; });
+    var asked = contractSectionList(opts.sections);
+    if (asked.length) {
+      var sections = {};
+      var unknown = [];
+      asked.forEach(function (name) {
+        if (hasOwn(parts, name)) { sections[name] = parts[name]; } else { unknown.push(name); }
+      });
+      var answer = { status: unknown.length && !Object.keys(sections).length ? "invalid" : "ok", contractVersion: authoring.contractVersion, sections: sections };
+      if (unknown.length) {
+        answer.unknownSections = unknown;
+        answer.availableSections = Object.keys(parts);
+      }
+      return answer;
+    }
     return {
       status: "ok",
       project: opts.project || opts.projectName || "C8Oforms",
       allTypesPath: contract.file,
+      sectionIndex: sectionIndex,
       types: types,
-      aliases: clone(aliases, {}),
-      authoringContract: detailedAuthoringContract(types),
-      reducedSample: sampleContract(),
+      aliases: parts.aliases,
+      authoringContract: authoring,
+      reducedSample: parts.reducedSample,
       allTypes: opts.includeAllTypes === true ? contract.catalog : null
     };
   };

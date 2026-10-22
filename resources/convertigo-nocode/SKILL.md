@@ -75,7 +75,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
 
 ## Workflow
 
-1. Read the no-code contract with `nocode-form-contract-get`.
+1. Read the no-code contract with `nocode-form-contract-get` once per conversation. To look at a part of it again, ask for that part only, for example `sections:["baserowSources","backendActions"]` (the whole contract lists its sections in `sectionIndex`); do not call the whole contract again to pick one part, and do not cut its answer.
 2. Build or patch only the reduced no-code form JSON unless the user explicitly provides a full form document for validation.
 3. For new forms:
    - Choose navigation deliberately. For an application with a home/dashboard and task pages, prefer `navigationMode:"custom"` with native buttons linked to `push_page` flows (unique page names in reduced `targetPage`). Provide entry and return paths. Use tabs when requested or when peer sections genuinely benefit from them; use automatic page buttons for a linear questionnaire. The compiler's legacy fallback to tabs is not a design recommendation.

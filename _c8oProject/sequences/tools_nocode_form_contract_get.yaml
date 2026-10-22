@@ -8,7 +8,8 @@ comment: |
     var includeAll = String(includeAllTypes || "false").toLowerCase() == "true";
     result = C8O.nocodeForms.contract({
       project: project,
-      includeAllTypes: includeAll
+      includeAllTypes: includeAll,
+      sections: typeof sections === "undefined" ? null : sections
     });'
 ↓result [steps.JsonToXmlStep-1780100000002]: 
   jsonObject: 
@@ -31,3 +32,6 @@ comment: |
   comment: Set true to include full component prototypes from AllTypes.json.
   description: Set true to include full component prototypes from AllTypes.json.
   value: false
+↓sections [variables.RequestableVariable-1792690000003]: 
+  comment: Optional list of contract sections to return instead of the whole contract (names in sectionIndex).
+  description: Optional list of contract sections to return instead of the whole contract (names in sectionIndex).

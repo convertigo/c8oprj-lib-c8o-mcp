@@ -986,6 +986,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           default: false,
           description: "Set true to include the full AllTypes.json component prototypes. Default false returns the compact contract."
+        },
+        sections: {
+          type: "array",
+          items: { type: "string" },
+          description: "Return only these sections instead of the whole contract (about 100 KB), for example [\"baserowSources\", \"backendActions\"]. Sections: types, aliases, reducedSample and the authoringContract keys (componentAuthoring, flowAuthoring, conditionFields, contextualDefaults, generationQuality, baserowSources, backendActions, dynamicReferences, editTool, rootFields, pageFields, commonFieldFields, styleObjectFields, styleRendering...); the whole contract lists them in sectionIndex."
         }
       },
       additionalProperties: false

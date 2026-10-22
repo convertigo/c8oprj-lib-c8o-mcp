@@ -1650,3 +1650,14 @@ test('a source or an action written with plain values gets the UI-authored encod
   assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
   assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
 });
+test('the contract answers only the sections asked for, and lists them', () => {
+  const client = api();
+  const whole = client.contract({});
+  assert.ok(whole.sectionIndex.some(s => s.name === 'baserowSources' && s.bytes > 1000));
+  const part = client.contract({ sections: '["baserowSources","backendActions"]' });
+  assert.deepEqual(Object.keys(part.sections), ['baserowSources', 'backendActions']);
+  assert.ok(JSON.stringify(part).length < JSON.stringify(whole).length / 2);
+  const wrong = client.contract({ sections: ['nope'] });
+  assert.equal(wrong.status, 'invalid');
+  assert.ok(wrong.availableSections.includes('flowAuthoring'));
+});
