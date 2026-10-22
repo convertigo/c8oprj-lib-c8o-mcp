@@ -1661,3 +1661,14 @@ test('the contract answers only the sections asked for, and lists them', () => {
   assert.equal(wrong.status, 'invalid');
   assert.ok(wrong.availableSections.includes('flowAuthoring'));
 });
+test('a grid given no columns does not keep the prototype columns', () => {
+  const r = api().compile({ name: 'Grids', navigationMode: 'custom', pages: [{ name: 'P', fields: [
+    { type: 'grid', name: 'sourced', label: 'Deals', sources: { 'lib_BaseRow.formssource_GetTableData': { vars: { forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, columns: ['Name', 'Stage'] } } } } },
+    { type: 'grid', name: 'local', label: 'Local', sourceEnabled: false }
+  ] }] });
+  const grid = name => r.form.formulaire.find(f => f.name === name);
+  assert.deepEqual(clone(grid('sourced').config.columns), [{ name: 'Name', type: 'text' }, { name: 'Stage', type: 'text' }]);
+  assert.deepEqual(clone(grid('local').config.columns), []);
+  assert.doesNotMatch(JSON.stringify(r.form), /"Make"|"Model"/);
+  assert.ok(r.validation.issues.some(i => i.code === 'grid_without_columns'), 'a local grid without columns is reported');
+});

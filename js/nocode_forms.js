@@ -2261,9 +2261,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (type === "grid" && field.columns != null) {
       out.config.columns = ensureArray(field.columns);
+    } else if (type === "grid") {
+      // The prototype's columns (Make, Model, Price) would stay in a grid given none: take the columns of its Baserow
+      // source, else none (a local grid without columns is then reported).
+      out.config.columns = [];
     }
     if (field.sources) {
       out.sources = normalizeRequestableEntries(clone(field.sources, {}));
+      if (type === "grid" && field.columns == null) {
+        var gridSource = out.sources["lib_BaseRow.formssource_GetTableData"];
+        var gridConfig = null;
+        try { gridConfig = gridSource && gridSource.vars && gridSource.vars.forms_config ? JSON.parse(gridSource.vars.forms_config.str) : null; } catch (_ignoreGridConfig) { gridConfig = null; }
+        out.config.columns = gridConfig && Array.isArray(gridConfig.columns) ? gridConfig.columns.map(function (column) { return { name: String(column), type: "text" }; }) : [];
+      }
     }
     if (field.actions) {
       out.actions = normalizeRequestableEntries(clone(field.actions, {}));
