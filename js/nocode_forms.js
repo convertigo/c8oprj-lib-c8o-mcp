@@ -864,7 +864,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-22.editor-migration-v11",
+      contractVersion: "2026-10-22.quick-reference-v12",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -912,7 +912,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           validation: "wide_page_margin warns when an application keeps a horizontalMargin above 48px on desktop or 16px on phones."
         },
         titleDisplay: { type: "string", enum: ["form", "page", "none"], optional: true, mapsTo: "config.titleDisplay", description: "Title card at the top of the pages: the form name (form, the viewer default), the name of the current page (page) or none. A page with isNameDisplayed=false never shows it. Read by C8Oforms viewers that have this option; older viewers always show the form name." },
-        styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See generationQuality.styles.roleDefaults." },
+        styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See the styles section (roleDefaults)." },
         pages: { type: "array", required: true },
         flows: { type: "array", optional: true, description: "Only include when a button, automation, formula, or submit behavior needs it." }
       },
@@ -3047,7 +3047,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             }
           }
           if (element.type === "submit" && !enabledEntries(element.actions).length) {
-            incomplete("unconfigured_submit", "This submit step has no backend action, so its button saves nothing. A plain questionnaire stores its responses through the automatic submit of its last page: leave the custom button out. To save from a button, give the submit an action, for example lib_BaseRow.forms_AddRow (a Baserow row) or lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple (an e-mail); see authoringContract.backendActions", path + "/actions");
+            incomplete("unconfigured_submit", "This submit step has no backend action, so its button saves nothing. A plain questionnaire stores its responses through the automatic submit of its last page: leave the custom button out. To save from a button, give the submit saveTo (a Baserow row, see quickReference.baserow.save) or an action, for example lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple (an e-mail; backendActions section of nocode-form-contract-get)", path + "/actions");
           }
           enabledEntries(element.actions).forEach(function (key) {
             var action = element.actions[key];
@@ -4298,11 +4298,87 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return { form: edited, operations: summary, allTypesPath: contract.file };
   }
 
-  // The whole contract is about 100 KB (146 KB indented). Vibe reads at most 64 KB of a tool result spilled to a file,
-  // so its agent saw a cut contract ("le fichier sauvegardé est tronqué"); Claude Code spills it too. An agent also
-  // called it again for each part it wanted (24 calls in one turn). The contract answers its core rules (32 KB) and
-  // lists every section in sectionIndex; sections returns the parts asked for, sections ["all"] the whole contract.
-  var CONTRACT_CORE_SECTIONS = ["format", "intent", "contractVersion", "creationLifecycle", "editingLifecycle", "bindingValidation", "forbiddenFields", "componentAuthoring", "flowAuthoring", "conditionFields", "pageFields", "commonFieldFields", "contextualDefaults", "editTool", "mediaSupport", "baserowShorthand"];
+  // The whole contract is about 100 KB (146 KB indented). Vibe keeps a tool result inline up to about 16 KB of its
+  // indented JSON and spills a larger one to a file, which its agent then read with 14 to 20 shell commands per turn
+  // (22/10 on test-nocode); it reads at most 64 KB of that file. The core is therefore this quick reference, under
+  // 14 KB indented, with the index of the sections; sections returns the parts asked for, sections ["all"] the whole
+  // contract (not offered to agents).
+  function quickReferenceContract() {
+    return {
+      use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask (sections:[...]) for details. Return each contract answer from its own call: one answer over about 16 KB is spilled to a file.",
+      form: "{ name, description, language: \"fr\", navigationMode: custom (an application: buttons and push_page flows) | buttons (a linear questionnaire) | tabs, titleDisplay: form|page|none, backgroundColor, thumbnailColor, thumbnailImage: { contentType, base64 } (below 512x512 px), pages: [...], flows: [...] }. Pass reduced as a JSON object, not a string. The tools write _id, _rev, formulaire, pageTechName, creator and ACLs: never give them.",
+      page: "{ name (unique, the target of push_page), iconName: home|list|people|person|business|calendar|calendar-clear|document-text|receipt|settings|stats-chart|search, header: { title, subtitle } (title block first on the page), description (HTML block after the header), isNameDisplayed (false by default in custom and tabs navigation), fields: [...] }.",
+      field: "Every component: { type, name (unique technical name, read as fields.<name>), label (plain question or button text), description (HTML question, wins over label), placeholder, mandatory, disabled, sticky: always|notOnPhone (stays at the top while the page scrolls), visibleIf, defaultFrom, boxStyle, config (merged onto the native config) }. Section componentAuthoring lists each component's options.",
+      components: {
+        text: "config.type: text, email, number, tel, url, password or search; short:false makes it a growing multi-line field.",
+        choices: "select, radio, checkbox: values [\"A\", \"B\"] or [{ value, selected }]; select and checkbox start with no answer, radio with its first option. select config.selectionMode single|multiple. A Baserow column's options: source (see baserow).",
+        dates: "datetime, time: config.display_format and picker_format (DD/MM/YYYY, YYYY/MM/DD, HH:mm), min_datetime, max_datetime.",
+        slider: "min, max, step; config.pin, config.snaps.",
+        description: "description: an HTML block for titles, explanations or a summary.",
+        section: "{ type: \"section\", name, title, subtitle, columns: 1 to 4 (default 2), fields: [...] }: a titled card grouping fields; fullWidth:true puts a field on its own line. Use one section per group of an entry or detail page.",
+        layout: "{ type: \"layout\", name, cols, tablet, phoneL, phoneP: six { size } summing to 12 each, children: [...] }: a row, for example an action bar of buttons.",
+        button: "{ type: \"button\", name, label, flow: <flow id>, variant: primary|secondary|danger|ghost, icon, expand: \"block\", disabledIf }.",
+        dataViews: "grid, chart, gallery, map: source (see baserow), or a local grid with columns: [{ name, type }]. chart config.type: line, area, bar, pie or donut; grid config.gridPaginationEnabled and gridRowsPerPage.",
+        others: "img, file, signature, location, barcode: name, label, mandatory, config. ion-card is a card title only: group fields with section."
+      },
+      conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
+      defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field, path: [\"Column\", \"value\"], mode: \"reactive\" } (grid cells are { value }), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults has the rules.",
+      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused: a plain questionnaire (navigationMode buttons) saves its responses through the automatic submit of its last page, with no button for it. Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow).",
+      baserow: {
+        tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
+        dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",
+        choices: "select, radio, checkbox: source: { table, field: \"Status\" } (the options of a single select column; the answer is the option id) or { table, display: \"Name\", value: \"Code\", filter, sort } (rows of a table).",
+        filter: "{ column, operator, value }, or { all: [...] } / { any: [...] } nested. value is a literal, or { field: \"name\" } to read that component at runtime. A search over two columns: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: { field: \"priority\" } }] }.",
+        operators: "text: contains, contains_not, contains_word, equal, not_equal, empty, not_empty; number: equal, higher_than, higher_than_or_equal, lower_than, lower_than_or_equal; single select: single_select_equal, single_select_not_equal, single_select_is_any_of (an option label or id); other: boolean, link_row_has, multiple_select_has. Section baserowSources lists every Baserow filter type.",
+        save: "On a submit element: saveTo: { table } adds a row from the inputs named like its columns; saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given ({ field, path } reads a part of a field); saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid; deleteFrom: { table, row: \"grid_name\" } deletes it."
+      },
+      edit: "nocode-form-edit { id, operations: [...] }, reduced shapes everywhere except update_flow_element: add_page { name, header, navigationMode, index }, update_page { pageName, patch }, add_field { pageName or parentFieldId, fieldObject, index }, update_field { fieldName, patch } (patch.label, patch.source, patch.visibleIf, patch.variant...), remove_field { fieldName }, move_field { fieldName, pageName, parentFieldId, index }, add_flow { flowId, name, flowData: { elements } }, add_flow_element { flowId, element, index, parentId }, update_flow_element { flowId, elementId, patch } (native), remove_flow { flowId }, remove_flow_element { flowId, elementId }, set_root { config }, finalize_baserow_bindings (alone, resumes a creation). A revision conflict means: read the form again, never retry blindly. Section editTool has an example of each.",
+      lifecycle: "Create once. saved=true with bindingFinalization.status=ready ends a creation; saved=true with status partial means the form exists: follow bindingFinalization.recovery, never create again. A refused call saves nothing: fix what it names and call again. Fix every design warning with nocode-form-edit before delivery; validation does not run the business flow nor test Baserow permissions.",
+      example: {
+        name: "Demandes", language: "fr", navigationMode: "custom",
+        pages: [
+          { name: "Accueil", iconName: "home", header: { title: "Demandes" }, fields: [{ type: "button", name: "open_new", label: "Nouvelle demande", flow: "open_new", variant: "primary" }] },
+          { name: "Nouvelle demande", iconName: "document-text", header: { title: "Nouvelle demande" }, fields: [
+            { type: "section", name: "request", title: "Demande", fields: [{ type: "text", name: "requester", label: "Demandeur", mandatory: true }] },
+            { type: "button", name: "save", label: "Enregistrer", flow: "save", variant: "primary" }
+          ] }
+        ],
+        flows: [
+          { id: "open_new", name: "Nouvelle demande", elements: [{ type: "push_page", targetPage: "Nouvelle demande" }] },
+          { id: "save", name: "Enregistrer", elements: [{ type: "submit", saveTo: { table: 5271, values: { "Demandeur": "requester" } } }, { type: "toast", message: "Demande enregistrée" }, { type: "push_page", targetPage: "Accueil" }] }
+        ]
+      }
+    };
+  }
+
+  // What each section holds, for the index of the core.
+  var CONTRACT_SECTION_PURPOSES = {
+    generationQuality: "design rules of an application (headers, action bars, list and detail, empty states, toasts, data views): read before generating one",
+    generationSteps: "building a large application in steps, checks before delivery",
+    styles: "native style recipes, role spacing, mobile margins",
+    componentAuthoring: "each component's fields and visual options",
+    commonFieldFields: "every field property and its native mapping",
+    pageFields: "page properties",
+    rootFields: "form properties, page sizing per device",
+    conditionFields: "conditions with examples",
+    contextualDefaults: "defaultFrom sources and modes, what each can be trusted for",
+    flowAuthoring: "flow elements with examples",
+    editTool: "an example of each nocode-form-edit operation",
+    baserowShorthand: "the reduced Baserow forms with examples",
+    baserowSources: "native Baserow sources and every Baserow filter type",
+    backendActions: "native submit actions, e-mails, other sequences",
+    dynamicReferences: "SmartSource references written by hand",
+    styleObjectFields: "the keys of a style object",
+    styleRendering: "how the viewer renders styles",
+    creationLifecycle: "creation and Baserow binding recovery",
+    editingLifecycle: "edited bindings, revision conflicts",
+    bindingValidation: "how Baserow columns are checked",
+    forbiddenFields: "fields the tools manage",
+    mediaSupport: "wallpaper and thumbnails",
+    reducedSample: "a reduced questionnaire",
+    realWorldPatternsFromGestionDesCreches: "patterns of a real application"
+  };
+  var CONTRACT_INLINE_PARTS = ["types", "aliases", "format", "intent", "contractVersion", "quickReference"];
 
   function contractSectionList(value) {
     if (value == null || value === "") { return []; }
@@ -4315,12 +4391,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var contract = readAllTypes(opts.project || opts.projectName || "C8Oforms");
     var types = contract.catalog.map(function (item) { return item.type; });
     var authoring = detailedAuthoringContract(types);
-    var parts = { types: types, aliases: clone(aliases, {}), reducedSample: sampleContract() };
+    var parts = { types: types, aliases: clone(aliases, {}), reducedSample: sampleContract(), quickReference: quickReferenceContract() };
     Object.keys(authoring).forEach(function (key) { parts[key] = authoring[key]; });
+    // Asked alone, generationQuality (26 KB indented) would be spilled too: its style recipes are their own section.
+    parts.generationQuality = {};
+    Object.keys(authoring.generationQuality).forEach(function (key) { if (key !== "styles") { parts.generationQuality[key] = authoring.generationQuality[key]; } });
+    parts.generationQuality.styles = "Ask sections:[\"styles\"] for the native style recipes.";
+    parts.styles = authoring.generationQuality.styles;
+    parts.generationSteps = { incrementalCreation: authoring.generationQuality.incrementalCreation, completion: authoring.generationQuality.completion };
+    delete parts.generationQuality.incrementalCreation;
+    delete parts.generationQuality.completion;
+    parts.generationQuality.steps = "Ask sections:[\"generationSteps\"] for building in steps and the checks before delivery.";
     var asked = contractSectionList(opts.sections);
     var whole = opts.includeAllTypes === true || asked.indexOf("all") >= 0;
-    var sectionIndex = Object.keys(parts).map(function (key) {
-      return { name: key, bytes: JSON.stringify(parts[key]).length, included: whole || (!asked.length && (CONTRACT_CORE_SECTIONS.indexOf(key) >= 0 || !hasOwn(authoring, key))) };
+    var sectionIndex = {};
+    Object.keys(parts).forEach(function (key) {
+      if (CONTRACT_INLINE_PARTS.indexOf(key) < 0) {
+        sectionIndex[key] = (CONTRACT_SECTION_PURPOSES[key] || key) + " (" + Math.max(1, Math.round(JSON.stringify(parts[key]).length / 1000)) + " KB)";
+      }
     });
     if (asked.length && !whole) {
       var sections = {};
@@ -4335,23 +4423,30 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       return answer;
     }
-    var core = {};
-    Object.keys(authoring).forEach(function (key) { if (whole || CONTRACT_CORE_SECTIONS.indexOf(key) >= 0) { core[key] = authoring[key]; } });
-    var answer = {
+    if (!whole) {
+      return {
+        status: "ok",
+        contractVersion: authoring.contractVersion,
+        quickReference: parts.quickReference,
+        types: types,
+        aliases: parts.aliases,
+        sectionIndex: sectionIndex,
+        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for a component or an operation this core does not show."
+      };
+    }
+    var all = clone(authoring, {});
+    all.quickReference = parts.quickReference;
+    return {
       status: "ok",
       project: opts.project || opts.projectName || "C8Oforms",
       allTypesPath: contract.file,
       sectionIndex: sectionIndex,
       types: types,
       aliases: parts.aliases,
-      authoringContract: core,
+      authoringContract: all,
       reducedSample: parts.reducedSample,
       allTypes: opts.includeAllTypes === true ? contract.catalog : null
     };
-    if (!whole) {
-      answer.moreSections = "Ask nocode-form-contract-get with sections:[...] for the sections not included in sectionIndex: generationQuality (design rules, read before generating an application), baserowSources and backendActions (the native Baserow sources and saves, when baserowShorthand is not enough), dynamicReferences (SmartSource references), rootFields, styleObjectFields, styleRendering. Ask only for the sections the task needs.";
-    }
-    return answer;
   };
 
   C8O.nocodeForms.compile = compileReduced;

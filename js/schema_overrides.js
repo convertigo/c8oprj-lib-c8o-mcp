@@ -990,7 +990,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         sections: {
           type: "array",
           items: { type: "string" },
-          description: "Without it the contract answers its core rules and lists every section in sectionIndex. Give the sections to read, for example [\"generationQuality\"] before generating an application, [\"baserowSources\", \"backendActions\"] for Baserow data, [\"dynamicReferences\"] for SmartSource references. Ask only for what the task needs: the whole contract is about 100 KB, more than an agent reads at once."
+          description: "Without it the contract answers quickReference, a compact reference of the reduced JSON (Baserow sources and saves included), and sectionIndex, what each section holds. Give the sections the task needs, one answer per call so that each stays inline: [\"generationQuality\"] before generating an application, [\"styles\"] for style recipes, [\"componentAuthoring\"] or [\"editTool\"] for details, [\"dynamicReferences\"] for SmartSource references. The whole contract is about 100 KB, more than an agent reads at once."
         }
       },
       additionalProperties: false

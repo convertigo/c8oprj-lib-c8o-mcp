@@ -1256,17 +1256,58 @@ test('add_flow compiles reduced elements and keeps elements read back from a sav
 test('Baserow data needs no native contract section', () => {
   // 22/10 on test-nocode: the skill sent agents to baserowSources and backendActions (28 KB) for any Baserow data;
   // the answer was spilled to a file and read with 14 to 20 shell commands per turn.
-  const core = api().contract({});
-  const shorthand = core.authoringContract.baserowShorthand;
+  const shorthand = api().contract({ sections: ['baserowShorthand'] }).sections.baserowShorthand;
   const all = api().contract({ sections: ['baserowSources'] }).sections.baserowSources.filter.operators;
   const listed = Object.values(shorthand.operators).filter(Array.isArray).flat();
   assert.ok(listed.length >= 15);
   assert.deepEqual(listed.filter(op => !all.includes(op)), []);
   assert.doesNotMatch(shorthand.filter, /baserowSources/);
+  const quick = api().contract({}).quickReference.baserow.operators.match(/\b[a-z]+(?:_[a-z]+)+\b|\b(?:contains|equal|empty|boolean)\b/g);
+  assert.ok(quick.length >= 15);
+  assert.deepEqual(quick.filter(op => !all.includes(op)), []);
   const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
   const step1 = skill.split('\n').find(line => line.startsWith('1. Read the no-code contract'));
-  assert.match(step1, /Baserow data needs no section: `baserowShorthand`/);
+  assert.match(step1, /Baserow data needs no section/);
   assert.doesNotMatch(step1, /`baserowSources` and `backendActions` for Baserow data/);
+});
+// Vibe keeps a tool result inline up to about 16 KB of its JSON indented with sorted keys; a larger one is spilled to
+// a file that its agent read with 14 to 20 shell commands per turn (22/10 on test-nocode).
+const indentedSize = value => {
+  const sorted = v => Array.isArray(v) ? v.map(sorted) : (v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
+  return JSON.stringify(sorted(JSON.parse(JSON.stringify(value))), null, 2).length;
+};
+test('the contract core and the sections an application needs fit inline', () => {
+  const client = api();
+  const core = client.contract({});
+  assert.ok(indentedSize(core) < 14000, 'core ' + indentedSize(core));
+  for (const name of ['generationQuality', 'styles', 'generationSteps', 'componentAuthoring', 'editTool', 'contextualDefaults', 'flowAuthoring', 'baserowShorthand']) {
+    const size = indentedSize(client.contract({ sections: [name] }));
+    assert.ok(size < 15000, name + ' ' + size);
+  }
+  assert.ok(indentedSize(client.contract({ sections: ['generationQuality', 'styles'] })) > 16000, 'the skill asks for one answer per call');
+  const whole = client.contract({ sections: ['all'] }).authoringContract;
+  const asSections = client.contract({ sections: ['generationQuality', 'styles', 'generationSteps'] }).sections;
+  assert.deepEqual(clone(asSections.styles), clone(whole.generationQuality.styles));
+  assert.deepEqual(clone(asSections.generationSteps), clone({ incrementalCreation: whole.generationQuality.incrementalCreation, completion: whole.generationQuality.completion }));
+  assert.match(asSections.generationQuality.styles, /sections:\["styles"\]/);
+});
+test('the quick reference agrees with the compiler', () => {
+  const client = api();
+  const core = client.contract({});
+  const quick = core.quickReference;
+  const whole = client.contract({ sections: ['all'] }).authoringContract;
+  const example = client.compile(clone(quick.example), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
+  assert.equal(example.status, 'ok', JSON.stringify(example.validation && example.validation.issues));
+  assert.deepEqual(clone(example.validation.issues), []);
+  const conditionOperators = quick.conditions.split('Operators:')[1].match(/\b[a-z]+(?:_[a-z]+)*\b/g).filter(word => !['and', 'value', 'is', 'an', 'array', 'no', 'a', 'grid', 'empty', 'until', 'row', 'selected', 'hidden', 'component', 'not', 'checked', 'as', 'mandatory'].includes(word));
+  assert.deepEqual(conditionOperators.filter(op => !whole.conditionFields.reducedShape.operators.includes(op)), []);
+  const actions = [...quick.edit.matchAll(/\b([a-z]+(?:_[a-z]+)+) [{(]/g)].map(m => m[1]).concat(['finalize_baserow_bindings']);
+  assert.ok(actions.length >= 13);
+  assert.deepEqual(actions.filter(action => !source.includes('action === "' + action + '"')), []);
+  for (const type of quick.example.pages.flatMap(p => p.fields).map(f => f.type)) assert.ok(type === 'section' || core.types.includes(type), type);
+  assert.deepEqual(Object.keys(core.sectionIndex).filter(name => !/ \(\d+ KB\)$/.test(core.sectionIndex[name]) || core.sectionIndex[name].startsWith(name + ' (')), [], 'every section says what it holds');
+  assert.equal(core.authoringContract, undefined);
+  assert.equal(core.allTypesPath, undefined, 'no server path in the agent answer');
 });
 test('contract documents the readable UI patterns and its examples compile', () => {
   const contract = api().contract({ sections: ['all'] }).authoringContract;
@@ -1688,7 +1729,7 @@ test('a create refused before its first save does not ask to finalize a saved id
   assert.equal(r.saved, false);
   assert.ok(!r.validation.warnings.some(w => w.code === 'baserow_identity_incomplete'), JSON.stringify(r.validation.warnings));
   const empty = api().compile({ name: 'E', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }], flows: [{ id: 'f', name: 'F', elements: [{ type: 'submit', actions: {} }] }] });
-  assert.match(empty.validation.issues.find(i => i.code === 'unconfigured_submit').message, /automatic submit of its last page.*forms_AddRow/);
+  assert.match(empty.validation.issues.find(i => i.code === 'unconfigured_submit').message, /automatic submit of its last page.*saveTo/);
 });
 test('a source or an action written with plain values gets the UI-authored encoding', () => {
   const r = api().compile({ name: 'Plain', navigationMode: 'custom', pages: [{ name: 'P', fields: [
@@ -1716,21 +1757,20 @@ test('a source or an action written with plain values gets the UI-authored encod
 test('the contract answers its core with an index of every section, the sections asked for, or all of it', () => {
   const client = api();
   const core = client.contract({});
-  assert.ok(JSON.stringify(core, null, 2).length < 64000, 'under what Vibe reads of a spilled tool result');
-  assert.ok(core.authoringContract.componentAuthoring && core.authoringContract.flowAuthoring && core.authoringContract.editTool);
-  assert.equal(core.authoringContract.baserowSources, undefined);
-  assert.equal(core.sectionIndex.find(s => s.name === 'baserowSources').included, false);
-  assert.equal(core.sectionIndex.find(s => s.name === 'componentAuthoring').included, true);
+  assert.ok(core.quickReference && core.quickReference.baserow && core.quickReference.edit);
+  assert.match(core.sectionIndex.baserowSources, /KB/);
+  assert.match(core.sectionIndex.componentAuthoring, /KB/);
+  assert.equal(core.sectionIndex.quickReference, undefined);
   assert.match(core.moreSections, /generationQuality/);
   const part = client.contract({ sections: '["baserowSources","backendActions"]' });
   assert.deepEqual(Object.keys(part.sections), ['baserowSources', 'backendActions']);
   const whole = client.contract({ sections: ['all'] });
-  assert.ok(whole.authoringContract.generationQuality && whole.authoringContract.baserowSources);
+  assert.ok(whole.authoringContract.generationQuality && whole.authoringContract.baserowSources && whole.authoringContract.quickReference);
   assert.equal(whole.moreSections, undefined);
   assert.ok(client.contract({ includeAllTypes: true }).authoringContract.baserowSources, 'includeAllTypes keeps the whole contract');
   const wrong = client.contract({ sections: ['nope'] });
   assert.equal(wrong.status, 'invalid');
-  assert.ok(wrong.availableSections.includes('flowAuthoring'));
+  assert.ok(wrong.availableSections.includes('flowAuthoring') && wrong.availableSections.includes('styles'));
   assert.ok(!wrong.availableSections.includes('all') && !/\ball\b/.test(core.moreSections), 'the whole contract is not offered to agents');
 });
 // The reduced Baserow source and save shorthands. tableIndex stands for the user's catalog.
