@@ -990,7 +990,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         sections: {
           type: "array",
           items: { type: "string" },
-          description: "Return only these sections instead of the whole contract (about 100 KB), for example [\"baserowSources\", \"backendActions\"]. Sections: types, aliases, reducedSample and the authoringContract keys (componentAuthoring, flowAuthoring, conditionFields, contextualDefaults, generationQuality, baserowSources, backendActions, dynamicReferences, editTool, rootFields, pageFields, commonFieldFields, styleObjectFields, styleRendering...); the whole contract lists them in sectionIndex."
+          description: "Without it the contract answers its core rules and lists every section in sectionIndex. Give the sections to read, for example [\"generationQuality\"] before generating an application, [\"baserowSources\", \"backendActions\"] for Baserow data, [\"dynamicReferences\"] for SmartSource references; [\"all\"] returns the whole contract (about 100 KB)."
         }
       },
       additionalProperties: false

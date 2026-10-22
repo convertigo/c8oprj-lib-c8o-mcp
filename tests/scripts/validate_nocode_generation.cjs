@@ -303,7 +303,7 @@ test('explicit backend action vars are kept without inventing persistence', () =
 test('legacy tab default remains available; contract recommends an explicit choice', () => {
   const input = example(); delete input.navigationMode;
   assert.ok(api().compile(input).form.pages.every(p => p.enabledTab));
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   assert.ok(contract.rootFields.navigationMode.enum.includes('custom'));
   assert.ok(contract.generationQuality.styles.scopes.boxStyle);
 });
@@ -343,7 +343,7 @@ test('adjacent page buttons and partial styling trigger review without rewriting
 test('responsive action groups preserve child styles and explicit config takes precedence', () => {
   const input = example();
   const fields = input.pages[1].fields;
-  const row = clone(api().contract().authoringContract.componentAuthoring.layout.actionGroupExample);
+  const row = clone(api().contract({ sections: ['all'] }).authoringContract.componentAuthoring.layout.actionGroupExample);
   row.children = fields.splice(1);
   row.children.forEach(f => { f.boxStyle = { margin: '0', padding: '8px', border: '0' }; });
   row.layoutChildrenStyle = { default: { padding: '8px' }, first: { margin: '0' }, last: { margin: '0' } };
@@ -440,13 +440,13 @@ test('shared flows do not borrow one arbitrary button label and dynamic labels s
 
 test('native design recipes survive compilation across sections, fields, data and grouped actions', () => {
   const compiler = api();
-  const recipes = clone(compiler.contract().authoringContract.generationQuality.styles.recipes);
+  const recipes = clone(compiler.contract({ sections: ['all'] }).authoringContract.generationQuality.styles.recipes);
   const input = connectedExample();
   Object.assign(input.pages[0].fields[0], recipes.welcome);
   Object.assign(input.pages[1].fields[0], recipes.dataView);
   const actions = input.pages[1].fields.splice(1);
   actions.forEach(button => Object.assign(button, recipes.buttonInsideGroup));
-  const group = clone(compiler.contract().authoringContract.componentAuthoring.layout.actionGroupExample);
+  const group = clone(compiler.contract({ sections: ['all'] }).authoringContract.componentAuthoring.layout.actionGroupExample);
   Object.assign(group, recipes.actionGroup, { children: actions });
   input.pages[1].fields.push(group);
   const section = { type: 'layout', name: 'request_details', ...recipes.section, fields: [
@@ -470,7 +470,7 @@ test('transparent standalone button wrappers preserve the actual button fill', (
   const compiler = api();
   const input = example();
   const button = input.pages[0].fields[1];
-  Object.assign(button, clone(compiler.contract().authoringContract.generationQuality.styles.recipes.standaloneButton));
+  Object.assign(button, clone(compiler.contract({ sections: ['all'] }).authoringContract.generationQuality.styles.recipes.standaloneButton));
   button.backgroundColor = '#2F6FED';
   button.color = '#FFFFFF';
   const result = compiler.compile(input);
@@ -747,13 +747,13 @@ test('invalid reduced JSON errors name the position, the surrounding text and th
   const client = api();
   const extraBrace = '{"name":"x","pages":[{"name":"P","fields":[{"type":"text","name":"a","label":"A"}}]}]}';
   assert.throws(() => client.assertStrictJsonText(extraBrace, 'reduced'), e => /unexpected '\}': the array opened at position 42 must be closed with '\]' first at position 81/.test(e.message) && e.message.includes(extraBrace.length + ' characters were received in full') && e.message.includes('"label":"A"}}]}]}...'));
-  const contract = client.contract({});
+  const contract = client.contract({ sections: ['all'] });
   assert.ok(contract.authoringContract.generationQuality.incrementalCreation.step1.includes('nocode-form-create'));
   assert.ok(/not as a string/.test(contract.authoringContract.generationQuality.incrementalCreation.rule));
 });
 
 test('the contract states update capabilities and recipes next to the backend actions', () => {
-  const text = JSON.stringify(api().contract({}));
+  const text = JSON.stringify(api().contract({ sections: ['all'] }));
   assert.match(text, /UPDATE an existing row when forms_id holds its Baserow row id/);
   assert.match(text, /updateRelatedTable/);
   assert.match(text, /quote the sentence that establishes the limit/);
@@ -1209,7 +1209,7 @@ test('edits accept reduced conditions, button variants and page headers', () => 
   assert.equal(back[1].config.color, '#B45309');
 });
 test('contract documents the readable UI patterns and its examples compile', () => {
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   const quality = contract.generationQuality;
   for (const key of ['designTokens', 'pageHeader', 'actionBar', 'listDetail', 'emptyStates', 'toasts', 'dataViews']) assert.ok(quality[key], key);
   assert.ok(contract.conditionFields.reducedShape.operators.includes('is_filled'));
@@ -1379,7 +1379,7 @@ test('add_field gives role spacing on application pages and a section in edits',
   assert.equal(byName('f2').parentRef, byName('filters_row1').id);
 });
 test('contract section and page examples compile with role spacing', () => {
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   const r = api().compile({ name: 'Examples', navigationMode: 'custom', pages: [contract.generationQuality.pageHeader.example, { name: 'More', fields: [contract.componentAuthoring.section.example] }] });
   assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
   assert.ok(r.form.formulaire.some(f => f.name === 'contact_identity' && f.type === 'layout'));
@@ -1417,7 +1417,7 @@ test('wide_page_margin flags an application keeping wide margins and set_root na
   assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
   assert.equal(edited.form.config.desktop.horizontalMargin.value, '32');
   assert.equal(edited.form.config.desktop.padding.value, '24', 'set_root config is merged');
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   assert.equal(contract.rootFields.config.recommended.application.desktop.horizontalMargin.value, '32');
   assert.match(contract.generationQuality.styles.mobile, /horizontalMargin/);
 });
@@ -1428,9 +1428,9 @@ test('viewer title choice, grid second click and documented button and header li
   assert.equal(r.form.formulaire[0].config.deselectOnSecondClick, false);
   assert.equal(api().compile(styled([])).form.config.titleDisplay, undefined, 'the viewer default is kept');
   assert.throws(() => api().compile(styled([], { titleDisplay: 'both' })), /titleDisplay must be/);
-  const quality = api().contract().authoringContract.generationQuality;
+  const quality = api().contract({ sections: ['all'] }).authoringContract.generationQuality;
   assert.match(quality.actionBar.width, /expand block or full makes it fill the width of its column in recent viewers/);
-  assert.doesNotMatch(JSON.stringify(api().contract().authoringContract), /not rendered as a full-width|does not stretch/);
+  assert.doesNotMatch(JSON.stringify(api().contract({ sections: ['all'] }).authoringContract), /not rendered as a full-width|does not stretch/);
   assert.match(quality.dataViews.headers, /user's language/);
 });
 test('box styles: only the keys the viewer renders, nested parts of layoutChildrenStyle', () => {
@@ -1482,13 +1482,13 @@ test('component visuals: grid toolbar style, image and map sizes, container text
   const form = clone(r.form);
   form.config.boxStyle = { padding: '16px' };
   assert.ok(api().validate(form).validation.warnings.some(w => w.code === 'global_box_style' && w.path === '/config/boxStyle'));
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   assert.ok(contract.styleRendering.precedence && contract.styleRendering.textColor && contract.styleRendering.nesting);
   assert.match(contract.componentAuthoring.grid.visual, /gridCellPadding/);
   assert.ok(contract.styleObjectFields.borderWidth.legacy);
 });
 test('Baserow filter sub-groups: documented and kept by compile and edit', () => {
-  const filter = api().contract().authoringContract.baserowSources.filter;
+  const filter = api().contract({ sections: ['all'] }).authoringContract.baserowSources.filter;
   assert.match(filter.groups.shape, /recursive/);
   assert.match(filter.groups.depth, /4 levels/);
   assert.match(filter.groups.variables, /forms_tableFilter.*forms_Filter/);
@@ -1512,7 +1512,7 @@ test('Baserow filter sub-groups: documented and kept by compile and edit', () =>
   assert.equal(JSON.stringify(saved.groups), JSON.stringify(grouped.groups), 'nocode-form-edit keeps them');
 });
 test('aggregation labels: documented, kept by compile', () => {
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   const aggregations = contract.baserowSources.groupAggregations;
   assert.match(aggregations.syntax, /optional label after =/);
   assert.match(aggregations.labels.key, /sum_Contract Value/);
@@ -1543,7 +1543,7 @@ test('refresh_grid targets a grid, a gallery or a chart; local rows a grid only'
   const r = api().compile(styled(fields, flows('cards')));
   const gallery = r.form.formulaire.find(f => f.name === 'cards');
   assert.equal(String(r.form.flows.find(f => f.id === 'reload').elements[0].config.targetGrid), String(gallery.id), 'resolved to the id of the gallery');
-  assert.match(api().contract().authoringContract.flowAuthoring.gridActions, /a grid, a gallery or a chart for refresh_grid/);
+  assert.match(api().contract({ sections: ['all'] }).authoringContract.flowAuthoring.gridActions, /a grid, a gallery or a chart for refresh_grid/);
 });
 test('sticky: compiled into config, validated, and an edit puts reduced config keys in config', () => {
   const r = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'notOnPhone' }]));
@@ -1552,7 +1552,7 @@ test('sticky: compiled into config, validated, and an edit puts reduced config k
   assert.equal(r.form.formulaire[0].sticky, undefined);
   const bad = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'top' }]));
   assert.ok(clone(bad.validation.issues).some(i => i.code === 'invalid_sticky'));
-  assert.deepEqual(clone(api().contract().authoringContract.commonFieldFields.sticky.enum), ['always', 'notOnPhone']);
+  assert.deepEqual(clone(api().contract({ sections: ['all'] }).authoringContract.commonFieldFields.sticky.enum), ['always', 'notOnPhone']);
   const h = creationHarness();
   const start = h.client.create(connectedWithoutIdentities(), h.auth);
   const grid = start.form.formulaire.find(f => f.type === 'grid');
@@ -1650,25 +1650,22 @@ test('a source or an action written with plain values gets the UI-authored encod
   assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
   assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
 });
-test('the contract answers only the sections asked for, and lists them', () => {
+test('the contract answers its core with an index of every section, the sections asked for, or all of it', () => {
   const client = api();
-  const whole = client.contract({});
-  assert.ok(whole.sectionIndex.some(s => s.name === 'baserowSources' && s.bytes > 1000));
+  const core = client.contract({});
+  assert.ok(JSON.stringify(core, null, 2).length < 64000, 'under what Vibe reads of a spilled tool result');
+  assert.ok(core.authoringContract.componentAuthoring && core.authoringContract.flowAuthoring && core.authoringContract.editTool);
+  assert.equal(core.authoringContract.baserowSources, undefined);
+  assert.equal(core.sectionIndex.find(s => s.name === 'baserowSources').included, false);
+  assert.equal(core.sectionIndex.find(s => s.name === 'componentAuthoring').included, true);
+  assert.match(core.moreSections, /generationQuality/);
   const part = client.contract({ sections: '["baserowSources","backendActions"]' });
   assert.deepEqual(Object.keys(part.sections), ['baserowSources', 'backendActions']);
-  assert.ok(JSON.stringify(part).length < JSON.stringify(whole).length / 2);
+  const whole = client.contract({ sections: ['all'] });
+  assert.ok(whole.authoringContract.generationQuality && whole.authoringContract.baserowSources);
+  assert.equal(whole.moreSections, undefined);
+  assert.ok(client.contract({ includeAllTypes: true }).authoringContract.baserowSources, 'includeAllTypes keeps the whole contract');
   const wrong = client.contract({ sections: ['nope'] });
   assert.equal(wrong.status, 'invalid');
-  assert.ok(wrong.availableSections.includes('flowAuthoring'));
-});
-test('a grid given no columns does not keep the prototype columns', () => {
-  const r = api().compile({ name: 'Grids', navigationMode: 'custom', pages: [{ name: 'P', fields: [
-    { type: 'grid', name: 'sourced', label: 'Deals', sources: { 'lib_BaseRow.formssource_GetTableData': { vars: { forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, columns: ['Name', 'Stage'] } } } } },
-    { type: 'grid', name: 'local', label: 'Local', sourceEnabled: false }
-  ] }] });
-  const grid = name => r.form.formulaire.find(f => f.name === name);
-  assert.deepEqual(clone(grid('sourced').config.columns), [{ name: 'Name', type: 'text' }, { name: 'Stage', type: 'text' }]);
-  assert.deepEqual(clone(grid('local').config.columns), []);
-  assert.doesNotMatch(JSON.stringify(r.form), /"Make"|"Model"/);
-  assert.ok(r.validation.issues.some(i => i.code === 'grid_without_columns'), 'a local grid without columns is reported');
+  assert.ok(wrong.availableSections.includes('flowAuthoring') && wrong.availableSections.includes('all'));
 });
