@@ -230,6 +230,7 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 
 ### Baserow Source Pattern
 
+- Write Baserow sources and saves with the reduced shapes of the contract's `baserowShorthand` section (in the core): `source: { table, columns, filter, sort, groupBy, aggregations }` on a grid, chart, map or gallery, `source: { table, field }` or `{ table, display, value }` on a choice list, `saveTo: { table, row, values }` and `deleteFrom: { table, row }` on a submit element. `table` is the table id (or its path) from `nocode-baserow-catalog-list`; the tools find the rest, encode the variables and resolve the references to fields (`{ field: "name" }`) and grids (`row`). Use the native shapes below only for what the shorthand does not express.
 - Use `nocode-baserow-catalog-list` first when you need to discover which Baserow workspaces, bases, and tables are available to the authenticated No Code user.
 - Use `nocode-baserow-schema-apply` for schema work. It can plan or apply canonical schema JSON with `workspaceName`/`workspaceId`, `baseName`/`baseId`, `tables[].fields`, `tables[].views`, and `tables[].sampleRows`.
 - Use `tables[].upsertKey` whenever applying sample rows to an existing table, so reruns update existing rows instead of creating duplicates.
@@ -238,7 +239,7 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 - The catalog tool is read-only discovery. It must not be used as permission to call low-code requestables or raw Baserow APIs.
 - A component is connected to Baserow when it has an enabled `sources["lib_BaseRow.formssource_GetTableData"]` entry.
 - The live Baserow binding is stored in `sources["lib_BaseRow.formssource_GetTableData"].vars.forms_config.str`, a JSON string. Parse that string instead of reading it as plain text.
-- When you write a source or a backend action, you may give `forms_config` and `forms_freeVars` as JSON objects and the other variables as plain values (`"forms_id": ""`, `"forms_tableGroupBy": "Status"`): the tools encode them as the UI-authored `{ str, html:false }` objects. Filters and sorts keep their `conds` shape.
+- When you write a source or a backend action, you may give `forms_config` as a JSON object, `forms_freeVars` as `{ "Column": value }` and the other variables as plain values (`"forms_id": ""`, `"forms_tableGroupBy": "Status"`): the tools encode them as the editor does (`{ str, html:false }`, and the `[{ name, str }]` list for `forms_freeVars`). Filters and sorts keep their `conds` shape.
 - Treat `forms_config.str` as the source of truth for the Baserow table and dynamic output columns. Inspect `table_id`, `table_id_int`, `columns`, `hidden`, `link_row_table_id`, `source_id`, and `source_owner`.
 - `table_id` is the human-readable Baserow path, commonly shaped like `Workspace~>Database~>Table`; `table_id_int` is the numeric Baserow table id.
 - The effective Baserow output columns are dynamically deduced from `forms_config.columns`, with `forms_config.hidden` indicating hidden columns.

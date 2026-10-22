@@ -1673,3 +1673,124 @@ test('the contract answers its core with an index of every section, the sections
   assert.ok(wrong.availableSections.includes('flowAuthoring'));
   assert.ok(!wrong.availableSections.includes('all') && !/\ball\b/.test(core.moreSections), 'the whole contract is not offered to agents');
 });
+// The reduced Baserow source and save shorthands. tableIndex stands for the user's catalog.
+const reducedTables = [{ id: 5277, name: 'Tickets', path: 'Team~>Support~>Tickets' }, { id: 5278, name: 'Agents', path: 'Team~>Support~>Agents' }];
+function smartRef(item, path) {
+  return '$$START' + item.id + JSON.stringify({ c8otype: 'path', c8opath: path, c8oPrettyPath: '', c8obuiltin: 'false', fakeId: 'fakeId' + item.id, c8oName: null }) + 'END' + item.id + '$$';
+}
+function ticketsApp() {
+  return { name: 'Tickets', navigationMode: 'custom', pages: [
+    { name: 'Tickets', fields: [
+      { type: 'text', name: 'search', label: 'Recherche', sticky: 'always' },
+      { type: 'select', name: 'priority_filter', label: 'Priorité', source: { table: 5277, field: 'Priorité' } },
+      { type: 'grid', name: 'tickets', label: 'Tickets', source: { table: 5277, columns: ['Titre', 'Priorité', 'Statut'], sort: 'Titre,-Créé le', filter: { all: [
+        { any: [{ column: 'Titre', operator: 'contains', value: { field: 'search' } }, { column: 'Description', operator: 'contains', value: { field: 'search' } }] },
+        { column: 'Statut', operator: 'single_select_not_equal', value: 'Fermé' }
+      ] } } },
+      { type: 'chart', name: 'by_priority', label: 'Par priorité', source: { table: 'Team~>Support~>Tickets', columns: ['Priorité'], groupBy: 'Priorité', aggregations: 'count=Nombre' } },
+      { type: 'select', name: 'agent', label: 'Agent', source: { table: { id: 5278, path: 'Team~>Support~>Agents' }, display: 'Nom', value: 'Email' } },
+      { type: 'text', name: 'Titre', label: 'Titre' },
+      { type: 'text', name: 'new_status', label: 'Statut' },
+      { type: 'button', name: 'save', label: 'Créer', flow: 'save' },
+      { type: 'button', name: 'close', label: 'Fermer le ticket', flow: 'close' },
+      { type: 'button', name: 'remove', label: 'Supprimer', flow: 'remove', variant: 'danger' }
+    ] }
+  ], flows: [
+    { id: 'save', name: 'Créer le ticket', elements: [{ type: 'submit', saveTo: { table: 5277 } }] },
+    { id: 'close', name: 'Fermer le ticket', elements: [{ type: 'submit', saveTo: { table: 5277, row: 'tickets', values: { Statut: { value: 'Fermé' }, Titre: 'Titre', Commentaire: { field: 'new_status' } } } }] },
+    { id: 'remove', name: 'Supprimer le ticket', elements: [{ type: 'submit', deleteFrom: { table: 5277, row: 'tickets' } }] }
+  ] };
+}
+test('reduced Baserow sources compile to the UI-authored sources, tables found in the catalog', () => {
+  const r = api().compile(ticketsApp(), { tableIndex: reducedTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const item = name => r.form.formulaire.find(f => f.name === name);
+  const grid = item('tickets').sources['lib_BaseRow.formssource_GetTableData'];
+  assert.equal(grid.enabled, true);
+  assert.deepEqual(JSON.parse(grid.vars.forms_config.str).table_id, 'Team~>Support~>Tickets');
+  assert.equal(JSON.parse(grid.vars.forms_config.str).table_id_int, 5277);
+  assert.deepEqual(clone(grid.vars.forms_tableSort.conds), [{ name: 'Titre', order: 'asc' }, { name: 'Créé le', order: 'desc' }]);
+  const filter = clone(grid.vars.forms_tableFilter);
+  assert.equal(filter.condVisible, 'and');
+  assert.equal(filter.type, 'filter');
+  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, c.val2.str]), [['Statut', 'single_select_not_equal', 'Fermé']]);
+  assert.equal(filter.groups[0].condVisible, 'or');
+  assert.deepEqual(filter.groups[0].conds.map(c => c.val2.str), [smartRef(item('search'), 'search'), smartRef(item('search'), 'search')]);
+  assert.deepEqual(clone(item('tickets').config.columns).map(c => c.name), ['Titre', 'Priorité', 'Statut']);
+  const chart = item('by_priority').sources['lib_BaseRow.formssource_GetTableData'].vars;
+  assert.equal(JSON.parse(chart.forms_config.str).table_id_int, 5277, 'a path finds the id');
+  assert.equal(chart.forms_tableGroupBy.str, 'Priorité');
+  assert.equal(chart.forms_tableAggregations.str, 'count=Nombre');
+  const values = item('priority_filter').sources['lib_BaseRow.formssource_GetFieldValues'].vars;
+  const valuesConfig = JSON.parse(values.forms_config.str);
+  assert.deepEqual([valuesConfig.table_id, valuesConfig.columns], [5277, ['Priorité']]);
+  assert.deepEqual(clone(item('priority_filter').children), [], 'no prototype choices next to a source');
+  const rows = JSON.parse(item('agent').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str);
+  assert.deepEqual([rows.table_id, rows.table_id_int, rows.displayValue, rows.value, rows.columns], ['Team~>Support~>Agents', 5278, 'Nom', 'Email', ['Nom', 'Email']]);
+  assert.doesNotMatch(JSON.stringify(r.form), /__reduced/);
+});
+test('reduced saves compile to forms_AddRow, forms_AddRowFromData and forms_DeleteRow with field and row references', () => {
+  const r = api().compile(ticketsApp(), { tableIndex: reducedTables });
+  const item = name => r.form.formulaire.find(f => f.name === name);
+  const action = (flow, key) => r.form.flows.find(f => f.id === flow).elements[0].actions[key];
+  const add = action('save', 'lib_BaseRow.forms_AddRow').vars;
+  assert.deepEqual(JSON.parse(add.forms_config.str).table_id, 'Team~>Support~>Tickets');
+  assert.deepEqual(clone(add.forms_id), { str: '', html: false });
+  const update = action('close', 'lib_BaseRow.forms_AddRowFromData').vars;
+  assert.equal(update.forms_id.str, smartRef(item('tickets'), 'tickets.id.value'));
+  assert.deepEqual(clone(update.forms_freeVars), [{ name: 'Statut', str: 'Fermé' }, { name: 'Titre', str: smartRef(item('Titre'), 'Titre') }, { name: 'Commentaire', str: smartRef(item('new_status'), 'new_status') }], 'the list of { name, str } the editor writes');
+  const remove = action('remove', 'lib_BaseRow.forms_DeleteRow').vars;
+  assert.equal(remove.forms_id.str, smartRef(item('tickets'), 'tickets.id.value'));
+  assert.ok(!r.validation.issues.some(i => /baserow/i.test(i.code)), JSON.stringify(r.validation.issues));
+});
+test('reduced Baserow shorthands refuse what they cannot resolve, with the way out', () => {
+  const unknownTable = ticketsApp(); unknownTable.pages[0].fields[2].source.table = 999;
+  assert.throws(() => api().compile(unknownTable, { tableIndex: reducedTables }), /table 999 is not in the Baserow catalog/);
+  const unknownField = ticketsApp(); unknownField.flows[1].elements[0].saveTo.values.Statut = 'Fermé';
+  assert.throws(() => api().compile(unknownField, { tableIndex: reducedTables }), /\{ value: "Fermé" \}.*no single component named "Fermé"/);
+  const noCatalog = ticketsApp();
+  assert.throws(() => api().compile(noCatalog), /with nocode-form-compile alone, give \{ id, path \}/);
+  assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'text', name: 't', label: 'T', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /a text has no Baserow source/);
+  assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'grid', name: 'g', label: 'G', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /columns lists the table columns/);
+});
+test('edits accept the reduced source and saves', () => {
+  const h = creationHarness({ columns: ['Reference', 'Status', 'Titre', 'Statut', 'Nom'].map(name => ({ name, type: 'text' })) });
+  const created = h.client.create(example(), h.auth);
+  const id = created.form._id;
+  const edited = h.client.edit(id, [
+    { action: 'add_field', pageName: 'Requests', fieldObject: { type: 'grid', name: 'tickets', label: 'Tickets', source: { table: { id: 5277, path: 'Team~>Support~>Tickets' }, columns: ['Titre'] } } },
+    { action: 'add_flow', flowId: 'archive', name: 'Archiver', flowData: { elements: [] } },
+    { action: 'add_flow_element', flowId: 'archive', element: { type: 'submit', saveTo: { table: { id: 5277, path: 'Team~>Support~>Tickets' }, row: 'tickets', values: { Statut: { value: 'Archivé' } } } } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  const saved = h.state.forms[id];
+  const grid = saved.formulaire.find(f => f.name === 'tickets');
+  assert.equal(JSON.parse(grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str).table_id_int, 5277);
+  const submit = saved.flows.find(f => f.id === 'archive').elements[0];
+  assert.equal(submit.actions['lib_BaseRow.forms_AddRowFromData'].vars.forms_id.str, smartRef(grid, 'tickets.id.value'));
+  const resourced = h.client.edit(id, [{ action: 'update_field', fieldName: 'tickets', patch: { source: { table: { id: 5278, path: 'Team~>Support~>Agents' }, columns: ['Nom'] } } }], h.auth);
+  assert.equal(resourced.saved, true, JSON.stringify(resourced.error || resourced.validation));
+  const regrid = h.state.forms[id].formulaire.find(f => f.name === 'tickets');
+  assert.equal(JSON.parse(regrid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str).table_id_int, 5278);
+});
+
+test('forms_freeVars: a column map becomes the editor list, JSON text still runs with a warning, columns are checked either way', () => {
+  const h = creationHarness();
+  const input = connectedWithoutIdentities();
+  const step = input.flows[2].elements[0];
+  const entry = step.actions['lib_BaseRow.forms_AddRow'];
+  entry.vars.forms_freeVars = { Reference: 'R-1', Status: 'Open' };
+  step.actions = { 'lib_BaseRow.forms_AddRowFromData': entry };
+  const created = h.client.create(input, h.auth);
+  assert.equal(created.status, 'ok', JSON.stringify(created.validation));
+  const saved = h.state.forms[created.form._id].flows.find(f => f.elements.some(e => e.actions && e.actions['lib_BaseRow.forms_AddRowFromData']));
+  const savedVars = saved.elements.find(e => e.actions && e.actions['lib_BaseRow.forms_AddRowFromData']).actions['lib_BaseRow.forms_AddRowFromData'].vars;
+  assert.deepEqual(savedVars.forms_freeVars, [{ name: 'Reference', str: 'R-1' }, { name: 'Status', str: 'Open' }]);
+  assert.ok(!created.validation.warnings.some(w => w.code === 'freevars_text_shape'));
+  entry.vars.forms_freeVars = { Wrong: 'value' };
+  assert.ok(h.client.create(input, h.auth).validation.issues.some(i => i.code === 'unknown_baserow_column'), 'the list is checked against the table');
+  entry.vars.forms_freeVars = { str: JSON.stringify({ Reference: 'R-2' }), html: false };
+  const legacy = h.client.create(input, h.auth);
+  assert.equal(legacy.status, 'ok');
+  assert.ok(legacy.validation.warnings.some(w => w.code === 'freevars_text_shape'));
+});

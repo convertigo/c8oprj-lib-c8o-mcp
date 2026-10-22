@@ -1784,6 +1784,19 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
   };
 
+  // A table of the user's catalog from its id or its path (Workspace~>Base~>Table), for the reduced Baserow source and
+  // save shorthands of nocode_forms.js: they name a table by its id, the native configuration needs both.
+  C8O.nocodeBaserow.tableIndex = function (token) {
+    var authentication = validateToken(token);
+    if (!authentication || authentication.authenticated !== true) {
+      return null;
+    }
+    var catalog = normalizeCatalog(readApplications());
+    return ensureArray(catalog.tables).map(function (table) {
+      return { id: table.id, name: table.name, path: [table.workspaceName, table.baseName, table.name].join("~>") };
+    });
+  };
+
   // The current fields of a table for the form tools' column check (nocode_forms.js), past the 60-second cache of
   // lib_BaseRow; bearer is the user's Baserow token when the caller already has it.
   C8O.nocodeBaserow.tableFields = function (tableId, editor, bearer) {

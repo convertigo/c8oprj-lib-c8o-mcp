@@ -778,7 +778,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             vars: ["forms_config", "forms_id", "forms_createColumn", "forms_freeVars"],
             runtimeInputs: ["doc", "originalDoc"],
             underlyingSequences: ["lib_BaseRow.FieldsList", "lib_BaseRow.TableCreateColumn", "lib_BaseRow.TableCreateRow", "lib_BaseRow.TableUpdateRow"],
-            forms_freeVars: "UI-authored multi-value variable (__c8o_multi) containing explicit column names and values. Values may include SmartSource references.",
+            forms_freeVars: "Multi-value variable (__c8o_multi): the list [{ name: \"Column\", str: \"value or SmartSource\" }] the editor writes; the viewer sends the backend { Column: value }. The tools also take { Column: value }; saveTo.values of baserowShorthand writes it for you.",
             notes: [
               "Use this action when the UI author chooses the Baserow columns explicitly instead of relying on form field technical ids.",
               "forms_createColumn=true creates text or file columns when an explicit column name does not match an existing Baserow column."
@@ -849,7 +849,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
                     forms_config: { str: "{\"table_id\":\"Mini CRM~>Lightweight CRM~>Companies\",\"table_id_int\":123,\"form_id\":\"1780214945733\",\"source_id\":1780217000001,\"source_owner\":\"user@example.com\",\"link_row_table_id\":[]}", html: false },
                     forms_id: { str: "$$START1780214945653{\"c8otype\":\"path\",\"c8opath\":\"companies_grid.id.value\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780217042001\",\"c8oName\":null}END1780214945653$$", html: false },
                     forms_createColumn: { str: "false", html: false },
-                    forms_freeVars: { str: "{\"Name\":\"$$START1780215220834{\\\"c8otype\\\":\\\"path\\\",\\\"c8opath\\\":\\\"\\\",\\\"c8oPrettyPath\\\":null,\\\"c8obuiltin\\\":null,\\\"fakeId\\\":\\\"fakeId1780217042002\\\",\\\"c8oName\\\":null}END1780215220834$$\"}", html: false }
+                    forms_freeVars: [{ name: "Name", str: "$$START1780215220834{\"c8otype\":\"path\",\"c8opath\":\"company_name\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780215220834\",\"c8oName\":null}END1780215220834$$" }]
                   }
                 }
               }
@@ -864,7 +864,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-14.readable-ui-v9",
+      contractVersion: "2026-10-22.baserow-shorthand-v10",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1151,6 +1151,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         "ion-card": { fields: ["name", "label", "description"], visual: "A card with a title: config.title (text, html with personalized:true, size H1 to H6, position text-left/text-center/text-right, label_color). Its children are not compiled by the reduced contract (refused): use a section to group fields in a titled card." },
         map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18), config.autoCenter.", fields: ["name", "description", "sources", "config"] }
       },
+      baserowShorthand: {
+        rule: "Prefer these reduced forms to the native sources and actions (baserowSources, backendActions): the tools find the table path and id in the user's catalog, encode every variable and resolve the references to fields and grids. table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list.",
+        dataView: { on: "grid, chart, map, gallery", shape: "source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }" },
+        choices: { on: "select, radio, checkbox", columnChoices: "source: { table, field: \"Status\" } lists the options of a single select column", rows: "source: { table, display: \"Name\", value: \"Code\", filter, sort } lists the rows of a table" },
+        filter: "A condition { column, operator, value } (operators of baserowSources.filter.operators), or { all: [...] } / { any: [...] } nested: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: \"High\" }] }. A plain value is a literal; { field: \"name\" } reads that component at runtime.",
+        save: { on: "a submit element of a flow", add: "{ type: \"submit\", saveTo: { table } } adds a row from the inputs named like its columns (forms_AddRow)", map: "saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given (forms_AddRowFromData): a string names a field, { value } is a literal, { field, path } reads a part of a field", update: "saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid", remove: "{ type: \"submit\", deleteFrom: { table, row: \"grid_name\" } } deletes the selected row" },
+        edits: "add_field and add_flow_element take the same shapes; update_field with patch.source replaces the component's source."
+      },
       baserowSources: baserowSourceContract(),
       backendActions: backendActionContract(),
       flowAuthoring: {
@@ -1264,6 +1272,23 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // object, or a variable as a plain value, was refused ("forms_config must be a JSON string") and spent several calls
   // finding the native shape: encode them here. Only qualified requestable entries (lib_BaseRow.formssource_GetTableData,
   // lib_BaseRow.forms_AddRow...) are touched, not the self source; null is kept (a merge patch removes with it).
+  // forms_freeVars (forms_AddRowFromData) is a multi-value variable: the editor stores it as the list of
+  // { name: column, str: value } it shows, the viewer resolves each str and sends the backend { column: value }. A JSON
+  // object text in str also runs, but breaks on a quote in a value and the editor empties it when the action is opened.
+  function freeVarsColumns(value) {
+    if (Array.isArray(value)) { return value.map(function (item) { return item && typeof item === "object" ? trimmed(item.name) : ""; }); }
+    if (value && typeof value === "object" && typeof value.str === "string") {
+      var mapping = null;
+      try { mapping = JSON.parse(value.str); } catch (_invalidMapping) { mapping = null; }
+      return mapping && typeof mapping === "object" && !Array.isArray(mapping) ? Object.keys(mapping).map(trimmed) : null;
+    }
+    return null;
+  }
+
+  function freeVarsList(map) {
+    return Object.keys(map).map(function (column) { return { name: column, str: map[column] == null ? "" : String(map[column]) }; });
+  }
+
   function normalizeRequestableEntries(entries) {
     if (!entries || typeof entries !== "object" || Array.isArray(entries)) { return entries; }
     Object.keys(entries).forEach(function (key) {
@@ -1274,6 +1299,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       Object.keys(entry.vars).forEach(function (name) {
         var value = entry.vars[name];
         if (value === null) { return; }
+        if (name === "forms_freeVars") {
+          if (Array.isArray(value)) {
+            entry.vars[name] = value.map(function (item) { return item && typeof item === "object" ? { name: trimmed(item.name), str: item.str == null ? "" : String(item.str) } : { name: "", str: "" }; });
+          } else if (typeof value === "object" && !hasOwn(value, "str")) {
+            entry.vars[name] = freeVarsList(value);
+          } else if (typeof value === "string") {
+            var parsed = null;
+            try { parsed = JSON.parse(value); } catch (_notJson) { parsed = null; }
+            entry.vars[name] = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? freeVarsList(parsed) : { str: value, html: false };
+          }
+          return;
+        }
         if (typeof value !== "object") {
           entry.vars[name] = { str: String(value), html: false };
         } else if (Array.isArray(value) || (!hasOwn(value, "str") && !hasOwn(value, "conds") && !hasOwn(value, "groups"))) {
@@ -1989,6 +2026,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (type === "submit" && element.actions) {
       out.actions = element.actions;
     }
+    if (element.saveTo != null || element.deleteFrom != null) {
+      if (type !== "submit") { throw new Error(out.name + ": saveTo and deleteFrom belong to a submit element"); }
+      out.__reducedSave = { saveTo: element.saveTo, deleteFrom: element.deleteFrom };
+    }
     if (type === "business_logic") {
       out.cat = "action";
       out.sources = out.sources || { self: { enabled: true, vars: { selfVar: { str: "", type: "ts" } } } };
@@ -2009,6 +2050,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     }
     copyObjectValues(out, element, ["sources", "actions", "children", "childrenRefs", "childrenRefsElse", "parentRef", "vars"]);
+    delete out.saveTo;
+    delete out.deleteFrom;
     if (out.actions) { out.actions = normalizeRequestableEntries(clone(out.actions, {})); }
     copyConfigValues(out, element, ["condition", "operator", "message", "target", "page", "flow", "delay", "loopSource", "itemName"]);
     copyConfigValues(out, element, ["targetPage", "targetGrid", "position", "duration", "color", "closeBtn", "scope", "targetElement"]);
@@ -2073,6 +2116,216 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       });
     });
     return all;
+  }
+
+  var TABLE_SOURCE_TYPES = ["grid", "chart", "map", "gallery"];
+  var CHOICE_SOURCE_TYPES = ["select", "radio", "checkbox"];
+
+  // A SmartSource reference to the runtime value of a component, the encoding the editor writes in a source or an
+  // action variable: an agent had to find it and choose the ids itself.
+  function smartSourceReference(item, path) {
+    var id = String(item.id);
+    var payload = { c8otype: "path", c8opath: path, c8oPrettyPath: "", c8obuiltin: "false", fakeId: "fakeId" + id, c8oName: null };
+    return "$$START" + id + JSON.stringify(payload) + "END" + id + "$$";
+  }
+
+  function listText(value) {
+    return Array.isArray(value) ? value.map(function (item) { return trimmed(item); }).join(",") : trimmed(value);
+  }
+
+  // The reduced Baserow source and save shorthands, compiled to the UI-authored sources and backend actions:
+  //   grid/chart/map/gallery  source: { table, columns, hidden, filter, sort, distinct, groupBy, aggregations }
+  //   select/radio/checkbox   source: { table, field }              (the choices of a single select column)
+  //                           source: { table, display, value, columns, filter, sort }   (the rows of a table)
+  //   submit element          saveTo: { table, row, values }        (forms_AddRow, or forms_AddRowFromData with values)
+  //                           deleteFrom: { table, row }            (forms_DeleteRow)
+  // table is the id or the path Workspace~>Base~>Table of a table of the user's catalog, or { id, path }; row names a
+  // grid whose selected row is updated or deleted; a value or a filter value naming a field, or { field, path },
+  // reads that field at runtime, { value } is a literal.
+  function applyReducedBaserow(doc, options) {
+    var opts = options || {};
+    var sources = ensureArray(doc.formulaire).filter(function (item) { return item && item.__reducedSource; });
+    var saves = [];
+    ensureArray(doc.flows).forEach(function (flow) {
+      ensureArray(flow && flow.elements).forEach(function (element) { if (element && element.__reducedSave) { saves.push(element); } });
+    });
+    if (!sources.length && !saves.length) { return; }
+    var findTable = tableFinder(opts);
+    function component(name, what) {
+      var matches = ensureArray(doc.formulaire).filter(function (item) { return item && item.name === trimmed(name); });
+      if (matches.length !== 1) { throw new Error(what + ": no single component named \"" + name + "\" in the form"); }
+      return matches[0];
+    }
+    function fieldValue(value, what) {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        if (hasOwn(value, "value")) { return value.value == null ? "" : String(value.value); }
+        if (hasOwn(value, "field")) {
+          var target = component(value.field, what);
+          return smartSourceReference(target, [trimmed(target.name)].concat(ensureArray(value.path).map(String)).join("."));
+        }
+        throw new Error(what + ": give a field name, { field, path } or { value }");
+      }
+      if (typeof value === "string") {
+        var named = component(value, what + " (a string names a field; write { value: \"" + value + "\" } for a literal)");
+        return smartSourceReference(named, trimmed(named.name));
+      }
+      return value == null ? "" : String(value);
+    }
+    function rowReference(gridName, what) {
+      var grid = component(gridName, what);
+      if (grid.type !== "grid") { throw new Error(what + ": row names a grid, " + grid.name + " is a " + grid.type); }
+      return smartSourceReference(grid, trimmed(grid.name) + ".id.value");
+    }
+    function filterCondition(spec, what) {
+      if (!trimmed(spec.column).length || !trimmed(spec.operator).length) { throw new Error(what + ": a filter condition is { column, operator, value }"); }
+      var operator = trimmed(spec.operator);
+      var val2 = { type: operator === "boolean" ? "checkbox" : "text", str: "", html: false, arr: [] };
+      if (Array.isArray(spec.value)) { val2.arr = spec.value.map(String); }
+      else if (hasOwn(spec, "value")) { val2.str = fieldValueOrLiteral(spec.value, what); }
+      return { val1: { name: trimmed(spec.column), displayName: trimmed(spec.column) }, val2: val2, operator: operator };
+    }
+    // In a filter a plain string is a literal (a search text, a choice); { field } reads a field.
+    function fieldValueOrLiteral(value, what) {
+      return value && typeof value === "object" && !Array.isArray(value) ? fieldValue(value, what) : (value == null ? "" : String(value));
+    }
+    function filterGroup(spec, what) {
+      var group = { type: "filter", condVisible: "and", conds: [], groups: [] };
+      var items = [spec];
+      if (spec && Array.isArray(spec.all)) { items = spec.all; }
+      else if (spec && Array.isArray(spec.any)) { group.condVisible = "or"; items = spec.any; }
+      items.forEach(function (item) {
+        if (item && (Array.isArray(item.all) || Array.isArray(item.any))) { group.groups.push(filterGroup(item, what)); }
+        else { group.conds.push(filterCondition(item || {}, what)); }
+      });
+      return group;
+    }
+    function filterVariable(spec, what) {
+      if (spec && (hasOwn(spec, "conds") || hasOwn(spec, "groups"))) {
+        var native = clone(spec, {});
+        if (!hasOwn(native, "str")) { native.str = ""; }
+        if (!hasOwn(native, "html")) { native.html = false; }
+        if (!hasOwn(native, "type")) { native.type = "filter"; }
+        return native;
+      }
+      var group = filterGroup(spec, what);
+      return { str: "", html: false, type: "filter", condVisible: group.condVisible, conds: group.conds, groups: group.groups };
+    }
+    function sortVariable(spec) {
+      var conds = (Array.isArray(spec) ? spec : String(spec).split(",")).map(function (entry) {
+        if (entry && typeof entry === "object") { return { name: trimmed(entry.name || entry.column), order: trimmed(entry.order) === "desc" ? "desc" : "asc" }; }
+        var name = trimmed(entry);
+        return name.charAt(0) === "-" ? { name: trimmed(name.substring(1)), order: "desc" } : { name: name, order: "asc" };
+      }).filter(function (entry) { return entry.name.length; });
+      return { str: "", html: false, type: "sort", conds: conds };
+    }
+    function plain(value) { return { str: value == null ? "" : String(value), html: false }; }
+
+    sources.forEach(function (item) {
+      var spec = item.__reducedSource;
+      delete item.__reducedSource;
+      var what = item.name + ".source";
+      var table = findTable(spec.table, what);
+      var columns = ensureArray(spec.columns).map(function (column) { return trimmed(column); }).filter(function (column) { return column.length; });
+      var vars = {};
+      var key;
+      if (CHOICE_SOURCE_TYPES.indexOf(item.type) >= 0 && trimmed(spec.field).length) {
+        key = "lib_BaseRow.formssource_GetFieldValues";
+        vars.forms_config = plain(JSON.stringify({ table_id: table.id, columns: [trimmed(spec.field)] }));
+      } else if (CHOICE_SOURCE_TYPES.indexOf(item.type) >= 0) {
+        if (!trimmed(spec.display).length) { throw new Error(what + ": a choice list reads a column (field) or rows (display, value)"); }
+        key = "lib_BaseRow.formssource_GetSelectData";
+        var display = trimmed(spec.display);
+        var valueColumn = trimmed(spec.value) || display;
+        if (!columns.length) { columns = valueColumn === display ? [display] : [display, valueColumn]; }
+        vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, displayValue: display, value: valueColumn, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
+        if (spec.filter != null) { vars.forms_Filter = filterVariable(spec.filter, what); }
+        if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
+      } else if (TABLE_SOURCE_TYPES.indexOf(item.type) >= 0) {
+        if (!columns.length) { throw new Error(what + ": columns lists the table columns to read"); }
+        key = "lib_BaseRow.formssource_GetTableData";
+        vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
+        if (spec.filter != null) { vars.forms_tableFilter = filterVariable(spec.filter, what); }
+        if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
+        if (spec.distinct != null) { vars.forms_tableDistinct = plain(listText(spec.distinct)); }
+        if (spec.groupBy != null) { vars.forms_tableGroupBy = plain(listText(spec.groupBy)); }
+        if (spec.aggregations != null) { vars.forms_tableAggregations = plain(listText(spec.aggregations)); }
+        if (item.type === "grid" && !ensureArray(item.config.columns).length) {
+          item.config.columns = columns.map(function (column) { return { name: column, type: "text" }; });
+        }
+      } else {
+        throw new Error(what + ": a " + item.type + " has no Baserow source");
+      }
+      item.sources = item.sources && typeof item.sources === "object" ? item.sources : {};
+      item.sources[key] = { enabled: true, fullsync: false, vars: vars };
+    });
+
+    saves.forEach(function (element) {
+      var spec = element.__reducedSave;
+      delete element.__reducedSave;
+      element.actions = element.actions && typeof element.actions === "object" ? element.actions : {};
+      if (spec.saveTo != null) {
+        var save = spec.saveTo;
+        var what = element.name + ".saveTo";
+        var target = findTable(save.table, what);
+        var vars = {
+          forms_config: plain(JSON.stringify({ table_id: target.path, table_id_int: target.id, link_row_table_id: [] })),
+          forms_id: plain(save.row != null ? rowReference(save.row, what) : ""),
+          forms_createColumn: plain("false")
+        };
+        var actionKey = "lib_BaseRow.forms_AddRow";
+        if (save.values != null) {
+          if (typeof save.values !== "object" || Array.isArray(save.values)) { throw new Error(what + ": values maps column names to a field name, { field, path } or { value }"); }
+          var free = {};
+          Object.keys(save.values).forEach(function (column) { free[column] = fieldValue(save.values[column], what + "." + column); });
+          vars.forms_freeVars = freeVarsList(free);
+          actionKey = "lib_BaseRow.forms_AddRowFromData";
+        }
+        element.actions[actionKey] = { enabled: true, fullsync: false, vars: vars };
+      }
+      if (spec.deleteFrom != null) {
+        var removal = spec.deleteFrom;
+        var removeWhat = element.name + ".deleteFrom";
+        if (removal.row == null) { throw new Error(removeWhat + ": row names the grid whose selected row is deleted"); }
+        var removed = findTable(removal.table, removeWhat);
+        element.actions["lib_BaseRow.forms_DeleteRow"] = { enabled: true, fullsync: false, vars: {
+          forms_config: plain(JSON.stringify({ table_id: removed.path, table_id_int: removed.id, link_row_table_id: [] })),
+          forms_id: plain(rowReference(removal.row, removeWhat))
+        } };
+      }
+    });
+  }
+
+  // { id, path } of a table named by its id, its path or both; the user's catalog completes what is missing.
+  function tableFinder(options) {
+    var index = Array.isArray(options.tableIndex) ? options.tableIndex : null;
+    function catalog() {
+      if (index) { return index; }
+      try {
+        if ((typeof C8O.nocodeBaserow === "undefined" || !C8O.nocodeBaserow.tableIndex) && typeof include === "function") {
+          include("js/nocode_baserow.js");
+        }
+        index = typeof C8O.nocodeBaserow !== "undefined" && C8O.nocodeBaserow.tableIndex ? C8O.nocodeBaserow.tableIndex(options.token) : null;
+      } catch (_ignoreCatalog) {
+        index = null;
+      }
+      index = index || [];
+      return index;
+    }
+    return function (ref, what) {
+      var id = null;
+      var path = "";
+      if (ref && typeof ref === "object" && !Array.isArray(ref)) { id = ref.id; path = trimmed(ref.path); }
+      else if (typeof ref === "number" || /^\d+$/.test(trimmed(ref))) { id = ref; }
+      else { path = trimmed(ref); }
+      id = id == null || trimmed(id) === "" ? null : Number(id);
+      if (id != null && path.length) { return { id: id, path: path }; }
+      if (id == null && !path.length) { throw new Error(what + ": table is the id or the path Workspace~>Base~>Table of a table of nocode-baserow-catalog-list"); }
+      var found = catalog().filter(function (table) { return id != null ? Number(table.id) === id : table.path.toLowerCase() === path.toLowerCase(); });
+      if (found.length !== 1) {
+        throw new Error(what + ": table " + (id != null ? id : path) + " is not in the Baserow catalog of the authenticated user (nocode-baserow-catalog-list)" + (catalog().length ? "" : "; with nocode-form-compile alone, give { id, path }"));
+      }
+      return { id: Number(found[0].id), path: found[0].path };
+    };
   }
 
   function resolveAuthoringReferences(doc) {
@@ -2265,6 +2518,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       // The prototype's columns (Make, Model, Price) would stay in a grid given none: take the columns of its Baserow
       // source, else none (a local grid without columns is then reported).
       out.config.columns = [];
+    }
+    if (field.source != null) {
+      // A reduced Baserow source ({ table, columns, filter, sort... }): built by applyReducedBaserow once every
+      // component has its id, since a filter can read another field.
+      if (field.sources != null) { throw new Error(out.name + ": give source (reduced) or sources (native), not both"); }
+      if (!field.source || typeof field.source !== "object" || Array.isArray(field.source)) { throw new Error(out.name + ": source must be an object { table, columns, ... }"); }
+      out.__reducedSource = clone(field.source, {});
+      out.config.sourceEnabled = true;
+      if (CHOICE_SOURCE_TYPES.indexOf(type) >= 0 && field.values == null) { out.children = []; }
     }
     if (field.sources) {
       out.sources = normalizeRequestableEntries(clone(field.sources, {}));
@@ -2490,6 +2752,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       doc.subTag = Array.isArray(input.subTag) ? input.subTag : [String(input.subTag)];
     }
     ensureButtonFlows(doc);
+    applyReducedBaserow(doc, opts);
     // A button that submits checks the required fields of its page, unless the reduced JSON says otherwise.
     doc.formulaire.forEach(function (item) {
       if (!item || item.type !== "button" || fieldOptions.explicitMandatoryChecks[String(item.id)] === true) { return; }
@@ -2579,13 +2842,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       } else if (form._id != null && String(binding.form_id) !== String(form._id)) {
         incomplete("baserow_form_identity_mismatch", "Baserow binding belongs to a different form; use the saved owning document id", path + "/vars/forms_config");
       }
-      if (key === "lib_BaseRow.forms_AddRowFromData" && !(entry.vars.forms_freeVars && trimmed(entry.vars.forms_freeVars.str))) {
+      var freeVars = entry.vars.forms_freeVars;
+      if (key === "lib_BaseRow.forms_AddRowFromData" && !(Array.isArray(freeVars) ? freeVars.length : (freeVars && trimmed(freeVars.str)))) {
         incomplete("missing_baserow_values", "Explicit Baserow save requires forms_freeVars mapping actual input values to columns", path + "/vars/forms_freeVars");
       } else if (key === "lib_BaseRow.forms_AddRowFromData") {
-        var mapping;
-        try { mapping = JSON.parse(entry.vars.forms_freeVars.str); } catch (_invalidValues) { mapping = null; }
-        if (!mapping || typeof mapping !== "object" || Array.isArray(mapping) || !Object.keys(mapping).length || Object.keys(mapping).some(function (column) { return !trimmed(column); })) {
-          incomplete("invalid_baserow_values", "forms_freeVars must encode a non-empty object mapping exact Baserow column names to values or SmartSources", path + "/vars/forms_freeVars");
+        var freeColumns = freeVarsColumns(freeVars);
+        if (!freeColumns || !freeColumns.length || freeColumns.some(function (column) { return !column; })) {
+          incomplete("invalid_baserow_values", "forms_freeVars lists { name: exact Baserow column, str: value or SmartSource }, or maps columns to values (saveTo.values of baserowShorthand writes it)", path + "/vars/forms_freeVars");
+        } else if (!Array.isArray(freeVars)) {
+          warning("freevars_text_shape", "forms_freeVars is JSON text: a quote in a value breaks it and No Code Studio empties it when the action is opened. Write it as { Column: value } or with saveTo.values, which store the editor's list", path + "/vars/forms_freeVars");
         }
       }
     }
@@ -3172,7 +3437,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var names = fields.map(function (field) { return String(field.name); });
       var columns = /\/sources[^/]*\//.test(binding.path) ? ensureArray(binding.config.columns) : [];
       if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) {
-        try { columns = Object.keys(JSON.parse(binding.entry.vars.forms_freeVars.str)); } catch (_invalidMapping) { return; }
+        columns = freeVarsColumns(binding.entry.vars.forms_freeVars);
+        if (!columns) { return; }
       }
       columns.forEach(function (column) {
         var readSource = /\/sources[^/]*\//.test(binding.path);
@@ -3841,6 +4107,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         delete mergePatch.variant;
         if (mergePatch.config) { delete mergePatch.config.variant; }
       }
+      if (mergePatch.source != null) {
+        // The reduced Baserow source replaces the component's source; applyReducedBaserow builds it after the edits.
+        if (!mergePatch.source || typeof mergePatch.source !== "object" || Array.isArray(mergePatch.source)) { throw new Error(fieldFound.item.name + ": source must be an object { table, columns, ... }"); }
+        fieldFound.item.__reducedSource = clone(mergePatch.source, {});
+        Object.keys(fieldFound.item.sources || {}).forEach(function (key) { if (/^lib_BaseRow\.formssource_/.test(key)) { delete fieldFound.item.sources[key]; } });
+        fieldFound.item.config = fieldFound.item.config || {};
+        fieldFound.item.config.sourceEnabled = true;
+        delete mergePatch.source;
+      }
       if (mergePatch.sources) { normalizeRequestableEntries(mergePatch.sources); }
       if (mergePatch.actions) { normalizeRequestableEntries(mergePatch.actions); }
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);
@@ -3996,6 +4271,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     ensureButtonFlows(edited);
     resolveAuthoringReferences(edited);
+    applyReducedBaserow(edited, opts);
     return { form: edited, operations: summary, allTypesPath: contract.file };
   }
 
@@ -4003,7 +4279,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // so its agent saw a cut contract ("le fichier sauvegardé est tronqué"); Claude Code spills it too. An agent also
   // called it again for each part it wanted (24 calls in one turn). The contract answers its core rules (32 KB) and
   // lists every section in sectionIndex; sections returns the parts asked for, sections ["all"] the whole contract.
-  var CONTRACT_CORE_SECTIONS = ["format", "intent", "contractVersion", "creationLifecycle", "editingLifecycle", "bindingValidation", "forbiddenFields", "componentAuthoring", "flowAuthoring", "conditionFields", "pageFields", "commonFieldFields", "contextualDefaults", "editTool", "mediaSupport"];
+  var CONTRACT_CORE_SECTIONS = ["format", "intent", "contractVersion", "creationLifecycle", "editingLifecycle", "bindingValidation", "forbiddenFields", "componentAuthoring", "flowAuthoring", "conditionFields", "pageFields", "commonFieldFields", "contextualDefaults", "editTool", "mediaSupport", "baserowShorthand"];
 
   function contractSectionList(value) {
     if (value == null || value === "") { return []; }
@@ -4050,7 +4326,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       allTypes: opts.includeAllTypes === true ? contract.catalog : null
     };
     if (!whole) {
-      answer.moreSections = "Ask nocode-form-contract-get with sections:[...] for the sections not included in sectionIndex: generationQuality (design rules, read before generating an application), baserowSources and backendActions (Baserow sources, filters, saves), dynamicReferences (SmartSource references), rootFields, styleObjectFields, styleRendering. Ask only for the sections the task needs.";
+      answer.moreSections = "Ask nocode-form-contract-get with sections:[...] for the sections not included in sectionIndex: generationQuality (design rules, read before generating an application), baserowSources and backendActions (the native Baserow sources and saves, when baserowShorthand is not enough), dynamicReferences (SmartSource references), rootFields, styleObjectFields, styleRendering. Ask only for the sections the task needs.";
     }
     return answer;
   };
