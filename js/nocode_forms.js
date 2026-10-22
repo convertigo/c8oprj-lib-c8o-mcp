@@ -676,7 +676,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           "unique_count": "single-value columns (text, number, date, single select...)",
           "checked_count, not_checked_count, checked_percentage, not_checked_percentage": "boolean columns",
           "sum, avg, median, std_dev, variance": "numeric columns",
-          "min, max": "numeric columns",
+          "min, max": "numeric or date columns (the value of the cell)",
           "earliest_date, latest_date": "date columns",
           "distribution": "single-value columns: the 10 most frequent values with their count and share, then the others"
         },
@@ -690,7 +690,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         recommendedUse: [
           "count works for any grouped data.",
           "sum and avg should target numeric columns.",
-          "min and max should target numeric columns; earliest_date and latest_date date columns.",
+          "min and max should target numeric or date columns; earliest_date and latest_date date columns.",
           "Percentages and distributions read best in a grid; a chart plots numeric values."
         ],
         unsupportedColumns: ["files", "linked rows", "multiple selections", "other multi-value columns"]
