@@ -829,6 +829,11 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
   }
 
   function findTableInBase(catalog, table, base) {
+    // A base still to create (a plan) holds no table yet: a table of that name in another base is another table
+    // (test-nocode: the plan of a new base "Congés Charles" showed table 5281 of the Vacations workspace as existing).
+    if (base && numberOrNull(base.id) == null) {
+      return null;
+    }
     var targetId = numberOrNull(table && table.id);
     var targetName = trimmed(table && table.name).toLowerCase();
     var baseId = numberOrNull(base && base.id);

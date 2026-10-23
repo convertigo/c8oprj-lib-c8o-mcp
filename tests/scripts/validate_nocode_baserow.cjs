@@ -217,6 +217,27 @@ test('a base name is looked up in the workspace the schema names, and is ambiguo
   assert.ok(!ambiguous.state.calls.some(c => /_POST$|TableCreateColumn/.test(c.name)), 'nothing is written');
 });
 
+test('the plan of a new base shows its tables to create, even when another base has a table of that name', () => {
+  // test-nocode: the plan of a new base in tests-charles showed "Demandes de congé" of a base of Vacations as existing,
+  // and the agent renamed its table to get around it.
+  const fake = fakeBaserow();
+  fake.state.workspaces.push({ id: 11, name: 'Other' });
+  fake.state.bases.push({ id: 21, name: 'Leave', workspaceId: 11 });
+  fake.state.tables.push({ id: 31, name: 'Requests', baseId: 21 });
+  fake.state.fields[31] = [{ id: 311, name: 'Name', type: 'text', primary: true, table_id: 31 }];
+  const schema = { workspaceId: 10, baseName: 'Leave 2', tables: [{ name: 'Requests', fields: [{ name: 'Name', type: 'text' }, { name: 'Days', type: 'number' }] }] };
+  const plan = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'plan', schema });
+  assert.equal(plan.status, 'ok', JSON.stringify(plan.error));
+  assert.deepEqual(plain(plan.actions.map(a => a.type).filter(t => /base|table/.test(t))), ['create_base', 'create_table'], JSON.stringify(plan.actions));
+  assert.ok(!plan.actions.some(a => a.tableId === 31 || a.fieldId === 311), 'nothing of the other base');
+  assert.ok(!fake.state.calls.some(c => /_POST$|TableCreateColumn/.test(c.name)), 'a plan writes nothing');
+  const applied = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema });
+  assert.equal(applied.status, 'ok', JSON.stringify(applied.error));
+  const base = fake.state.bases.find(b => b.name === 'Leave 2');
+  assert.deepEqual(fake.state.tables.filter(t => t.name === 'Requests').map(t => t.baseId).sort(), [21, base.id].sort(), 'the apply creates it too');
+  assert.deepEqual(fake.state.fields[31].map(f => f.name), ['Name'], 'the other table is left alone');
+});
+
 test('a new table holds its primary field only, named as the schema asks', () => {
   const fake = fakeBaserow();
   const C8O = load(fake.transport).C8O;
