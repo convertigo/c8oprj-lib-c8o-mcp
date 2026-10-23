@@ -11,7 +11,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 600
-  version: 0.2.26
+  version: 0.2.27
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
@@ -79,12 +79,12 @@
   ↓tools_project_delete [sequences.GenericSequence]: 🗏 sequences/tools_project_delete.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml
+  ↓tools_project_lint [sequences.GenericSequence]: 🗏 sequences/tools_project_lint.yaml
   ↓tools_project_list [sequences.GenericSequence]: 🗏 sequences/tools_project_list.yaml
   ↓tools_project_list_symbols [sequences.GenericSequence]: 🗏 sequences/tools_project_list_symbols.yaml
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_project_security_audit [sequences.GenericSequence]: 🗏 sequences/tools_project_security_audit.yaml
-  ↓tools_project_lint [sequences.GenericSequence]: 🗏 sequences/tools_project_lint.yaml
   ↓tools_rag_query [sequences.GenericSequence]: 🗏 sequences/tools_rag_query.yaml
   ↓tools_report_create [sequences.GenericSequence]: 🗏 sequences/tools_report_create.yaml
   ↓tools_requestable_execute [sequences.GenericSequence]: 🗏 sequences/tools_requestable_execute.yaml
@@ -93,9 +93,9 @@
   ↓tools_scheduler_apply [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_apply.yaml
   ↓tools_scheduler_list [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_list.yaml
   ↓tools_sql_transaction_create [sequences.GenericSequence]: 🗏 sequences/tools_sql_transaction_create.yaml
+  ↓tools_subagent_run [sequences.GenericSequence]: 🗏 sequences/tools_subagent_run.yaml
   ↓tools_tags_apply [sequences.GenericSequence]: 🗏 sequences/tools_tags_apply.yaml
   ↓tools_tags_get [sequences.GenericSequence]: 🗏 sequences/tools_tags_get.yaml
-  ↓tools_subagent_run [sequences.GenericSequence]: 🗏 sequences/tools_subagent_run.yaml
   ↓tools_tigo_resources [sequences.GenericSequence]: 🗏 sequences/tools_tigo_resources.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
   ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml
