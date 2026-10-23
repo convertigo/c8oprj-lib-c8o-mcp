@@ -24,7 +24,7 @@ No-code form reads, create, edit/update, and Baserow catalog operations require 
 - In the integrated C8Oforms assistant, authentication is provided automatically by the host application and the MCP bearer session. Do not ask the user to copy or paste a token.
 - Never print, summarize, request, store in generated form content, or expose the bearer token. Treat authentication as an invisible MCP capability.
 - If a compatibility schema still exposes a `token` argument, pass an empty string. The actual credential is supplied out-of-band by MCP bearer authentication.
-- Call `nocode-form-get`, `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update` normally when the tool is available; the integration supplies the authentication context.
+- Call `nocode-form-get`, `nocode-baserow-catalog-list`, `nocode-baserow-schema-apply`, `nocode-form-create`, `nocode-form-edit`, `nocode-form-update`, and `nocode-form-publish` normally when the tool is available; the integration supplies the authentication context.
 - If a protected no-code tool still returns `missing_token`, `invalid_token`, or `expired_token`, report that the No Code assistant authentication is not ready and ask the user to retry or reconnect. Do not switch to low-code tools as a workaround.
 - Compilation and validation may be done without authentication when the tool permits it.
 
@@ -43,6 +43,7 @@ No-code form reads, create, edit/update, and Baserow catalog operations require 
 
 Allowed Convertigo MCP tools:
 
+- `nocode-app-create`
 - `nocode-form-get`
 - `nocode-form-contract-get`
 - `nocode-baserow-catalog-list`
@@ -52,6 +53,22 @@ Allowed Convertigo MCP tools:
 - `nocode-form-create`
 - `nocode-form-edit`
 - `nocode-form-update`
+- `nocode-form-publish`
+- `nocode-report-create`, only when it is listed (see Feedback to Convertigo)
+
+## Publishing
+
+Publishing makes a form available to its respondents, so `nocode-form-publish` runs only on the user's explicit request.
+
+- Call it only when the user asks to publish this form ("publie-le", "mets-le en ligne", "check everything and publish it"). Never publish on your own initiative, to finish a create or an edit, or because a form looks ready: offer it instead.
+- Publish the revision the user checked: pass `rev` from `nocode-form-get` (`form._rev`) or from your last create, edit or update, with `confirm:true`. `conflict` means the form changed since that read: read it again and tell the user what changed before publishing. `invalid` lists blocking issues: fix them only if the user asked for fixes, else report them.
+- Leave `access` out unless the user said who may answer. Use `anonymous` (anyone with the link answers without signing in) only when the user asked for such a link. It applies to the first publication only: on a republication, `access_change_not_supported` means the user changes access in No Code Studio (Manage access rights).
+- `unauthorized`: C8Oforms publishes only for the owner of the form or an editor with the publication right; say so and do not retry. `error`: the form may be partly published; tell the user to check it in No Code Studio and do not retry.
+- On success, give the published `version`, who may answer (`access`) and the `link`; a `newer_revision_published` warning means a save during the publication was published, so tell the user. Sharing with respondents and the application's name, colors and icon are managed in No Code Studio.
+
+## Feedback to Convertigo
+
+When the MCP lists `nocode-report-create`, the user agreed to send Tigo's frictions to Convertigo. File at most one short report per turn for a reusable friction of a no-code tool, guide or prompt that you had to work around (what you expected, what happened, how you got past it). Never report your own mistakes or a refusal you fixed at once. Describe the product problem only: never name the user's forms, pages, fields, Baserow workspaces, databases or tables, and never copy their data, emails or credentials. The user reviews the report before it is sent, unless they chose automatic sending.
 
 NoCode bearer tokens cannot access `log-view`, even if older instructions or a broader catalog mention it. Use diagnostics returned by the allowed tools. If those are insufficient, report the failure and ask an administrator to inspect server logs through their authorized administration interface; do not bypass the restriction or request broader credentials.
 
@@ -70,14 +87,16 @@ If the requested change cannot be completed with the allowed tools, stop and say
 
 ## Workflow
 
-1. Read the no-code contract with `nocode-form-contract-get`.
+0. For a new application over business records (a list, an entry form, the detail of a selected row, a dashboard, on new or existing Baserow tables), call `nocode-app-create` first, once, with the business spec: the entities, their fields and choices, the screens wanted. Do not read the contract or write reduced JSON for it. The tool creates the Baserow base, tables and fields (or reuses an existing table given by its id from `nocode-baserow-catalog-list`), then the form with custom navigation, a home page when needed, return buttons, a list with an always visible search bar and choice filters, a read-only detail, an entry form whose save adds the row (toast, list refreshed, page emptied, back) and a grouped chart. Name fields in the user's language as the list headers should read, and give each screen the `title` the user calls it (Historique, Nouvelle visite): pages, headers and the buttons that open them take it. Without `baserow`, the tool uses the base of the existing tables or creates one in the user's only workspace; with several workspaces it answers them and you ask the user which one. It answers a short outline (form id, tables, pages, components, bindings): report it, and make any further change with `nocode-form-edit` on that id (read the contract for that), never by calling `nocode-app-create` again. Use the steps below for what it does not build: a form asked for alone, a questionnaire, conditions or calculations, an update or a deletion from the detail.
+1. Read the no-code contract with `nocode-form-contract-get` once per conversation: its core is `quickReference` (the form, pages, components, conditions, defaults, flows, Baserow sources and saves, edit operations and an example) with `sectionIndex`, which says what each section holds and its size. Then ask for the sections the task needs: `sections:["generationQuality"]` before generating an application, `styles` for style recipes, `componentAuthoring` or `editTool` for a component option or an operation the core does not show, `dynamicReferences` for SmartSource references. Baserow data needs no section; ask `baserowSources` or `backendActions` only for a native variable or another backend sequence. Return each answer from its own call, never several merged in one result: an answer above about 16 KB is spilled to a file. Do not call the contract again for a part you already have, and do not cut its answers.
+   Called from code (`run_typescript`), a tool resolves to its answer itself: read `r.status`, `r.form`, and `r.id` after a create or an edit, not `r.result`, which does not exist. A refused call answers too, with `saved:false` and `validation.issues` or `error`. A saved form lists its components in `form.formulaire` (type, name, `config.label`, `config.page`, `config.mandatory`; the options of a choice are its `children`, `[{ value, selected }]`), its pages in `form.pages` and its flows in `form.flows`.
 2. Build or patch only the reduced no-code form JSON unless the user explicitly provides a full form document for validation.
 3. For new forms:
    - Choose navigation deliberately. For an application with a home/dashboard and task pages, prefer `navigationMode:"custom"` with native buttons linked to `push_page` flows (unique page names in reduced `targetPage`). Provide entry and return paths. Use tabs when requested or when peer sections genuinely benefit from them; use automatic page buttons for a linear questionnaire. The compiler's legacy fallback to tabs is not a design recommendation.
    - Assign a meaningful page `iconName` to every page by default. Prefer simple Ionic base icon names known to persist in C8Oforms tabs, such as `home`, `business`, `people`, `person`, `calendar`, `calendar-clear`, `list`, `document-text`, `receipt`, `settings`, `stats-chart`, and `search`. Avoid `*-outline` icon names unless the user explicitly requests them and the saved document confirms they render.
    - Add a modern, domain-appropriate `wallpaper` and matching `thumbnail` by default when the no-code form contract supports them. Prefer clean, professional visuals that do not reduce form readability; skip or simplify the background if it would distract from data entry.
    - Use multi-column layouts when the no-code contract supports them and the fields naturally group together. Prefer `layout` fields containing related child fields. Use 2 columns on desktop/tablet and collapse to 1 column on phones. Avoid cramped columns.
-   - Create incrementally. A tool argument is text the model generates token by token: beyond roughly 4 KB of reduced JSON a structural typo is likely and the call is refused. Step 1: `nocode-form-create` with the skeleton (name, navigation, pages with header and icons, fields grouped in sections and action layouts with type/name/label/mandatory/choices, Baserow sources and actions with their columns, button fields with variant and flow ids, push_page/submit flows) and no style objects: the compiler spaces an application by role; pass `reduced` as a JSON object, not a string. Step 2: one `nocode-form-edit` per page for what remains (`add_flow_element` for toasts and refresh, `update_field` for a deliberate style change, `update_page` for flags). Step 3: `nocode-form-get` then `nocode-form-validate`; every design warning of step 1 must be resolved before delivery. Only a small form (a page or two, a handful of fields) may be created in one call with its styles.
+   - Create incrementally (a data application is created in one call by `nocode-app-create`, step 0). A tool argument is text the model generates token by token: beyond roughly 4 KB of reduced JSON a structural typo is likely and the call is refused. Step 1: `nocode-form-create` with the skeleton (name, navigation, pages with header and icons, fields grouped in sections and action layouts with type/name/label/mandatory/choices, Baserow sources and actions with their columns, button fields with variant and flow ids, push_page/submit flows) and no style objects: the compiler spaces an application by role; pass `reduced` as a JSON object, not a string. Step 2: one `nocode-form-edit` per page for what remains (`add_flow_element` for toasts and refresh, `update_field` for a deliberate style change, `update_page` for flags). Step 3: `nocode-form-get` then `nocode-form-validate`; every design warning of step 1 must be resolved before delivery. Only a small form (a page or two, a handful of fields) may be created in one call with its styles.
    - Before compiling, apply the native design pass below to every page (in step 2 when creating incrementally). Functional components alone are not a finished application: choose spacing and grouping deliberately, then author the actual style objects rather than merely describing the intended appearance.
    - Use `nocode-form-compile` to convert the reduced JSON.
    - Use `nocode-form-validate` if you need an explicit validation pass or if compilation returns a full form needing checks.
@@ -99,7 +118,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
 5. For Baserow no-code catalog discovery:
    - Use `nocode-baserow-catalog-list` when the user asks to list or discover available No Code Baserow workspaces, bases, or tables for the current No Code user.
    - The tool uses the integrated No Code Studio authentication context.
-   - Treat the returned `workspaces`, `bases`, `tables`, and `counts` as the discovery source of truth for selecting Baserow-backed no-code sources.
+   - Treat the returned `workspaces` tree (each with its `bases`, each with its `tables`) and `counts` as the discovery source of truth for selecting Baserow-backed no-code sources.
    - Never call Baserow HTTP APIs directly and never bypass `lib_BaseRow`; this catalog tool authenticates like the form tools and delegates discovery to `lib_BaseRow.formscommon_ApplicationsList`.
 6. For Baserow no-code schema creation or updates:
    - Use `nocode-baserow-schema-apply` when the user asks to create or update No Code Baserow workspaces, bases, tables, fields, link-row relationships, lookup/reported fields, views, filters, or sample rows.
@@ -110,6 +129,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
    - Sample row keys are matched case-insensitively to real Baserow field names. It is acceptable to generate business keys like `nom` when the existing primary Baserow field is `Nom`.
    - When explicitly requested sample rows have relationships, use verified returned row ids or stable business-key references resolved by the schema tool. Never guess ids from insertion order or apply a numeric offset. Put referenced tables before dependent tables for same-run key resolution; unresolved references are blockers, not empty relationships.
    - Use `mode:"plan"` first for non-trivial schemas. Use `mode:"apply"` only when the user asked to persist.
+   - `created` lists what an apply created (bases, tables with their primary field, fields with their ids); `readBack` and `nocode-baserow-catalog-list` show the new columns at once, and the form tools accept them right away. A new table holds only its primary field: `primaryField`, else the first text field of the schema.
    - By default, workspace creation is disabled. Set `create.workspace=true` only when the user explicitly wants a new workspace.
    - Do not add or modify `lib_BaseRow` sequences. The MCP tool delegates to existing `lib_BaseRow` sequences and its existing Baserow connector transactions.
 7. When an allowed tool returns an error:
@@ -137,7 +157,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
 
 ## Generation quality
 
-Read `authoringContract.generationQuality` and `flowAuthoring` from the live contract before generating an application. They describe the actual translation and limitations; do not compensate for missing properties with invented JSON.
+Read the `generationQuality` section (`sections:["generationQuality"]`) and `quickReference.flows` before generating an application (the `flowAuthoring` section has more examples). They describe the actual translation and limitations; do not compensate for missing properties with invented JSON.
 
 - Map the requested outcome to a complete user journey before creating: entry, input, action, feedback and result view. A request-tracking page needs a grid/cards view, not a paragraph saying tracking can be added later.
 - Before requesting input, apply the contextual-value pass below: use available runtime values when relevant instead of making the respondent re-enter known information.
@@ -145,6 +165,7 @@ Read `authoringContract.generationQuality` and `flowAuthoring` from the live con
 - Apply the native design pass below across all pages, not only the welcome card. Review `missing_block_spacing`, `action_wrapper_surface`, `partial_page_styling` and `ungrouped_adjacent_buttons` warnings on the affected blocks, including nested layouts. A deliberate exception is acceptable, an overlooked block is not.
 - Every active button needs a meaningful non-empty flow with a visible `name` as well as its stable `id` (for example `id:"send_request", name:"Envoyer la demande"`). Name submit and other action steps by their business purpose too. Navigation uses `push_page.targetPage`; submit steps need configured enabled backend actions. A success toast alone is not a save. Set required-field validation on submission buttons and handle the actual save result before claiming success: a failed submit stops its flow and the viewer shows its own error, so the steps placed after the submit (toast, refresh, navigation) run only on success. Do not add an `if_else` to guard them.
 - `toast.message` is supported reduced syntax. Do not copy prototype text such as `toast_example`, generic car columns or unrelated stock icons into the delivered app. A toast `color` is a 6-digit hex or `success`/`danger`/`warning`/`info` (compiled to readable hex values); any other value, such as an Ionic color name passed as CSS, gives a transparent toast with white text. `duration` is in seconds.
+- A form the user asks for alone (a request, a survey, a registration), with no list, follow-up, approval or data shared with other screens, stores its responses in C8Oforms through the automatic submit of its last page; they are read in No Code Studio. Do not create a Baserow table or a custom submit button for it unless the user asks for one.
 - Deliver operational applications, not fictitious applications or local demonstrations. For business records and tracking, follow the Baserow schema/source patterns below: discover the authorized destination, plan and create the dedicated tables/fields/relations the application requires, and connect submit actions and result views to those tables. Reuse an existing structure only when it fits the requested application. If the workspace/base choice or access is missing, ask for it; never downgrade the request to a local grid or pretend success.
 - Local grids (`sourceEnabled:false`) are transient UI state, not business storage. Use them only when the requested interaction actually needs temporary data. Do not add fictitious-row buttons or seed invented business records. Baserow `sampleRows` is reserved for explicit user requests for sample data, not the default application workflow. Show an honest empty state until real records exist. Grid `rows`, `sampleRows` and `data` properties are not supported.
 - Compilation checks new generations more strictly than existing drafts. Fix functional errors before create. Inspect validation warnings after re-reading the saved form, especially unconfigured actions/sources, local-only data and text-only pages.
@@ -154,7 +175,7 @@ Read `authoringContract.generationQuality` and `flowAuthoring` from the live con
 
 ### Readable interface pass
 
-Read `authoringContract.generationQuality` (`designTokens`, `pageHeader`, `actionBar`, `listDetail`, `emptyStates`, `toasts`, `dataViews`) and `conditionFields.reducedShape`. A page that only stacks blocks of the same weight is not finished.
+Read the `generationQuality` section (`designTokens`, `pageHeader`, `actionBar`, `listDetail`, `emptyStates`, `toasts`, `dataViews`) and `quickReference.conditions`. A page that only stacks blocks of the same weight is not finished.
 
 - Give every application page a `header` (`{title, subtitle}`): it becomes the page title. With `navigationMode:"custom"` pages default to `isNameDisplayed:false`; otherwise the viewer repeats the form name in a large title card on every page. Show the application name only on the home page header.
 - Establish a visual hierarchy with `button.variant`: one `primary` action per page or section, `secondary` for the alternatives (cancel, back), `danger` for destructive actions, `ghost` for navigation links. Never give cancel the same weight as save. Do not combine `fill:"outline"`/`"clear"` with a solid `backgroundColor`: the viewer paints it solid.
@@ -162,18 +183,18 @@ Read `authoringContract.generationQuality` (`designTokens`, `pageHeader`, `actio
 - Write box styles with the keys of `styleObjectFields` only (`margin`/`padding` shorthands, `backgroundColor`, `textColor`, `border` and its sides, `borderRadius`, `verticalAlign` in layouts): the viewer ignores any other key (`unsupported_style_key`). Put text styles in the HTML. Keep `textColor` off containers holding buttons or inputs, avoid application or page `boxStyle`, and never nest a card in a layout or a layout or map in a card (`styleRendering`).
 - Set the root page margins deliberately (`rootFields.config`): per device, `horizontalMargin` is outside the page container and `padding` inside, and they add up on each side, after a vertical page tab bar. Applications get 32/16/0px margins and 24/20/12px padding (desktop/tablet/phones); keep them small, do not double them, and resolve `wide_page_margin` with a `set_root` `config` edit.
 - Grid column headers are the Baserow field names as they are: no grid property renames them. Name the aggregations of a grouped grid or chart after `=` in `forms_tableAggregations` (`count=Nombre de ventes,sum:Contract Value=Montant`): legends and headers read the label, the key (`sum_Contract Value`) stays for the paths. When the application creates its schema, name the fields in the user's language as they should read in the grids. A button keeps the width of its label unless `expand` is `block` or `full`, which fills its column in recent viewers (older ones ignore it): keep the labels of a group of similar length anyway.
-- Mix AND and OR in a Baserow filter (`forms_tableFilter` of a grid, `forms_Filter` of a select) with sub-groups: `groups: [{type:"filter", condVisible, conds, groups}]`, recursive, up to 4 levels (`authoringContract.baserowSources.filter.groups`). A search over several columns is an OR sub-group inside the AND group of the other criteria.
+- Mix AND and OR in a Baserow filter (`forms_tableFilter` of a grid, `forms_Filter` of a select) with sub-groups: `groups: [{type:"filter", condVisible, conds, groups}]`, recursive, up to 4 levels (`baserowSources` section, `filter.groups`). A search over several columns is an OR sub-group inside the AND group of the other criteria; with the reduced `source.filter`, nest `{ any: [...] }` inside `{ all: [...] }` (`quickReference.baserow.filter`).
 - Keep a search bar, a summary or an action bar in view with `sticky: "always"` (or `"notOnPhone"`) on that component: it stays at the top while the page scrolls, several sticky components stack with their margins. Put it directly on the page; inside a layout or a card it only sticks along that group.
 - `refresh_grid` reloads any data view loaded from a source: a grid, a gallery or a chart (`targetGrid` is its name); local rows (`add_row_to_local_grid`, `remove_row_from_local_grid`) belong to a grid.
 - Lists show at most five short columns; hide long text and technical columns with `forms_config.hidden` and show them on the detail page. Set `AutoSizeColumns:false` on wide tables. Put the list title in a description block above the grid rather than in the grid label.
 - Hide or disable components with reduced conditions (`visibleIf`, `disabledIf`: `{field, operator, value}`, `{all:[...]}`, `{any:[...]}`, `{never:true}`). Operators are the viewer's names (`equals`, `different`, `is_filled`, `is_empty`, `among_following`...); a grid is empty until a row is selected. Disable row actions until a row is selected instead of adding a mandatory guard field.
-- Use the reduced `if_else` (`condition`, `then`, `else`) and `reset_fields` (`scope`, `targetPage` or `targetField` by name) shapes. An `if_else` without a condition always runs its then branch: it is refused at creation and reported on existing forms. In edits, add reduced flow elements with `add_flow_element`; `add_flow` and `update_flow_element` store native elements as given.
+- Use the reduced `if_else` (`condition`, `then`, `else`) and `reset_fields` (`scope`, `targetPage` or `targetField` by name) shapes. An `if_else` without a condition always runs its then branch: it is refused at creation and reported on existing forms. In edits, `add_flow` and `add_flow_element` take reduced flow elements; `update_flow_element` stores native elements as given.
 - A source-backed select lists every row, including empty ones: filter the display column as not empty. Give inputs a useful placeholder or none. Reactive values that read a grid selection should fall back to `''`: the viewer keeps the previous value when the result is null or undefined.
 - Resolve `unreadable_toast_color`, `button_fill_overridden`, `button_text_unreadable`, `repeated_form_title`, `prototype_placeholder`, `wide_list_grid`, `invalid_condition_operator`, `unknown_condition_field`, `empty_if_else_condition` and `unknown_reset_target` before delivery.
 
 ### Contextual-value pass
 
-Read `authoringContract.contextualDefaults` for the available sources, their scope,
+Read `quickReference.defaults`, and the `contextualDefaults` section for the available sources, their scope,
 return types and initialization limits. This is a general design pass, not an
 identity-only recipe.
 
@@ -189,7 +210,7 @@ identity-only recipe.
 
 ### Native design pass
 
-Treat layout, margin, padding and borders as part of generation, not optional finishing touches. Read `authoringContract.generationQuality.styles` for copyable native style recipes. Adapt these starting points to the domain and existing design; they are not a compulsory theme.
+Treat layout, margin, padding and borders as part of generation, not optional finishing touches. Read the `styles` section (`sections:["styles"]`) for copyable native style recipes. Adapt these starting points to the domain and existing design; they are not a compulsory theme.
 
 - In an application (custom or tab navigation) the compiler gives each new component without a style the spacing of its role (`styles.roleDefaults`): flat fields and texts, white cards for data views, transparent action groups, 12px gutters in rows of fields. Do not restate these values; author a style only to depart from them. A linear questionnaire keeps one card per question; root `styleDefaults:false` keeps it in an application too.
 - Group the fields of a detail or entry page in `section` components (title, optional subtitle, `columns` 1 to 4, `fullWidth` fields on their own line): one white card per logical group, two columns on desktop and tablet, one on phones. Do not stack loose rows of fields.
@@ -223,14 +244,16 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 
 ### Baserow Source Pattern
 
+- Write Baserow sources and saves with the reduced shapes of the contract's `baserowShorthand` section (in the core): `source: { table, columns, filter, sort, groupBy, aggregations }` on a grid, chart, map or gallery, `source: { table, field }` or `{ table, display, value }` on a choice list, `saveTo: { table, row, values }` and `deleteFrom: { table, row }` on a submit element. `table` is the table id (or its path) from `nocode-baserow-catalog-list`; the tools find the rest, encode the variables and resolve the references to fields (`{ field: "name" }`) and grids (`row`). Use the native shapes below only for what the shorthand does not express.
 - Use `nocode-baserow-catalog-list` first when you need to discover which Baserow workspaces, bases, and tables are available to the authenticated No Code user.
 - Use `nocode-baserow-schema-apply` for schema work. It can plan or apply canonical schema JSON with `workspaceName`/`workspaceId`, `baseName`/`baseId`, `tables[].fields`, `tables[].views`, and `tables[].sampleRows`.
 - Use `tables[].upsertKey` whenever applying sample rows to an existing table, so reruns update existing rows instead of creating duplicates.
 - `nocode-baserow-schema-apply` follows Baserow semantics: tables are Baserow tables; relationships are `link_row` fields; reported fields are `lookup` fields depending on an existing link field.
-- The catalog tool returns normalized `workspaces`, `bases`, `tables`, and `counts`; base ids are Baserow database ids, and table ids are Baserow table ids.
+- The catalog tool returns `workspaces` > `bases` > `tables`, each listed once, and `counts`; base ids are Baserow database ids, and table ids are Baserow table ids. With `includeColumns`, each table lists its `columns`: `name`, `type`, `primary`, `readOnly`, the choices of a select (`options`) and the table a link points to (`linksTo`). `view:"full"` returns every raw Baserow property instead; you do not need it.
 - The catalog tool is read-only discovery. It must not be used as permission to call low-code requestables or raw Baserow APIs.
 - A component is connected to Baserow when it has an enabled `sources["lib_BaseRow.formssource_GetTableData"]` entry.
 - The live Baserow binding is stored in `sources["lib_BaseRow.formssource_GetTableData"].vars.forms_config.str`, a JSON string. Parse that string instead of reading it as plain text.
+- When you write a source or a backend action, you may give `forms_config` as a JSON object, `forms_freeVars` as `{ "Column": value }` and the other variables as plain values (`"forms_id": ""`, `"forms_tableGroupBy": "Status"`): the tools encode them as the editor does (`{ str, html:false }`, and the `[{ name, str }]` list for `forms_freeVars`). Filters and sorts keep their `conds` shape.
 - Treat `forms_config.str` as the source of truth for the Baserow table and dynamic output columns. Inspect `table_id`, `table_id_int`, `columns`, `hidden`, `link_row_table_id`, `source_id`, and `source_owner`.
 - `table_id` is the human-readable Baserow path, commonly shaped like `Workspace~>Database~>Table`; `table_id_int` is the numeric Baserow table id.
 - The effective Baserow output columns are dynamically deduced from `forms_config.columns`, with `forms_config.hidden` indicating hidden columns.

@@ -778,7 +778,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             vars: ["forms_config", "forms_id", "forms_createColumn", "forms_freeVars"],
             runtimeInputs: ["doc", "originalDoc"],
             underlyingSequences: ["lib_BaseRow.FieldsList", "lib_BaseRow.TableCreateColumn", "lib_BaseRow.TableCreateRow", "lib_BaseRow.TableUpdateRow"],
-            forms_freeVars: "UI-authored multi-value variable (__c8o_multi) containing explicit column names and values. Values may include SmartSource references.",
+            forms_freeVars: "Multi-value variable (__c8o_multi): the list [{ name: \"Column\", str: \"value or SmartSource\" }] the editor writes; the viewer sends the backend { Column: value }. The tools also take { Column: value }; saveTo.values of baserowShorthand writes it for you.",
             notes: [
               "Use this action when the UI author chooses the Baserow columns explicitly instead of relying on form field technical ids.",
               "forms_createColumn=true creates text or file columns when an explicit column name does not match an existing Baserow column."
@@ -849,7 +849,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
                     forms_config: { str: "{\"table_id\":\"Mini CRM~>Lightweight CRM~>Companies\",\"table_id_int\":123,\"form_id\":\"1780214945733\",\"source_id\":1780217000001,\"source_owner\":\"user@example.com\",\"link_row_table_id\":[]}", html: false },
                     forms_id: { str: "$$START1780214945653{\"c8otype\":\"path\",\"c8opath\":\"companies_grid.id.value\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780217042001\",\"c8oName\":null}END1780214945653$$", html: false },
                     forms_createColumn: { str: "false", html: false },
-                    forms_freeVars: { str: "{\"Name\":\"$$START1780215220834{\\\"c8otype\\\":\\\"path\\\",\\\"c8opath\\\":\\\"\\\",\\\"c8oPrettyPath\\\":null,\\\"c8obuiltin\\\":null,\\\"fakeId\\\":\\\"fakeId1780217042002\\\",\\\"c8oName\\\":null}END1780215220834$$\"}", html: false }
+                    forms_freeVars: [{ name: "Name", str: "$$START1780215220834{\"c8otype\":\"path\",\"c8opath\":\"company_name\",\"c8oPrettyPath\":\"\",\"c8obuiltin\":\"false\",\"fakeId\":\"fakeId1780215220834\",\"c8oName\":null}END1780215220834$$" }]
                   }
                 }
               }
@@ -864,7 +864,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-14.readable-ui-v9",
+      contractVersion: "2026-10-23.tool-answers-v14",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -912,7 +912,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           validation: "wide_page_margin warns when an application keeps a horizontalMargin above 48px on desktop or 16px on phones."
         },
         titleDisplay: { type: "string", enum: ["form", "page", "none"], optional: true, mapsTo: "config.titleDisplay", description: "Title card at the top of the pages: the form name (form, the viewer default), the name of the current page (page) or none. A page with isNameDisplayed=false never shows it. Read by C8Oforms viewers that have this option; older viewers always show the form name." },
-        styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See generationQuality.styles.roleDefaults." },
+        styleDefaults: { type: "boolean", optional: true, default: true, description: "false keeps the viewer card around every component instead of the role spacing of applications. See the styles section (roleDefaults)." },
         pages: { type: "array", required: true },
         flows: { type: "array", optional: true, description: "Only include when a button, automation, formula, or submit behavior needs it." }
       },
@@ -1151,6 +1151,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         "ion-card": { fields: ["name", "label", "description"], visual: "A card with a title: config.title (text, html with personalized:true, size H1 to H6, position text-left/text-center/text-right, label_color). Its children are not compiled by the reduced contract (refused): use a section to group fields in a titled card." },
         map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18), config.autoCenter.", fields: ["name", "description", "sources", "config"] }
       },
+      baserowShorthand: {
+        rule: "Prefer these reduced forms to the native sources and actions (baserowSources, backendActions): the tools find the table path and id in the user's catalog, encode every variable and resolve the references to fields and grids. table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list.",
+        dataView: { on: "grid, chart, map, gallery", shape: "source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }" },
+        choices: { on: "select, radio, checkbox", columnChoices: "source: { table, field: \"Status\" } lists the options of a single select column", rows: "source: { table, display: \"Name\", value: \"Code\", filter, sort } lists the rows of a table" },
+        filter: "A condition { column, operator, value }, or { all: [...] } / { any: [...] } nested: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: \"High\" }] }. A plain value is a literal; { field: \"name\" } reads that component at runtime.",
+        operators: { text: ["contains", "contains_not", "contains_word", "equal", "not_equal", "empty", "not_empty"], number: ["equal", "higher_than", "higher_than_or_equal", "lower_than", "lower_than_or_equal"], singleSelect: ["single_select_equal", "single_select_not_equal", "single_select_is_any_of"], other: ["boolean", "link_row_has", "multiple_select_has"], all: "baserowSources.filter.operators lists every Baserow filter type" },
+        save: { on: "a submit element of a flow", add: "{ type: \"submit\", saveTo: { table } } adds a row from the inputs named like its columns (forms_AddRow)", map: "saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given (forms_AddRowFromData): a string names a field, { value } is a literal, { field, path } reads a part of a field", update: "saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid", remove: "{ type: \"submit\", deleteFrom: { table, row: \"grid_name\" } } deletes the selected row" },
+        edits: "add_field, add_flow and add_flow_element take the same shapes; update_field with patch.source replaces the component's source."
+      },
       baserowSources: baserowSourceContract(),
       backendActions: backendActionContract(),
       flowAuthoring: {
@@ -1161,7 +1170,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         toast: "message is translated into sources.self.vars.selfVar.str (text, html=false). Explicit sources take precedence. position (top, middle, bottom), duration (seconds), color and closeBtn map into config. color must be a 6-digit hex or success/danger/warning/info (compiled to readable hex); default success. See generationQuality.toasts.",
         ifElse: {
           shape: "{ type: 'if_else', condition: <reduced condition, see conditionFields.reducedShape>, then: [elements], else: [elements] }",
-          compilation: "then/else elements are compiled after the if_else with parentRef set to it and listed in childrenRefs/childrenRefsElse. Branches can be nested. In edits, use add_flow_element: add_flow and update_flow_element store native elements as given.",
+          compilation: "then/else elements are compiled after the if_else with parentRef set to it and listed in childrenRefs/childrenRefsElse. Branches can be nested. In edits, add_flow and add_flow_element compile reduced elements; update_flow_element stores native elements as given.",
           example: { type: "if_else", condition: { field: "amount", operator: "greater", value: "1000" }, then: [{ type: "push_page", targetPage: "Approval" }], else: [{ type: "submit", actions: {} }, { type: "toast", message: "Saved", color: "success" }] },
           submit: "Do not test the outcome of a submit with if_else: a failed submit stops the flow (see generationQuality.toasts.afterSubmit). An if_else without a condition always runs its then branch: it is refused at creation and reported on existing forms."
         },
@@ -1257,6 +1266,64 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     for (var i = 0; i < keys.length; i++) {
       copyConfigValue(target, source, keys[i]);
     }
+  }
+
+  // Sources and backend actions keep the UI-authored encoding of their variables: { str, html:false }, forms_config
+  // and forms_freeVars as JSON text in str, filters and sorts with their conds. An agent that wrote forms_config as an
+  // object, or a variable as a plain value, was refused ("forms_config must be a JSON string") and spent several calls
+  // finding the native shape: encode them here. Only qualified requestable entries (lib_BaseRow.formssource_GetTableData,
+  // lib_BaseRow.forms_AddRow...) are touched, not the self source; null is kept (a merge patch removes with it).
+  // forms_freeVars (forms_AddRowFromData) is a multi-value variable: the editor stores it as the list of
+  // { name: column, str: value } it shows, the viewer resolves each str and sends the backend { column: value }. A JSON
+  // object text in str also runs, but breaks on a quote in a value and the editor empties it when the action is opened.
+  function freeVarsColumns(value) {
+    if (Array.isArray(value)) { return value.map(function (item) { return item && typeof item === "object" ? trimmed(item.name) : ""; }); }
+    if (value && typeof value === "object" && typeof value.str === "string") {
+      var mapping = null;
+      try { mapping = JSON.parse(value.str); } catch (_invalidMapping) { mapping = null; }
+      return mapping && typeof mapping === "object" && !Array.isArray(mapping) ? Object.keys(mapping).map(trimmed) : null;
+    }
+    return null;
+  }
+
+  function freeVarsList(map) {
+    return Object.keys(map).map(function (column) { return { name: column, str: map[column] == null ? "" : String(map[column]) }; });
+  }
+
+  function normalizeRequestableEntries(entries) {
+    if (!entries || typeof entries !== "object" || Array.isArray(entries)) { return entries; }
+    Object.keys(entries).forEach(function (key) {
+      var entry = entries[key];
+      if (key.indexOf(".") < 1 || !entry || typeof entry !== "object" || Array.isArray(entry)) { return; }
+      if (!hasOwn(entry, "enabled")) { entry.enabled = true; }
+      if (entry.vars == null || typeof entry.vars !== "object" || Array.isArray(entry.vars)) { entry.vars = {}; }
+      Object.keys(entry.vars).forEach(function (name) {
+        var value = entry.vars[name];
+        if (value === null) { return; }
+        if (name === "forms_freeVars") {
+          if (Array.isArray(value)) {
+            entry.vars[name] = value.map(function (item) { return item && typeof item === "object" ? { name: trimmed(item.name), str: item.str == null ? "" : String(item.str) } : { name: "", str: "" }; });
+          } else if (typeof value === "object" && !hasOwn(value, "str")) {
+            entry.vars[name] = freeVarsList(value);
+          } else if (typeof value === "string") {
+            var parsed = null;
+            try { parsed = JSON.parse(value); } catch (_notJson) { parsed = null; }
+            entry.vars[name] = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? freeVarsList(parsed) : { str: value, html: false };
+          }
+          return;
+        }
+        if (typeof value !== "object") {
+          entry.vars[name] = { str: String(value), html: false };
+        } else if (Array.isArray(value) || (!hasOwn(value, "str") && !hasOwn(value, "conds") && !hasOwn(value, "groups"))) {
+          entry.vars[name] = { str: JSON.stringify(value), html: false };
+        } else if (!hasOwn(value, "str")) {
+          value.str = "";
+          if (!hasOwn(value, "html")) { value.html = false; }
+          if (!hasOwn(value, "type")) { value.type = /sort/i.test(name) ? "sort" : "filter"; }
+        }
+      });
+    });
+    return entries;
   }
 
   function copyObjectValues(target, source, keys) {
@@ -1563,6 +1630,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  // The page description as the block No Code Studio's 1.0.17 migration makes of a page desc.
+  function pageDescriptionField(page, html) {
+    var slug = trimmed(page.name).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    return { type: "description", name: slug.length ? "description_" + slug : "", description: html };
+  }
+
   function normalizeConditionOperator(value) {
     var text = trimmed(value);
     var operator = hasOwn(CONDITION_OPERATOR_ALIASES, text.toLowerCase()) ? CONDITION_OPERATOR_ALIASES[text.toLowerCase()] : text;
@@ -1757,7 +1830,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       namePosition: "text-center",
       descformPosition: "text-left",
       respNameRequired: false,
-      technicalVersion: "1.0.16",
+      // No Code Studio migrates a form older than its own version when it opens it and saves the result. From 1.0.16
+      // its migration turns each page desc into a description block and sets isNameDisplayed=true on every other
+      // page: the form name came back in a title card on all the pages of a compiled application (22/10 on
+      // test-nocode, revealed forms). The compiler does that migration itself (compileReduced); the later ones only
+      // fill navigation defaults and still run.
+      technicalVersion: "1.0.17",
       lang: trimmed(reduced.language) || "en",
       loopToForm: true,
       progressIndicator: false,
@@ -1769,6 +1847,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       flows: [{ id: "formulas", elements: [] }, { id: "submit", elements: [] }],
       actions: []
     };
+  }
+
+  var DATA_VIEW_TYPES = ["grid", "gallery", "chart", "map"];
+
+  function isPrototypeQuestion(html) {
+    return typeof html === "string" && /^exemple de question[.!?]?$/i.test(trimmed(html.replace(/<[^>]*>/g, "")));
   }
 
   function labelToHtml(value) {
@@ -1877,7 +1961,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
   }
 
-  function optionChildren(values) {
+  // A new select or checkbox list has no answer chosen, like the C8Oforms prototypes; a radio list has its first
+  // option chosen, like the radio prototype. Explicit option objects keep their selected flag.
+  function optionChildren(values, firstSelected) {
     var out = [];
     var list = ensureArray(values);
     for (var i = 0; i < list.length; i++) {
@@ -1886,14 +1972,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         var child = clone(current, {});
         child.id = child.id != null ? String(child.id) : String(nextId());
         if (child.selected == null) {
-          child.selected = i === 0;
+          child.selected = firstSelected !== false && i === 0;
         }
         if (child.position == null) {
           child.position = "unset";
         }
         out.push(child);
       } else {
-        out.push({ value: String(current), selected: i === 0, label_color: "#202124", position: "unset", id: String(nextId()) });
+        out.push({ value: String(current), selected: firstSelected !== false && i === 0, label_color: "#202124", position: "unset", id: String(nextId()) });
       }
     }
     return out;
@@ -1952,6 +2038,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (type === "submit" && element.actions) {
       out.actions = element.actions;
     }
+    if (element.saveTo != null || element.deleteFrom != null) {
+      if (type !== "submit") { throw new Error(out.name + ": saveTo and deleteFrom belong to a submit element"); }
+      out.__reducedSave = { saveTo: element.saveTo, deleteFrom: element.deleteFrom };
+    }
     if (type === "business_logic") {
       out.cat = "action";
       out.sources = out.sources || { self: { enabled: true, vars: { selfVar: { str: "", type: "ts" } } } };
@@ -1972,6 +2062,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     }
     copyObjectValues(out, element, ["sources", "actions", "children", "childrenRefs", "childrenRefsElse", "parentRef", "vars"]);
+    delete out.saveTo;
+    delete out.deleteFrom;
+    if (out.actions) { out.actions = normalizeRequestableEntries(clone(out.actions, {})); }
     copyConfigValues(out, element, ["condition", "operator", "message", "target", "page", "flow", "delay", "loopSource", "itemName"]);
     copyConfigValues(out, element, ["targetPage", "targetGrid", "position", "duration", "color", "closeBtn", "scope", "targetElement"]);
     if (type === "toast") {
@@ -2035,6 +2128,216 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       });
     });
     return all;
+  }
+
+  var TABLE_SOURCE_TYPES = ["grid", "chart", "map", "gallery"];
+  var CHOICE_SOURCE_TYPES = ["select", "radio", "checkbox"];
+
+  // A SmartSource reference to the runtime value of a component, the encoding the editor writes in a source or an
+  // action variable: an agent had to find it and choose the ids itself.
+  function smartSourceReference(item, path) {
+    var id = String(item.id);
+    var payload = { c8otype: "path", c8opath: path, c8oPrettyPath: "", c8obuiltin: "false", fakeId: "fakeId" + id, c8oName: null };
+    return "$$START" + id + JSON.stringify(payload) + "END" + id + "$$";
+  }
+
+  function listText(value) {
+    return Array.isArray(value) ? value.map(function (item) { return trimmed(item); }).join(",") : trimmed(value);
+  }
+
+  // The reduced Baserow source and save shorthands, compiled to the UI-authored sources and backend actions:
+  //   grid/chart/map/gallery  source: { table, columns, hidden, filter, sort, distinct, groupBy, aggregations }
+  //   select/radio/checkbox   source: { table, field }              (the choices of a single select column)
+  //                           source: { table, display, value, columns, filter, sort }   (the rows of a table)
+  //   submit element          saveTo: { table, row, values }        (forms_AddRow, or forms_AddRowFromData with values)
+  //                           deleteFrom: { table, row }            (forms_DeleteRow)
+  // table is the id or the path Workspace~>Base~>Table of a table of the user's catalog, or { id, path }; row names a
+  // grid whose selected row is updated or deleted; a value or a filter value naming a field, or { field, path },
+  // reads that field at runtime, { value } is a literal.
+  function applyReducedBaserow(doc, options) {
+    var opts = options || {};
+    var sources = ensureArray(doc.formulaire).filter(function (item) { return item && item.__reducedSource; });
+    var saves = [];
+    ensureArray(doc.flows).forEach(function (flow) {
+      ensureArray(flow && flow.elements).forEach(function (element) { if (element && element.__reducedSave) { saves.push(element); } });
+    });
+    if (!sources.length && !saves.length) { return; }
+    var findTable = tableFinder(opts);
+    function component(name, what) {
+      var matches = ensureArray(doc.formulaire).filter(function (item) { return item && item.name === trimmed(name); });
+      if (matches.length !== 1) { throw new Error(what + ": no single component named \"" + name + "\" in the form"); }
+      return matches[0];
+    }
+    function fieldValue(value, what) {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        if (hasOwn(value, "value")) { return value.value == null ? "" : String(value.value); }
+        if (hasOwn(value, "field")) {
+          var target = component(value.field, what);
+          return smartSourceReference(target, [trimmed(target.name)].concat(ensureArray(value.path).map(String)).join("."));
+        }
+        throw new Error(what + ": give a field name, { field, path } or { value }");
+      }
+      if (typeof value === "string") {
+        var named = component(value, what + " (a string names a field; write { value: \"" + value + "\" } for a literal)");
+        return smartSourceReference(named, trimmed(named.name));
+      }
+      return value == null ? "" : String(value);
+    }
+    function rowReference(gridName, what) {
+      var grid = component(gridName, what);
+      if (grid.type !== "grid") { throw new Error(what + ": row names a grid, " + grid.name + " is a " + grid.type); }
+      return smartSourceReference(grid, trimmed(grid.name) + ".id.value");
+    }
+    function filterCondition(spec, what) {
+      if (!trimmed(spec.column).length || !trimmed(spec.operator).length) { throw new Error(what + ": a filter condition is { column, operator, value }"); }
+      var operator = trimmed(spec.operator);
+      var val2 = { type: operator === "boolean" ? "checkbox" : "text", str: "", html: false, arr: [] };
+      if (Array.isArray(spec.value)) { val2.arr = spec.value.map(String); }
+      else if (hasOwn(spec, "value")) { val2.str = fieldValueOrLiteral(spec.value, what); }
+      return { val1: { name: trimmed(spec.column), displayName: trimmed(spec.column) }, val2: val2, operator: operator };
+    }
+    // In a filter a plain string is a literal (a search text, a choice); { field } reads a field.
+    function fieldValueOrLiteral(value, what) {
+      return value && typeof value === "object" && !Array.isArray(value) ? fieldValue(value, what) : (value == null ? "" : String(value));
+    }
+    function filterGroup(spec, what) {
+      var group = { type: "filter", condVisible: "and", conds: [], groups: [] };
+      var items = [spec];
+      if (spec && Array.isArray(spec.all)) { items = spec.all; }
+      else if (spec && Array.isArray(spec.any)) { group.condVisible = "or"; items = spec.any; }
+      items.forEach(function (item) {
+        if (item && (Array.isArray(item.all) || Array.isArray(item.any))) { group.groups.push(filterGroup(item, what)); }
+        else { group.conds.push(filterCondition(item || {}, what)); }
+      });
+      return group;
+    }
+    function filterVariable(spec, what) {
+      if (spec && (hasOwn(spec, "conds") || hasOwn(spec, "groups"))) {
+        var native = clone(spec, {});
+        if (!hasOwn(native, "str")) { native.str = ""; }
+        if (!hasOwn(native, "html")) { native.html = false; }
+        if (!hasOwn(native, "type")) { native.type = "filter"; }
+        return native;
+      }
+      var group = filterGroup(spec, what);
+      return { str: "", html: false, type: "filter", condVisible: group.condVisible, conds: group.conds, groups: group.groups };
+    }
+    function sortVariable(spec) {
+      var conds = (Array.isArray(spec) ? spec : String(spec).split(",")).map(function (entry) {
+        if (entry && typeof entry === "object") { return { name: trimmed(entry.name || entry.column), order: trimmed(entry.order) === "desc" ? "desc" : "asc" }; }
+        var name = trimmed(entry);
+        return name.charAt(0) === "-" ? { name: trimmed(name.substring(1)), order: "desc" } : { name: name, order: "asc" };
+      }).filter(function (entry) { return entry.name.length; });
+      return { str: "", html: false, type: "sort", conds: conds };
+    }
+    function plain(value) { return { str: value == null ? "" : String(value), html: false }; }
+
+    sources.forEach(function (item) {
+      var spec = item.__reducedSource;
+      delete item.__reducedSource;
+      var what = item.name + ".source";
+      var table = findTable(spec.table, what);
+      var columns = ensureArray(spec.columns).map(function (column) { return trimmed(column); }).filter(function (column) { return column.length; });
+      var vars = {};
+      var key;
+      if (CHOICE_SOURCE_TYPES.indexOf(item.type) >= 0 && trimmed(spec.field).length) {
+        key = "lib_BaseRow.formssource_GetFieldValues";
+        vars.forms_config = plain(JSON.stringify({ table_id: table.id, columns: [trimmed(spec.field)] }));
+      } else if (CHOICE_SOURCE_TYPES.indexOf(item.type) >= 0) {
+        if (!trimmed(spec.display).length) { throw new Error(what + ": a choice list reads a column (field) or rows (display, value)"); }
+        key = "lib_BaseRow.formssource_GetSelectData";
+        var display = trimmed(spec.display);
+        var valueColumn = trimmed(spec.value) || display;
+        if (!columns.length) { columns = valueColumn === display ? [display] : [display, valueColumn]; }
+        vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, displayValue: display, value: valueColumn, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
+        if (spec.filter != null) { vars.forms_Filter = filterVariable(spec.filter, what); }
+        if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
+      } else if (TABLE_SOURCE_TYPES.indexOf(item.type) >= 0) {
+        if (!columns.length) { throw new Error(what + ": columns lists the table columns to read"); }
+        key = "lib_BaseRow.formssource_GetTableData";
+        vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
+        if (spec.filter != null) { vars.forms_tableFilter = filterVariable(spec.filter, what); }
+        if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
+        if (spec.distinct != null) { vars.forms_tableDistinct = plain(listText(spec.distinct)); }
+        if (spec.groupBy != null) { vars.forms_tableGroupBy = plain(listText(spec.groupBy)); }
+        if (spec.aggregations != null) { vars.forms_tableAggregations = plain(listText(spec.aggregations)); }
+        if (item.type === "grid" && !ensureArray(item.config.columns).length) {
+          item.config.columns = columns.map(function (column) { return { name: column, type: "text" }; });
+        }
+      } else {
+        throw new Error(what + ": a " + item.type + " has no Baserow source");
+      }
+      item.sources = item.sources && typeof item.sources === "object" ? item.sources : {};
+      item.sources[key] = { enabled: true, fullsync: false, vars: vars };
+    });
+
+    saves.forEach(function (element) {
+      var spec = element.__reducedSave;
+      delete element.__reducedSave;
+      element.actions = element.actions && typeof element.actions === "object" ? element.actions : {};
+      if (spec.saveTo != null) {
+        var save = spec.saveTo;
+        var what = element.name + ".saveTo";
+        var target = findTable(save.table, what);
+        var vars = {
+          forms_config: plain(JSON.stringify({ table_id: target.path, table_id_int: target.id, link_row_table_id: [] })),
+          forms_id: plain(save.row != null ? rowReference(save.row, what) : ""),
+          forms_createColumn: plain("false")
+        };
+        var actionKey = "lib_BaseRow.forms_AddRow";
+        if (save.values != null) {
+          if (typeof save.values !== "object" || Array.isArray(save.values)) { throw new Error(what + ": values maps column names to a field name, { field, path } or { value }"); }
+          var free = {};
+          Object.keys(save.values).forEach(function (column) { free[column] = fieldValue(save.values[column], what + "." + column); });
+          vars.forms_freeVars = freeVarsList(free);
+          actionKey = "lib_BaseRow.forms_AddRowFromData";
+        }
+        element.actions[actionKey] = { enabled: true, fullsync: false, vars: vars };
+      }
+      if (spec.deleteFrom != null) {
+        var removal = spec.deleteFrom;
+        var removeWhat = element.name + ".deleteFrom";
+        if (removal.row == null) { throw new Error(removeWhat + ": row names the grid whose selected row is deleted"); }
+        var removed = findTable(removal.table, removeWhat);
+        element.actions["lib_BaseRow.forms_DeleteRow"] = { enabled: true, fullsync: false, vars: {
+          forms_config: plain(JSON.stringify({ table_id: removed.path, table_id_int: removed.id, link_row_table_id: [] })),
+          forms_id: plain(rowReference(removal.row, removeWhat))
+        } };
+      }
+    });
+  }
+
+  // { id, path } of a table named by its id, its path or both; the user's catalog completes what is missing.
+  function tableFinder(options) {
+    var index = Array.isArray(options.tableIndex) ? options.tableIndex : null;
+    function catalog() {
+      if (index) { return index; }
+      try {
+        if ((typeof C8O.nocodeBaserow === "undefined" || !C8O.nocodeBaserow.tableIndex) && typeof include === "function") {
+          include("js/nocode_baserow.js");
+        }
+        index = typeof C8O.nocodeBaserow !== "undefined" && C8O.nocodeBaserow.tableIndex ? C8O.nocodeBaserow.tableIndex(options.token) : null;
+      } catch (_ignoreCatalog) {
+        index = null;
+      }
+      index = index || [];
+      return index;
+    }
+    return function (ref, what) {
+      var id = null;
+      var path = "";
+      if (ref && typeof ref === "object" && !Array.isArray(ref)) { id = ref.id; path = trimmed(ref.path); }
+      else if (typeof ref === "number" || /^\d+$/.test(trimmed(ref))) { id = ref; }
+      else { path = trimmed(ref); }
+      id = id == null || trimmed(id) === "" ? null : Number(id);
+      if (id != null && path.length) { return { id: id, path: path }; }
+      if (id == null && !path.length) { throw new Error(what + ": table is the id or the path Workspace~>Base~>Table of a table of nocode-baserow-catalog-list"); }
+      var found = catalog().filter(function (table) { return id != null ? Number(table.id) === id : table.path.toLowerCase() === path.toLowerCase(); });
+      if (found.length !== 1) {
+        throw new Error(what + ": table " + (id != null ? id : path) + " is not in the Baserow catalog of the authenticated user (nocode-baserow-catalog-list)" + (catalog().length ? "" : "; with nocode-form-compile alone, give { id, path }"));
+      }
+      return { id: Number(found[0].id), path: found[0].path };
+    };
   }
 
   function resolveAuthoringReferences(doc) {
@@ -2170,7 +2473,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       out.parentRef = parentId;
     }
     applyCommonFieldConfig(out, field, pageTechName);
+    if (DATA_VIEW_TYPES.indexOf(type) >= 0 && isPrototypeQuestion(out.config.html) && field.label == null && field.description == null
+        && !(field.config && (hasOwn(field.config, "html") || hasOwn(field.config, "label")))) {
+      // A list or a chart without a label showed "Exemple de question" above it.
+      out.config.html = "";
+    }
     if (type === "button") {
+      // The prototype's icon (bulb) would show on every button.
+      if (!hasOwn(field, "icon") && !(field.config && hasOwn(field.config, "icon"))) { out.config.icon = ""; }
+      if (opts.explicitMandatoryChecks && (hasOwn(field, "checkMandatoryInCurrentPage") || (field.config && hasOwn(field.config, "checkMandatoryInCurrentPage")))) {
+        opts.explicitMandatoryChecks[String(out.id)] = true;
+      }
       applyButtonVariant(out, field);
       out.config.boxStyle = out.config.boxStyle || {};
       // Only new buttons receive these defaults; explicit custom surfaces win.
@@ -2201,7 +2514,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       return out;
     }
     if ((type === "radio" || type === "checkbox" || type === "select") && field.values != null) {
-      out.children = optionChildren(field.values);
+      out.children = optionChildren(field.values, type === "radio");
     }
     if ((type === "radio_group" || type === "checkbox_group") && field.rows != null) {
       out.lines = optionChildren(field.rows).map(function (row) {
@@ -2213,12 +2526,31 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (type === "grid" && field.columns != null) {
       out.config.columns = ensureArray(field.columns);
+    } else if (type === "grid") {
+      // The prototype's columns (Make, Model, Price) would stay in a grid given none: take the columns of its Baserow
+      // source, else none (a local grid without columns is then reported).
+      out.config.columns = [];
+    }
+    if (field.source != null) {
+      // A reduced Baserow source ({ table, columns, filter, sort... }): built by applyReducedBaserow once every
+      // component has its id, since a filter can read another field.
+      if (field.sources != null) { throw new Error(out.name + ": give source (reduced) or sources (native), not both"); }
+      if (!field.source || typeof field.source !== "object" || Array.isArray(field.source)) { throw new Error(out.name + ": source must be an object { table, columns, ... }"); }
+      out.__reducedSource = clone(field.source, {});
+      out.config.sourceEnabled = true;
+      if (CHOICE_SOURCE_TYPES.indexOf(type) >= 0 && field.values == null) { out.children = []; }
     }
     if (field.sources) {
-      out.sources = field.sources;
+      out.sources = normalizeRequestableEntries(clone(field.sources, {}));
+      if (type === "grid" && field.columns == null) {
+        var gridSource = out.sources["lib_BaseRow.formssource_GetTableData"];
+        var gridConfig = null;
+        try { gridConfig = gridSource && gridSource.vars && gridSource.vars.forms_config ? JSON.parse(gridSource.vars.forms_config.str) : null; } catch (_ignoreGridConfig) { gridConfig = null; }
+        out.config.columns = gridConfig && Array.isArray(gridConfig.columns) ? gridConfig.columns.map(function (column) { return { name: String(column), type: "text" }; }) : [];
+      }
     }
     if (field.actions) {
-      out.actions = field.actions;
+      out.actions = normalizeRequestableEntries(clone(field.actions, {}));
     }
     if (field.flow) {
       out.flow = field.flow;
@@ -2380,7 +2712,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     // Applications (custom or tab navigation) get role spacing; a linear
     // questionnaire keeps the card around each question.
-    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode) };
+    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode), explicitMandatoryChecks: {} };
     for (var p = 0; p < pages.length; p++) {
       var page = pageDefaults(pages[p], p, useTabMode);
       if (input.navigationMode === "custom") {
@@ -2390,8 +2722,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         // does not set this flag; a custom application gives each page a header.
         if (!hasOwn(pages[p], "isNameDisplayed")) { page.isNameDisplayed = false; }
       }
+      // A 1.0.17 document has no page desc: like the editor's migration, it becomes the first block after the header
+      // and the page drops the title card.
+      var pageDescription = page.desc;
+      delete page.desc;
+      if (pageDescription.length && !hasOwn(pages[p], "isNameDisplayed")) { page.isNameDisplayed = false; }
       doc.pages.push(page);
       var fields = ensureArray(pages[p].fields || pages[p].formulaire || pages[p].components);
+      if (pageDescription.length) { fields = [pageDescriptionField(pages[p], pageDescription)].concat(fields); }
       var header = pageHeaderField(pages[p]);
       if (header) { fields = [header].concat(fields); }
       for (var f = 0; f < fields.length; f++) {
@@ -2432,6 +2770,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       doc.subTag = Array.isArray(input.subTag) ? input.subTag : [String(input.subTag)];
     }
     ensureButtonFlows(doc);
+    applyReducedBaserow(doc, opts);
+    // A button that submits checks the required fields of its page, unless the reduced JSON says otherwise.
+    doc.formulaire.forEach(function (item) {
+      if (!item || item.type !== "button" || fieldOptions.explicitMandatoryChecks[String(item.id)] === true) { return; }
+      var buttonFlow = doc.flows.filter(function (flow) { return flow && flow.id === item.flow; })[0];
+      if (buttonFlow && ensureArray(buttonFlow.elements).some(function (element) { return element && element.type === "submit"; })) {
+        item.config.checkMandatoryInCurrentPage = true;
+      }
+    });
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
@@ -2507,17 +2854,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         incomplete("invalid_baserow_row_id", "forms_id must be a positive row id or a supported dynamic expression", path + "/vars/forms_id");
       }
       if (!trimmed(binding.form_id) || !trimmed(binding.source_owner) || binding.source_id == null) {
-        warning(opts.generation === true ? "baserow_identity_pending_creation" : "baserow_identity_incomplete", opts.generation === true ? "Expected before creation: nocode-form-create automatically binds the saved form id, actual component ids and authenticated owner. Continue with create; do not invent identities or stop for this warning" : "Baserow identity is incomplete. For an unfinished creation, use nocode-form-edit with finalize_baserow_bindings on this saved id, not another create", path + "/vars/forms_config");
+        // A form not saved yet (create refused before its first save) has no id to finalize either.
+        var beforeFirstSave = opts.generation === true || !trimmed(form._id).length;
+        warning(beforeFirstSave ? "baserow_identity_pending_creation" : "baserow_identity_incomplete", beforeFirstSave ? "Expected before creation: nocode-form-create automatically binds the saved form id, actual component ids and authenticated owner. Continue with create; do not invent identities or stop for this warning" : "Baserow identity is incomplete. For an unfinished creation, use nocode-form-edit with finalize_baserow_bindings on this saved id, not another create", path + "/vars/forms_config");
       } else if (form._id != null && String(binding.form_id) !== String(form._id)) {
         incomplete("baserow_form_identity_mismatch", "Baserow binding belongs to a different form; use the saved owning document id", path + "/vars/forms_config");
       }
-      if (key === "lib_BaseRow.forms_AddRowFromData" && !(entry.vars.forms_freeVars && trimmed(entry.vars.forms_freeVars.str))) {
+      var freeVars = entry.vars.forms_freeVars;
+      if (key === "lib_BaseRow.forms_AddRowFromData" && !(Array.isArray(freeVars) ? freeVars.length : (freeVars && trimmed(freeVars.str)))) {
         incomplete("missing_baserow_values", "Explicit Baserow save requires forms_freeVars mapping actual input values to columns", path + "/vars/forms_freeVars");
       } else if (key === "lib_BaseRow.forms_AddRowFromData") {
-        var mapping;
-        try { mapping = JSON.parse(entry.vars.forms_freeVars.str); } catch (_invalidValues) { mapping = null; }
-        if (!mapping || typeof mapping !== "object" || Array.isArray(mapping) || !Object.keys(mapping).length || Object.keys(mapping).some(function (column) { return !trimmed(column); })) {
-          incomplete("invalid_baserow_values", "forms_freeVars must encode a non-empty object mapping exact Baserow column names to values or SmartSources", path + "/vars/forms_freeVars");
+        var freeColumns = freeVarsColumns(freeVars);
+        if (!freeColumns || !freeColumns.length || freeColumns.some(function (column) { return !column; })) {
+          incomplete("invalid_baserow_values", "forms_freeVars lists { name: exact Baserow column, str: value or SmartSource }, or maps columns to values (saveTo.values of baserowShorthand writes it)", path + "/vars/forms_freeVars");
+        } else if (!Array.isArray(freeVars)) {
+          warning("freevars_text_shape", "forms_freeVars is JSON text: a quote in a value breaks it and No Code Studio empties it when the action is opened. Write it as { Column: value } or with saveTo.values, which store the editor's list", path + "/vars/forms_freeVars");
         }
       }
     }
@@ -2696,7 +3047,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             }
           }
           if (element.type === "submit" && !enabledEntries(element.actions).length) {
-            incomplete("unconfigured_submit", "Select an actual backend action. An empty submit is not an implemented business save", path + "/actions");
+            incomplete("unconfigured_submit", "This submit step has no backend action, so its button saves nothing. A plain questionnaire stores its responses through the automatic submit of its last page: leave the custom button out. To save from a button, give the submit saveTo (a Baserow row, see quickReference.baserow.save) or an action, for example lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple (an e-mail; backendActions section of nocode-form-contract-get)", path + "/actions");
           }
           enabledEntries(element.actions).forEach(function (key) {
             var action = element.actions[key];
@@ -2722,6 +3073,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             }
           }
         });
+        // A flow that announces a success and empties the inputs without a submit loses the respondent's entry (23/10 on
+        // test-nocode: an "Envoyer" button next to the questionnaire's own Envoyer button, the one that saves).
+        var flowElements = ensureArray(flow.elements).filter(function (element) { return element && typeof element === "object"; });
+        var announcesSuccess = flowElements.some(function (element) { return element.type === "toast" && String((element.config || {}).color || "").toUpperCase() === TOAST_COLORS.success.toUpperCase(); });
+        if (announcesSuccess && flowElements.some(function (element) { return element.type === "reset_fields"; }) && !flowElements.some(function (element) { return element.type === "submit"; })) {
+          incomplete("success_without_save", "This flow shows a success message and empties the inputs, but nothing saves them: the entry is lost. A questionnaire (navigationMode buttons) saves its responses with the viewer's own Envoyer button on its last page: leave this button out. To save from a button, put a submit with saveTo or an action before the toast", "/flows/" + idx);
+        }
         ensureArray(flow.elements).forEach(function (element, eidx) {
           if (!element || typeof element !== "object") { return; }
           var path = "/flows/" + idx + "/elements/" + eidx;
@@ -2739,6 +3097,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         itemById[String(item.id)] = item;
         if (item.parentRef != null) { (childrenByParent[String(item.parentRef)] = childrenByParent[String(item.parentRef)] || []).push(item); }
       });
+      // The spacing a layout gives its children (layoutChildrenStyle), as the section the compiler builds does.
+      function childSpacingFromParent(item) {
+        var parent = item.parentRef != null ? itemById[String(item.parentRef)] : null;
+        var styles = parent && parent.config && parent.config.layoutChildrenStyle;
+        return !!styles && typeof styles === "object" && ["default", "first", "last"].some(function (scope) {
+          return styles[scope] && (trimmed(styles[scope].margin).length || trimmed(styles[scope].padding).length);
+        });
+      }
       function descendants(item) {
         var out = [], queue = (childrenByParent[String(item.id)] || []).slice();
         while (queue.length && out.length < 500) {
@@ -2806,7 +3172,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (typeof config.layoutChildrenStyle !== "object" || Array.isArray(config.layoutChildrenStyle)) { issue("invalid_style_object", "layoutChildrenStyle must contain default/first/last style objects", path + "/config/layoutChildrenStyle"); }
           else { Object.keys(config.layoutChildrenStyle).forEach(function (scope) { validateStyle(config.layoutChildrenStyle[scope], path + "/config/layoutChildrenStyle/" + scope, true); }); }
         }
-        if (item.type === "description" && /style\s*=/.test(config.html || "") && !(config.boxStyle && (config.boxStyle.margin || config.boxStyle.padding))) {
+        if (item.type === "description" && /style\s*=/.test(config.html || "") && !(config.boxStyle && (config.boxStyle.margin || config.boxStyle.padding)) && !childSpacingFromParent(item)) {
           warning("html_spacing_without_container_style", "Styled HTML has no explicit Forms container spacing; check outer margin and avoid double padding", path + "/config/boxStyle");
         }
         var parentItem = item.parentRef != null ? itemById[String(item.parentRef)] : null;
@@ -2863,6 +3229,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (customPages.length >= 2 && customPages.length === ensureArray(form.pages).length && customPages.filter(function (page) { return page.isNameDisplayed !== false; }).length >= 2) {
         warning("repeated_form_title", "The form name is repeated in a title card on every page. Set isNameDisplayed=false on the pages and give each one a page header (page.header or a description block)", "/pages");
       }
+      // A page that shows the form name in its title card and opens on a header with the same title shows it twice.
+      if (!form.config || ["page", "none"].indexOf(form.config.titleDisplay) < 0) {
+        ensureArray(form.pages).forEach(function (page, idx) {
+          if (!page || page.isNameDisplayed === false) { return; }
+          var first = ensureArray(form.formulaire).filter(function (item) { return item && item.parentRef == null && item.config && item.config.page === page.pageTechName; })[0];
+          var heading = first && first.type === "description" && /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i.exec(String(first.config.html || ""));
+          var headingText = heading && heading[1].replace(/<[^>]+>/g, "").replace(/&#39;/g, "'").replace(/&quot;/g, "\"").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+          if (heading && trimmed(headingText).toLowerCase() === trimmed(form.name).toLowerCase()) {
+            warning("repeated_title_in_header", "This page shows the form name in its title card, then the same title in its header block. Give the header another title (or none), or set isNameDisplayed=false on the page", "/pages/" + idx);
+          }
+        });
+      }
       var formPages = ensureArray(form.pages);
       var applicationPages = formPages.length && (formPages.every(function (page) { return page && boolLike(page.enabledTab); }) || customPages.length === formPages.length);
       if (applicationPages && form.config && typeof form.config === "object") {
@@ -2896,7 +3274,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (boolLike(item.config.componentDisabled)) { return; }
           var parent = item.parentRef != null && content.filter(function (other) { return String(other.id) === String(item.parentRef); })[0];
           var inherited = parent && parent.config && parent.config.layoutChildrenStyle;
-          if (!hasSpacing(item.config.boxStyle) && !hasSpacing(parent && parent.config.boxStyle) && !hasSpacing(inherited && inherited.default)) {
+          if (applicationPages && !hasSpacing(item.config.boxStyle) && !hasSpacing(parent && parent.config.boxStyle) && !hasSpacing(inherited && inherited.default)) {
             warning("missing_block_spacing", "Review native margin/padding on " + item.name + "; surface color alone is not spacing. Intentional defaults are allowed", "/formulaire/" + form.formulaire.indexOf(item) + "/config/boxStyle");
           }
           var childItems = ensureArray(item.childrenRefs).map(function (id) { return content.filter(function (child) { return String(child.id) === String(id); })[0]; }).filter(function (child) { return !!child; });
@@ -3040,7 +3418,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return response;
   }
 
-  function readBaserowTableFields(tableId, authentication) {
+  function readBaserowTableFields(tableId, authentication, session) {
+    // lib_BaseRow serves the fields of a table from a 60-second cache: a column nocode-baserow-schema-apply had just
+    // created was refused as unknown. nocode_baserow.js reads them past that cache with the user's Baserow account.
+    try {
+      if ((typeof C8O.nocodeBaserow === "undefined" || !C8O.nocodeBaserow.tableFields) && typeof include === "function") {
+        include("js/nocode_baserow.js");
+      }
+      if (typeof C8O.nocodeBaserow !== "undefined" && C8O.nocodeBaserow.tableFields) {
+        var read = C8O.nocodeBaserow.tableFields(tableId, authentication.user, session && session.bearer);
+        if (session) { session.bearer = read.bearer; }
+        if (read.fields && read.fields.length) { return ensureArray(read.fields); }
+      }
+    } catch (_freshFieldsError) {}
     var response = callC8oSequence("lib_BaseRow", "formscommon_FieldsList", { forms_config: JSON.stringify({ table_id: tableId, editor: authentication.user }) });
     var error = apiError(response);
     var envelope = response && (response.document || response.doc && response.doc.document || response);
@@ -3049,6 +3439,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   function validateBaserowColumns(form, authentication, options, validation) {
     var cache = {};
+    var baserowSession = { bearer: "" };
     // formscommon_FieldsList reuses the Baserow token already stored in the HTTP
     // session; with an explicit editor it never resolves the account itself. A
     // fresh MCP session has no token, so the first empty answer primes the
@@ -3072,9 +3463,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var table = String(binding.config.table_id_int);
       if (!hasOwn(cache, table)) {
         var fetched = null;
-        try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication); } catch (_fieldsError) { fetched = null; }
+        try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication, baserowSession); } catch (_fieldsError) { fetched = null; }
         if ((!fetched || !fetched.length) && primeBaserowSession()) {
-          try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication); } catch (_retryError) { fetched = null; }
+          try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication, baserowSession); } catch (_retryError) { fetched = null; }
         }
         cache[table] = fetched;
       }
@@ -3083,7 +3474,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var names = fields.map(function (field) { return String(field.name); });
       var columns = /\/sources[^/]*\//.test(binding.path) ? ensureArray(binding.config.columns) : [];
       if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) {
-        try { columns = Object.keys(JSON.parse(binding.entry.vars.forms_freeVars.str)); } catch (_invalidMapping) { return; }
+        columns = freeVarsColumns(binding.entry.vars.forms_freeVars);
+        if (!columns) { return; }
       }
       columns.forEach(function (column) {
         var readSource = /\/sources[^/]*\//.test(binding.path);
@@ -3752,6 +4144,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         delete mergePatch.variant;
         if (mergePatch.config) { delete mergePatch.config.variant; }
       }
+      if (mergePatch.source != null) {
+        // The reduced Baserow source replaces the component's source; applyReducedBaserow builds it after the edits.
+        if (!mergePatch.source || typeof mergePatch.source !== "object" || Array.isArray(mergePatch.source)) { throw new Error(fieldFound.item.name + ": source must be an object { table, columns, ... }"); }
+        fieldFound.item.__reducedSource = clone(mergePatch.source, {});
+        Object.keys(fieldFound.item.sources || {}).forEach(function (key) { if (/^lib_BaseRow\.formssource_/.test(key)) { delete fieldFound.item.sources[key]; } });
+        fieldFound.item.config = fieldFound.item.config || {};
+        fieldFound.item.config.sourceEnabled = true;
+        delete mergePatch.source;
+      }
+      if (mergePatch.sources) { normalizeRequestableEntries(mergePatch.sources); }
+      if (mergePatch.actions) { normalizeRequestableEntries(mergePatch.actions); }
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);
       if (Object.keys(conditionPatch).length) {
         var compiledConditions = {};
@@ -3799,7 +4202,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       flow.id = trimmed(flow.id || op.flowId || op.id || op.name) || ("flow_" + nextId());
       flow.name = trimmed(flow.name || op.flowName || op.name);
       flow.name = flowDisplayName(flow, form.formulaire);
-      flow.elements = ensureArray(flow.elements);
+      // An element read back from a saved flow (id and config) is kept as given; the others are reduced elements,
+      // compiled like add_flow_element does. A reduced push_page given here used to be stored as is and refused.
+      flow.elements = ensureArray(flow.elements).reduce(function (all, element) {
+        var native = element && typeof element === "object" && element.id != null && element.config && typeof element.config === "object";
+        return all.concat(native ? [element] : compileFlowElements(element, catalogByType));
+      }, []);
       form.flows.splice(normalizeIndex(op.index, form.flows.length, form.flows.length), 0, flow);
       summary.push({ action: action, flowId: flow.id });
       return;
@@ -3905,21 +4313,158 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     ensureButtonFlows(edited);
     resolveAuthoringReferences(edited);
+    applyReducedBaserow(edited, opts);
     return { form: edited, operations: summary, allTypesPath: contract.file };
+  }
+
+  // The whole contract is about 100 KB (146 KB indented). Vibe keeps a tool result inline up to about 16 KB of its
+  // indented JSON and spills a larger one to a file, which its agent then read with 14 to 20 shell commands per turn
+  // (22/10 on test-nocode); it reads at most 64 KB of that file. The core is therefore this quick reference, under
+  // 14 KB indented, with the index of the sections; sections returns the parts asked for, sections ["all"] the whole
+  // contract (not offered to agents).
+  function quickReferenceContract() {
+    return {
+      use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask (sections:[...]) for details. Return each contract answer from its own call: one answer over about 16 KB is spilled to a file.",
+      form: "{ name, description, language: \"fr\", navigationMode: custom (an application: buttons and push_page flows) | buttons (a linear questionnaire) | tabs, titleDisplay: form|page|none, backgroundColor, thumbnailColor, thumbnailImage: { contentType, base64 } (below 512x512 px), pages: [...], flows: [...] }. Pass reduced as a JSON object, not a string. The tools write _id, _rev, formulaire, pageTechName, creator and ACLs: never give them.",
+      page: "{ name (unique, the target of push_page), iconName: home|list|people|person|business|calendar|calendar-clear|document-text|receipt|settings|stats-chart|search, header: { title, subtitle } (title block first on the page), description (HTML block after the header), isNameDisplayed (false by default in custom and tabs navigation), fields: [...] }.",
+      field: "Every component: { type, name (unique technical name, read as fields.<name>), label (plain question or button text), description (HTML question, wins over label), placeholder, mandatory, disabled, sticky: always|notOnPhone (stays at the top while the page scrolls), visibleIf, defaultFrom, boxStyle, config (merged onto the native config) }. Section componentAuthoring lists each component's options.",
+      components: {
+        text: "config.type: text, email, number, tel, url, password or search; short:false makes it a growing multi-line field.",
+        choices: "select, radio, checkbox: values [\"A\", \"B\"] or [{ value, selected }]; select and checkbox start with no answer, radio with its first option. select config.selectionMode single|multiple. A Baserow column's options: source (see baserow).",
+        dates: "datetime, time: config.display_format and picker_format (DD/MM/YYYY, YYYY/MM/DD, HH:mm), min_datetime, max_datetime.",
+        slider: "min, max, step; config.pin, config.snaps.",
+        description: "description: an HTML block for titles, explanations or a summary.",
+        section: "{ type: \"section\", name, title, subtitle, columns: 1 to 4 (default 2), fields: [...] }: a titled card grouping fields; fullWidth:true puts a field on its own line. Use one section per group of an entry or detail page.",
+        layout: "{ type: \"layout\", name, cols, tablet, phoneL, phoneP: six { size } summing to 12 each, children: [...] }: a row, for example an action bar of buttons.",
+        button: "{ type: \"button\", name, label, flow: <flow id>, variant: primary|secondary|danger|ghost, icon, expand: \"block\", disabledIf }.",
+        dataViews: "grid, chart, gallery, map: source (see baserow), or a local grid with columns: [{ name, type }]. chart config.type: line, area, bar, pie or donut; grid config.gridPaginationEnabled and gridRowsPerPage.",
+        others: "img, file, signature, location, barcode: name, label, mandatory, config. ion-card is a card title only: group fields with section."
+      },
+      conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
+      defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field, path: [\"Column\", \"value\"], mode: \"reactive\" } (grid cells are { value }), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults has the rules.",
+      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for that, and no page header repeating the form name (shown in the title card). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow).",
+      baserow: {
+        tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
+        dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",
+        choices: "select, radio, checkbox: source: { table, field: \"Status\" } (the options of a single select column; the answer is the option id) or { table, display: \"Name\", value: \"Code\", filter, sort } (rows of a table).",
+        filter: "{ column, operator, value }, or { all: [...] } / { any: [...] } nested. value is a literal, or { field: \"name\" } to read that component at runtime. A search over two columns: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: { field: \"priority\" } }] }.",
+        operators: "text: contains, contains_not, contains_word, equal, not_equal, empty, not_empty; number: equal, higher_than, higher_than_or_equal, lower_than, lower_than_or_equal; single select: single_select_equal, single_select_not_equal, single_select_is_any_of (an option label or id); other: boolean, link_row_has, multiple_select_has. Section baserowSources lists every Baserow filter type.",
+        save: "On a submit element: saveTo: { table } adds a row from the inputs named like its columns; saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given ({ field, path } reads a part of a field); saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid; deleteFrom: { table, row: \"grid_name\" } deletes it."
+      },
+      edit: "nocode-form-edit { id, operations: [...] }, reduced shapes everywhere except update_flow_element: add_page { name, header, navigationMode, index }, update_page { pageName, patch }, add_field { pageName or parentFieldId, fieldObject, index }, update_field { fieldName, patch } (patch.label, patch.source, patch.visibleIf, patch.variant...), remove_field { fieldName }, move_field { fieldName, pageName, parentFieldId, index }, add_flow { flowId, name, flowData: { elements } }, add_flow_element { flowId, element, index, parentId }, update_flow_element { flowId, elementId, patch } (native), remove_flow { flowId }, remove_flow_element { flowId, elementId }, set_root { config }, finalize_baserow_bindings (alone, resumes a creation). A revision conflict means: read the form again, never retry blindly. Section editTool has an example of each.",
+      answers: "From run_typescript a tool resolves to its answer itself: r.status, r.form, r.id after a create or an edit (no r.result); a refused call has saved:false with validation.issues or error. A saved form: form.formulaire (components: type, name, config.label, config.page; choice options in children), form.pages, form.flows.",
+      lifecycle: "Create once. saved=true with bindingFinalization.status=ready ends a creation; saved=true with status partial means the form exists: follow bindingFinalization.recovery, never create again. A refused call saves nothing: fix what it names and call again. Fix every design warning with nocode-form-edit before delivery; validation does not run the business flow nor test Baserow permissions.",
+      example: {
+        name: "Demandes", language: "fr", navigationMode: "custom",
+        pages: [
+          { name: "Accueil", iconName: "home", header: { title: "Demandes" }, fields: [{ type: "button", name: "open_new", label: "Nouvelle demande", flow: "open_new", variant: "primary" }] },
+          { name: "Nouvelle demande", iconName: "document-text", header: { title: "Nouvelle demande" }, fields: [
+            { type: "section", name: "request", title: "Demande", fields: [{ type: "text", name: "requester", label: "Demandeur", mandatory: true }] },
+            { type: "button", name: "save", label: "Enregistrer", flow: "save", variant: "primary" }
+          ] }
+        ],
+        flows: [
+          { id: "open_new", name: "Nouvelle demande", elements: [{ type: "push_page", targetPage: "Nouvelle demande" }] },
+          { id: "save", name: "Enregistrer", elements: [{ type: "submit", saveTo: { table: 5271, values: { "Demandeur": "requester" } } }, { type: "toast", message: "Demande enregistrée" }, { type: "push_page", targetPage: "Accueil" }] }
+        ]
+      }
+    };
+  }
+
+  // What each section holds, for the index of the core.
+  var CONTRACT_SECTION_PURPOSES = {
+    generationQuality: "design rules of an application (headers, action bars, list and detail, empty states, toasts, data views): read before generating one",
+    generationSteps: "building a large application in steps, checks before delivery",
+    styles: "native style recipes, role spacing, mobile margins",
+    componentAuthoring: "each component's fields and visual options",
+    commonFieldFields: "every field property and its native mapping",
+    pageFields: "page properties",
+    rootFields: "form properties, page sizing per device",
+    conditionFields: "conditions with examples",
+    contextualDefaults: "defaultFrom sources and modes, what each can be trusted for",
+    flowAuthoring: "flow elements with examples",
+    editTool: "an example of each nocode-form-edit operation",
+    baserowShorthand: "the reduced Baserow forms with examples",
+    baserowSources: "native Baserow sources and every Baserow filter type",
+    backendActions: "native submit actions, e-mails, other sequences",
+    dynamicReferences: "SmartSource references written by hand",
+    styleObjectFields: "the keys of a style object",
+    styleRendering: "how the viewer renders styles",
+    creationLifecycle: "creation and Baserow binding recovery",
+    editingLifecycle: "edited bindings, revision conflicts",
+    bindingValidation: "how Baserow columns are checked",
+    forbiddenFields: "fields the tools manage",
+    mediaSupport: "wallpaper and thumbnails",
+    reducedSample: "a reduced questionnaire",
+    realWorldPatternsFromGestionDesCreches: "patterns of a real application"
+  };
+  var CONTRACT_INLINE_PARTS = ["types", "aliases", "format", "intent", "contractVersion", "quickReference"];
+
+  function contractSectionList(value) {
+    if (value == null || value === "") { return []; }
+    var list = Array.isArray(value) ? value : String(value).replace(/^\s*\[|\]\s*$/g, "").split(",");
+    return list.map(function (name) { return trimmed(String(name).replace(/^["']|["']$/g, "")); }).filter(function (name) { return name.length > 0; });
   }
 
   C8O.nocodeForms.contract = function (options) {
     var opts = options || {};
     var contract = readAllTypes(opts.project || opts.projectName || "C8Oforms");
     var types = contract.catalog.map(function (item) { return item.type; });
+    var authoring = detailedAuthoringContract(types);
+    var parts = { types: types, aliases: clone(aliases, {}), reducedSample: sampleContract(), quickReference: quickReferenceContract() };
+    Object.keys(authoring).forEach(function (key) { parts[key] = authoring[key]; });
+    // Asked alone, generationQuality (26 KB indented) would be spilled too: its style recipes are their own section.
+    parts.generationQuality = {};
+    Object.keys(authoring.generationQuality).forEach(function (key) { if (key !== "styles") { parts.generationQuality[key] = authoring.generationQuality[key]; } });
+    parts.generationQuality.styles = "Ask sections:[\"styles\"] for the native style recipes.";
+    parts.styles = authoring.generationQuality.styles;
+    parts.generationSteps = { incrementalCreation: authoring.generationQuality.incrementalCreation, completion: authoring.generationQuality.completion };
+    delete parts.generationQuality.incrementalCreation;
+    delete parts.generationQuality.completion;
+    parts.generationQuality.steps = "Ask sections:[\"generationSteps\"] for building in steps and the checks before delivery.";
+    var asked = contractSectionList(opts.sections);
+    var whole = opts.includeAllTypes === true || asked.indexOf("all") >= 0;
+    var sectionIndex = {};
+    Object.keys(parts).forEach(function (key) {
+      if (CONTRACT_INLINE_PARTS.indexOf(key) < 0) {
+        sectionIndex[key] = (CONTRACT_SECTION_PURPOSES[key] || key) + " (" + Math.max(1, Math.round(JSON.stringify(parts[key]).length / 1000)) + " KB)";
+      }
+    });
+    if (asked.length && !whole) {
+      var sections = {};
+      var unknown = [];
+      asked.forEach(function (name) {
+        if (hasOwn(parts, name)) { sections[name] = parts[name]; } else { unknown.push(name); }
+      });
+      var answer = { status: unknown.length && !Object.keys(sections).length ? "invalid" : "ok", contractVersion: authoring.contractVersion, sections: sections };
+      if (unknown.length) {
+        answer.unknownSections = unknown;
+        answer.availableSections = Object.keys(parts);
+      }
+      return answer;
+    }
+    if (!whole) {
+      return {
+        status: "ok",
+        contractVersion: authoring.contractVersion,
+        quickReference: parts.quickReference,
+        types: types,
+        aliases: parts.aliases,
+        sectionIndex: sectionIndex,
+        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for a component or an operation this core does not show."
+      };
+    }
+    var all = clone(authoring, {});
+    all.quickReference = parts.quickReference;
     return {
       status: "ok",
       project: opts.project || opts.projectName || "C8Oforms",
       allTypesPath: contract.file,
+      sectionIndex: sectionIndex,
       types: types,
-      aliases: clone(aliases, {}),
-      authoringContract: detailedAuthoringContract(types),
-      reducedSample: sampleContract(),
+      aliases: parts.aliases,
+      authoringContract: all,
+      reducedSample: parts.reducedSample,
       allTypes: opts.includeAllTypes === true ? contract.catalog : null
     };
   };
@@ -4118,6 +4663,65 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       };
     }
   };
+  // What the form tools answer an agent: the form without its empty values and empty condition groups, the write
+  // without the CouchDB transport details (internal host and headers) and the authentication without the token
+  // payload. Sources and actions stay exactly as saved, since an agent copies them into its edits. A three-page
+  // application went from 21 KB to 10 KB, for each create, edit and read.
+  var AGENT_VIEW_VERBATIM_KEYS = { sources: true, sourcesMarkers: true, sourcesCircles: true, sourcesPolygons: true, actions: true };
+  function agentView(value) {
+    if (Array.isArray(value)) {
+      return value.map(function (item) { return agentView(item); });
+    }
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+    var out = {};
+    Object.keys(value).forEach(function (key) {
+      var item = value[key];
+      if (key === "_c8oMeta") { return; }
+      if (AGENT_VIEW_VERBATIM_KEYS[key] === true) { out[key] = item; return; }
+      if (key === "conditions" && item && typeof item === "object" && !Array.isArray(item)) {
+        var kept = {};
+        Object.keys(item).forEach(function (name) {
+          var group = item[name];
+          if (group && typeof group === "object" && (ensureArray(group.conds).length || ensureArray(group.groups).length)) { kept[name] = group; }
+        });
+        if (Object.keys(kept).length) { out[key] = kept; }
+        return;
+      }
+      var compact = agentView(item);
+      if (compact === "" || compact == null) { return; }
+      if (typeof compact === "object" && !Array.isArray(compact) && !Object.keys(compact).length) { return; }
+      out[key] = compact;
+    });
+    return out;
+  }
+  function agentResult(result) {
+    if (!result || typeof result !== "object" || Array.isArray(result)) {
+      return result;
+    }
+    // The id and the revision first: an agent that cut a long answer to summarize it lost the id of its new form.
+    var out = {};
+    var savedId = (result.response && result.response.id) || (result.form && result.form._id);
+    var savedRev = (result.response && result.response.rev) || (result.form && result.form._rev);
+    if (savedId != null) { out.id = String(savedId); }
+    if (savedRev != null) { out.rev = String(savedRev); }
+    Object.keys(result).forEach(function (key) { if (!hasOwn(out, key)) { out[key] = result[key]; } });
+    if (out.form && typeof out.form === "object") { out.form = agentView(out.form); }
+    if (out.response && typeof out.response === "object") { out.response = agentView(out.response); }
+    if (out.authentication && typeof out.authentication === "object") {
+      var auth = { status: out.authentication.status, authenticated: out.authentication.authenticated === true, user: out.authentication.user };
+      if (out.authentication.error) { auth.error = out.authentication.error; }
+      out.authentication = auth;
+    }
+    delete out.allTypesPath;
+    return out;
+  }
+  ["create", "update", "edit"].forEach(function (name) {
+    var raw = C8O.nocodeForms[name];
+    C8O.nocodeForms[name] = function () { return agentResult(raw.apply(null, arguments)); };
+  });
+  C8O.nocodeForms.agentView = agentView;
   C8O.nocodeForms.parseObject = parseObject;
   C8O.nocodeForms.assertStrictJsonText = assertStrictJsonText;
   C8O.nocodeForms.parseArray = parseArray;

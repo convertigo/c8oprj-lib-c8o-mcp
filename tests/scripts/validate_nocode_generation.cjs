@@ -8,7 +8,8 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 const source = fs.readFileSync(path.join(root, 'js/nocode_forms.js'), 'utf8');
-function api(transport) {
+// extraFiles are loaded in the same context (js/nocode_app.js); api then answers C8O instead of C8O.nocodeForms.
+function api(transport, extraFiles) {
   class File {
     constructor(parent, child) { this.path = child ? path.join(String(parent), child) : String(parent); }
     isFile() { return fs.statSync(this.path).isFile(); }
@@ -35,7 +36,12 @@ function api(transport) {
     return empty;
   } });
   const sandbox = { Packages: packages, java: { lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } } } };
-  vm.runInNewContext(source, sandbox, { filename: 'nocode_forms.js' });
+  vm.createContext(sandbox);
+  vm.runInContext(source, sandbox, { filename: 'nocode_forms.js' });
+  if (extraFiles) {
+    extraFiles.forEach(file => vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), sandbox, { filename: file }));
+    return sandbox.C8O;
+  }
   return sandbox.C8O.nocodeForms;
 }
 const clone = x => JSON.parse(JSON.stringify(x));
@@ -303,7 +309,7 @@ test('explicit backend action vars are kept without inventing persistence', () =
 test('legacy tab default remains available; contract recommends an explicit choice', () => {
   const input = example(); delete input.navigationMode;
   assert.ok(api().compile(input).form.pages.every(p => p.enabledTab));
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   assert.ok(contract.rootFields.navigationMode.enum.includes('custom'));
   assert.ok(contract.generationQuality.styles.scopes.boxStyle);
 });
@@ -343,7 +349,7 @@ test('adjacent page buttons and partial styling trigger review without rewriting
 test('responsive action groups preserve child styles and explicit config takes precedence', () => {
   const input = example();
   const fields = input.pages[1].fields;
-  const row = clone(api().contract().authoringContract.componentAuthoring.layout.actionGroupExample);
+  const row = clone(api().contract({ sections: ['all'] }).authoringContract.componentAuthoring.layout.actionGroupExample);
   row.children = fields.splice(1);
   row.children.forEach(f => { f.boxStyle = { margin: '0', padding: '8px', border: '0' }; });
   row.layoutChildrenStyle = { default: { padding: '8px' }, first: { margin: '0' }, last: { margin: '0' } };
@@ -440,13 +446,13 @@ test('shared flows do not borrow one arbitrary button label and dynamic labels s
 
 test('native design recipes survive compilation across sections, fields, data and grouped actions', () => {
   const compiler = api();
-  const recipes = clone(compiler.contract().authoringContract.generationQuality.styles.recipes);
+  const recipes = clone(compiler.contract({ sections: ['all'] }).authoringContract.generationQuality.styles.recipes);
   const input = connectedExample();
   Object.assign(input.pages[0].fields[0], recipes.welcome);
   Object.assign(input.pages[1].fields[0], recipes.dataView);
   const actions = input.pages[1].fields.splice(1);
   actions.forEach(button => Object.assign(button, recipes.buttonInsideGroup));
-  const group = clone(compiler.contract().authoringContract.componentAuthoring.layout.actionGroupExample);
+  const group = clone(compiler.contract({ sections: ['all'] }).authoringContract.componentAuthoring.layout.actionGroupExample);
   Object.assign(group, recipes.actionGroup, { children: actions });
   input.pages[1].fields.push(group);
   const section = { type: 'layout', name: 'request_details', ...recipes.section, fields: [
@@ -470,7 +476,7 @@ test('transparent standalone button wrappers preserve the actual button fill', (
   const compiler = api();
   const input = example();
   const button = input.pages[0].fields[1];
-  Object.assign(button, clone(compiler.contract().authoringContract.generationQuality.styles.recipes.standaloneButton));
+  Object.assign(button, clone(compiler.contract({ sections: ['all'] }).authoringContract.generationQuality.styles.recipes.standaloneButton));
   button.backgroundColor = '#2F6FED';
   button.color = '#FFFFFF';
   const result = compiler.compile(input);
@@ -747,13 +753,13 @@ test('invalid reduced JSON errors name the position, the surrounding text and th
   const client = api();
   const extraBrace = '{"name":"x","pages":[{"name":"P","fields":[{"type":"text","name":"a","label":"A"}}]}]}';
   assert.throws(() => client.assertStrictJsonText(extraBrace, 'reduced'), e => /unexpected '\}': the array opened at position 42 must be closed with '\]' first at position 81/.test(e.message) && e.message.includes(extraBrace.length + ' characters were received in full') && e.message.includes('"label":"A"}}]}]}...'));
-  const contract = client.contract({});
+  const contract = client.contract({ sections: ['all'] });
   assert.ok(contract.authoringContract.generationQuality.incrementalCreation.step1.includes('nocode-form-create'));
   assert.ok(/not as a string/.test(contract.authoringContract.generationQuality.incrementalCreation.rule));
 });
 
 test('the contract states update capabilities and recipes next to the backend actions', () => {
-  const text = JSON.stringify(api().contract({}));
+  const text = JSON.stringify(api().contract({ sections: ['all'] }));
   assert.match(text, /UPDATE an existing row when forms_id holds its Baserow row id/);
   assert.match(text, /updateRelatedTable/);
   assert.match(text, /quote the sentence that establishes the limit/);
@@ -1208,8 +1214,103 @@ test('edits accept reduced conditions, button variants and page headers', () => 
   assert.equal(back[1].parentRef, back[0].id);
   assert.equal(back[1].config.color, '#B45309');
 });
+test('compiled forms skip the editor page migration that brings the form title back', () => {
+  // No Code Studio runs it on a form older than 1.0.17 when it opens it: page desc becomes a block and every other
+  // page gets isNameDisplayed=true.
+  const input = example();
+  input.pages[1].description = '<p>All the requests</p>';
+  input.pages[1].header = { title: 'Requests' };
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok');
+  assert.equal(r.form.technicalVersion, '1.0.17');
+  assert.ok(r.form.pages.every(p => !('desc' in p) && p.isNameDisplayed === false));
+  const blocks = r.form.formulaire.filter(f => f.config.page === r.form.pages[1].pageTechName && !f.parentRef);
+  assert.deepEqual(clone(blocks.slice(0, 2).map(f => [f.type, f.name])), [['description', 'header_requests'], ['description', 'description_requests']]);
+  assert.equal(blocks[1].config.html, '<p>All the requests</p>');
+  const questionnaire = api().compile({ name: 'Survey', navigationMode: 'buttons', pages: [{ name: 'One', description: '<p>Intro</p>', fields: [{ type: 'text', name: 'q1', label: 'Q1' }] }, { name: 'Two', fields: [{ type: 'text', name: 'q2', label: 'Q2' }] }] });
+  assert.deepEqual(Array.from(questionnaire.form.pages, p => p.isNameDisplayed), [false, undefined], 'as the migration: no title card on a described page');
+});
+test('add_flow compiles reduced elements and keeps elements read back from a saved flow', () => {
+  const h = creationHarness();
+  const created = h.client.create(example(), h.auth);
+  const id = created.form._id;
+  const saved = h.state.forms[id];
+  const nativeToast = clone(saved.flows.find(f => f.id === 'example').elements[1]);
+  nativeToast.id = 1900000000777;
+  const edited = h.client.edit(id, [
+    { action: 'add_flow', flowData: { id: 'open_home', name: 'Open home', elements: [
+      { type: 'push_page', targetPage: 'Home' },
+      { type: 'if_else', condition: { field: 'requests', operator: 'is_filled' }, then: [{ type: 'toast', message: 'Rows', color: 'warning' }] },
+      nativeToast
+    ] } },
+    { action: 'add_field', pageName: 'Requests', fieldObject: { type: 'button', name: 'home2', label: 'Home', flow: 'open_home' } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.validation || edited.error));
+  const elements = h.state.forms[id].flows.find(f => f.id === 'open_home').elements;
+  assert.deepEqual(clone(elements.map(e => e.type)), ['push_page', 'if_else', 'toast', 'toast']);
+  assert.ok(elements.every(e => e.id != null && e.config));
+  assert.equal(elements[0].config.targetPage, saved.pages[0].pageTechName);
+  assert.equal(elements[2].parentRef, elements[1].id);
+  assert.deepEqual(elements[3], nativeToast);
+});
+test('Baserow data needs no native contract section', () => {
+  // 22/10 on test-nocode: the skill sent agents to baserowSources and backendActions (28 KB) for any Baserow data;
+  // the answer was spilled to a file and read with 14 to 20 shell commands per turn.
+  const shorthand = api().contract({ sections: ['baserowShorthand'] }).sections.baserowShorthand;
+  const all = api().contract({ sections: ['baserowSources'] }).sections.baserowSources.filter.operators;
+  const listed = Object.values(shorthand.operators).filter(Array.isArray).flat();
+  assert.ok(listed.length >= 15);
+  assert.deepEqual(listed.filter(op => !all.includes(op)), []);
+  assert.doesNotMatch(shorthand.filter, /baserowSources/);
+  const quick = api().contract({}).quickReference.baserow.operators.match(/\b[a-z]+(?:_[a-z]+)+\b|\b(?:contains|equal|empty|boolean)\b/g);
+  assert.ok(quick.length >= 15);
+  assert.deepEqual(quick.filter(op => !all.includes(op)), []);
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  const step1 = skill.split('\n').find(line => line.startsWith('1. Read the no-code contract'));
+  assert.match(step1, /Baserow data needs no section/);
+  assert.doesNotMatch(step1, /`baserowSources` and `backendActions` for Baserow data/);
+});
+// Vibe keeps a tool result inline up to about 16 KB of its JSON indented with sorted keys; a larger one is spilled to
+// a file that its agent read with 14 to 20 shell commands per turn (22/10 on test-nocode).
+const indentedSize = value => {
+  const sorted = v => Array.isArray(v) ? v.map(sorted) : (v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
+  return JSON.stringify(sorted(JSON.parse(JSON.stringify(value))), null, 2).length;
+};
+test('the contract core and the sections an application needs fit inline', () => {
+  const client = api();
+  const core = client.contract({});
+  assert.ok(indentedSize(core) < 14000, 'core ' + indentedSize(core));
+  for (const name of ['generationQuality', 'styles', 'generationSteps', 'componentAuthoring', 'editTool', 'contextualDefaults', 'flowAuthoring', 'baserowShorthand']) {
+    const size = indentedSize(client.contract({ sections: [name] }));
+    assert.ok(size < 15000, name + ' ' + size);
+  }
+  assert.ok(indentedSize(client.contract({ sections: ['generationQuality', 'styles'] })) > 16000, 'the skill asks for one answer per call');
+  const whole = client.contract({ sections: ['all'] }).authoringContract;
+  const asSections = client.contract({ sections: ['generationQuality', 'styles', 'generationSteps'] }).sections;
+  assert.deepEqual(clone(asSections.styles), clone(whole.generationQuality.styles));
+  assert.deepEqual(clone(asSections.generationSteps), clone({ incrementalCreation: whole.generationQuality.incrementalCreation, completion: whole.generationQuality.completion }));
+  assert.match(asSections.generationQuality.styles, /sections:\["styles"\]/);
+});
+test('the quick reference agrees with the compiler', () => {
+  const client = api();
+  const core = client.contract({});
+  const quick = core.quickReference;
+  const whole = client.contract({ sections: ['all'] }).authoringContract;
+  const example = client.compile(clone(quick.example), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
+  assert.equal(example.status, 'ok', JSON.stringify(example.validation && example.validation.issues));
+  assert.deepEqual(clone(example.validation.issues), []);
+  const conditionOperators = quick.conditions.split('Operators:')[1].match(/\b[a-z]+(?:_[a-z]+)*\b/g).filter(word => !['and', 'value', 'is', 'an', 'array', 'no', 'a', 'grid', 'empty', 'until', 'row', 'selected', 'hidden', 'component', 'not', 'checked', 'as', 'mandatory'].includes(word));
+  assert.deepEqual(conditionOperators.filter(op => !whole.conditionFields.reducedShape.operators.includes(op)), []);
+  const actions = [...quick.edit.matchAll(/\b([a-z]+(?:_[a-z]+)+) [{(]/g)].map(m => m[1]).concat(['finalize_baserow_bindings']);
+  assert.ok(actions.length >= 13);
+  assert.deepEqual(actions.filter(action => !source.includes('action === "' + action + '"')), []);
+  for (const type of quick.example.pages.flatMap(p => p.fields).map(f => f.type)) assert.ok(type === 'section' || core.types.includes(type), type);
+  assert.deepEqual(Object.keys(core.sectionIndex).filter(name => !/ \(\d+ KB\)$/.test(core.sectionIndex[name]) || core.sectionIndex[name].startsWith(name + ' (')), [], 'every section says what it holds');
+  assert.equal(core.authoringContract, undefined);
+  assert.equal(core.allTypesPath, undefined, 'no server path in the agent answer');
+});
 test('contract documents the readable UI patterns and its examples compile', () => {
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   const quality = contract.generationQuality;
   for (const key of ['designTokens', 'pageHeader', 'actionBar', 'listDetail', 'emptyStates', 'toasts', 'dataViews']) assert.ok(quality[key], key);
   assert.ok(contract.conditionFields.reducedShape.operators.includes('is_filled'));
@@ -1255,7 +1356,8 @@ test('review regressions: never=false, null and empty conditions, native if_else
   const created = h.client.create(input, h.auth);
   const cleared = h.client.edit(created.form._id, [{ action: 'update_field', fieldName: 'open', patch: { visibleIf: null, disabledIf: null } }], h.auth);
   assert.equal(cleared.saved, true, JSON.stringify(cleared.error || cleared.validation));
-  const open = cleared.form.formulaire.find(f => f.name === 'open');
+  // The answer drops empty condition groups: check the saved document.
+  const open = h.state.forms[created.form._id].formulaire.find(f => f.name === 'open');
   assert.equal(open.conditions.visibleIf, undefined);
   assert.equal(open.conditions.buttonStateIf, undefined);
 });
@@ -1270,7 +1372,8 @@ test('review regressions: button edits keep designer colors and switch variant b
     { action: 'update_field', fieldName: 'alt', patch: { variant: 'danger' } }
   ], h.auth);
   assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
-  const config = name => edited.form.formulaire.find(f => f.name === name).config;
+  // The answer drops empty values: read the saved document.
+  const config = name => h.state.forms[created.form._id].formulaire.find(f => f.name === name).config;
   assert.deepEqual([config('open').fill, config('open').backgroundColor, config('open').color], ['outline', 'transparent', '#000000']);
   assert.deepEqual([config('alt').fill, config('alt').backgroundColor, config('alt').componentBoxStyle.border], ['solid', '#B91C1C', '']);
   assert.throws(() => api().compile({ name: 'Bad', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', variant: 'toString' }] }] }), /Unknown button variant/);
@@ -1377,7 +1480,7 @@ test('add_field gives role spacing on application pages and a section in edits',
   assert.equal(byName('f2').parentRef, byName('filters_row1').id);
 });
 test('contract section and page examples compile with role spacing', () => {
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   const r = api().compile({ name: 'Examples', navigationMode: 'custom', pages: [contract.generationQuality.pageHeader.example, { name: 'More', fields: [contract.componentAuthoring.section.example] }] });
   assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
   assert.ok(r.form.formulaire.some(f => f.name === 'contact_identity' && f.type === 'layout'));
@@ -1415,7 +1518,7 @@ test('wide_page_margin flags an application keeping wide margins and set_root na
   assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
   assert.equal(edited.form.config.desktop.horizontalMargin.value, '32');
   assert.equal(edited.form.config.desktop.padding.value, '24', 'set_root config is merged');
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   assert.equal(contract.rootFields.config.recommended.application.desktop.horizontalMargin.value, '32');
   assert.match(contract.generationQuality.styles.mobile, /horizontalMargin/);
 });
@@ -1426,9 +1529,9 @@ test('viewer title choice, grid second click and documented button and header li
   assert.equal(r.form.formulaire[0].config.deselectOnSecondClick, false);
   assert.equal(api().compile(styled([])).form.config.titleDisplay, undefined, 'the viewer default is kept');
   assert.throws(() => api().compile(styled([], { titleDisplay: 'both' })), /titleDisplay must be/);
-  const quality = api().contract().authoringContract.generationQuality;
+  const quality = api().contract({ sections: ['all'] }).authoringContract.generationQuality;
   assert.match(quality.actionBar.width, /expand block or full makes it fill the width of its column in recent viewers/);
-  assert.doesNotMatch(JSON.stringify(api().contract().authoringContract), /not rendered as a full-width|does not stretch/);
+  assert.doesNotMatch(JSON.stringify(api().contract({ sections: ['all'] }).authoringContract), /not rendered as a full-width|does not stretch/);
   assert.match(quality.dataViews.headers, /user's language/);
 });
 test('box styles: only the keys the viewer renders, nested parts of layoutChildrenStyle', () => {
@@ -1480,13 +1583,13 @@ test('component visuals: grid toolbar style, image and map sizes, container text
   const form = clone(r.form);
   form.config.boxStyle = { padding: '16px' };
   assert.ok(api().validate(form).validation.warnings.some(w => w.code === 'global_box_style' && w.path === '/config/boxStyle'));
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   assert.ok(contract.styleRendering.precedence && contract.styleRendering.textColor && contract.styleRendering.nesting);
   assert.match(contract.componentAuthoring.grid.visual, /gridCellPadding/);
   assert.ok(contract.styleObjectFields.borderWidth.legacy);
 });
 test('Baserow filter sub-groups: documented and kept by compile and edit', () => {
-  const filter = api().contract().authoringContract.baserowSources.filter;
+  const filter = api().contract({ sections: ['all'] }).authoringContract.baserowSources.filter;
   assert.match(filter.groups.shape, /recursive/);
   assert.match(filter.groups.depth, /4 levels/);
   assert.match(filter.groups.variables, /forms_tableFilter.*forms_Filter/);
@@ -1510,7 +1613,7 @@ test('Baserow filter sub-groups: documented and kept by compile and edit', () =>
   assert.equal(JSON.stringify(saved.groups), JSON.stringify(grouped.groups), 'nocode-form-edit keeps them');
 });
 test('aggregation labels: documented, kept by compile', () => {
-  const contract = api().contract().authoringContract;
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
   const aggregations = contract.baserowSources.groupAggregations;
   assert.match(aggregations.syntax, /optional label after =/);
   assert.match(aggregations.labels.key, /sum_Contract Value/);
@@ -1541,7 +1644,7 @@ test('refresh_grid targets a grid, a gallery or a chart; local rows a grid only'
   const r = api().compile(styled(fields, flows('cards')));
   const gallery = r.form.formulaire.find(f => f.name === 'cards');
   assert.equal(String(r.form.flows.find(f => f.id === 'reload').elements[0].config.targetGrid), String(gallery.id), 'resolved to the id of the gallery');
-  assert.match(api().contract().authoringContract.flowAuthoring.gridActions, /a grid, a gallery or a chart for refresh_grid/);
+  assert.match(api().contract({ sections: ['all'] }).authoringContract.flowAuthoring.gridActions, /a grid, a gallery or a chart for refresh_grid/);
 });
 test('sticky: compiled into config, validated, and an edit puts reduced config keys in config', () => {
   const r = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'notOnPhone' }]));
@@ -1550,7 +1653,7 @@ test('sticky: compiled into config, validated, and an edit puts reduced config k
   assert.equal(r.form.formulaire[0].sticky, undefined);
   const bad = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'top' }]));
   assert.ok(clone(bad.validation.issues).some(i => i.code === 'invalid_sticky'));
-  assert.deepEqual(clone(api().contract().authoringContract.commonFieldFields.sticky.enum), ['always', 'notOnPhone']);
+  assert.deepEqual(clone(api().contract({ sections: ['all'] }).authoringContract.commonFieldFields.sticky.enum), ['always', 'notOnPhone']);
   const h = creationHarness();
   const start = h.client.create(connectedWithoutIdentities(), h.auth);
   const grid = start.form.formulaire.find(f => f.type === 'grid');
@@ -1560,4 +1663,499 @@ test('sticky: compiled into config, validated, and an edit puts reduced config k
   assert.equal(saved.config.sticky, 'always');
   assert.equal(saved.deselectOnSecondClick, undefined);
   assert.equal(saved.sticky, undefined);
+});
+
+test('agent answers: the saved form without empty values, transport details or token payload; sources as saved', () => {
+  const h = creationHarness();
+  const created = h.client.create(connectedWithoutIdentities(), h.auth);
+  assert.equal(created.saved, true, JSON.stringify(created.validation));
+  const text = JSON.stringify(created);
+  assert.doesNotMatch(text, /_c8oMeta|"payload"|allTypesPath/);
+  assert.doesNotMatch(JSON.stringify(created.form.formulaire.map(f => f.config)), /:""/, 'no empty config value');
+  const saved = h.state.forms[created.form._id];
+  assert.ok(text.length < JSON.stringify(saved).length);
+  const grid = saved.formulaire.find(f => f.sources && f.sources['lib_BaseRow.formssource_GetTableData']);
+  const answered = created.form.formulaire.find(f => f.id === grid.id);
+  assert.deepEqual(clone(answered.sources), clone(grid.sources), 'sources are answered exactly as saved');
+  assert.equal(saved.formulaire[0].config.boxStyle.margin !== undefined, true, 'the saved document keeps its full shape');
+  assert.deepEqual(Object.keys(created).slice(0, 2), ['id', 'rev'], 'the id and the revision come first');
+  assert.equal(created.id, created.form._id);
+  const edited = h.client.edit(created.form._id, [{ action: 'set_root', patch: { name: 'Renamed' } }], h.auth);
+  assert.equal(edited.form.name, 'Renamed');
+  assert.equal(edited.rev, edited.form._rev);
+  assert.doesNotMatch(JSON.stringify(edited), /_c8oMeta|"payload"/);
+});
+test('new questions: no preselected select or checkbox answer, no prototype icon or question, required fields checked on submit', () => {
+  const r = api().compile({ name: 'Defaults', navigationMode: 'custom', pages: [{ name: 'P', fields: [
+    { type: 'select', name: 's', label: 'S', values: ['A', 'B'] },
+    { type: 'checkbox', name: 'c', label: 'C', values: ['A', 'B'] },
+    { type: 'radio', name: 'r', label: 'R', values: ['A', 'B'] },
+    { type: 'grid', name: 'g', sourceEnabled: false, columns: [{ name: 'A', type: 'text' }] },
+    { type: 'button', name: 'save', label: 'Save', flow: 'save' },
+    { type: 'button', name: 'go', label: 'Go', flow: 'go', icon: 'arrow-forward' },
+    { type: 'button', name: 'free', label: 'Free', flow: 'save', checkMandatoryInCurrentPage: false }
+  ] }], flows: [
+    { id: 'save', name: 'Save', elements: [{ type: 'submit', actions: { 'lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple': { enabled: true, fullsync: false, vars: {} } } }] },
+    { id: 'go', name: 'Go', elements: [{ type: 'push_page', targetPage: 'P' }] }
+  ] });
+  const field = name => r.form.formulaire.find(f => f.name === name);
+  assert.deepEqual(clone(field('s').children.map(o => o.selected)), [false, false]);
+  assert.deepEqual(clone(field('c').children.map(o => o.selected)), [false, false]);
+  assert.deepEqual(clone(field('r').children.map(o => o.selected)), [true, false], 'a radio list keeps the prototype default');
+  assert.equal(field('g').config.html, '');
+  assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_question_label'));
+  assert.equal(field('save').config.icon, '');
+  assert.equal(field('go').config.icon, 'arrow-forward');
+  assert.equal(field('save').config.checkMandatoryInCurrentPage, true);
+  assert.equal(field('free').config.checkMandatoryInCurrentPage, false);
+  assert.equal(field('go').config.checkMandatoryInCurrentPage, false);
+  const saveIndex = r.form.formulaire.findIndex(f => f.name === 'save');
+  assert.ok(!r.validation.warnings.some(w => w.code === 'submit_without_required_check' && w.path.startsWith('/formulaire/' + saveIndex + '/')));
+  assert.ok(r.validation.warnings.some(w => w.code === 'submit_without_required_check'), 'an explicit false is still reported');
+});
+test('spacing warnings: none on a questionnaire\'s questions or on a section title, still on a bare application block', () => {
+  const questionnaire = api().compile({ name: 'Q', pages: [{ name: 'P', fields: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] }] });
+  assert.ok(!questionnaire.validation.warnings.some(w => w.code === 'missing_block_spacing'));
+  const app = api().compile({ name: 'App', navigationMode: 'custom', pages: [{ name: 'P', header: { title: 'P' }, fields: [
+    { type: 'section', name: 'sec', title: 'Section', fields: [{ type: 'text', name: 'a', label: 'A' }] },
+    { type: 'description', name: 'note', description: '<p style="margin:0">Note</p>', boxStyle: { margin: '', padding: '' }, config: { boxStyle: { margin: '', padding: '' } } }
+  ] }], styleDefaults: false });
+  assert.ok(!app.validation.warnings.some(w => w.code === 'html_spacing_without_container_style' && /formulaire\/2\//.test(w.path)), JSON.stringify(app.validation.warnings));
+  assert.ok(app.validation.warnings.some(w => w.code === 'missing_block_spacing'), 'a bare application block is still reported');
+});
+test('a create refused before its first save does not ask to finalize a saved id', () => {
+  const h = creationHarness({ columns: [{ name: 'Other', type: 'text' }] });
+  const r = h.client.create(connectedWithoutIdentities(), h.auth);
+  assert.equal(r.saved, false);
+  assert.ok(!r.validation.warnings.some(w => w.code === 'baserow_identity_incomplete'), JSON.stringify(r.validation.warnings));
+  const empty = api().compile({ name: 'E', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }], flows: [{ id: 'f', name: 'F', elements: [{ type: 'submit', actions: {} }] }] });
+  assert.match(empty.validation.issues.find(i => i.code === 'unconfigured_submit').message, /automatic submit of its last page.*saveTo/);
+});
+test('a source or an action written with plain values gets the UI-authored encoding', () => {
+  const r = api().compile({ name: 'Plain', navigationMode: 'custom', pages: [{ name: 'P', fields: [
+    { type: 'text', name: 'Name', label: 'Name' },
+    { type: 'grid', name: 'deals', label: 'Deals', sources: { 'lib_BaseRow.formssource_GetTableData': { vars: {
+      forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, columns: ['Name'], hidden: [], link_row_table_id: [] },
+      forms_tableSort: { conds: [{ name: 'Name', order: 'asc' }] },
+      forms_tableGroupBy: 'Name'
+    } } } },
+    { type: 'button', name: 'save', label: 'Save', flow: 'save' }
+  ] }], flows: [{ id: 'save', name: 'Save', elements: [{ type: 'submit', actions: { 'lib_BaseRow.forms_AddRow': { vars: {
+    forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, link_row_table_id: [] }, forms_id: '', forms_createColumn: false
+  } } } }] }] });
+  const grid = r.form.formulaire.find(f => f.name === 'deals').sources['lib_BaseRow.formssource_GetTableData'];
+  assert.equal(grid.enabled, true, 'an entry given without enabled is meant to run');
+  assert.equal(JSON.parse(grid.vars.forms_config.str).table_id_int, 30);
+  assert.equal(grid.vars.forms_config.html, false);
+  assert.deepEqual(clone(grid.vars.forms_tableSort), { conds: [{ name: 'Name', order: 'asc' }], str: '', html: false, type: 'sort' });
+  assert.deepEqual(clone(grid.vars.forms_tableGroupBy), { str: 'Name', html: false });
+  const action = r.form.flows.find(f => f.id === 'save').elements[0].actions['lib_BaseRow.forms_AddRow'];
+  assert.deepEqual(clone(action.vars.forms_id), { str: '', html: false });
+  assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
+  assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
+});
+test('the skill and the quick reference say what a tool answers in code mode', () => {
+  // 23/10 on test-nocode (S1): the agent read r.result, got nothing, and spent five reads finding the answer's shape,
+  // then looked for the options of a select in config.children.
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  assert.match(skill, /Called from code \(`run_typescript`\), a tool resolves to its answer itself: read `r\.status`, `r\.form`/);
+  assert.match(skill, /the options of a choice are its `children`/);
+  const answers = api().contract({}).quickReference.answers;
+  assert.match(answers, /no r\.result/);
+  assert.match(answers, /choice options in children/);
+  const options = api().compile({ name: 'S', pages: [{ name: 'P', fields: [{ type: 'select', name: 'kind', label: 'Type', values: ['CP', 'RTT'] }] }] }).form.formulaire[0];
+  assert.deepEqual(Array.from(options.children, o => o.value), ['CP', 'RTT'], 'options are the children of the saved component');
+  assert.equal(options.config.children, undefined);
+});
+test('a button that announces a success and empties the inputs without saving them is refused', () => {
+  // 23/10 on test-nocode (S1): an "Envoyer" button with a toast and reset_fields next to the questionnaire's own
+  // Envoyer button, the only one that saves.
+  const questionnaire = (elements, extra = {}) => ({ name: 'Demande de congés', language: 'fr', navigationMode: 'buttons', ...extra, pages: [{ name: 'Demande', fields: [
+    { type: 'text', name: 'Demandeur', label: 'Demandeur' },
+    { type: 'button', name: 'send', label: 'Envoyer', flow: 'send' }
+  ] }], flows: [{ id: 'send', name: 'Envoyer', elements }] });
+  const codes = r => r.validation.issues.map(i => i.code);
+  const fake = api().compile(questionnaire([{ type: 'toast', message: 'Demande envoyée', color: 'success' }, { type: 'reset_fields', scope: 'page' }]));
+  assert.equal(fake.status, 'invalid');
+  assert.match(fake.validation.issues.find(i => i.code === 'success_without_save').message, /own Envoyer button on its last page/);
+  assert.ok(codes(api().compile(questionnaire([{ type: 'toast', message: 'Envoyée' }, { type: 'reset_fields' }]))).includes('success_without_save'), 'a toast without color is a success');
+  const saved = api().compile(questionnaire([{ type: 'submit', saveTo: { table: 5271, values: { Demandeur: 'Demandeur' } } }, { type: 'toast', message: 'Demande envoyée' }, { type: 'reset_fields', scope: 'page' }]), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
+  assert.ok(!codes(saved).includes('success_without_save'), JSON.stringify(saved.validation.issues));
+  const cancel = api().compile(questionnaire([{ type: 'toast', message: 'Saisie effacée', color: 'info' }, { type: 'reset_fields', scope: 'page' }]));
+  assert.ok(!codes(cancel).includes('success_without_save'));
+  assert.ok(api().validate(clone(fake.form)).validation.warnings.some(w => w.code === 'success_without_save'), 'a saved form gets a warning');
+});
+test('a page header repeating the form name shown in the title card is reported', () => {
+  const form = (header, extra = {}, page = {}) => api().compile({ name: "Demandes d'achat", navigationMode: 'buttons', ...extra, pages: [{ name: 'P', header, ...page, fields: [{ type: 'text', name: 'q', label: 'Q' }] }] });
+  const warned = r => r.validation.warnings.some(w => w.code === 'repeated_title_in_header');
+  assert.ok(warned(form({ title: "Demandes d'achat" })), 'escaped apostrophe');
+  assert.ok(!warned(form({ title: 'Nouvelle demande' })));
+  assert.ok(!warned(form({ title: "Demandes d'achat" }, { titleDisplay: 'none' })));
+  assert.ok(!warned(form({ title: "Demandes d'achat" }, {}, { isNameDisplayed: false })));
+  assert.ok(!warned(form({ title: "Demandes d'achat" }, { navigationMode: 'custom' })), 'custom pages hide the title card by default');
+});
+test('the contract answers its core with an index of every section, the sections asked for, or all of it', () => {
+  const client = api();
+  const core = client.contract({});
+  assert.ok(core.quickReference && core.quickReference.baserow && core.quickReference.edit);
+  assert.match(core.sectionIndex.baserowSources, /KB/);
+  assert.match(core.sectionIndex.componentAuthoring, /KB/);
+  assert.equal(core.sectionIndex.quickReference, undefined);
+  assert.match(core.moreSections, /generationQuality/);
+  const part = client.contract({ sections: '["baserowSources","backendActions"]' });
+  assert.deepEqual(Object.keys(part.sections), ['baserowSources', 'backendActions']);
+  const whole = client.contract({ sections: ['all'] });
+  assert.ok(whole.authoringContract.generationQuality && whole.authoringContract.baserowSources && whole.authoringContract.quickReference);
+  assert.equal(whole.moreSections, undefined);
+  assert.ok(client.contract({ includeAllTypes: true }).authoringContract.baserowSources, 'includeAllTypes keeps the whole contract');
+  const wrong = client.contract({ sections: ['nope'] });
+  assert.equal(wrong.status, 'invalid');
+  assert.ok(wrong.availableSections.includes('flowAuthoring') && wrong.availableSections.includes('styles'));
+  assert.ok(!wrong.availableSections.includes('all') && !/\ball\b/.test(core.moreSections), 'the whole contract is not offered to agents');
+});
+// The reduced Baserow source and save shorthands. tableIndex stands for the user's catalog.
+const reducedTables = [{ id: 5277, name: 'Tickets', path: 'Team~>Support~>Tickets' }, { id: 5278, name: 'Agents', path: 'Team~>Support~>Agents' }];
+function smartRef(item, path) {
+  return '$$START' + item.id + JSON.stringify({ c8otype: 'path', c8opath: path, c8oPrettyPath: '', c8obuiltin: 'false', fakeId: 'fakeId' + item.id, c8oName: null }) + 'END' + item.id + '$$';
+}
+function ticketsApp() {
+  return { name: 'Tickets', navigationMode: 'custom', pages: [
+    { name: 'Tickets', fields: [
+      { type: 'text', name: 'search', label: 'Recherche', sticky: 'always' },
+      { type: 'select', name: 'priority_filter', label: 'Priorité', source: { table: 5277, field: 'Priorité' } },
+      { type: 'grid', name: 'tickets', label: 'Tickets', source: { table: 5277, columns: ['Titre', 'Priorité', 'Statut'], sort: 'Titre,-Créé le', filter: { all: [
+        { any: [{ column: 'Titre', operator: 'contains', value: { field: 'search' } }, { column: 'Description', operator: 'contains', value: { field: 'search' } }] },
+        { column: 'Statut', operator: 'single_select_not_equal', value: 'Fermé' }
+      ] } } },
+      { type: 'chart', name: 'by_priority', label: 'Par priorité', source: { table: 'Team~>Support~>Tickets', columns: ['Priorité'], groupBy: 'Priorité', aggregations: 'count=Nombre' } },
+      { type: 'select', name: 'agent', label: 'Agent', source: { table: { id: 5278, path: 'Team~>Support~>Agents' }, display: 'Nom', value: 'Email' } },
+      { type: 'text', name: 'Titre', label: 'Titre' },
+      { type: 'text', name: 'new_status', label: 'Statut' },
+      { type: 'button', name: 'save', label: 'Créer', flow: 'save' },
+      { type: 'button', name: 'close', label: 'Fermer le ticket', flow: 'close' },
+      { type: 'button', name: 'remove', label: 'Supprimer', flow: 'remove', variant: 'danger' }
+    ] }
+  ], flows: [
+    { id: 'save', name: 'Créer le ticket', elements: [{ type: 'submit', saveTo: { table: 5277 } }] },
+    { id: 'close', name: 'Fermer le ticket', elements: [{ type: 'submit', saveTo: { table: 5277, row: 'tickets', values: { Statut: { value: 'Fermé' }, Titre: 'Titre', Commentaire: { field: 'new_status' } } } }] },
+    { id: 'remove', name: 'Supprimer le ticket', elements: [{ type: 'submit', deleteFrom: { table: 5277, row: 'tickets' } }] }
+  ] };
+}
+test('reduced Baserow sources compile to the UI-authored sources, tables found in the catalog', () => {
+  const r = api().compile(ticketsApp(), { tableIndex: reducedTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const item = name => r.form.formulaire.find(f => f.name === name);
+  const grid = item('tickets').sources['lib_BaseRow.formssource_GetTableData'];
+  assert.equal(grid.enabled, true);
+  assert.deepEqual(JSON.parse(grid.vars.forms_config.str).table_id, 'Team~>Support~>Tickets');
+  assert.equal(JSON.parse(grid.vars.forms_config.str).table_id_int, 5277);
+  assert.deepEqual(clone(grid.vars.forms_tableSort.conds), [{ name: 'Titre', order: 'asc' }, { name: 'Créé le', order: 'desc' }]);
+  const filter = clone(grid.vars.forms_tableFilter);
+  assert.equal(filter.condVisible, 'and');
+  assert.equal(filter.type, 'filter');
+  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, c.val2.str]), [['Statut', 'single_select_not_equal', 'Fermé']]);
+  assert.equal(filter.groups[0].condVisible, 'or');
+  assert.deepEqual(filter.groups[0].conds.map(c => c.val2.str), [smartRef(item('search'), 'search'), smartRef(item('search'), 'search')]);
+  assert.deepEqual(clone(item('tickets').config.columns).map(c => c.name), ['Titre', 'Priorité', 'Statut']);
+  const chart = item('by_priority').sources['lib_BaseRow.formssource_GetTableData'].vars;
+  assert.equal(JSON.parse(chart.forms_config.str).table_id_int, 5277, 'a path finds the id');
+  assert.equal(chart.forms_tableGroupBy.str, 'Priorité');
+  assert.equal(chart.forms_tableAggregations.str, 'count=Nombre');
+  const values = item('priority_filter').sources['lib_BaseRow.formssource_GetFieldValues'].vars;
+  const valuesConfig = JSON.parse(values.forms_config.str);
+  assert.deepEqual([valuesConfig.table_id, valuesConfig.columns], [5277, ['Priorité']]);
+  assert.deepEqual(clone(item('priority_filter').children), [], 'no prototype choices next to a source');
+  const rows = JSON.parse(item('agent').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str);
+  assert.deepEqual([rows.table_id, rows.table_id_int, rows.displayValue, rows.value, rows.columns], ['Team~>Support~>Agents', 5278, 'Nom', 'Email', ['Nom', 'Email']]);
+  assert.doesNotMatch(JSON.stringify(r.form), /__reduced/);
+});
+test('reduced saves compile to forms_AddRow, forms_AddRowFromData and forms_DeleteRow with field and row references', () => {
+  const r = api().compile(ticketsApp(), { tableIndex: reducedTables });
+  const item = name => r.form.formulaire.find(f => f.name === name);
+  const action = (flow, key) => r.form.flows.find(f => f.id === flow).elements[0].actions[key];
+  const add = action('save', 'lib_BaseRow.forms_AddRow').vars;
+  assert.deepEqual(JSON.parse(add.forms_config.str).table_id, 'Team~>Support~>Tickets');
+  assert.deepEqual(clone(add.forms_id), { str: '', html: false });
+  const update = action('close', 'lib_BaseRow.forms_AddRowFromData').vars;
+  assert.equal(update.forms_id.str, smartRef(item('tickets'), 'tickets.id.value'));
+  assert.deepEqual(clone(update.forms_freeVars), [{ name: 'Statut', str: 'Fermé' }, { name: 'Titre', str: smartRef(item('Titre'), 'Titre') }, { name: 'Commentaire', str: smartRef(item('new_status'), 'new_status') }], 'the list of { name, str } the editor writes');
+  const remove = action('remove', 'lib_BaseRow.forms_DeleteRow').vars;
+  assert.equal(remove.forms_id.str, smartRef(item('tickets'), 'tickets.id.value'));
+  assert.ok(!r.validation.issues.some(i => /baserow/i.test(i.code)), JSON.stringify(r.validation.issues));
+});
+test('reduced Baserow shorthands refuse what they cannot resolve, with the way out', () => {
+  const unknownTable = ticketsApp(); unknownTable.pages[0].fields[2].source.table = 999;
+  assert.throws(() => api().compile(unknownTable, { tableIndex: reducedTables }), /table 999 is not in the Baserow catalog/);
+  const unknownField = ticketsApp(); unknownField.flows[1].elements[0].saveTo.values.Statut = 'Fermé';
+  assert.throws(() => api().compile(unknownField, { tableIndex: reducedTables }), /\{ value: "Fermé" \}.*no single component named "Fermé"/);
+  const noCatalog = ticketsApp();
+  assert.throws(() => api().compile(noCatalog), /with nocode-form-compile alone, give \{ id, path \}/);
+  assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'text', name: 't', label: 'T', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /a text has no Baserow source/);
+  assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'grid', name: 'g', label: 'G', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /columns lists the table columns/);
+});
+test('edits accept the reduced source and saves', () => {
+  const h = creationHarness({ columns: ['Reference', 'Status', 'Titre', 'Statut', 'Nom'].map(name => ({ name, type: 'text' })) });
+  const created = h.client.create(example(), h.auth);
+  const id = created.form._id;
+  const edited = h.client.edit(id, [
+    { action: 'add_field', pageName: 'Requests', fieldObject: { type: 'grid', name: 'tickets', label: 'Tickets', source: { table: { id: 5277, path: 'Team~>Support~>Tickets' }, columns: ['Titre'] } } },
+    { action: 'add_flow', flowId: 'archive', name: 'Archiver', flowData: { elements: [] } },
+    { action: 'add_flow_element', flowId: 'archive', element: { type: 'submit', saveTo: { table: { id: 5277, path: 'Team~>Support~>Tickets' }, row: 'tickets', values: { Statut: { value: 'Archivé' } } } } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  const saved = h.state.forms[id];
+  const grid = saved.formulaire.find(f => f.name === 'tickets');
+  assert.equal(JSON.parse(grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str).table_id_int, 5277);
+  const submit = saved.flows.find(f => f.id === 'archive').elements[0];
+  assert.equal(submit.actions['lib_BaseRow.forms_AddRowFromData'].vars.forms_id.str, smartRef(grid, 'tickets.id.value'));
+  const resourced = h.client.edit(id, [{ action: 'update_field', fieldName: 'tickets', patch: { source: { table: { id: 5278, path: 'Team~>Support~>Agents' }, columns: ['Nom'] } } }], h.auth);
+  assert.equal(resourced.saved, true, JSON.stringify(resourced.error || resourced.validation));
+  const regrid = h.state.forms[id].formulaire.find(f => f.name === 'tickets');
+  assert.equal(JSON.parse(regrid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str).table_id_int, 5278);
+});
+
+test('forms_freeVars: a column map becomes the editor list, JSON text still runs with a warning, columns are checked either way', () => {
+  const h = creationHarness();
+  const input = connectedWithoutIdentities();
+  const step = input.flows[2].elements[0];
+  const entry = step.actions['lib_BaseRow.forms_AddRow'];
+  entry.vars.forms_freeVars = { Reference: 'R-1', Status: 'Open' };
+  step.actions = { 'lib_BaseRow.forms_AddRowFromData': entry };
+  const created = h.client.create(input, h.auth);
+  assert.equal(created.status, 'ok', JSON.stringify(created.validation));
+  const saved = h.state.forms[created.form._id].flows.find(f => f.elements.some(e => e.actions && e.actions['lib_BaseRow.forms_AddRowFromData']));
+  const savedVars = saved.elements.find(e => e.actions && e.actions['lib_BaseRow.forms_AddRowFromData']).actions['lib_BaseRow.forms_AddRowFromData'].vars;
+  assert.deepEqual(savedVars.forms_freeVars, [{ name: 'Reference', str: 'R-1' }, { name: 'Status', str: 'Open' }]);
+  assert.ok(!created.validation.warnings.some(w => w.code === 'freevars_text_shape'));
+  entry.vars.forms_freeVars = { Wrong: 'value' };
+  assert.ok(h.client.create(input, h.auth).validation.issues.some(i => i.code === 'unknown_baserow_column'), 'the list is checked against the table');
+  entry.vars.forms_freeVars = { str: JSON.stringify({ Reference: 'R-2' }), html: false };
+  const legacy = h.client.create(input, h.auth);
+  assert.equal(legacy.status, 'ok');
+  assert.ok(legacy.validation.warnings.some(w => w.code === 'freevars_text_shape'));
+});
+
+// nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
+// stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
+const TICKETS = { id: 5277, name: 'Tickets', columns: [
+  { id: 1, name: 'Titre', type: 'text', primary: true },
+  { id: 2, name: 'Description', type: 'long_text' },
+  { id: 3, name: 'Priorité', type: 'single_select', select_options: [{ id: 11, value: 'Basse' }, { id: 12, value: 'Haute' }] },
+  { id: 4, name: 'Statut', type: 'single_select', select_options: [{ id: 21, value: 'Ouvert' }, { id: 22, value: 'Fermé' }] },
+  { id: 5, name: 'Créé le', type: 'created_on', read_only: true },
+  { id: 6, name: 'Échéance', type: 'date' },
+  { id: 7, name: 'Montant', type: 'number' }
+] };
+function planApp(spec, tables = [TICKETS], options = {}) {
+  const C8O = api(undefined, ['js/nocode_app.js']);
+  const calls = [];
+  C8O.nocodeBaserow = {
+    catalogList: () => ({ status: 'ok', authentication: { authenticated: true, user: 'person@example.invalid' },
+      workspaces: options.workspaces || [{ id: 10, name: 'Team', bases: [{ id: 20, name: 'Support', tables: tables.map(t => ({ id: t.id, name: t.name })) }] }] }),
+    tableFields: id => { calls.push('fields ' + id); return { bearer: 'JWT test', fields: clone((tables.find(t => t.id === Number(id)) || {}).columns || []) }; },
+    schemaApply: o => {
+      calls.push('schema ' + o.mode);
+      const schema = clone(o.schema);
+      return { status: 'ok', schema, actions: schema.tables.filter(t => t.id == null).map(t => ({ type: 'create_table', table: t.name })), created: {} };
+    }
+  };
+  let compiled = null;
+  const compile = C8O.nocodeForms.compile;
+  C8O.nocodeForms.compile = (reduced, o) => (compiled = compile(reduced, o));
+  const result = C8O.nocodeApp.create({ mode: 'plan', ...spec }, { token: 't' });
+  return { result: clone(result), form: compiled && clone(compiled.form), validation: compiled && clone(compiled.validation), calls };
+}
+const byName = (form, name) => form.formulaire.find(item => item.name === name);
+const flowOf = (form, id) => form.flows.find(flow => flow.id === id);
+const pageOf = (form, name) => form.pages.find(page => page.name === name);
+function refTarget(str) {
+  const match = /^\$\$START(\d+)\{.*\}END(\d+)\$\$$/.exec(str);
+  assert.ok(match, 'a SmartSource reference: ' + str);
+  assert.equal(match[1], match[2]);
+  return Number(match[1]);
+}
+const ticketsSpec = (screens = {}) => ({ name: 'Suivi des tickets', entities: [{ name: 'ticket', plural: 'tickets', table: 5277, screens: {
+  list: { columns: ['Titre', 'Priorité', 'Statut', 'Échéance'], search: ['Titre', 'Description'], filters: ['Priorité'] }, detail: true, form: true, ...screens } }] });
+function buttonsReach(form) {
+  // Every button opens an existing flow, every push_page targets an existing page, and every page but the first is
+  // reached by a button and has a button that leaves it.
+  const techNames = form.pages.map(page => page.pageTechName);
+  const reached = new Set();
+  const leaving = new Set();
+  for (const item of form.formulaire.filter(i => i.type === 'button')) {
+    const flow = flowOf(form, item.flow);
+    assert.ok(flow && flow.elements.length, item.name + ' has a flow');
+    for (const element of flow.elements.filter(e => e.type === 'push_page')) {
+      assert.ok(techNames.includes(element.config.targetPage), item.name + ' targets an existing page');
+      reached.add(element.config.targetPage);
+      leaving.add(item.config.page);
+    }
+  }
+  form.pages.slice(1).forEach(page => {
+    assert.ok(reached.has(page.pageTechName), page.name + ' is reached');
+    assert.ok(leaving.has(page.pageTechName), page.name + ' has a way back');
+  });
+}
+test('nocode-app-create: a ticket list with search OR, a choice filter, a detail and an entry form (S11)', () => {
+  const { result, form, validation } = planApp(ticketsSpec());
+  assert.equal(result.status, 'ok', JSON.stringify(result));
+  assert.equal(validation.issueCount, 0, JSON.stringify(validation.issues));
+  assert.deepEqual(validation.warnings.filter(w => w.code !== 'baserow_identity_pending_creation'), []);
+  assert.equal(result.validation.warningCount, 0, 'the identities bound by the creation are not reported to the agent');
+  assert.deepEqual(form.pages.map(p => p.name), ['Tickets', 'Ticket', 'Nouveau ticket'], 'the list is the hub: no home page');
+  assert.ok(form.pages.every(p => p.enabledTab === false && p.enabledButtons === false && p.isNameDisplayed === false && p.iconName));
+  buttonsReach(form);
+  // Search bar: always visible, the search across Titre OR Description inside the AND of the choice filter.
+  const bar = byName(form, 'ticket_search_bar');
+  assert.equal(bar.config.sticky, 'always');
+  assert.equal(bar.parentRef, undefined, 'the bar sits directly on the page');
+  // Choosing an option does not reload the list in the viewer: a button applies the filters, the other clears them.
+  assert.deepEqual(flowOf(form, 'apply_ticket').elements.map(e => [e.type, e.config.targetGrid]), [['refresh_grid', byName(form, 'ticket_list').id]]);
+  assert.equal(byName(form, 'ticket_apply').parentRef, byName(form, 'ticket_search_actions').id);
+  assert.equal(byName(form, 'ticket_search_actions').parentRef, bar.id);
+  assert.equal(byName(form, 'ticket_search_fields').parentRef, bar.id);
+  const search = byName(form, 'ticket_search');
+  const choice = byName(form, 'ticket_filter_priorite');
+  assert.deepEqual(JSON.parse(choice.sources['lib_BaseRow.formssource_GetFieldValues'].vars.forms_config.str).columns, ['Priorité']);
+  const grid = byName(form, 'ticket_list');
+  const source = grid.sources['lib_BaseRow.formssource_GetTableData'].vars;
+  const config = JSON.parse(source.forms_config.str);
+  assert.equal(config.table_id_int, 5277);
+  assert.equal(config.table_id, 'Team~>Support~>Tickets');
+  assert.deepEqual(config.hidden, ['Description', 'Créé le', 'Montant'], 'what only the detail shows is read but hidden');
+  assert.equal(grid.config.returned_value, 'row_selected');
+  const filter = source.forms_tableFilter;
+  assert.equal(filter.condVisible, 'and');
+  // The choice list submits the id of the option: single_select_equal, not contains.
+  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, refTarget(c.val2.str)]), [['Priorité', 'single_select_equal', choice.id]]);
+  assert.equal(filter.groups.length, 1);
+  assert.equal(filter.groups[0].condVisible, 'or');
+  assert.deepEqual(filter.groups[0].conds.map(c => [c.val1.name, refTarget(c.val2.str)]), [['Titre', search.id], ['Description', search.id]]);
+  // Detail: read-only fields fed by the selected row.
+  const detail = byName(form, 'ticket_detail_titre');
+  assert.equal(detail.config.disabled, true);
+  assert.deepEqual(detail.config.contextDefault, { source: 'field', field: 'ticket_list', path: ['Titre', 'value'], mode: 'reactive', fallback: '' });
+  assert.equal(byName(form, 'ticket_list_detail').conditions.buttonStateIf.conds[0].val1.str, String(grid.id), 'detail disabled until a row is selected');
+  // A single select cell is { id, value, color } and a date an ISO text (viewer, test-nocode): the detail reads their text.
+  assert.deepEqual(byName(form, 'ticket_detail_priorite').config.contextDefault.path, ['Priorité', 'value', 'value']);
+  assert.equal(byName(form, 'ticket_detail_echeance').type, 'datetime');
+  assert.equal(byName(form, 'ticket_detail_echeance').config.display_format, 'DD/MM/YYYY');
+  const cellText = (name, cell) => evaluateDefault(byName(form, name), { fields: { ticket_list: cell } });
+  assert.equal(cellText('ticket_detail_priorite', { 'Priorité': { value: { id: 12787, value: 'Haute', color: 'light-orange' } } }), 'Haute');
+  assert.equal(cellText('ticket_detail_priorite', null), '');
+  assert.match(byName(form, 'ticket_empty').config.html, /Les tickets enregistrés apparaissent ici. Utilisez « Nouveau ticket » pour en ajouter un./);
+  // Entry form: inputs named after the writable columns, typed after Baserow; the read-only column is left out.
+  const inputs = form.formulaire.filter(i => i.config.page === pageOf(form, 'Nouveau ticket').pageTechName && ['text', 'select', 'datetime'].includes(i.type));
+  assert.deepEqual(inputs.map(i => [i.name, i.type]), [['Titre', 'text'], ['Description', 'text'], ['Priorité', 'select'], ['Statut', 'select'], ['Échéance', 'datetime'], ['Montant', 'text']]);
+  assert.equal(byName(form, 'Description').config.short, false);
+  assert.equal(byName(form, 'Montant').config.type, 'number');
+  assert.equal(byName(form, 'Échéance').config.display_format, 'DD/MM/YYYY');
+  assert.deepEqual(result.baserow.tables[0].notEntered, ['Créé le (created_on): shown, not entered']);
+  // Save: add the row from the inputs, confirm, refresh the list, reset the page, back to the list.
+  const save = flowOf(form, 'save_ticket');
+  assert.equal(save.name, 'Enregistrer le ticket');
+  assert.deepEqual(save.elements.map(e => e.type), ['submit', 'toast', 'refresh_grid', 'reset_fields', 'push_page']);
+  const action = save.elements[0].actions['lib_BaseRow.forms_AddRow'];
+  assert.equal(JSON.parse(action.vars.forms_config.str).table_id_int, 5277);
+  assert.equal(action.vars.forms_id.str, '', 'a new row');
+  assert.equal(save.elements[1].sources.self.vars.selfVar.str, 'Ticket enregistré');
+  assert.equal(save.elements[2].config.targetGrid, grid.id);
+  assert.equal(save.elements[3].config.targetPage, pageOf(form, 'Nouveau ticket').pageTechName);
+  assert.equal(save.elements[4].config.targetPage, pageOf(form, 'Tickets').pageTechName);
+  assert.equal(byName(form, 'ticket_save').config.checkMandatoryInCurrentPage, true);
+  // The outline is what the agent reads: short, with the ids it needs.
+  assert.ok(JSON.stringify(result).length < 3000, JSON.stringify(result).length + ' characters');
+  assert.match(JSON.stringify(result.pages), /search in Titre OR Description, filter by Priorité \(applied by its Rechercher button\)/);
+  // The detail subtitle keeps the space after its article.
+  assert.match(byName(form, 'header_ticket').config.html, /Le ticket sélectionné dans la liste/);
+});
+test('nocode-app-create: a home page with an entry form and a history on a new table (S3)', () => {
+  const { result, form, validation, calls } = planApp({ name: 'Suivi des visites', home: true, entities: [{ name: 'visite', plural: 'visites', feminine: true,
+    fields: [{ name: 'Visiteur', required: true, default: 'user' }, { name: 'Date de visite', type: 'date', default: 'today' }, { name: 'Motif', type: 'long_text' }],
+    screens: { form: { title: 'Nouvelle visite' }, list: { title: 'Historique' } } }] }, [], { workspaces: [{ id: 10, name: 'Team', bases: [] }] });
+  assert.equal(result.status, 'ok', JSON.stringify(result));
+  assert.deepEqual(validation.issues.map(i => i.code), ['missing_baserow_table', 'missing_baserow_table'], 'only the table the plan has not created yet');
+  assert.equal(result.validation.issueCount, 0);
+  assert.deepEqual(calls, ['schema plan'], 'a plan writes nothing');
+  assert.deepEqual(result.baserow.base, { id: null, name: 'Suivi des visites', created: true }, 'a base named after the application in the only workspace');
+  assert.deepEqual(result.baserow.tables.map(t => [t.name, t.created]), [['Visites', true]]);
+  assert.deepEqual(form.pages.map(p => [p.name, p.iconName]), [['Accueil', 'home'], ['Historique', 'list'], ['Nouvelle visite', 'add']]);
+  buttonsReach(form);
+  const home = form.formulaire.filter(i => i.config.page === form.pages[0].pageTechName && i.type === 'button');
+  assert.deepEqual(home.map(b => [b.config.label, b.config.fill]), [['Nouvelle visite', 'solid'], ['Historique', 'outline']], 'one primary action on the home page');
+  assert.equal(byName(form, 'Visiteur').config.mandatory, true);
+  assert.equal(byName(form, 'Visiteur').config.contextDefault.source, 'user');
+  assert.equal(byName(form, 'Date de visite').config.contextDefault.property, 'today');
+  assert.equal(flowOf(form, 'save_visite').elements[1].sources.self.vars.selfVar.str, 'Visite enregistrée');
+});
+test('nocode-app-create: a dashboard chart grouped by a column with labelled aggregations, behind a home page', () => {
+  const { result, form, validation } = planApp(ticketsSpec({ dashboard: { groupBy: 'Statut', aggregations: ['count', 'sum:Montant=Montant total'] } }));
+  assert.equal(validation.issueCount, 0, JSON.stringify(validation.issues));
+  assert.deepEqual(form.pages.map(p => p.name), ['Accueil', 'Tickets', 'Ticket', 'Nouveau ticket', 'Tableau de bord']);
+  buttonsReach(form);
+  const chart = byName(form, 'ticket_chart');
+  const vars = chart.sources['lib_BaseRow.formssource_GetTableData'].vars;
+  assert.equal(vars.forms_tableGroupBy.str, 'Statut');
+  assert.equal(vars.forms_tableAggregations.str, 'count=Nombre de tickets,sum:Montant=Montant total');
+  assert.deepEqual(JSON.parse(vars.forms_config.str).columns, ['Statut', 'Montant']);
+  assert.equal(chart.config.label, 'Tickets par statut');
+  assert.ok(flowOf(form, 'save_ticket').elements.some(e => e.type === 'refresh_grid' && e.config.targetGrid === chart.id), 'a save refreshes the chart too');
+  assert.match(JSON.stringify(result.pages), /bar grouped by Statut/);
+});
+test('nocode-app-create: inputs named after their columns, an explicit mapping when two tables share a column name', () => {
+  const clients = { id: 40, name: 'Clients', columns: [{ name: 'Nom', type: 'text', primary: true }, { name: 'Ville', type: 'text' }] };
+  const contacts = { id: 41, name: 'Contacts', columns: [{ name: 'Nom', type: 'text', primary: true }, { name: 'Client', type: 'link_row', link_row_table_id: 40 }, { name: 'Actif', type: 'boolean' }] };
+  const { result, form, validation } = planApp({ name: 'CRM', entities: [
+    { name: 'client', table: 40, screens: { list: true, form: true } },
+    { name: 'contact', table: 41, screens: { list: true, form: true } }
+  ] }, [clients, contacts]);
+  assert.equal(validation.issueCount, 0, JSON.stringify(validation.issues));
+  assert.equal(form.pages[0].name, 'Accueil', 'two entities share a home page');
+  buttonsReach(form);
+  assert.ok(flowOf(form, 'save_client').elements[0].actions['lib_BaseRow.forms_AddRow'], 'the first table keeps forms_AddRow');
+  const action = flowOf(form, 'save_contact').elements[0].actions['lib_BaseRow.forms_AddRowFromData'];
+  assert.ok(action, 'the second table writes its columns explicitly');
+  const values = Object.fromEntries(action.vars.forms_freeVars.map(entry => [entry.name, entry.str]));
+  assert.deepEqual(Object.keys(values), ['Nom', 'Client', 'Actif']);
+  assert.equal(refTarget(values.Nom), byName(form, 'contact_nom').id);
+  assert.equal(refTarget(values.Client), byName(form, 'Client').id, 'a name nobody took stays the column name');
+  const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
+  assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
+  assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
+  // An existing boolean is entered with a Oui/Non radio, no answer chosen in advance, and written true/false by a hidden
+  // field of the column's name (test-nocode S4: the agent added a checkbox of its own when the tool left it out; a
+  // static radio shows the value it submits and Baserow refuses Oui).
+  const choice = byName(form, 'Actif_choice');
+  assert.equal(choice.type, 'radio');
+  assert.deepEqual(choice.children.map(c => [c.value, c.selected]), [['Oui', false], ['Non', false]]);
+  const written = byName(form, 'Actif');
+  assert.equal(written.type, 'text');
+  assert.equal(written.conditions.visibleIf.conds.length > 0 || written.conditions.visibleIf.groups.length > 0, true, 'hidden');
+  assert.equal(evaluateDefault(written, { fields: { Actif_choice: 'Oui' } }), 'true');
+  assert.equal(evaluateDefault(written, { fields: { Actif_choice: 'Non' } }), 'false');
+  assert.equal(evaluateDefault(written, { fields: {} }), 'false', 'unanswered is false, not an empty value Baserow refuses');
+  assert.deepEqual(result.validation.warnings || [], [], 'no warning the agent would try to fix');
+  assert.equal(result.baserow.tables[1].notEntered, undefined);
+});
+test('nocode-app-create: French and English labels follow the entity', () => {
+  const labels = spec => { const { form } = planApp(spec); return [form.pages.map(p => p.name), flowOf(form, 'save_' + spec.entities[0].name).elements[1].sources.self.vars.selfVar.str]; };
+  assert.deepEqual(labels({ name: 'A', entities: [{ name: 'article', table: 5277, screens: { list: true, form: true } }] }), [['Articles', 'Nouvel article'], 'Article enregistré']);
+  assert.deepEqual(labels({ name: 'A', entities: [{ name: 'demande', feminine: true, table: 5277, screens: { list: true, form: true } }] }), [['Demandes', 'Nouvelle demande'], 'Demande enregistrée']);
+  assert.deepEqual(labels({ name: 'A', language: 'en', entities: [{ name: 'request', table: 5277, screens: { list: true, form: true } }] }), [['Requests', 'New request'], 'Request saved']);
+});
+test('nocode-app-create: a spec it cannot build is refused with the path and the way out, before anything is read or written', () => {
+  const refused = (spec, path, pattern) => {
+    const { result, calls } = planApp(spec);
+    assert.equal(result.status, 'invalid_spec', JSON.stringify(result));
+    assert.equal(result.error.path, path);
+    assert.match(result.error.message, pattern);
+    return calls;
+  };
+  const one = screens => ({ name: 'A', entities: [{ name: 'ticket', table: 5277, screens }] });
+  assert.deepEqual(refused(one({ detail: true }), 'entities[0].screens.detail', /ask for the list too/), []);
+  refused(one({ list: { filters: ['Titre'] } }), 'entities[0].screens.list.filters', /single select/);
+  refused(one({ list: { columns: ['Nom'] } }), 'entities[0].screens.list.columns', /no column Nom \(its columns: Titre, Description/);
+  refused(one({ list: true, dashboard: { groupBy: 'Statut', aggregations: ['sum:Titre'] } }), 'entities[0].screens.dashboard.aggregations', /needs a number column/);
+  refused({ name: 'A', entities: [{ name: 'ticket', fields: [{ name: 'Montant', type: 'number' }] }] }, 'entities[0].fields', /needs a text field/);
+  refused({ name: 'A', entities: [{ name: 'ticket', table: 999 }] }, 'entities[0].table', /not in the Baserow catalog/);
 });

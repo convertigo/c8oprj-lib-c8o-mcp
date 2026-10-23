@@ -11,7 +11,8 @@ responseTimeout: 300
       includeColumns: typeof includeColumns === "undefined" ? false : includeColumns,
       workspaceId: typeof workspaceId === "undefined" ? null : workspaceId,
       databaseId: typeof databaseId === "undefined" ? null : databaseId,
-      tableId: typeof tableId === "undefined" ? null : tableId
+      tableId: typeof tableId === "undefined" ? null : tableId,
+      view: typeof view === "undefined" ? "" : view
     });'
 ↓result [steps.JsonToXmlStep-1780200000002]: 
   jsonObject: 
@@ -41,3 +42,6 @@ responseTimeout: 300
 ↓tableId [variables.RequestableVariable-1780124961595]: 
   comment: Optional Baserow table id filter.
   description: Optional Baserow table id filter.
+↓view [variables.RequestableVariable-1792690000001]: 
+  comment: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).
+  description: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).

@@ -1,0 +1,48 @@
+accessibility: Private
+comment: |
+  Publish a No Code form through C8Oforms APIs
+  Publishes a draft form to its respondents through C8Oforms.APIV2_Publish, as the Publish button of No Code Studio does. Call it only when the user explicitly asked to publish this form, never on your own initiative or as a next step of a create or an edit. Pass the revision the user checked (nocode-form-get or the last edit): a newer revision is refused as a conflict, and a form with blocking validation issues is not published. C8Oforms publishes only for the owner or an editor of the form. The first publication creates the form application, for signed-in users unless the user asked for anonymous access; a republication keeps its access. Answers the publication version, the access and the link to give to the user.
+↓Run [steps.SimpleStep-1792830000001]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    include("js/nocode_publish.js");
+    try {
+      result = C8O.nocodePublish.publish(id, { project: project, rev: rev, confirm: confirm, access: access, token: token });
+    } catch (e) {
+      result = { status: "error", published: false, error: { code: "publish_failed", message: "Unable to publish the form through the No Code API: " + (e && e.message ? e.message : e) } };
+    }'
+↓result [steps.JsonToXmlStep-1792830000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1792830000003]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓id [variables.RequestableVariable-1792830000004]: 
+  comment: Draft form document id to publish, without the published_ prefix.
+  description: Draft form document id to publish, without the published_ prefix.
+  required: true
+↓rev [variables.RequestableVariable-1792830000005]: 
+  comment: Revision of the draft the user checked. A newer revision is refused as a conflict.
+  description: Revision of the draft the user checked. A newer revision is refused as a conflict.
+  required: true
+↓confirm [variables.RequestableVariable-1792830000006]: 
+  comment: Set true only when the user explicitly asked to publish this form.
+  description: Set true only when the user explicitly asked to publish this form.
+  value: false
+↓access [variables.RequestableVariable-1792830000007]: 
+  comment: First publication only. authenticated (default) or anonymous, when the user asked for a link that works without signing in.
+  description: First publication only. authenticated (default) or anonymous, when the user asked for a link that works without signing in.
+↓token [variables.RequestableVariable-1792830000008]: 
+  comment: No Code Studio bearer token used to authenticate the C8Oforms API calls.
+  description: No Code Studio bearer token used to authenticate the C8Oforms API calls.

@@ -74,7 +74,11 @@ comment: Handles MCP tools/list calls
             if (mcpAuthKind === "nocode" && seqName.indexOf("tools_nocode_") !== 0) {
               continue;
             }
-            if (feedbackMode == "off" && seqName == "tools_report_create") {
+            if (feedbackMode == "off" && (seqName == "tools_report_create" || seqName == "tools_nocode_report_create")) {
+              continue;
+            }
+            // Tigo's feedback for a No Code Studio user: their own report tool, never a second one elsewhere.
+            if (seqName == "tools_nocode_report_create" && mcpAuthKind !== "nocode") {
               continue;
             }
             if ((!C8O.nocodeToolPolicy.active() || C8O.nocodeToolPolicy.allows(seqName)) && C8O.gatewayToolPolicy.allows(seqName)) {

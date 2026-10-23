@@ -193,7 +193,71 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return [];
   }
 
-  function readTableFields(tableId, editor) {
+  // Runs fn with the engine logs off (the answers below hold the Baserow account and its token), then restores the
+  // caller's setting: a tool call may already run without logs.
+  function withoutLogs(fn) {
+    var MDC = org.apache.log4j.MDC;
+    var previous = MDC.get("nolog");
+    MDC.put("nolog", true);
+    try {
+      return fn();
+    } finally {
+      if (previous == null) {
+        MDC.remove("nolog");
+      } else {
+        MDC.put("nolog", previous);
+      }
+    }
+  }
+
+  // The Baserow token of the authenticated No Code user, as formscommon_FieldsList gets it for an editor. Asking
+  // TokenGetOrRefresh with the account also makes it the session's previous token, so the lib_BaseRow sequences called
+  // afterwards without an account (TableCreateColumn, TableGetData...) use it instead of the Baserow admin account.
+  function editorBaserowBearer() {
+    return withoutLogs(function () {
+      var account = callC8oSequence("C8Oforms", "BaserowAccountGet", {});
+      var accountDoc = (account && (account.document || (account.doc && account.doc.document))) || {};
+      if (accountDoc.error || !trimmed(accountDoc.email).length || !trimmed(accountDoc.password).length) {
+        return "";
+      }
+      var token = callC8oSequence("lib_BaseRow", "TokenGetOrRefresh", {
+        email: String(accountDoc.email),
+        password: String(accountDoc.password)
+      });
+      var tokenDoc = (token && (token.document || (token.doc && token.doc.document))) || {};
+      var bearer = trimmed(tokenDoc.Bearer);
+      return !tokenDoc.error && /^JWT\s+\S+/.test(bearer) ? bearer : "";
+    });
+  }
+
+  // lib_BaseRow keeps the fields of a table for 60 seconds (Baserow_API_spec._api_database_fields_table__table_id___GET,
+  // responseExpiryDate absolute,60): right after a schema change it still answers the old columns, and a form using a
+  // new column was refused. The same transaction called directly with __nocache reads Baserow again.
+  function readFreshTableFields(tableId, bearer) {
+    var response = withoutLogs(function () {
+      return callC8oTransaction("lib_BaseRow", "Baserow_API_spec", "_api_database_fields_table__table_id___GET", {
+        table_id: baserowId(tableId),
+        __header_Authorization: bearer,
+        __nocache: "true"
+      });
+    });
+    var error = transactionError(response);
+    if (error) {
+      throw new Error("table " + tableId + ": " + String(error.message || error.code || JSON.stringify(error)));
+    }
+    var envelope = (response && (response.document || (response.doc && response.doc.document))) || response || {};
+    return envelope.array != null ? ensureArray(envelope.array) : null;
+  }
+
+  function readTableFields(tableId, editor, bearer) {
+    if (trimmed(bearer).length) {
+      try {
+        var fresh = readFreshTableFields(tableId, bearer);
+        if (fresh) {
+          return fresh;
+        }
+      } catch (_freshFieldsError) {}
+    }
     var fieldsConfig = {
       table_id: baserowId(tableId),
       editor: trimmed(editor)
@@ -375,12 +439,12 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     };
   }
 
-  function hydrateColumns(catalog, authentication) {
+  function hydrateColumns(catalog, authentication, bearer) {
     var columns = [];
     var editor = authentication && authentication.user;
     for (var i = 0; i < catalog.tables.length; i++) {
       var table = catalog.tables[i];
-      var rawFields = readTableFields(table.id, editor);
+      var rawFields = readTableFields(table.id, editor, bearer);
       table.columns = [];
       for (var f = 0; f < rawFields.length; f++) {
         var column = normalizeColumn(rawFields[f], table);
@@ -446,6 +510,73 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       bases: bases,
       tables: tables
     };
+  }
+
+  // The view an agent reads: the workspace > base > table tree once, each column once with what a source, a filter or a
+  // write needs (type, select choices, link target). The full view repeats every table in workspaces, bases and tables
+  // (and every column four times), with all the raw Baserow field properties and the names of the workspace members:
+  // 230 KB for 433 tables, spilled to a file the agent then parsed with shell commands. The Assistant's table picker
+  // calls the sequence directly and keeps the full view.
+  function compactColumn(column) {
+    var out = { name: column.name, type: column.type };
+    if (column.id != null) {
+      out.id = column.id;
+    }
+    if (column.primary) {
+      out.primary = true;
+    }
+    if (column.readOnly) {
+      out.readOnly = true;
+    }
+    var options = ensureArray(column.select_options || column.selectOptions);
+    if (options.length) {
+      out.options = [];
+      for (var i = 0; i < options.length; i++) {
+        var value = trimmed(options[i] && typeof options[i] === "object" ? options[i].value : options[i]);
+        if (value.length) {
+          out.options.push(value);
+        }
+      }
+    }
+    var linkedTable = numberOrNull(column.link_row_table_id || column.linkRowTableId);
+    if (linkedTable != null) {
+      out.linksTo = linkedTable;
+    }
+    if (column.type === "formula" && trimmed(column.formula_type).length) {
+      out.formulaType = trimmed(column.formula_type);
+    }
+    if (trimmed(column.error).length) {
+      out.error = trimmed(column.error);
+    }
+    return out;
+  }
+
+  function compactCatalog(catalog) {
+    var workspaces = [];
+    var sourceWorkspaces = ensureArray(catalog && catalog.workspaces);
+    for (var w = 0; w < sourceWorkspaces.length; w++) {
+      var workspace = { id: sourceWorkspaces[w].id, name: sourceWorkspaces[w].name, bases: [] };
+      var bases = ensureArray(sourceWorkspaces[w].bases);
+      for (var b = 0; b < bases.length; b++) {
+        var base = { id: bases[b].id, name: bases[b].name, tables: [] };
+        var tables = ensureArray(bases[b].tables);
+        for (var t = 0; t < tables.length; t++) {
+          var table = { id: tables[t].id, name: tables[t].name };
+          if (tables[t].columns) {
+            table.columns = ensureArray(tables[t].columns).map(compactColumn);
+          }
+          base.tables.push(table);
+        }
+        workspace.bases.push(base);
+      }
+      workspaces.push(workspace);
+    }
+    return workspaces;
+  }
+
+  function compactAuthentication(authentication) {
+    var auth = authentication || {};
+    return { status: auth.status, authenticated: auth.authenticated === true, user: auth.user };
   }
 
   function parseJsonInput(value, label, fallback) {
@@ -829,7 +960,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       name: schema.workspaceName,
       __header_Authorization: bearerToken
     });
-    return { id: numberOrNull(created.id), name: trimmed(created.name || schema.workspaceName) };
+    var createdWorkspace = { id: numberOrNull(created.id), name: trimmed(created.name || schema.workspaceName) };
+    plan.created.workspaces.push(createdWorkspace);
+    return createdWorkspace;
   }
 
   function ensureBase(plan, schema, create, apply, bearer, catalog, workspace) {
@@ -881,7 +1014,23 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         throw workspaceCreateError;
       }
     }
-    return { id: numberOrNull(created.id), name: trimmed(created.name || schema.baseName), workspaceId: workspace.id };
+    var createdBase = { id: numberOrNull(created.id), name: trimmed(created.name || schema.baseName), workspaceId: workspace.id };
+    plan.created.bases.push({ id: createdBase.id, name: createdBase.name });
+    return createdBase;
+  }
+
+  // The primary field of a new table: the schema's primaryField, else its first text field, else its first field.
+  function tablePrimaryFieldName(table) {
+    if (trimmed(table.primaryField).length) {
+      return trimmed(table.primaryField);
+    }
+    var fields = ensureArray(table.fields);
+    for (var i = 0; i < fields.length; i++) {
+      if (fields[i].type === "text") {
+        return fields[i].name;
+      }
+    }
+    return fields.length ? fields[0].name : "Name";
   }
 
   function ensureTable(plan, table, create, apply, bearer, base, catalog) {
@@ -897,16 +1046,21 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     if ((!base || numberOrNull(base.id) == null) && apply) {
       throw new Error("Cannot create table " + table.name + " without an existing or newly created base id.");
     }
-    pushAction(plan, "create_table", "Create table.", { table: table.name, baseId: base ? base.id : null });
+    pushAction(plan, "create_table", "Create table.", { table: table.name, baseId: base ? base.id : null, primaryField: tablePrimaryFieldName(table) });
     if (!apply) {
       return { id: null, name: table.name, baseId: base ? base.id : null, databaseId: base ? base.id : null };
     }
+    // Without data Baserow creates its example table (Name, Notes, Active and example rows). A header row alone gives a
+    // table holding only its primary field, named as the schema asks, and no rows.
+    var primaryField = tablePrimaryFieldName(table);
     var body = { name: table.name };
-    if (table.raw.data != null) {
+    if (Array.isArray(table.raw.data) && table.raw.data.length && Array.isArray(table.raw.data[0])) {
       body.data = table.raw.data;
-    }
-    if (table.raw.first_row_header != null) {
-      body.first_row_header = booleanValue(table.raw.first_row_header);
+      body.first_row_header = table.raw.first_row_header == null ? true : booleanValue(table.raw.first_row_header);
+      primaryField = trimmed(body.first_row_header ? table.raw.data[0][0] : "") || primaryField;
+    } else {
+      body.data = [[primaryField]];
+      body.first_row_header = true;
     }
     var created;
     var bearerToken = bearer || getBaserowBearer();
@@ -922,7 +1076,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       }
       throw tableCreateError;
     }
-    return { id: numberOrNull(created.id), name: trimmed(created.name || table.name), baseId: base.id, databaseId: base.id };
+    var createdTable = { id: numberOrNull(created.id), name: trimmed(created.name || table.name), baseId: base.id, databaseId: base.id };
+    plan.created.tables.push({ id: createdTable.id, name: createdTable.name, primaryField: primaryField });
+    return createdTable;
   }
 
   function buildFieldBody(field, tableByName, fieldsByTableName, allowUnresolved) {
@@ -995,7 +1151,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return body;
   }
 
-  function ensureFields(plan, tableSpec, table, create, apply, fieldsByTableName, tableByName, editor) {
+  function ensureFields(plan, tableSpec, table, create, apply, fieldsByTableName, tableByName, editor, bearer) {
     if ((!table || numberOrNull(table.id) == null) && apply) {
       pushAction(plan, "fields_skipped", "Fields skipped because table is not available.", { table: tableSpec.name });
       return;
@@ -1048,9 +1204,19 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           if (error) {
             throw new Error(formatLibWriteError("Create field " + tableSpec.name + "." + field.name, error));
           }
-          existingFields = readTableFields(table.id, editor);
+          var freshFields = null;
+          if (trimmed(bearer).length) {
+            try { freshFields = readFreshTableFields(table.id, bearer); } catch (_freshReadError) { freshFields = null; }
+          }
+          existingFields = freshFields || readTableFields(table.id, editor);
           fieldsByTableName[tableKey] = existingFields;
           existingByName = indexByName(existingFields);
+          var createdField = existingByName[field.name.toLowerCase()];
+          // TableCreateColumn answers nothing when Baserow refuses the field: check on a fresh read that it is there.
+          if (!createdField && freshFields) {
+            throw new Error("Create field " + tableSpec.name + "." + field.name + ": Baserow did not create it (no field of that name in the table after the call).");
+          }
+          plan.created.fields.push({ table: tableSpec.name, tableId: table.id, name: field.name, type: field.type, id: createdField ? numberOrNull(createdField.id) : null });
         }
       }
     }
@@ -1358,6 +1524,19 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         throw new Error(formatLibWriteError("Create view " + tableSpec.name + "." + body.name, error));
       }
       var viewObject = firstObject(response);
+      // lib_BaseRow.TableCreateView answers nothing when the view is not created (on test-nocode its transaction
+      // declares a variable named include, which hides include() in its handler): an agent announced a view that did
+      // not exist. Say so instead, and leave its filters.
+      if (!viewObject || numberOrNull(viewObject.id) == null) {
+        plan.warnings.push({
+          code: "view_not_created",
+          table: tableSpec.name,
+          view: body.name,
+          message: "Baserow did not create this view (lib_BaseRow.TableCreateView returned no view). The table and its fields are not affected; do not tell the user the view exists."
+        });
+        continue;
+      }
+      plan.created.views.push({ table: tableSpec.name, name: body.name, id: numberOrNull(viewObject.id) });
       var filters = ensureArray(view.filters);
       for (var f = 0; f < filters.length; f++) {
         var filter = filters[f] || {};
@@ -1377,6 +1556,18 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
   }
 
+  // The error goes right after the status: a reader that keeps the first "message" of the answer (the Assistant's
+  // feedback did) took the first planned action, "Table already exists.", for the error.
+  function failedPlan(plan, error) {
+    var out = { status: "error", error: error };
+    Object.keys(plan).forEach(function (key) {
+      if (key !== "status" && key !== "error") {
+        out[key] = plan[key];
+      }
+    });
+    return out;
+  }
+
   C8O.nocodeBaserow.schemaApply = function (options) {
     var opts = options || {};
     var mode = trimmed(opts.mode || "plan").toLowerCase();
@@ -1390,6 +1581,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         actions: []
       };
     }
+    var compactView = trimmed(opts.view).toLowerCase() === "compact";
     var plan = {
       status: "ok",
       mode: apply ? "apply" : "plan",
@@ -1408,9 +1600,22 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     };
     try {
       var schema = normalizeSchema(parseJsonInput(opts.schema, "schema", {}));
-      var bearer = "";
       var applications = readApplications();
       var catalog = normalizeCatalog(applications);
+      // Writes go with the user's own Baserow account, never the admin account lib_BaseRow falls back to.
+      var bearer = editorBaserowBearer();
+      if (apply && !bearer.length) {
+        return failedPlan(plan, {
+          code: "baserow_account_unavailable",
+          message: "The Baserow account of the authenticated No Code user could not be opened, so nothing was changed. Ask the user to open the No Code Studio data tab once, then retry."
+        });
+      }
+      if (schema.baseId != null && !findByIdOrName(catalog.bases, schema.baseId, null)) {
+        return failedPlan(plan, {
+          code: "base_not_in_catalog",
+          message: "Base " + schema.baseId + " is not among the bases of the authenticated No Code user (nocode-baserow-catalog-list). Use one of them, or baseName to create a base in an accessible workspace."
+        });
+      }
       var workspace = ensureWorkspace(plan, schema, create, apply, bearer, catalog);
       if (apply) {
         catalog = normalizeCatalog(readApplications());
@@ -1443,13 +1648,13 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         var spec = schema.tables[ft];
         var existingTable = tableByName[spec.name.toLowerCase()];
         if (existingTable && numberOrNull(existingTable.id) != null) {
-          fieldsByTableName[spec.name.toLowerCase()] = readTableFields(existingTable.id, authentication.user);
+          fieldsByTableName[spec.name.toLowerCase()] = readTableFields(existingTable.id, authentication.user, bearer);
         } else {
           fieldsByTableName[spec.name.toLowerCase()] = [];
         }
       }
       for (var ef = 0; ef < schema.tables.length; ef++) {
-        ensureFields(plan, schema.tables[ef], tableByName[schema.tables[ef].name.toLowerCase()], create, apply, fieldsByTableName, tableByName, authentication.user);
+        ensureFields(plan, schema.tables[ef], tableByName[schema.tables[ef].name.toLowerCase()], create, apply, fieldsByTableName, tableByName, authentication.user, bearer);
       }
 
       var rowKeyLookup = {};
@@ -1477,9 +1682,12 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         }
         var scoped = filterCatalog(finalCatalog, readFilter);
         if (base && numberOrNull(base.id) != null) {
-          hydrateColumns(scoped, authentication);
+          hydrateColumns(scoped, authentication, bearer);
         }
-        plan.readBack = scoped;
+        plan.readBack = compactView ? { workspaces: compactCatalog(scoped) } : scoped;
+      }
+      if (compactView) {
+        plan.authentication = compactAuthentication(plan.authentication);
       }
       plan.counts = {
         actions: plan.actions.length,
@@ -1487,12 +1695,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       };
       return plan;
     } catch (e) {
-      plan.status = "error";
-      plan.error = {
+      return failedPlan(plan, {
         code: "baserow_schema_apply_failed",
         message: String(e && e.message ? e.message : e)
-      };
-      return plan;
+      });
     }
   };
 
@@ -1536,7 +1742,22 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
             }
           };
         }
-        columns = hydrateColumns(catalog, authentication);
+        columns = hydrateColumns(catalog, authentication, editorBaserowBearer());
+      }
+      if (trimmed(opts.view).toLowerCase() === "compact") {
+        return {
+          status: "ok",
+          view: "compact",
+          authentication: compactAuthentication(authentication),
+          workspaces: compactCatalog(catalog),
+          counts: {
+            workspaces: catalog.workspaces.length,
+            bases: catalog.bases.length,
+            tables: catalog.tables.length,
+            columns: columns.length,
+            availableTables: allCatalog.tables.length
+          }
+        };
       }
       return {
         status: "ok",
@@ -1567,5 +1788,25 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         columns: []
       };
     }
+  };
+
+  // A table of the user's catalog from its id or its path (Workspace~>Base~>Table), for the reduced Baserow source and
+  // save shorthands of nocode_forms.js: they name a table by its id, the native configuration needs both.
+  C8O.nocodeBaserow.tableIndex = function (token) {
+    var authentication = validateToken(token);
+    if (!authentication || authentication.authenticated !== true) {
+      return null;
+    }
+    var catalog = normalizeCatalog(readApplications());
+    return ensureArray(catalog.tables).map(function (table) {
+      return { id: table.id, name: table.name, path: [table.workspaceName, table.baseName, table.name].join("~>") };
+    });
+  };
+
+  // The current fields of a table for the form tools' column check (nocode_forms.js), past the 60-second cache of
+  // lib_BaseRow; bearer is the user's Baserow token when the caller already has it.
+  C8O.nocodeBaserow.tableFields = function (tableId, editor, bearer) {
+    var token = trimmed(bearer).length ? trimmed(bearer) : editorBaserowBearer();
+    return { bearer: token, fields: readTableFields(tableId, editor, token) };
   };
 })();

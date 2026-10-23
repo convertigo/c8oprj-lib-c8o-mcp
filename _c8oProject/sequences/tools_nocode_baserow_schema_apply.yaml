@@ -11,7 +11,8 @@ responseTimeout: 300
       mode: typeof mode === "undefined" ? "plan" : mode,
       schema: typeof schema === "undefined" ? "{}" : schema,
       create: typeof create === "undefined" ? "{}" : create,
-      readBack: typeof readBack === "undefined" ? true : readBack
+      readBack: typeof readBack === "undefined" ? true : readBack,
+      view: typeof view === "undefined" ? "" : view
     });'
 ↓result [steps.JsonToXmlStep-1780481728026]: 
   jsonObject: 
@@ -44,3 +45,6 @@ responseTimeout: 300
   comment: Read resulting catalog and fields back through lib_BaseRow.
   description: Read resulting catalog and fields back through lib_BaseRow.
   value: true
+↓view [variables.RequestableVariable-1792690000002]: 
+  comment: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).
+  description: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).

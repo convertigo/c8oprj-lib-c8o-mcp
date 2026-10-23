@@ -789,10 +789,20 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         tableId: {
           type: "integer",
           description: "Optional Baserow table id filter. With includeColumns=true, fields are listed only for this table."
-        }
+        },
+        view: nocodeBaserowViewProperty()
       },
       required: [],
       additionalProperties: false
+    };
+  }
+
+  function nocodeBaserowViewProperty() {
+    return {
+      type: "string",
+      enum: ["compact", "full"],
+      default: "compact",
+      description: "compact (default): workspaces > bases > tables once, columns with type, select options and link target. full: every raw Baserow property, repeated per workspace, base and table."
     };
   }
 
@@ -937,6 +947,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: true,
           description: "Read the resulting catalog and fields back through lib_BaseRow after planning/applying."
         },
+        view: nocodeBaserowViewProperty(),
         schema: {
           description: "Canonical Baserow schema. Agents may translate Markdown, YAML, PDFs, or ER diagrams to this strict JSON before calling the tool.",
           oneOf: [
@@ -975,6 +986,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "boolean",
           default: false,
           description: "Set true to include the full AllTypes.json component prototypes. Default false returns the compact contract."
+        },
+        sections: {
+          type: "array",
+          items: { type: "string" },
+          description: "Without it the contract answers quickReference, a compact reference of the reduced JSON (Baserow sources and saves included), and sectionIndex, what each section holds. Give the sections the task needs, one answer per call so that each stays inline: [\"generationQuality\"] before generating an application, [\"styles\"] for style recipes, [\"componentAuthoring\"] or [\"editTool\"] for details, [\"dynamicReferences\"] for SmartSource references. The whole contract is about 100 KB, more than an agent reads at once."
         }
       },
       additionalProperties: false
@@ -1045,6 +1061,116 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         }
       },
       required: ["id", "patch"],
+      additionalProperties: false
+    };
+  }
+
+  // nocode-app-create: the agent writes only this business spec; the tool chooses the components, the Baserow
+  // encodings and the SmartSource references, so the shape is spelled out here instead of in the contract.
+  function nocodeAppCreateInputSchema() {
+    var screen = function (description) { return { description: description, oneOf: [{ type: "boolean" }, { type: "object", additionalProperties: true }] }; };
+    return {
+      type: "object",
+      properties: {
+        project: nocodeFormsProjectProperty(),
+        spec: {
+          type: "object",
+          description: "Business spec of the application. Field and column names are the Baserow column names in the user's language: they are the list headers and the names of the inputs.",
+          properties: {
+            name: { type: "string", description: "Visible name of the application." },
+            language: { type: "string", enum: ["fr", "en"], default: "fr", description: "Language of the labels, buttons and messages." },
+            description: { type: "string", description: "Optional one-line description, shown under the name on the home page." },
+            mode: { type: "string", enum: ["apply", "plan"], default: "apply", description: "apply creates the tables, the fields and the form; plan answers the same outline and writes nothing." },
+            home: { description: "true or { title, subtitle }: a home page with a button per screen. Added by default when the application has several entities or a dashboard; without it the list is the first page and opens the form and the detail.", oneOf: [{ type: "boolean" }, { type: "object", additionalProperties: true }] },
+            baserow: {
+              type: "object",
+              description: "Where new tables go: { baseId } for a base of nocode-baserow-catalog-list, or { workspaceId, baseName } for a new base. Omitted: the base of the existing tables, else a base named after the application in the user's only workspace (several workspaces: the tool answers them and asks for one).",
+              properties: { baseId: { type: "integer" }, workspaceId: { type: "integer" }, baseName: { type: "string" } },
+              additionalProperties: false
+            },
+            entities: {
+              type: "array",
+              description: "One entry per business record (a request, a ticket, a visit).",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string", description: "Singular business name in the user's language, lower case: demande, ticket." },
+                  plural: { type: "string", description: "Plural, default name + s." },
+                  feminine: { type: "boolean", description: "French grammatical gender: true gives Nouvelle demande, Demande enregistrée." },
+                  masculine: { type: "boolean", description: "The default gender; true is the same as feminine false." },
+                  gender: { type: "string", enum: ["f", "m"], description: "Alias of feminine (f) or masculine (m)." },
+                  table: { description: "The id of an existing table from nocode-baserow-catalog-list (its columns are read and reused), or the name of a new table (default: the plural, capitalized).", oneOf: [{ type: "integer" }, { type: "string" }] },
+                  fields: {
+                    type: "array",
+                    description: "Columns of a new table, in order; the first text field is its primary field. For an existing table: optional, to choose and order its columns, mark some required or add missing ones.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string", description: "Column name, as it should read in the list header." },
+                        type: { type: "string", enum: ["text", "long_text", "number", "date", "single_select", "boolean", "email", "phone_number", "url", "rating", "link_row"], default: "text", description: "boolean becomes a single select Oui/Non (Yes/No)." },
+                        required: { type: "boolean" },
+                        options: { type: "array", items: { type: "string" }, description: "Choices of a single_select." },
+                        decimals: { type: "integer", description: "Decimal places of a number (0 by default)." },
+                        "default": { type: "string", enum: ["user", "user.email", "today"], description: "Prefill: the connected user's name or e-mail, or today's date." },
+                        targetTable: { type: "string", description: "link_row: the entity name or the table it points to." },
+                        label: { type: "string", description: "Input label when it should differ from the column name." }
+                      },
+                      required: ["name"],
+                      additionalProperties: false
+                    }
+                  },
+                  screens: {
+                    type: "object",
+                    description: "The screens wanted for this entity; default { list: true, form: true }. Give a screen the title the user calls it (\"Historique\", \"Nouvelle visite\"): its page, its header and the buttons that open it are named after it; without one the plural, \"Nouvelle visite\", the singular.",
+                    properties: {
+                      list: screen("true or { title, subtitle, columns: at most 5 columns shown, search: [text columns] or true, filters: [single select columns, at most 2], sort: \"Column\" or \"-Column\" }. The search bar stays visible; the search is an OR across its columns, ANDed with the filters."),
+                      form: screen("true or { title, subtitle }: entry page whose save adds a row, shows a toast, refreshes the list, empties the page and goes back."),
+                      detail: screen("true or { title, subtitle }: read-only page of the row selected in the list (needs list)."),
+                      dashboard: screen("{ title, groupBy: column, aggregations: [\"count\", \"sum:Amount\", \"avg:Amount=Average amount\"], chart: bar | line | area | pie | donut }: a chart of the rows grouped by a column, with named series.")
+                    },
+                    additionalProperties: false
+                  }
+                },
+                required: ["name"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["name", "entities"],
+          additionalProperties: false
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["spec"],
+      additionalProperties: false
+    };
+  }
+
+  function nocodeFormPublishInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: nocodeFormsProjectProperty(),
+        id: {
+          type: "string",
+          description: "Draft form document id from the current No Code context, without the published_ prefix."
+        },
+        rev: {
+          type: "string",
+          description: "Revision of the draft the user checked: form._rev from nocode-form-get, or rev from the last create/edit/update. A newer saved revision is refused as a conflict and nothing is published."
+        },
+        confirm: {
+          type: "boolean",
+          description: "Set true only when the user explicitly asked to publish this form in the conversation. Never publish on your own initiative or as a next step of a create or an edit."
+        },
+        access: {
+          type: "string",
+          enum: ["authenticated", "anonymous"],
+          description: "First publication only. authenticated (default): only signed-in users the form is shared with may answer. anonymous: anyone with the link may answer without signing in; use it only when the user asked for such a link. Omit it on a republication, which keeps the current access."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["id", "rev", "confirm"],
       additionalProperties: false
     };
   }
@@ -2298,6 +2424,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_form_update") {
       return nocodeFormUpdateInputSchema();
+    }
+    if (seq === "tools_nocode_form_publish") {
+      return nocodeFormPublishInputSchema();
+    }
+    if (seq === "tools_nocode_app_create") {
+      return nocodeAppCreateInputSchema();
     }
     if (seq === "tools_rag_query") {
       return ragQueryInputSchema();
