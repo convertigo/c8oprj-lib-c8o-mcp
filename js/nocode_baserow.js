@@ -1556,6 +1556,18 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
   }
 
+  // The error goes right after the status: a reader that keeps the first "message" of the answer (the Assistant's
+  // feedback did) took the first planned action, "Table already exists.", for the error.
+  function failedPlan(plan, error) {
+    var out = { status: "error", error: error };
+    Object.keys(plan).forEach(function (key) {
+      if (key !== "status" && key !== "error") {
+        out[key] = plan[key];
+      }
+    });
+    return out;
+  }
+
   C8O.nocodeBaserow.schemaApply = function (options) {
     var opts = options || {};
     var mode = trimmed(opts.mode || "plan").toLowerCase();
@@ -1593,20 +1605,16 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       // Writes go with the user's own Baserow account, never the admin account lib_BaseRow falls back to.
       var bearer = editorBaserowBearer();
       if (apply && !bearer.length) {
-        plan.status = "error";
-        plan.error = {
+        return failedPlan(plan, {
           code: "baserow_account_unavailable",
           message: "The Baserow account of the authenticated No Code user could not be opened, so nothing was changed. Ask the user to open the No Code Studio data tab once, then retry."
-        };
-        return plan;
+        });
       }
       if (schema.baseId != null && !findByIdOrName(catalog.bases, schema.baseId, null)) {
-        plan.status = "error";
-        plan.error = {
+        return failedPlan(plan, {
           code: "base_not_in_catalog",
           message: "Base " + schema.baseId + " is not among the bases of the authenticated No Code user (nocode-baserow-catalog-list). Use one of them, or baseName to create a base in an accessible workspace."
-        };
-        return plan;
+        });
       }
       var workspace = ensureWorkspace(plan, schema, create, apply, bearer, catalog);
       if (apply) {
@@ -1687,12 +1695,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       };
       return plan;
     } catch (e) {
-      plan.status = "error";
-      plan.error = {
+      return failedPlan(plan, {
         code: "baserow_schema_apply_failed",
         message: String(e && e.message ? e.message : e)
-      };
-      return plan;
+      });
     }
   };
 

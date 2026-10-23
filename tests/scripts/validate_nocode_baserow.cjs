@@ -160,6 +160,18 @@ test('a field Baserow did not create is an error, not a success', () => {
   assert.equal(r.status, 'error');
   assert.match(r.error.message, /did not create it/);
 });
+test('a failed schema-apply answers its error before its actions', () => {
+  // The Assistant's feedback kept the first "message" of the answer: "Table already exists.", a planned action
+  // listed before the error (friction 3615a606fb3f, four times).
+  const failed = load(fakeBaserow({ refuseFields: true }).transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals', fields: [{ name: 'Amount', type: 'number' }] }] } });
+  assert.deepEqual(Object.keys(failed).slice(0, 2), ['status', 'error']);
+  assert.ok(failed.actions.some(a => a.message === 'Table already exists.'));
+  assert.match(/"message"\s*:\s*"([^"]*)"/.exec(JSON.stringify(failed))[1], /did not create it/);
+  const outside = load(fakeBaserow().transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 99, tables: [{ name: 'T' }] } });
+  assert.deepEqual([Object.keys(outside)[1], outside.error.code], ['error', 'base_not_in_catalog']);
+  const noAccount = load(fakeBaserow({ noAccount: true }).transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals' }] } });
+  assert.deepEqual([Object.keys(noAccount)[1], noAccount.error.code], ['error', 'baserow_account_unavailable']);
+});
 
 test('writes use the user\'s Baserow account and stay inside the user\'s catalog', () => {
   const noAccount = fakeBaserow({ noAccount: true });
