@@ -496,6 +496,9 @@ comment: |
 ↓_nextCursor [variables.RequestableVariable-1762959329821]: 
   comment: Opaque cursor from a previous response. Internal pagination token.
   description: Opaque cursor from a previous response. Internal pagination token.
+↓_showExperimental [variables.RequestableVariable-1792900000101]: 
+  comment: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
+  description: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
 ↓Sequence [core.TestCase-1763471055163]: 
   ↓target [variables.TestCaseVariable-1763471055980]: 
     value: lib_ConvertigoMCP.sq:internal_list_tools_info

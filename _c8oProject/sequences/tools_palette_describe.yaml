@@ -381,6 +381,9 @@ comment: |
   comment: Set true to include the creation template and detailed property hints.
   description: Set true to include the creation template and detailed property hints.
   value: false
+↓_showExperimental [variables.RequestableVariable-1792900000102]: 
+  comment: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
+  description: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
 ↓jElement [core.TestCase-1763471189986]: 
   ↓className [variables.TestCaseVariable-1763471190830]: 
     required: true

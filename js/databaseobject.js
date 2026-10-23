@@ -3146,8 +3146,16 @@ C8O.dbo._exampleValueForKind = function (kind, fallback) {
 // The experimental features of the engine (JSON native steps, JSON native properties of a sequence) follow the
 // engine switch com.twinsoft.convertigo.engine.util.ExperimentalFeatures (off by default, on in an Eclipse Studio
 // whose preference shows them) and the engine marker (DboBean.isExperimental, descriptor value "experimental").
-// An engine without the switch or the marker hides nothing.
+// An engine without the switch or the marker hides nothing. showExperimental=true on the MCP endpoint URL (or the
+// header X-Convertigo-Show-Experimental: true) shows them for its requests: the router passes _showExperimental to the
+// tools that list or describe them.
 C8O.dbo.isExperimentalShown = function () {
+  try {
+    if (typeof _showExperimental !== "undefined" && _showExperimental != null
+        && String(_showExperimental).trim().toLowerCase() === "true") {
+      return true;
+    }
+  } catch (_ignoreShowExperimental) {}
   try {
     return Packages.com.twinsoft.convertigo.engine.util.ExperimentalFeatures.isShown() == true;
   } catch (_ignoreNoSwitch) {

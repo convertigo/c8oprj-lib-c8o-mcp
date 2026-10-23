@@ -1,5 +1,5 @@
 accessibility: Private
-comment: 'Handles MCP JSON-RPC requests (initialize, notifications, tools, ping). Request headers set by the Agent Bridge: X-Convertigo-Reveal-Mode true injects reveal=true on the tools that support it (mobile-builder-open, databaseobject-tree-apply, batch-call, no-code form mutations) unless the model passed it; X-Convertigo-No-Log true mutes the engine logs of the tool execution. ping is answered inline, with no sub-sequence and no engine logs.'
+comment: 'Handles MCP JSON-RPC requests (initialize, notifications, tools, ping). Request headers set by the Agent Bridge: X-Convertigo-Reveal-Mode true injects reveal=true on the tools that support it (mobile-builder-open, databaseobject-tree-apply, batch-call, no-code form mutations) unless the model passed it; X-Convertigo-No-Log true mutes the engine logs of the tool execution. showExperimental=true on the endpoint URL (or X-Convertigo-Show-Experimental true) shows the experimental features of the engine to palette-list, palette-describe, databaseobject-schema and batch-call. ping is answered inline, with no sub-sequence and no engine logs.'
 responseTimeout: 300
 ↓Init [steps.SimpleStep-1761755111960]: 
   comment: Parse JSON-RPC request and select target sequence
