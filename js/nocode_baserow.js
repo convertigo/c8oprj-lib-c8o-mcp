@@ -965,6 +965,14 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return createdWorkspace;
   }
 
+  function basesOfWorkspace(catalog, workspace) {
+    var workspaceId = numberOrNull(workspace && workspace.id);
+    if (workspaceId == null) {
+      return ensureArray(catalog.bases);
+    }
+    return ensureArray(catalog.bases).filter(function (item) { return numberOrNull(item && item.workspaceId) === workspaceId; });
+  }
+
   function ensureBase(plan, schema, create, apply, bearer, catalog, workspace) {
     if (schema.baseId != null) {
       return { id: schema.baseId, name: schema.baseName || "" };
@@ -972,7 +980,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     if (!schema.baseName.length) {
       throw new Error("schema.baseId or schema.baseName is required.");
     }
-    var base = findByIdOrName(catalog.bases, null, schema.baseName);
+    // A base name is looked up in the target workspace only: the same name in another workspace is another base
+    // (test-nocode, Mistral run: workspace My APPS and "Gestion des congés" wrote into the base of Vacations).
+    var base = findByIdOrName(basesOfWorkspace(catalog, workspace), null, schema.baseName);
     if (base) {
       pushAction(plan, "base_exists", "Base already exists.", { baseId: base.id, baseName: base.name, workspaceId: base.workspaceId });
       return base;
@@ -1615,6 +1625,16 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           code: "base_not_in_catalog",
           message: "Base " + schema.baseId + " is not among the bases of the authenticated No Code user (nocode-baserow-catalog-list). Use one of them, or baseName to create a base in an accessible workspace."
         });
+      }
+      if (schema.baseId == null && schema.workspaceId == null && !schema.workspaceName.length && schema.baseName.length) {
+        var sameName = ensureArray(catalog.bases).filter(function (item) { return trimmed(item && item.name).toLowerCase() === schema.baseName.toLowerCase(); });
+        if (sameName.length > 1) {
+          return failedPlan(plan, {
+            code: "base_name_ambiguous",
+            message: "Several workspaces hold a base named " + schema.baseName + ": give baseId, or workspaceId with baseName.",
+            bases: sameName.map(function (item) { return { id: item.id, name: item.name, workspaceId: item.workspaceId }; })
+          });
+        }
       }
       var workspace = ensureWorkspace(plan, schema, create, apply, bearer, catalog);
       if (apply) {

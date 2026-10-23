@@ -191,6 +191,32 @@ test('writes use the user\'s Baserow account and stay inside the user\'s catalog
   assert.equal(tableCreate.params.__header_Authorization, 'JWT user-token');
 });
 
+test('a base name is looked up in the workspace the schema names, and is ambiguous without one', () => {
+  // test-nocode, Mistral run: workspaceId of My APPS with baseName "Gestion des congés" found the base of that name
+  // in Vacations, created the table there, then nocode-app-create did not find it in My APPS.
+  const fake = fakeBaserow();
+  fake.state.workspaces.push({ id: 11, name: 'Other' });
+  fake.state.bases.push({ id: 21, name: 'Leave', workspaceId: 11 });
+  const r = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { workspaceId: 10, baseName: 'Leave', tables: [{ name: 'Requests' }] } });
+  assert.equal(r.status, 'ok', JSON.stringify(r.error));
+  assert.ok(!r.actions.some(a => a.type === 'base_exists'), JSON.stringify(r.actions));
+  const created = fake.state.bases.filter(b => b.name === 'Leave' && b.workspaceId === 10);
+  assert.equal(created.length, 1, 'a new base in the named workspace');
+  assert.deepEqual(fake.state.tables.filter(t => t.name === 'Requests').map(t => t.baseId), [created[0].id]);
+  assert.deepEqual(fake.state.tables.filter(t => t.baseId === 21), [], 'nothing written in the other workspace');
+  // Called again, the base of the named workspace is reused.
+  const again = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { workspaceId: 10, baseName: 'Leave', tables: [{ name: 'Requests' }] } });
+  assert.deepEqual(plain(again.actions.find(a => a.type === 'base_exists')), { type: 'base_exists', message: 'Base already exists.', baseId: created[0].id, baseName: 'Leave', workspaceId: 10 });
+
+  const ambiguous = fakeBaserow();
+  ambiguous.state.workspaces.push({ id: 11, name: 'Other' });
+  ambiguous.state.bases.push({ id: 21, name: 'Sales', workspaceId: 11 });
+  const refused = load(ambiguous.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseName: 'Sales', tables: [{ name: 'T' }] } });
+  assert.equal(refused.error.code, 'base_name_ambiguous');
+  assert.deepEqual(plain(refused.error.bases.map(b => [b.id, b.workspaceId])), [[20, 10], [21, 11]]);
+  assert.ok(!ambiguous.state.calls.some(c => /_POST$|TableCreateColumn/.test(c.name)), 'nothing is written');
+});
+
 test('a new table holds its primary field only, named as the schema asks', () => {
   const fake = fakeBaserow();
   const C8O = load(fake.transport).C8O;
@@ -304,6 +330,20 @@ test('nocode-app-create creates the base, the table and its fields, then the bou
   assert.equal(again.status, 'ok');
   assert.equal(h.fake.state.tables.filter(t => t.name === 'Demandes').length, 1);
   assert.equal(again.baserow.tables[0].created, false);
+});
+
+test('nocode-app-create creates its new base in the workspace it names, even when another workspace has that name', () => {
+  // test-nocode, Mistral run: the first call failed with "table ... was not found after the schema was applied" and
+  // the retry wrote the application into the existing base of the other workspace.
+  const h = appHarness();
+  h.fake.state.workspaces.push({ id: 11, name: 'Other' });
+  h.fake.state.bases.push({ id: 21, name: 'Achats', workspaceId: 11 });
+  const r = h.create(purchases);
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.equal(r.baserow.base.created, true);
+  const base = h.fake.state.bases.find(b => b.id === r.baserow.base.id);
+  assert.deepEqual([base.name, base.workspaceId], ['Achats', 10]);
+  assert.deepEqual(h.fake.state.tables.filter(t => t.baseId === 21), [], 'nothing written in the other workspace');
 });
 
 test('nocode-app-create on an existing table reads its columns and writes nothing to Baserow (S4)', () => {
