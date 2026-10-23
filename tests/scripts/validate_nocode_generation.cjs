@@ -2116,13 +2116,18 @@ test('nocode-app-create: inputs named after their columns, an explicit mapping w
   const action = flowOf(form, 'save_contact').elements[0].actions['lib_BaseRow.forms_AddRowFromData'];
   assert.ok(action, 'the second table writes its columns explicitly');
   const values = Object.fromEntries(action.vars.forms_freeVars.map(entry => [entry.name, entry.str]));
-  assert.deepEqual(Object.keys(values), ['Nom', 'Client']);
+  assert.deepEqual(Object.keys(values), ['Nom', 'Client', 'Actif']);
   assert.equal(refTarget(values.Nom), byName(form, 'contact_nom').id);
   assert.equal(refTarget(values.Client), byName(form, 'Client').id, 'a name nobody took stays the column name');
   const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
   assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
   assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
-  assert.deepEqual(result.baserow.tables[1].notEntered, ['Actif (boolean): shown, not entered']);
+  // An existing boolean is a Oui/Non radio submitting true/false, with no answer chosen in advance (test-nocode S4: the
+  // agent added a checkbox of its own when the tool left the column out).
+  const actif = byName(form, 'Actif');
+  assert.equal(actif.type, 'radio');
+  assert.deepEqual(actif.children.map(c => [c.value, c.displayValue, c.selected]), [['true', 'Oui', false], ['false', 'Non', false]]);
+  assert.equal(result.baserow.tables[1].notEntered, undefined);
 });
 test('nocode-app-create: French and English labels follow the entity', () => {
   const labels = spec => { const { form } = planApp(spec); return [form.pages.map(p => p.name), flowOf(form, 'save_' + spec.entities[0].name).elements[1].sources.self.vars.selfVar.str]; };

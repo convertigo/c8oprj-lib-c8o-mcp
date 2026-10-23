@@ -19,9 +19,9 @@ C8O.nocodeApp = C8O.nocodeApp || {};
   var FIELD_TYPE_ALIASES = { string: "text", textarea: "long_text", integer: "number", decimal: "number", amount: "number", datetime: "date", select: "single_select", choice: "single_select", checkbox: "boolean", bool: "boolean", phone: "phone_number", tel: "phone_number", link: "link_row", relation: "link_row" };
   // Computed or managed by Baserow: shown in lists and details, never entered.
   var READ_ONLY_TYPES = ["formula", "lookup", "rollup", "count", "created_on", "created_by", "last_modified", "last_modified_by", "autonumber", "uuid"];
-  // What lib_BaseRow.forms_AddRow writes from an input of the same name. A boolean is not among them: a radio or a
-  // select submits the text it shows (Oui), which Baserow reads as false; new tables get an Oui/Non choice instead.
-  var ENTERED_TYPES = ["text", "long_text", "number", "date", "single_select", "email", "phone_number", "url", "rating", "link_row"];
+  // What lib_BaseRow.forms_AddRow writes from an input of the same name. A boolean is a radio whose options submit true
+  // and false and show Oui and Non (displayValue, read by the NGX viewers).
+  var ENTERED_TYPES = ["text", "long_text", "number", "date", "single_select", "email", "phone_number", "url", "rating", "link_row", "boolean"];
   var SCREENS = ["list", "form", "detail", "dashboard"];
   var AGGREGATIONS = ["count", "sum", "avg", "min", "max"];
   var NUMERIC_TYPES = ["number", "rating", "count", "rollup", "autonumber"];
@@ -697,6 +697,11 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     if (type === "single_select") {
       field.type = "select";
       field.source = { table: spec.table, field: column.name };
+    }
+    if (type === "boolean") {
+      // No answer chosen in advance: an unanswered radio leaves the column false.
+      field.type = "radio";
+      field.values = [{ value: "true", displayValue: t.yesNo[0], selected: false }, { value: "false", displayValue: t.yesNo[1], selected: false }];
     }
     if (type === "link_row") {
       var target = spec.links[column.name.toLowerCase()];
