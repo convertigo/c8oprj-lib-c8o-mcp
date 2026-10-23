@@ -672,10 +672,34 @@ C8O.requestable._findChild = function (container, options) {
   return null;
 };
 
+// A step of a running sequence is a clone that shares its variable order with the step of the project and with every
+// other running clone (RequestableStep.clone keeps orderedVariables). Removing or adding variables on it changed that one
+// list for every call: it grew with each call and two calls at once broke it. The clone gets its own order first.
+C8O.requestable._ownVariableOrder = function (step) {
+  if (!step || typeof step.setOrderedVariables !== 'function') {
+    return;
+  }
+  var XMLVector = Packages.com.twinsoft.convertigo.beans.common.XMLVector;
+  var priorities = new XMLVector();
+  var vars = null;
+  try {
+    vars = step.getVariables ? step.getVariables() : null;
+  } catch (_ignoreVars) {
+    vars = null;
+  }
+  for (var i = 0; vars && i < vars.size(); i++) {
+    priorities.add(java.lang.Long.valueOf(vars.get(i).priority));
+  }
+  var order = new XMLVector();
+  order.add(priorities);
+  step.setOrderedVariables(order);
+};
+
 C8O.requestable._clearVariables = function (step) {
   if (!step) {
     return;
   }
+  C8O.requestable._ownVariableOrder(step);
   var vars = null;
   try {
     vars = step.getVariables ? step.getVariables() : null;
@@ -699,6 +723,7 @@ C8O.requestable._addVariables = function (step, map) {
   if (!step || !map) {
     return;
   }
+  C8O.requestable._ownVariableOrder(step);
   var StepVariable = Packages.com.twinsoft.convertigo.beans.variables.StepVariable;
   function addSingle(key, rawValue) {
     if (rawValue === null || rawValue === undefined) {

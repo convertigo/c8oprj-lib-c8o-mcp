@@ -7,6 +7,12 @@ comment: used for internal call
     }
     
     var callStep = context.requestedObject.getStep("Call");
+    // The Call step of this run is a clone that shares its variable order with the step of the project and every other running
+    // clone (RequestableStep.clone keeps orderedVariables): each call added its variables to that one list, which grew
+    // with every call, and two calls at once broke it (IndexOutOfBoundsException, "The provided tool call failed").
+    var ownOrder = new com.twinsoft.convertigo.beans.common.XMLVector();
+    ownOrder.add(new com.twinsoft.convertigo.beans.common.XMLVector());
+    callStep.setOrderedVariables(ownOrder);
     
     try {
       let vars = JSON.parse(_variables);
