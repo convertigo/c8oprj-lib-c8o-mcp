@@ -864,7 +864,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-22.quick-reference-v12",
+      contractVersion: "2026-10-23.questionnaire-send-v13",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -3073,6 +3073,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             }
           }
         });
+        // A flow that announces a success and empties the inputs without a submit loses the respondent's entry (23/10 on
+        // test-nocode: an "Envoyer" button next to the questionnaire's own Envoyer button, the one that saves).
+        var flowElements = ensureArray(flow.elements).filter(function (element) { return element && typeof element === "object"; });
+        var announcesSuccess = flowElements.some(function (element) { return element.type === "toast" && String((element.config || {}).color || "").toUpperCase() === TOAST_COLORS.success.toUpperCase(); });
+        if (announcesSuccess && flowElements.some(function (element) { return element.type === "reset_fields"; }) && !flowElements.some(function (element) { return element.type === "submit"; })) {
+          incomplete("success_without_save", "This flow shows a success message and empties the inputs, but nothing saves them: the entry is lost. A questionnaire (navigationMode buttons) saves its responses with the viewer's own Envoyer button on its last page: leave this button out. To save from a button, put a submit with saveTo or an action before the toast", "/flows/" + idx);
+        }
         ensureArray(flow.elements).forEach(function (element, eidx) {
           if (!element || typeof element !== "object") { return; }
           var path = "/flows/" + idx + "/elements/" + eidx;
@@ -3221,6 +3228,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var customPages = ensureArray(form.pages).filter(function (page) { return page && !boolLike(page.enabledTab) && !boolLike(page.enabledButtons); });
       if (customPages.length >= 2 && customPages.length === ensureArray(form.pages).length && customPages.filter(function (page) { return page.isNameDisplayed !== false; }).length >= 2) {
         warning("repeated_form_title", "The form name is repeated in a title card on every page. Set isNameDisplayed=false on the pages and give each one a page header (page.header or a description block)", "/pages");
+      }
+      // A page that shows the form name in its title card and opens on a header with the same title shows it twice.
+      if (!form.config || ["page", "none"].indexOf(form.config.titleDisplay) < 0) {
+        ensureArray(form.pages).forEach(function (page, idx) {
+          if (!page || page.isNameDisplayed === false) { return; }
+          var first = ensureArray(form.formulaire).filter(function (item) { return item && item.parentRef == null && item.config && item.config.page === page.pageTechName; })[0];
+          var heading = first && first.type === "description" && /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i.exec(String(first.config.html || ""));
+          var headingText = heading && heading[1].replace(/<[^>]+>/g, "").replace(/&#39;/g, "'").replace(/&quot;/g, "\"").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+          if (heading && trimmed(headingText).toLowerCase() === trimmed(form.name).toLowerCase()) {
+            warning("repeated_title_in_header", "This page shows the form name in its title card, then the same title in its header block. Give the header another title (or none), or set isNameDisplayed=false on the page", "/pages/" + idx);
+          }
+        });
       }
       var formPages = ensureArray(form.pages);
       var applicationPages = formPages.length && (formPages.every(function (page) { return page && boolLike(page.enabledTab); }) || customPages.length === formPages.length);
@@ -4323,7 +4342,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
       defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field, path: [\"Column\", \"value\"], mode: \"reactive\" } (grid cells are { value }), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults has the rules.",
-      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused: a plain questionnaire (navigationMode buttons) saves its responses through the automatic submit of its last page, with no button for it. Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow).",
+      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for that, and no page header repeating the form name (shown in the title card). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow).",
       baserow: {
         tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
         dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",

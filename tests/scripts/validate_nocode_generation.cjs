@@ -1754,6 +1754,33 @@ test('a source or an action written with plain values gets the UI-authored encod
   assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
   assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
 });
+test('a button that announces a success and empties the inputs without saving them is refused', () => {
+  // 23/10 on test-nocode (S1): an "Envoyer" button with a toast and reset_fields next to the questionnaire's own
+  // Envoyer button, the only one that saves.
+  const questionnaire = (elements, extra = {}) => ({ name: 'Demande de congés', language: 'fr', navigationMode: 'buttons', ...extra, pages: [{ name: 'Demande', fields: [
+    { type: 'text', name: 'Demandeur', label: 'Demandeur' },
+    { type: 'button', name: 'send', label: 'Envoyer', flow: 'send' }
+  ] }], flows: [{ id: 'send', name: 'Envoyer', elements }] });
+  const codes = r => r.validation.issues.map(i => i.code);
+  const fake = api().compile(questionnaire([{ type: 'toast', message: 'Demande envoyée', color: 'success' }, { type: 'reset_fields', scope: 'page' }]));
+  assert.equal(fake.status, 'invalid');
+  assert.match(fake.validation.issues.find(i => i.code === 'success_without_save').message, /own Envoyer button on its last page/);
+  assert.ok(codes(api().compile(questionnaire([{ type: 'toast', message: 'Envoyée' }, { type: 'reset_fields' }]))).includes('success_without_save'), 'a toast without color is a success');
+  const saved = api().compile(questionnaire([{ type: 'submit', saveTo: { table: 5271, values: { Demandeur: 'Demandeur' } } }, { type: 'toast', message: 'Demande envoyée' }, { type: 'reset_fields', scope: 'page' }]), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
+  assert.ok(!codes(saved).includes('success_without_save'), JSON.stringify(saved.validation.issues));
+  const cancel = api().compile(questionnaire([{ type: 'toast', message: 'Saisie effacée', color: 'info' }, { type: 'reset_fields', scope: 'page' }]));
+  assert.ok(!codes(cancel).includes('success_without_save'));
+  assert.ok(api().validate(clone(fake.form)).validation.warnings.some(w => w.code === 'success_without_save'), 'a saved form gets a warning');
+});
+test('a page header repeating the form name shown in the title card is reported', () => {
+  const form = (header, extra = {}, page = {}) => api().compile({ name: "Demandes d'achat", navigationMode: 'buttons', ...extra, pages: [{ name: 'P', header, ...page, fields: [{ type: 'text', name: 'q', label: 'Q' }] }] });
+  const warned = r => r.validation.warnings.some(w => w.code === 'repeated_title_in_header');
+  assert.ok(warned(form({ title: "Demandes d'achat" })), 'escaped apostrophe');
+  assert.ok(!warned(form({ title: 'Nouvelle demande' })));
+  assert.ok(!warned(form({ title: "Demandes d'achat" }, { titleDisplay: 'none' })));
+  assert.ok(!warned(form({ title: "Demandes d'achat" }, {}, { isNameDisplayed: false })));
+  assert.ok(!warned(form({ title: "Demandes d'achat" }, { navigationMode: 'custom' })), 'custom pages hide the title card by default');
+});
 test('the contract answers its core with an index of every section, the sections asked for, or all of it', () => {
   const client = api();
   const core = client.contract({});
