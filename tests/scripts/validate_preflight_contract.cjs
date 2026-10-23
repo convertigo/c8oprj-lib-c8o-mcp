@@ -570,3 +570,17 @@ test('every output schema takes the argumentWarning and operatorNote the endpoin
     assert.match(endpoint, new RegExp('↓' + key + ' \\[steps\\.JsonFieldStep-'), key + ' is a top-level field of structuredContent');
   }
 });
+
+test('a refused MCP token is logged with its reason, never with the token', () => {
+  const logged = [];
+  const ctx = {
+    include() {}, request: '{}',
+    C8O: { mcpAuth: { authenticateRequest: () => ({ status: 'error', authenticated: false,
+      error: { code: 'invalid_token_record', message: 'The MCP bearer token does not match its active record.' } }) } },
+    context: { httpServletResponse: { setHeader() {} } },
+    com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn: message => logged.push(String(message)) } } } } } }
+  };
+  vm.runInNewContext(stepExpression('_c8oProject/sequences/mcp_endpoint.yaml', 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '401');
+  assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer refused (invalid_token_record): The MCP bearer token does not match its active record.']);
+});
