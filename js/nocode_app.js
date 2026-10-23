@@ -224,7 +224,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     var entity = {
       name: name,
       plural: trimmed(raw.plural) || name + "s",
-      feminine: raw.feminine === true || raw.gender === "f" || raw.gender === "feminine",
+      feminine: raw.feminine === true || (raw.masculine === false) || ["f", "feminine", "féminin"].indexOf(trimmed(raw.gender).toLowerCase()) >= 0,
       key: slug(name),
       fields: ensureArray(raw.fields || raw.columns).map(function (field, f) { return normalizeFieldSpec(field, path + ".fields[" + f + "]", language); }),
       screens: normalizeScreens(raw.screens, path + ".screens")
@@ -724,10 +724,10 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     }
     var fieldSpecs = {};
     entity.fields.forEach(function (field) { fieldSpecs[field.name.toLowerCase()] = field; });
-    // An existing table keeps its order; the fields of the spec choose and order the columns when given.
+    // An existing table keeps its order; the fields of the spec choose and order the columns when given. A table
+    // reused by its name keeps a primary column the spec does not name (Name of an earlier table on test-nocode): it
+    // stays out of the application.
     var ordered = entity.fields.length ? entity.fields.map(function (field) { return column(field.name, "entities[" + index + "].fields"); }) : columns.slice();
-    var primary = columns.filter(function (item) { return item.primary === true; })[0];
-    if (primary && ordered.indexOf(primary) < 0) { ordered.unshift(primary); }
     var model = { table: { id: Number(table.id), path: table.path }, tableLabel: Number(table.id) > 0 ? "table " + table.id : "new table " + table.name, columns: ordered, fieldSpecs: fieldSpecs, links: {}, skipped: [] };
     ordered.forEach(function (item) {
       if (trimmed(item.type) !== "link_row") { return; }

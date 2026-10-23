@@ -1097,6 +1097,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
                   name: { type: "string", description: "Singular business name in the user's language, lower case: demande, ticket." },
                   plural: { type: "string", description: "Plural, default name + s." },
                   feminine: { type: "boolean", description: "French grammatical gender: true gives Nouvelle demande, Demande enregistrée." },
+                  masculine: { type: "boolean", description: "The default gender; true is the same as feminine false." },
+                  gender: { type: "string", enum: ["f", "m"], description: "Alias of feminine (f) or masculine (m)." },
                   table: { description: "The id of an existing table from nocode-baserow-catalog-list (its columns are read and reused), or the name of a new table (default: the plural, capitalized).", oneOf: [{ type: "integer" }, { type: "string" }] },
                   fields: {
                     type: "array",

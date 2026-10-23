@@ -330,6 +330,20 @@ test('nocode-app-create refuses a destination it cannot use, and a plan writes n
   assert.equal(outside.error.path, 'entities[0].table');
 });
 
+test('nocode-app-create reuses a table of the same name without showing a primary column the spec does not name', () => {
+  // test-nocode, S3: base Suivi des visites held a table Visites with only its primary Name from an earlier run.
+  const h = appHarness();
+  h.fake.state.tables.push({ id: 40, name: 'Visites', baseId: 20 });
+  h.fake.state.fields[40] = [{ id: 401, name: 'Name', type: 'text', primary: true, table_id: 40 }];
+  const r = h.create({ name: 'Suivi des visites', baserow: { baseId: 20 }, entities: [{ name: 'visite', feminine: true, table: 'Visites',
+    fields: [{ name: 'Date', type: 'date', default: 'today' }, { name: 'Personne visitée', required: true }], screens: { list: true, form: true } }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.deepEqual(r.baserow.tables.map(t => [t.id, t.created, t.columns]), [[40, false, ['Date', 'Personne visitée']]]);
+  const form = h.forms[r.id];
+  assert.equal(form.formulaire.find(i => i.name === 'Name'), undefined, 'no input for the unnamed primary column');
+  assert.deepEqual(JSON.parse(form.formulaire.find(i => i.name === 'visite_list').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str).columns, ['Date', 'Personne visitée']);
+});
+
 test('nocode-app-create saves no form when Baserow refuses the schema, and says the retry is safe', () => {
   const h = appHarness({ refuseFields: true });
   const r = h.create(purchases);
