@@ -283,6 +283,9 @@ test('nocode-app-create creates the base, the table and its fields, then the bou
   assert.equal(JSON.parse(save.elements[0].actions['lib_BaseRow.forms_AddRow'].vars.forms_config.str).table_id_int, table.id);
   const inputs = form.formulaire.filter(i => ['text', 'select'].includes(i.type) && i.config.page === form.pages.find(p => p.name === 'Nouvelle demande').pageTechName);
   assert.deepEqual(inputs.map(i => i.name), ['Demandeur', 'Article', 'Quantité', 'Prix', 'Statut']);
+  // Without columns given, the list shows the first five short columns: S5 on test-nocode left Statut out with four.
+  const defaults = h.create({ ...purchases, entities: [{ ...purchases.entities[0], screens: { list: true, form: true } }] });
+  assert.deepEqual(JSON.parse(h.forms[defaults.id].formulaire.find(i => i.name === 'demande_list').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str).columns, ['Demandeur', 'Article', 'Quantité', 'Prix', 'Statut']);
   assert.ok(JSON.stringify(r).length < 3000, 'a short outline: ' + JSON.stringify(r).length);
   // Called again (a retry after a lost answer), the tables and fields are reused; only a second form is saved.
   const again = h.create(purchases);

@@ -761,7 +761,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     });
     var shown = ordered.filter(function (item) { return ["file", "password"].indexOf(trimmed(item.type)) < 0; });
     var list = entity.screens.list || {};
-    model.listColumns = list.columns ? ensureArray(list.columns).map(function (name) { return column(name, path + ".list.columns").name; }) : shown.filter(function (item) { return trimmed(item.type) !== "long_text"; }).slice(0, 4).map(function (item) { return item.name; });
+    model.listColumns = list.columns ? ensureArray(list.columns).map(function (name) { return column(name, path + ".list.columns").name; }) : shown.filter(function (item) { return trimmed(item.type) !== "long_text"; }).slice(0, LIST_COLUMN_LIMIT).map(function (item) { return item.name; });
     if (model.listColumns.length > LIST_COLUMN_LIMIT) { fail(path + ".list.columns", "a list shows at most " + LIST_COLUMN_LIMIT + " columns; the others go on the detail page"); }
     var search = list.search === true ? shown.filter(function (item) { return ["text", "long_text", "email"].indexOf(trimmed(item.type)) >= 0; }).slice(0, 3).map(function (item) { return item.name; }) : ensureArray(list.search);
     model.searchColumns = search.map(function (name) { return column(name, path + ".list.search").name; });
