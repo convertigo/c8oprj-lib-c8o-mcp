@@ -3143,6 +3143,52 @@ C8O.dbo._exampleValueForKind = function (kind, fallback) {
   }
 };
 
+// The experimental features of the engine (JSON native steps, JSON native properties of a sequence) follow the
+// engine switch com.twinsoft.convertigo.engine.util.ExperimentalFeatures (off by default, on in an Eclipse Studio
+// whose preference shows them) and the engine marker (DboBean.isExperimental, descriptor value "experimental").
+// An engine without the switch or the marker hides nothing.
+C8O.dbo.isExperimentalShown = function () {
+  try {
+    return Packages.com.twinsoft.convertigo.engine.util.ExperimentalFeatures.isShown() == true;
+  } catch (_ignoreNoSwitch) {
+    return true;
+  }
+};
+
+// a bean of the palette that is experimental, hidden while the switch is off
+C8O.dbo.isHiddenExperimentalBean = function (bean) {
+  try {
+    if (!bean || typeof bean.isExperimental !== "function" || bean.isExperimental() != true) {
+      return false;
+    }
+    return !C8O.dbo.isExperimentalShown();
+  } catch (_ignoreNoMarker) {
+    return false;
+  }
+};
+
+// an experimental property, hidden while the switch is off and its value on the instance is off (null, false, empty):
+// an existing native sequence keeps it; without instance, it is hidden
+C8O.dbo.isHiddenExperimentalProperty = function (descriptor, instance) {
+  try {
+    if (!descriptor || typeof descriptor.getValue !== "function") {
+      return false;
+    }
+    var flag = descriptor.getValue("experimental");
+    if (flag == null || String(flag) !== "true" || C8O.dbo.isExperimentalShown()) {
+      return false;
+    }
+    var readMethod = instance ? descriptor.getReadMethod() : null;
+    if (!instance || readMethod == null) {
+      return true;
+    }
+    var value = readMethod.invoke(instance, null);
+    return value == null || String(value) === "false" || String(value) === "";
+  } catch (_ignoreExperimental) {
+    return false;
+  }
+};
+
 // Integer properties edited with a Studio tags editor store the index of the selected tag,
 // so expose {value, label} pairs; string and enum properties store the tag itself.
 C8O.dbo._describeAllowedValues = function (descriptor, sampleInstance, kind) {
@@ -3197,6 +3243,9 @@ C8O.dbo._describeAllowedValues = function (descriptor, sampleInstance, kind) {
 
 C8O.dbo.describePropertyDescriptor = function (descriptor, sampleInstance) {
   if (!descriptor) {
+    return null;
+  }
+  if (C8O.dbo.isHiddenExperimentalProperty(descriptor, sampleInstance)) {
     return null;
   }
   var name = descriptor.getName ? String(descriptor.getName()) : "";

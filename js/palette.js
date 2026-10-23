@@ -440,6 +440,10 @@ C8O.palette._collectExplorerEntries = function (context) {
           if (!classFqcn) {
             continue;
           }
+          // the experimental steps are listed only while the engine shows them
+          if (C8O.dbo && typeof C8O.dbo.isHiddenExperimentalBean === "function" && C8O.dbo.isHiddenExperimentalBean(bean)) {
+            continue;
+          }
 
           var isAllowed = parentDbo == null;
           try {
