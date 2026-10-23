@@ -209,6 +209,12 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       sequenceName === "tools_nocode_form_update";
   }
 
+  function isExperimentalSequence(sequenceName) {
+    return sequenceName === "tools_palette_list" ||
+      sequenceName === "tools_palette_describe" ||
+      sequenceName === "tools_databaseobject_schema";
+  }
+
   function parseResumeFrom(rawValue) {
     if (rawValue === null || rawValue === undefined) {
       return 0;
@@ -963,6 +969,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       optimizeMutations = C8O.util.toBoolean(params.optimizeMutations, true) === true;
     }
     var revealRequested = C8O.util.toBoolean(params.reveal, false) === true;
+    var showExperimental = C8O.util.toBoolean(params.showExperimental, false) === true;
 
     var executionId = asTrimmed(params.executionId);
     if (!executionId.length) {
@@ -1037,6 +1044,11 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
           !(optimizeMutations && sequenceName === "tools_databaseobject_tree_apply")
         ) {
           callArguments.reveal = true;
+        }
+        // the experimental features shown by the endpoint, for the calls that list or describe them
+        delete callArguments._showExperimental;
+        if (showExperimental && isExperimentalSequence(sequenceName)) {
+          callArguments._showExperimental = "true";
         }
         if (optimizeMutations && isMutationSequence(sequenceName)) {
           callArguments = optimizeMutationArgs(sequenceName, callArguments);

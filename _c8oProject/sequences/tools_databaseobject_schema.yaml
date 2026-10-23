@@ -127,6 +127,9 @@ comment: |
   comment: Set true to read the request schema of a requestable instead of its response schema.
   description: Set true to read the request schema of a requestable instead of its response schema.
   value: false
+↓_showExperimental [variables.RequestableVariable-1792900000103]: 
+  comment: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
+  description: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
 ↓httpip [core.TestCase-1763994296762]: 
   ↓qname [variables.TestCaseVariable-1763994298722]: 
     value: codex_test.http_demo.get_ip

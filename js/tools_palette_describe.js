@@ -157,6 +157,10 @@ function locateExplorerEntry(classNameText) {
           }
           var classText = String(beanClassName);
           if (classText === classNameText || classText.toLowerCase() === expectedLower) {
+            // an experimental step is described only while the engine shows it
+            if (C8O.dbo && typeof C8O.dbo.isHiddenExperimentalBean === "function" && C8O.dbo.isHiddenExperimentalBean(bean)) {
+              return null;
+            }
             var beanInfoClass = Packages.java.lang.Class.forName(classText + "BeanInfo");
             var beanInfo = beanInfoClass.getConstructor().newInstance();
             return {
