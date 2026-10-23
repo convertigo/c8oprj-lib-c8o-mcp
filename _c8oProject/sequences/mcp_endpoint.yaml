@@ -91,6 +91,10 @@ responseTimeout: 300
       try {
         context.httpServletResponse.setHeader("WWW-Authenticate", "Bearer realm=\"Convertigo MCP\"");
       } catch (_ignoreAuthenticationHeader) {}
+      // A refused token stops a Vibe agent from using every Convertigo tool for the rest of its session: say why.
+      try {
+        com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] MCP bearer refused (" + (authenticationError.code || "unauthorized") + "): " + (authenticationError.message || ""));
+      } catch (_ignoreAuthenticationLog) {}
     } else {
     if (("" + request).trim().length === 0) {
       parseError = { status: "400", code: -32700, message: "Empty request body" };

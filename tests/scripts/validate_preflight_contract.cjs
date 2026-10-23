@@ -486,3 +486,101 @@ test('tree-apply properties: a value the engine cannot take is an error and is n
   assert.deepEqual(set, [['responseTimeout', '60'], ['accessibility', 'Private'], ['autoStart', true]]);
   assert.deepEqual([...good.applied].map(a => a.newValue), ['60', 'Private', 'true']);
 });
+
+// --- concurrent calls -------------------------------------------------------------------------------
+
+// A step like the engine's RequestableStep: its clone gets its own variables but keeps the variable order of the step it
+// was cloned from, and adding or removing a variable changes that order.
+function stepWorld() {
+  class XMLVector extends Array {
+    add(value) { this.push(value); return true; }
+    get(i) { return this[i]; }
+    size() { return this.length; }
+  }
+  const newOrder = () => { const order = new XMLVector(); order.add(new XMLVector()); return order; };
+  let priority = 1000;
+  class StepVariable {
+    constructor() { this.priority = ++priority; }
+    setName(name) { this.name = name; }
+    setValueOrNull(value) { this.value = value; }
+  }
+  class Step {
+    constructor(order) { this.vars = []; this.orderedVariables = order || newOrder(); }
+    clone() { return new Step(this.orderedVariables); }
+    setOrderedVariables(order) { this.orderedVariables = order; }
+    getVariables() {
+      const vars = this.vars.slice();
+      return { size: () => vars.length, get: i => vars[i], iterator: () => { let i = 0; return { hasNext: () => i < vars.length, next: () => vars[i++] }; } };
+    }
+    addVariable(variable) { this.vars.push(variable); this.orderedVariables.get(0).add(variable.priority); }
+    remove(variable) {
+      this.vars = this.vars.filter(v => v !== variable);
+      const order = this.orderedVariables.get(0);
+      order.splice(order.indexOf(variable.priority), 1);
+    }
+  }
+  const beans = { common: { XMLVector }, variables: { StepVariable } };
+  const com = { twinsoft: { convertigo: { beans } } };
+  return { Step, com, Packages: { com }, java: { lang: { Long: { valueOf: value => value } } } };
+}
+
+test('an MCP call adds its variables to the Call step of its own run only (friction "The provided tool call failed")', () => {
+  const { Step, com } = stepWorld();
+  const projectStep = new Step();
+  const runs = [];
+  for (const variables of [{ target: 'App', depth: 2 }, { target: 'App.sq:a' }]) {
+    const callStep = projectStep.clone();
+    runs.push(callStep);
+    vm.runInNewContext(stepExpression('_c8oProject/sequences/internal_call.yaml', 'init'), {
+      com, JSON, Object, _sequence: 'tools_databaseobject_tree_get', _variables: JSON.stringify(variables),
+      context: { requestedObject: { getStep: name => (name === 'Call' ? callStep : null) } }
+    });
+  }
+  assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
+  assert.deepEqual(runs.map(step => step.orderedVariables.get(0).length), [4, 3], 'each run orders its own variables');
+  assert.deepEqual(runs[1].vars.map(v => v.name), ['target', '__nolog', '__sequence']);
+});
+
+test('requestable-execute sets the variables of its call step on its own run only', () => {
+  const source = read('js/util.js');
+  const fnOf = name => { const at = source.indexOf('C8O.requestable.' + name + ' = '); return source.slice(at, source.indexOf('\n};\n', at) + 3); };
+  const { Step, Packages, java } = stepWorld();
+  const ctx = { C8O: { requestable: {} }, Packages, java, JSON, Object };
+  vm.runInNewContext(['_ownVariableOrder', '_clearVariables', '_addVariables'].map(fnOf).join(''), ctx);
+  const projectStep = new Step();
+  for (const variables of [{ id: 1, filter: 'a' }, { id: 2 }]) {
+    const callStep = projectStep.clone();
+    ctx.C8O.requestable._clearVariables(callStep);
+    ctx.C8O.requestable._addVariables(callStep, variables);
+    assert.deepEqual(callStep.vars.map(v => v.name), Object.keys(variables));
+    assert.equal(callStep.orderedVariables.get(0).length, Object.keys(variables).length);
+  }
+  assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
+});
+
+test('every output schema takes the argumentWarning and operatorNote the endpoint adds to an answer', () => {
+  const ctx = { C8O: {}, include() {} };
+  vm.runInNewContext(read('js/schema_overrides.js'), ctx);
+  const tight = ctx.C8O.schemaOverrides.decorateOutput('tools_databaseobject_tree_get', { type: 'object', additionalProperties: false,
+    properties: { rootQName: { type: 'string' } } });
+  assert.equal(tight.properties.argumentWarning.type, 'string');
+  assert.equal(tight.properties.operatorNote.type, 'string');
+  const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
+  for (const key of ['argumentWarning', 'operatorNote']) {
+    assert.match(endpoint, new RegExp('↓' + key + ' \\[steps\\.JsonFieldStep-'), key + ' is a top-level field of structuredContent');
+  }
+});
+
+test('a refused MCP token is logged with its reason, never with the token', () => {
+  const logged = [];
+  const ctx = {
+    include() {}, request: '{}',
+    C8O: { mcpAuth: { authenticateRequest: () => ({ status: 'error', authenticated: false,
+      error: { code: 'invalid_token_record', message: 'The MCP bearer token does not match its active record.' } }) } },
+    context: { httpServletResponse: { setHeader() {} } },
+    com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn: message => logged.push(String(message)) } } } } } }
+  };
+  vm.runInNewContext(stepExpression('_c8oProject/sequences/mcp_endpoint.yaml', 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '401');
+  assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer refused (invalid_token_record): The MCP bearer token does not match its active record.']);
+});

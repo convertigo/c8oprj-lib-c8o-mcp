@@ -2577,6 +2577,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         outputSchema.properties = {};
       }
       outputSchema.properties.error = { type: "object", description: "Set instead of the result when the tool failed: {code, message, details}." };
+      // The endpoint puts these two at the top of a successful answer: a client that checks the answer against a schema
+      // without additional properties (Vibe and the MCP SDKs do) refused the whole call when they were not declared.
+      outputSchema.properties.argumentWarning = { type: "string", description: "The arguments the tool ignored, and the ones it takes." };
+      outputSchema.properties.operatorNote = { type: "string", description: "A note from the person who supervises the agent." };
     }
     return outputSchema;
   };
