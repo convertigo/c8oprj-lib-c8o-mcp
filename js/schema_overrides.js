@@ -1121,7 +1121,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
                   },
                   screens: {
                     type: "object",
-                    description: "The screens wanted for this entity; default { list: true, form: true }.",
+                    description: "The screens wanted for this entity; default { list: true, form: true }. Give a screen the title the user calls it (\"Historique\", \"Nouvelle visite\"): its page, its header and the buttons that open it are named after it; without one the plural, \"Nouvelle visite\", the singular.",
                     properties: {
                       list: screen("true or { title, subtitle, columns: at most 5 columns shown, search: [text columns] or true, filters: [single select columns, at most 2], sort: \"Column\" or \"-Column\" }. The search bar stays visible; the search is an OR across its columns, ANDed with the filters."),
                       form: screen("true or { title, subtitle }: entry page whose save adds a row, shows a toast, refreshes the list, empties the page and goes back."),
