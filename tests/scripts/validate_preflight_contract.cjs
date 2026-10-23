@@ -557,3 +557,16 @@ test('requestable-execute sets the variables of its call step on its own run onl
   }
   assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
 });
+
+test('every output schema takes the argumentWarning and operatorNote the endpoint adds to an answer', () => {
+  const ctx = { C8O: {}, include() {} };
+  vm.runInNewContext(read('js/schema_overrides.js'), ctx);
+  const tight = ctx.C8O.schemaOverrides.decorateOutput('tools_databaseobject_tree_get', { type: 'object', additionalProperties: false,
+    properties: { rootQName: { type: 'string' } } });
+  assert.equal(tight.properties.argumentWarning.type, 'string');
+  assert.equal(tight.properties.operatorNote.type, 'string');
+  const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
+  for (const key of ['argumentWarning', 'operatorNote']) {
+    assert.match(endpoint, new RegExp('↓' + key + ' \\[steps\\.JsonFieldStep-'), key + ' is a top-level field of structuredContent');
+  }
+});
