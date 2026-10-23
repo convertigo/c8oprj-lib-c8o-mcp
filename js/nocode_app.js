@@ -19,8 +19,8 @@ C8O.nocodeApp = C8O.nocodeApp || {};
   var FIELD_TYPE_ALIASES = { string: "text", textarea: "long_text", integer: "number", decimal: "number", amount: "number", datetime: "date", select: "single_select", choice: "single_select", checkbox: "boolean", bool: "boolean", phone: "phone_number", tel: "phone_number", link: "link_row", relation: "link_row" };
   // Computed or managed by Baserow: shown in lists and details, never entered.
   var READ_ONLY_TYPES = ["formula", "lookup", "rollup", "count", "created_on", "created_by", "last_modified", "last_modified_by", "autonumber", "uuid"];
-  // What lib_BaseRow.forms_AddRow writes from an input of the same name. A boolean is a radio whose options submit true
-  // and false and show Oui and Non (displayValue, read by the NGX viewers).
+  // What lib_BaseRow.forms_AddRow writes from an input of the same name. A boolean is entered with a Oui/Non radio and
+  // written by a hidden field of the column's name (booleanInput).
   var ENTERED_TYPES = ["text", "long_text", "number", "date", "single_select", "email", "phone_number", "url", "rating", "link_row", "boolean"];
   var SCREENS = ["list", "form", "detail", "dashboard"];
   var AGGREGATIONS = ["count", "sum", "avg", "min", "max"];
@@ -590,7 +590,11 @@ C8O.nocodeApp = C8O.nocodeApp || {};
       }
 
       if (screens.form) {
-        var inputs = spec.inputs.map(function (input) { return inputField(input, spec, entity, app, t); });
+        var inputs = [];
+        spec.inputs.forEach(function (input) {
+          if (trimmed(input.column.type) === "boolean") { Array.prototype.push.apply(inputs, booleanInput(input, spec, t, claim)); return; }
+          inputs.push(inputField(input, spec, entity, app, t));
+        });
         var save = { type: "submit", name: k + "_save_row", saveTo: { table: spec.table } };
         if (spec.explicitSave) {
           save.saveTo.values = {};
@@ -671,6 +675,18 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     return field;
   }
 
+  // A static radio shows the value it submits, and Baserow refuses Oui as a boolean (an unanswered one too). The radio
+  // shows Oui and Non; a hidden field named after the column writes true or false from it, false when unanswered.
+  function booleanInput(input, spec, t, claim) {
+    var fieldSpec = spec.fieldSpecs[input.column.name.toLowerCase()] || {};
+    var choice = claim(input.name + "_choice", "a yes/no choice");
+    var radio = { type: "radio", name: choice, label: fieldSpec.label || input.column.name, values: [{ value: t.yesNo[0], selected: false }, { value: t.yesNo[1], selected: false }] };
+    if (fieldSpec.required) { radio.mandatory = true; }
+    var written = { type: "text", name: input.name, label: input.column.name, disabled: true, visibleIf: { never: true },
+      defaultFrom: { source: "expression", mode: "reactive", expression: "(function (v) { v = v && typeof v === 'object' ? v.value : v; return v === " + JSON.stringify(t.yesNo[0]) + " ? 'true' : 'false'; })(fields[" + JSON.stringify(choice) + "])" } };
+    return [radio, written];
+  }
+
   function inputField(input, spec, entity, app, t) {
     var column = input.column;
     var fieldSpec = spec.fieldSpecs[column.name.toLowerCase()] || {};
@@ -697,11 +713,6 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     if (type === "single_select") {
       field.type = "select";
       field.source = { table: spec.table, field: column.name };
-    }
-    if (type === "boolean") {
-      // No answer chosen in advance: an unanswered radio leaves the column false.
-      field.type = "radio";
-      field.values = [{ value: "true", displayValue: t.yesNo[0], selected: false }, { value: "false", displayValue: t.yesNo[1], selected: false }];
     }
     if (type === "link_row") {
       var target = spec.links[column.name.toLowerCase()];
@@ -796,8 +807,9 @@ C8O.nocodeApp = C8O.nocodeApp || {};
   }
 
   // The identities a plan cannot have yet are bound by the creation: not a warning to act on. Nor are, in a plan, the
-  // tables it has not created yet.
-  var EXPECTED_BEFORE_CREATION = ["baserow_identity_pending_creation"];
+  // tables it has not created yet, nor the runtime check asked of any expression: the tool's expressions (the detail of
+  // a link or a boolean, the value written for a yes/no choice) were checked in the viewer on test-nocode.
+  var EXPECTED_BEFORE_CREATION = ["baserow_identity_pending_creation", "context_expression_runtime_check"];
   var EXPECTED_BEFORE_TABLES = ["missing_baserow_table"];
   function compactValidation(validation, tablesPending) {
     var value = validation || {};

@@ -2122,11 +2122,19 @@ test('nocode-app-create: inputs named after their columns, an explicit mapping w
   const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
   assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
   assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
-  // An existing boolean is a Oui/Non radio submitting true/false, with no answer chosen in advance (test-nocode S4: the
-  // agent added a checkbox of its own when the tool left the column out).
-  const actif = byName(form, 'Actif');
-  assert.equal(actif.type, 'radio');
-  assert.deepEqual(actif.children.map(c => [c.value, c.displayValue, c.selected]), [['true', 'Oui', false], ['false', 'Non', false]]);
+  // An existing boolean is entered with a Oui/Non radio, no answer chosen in advance, and written true/false by a hidden
+  // field of the column's name (test-nocode S4: the agent added a checkbox of its own when the tool left it out; a
+  // static radio shows the value it submits and Baserow refuses Oui).
+  const choice = byName(form, 'Actif_choice');
+  assert.equal(choice.type, 'radio');
+  assert.deepEqual(choice.children.map(c => [c.value, c.selected]), [['Oui', false], ['Non', false]]);
+  const written = byName(form, 'Actif');
+  assert.equal(written.type, 'text');
+  assert.equal(written.conditions.visibleIf.conds.length > 0 || written.conditions.visibleIf.groups.length > 0, true, 'hidden');
+  assert.equal(evaluateDefault(written, { fields: { Actif_choice: 'Oui' } }), 'true');
+  assert.equal(evaluateDefault(written, { fields: { Actif_choice: 'Non' } }), 'false');
+  assert.equal(evaluateDefault(written, { fields: {} }), 'false', 'unanswered is false, not an empty value Baserow refuses');
+  assert.deepEqual(result.validation.warnings || [], [], 'no warning the agent would try to fix');
   assert.equal(result.baserow.tables[1].notEntered, undefined);
 });
 test('nocode-app-create: French and English labels follow the entity', () => {
