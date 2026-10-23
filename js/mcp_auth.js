@@ -17,6 +17,8 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   var StandardOpenOption = Packages.java.nio.file.StandardOpenOption;
   var StandardCopyOption = Packages.java.nio.file.StandardCopyOption;
   var AtomicMoveNotSupportedException = Packages.java.nio.file.AtomicMoveNotSupportedException;
+  var PosixFilePermissions = Packages.java.nio.file.attribute.PosixFilePermissions;
+  var IOException = Packages.java.io.IOException;
   var Base64 = Packages.java.util.Base64;
   var SecureRandom = Packages.java.security.SecureRandom;
   var MessageDigest = Packages.java.security.MessageDigest;
@@ -35,6 +37,8 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   var MIN_MANAGED_SECONDS = 300;
   var MAX_MANAGED_SECONDS = 86400;
   var LAST_USED_WRITE_INTERVAL_MS = 300000;
+  var STORE_READ_ATTEMPTS = 4;
+  var STORE_READ_PAUSE_MS = 25;
 
   function trim(value) {
     return value === null || typeof value === "undefined"
@@ -154,7 +158,13 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     return directory;
   }
 
+  // Owner-only access. Where POSIX permissions exist one chmod sets them: the File setters below clear a bit for
+  // everyone, the owner included, before giving it back to the owner, so the file is unreadable in between.
   function protectFile(file) {
+    try {
+      Files.setPosixFilePermissions(file.toPath(), PosixFilePermissions.fromString("rw-------"));
+      return;
+    } catch (_posixPermissionsUnsupported) {}
     try {
       file.setReadable(false, false);
       file.setWritable(false, false);
@@ -203,7 +213,8 @@ C8O.mcpAuth = C8O.mcpAuth || {};
         }
         Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
       }
-      protectFile(file);
+      // The move keeps the permissions given to the temporary file. Protecting the file again in place made a token
+      // record unreadable for a moment to the calls checking it: a valid token was refused with a 401.
     } finally {
       try {
         if (temporary.exists()) {
@@ -697,6 +708,65 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     };
   }
 
+  // Not a refusal: the token could not be checked because its store could not be read. The endpoint answers 503, which
+  // fails that call only, where a 401 tells the client to get another token (Vibe drops the server for its session).
+  // details (the Java exception, with the store path) is for the engine log only.
+  function unavailable(code, message, details) {
+    return {
+      status: "error",
+      authenticated: false,
+      retryable: true,
+      error: {
+        code: String(code),
+        message: String(message),
+        details: String(details || "")
+      }
+    };
+  }
+
+  function isReadFailure(error) {
+    var cause = error && error.javaException ? error.javaException : error;
+    try {
+      return cause instanceof IOException;
+    } catch (_notJavaObject) {
+      return false;
+    }
+  }
+
+  // Every call reads the token store while another call, of this Studio or of one sharing its jwt folder, may be
+  // rewriting it (lastUsedAt, at most every 5 minutes). A read that fails for a moment (a file held open on Windows, a
+  // record replaced on a network share) is read again: read() answers { retry: true } for such an outcome.
+  function readStore(read) {
+    var outcome = read();
+    for (var attempt = 1; attempt < STORE_READ_ATTEMPTS && outcome.retry; attempt++) {
+      java.lang.Thread.sleep(STORE_READ_PAUSE_MS * attempt);
+      outcome = read();
+    }
+    return outcome;
+  }
+
+  function lookupDurableRecord(tokenId) {
+    var roots = tokenRoots();
+    var file = null;
+    for (var rootIndex = 0; rootIndex < roots.length; rootIndex++) {
+      if (tokenFile(revokedDirectory(roots[rootIndex]), tokenId).isFile()) {
+        return { revoked: true };
+      }
+      var candidate = tokenFile(activeDirectory(roots[rootIndex]), tokenId);
+      if (file === null && candidate.isFile()) {
+        file = candidate;
+      }
+    }
+    if (file === null) {
+      return { retry: true, missing: true };
+    }
+    try {
+      return { file: file, record: parseJsonFile(file) };
+    } catch (readError) {
+      return { retry: true, error: readError };
+    }
+  }
+
   function validateC8oForms(contextObject, parts, header, payload) {
     try {
       var validation = callSequence(contextObject, "C8Oforms", "APIV2_McpTokenValidate", {
@@ -767,12 +837,19 @@ C8O.mcpAuth = C8O.mcpAuth || {};
       return invalid("token_not_yet_valid", "The MCP bearer token is not valid yet.");
     }
     var signingInput = parts[0] + "." + parts[1];
-    var expected;
-    try {
-      expected = sign(signingInput, signingKey());
-    } catch (keyError) {
-      return invalid("signing_key_unavailable", String(keyError.message || keyError));
+    var key = readStore(function () {
+      try {
+        return { secret: signingKey() };
+      } catch (keyError) {
+        return { retry: true, error: keyError };
+      }
+    });
+    if (key.error) {
+      return isReadFailure(key.error)
+        ? unavailable("token_store_unreadable", "The MCP signing key could not be read just now. The token was not refused: retry the call.", key.error.message || key.error)
+        : invalid("signing_key_unavailable", String(key.error.message || key.error));
     }
+    var expected = sign(signingInput, key.secret);
     if (!signaturesEqual(parts[2], expected)) {
       return invalid("invalid_token_signature", "The MCP bearer token signature is invalid.");
     }
@@ -795,26 +872,28 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     if (!tokenId.length || !jti.length) {
       return invalid("missing_token_identifier", "The MCP bearer token identifier is missing.");
     }
-    var file = null;
+    var lookup;
     try {
-      var roots = tokenRoots();
-      for (var rootIndex = 0; rootIndex < roots.length; rootIndex++) {
-        if (tokenFile(revokedDirectory(roots[rootIndex]), tokenId).isFile()) {
-          return invalid("revoked_token", "The MCP bearer token has been revoked.");
-        }
-        var candidate = tokenFile(activeDirectory(roots[rootIndex]), tokenId);
-        if (file === null && candidate.isFile()) {
-          file = candidate;
-        }
-      }
+      lookup = readStore(function () {
+        return lookupDurableRecord(tokenId);
+      });
     } catch (identifierError) {
       return invalid("invalid_token_identifier", String(identifierError.message || identifierError));
     }
-    if (file === null) {
+    if (lookup.revoked) {
+      return invalid("revoked_token", "The MCP bearer token has been revoked.");
+    }
+    if (lookup.missing) {
       return invalid("revoked_or_unknown_token", "The MCP bearer token is revoked or unknown.");
     }
+    if (lookup.error) {
+      return isReadFailure(lookup.error)
+        ? unavailable("token_store_unreadable", "The MCP token record could not be read just now. The token was not refused: retry the call.", lookup.error.message || lookup.error)
+        : invalid("invalid_token_record", String(lookup.error.message || lookup.error));
+    }
+    var file = lookup.file;
     try {
-      var record = parseJsonFile(file);
+      var record = lookup.record;
       if (trim(record.id) !== tokenId || trim(record.jtiHash) !== sha256(jti)) {
         return invalid("invalid_token_record", "The MCP bearer token does not match its active record.");
       }
