@@ -864,7 +864,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-23.questionnaire-send-v13",
+      contractVersion: "2026-10-23.tool-answers-v14",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -4352,6 +4352,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         save: "On a submit element: saveTo: { table } adds a row from the inputs named like its columns; saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given ({ field, path } reads a part of a field); saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid; deleteFrom: { table, row: \"grid_name\" } deletes it."
       },
       edit: "nocode-form-edit { id, operations: [...] }, reduced shapes everywhere except update_flow_element: add_page { name, header, navigationMode, index }, update_page { pageName, patch }, add_field { pageName or parentFieldId, fieldObject, index }, update_field { fieldName, patch } (patch.label, patch.source, patch.visibleIf, patch.variant...), remove_field { fieldName }, move_field { fieldName, pageName, parentFieldId, index }, add_flow { flowId, name, flowData: { elements } }, add_flow_element { flowId, element, index, parentId }, update_flow_element { flowId, elementId, patch } (native), remove_flow { flowId }, remove_flow_element { flowId, elementId }, set_root { config }, finalize_baserow_bindings (alone, resumes a creation). A revision conflict means: read the form again, never retry blindly. Section editTool has an example of each.",
+      answers: "From run_typescript a tool resolves to its answer itself: r.status, r.form, r.id after a create or an edit (no r.result); a refused call has saved:false with validation.issues or error. A saved form: form.formulaire (components: type, name, config.label, config.page; choice options in children), form.pages, form.flows.",
       lifecycle: "Create once. saved=true with bindingFinalization.status=ready ends a creation; saved=true with status partial means the form exists: follow bindingFinalization.recovery, never create again. A refused call saves nothing: fix what it names and call again. Fix every design warning with nocode-form-edit before delivery; validation does not run the business flow nor test Baserow permissions.",
       example: {
         name: "Demandes", language: "fr", navigationMode: "custom",

@@ -1754,6 +1754,19 @@ test('a source or an action written with plain values gets the UI-authored encod
   assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
   assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
 });
+test('the skill and the quick reference say what a tool answers in code mode', () => {
+  // 23/10 on test-nocode (S1): the agent read r.result, got nothing, and spent five reads finding the answer's shape,
+  // then looked for the options of a select in config.children.
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  assert.match(skill, /Called from code \(`run_typescript`\), a tool resolves to its answer itself: read `r\.status`, `r\.form`/);
+  assert.match(skill, /the options of a choice are its `children`/);
+  const answers = api().contract({}).quickReference.answers;
+  assert.match(answers, /no r\.result/);
+  assert.match(answers, /choice options in children/);
+  const options = api().compile({ name: 'S', pages: [{ name: 'P', fields: [{ type: 'select', name: 'kind', label: 'Type', values: ['CP', 'RTT'] }] }] }).form.formulaire[0];
+  assert.deepEqual(Array.from(options.children, o => o.value), ['CP', 'RTT'], 'options are the children of the saved component');
+  assert.equal(options.config.children, undefined);
+});
 test('a button that announces a success and empties the inputs without saving them is refused', () => {
   // 23/10 on test-nocode (S1): an "Envoyer" button with a toast and reset_fields next to the questionnaire's own
   // Envoyer button, the only one that saves.
