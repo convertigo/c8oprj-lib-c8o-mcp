@@ -2159,3 +2159,60 @@ test('nocode-app-create: a spec it cannot build is refused with the path and the
   refused({ name: 'A', entities: [{ name: 'ticket', fields: [{ name: 'Montant', type: 'number' }] }] }, 'entities[0].fields', /needs a text field/);
   refused({ name: 'A', entities: [{ name: 'ticket', table: 999 }] }, 'entities[0].table', /not in the Baserow catalog/);
 });
+// A nested component took the first page (Accueil) whatever its container: the viewer loaded its sources there.
+function nestedPagesForm() {
+  return { name: 'Nested pages', pages: [
+    { name: 'Accueil', fields: [{ type: 'text', name: 'welcome' }] },
+    { name: 'Fiche', fields: [{ type: 'layout', name: 'record', fields: [{ type: 'layout', name: 'inner', fields: [{ type: 'text', name: 'reference' }] }] }] }
+  ] };
+}
+test('add_field into a container takes the page of its root container, whatever page is given', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const fiche = created.form.pages[1].pageTechName;
+  // A numeric id, as C8Oforms stores them, given as a string.
+  const inner = byName(created.form, 'inner');
+  inner.id = Number(inner.id);
+  h.state.forms[id].formulaire.find(item => item.name === 'inner').id = inner.id;
+  h.state.forms[id].formulaire.find(item => item.name === 'reference').parentRef = inner.id;
+  h.state.forms[id].formulaire.find(item => item.name === 'record').childrenRefs = [inner.id];
+  const added = h.client.edit(id, [
+    { action: 'add_field', parentFieldId: String(inner.id), fieldObject: { type: 'layout', name: 'nested', fields: [{ type: 'text', name: 'status' }] } },
+    { action: 'add_component', parentId: byName(created.form, 'record').id, pageName: 'Accueil', fieldObject: { type: 'text', name: 'owner' } }
+  ], h.auth);
+  assert.equal(added.saved, true);
+  ['nested', 'status', 'owner'].forEach(name => assert.equal(byName(added.form, name).config.page, fiche, name));
+  assert.equal(added.operations[0].pageTechName, fiche);
+  assert.equal(added.operations[0].note, undefined);
+  assert.match(added.operations[1].note, /ignored.*root container/);
+  assert.ok(!added.validation.warnings.some(w => w.code === 'nested_page_mismatch'));
+});
+test('move_field gives the moved component and its descendants the page of their new root container', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const [accueil, fiche] = created.form.pages.map(page => page.pageTechName);
+  const into = h.client.edit(id, [{ action: 'move_field', fieldName: 'welcome', parentFieldId: String(byName(created.form, 'inner').id) }], h.auth);
+  assert.equal(byName(into.form, 'welcome').config.page, fiche);
+  const out = h.client.edit(id, [{ action: 'move_field', fieldName: 'inner', pageName: 'Accueil' }], h.auth);
+  ['inner', 'reference', 'welcome'].forEach(name => assert.equal(byName(out.form, name).config.page, accueil, name));
+  assert.equal(byName(out.form, 'inner').parentRef, undefined);
+  const back = h.client.edit(id, [{ action: 'move_field', fieldName: 'inner', parentFieldId: String(byName(out.form, 'record').id), pageName: 'Accueil' }], h.auth);
+  ['inner', 'reference', 'welcome'].forEach(name => assert.equal(byName(back.form, name).config.page, fiche, name));
+  assert.match(back.operations[0].note, /ignored/);
+  // Taken out of its container with no page, a component stays where it was shown.
+  const unnested = h.client.edit(id, [{ action: 'move_field', fieldName: 'reference' }], h.auth);
+  assert.equal(byName(unnested.form, 'reference').config.page, fiche);
+  assert.equal(byName(unnested.form, 'reference').parentRef, undefined);
+});
+test('validation flags nested components whose page is not their root container page', () => {
+  const form = api().compile(nestedPagesForm()).form;
+  assert.ok(!api().validate(form).validation.warnings.some(w => w.code === 'nested_page_mismatch'));
+  const stale = clone(form);
+  ['inner', 'reference'].forEach(name => { byName(stale, name).config.page = stale.pages[0].pageTechName; });
+  const warning = api().validate(stale).validation.warnings.find(w => w.code === 'nested_page_mismatch');
+  assert.ok(warning);
+  assert.match(warning.message, new RegExp('^2 nested .*' + byName(stale, 'inner').id + ', ' + byName(stale, 'reference').id));
+  assert.equal(api().validate(stale).validation.valid, true);
+});
