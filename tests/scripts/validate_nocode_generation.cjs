@@ -395,6 +395,34 @@ test('adjacent page buttons and partial styling trigger review without rewriting
   assert.equal(r.form.formulaire.filter(f => f.type === 'layout').length, 0);
 });
 
+test('the contract tells that a card in a layout is spaced by its own margin, and its example compiles as written', () => {
+  const find = (node, key) => {
+    if (!node || typeof node !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];
+    for (const value of Object.values(node)) { const found = find(value, key); if (found !== undefined) return found; }
+    return undefined;
+  };
+  const contract = clone(api().contract({ sections: ['all'] }).authoringContract);
+  const cards = find(contract, 'cardsInLayout');
+  assert.ok(cards, 'styleRendering.cardsInLayout');
+  assert.match(cards.rule, /padding of layoutChildrenStyle never separates cards/);
+  assert.match(cards.rule, /margin in each card's boxStyle/);
+  assert.match(cards.rule, /negated on the layout's boxStyle/);
+  assert.match(JSON.stringify(contract), /space cards with the card's margin/);
+  const row = clone(cards.example);
+  const card = row.children[0];
+  row.children = [0, 1, 2].map(i => ({ ...clone(card), name: 'kpi_' + i }));
+  const r = api().compile({ name: 'Cards', pages: [{ name: 'Home', fields: [row] }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const layout = r.form.formulaire.find(f => f.type === 'layout');
+  assert.equal(layout.config.boxStyle.margin, '0 -8px 16px -8px');
+  assert.deepEqual(clone(layout.config.layoutChildrenStyle), { default: { margin: '0', padding: '0' } });
+  for (const id of layout.childrenRefs) {
+    const child = r.form.formulaire.find(f => f.id === id);
+    assert.equal(child.config.boxStyle.margin, '8px');
+    assert.equal(child.config.boxStyle.backgroundColor, '#FFFFFF');
+  }
+});
 test('responsive action groups preserve child styles and explicit config takes precedence', () => {
   const input = example();
   const fields = input.pages[1].fields;
