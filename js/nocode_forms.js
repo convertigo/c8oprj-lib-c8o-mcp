@@ -1200,7 +1200,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "update_page", requiredOneOf: ["pageTechName", "pageName"], required: ["patch"], example: { action: "update_page", pageName: "Details", patch: { iconName: "people", enabledTab: true } } },
           { action: "add_field", aliases: ["add_component", "add_element"], requiredOneOf: ["pageTechName", "pageName"], required: ["fieldObject"], example: { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } } },
           { action: "add_field", note: "On an application page a new top-level component gets the role spacing (styleDefaults:false keeps the viewer card); a section can be added the same way.", example: { action: "add_field", pageName: "Details", fieldObject: { type: "section", name: "contract", title: "Contrat", fields: [{ type: "text", name: "amount", label: "Montant" }, { type: "datetime", name: "signed_on", label: "Signé le" }] } } },
-          { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion.", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
+          { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion; the component takes the page of the container's root (move_field into a parent too).", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
           { action: "update_field", requiredOneOf: ["fieldId", "fieldName"], required: ["patch"], example: { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false, label: "Child" } } } },
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
           { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index"], example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
@@ -2986,6 +2986,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           }
         });
       });
+      var componentsById = fieldsById(form);
+      var stalePageIds = ensureArray(form.formulaire).filter(function (item) {
+        if (!item || typeof item !== "object" || item.parentRef == null || !item.config) { return false; }
+        var rootPage = rootFieldPage(componentsById, item);
+        return rootPage != null && String(item.config.page) !== String(rootPage);
+      }).map(function (item) { return item.id; });
+      if (stalePageIds.length) {
+        warning("nested_page_mismatch", stalePageIds.length + " nested component(s) have a config.page other than the page of their root container (" + stalePageIds.slice(0, 5).join(", ") + (stalePageIds.length > 5 ? ", ..." : "") + "). The viewer shows them in the container, but loads their sources and resets them with the page they name: set their config.page to the container's page", "/formulaire");
+      }
       if (form.flows != null && !Array.isArray(form.flows)) {
         issue("invalid_flows", "flows must be an array", "/flows");
       }
@@ -3812,6 +3821,41 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     throw new Error("No target page found");
   }
 
+  function fieldsById(form) {
+    var byId = {};
+    ensureArray(form.formulaire).forEach(function (item) {
+      if (item && typeof item === "object" && item.id != null) { byId[String(item.id)] = item; }
+    });
+    return byId;
+  }
+
+  // A nested component is on the page of its root container: the viewer shows it there, but the loading of
+  // sources, the reset of a page and the page checks read its own config.page.
+  function rootFieldPage(byId, item) {
+    var root = item;
+    var seen = {};
+    while (root && root.parentRef != null && byId[String(root.parentRef)] && !seen[String(root.id)]) {
+      seen[String(root.id)] = true;
+      root = byId[String(root.parentRef)];
+    }
+    var page = root && root.config ? root.config.page : null;
+    return page != null && String(page).length ? page : null;
+  }
+
+  // The page of a component added or moved into parent; an explicit page that contradicts it is noted, not used.
+  function nestedPageForOperation(form, op, parent) {
+    var asked = op.pageTechName || op.pageId || op.page || op.pageName ? pageTechNameForOperation(form, op, null) : null;
+    var page = rootFieldPage(fieldsById(form), parent);
+    if (page == null) {
+      return { page: pageTechNameForOperation(form, op, parent.config && parent.config.page) };
+    }
+    var out = { page: page };
+    if (asked != null && String(asked) !== String(page)) {
+      out.note = "page " + asked + " ignored: a component inside " + parent.name + " is on the page of its root container, " + page;
+    }
+    return out;
+  }
+
   function childRefId(ref) {
     return ref && typeof ref === "object" ? ref.id : ref;
   }
@@ -4092,9 +4136,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (action === "add_field") {
       var fieldDef = op.fieldObject || (op.field && typeof op.field === "object" && !Array.isArray(op.field) ? op.field : op);
-      var pageTech = pageTechNameForOperation(form, op, null);
       var beforeLength = form.formulaire.length;
       var parentId = trimmed(op.parentId || op.parent || op.parentFieldId);
+      var addPage = parentId.length ? nestedPageForOperation(form, op, findField(form, { id: parentId }).item) : { page: pageTechNameForOperation(form, op, null) };
+      var pageTech = addPage.page;
       var targetPage = ensureArray(form.pages).filter(function (candidate) { return candidate && candidate.pageTechName === pageTech; })[0];
       // Same spacing as at creation on an application page (tab or custom navigation).
       var applicationPage = !!targetPage && (boolLike(targetPage.enabledTab) || !boolLike(targetPage.enabledButtons));
@@ -4112,7 +4157,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         var added = form.formulaire.splice(beforeLength);
         Array.prototype.splice.apply(form.formulaire, [normalizeIndex(op.index, form.formulaire.length, form.formulaire.length), 0].concat(added));
       }
-      summary.push({ action: action, fieldId: compiled.id, name: compiled.name, pageTechName: pageTech });
+      var addSummary = { action: action, fieldId: compiled.id, name: compiled.name, pageTechName: pageTech };
+      if (addPage.note) { addSummary.note = addPage.note; }
+      summary.push(addSummary);
       return;
     }
     if (action === "update_field") {
@@ -4191,10 +4238,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (action === "move_field") {
       var moveField = findField(form, op);
-      var movePage = pageTechNameForOperation(form, op, moveField.item.config && moveField.item.config.page);
       var moveParentId = trimmed(op.parentId || op.parent || op.parentFieldId);
+      // Taken out of its container with no page, a component stays on the page where it was shown.
+      var moveTarget = moveParentId.length ? nestedPageForOperation(form, op, findField(form, { id: moveParentId }).item)
+        : { page: pageTechNameForOperation(form, op, rootFieldPage(fieldsById(form), moveField.item) || (moveField.item.config && moveField.item.config.page)) };
+      var movePage = moveTarget.page;
       moveFieldById(form, moveField.item.id, movePage, moveParentId.length ? moveParentId : null, op.index);
-      summary.push({ action: action, fieldId: moveField.item.id, pageTechName: movePage, parentId: moveParentId || null });
+      var moveSummary = { action: action, fieldId: moveField.item.id, pageTechName: movePage, parentId: moveParentId || null };
+      if (moveTarget.note) { moveSummary.note = moveTarget.note; }
+      summary.push(moveSummary);
       return;
     }
     if (action === "add_flow") {
