@@ -159,6 +159,55 @@ test('field defaults resolve forward/nested layout names and literal paths', () 
   assert.equal(evaluateDefault(r.form.formulaire[0]), '');
   assert.ok(r.validation.warnings.some(w => w.code === 'context_default_source_readiness'));
 });
+test('a grid column default reads the text of every cell shape of the selected row', () => {
+  const input = contextExample({ source: 'field', field: 'requests', column: 'Reference', mode: 'reactive', fallback: '' }, { disabled: true, label: 'Reference' });
+  input.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'Reference', type: 'text' }], config: { sourceEnabled: false } });
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation));
+  const field = r.form.formulaire[0];
+  assert.deepEqual(clone(field.config.contextDefault), { source: 'field', field: 'requests', column: 'Reference', mode: 'reactive', fallback: '' });
+  const read = (Reference) => evaluateDefault(field, { fields: { requests: { Reference } } });
+  // raw Baserow row: text, number, date, boolean false and 0 as is
+  assert.equal(read('R-1'), 'R-1');
+  assert.equal(read(3000), 3000);
+  assert.equal(read(0), 0);
+  assert.equal(read(false), false);
+  assert.equal(read('2026-10-24'), '2026-10-24');
+  // single select, link and multiple select
+  assert.equal(read({ id: 3, value: 'Haute', color: 'red' }), 'Haute');
+  assert.equal(read([{ id: 1, value: 'Achats' }, { id: 2, value: 'IT' }]), 'Achats, IT');
+  assert.equal(read([]), '');
+  // lean cells: each cell in { value }
+  assert.equal(read({ value: 'R-1' }), 'R-1');
+  assert.equal(read({ value: { id: 3, value: 'Haute', color: 'red' } }), 'Haute');
+  assert.equal(read({ value: [{ id: 1, value: 'Achats' }] }), 'Achats');
+  // no row selected, an unknown column, an object without value: the fallback
+  assert.equal(evaluateDefault(field, { fields: { requests: {} } }), '');
+  assert.equal(evaluateDefault(field, { fields: { requests: null } }), '');
+  assert.equal(evaluateDefault(field, { fields: {} }), '');
+  assert.equal(read({ id: 3 }), '');
+  // a column name is a literal key, never code
+  const odd = contextExample({ source: 'field', field: 'requests', column: 'a"]); bad(); (["', mode: 'reactive' }, { disabled: true });
+  odd.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'x', type: 'text' }], config: { sourceEnabled: false } });
+  const oddField = api().compile(odd).form.formulaire[0];
+  assert.equal(evaluateDefault(oddField, { fields: { requests: { 'a"]); bad(); (["': 'safe' } }, bad: () => { throw new Error('injected'); } }), 'safe');
+});
+test('a grid column default takes column or path, and a path through value is flagged', () => {
+  for (const spec of [{ source: 'field', field: 'requests', column: '' }, { source: 'field', field: 'requests', column: 3 }, { source: 'field', field: 'requests', column: 'A', path: ['A'] }]) {
+    assert.throws(() => api().compile(contextExample(spec)));
+  }
+  const input = contextExample({ source: 'field', field: 'requests', path: ['Reference', 'value'], mode: 'reactive', fallback: '' }, { disabled: true, label: 'Reference' });
+  input.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'Reference', type: 'text' }], config: { sourceEnabled: false } });
+  const r = api().compile(input);
+  const warning = r.validation.warnings.find(w => w.code === 'grid_cell_path');
+  assert.ok(warning, JSON.stringify(r.validation.warnings));
+  assert.match(warning.message, /column: 'Reference'/);
+});
+test('the contract shows a column, not a path ending in value, to read the selected row', () => {
+  assert.doesNotMatch(source, /path: \["Reference", "value"\]/);
+  assert.doesNotMatch(source, /path \[column, 'value'\]/);
+  assert.match(source, /field: "selected_request", column: "Reference"/);
+});
 test('context reference failures and dependency cycles block compilation', () => {
   for (const field of ['missing', 'context_input']) {
     const r = api().compile(contextExample({ source: 'field', field }));
@@ -2034,15 +2083,21 @@ test('nocode-app-create: a ticket list with search OR, a choice filter, a detail
   // Detail: read-only fields fed by the selected row.
   const detail = byName(form, 'ticket_detail_titre');
   assert.equal(detail.config.disabled, true);
-  assert.deepEqual(detail.config.contextDefault, { source: 'field', field: 'ticket_list', path: ['Titre', 'value'], mode: 'reactive', fallback: '' });
+  assert.deepEqual(detail.config.contextDefault, { source: 'field', field: 'ticket_list', column: 'Titre', mode: 'reactive', fallback: '' });
   assert.equal(byName(form, 'ticket_list_detail').conditions.buttonStateIf.conds[0].val1.str, String(grid.id), 'detail disabled until a row is selected');
-  // A single select cell is { id, value, color } and a date an ISO text (viewer, test-nocode): the detail reads their text.
-  assert.deepEqual(byName(form, 'ticket_detail_priorite').config.contextDefault.path, ['Priorité', 'value', 'value']);
+  // Every detail reads its column whatever the cell shape: raw Baserow row or lean { value } cells.
+  assert.deepEqual(clone(byName(form, 'ticket_detail_priorite').config.contextDefault), { source: 'field', field: 'ticket_list', column: 'Priorité', mode: 'reactive', fallback: '' });
+  assert.equal(byName(form, 'ticket_detail_echeance').config.contextDefault.column, 'Échéance');
   assert.equal(byName(form, 'ticket_detail_echeance').type, 'datetime');
   assert.equal(byName(form, 'ticket_detail_echeance').config.display_format, 'DD/MM/YYYY');
   const cellText = (name, cell) => evaluateDefault(byName(form, name), { fields: { ticket_list: cell } });
   assert.equal(cellText('ticket_detail_priorite', { 'Priorité': { value: { id: 12787, value: 'Haute', color: 'light-orange' } } }), 'Haute');
   assert.equal(cellText('ticket_detail_priorite', null), '');
+  // the raw row of the viewer (__rowValue): a text and a date as is, a single select { id, value, color }
+  assert.equal(cellText('ticket_detail_titre', { Titre: 'Imprimante en panne' }), 'Imprimante en panne');
+  assert.equal(cellText('ticket_detail_priorite', { 'Priorité': { id: 12787, value: 'Haute', color: 'light-orange' } }), 'Haute');
+  assert.equal(cellText('ticket_detail_echeance', { 'Échéance': '2026-10-24T07:12:00Z' }), '2026-10-24T07:12:00Z');
+  assert.equal(cellText('ticket_detail_titre', { Titre: { value: 'Imprimante en panne' } }), 'Imprimante en panne');
   assert.match(byName(form, 'ticket_empty').config.html, /Les tickets enregistrés apparaissent ici. Utilisez « Nouveau ticket » pour en ajouter un./);
   // Entry form: inputs named after the writable columns, typed after Baserow; the read-only column is left out.
   const inputs = form.formulaire.filter(i => i.config.page === pageOf(form, 'Nouveau ticket').pageTechName && ['text', 'select', 'datetime'].includes(i.type));
