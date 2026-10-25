@@ -212,7 +212,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
 
   // The Baserow token of the authenticated No Code user, as formscommon_FieldsList gets it for an editor. Asking
   // TokenGetOrRefresh with the account also makes it the session's previous token, so the lib_BaseRow sequences called
-  // afterwards without an account (TableCreateColumn, TableGetData...) use it instead of the Baserow admin account.
+  // afterwards without an account (TableCreateColumn, TableUpdateRow...) use it instead of the Baserow admin account.
   function editorBaserowBearer() {
     return withoutLogs(function () {
       var account = callC8oSequence("C8Oforms", "BaserowAccountGet", {});
@@ -1334,28 +1334,49 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return [];
   }
 
-  function readTableRowsPage(tableId, size, page) {
-    var response = callC8oSequence("lib_BaseRow", "TableGetData", {
-      table_id: baserowId(tableId),
-      size: String(size || 200),
-      page: String(page || 1)
-    });
-    var error = apiError(response);
+  // The rows of a table, read for an upsertKey. lib_BaseRow 1.2 (native engines) has no TableGetData any more: its
+  // TableGetDataNative answers native JSON, which the XML answer of an internal call does not carry. The rows endpoint
+  // of Baserow_API_spec is in every lib_BaseRow and takes the Bearer of the editor, as readFreshTableFields does.
+  function readTableRowsPage(tableId, size, page, bearer) {
+    var response;
+    if (trimmed(bearer).length) {
+      response = withoutLogs(function () {
+        return callC8oTransaction("lib_BaseRow", "Baserow_API_spec", "_api_database_rows_table__table_id___GET", {
+          table_id: baserowId(tableId),
+          size: String(size || 200),
+          page: String(page || 1),
+          user_field_names: "true",
+          __header_Authorization: bearer,
+          __nocache: "true"
+        });
+      });
+    } else {
+      response = callC8oSequence("lib_BaseRow", "TableGetData", {
+        table_id: baserowId(tableId),
+        size: String(size || 200),
+        page: String(page || 1)
+      });
+    }
+    var error = transactionError(response);
     if (error) {
       throw new Error(formatLibWriteError("Read rows from table " + tableId, error));
     }
-    return extractRows(response);
+    var object = firstObject(response);
+    return {
+      rows: extractRows(response),
+      hasNext: !!(object && object.next != null && String(object.next).length && String(object.next) !== "null")
+    };
   }
 
-  function readTableRows(tableId) {
+  function readTableRows(tableId, bearer) {
     var all = [];
     var size = 100;
     for (var page = 1; page <= 20; page++) {
-      var rows = readTableRowsPage(tableId, size, page);
-      for (var i = 0; i < rows.length; i++) {
-        all.push(rows[i]);
+      var read = readTableRowsPage(tableId, size, page, bearer);
+      for (var i = 0; i < read.rows.length; i++) {
+        all.push(read.rows[i]);
       }
-      if (rows.length < size) {
+      if (read.rows.length < size || !read.hasNext) {
         break;
       }
     }
@@ -1448,7 +1469,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
     var rowsByKey = {};
     if (upsertField && trimmed(upsertField.name).length) {
-      rowsByKey = indexRowsByField(readTableRows(table.id), upsertField.name);
+      rowsByKey = indexRowsByField(readTableRows(table.id, bearer), upsertField.name);
     }
     var createdItems = [];
     var createdRows = 0;

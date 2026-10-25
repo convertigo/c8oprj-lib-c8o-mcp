@@ -869,7 +869,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         id: { type: "integer", description: "Existing Baserow table id. If omitted, the table is matched by name in the target base." },
         name: { type: "string", description: "Baserow table name." },
         primaryField: { type: "string", description: "Business display field used by clients to resolve sample row references." },
-        upsertKey: { type: "string", description: "Business key used to update existing sample rows instead of creating duplicates. When provided, the tool reads rows through lib_BaseRow.TableGetData and updates matches through lib_BaseRow.TableUpdateRow." },
+        upsertKey: { type: "string", description: "Business key used to update existing sample rows instead of creating duplicates. When provided, the tool reads the rows of the table and updates matches through lib_BaseRow.TableUpdateRow." },
         fields: {
           type: "array",
           description: "Baserow fields/columns to ensure. Use link_row for relationships and lookup for reported fields.",
