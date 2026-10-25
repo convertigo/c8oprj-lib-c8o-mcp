@@ -650,26 +650,22 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  // A read-only field showing a column of the row selected in the list. The grid row holds Baserow cells as
-  // { value }: a single select's value is { id, value, color }, a link or a multiple select a list of { id, value }, a
-  // date an ISO text (test-nocode, lean cells of lib_BaseRow): each is read so that it shows its text.
+  // A read-only field showing a column of the row selected in the list. The selected row is the raw Baserow row (a text,
+  // number or date as is, a single select { id, value, color }, a link or a multiple select a list of { id, value }) or,
+  // with lean cells, cells wrapped in { value }: defaultFrom column reads its text whatever the shape.
   function detailField(column, name, listName, app, t) {
     var type = trimmed(column.type);
     var field = { type: "text", name: name, label: column.name, disabled: true };
     var cell = "(fields[" + JSON.stringify(listName) + "] ? fields[" + JSON.stringify(listName) + "][" + JSON.stringify(column.name) + "] : null)";
-    if (type === "single_select") {
-      field.defaultFrom = { source: "field", field: listName, path: [column.name, "value", "value"], mode: "reactive", fallback: "" };
-    } else if (type === "date") {
+    if (type === "date") {
       field.type = "datetime";
       field.display_format = app.language === "fr" ? "DD/MM/YYYY" : "MM/DD/YYYY";
       field.picker_format = field.display_format;
-      field.defaultFrom = { source: "field", field: listName, path: [column.name, "value"], mode: "reactive", fallback: "" };
-    } else if (type === "link_row" || type === "multiple_select" || type === "lookup") {
-      field.defaultFrom = { source: "expression", mode: "reactive", expression: "(function (c) { var v = c && c.value; return Array.isArray(v) ? v.map(function (x) { return x && typeof x === 'object' ? (x.value != null ? x.value : '') : x; }).join(', ') : (v == null ? '' : v); })" + cell };
+      field.defaultFrom = { source: "field", field: listName, column: column.name, mode: "reactive", fallback: "" };
     } else if (type === "boolean") {
-      field.defaultFrom = { source: "expression", mode: "reactive", expression: "(function (c) { var v = c && c.value; return v === true || v === 'true' ? " + JSON.stringify(t.yesNo[0]) + " : (v === false || v === 'false' ? " + JSON.stringify(t.yesNo[1]) + " : ''); })" + cell };
+      field.defaultFrom = { source: "expression", mode: "reactive", expression: "(function (c) { var v = c != null && typeof c === 'object' ? c.value : c; return v === true || v === 'true' ? " + JSON.stringify(t.yesNo[0]) + " : (v === false || v === 'false' ? " + JSON.stringify(t.yesNo[1]) + " : ''); })" + cell };
     } else {
-      field.defaultFrom = { source: "field", field: listName, path: [column.name, "value"], mode: "reactive", fallback: "" };
+      field.defaultFrom = { source: "field", field: listName, column: column.name, mode: "reactive", fallback: "" };
     }
     if (type === "long_text") { field.short = false; field.fullWidth = true; }
     return field;
