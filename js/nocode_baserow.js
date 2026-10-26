@@ -100,6 +100,51 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return json;
   }
 
+  // A native lib_BaseRow sequence (TableGetDataNative) called as the native sequences of lib_BaseRow call each other
+  // (__nativeCall): its outputs come back as a map of their values, a JSON text when its run built a document (an
+  // error step), or a document on an engine that answers XML.
+  function callC8oSequenceNative(project, sequence, variables) {
+    var params = new HashMap();
+    var projectArray = java.lang.reflect.Array.newInstance(java.lang.String, 1);
+    projectArray[0] = project;
+    params.put("__project", projectArray);
+    params.put("__sequence", sequence);
+    params.put("__context", "syncContext_" + java.lang.System.currentTimeMillis());
+    params.put("__nativeCall", "true");
+    var keys = Object.keys(variables || {});
+    for (var i = 0; i < keys.length; i++) {
+      if (variables[keys[i]] != null) {
+        params.put(keys[i], variables[keys[i]]);
+      }
+    }
+    var hasContext = typeof context !== "undefined" && context;
+    var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+    var requester = new InternalRequester(params, request);
+    var response = requester.processRequest();
+    var out = {};
+    if (response != null && typeof response.entrySet === "function") {
+      var entries = response.entrySet().iterator();
+      while (entries.hasNext()) {
+        var entry = entries.next();
+        out[String(entry.getKey())] = entry.getValue();
+      }
+    } else if (response != null && typeof response.getDocumentElement === "function") {
+      var json = JSON.parse(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode).toString());
+      out = json.document || json;
+    } else if (response != null) {
+      var parsed = JSON.parse(String(response));
+      out = (parsed && parsed.document) || parsed || {};
+    }
+    try {
+      var ctx2 = requester.getContext();
+      Engine.theApp.contextManager.remove(ctx2);
+    } catch (_ignoreCtx) {}
+    if (hasContext && context.logParameters) {
+      org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+    }
+    return out;
+  }
+
   function currentMcpProjectName() {
     try {
       if (typeof context !== "undefined" && context && context.project && context.project.getName) {
@@ -243,7 +288,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     });
     var error = transactionError(response);
     if (error) {
-      throw new Error("table " + tableId + ": " + String(error.message || error.code || JSON.stringify(error)));
+      var failure = new Error("table " + tableId + ": " + String(error.message || error.code || JSON.stringify(error)));
+      failure.baserowError = error;
+      throw failure;
     }
     var envelope = (response && (response.document || (response.doc && response.doc.document))) || response || {};
     return envelope.array != null ? ensureArray(envelope.array) : null;
@@ -1854,5 +1901,474 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
   C8O.nocodeBaserow.tableFields = function (tableId, editor, bearer) {
     var token = trimmed(bearer).length ? trimmed(bearer) : editorBaserowBearer();
     return { bearer: token, fields: readTableFields(tableId, editor, token) };
+  };
+
+  // nocode-baserow-rows-list: one page of the rows of a table, read with the Baserow account of the authenticated No
+  // Code user, never the admin account lib_BaseRow falls back to without one. The rows come from
+  // lib_BaseRow.TableGetDataNative, which the viewer's grids read through (formssource_GetTableData, bound to a saved
+  // form): a filter matches as in a grid (a select compared by its label, contains on a link or a checkbox, an empty
+  // equal keeping no row). Nothing is written.
+  var ROWS_PAGE_SIZE = 20;
+  var ROWS_PAGE_SIZE_MAX = 50;
+  var ROWS_TEXT_MAX = 2000;
+  var ROWS_FILTER_DEPTH_MAX = 8;
+  var ROWS_FILTER_CONDITIONS_MAX = 50;
+  var ROWS_UNREADABLE = /ERROR_USER_NOT_IN_GROUP|ERROR_TABLE_DOES_NOT_EXIST|PERMISSION_DENIED|ERROR_NO_PERMISSION|http_40[134]\b/i;
+  var ROWS_REFUSED_QUERY = /ERROR_\w*FILTER\w*|ERROR_ORDER_BY\w*|ERROR_FIELD_DOES_NOT_EXIST|not found in the list of table columns/;
+
+  function rowsRequestError(code, message) {
+    var error = new Error(message);
+    error.rowsCode = code;
+    return error;
+  }
+
+  // A JSON object or list given as text (a sequence variable is a string); null for an argument left out.
+  function jsonOrText(value) {
+    var text = trimmed(value);
+    if (value != null && typeof value === "object" && typeof value.getClass !== "function") {
+      return value;
+    }
+    if (!text.length || text === "null" || text === "undefined") {
+      return null;
+    }
+    if (/^[\[{]/.test(text)) {
+      try {
+        return JSON.parse(text);
+      } catch (_notJson) {}
+    }
+    return text;
+  }
+
+  function errorText(error) {
+    if (error == null) {
+      return "";
+    }
+    if (typeof error !== "object") {
+      return String(error);
+    }
+    var parts = [];
+    ["code", "error", "message", "detail"].forEach(function (key) {
+      var value = error[key];
+      if (value != null && String(value).length) {
+        var text = typeof value === "object" ? JSON.stringify(value) : String(value);
+        if (parts.indexOf(text) < 0) {
+          parts.push(text);
+        }
+      }
+    });
+    return parts.length ? parts.join(": ") : JSON.stringify(error);
+  }
+
+  function editDistance(a, b) {
+    var previous = [];
+    for (var j = 0; j <= b.length; j++) {
+      previous.push(j);
+    }
+    for (var i = 1; i <= a.length; i++) {
+      var current = [i];
+      for (var k = 1; k <= b.length; k++) {
+        current.push(Math.min(previous[k] + 1, current[k - 1] + 1, previous[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1)));
+      }
+      previous = current;
+    }
+    return previous[b.length];
+  }
+
+  // " Did you mean "Amount"? Its fields: Name, Amount, ..." for an unknown field name.
+  function fieldNamesHint(name, names) {
+    var comparable = function (value) { return trimmed(value).toLowerCase().replace(/[^a-z0-9]+/g, ""); };
+    var wanted = comparable(name);
+    var close = names.filter(function (candidate) {
+      var other = comparable(candidate);
+      return wanted.length && other.length && (other.indexOf(wanted) >= 0 || wanted.indexOf(other) >= 0 ||
+        editDistance(wanted, other) <= Math.max(2, Math.floor(wanted.length / 4)));
+    }).slice(0, 3);
+    var shown = names.slice(0, 30);
+    return (close.length ? " Did you mean " + close.map(function (text) { return "\"" + text + "\""; }).join(" or ") + "?" : "") +
+      " Its fields: " + shown.join(", ") + (names.length > shown.length ? ", ... (" + names.length + ")" : "") + ".";
+  }
+
+  // The field of the table a name designates: its exact name, else the same name in another case.
+  function rowsFieldResolver(fields) {
+    var byName = {};
+    var byLowerName = {};
+    var names = [];
+    fields.forEach(function (field) {
+      var name = trimmed(field && field.name);
+      if (!name.length || Object.prototype.hasOwnProperty.call(byName, name)) {
+        return;
+      }
+      names.push(name);
+      byName[name] = field;
+      var lower = name.toLowerCase();
+      byLowerName[lower] = Object.prototype.hasOwnProperty.call(byLowerName, lower) ? null : field;
+    });
+    var resolve = function (name, what) {
+      var text = trimmed(name);
+      var field = Object.prototype.hasOwnProperty.call(byName, text) ? byName[text] :
+        (Object.prototype.hasOwnProperty.call(byLowerName, text.toLowerCase()) ? byLowerName[text.toLowerCase()] : null);
+      if (!field) {
+        throw rowsRequestError("unknown_field", what + ": the table has no field \"" + text + "\"." + fieldNamesHint(text, names));
+      }
+      return field;
+    };
+    resolve.names = names;
+    return resolve;
+  }
+
+  function rowsTableReference(value) {
+    var ref = jsonOrText(value);
+    var id = null;
+    var path = "";
+    if (ref && typeof ref === "object" && !Array.isArray(ref)) {
+      id = numberOrNull(ref.id);
+      path = trimmed(ref.path);
+    } else if (typeof ref === "number" || /^\d+$/.test(trimmed(ref))) {
+      id = numberOrNull(ref);
+    } else {
+      path = trimmed(ref);
+    }
+    if (id == null && !path.length) {
+      throw rowsRequestError("table_required", "table is the id of a table of nocode-baserow-catalog-list, or its path Workspace~>Base~>Table (a form source gives both: forms_config.table_id_int and table_id).");
+    }
+    return { id: id, path: path };
+  }
+
+  // A table named by its path Workspace~>Base~>Table (or by its name alone when one table of the catalog has it).
+  function rowsTableFromCatalog(path) {
+    var tables = normalizeCatalog(readApplications()).tables.map(function (table) {
+      return { id: table.id, name: table.name, path: [table.workspaceName, table.baseName, table.name].join("~>") };
+    });
+    var wanted = path.toLowerCase();
+    var found = tables.filter(function (table) { return table.path.toLowerCase() === wanted; });
+    if (!found.length && path.indexOf("~>") < 0) {
+      found = tables.filter(function (table) { return trimmed(table.name).toLowerCase() === wanted; });
+    }
+    if (found.length !== 1) {
+      throw rowsRequestError(found.length ? "table_ambiguous" : "table_not_in_catalog", found.length ?
+        "Several tables are named " + path + ": " + found.map(function (table) { return table.path + " (" + table.id + ")"; }).join(", ") + ". Give the table id." :
+        "Table " + path + " is not in the Baserow catalog of the authenticated No Code user: give the id of a table of nocode-baserow-catalog-list.");
+    }
+    return { id: found[0].id, path: found[0].path };
+  }
+
+  // A list of names: a JSON list, or names separated by commas (a list that reached the sequence as [a, b]).
+  function rowsNameList(value) {
+    var list = jsonOrText(value);
+    if (list == null) {
+      return [];
+    }
+    if (!Array.isArray(list)) {
+      list = String(list).replace(/^\s*\[|\]\s*$/g, "").split(",").map(function (name) { return trimmed(name).replace(/^["']|["']$/g, ""); });
+    }
+    return list.filter(function (name) { return name != null && (typeof name === "object" || trimmed(name).length); });
+  }
+
+  // The reduced filter of the contract (quickReference.baserow.filter), { column, operator, value } and { all: [...] } /
+  // { any: [...] } nested, as the filter expression of TableGetDataNative: { mode, filters: [{ field, op, value }] }.
+  // Here a filter compares literal values: { field } reads a component of a form at runtime.
+  function rowsFilterExpression(spec, resolveField) {
+    var conditions = 0;
+    function literal(value, what) {
+      if (value == null) {
+        return "";
+      }
+      if (Array.isArray(value)) {
+        return value.map(function (item) { return literal(item, what); }).join(",");
+      }
+      if (typeof value === "object") {
+        if (Object.prototype.hasOwnProperty.call(value, "value")) {
+          return literal(value.value, what);
+        }
+        if (Object.prototype.hasOwnProperty.call(value, "field")) {
+          throw rowsRequestError("invalid_filter", what + ": { field } reads a component of a form at runtime; this tool compares literal values, give the value itself.");
+        }
+        throw rowsRequestError("invalid_filter", what + ": a value is a text, a number, a boolean or a list of them.");
+      }
+      return String(value);
+    }
+    function condition(item, what) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        throw rowsRequestError("invalid_filter", what + ": a condition is { column, operator, value }, a group is { all: [...] } or { any: [...] }.");
+      }
+      var column = trimmed(item.column != null ? item.column : item.field);
+      var operator = trimmed(item.operator != null ? item.operator : item.op);
+      if (!column.length || !operator.length) {
+        throw rowsRequestError("invalid_filter", what + ": a condition is { column, operator, value }.");
+      }
+      if (!/^[a-z_]+$/.test(operator)) {
+        throw rowsRequestError("invalid_filter", what + ": operator " + operator + " is not a Baserow filter type (contains, equal, higher_than, single_select_equal, boolean, empty...; quickReference.baserow.operators).");
+      }
+      if (++conditions > ROWS_FILTER_CONDITIONS_MAX) {
+        throw rowsRequestError("invalid_filter", "filter: more than " + ROWS_FILTER_CONDITIONS_MAX + " conditions.");
+      }
+      return { field: resolveField(column, what).name, op: operator, value: literal(item.value, what + ".value") };
+    }
+    function group(node, depth, what) {
+      if (depth > ROWS_FILTER_DEPTH_MAX) {
+        throw rowsRequestError("invalid_filter", what + ": groups nested more than " + ROWS_FILTER_DEPTH_MAX + " levels.");
+      }
+      var out = { mode: "AND", filters: [] };
+      var items = [node];
+      var where = what;
+      if (node && Array.isArray(node.all)) {
+        items = node.all;
+        where = what + ".all";
+      } else if (node && Array.isArray(node.any)) {
+        out.mode = "OR";
+        items = node.any;
+        where = what + ".any";
+      }
+      items.forEach(function (item, index) {
+        var itemWhere = items.length === 1 && items[0] === node ? what : where + "[" + index + "]";
+        if (item && typeof item === "object" && (Array.isArray(item.all) || Array.isArray(item.any))) {
+          var sub = group(item, depth + 1, itemWhere);
+          if (sub.filters.length) {
+            out.filters.push(sub);
+          }
+        } else {
+          out.filters.push(condition(item, itemWhere));
+        }
+      });
+      return out;
+    }
+    if (spec == null || (typeof spec === "object" && !Array.isArray(spec) && !Object.keys(spec).length)) {
+      return null;
+    }
+    if (typeof spec !== "object" || Array.isArray(spec)) {
+      throw rowsRequestError("invalid_filter", "filter: a condition { column, operator, value } or a group { all: [...] } / { any: [...] }.");
+    }
+    var root = group(spec, 0, "filter");
+    return root.filters.length ? root : null;
+  }
+
+  // The order of TableGetDataNative ({ sorts: [{ name, order }] }, which it gives Baserow quoted, a text formula
+  // formatting a number or a date sorted by that field) from "Name,-Date" or a list of names and { column, order }.
+  function rowsSorts(value, resolveField) {
+    var sorts = [];
+    rowsNameList(value).forEach(function (entry) {
+      var name = "";
+      var order = "asc";
+      if (entry && typeof entry === "object") {
+        name = trimmed(entry.column != null ? entry.column : (entry.name != null ? entry.name : entry.field));
+        order = trimmed(entry.order).toLowerCase() === "desc" ? "desc" : "asc";
+      } else {
+        name = trimmed(entry);
+        if (name.charAt(0) === "-" || name.charAt(0) === "+") {
+          order = name.charAt(0) === "-" ? "desc" : "asc";
+          name = trimmed(name.substring(1));
+        }
+      }
+      if (name.length) {
+        sorts.push({ name: resolveField(name, "sort").name, order: order });
+      }
+    });
+    return sorts;
+  }
+
+  // include of Baserow: names separated by commas, a name holding a comma, a quote or a backslash quoted.
+  function baserowFieldList(names) {
+    return names.map(function (name) {
+      var mustQuote = name.indexOf(",") !== -1 || name.indexOf("\"") !== -1 || name.indexOf("\\") !== -1;
+      return mustQuote ? "\"" + name.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"" : name;
+    }).join(",");
+  }
+
+  function rowsPageNumber(value, fallback, what) {
+    var text = trimmed(jsonOrText(value));
+    if (!text.length) {
+      return fallback;
+    }
+    if (!/^\d+$/.test(text) || Number(text) < 1) {
+      throw rowsRequestError("invalid_page", what + " is a whole number from 1.");
+    }
+    return Number(text);
+  }
+
+  // A cell as an agent reads it: a select by its label, a link by { id, value }, a lookup or a formula list by its
+  // values, a user by name, a file by its name and type; a long text cut.
+  function compactCell(value, type, state) {
+    if (value == null) {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return value.map(function (item) {
+        if (type === "link_row" && item && typeof item === "object" && !Array.isArray(item)) {
+          return { id: item.id, value: compactCell(item.value, "", state) };
+        }
+        return compactCell(item, type === "file" ? type : "", state);
+      });
+    }
+    if (typeof value === "object") {
+      if (type === "file" || (value.visible_name != null && value.mime_type != null)) {
+        return { name: trimmed(value.visible_name || value.name), mimeType: value.mime_type, size: value.size };
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "value")) {
+        return compactCell(value.value, "", state);
+      }
+      if (value.name != null && Object.keys(value).every(function (key) { return key === "id" || key === "name"; })) {
+        return value.name;
+      }
+      return value;
+    }
+    if (typeof value === "string" && value.length > ROWS_TEXT_MAX) {
+      state.truncated++;
+      return value.substring(0, ROWS_TEXT_MAX) + "\u2026";
+    }
+    return value;
+  }
+
+  // An output of a native call: a text (a Java string), or the value itself.
+  function nativeText(value) {
+    return value == null ? null : (typeof value === "string" || typeof value.getClass === "function" ? String(value) : value);
+  }
+
+  function nativeError(value) {
+    if (value == null || value === "") {
+      return null;
+    }
+    var error = nativeText(value);
+    if (typeof error === "string") {
+      try {
+        error = JSON.parse(error);
+      } catch (_plainError) {}
+    }
+    return error;
+  }
+
+  C8O.nocodeBaserow.rowsList = function (options) {
+    var opts = options || {};
+    var authentication = validateToken(opts.token);
+    if (!authentication || authentication.authenticated !== true) {
+      return { status: "auth_required", authentication: authentication || { authenticated: false }, rows: [] };
+    }
+    function answer(status, code, message, table) {
+      var out = { status: status, error: { code: code, message: message }, rows: [] };
+      if (table) {
+        out.table = table;
+      }
+      return out;
+    }
+    var table = null;
+    try {
+      var tableRef = rowsTableReference(opts.table);
+      var page = rowsPageNumber(opts.page, 1, "page");
+      var size = rowsPageNumber(opts.size, ROWS_PAGE_SIZE, "size");
+      var notes = [];
+      if (size > ROWS_PAGE_SIZE_MAX) {
+        notes.push("size " + size + " is above " + ROWS_PAGE_SIZE_MAX + ": pages of " + ROWS_PAGE_SIZE_MAX + " rows are read.");
+        size = ROWS_PAGE_SIZE_MAX;
+      }
+      var bearer = editorBaserowBearer();
+      if (!bearer.length) {
+        return answer("unauthorized", "baserow_account_unavailable", "The Baserow account of the authenticated No Code user could not be opened, so no row was read. Ask the user to open the No Code Studio data tab once, then retry.");
+      }
+      table = tableRef.id != null ? { id: tableRef.id } : rowsTableFromCatalog(tableRef.path);
+      if (tableRef.id != null && tableRef.path.length) {
+        table.path = tableRef.path;
+      }
+      // The fields of the table with the user's account: the names below are checked against them, and Baserow refuses
+      // here a table the user cannot read, before any row is asked.
+      var tableFields;
+      try {
+        tableFields = readFreshTableFields(table.id, bearer);
+      } catch (readError) {
+        var readText = errorText(readError.baserowError) + " " + String(readError && readError.message ? readError.message : readError);
+        if (ROWS_UNREADABLE.test(readText)) {
+          return answer("unauthorized", "table_not_readable", "The Baserow account of the user cannot read table " + table.id + " (" + trimmed(errorText(readError.baserowError) || readText) + "): use a table of nocode-baserow-catalog-list.", table);
+        }
+        throw readError;
+      }
+      if (!tableFields) {
+        return answer("unauthorized", "table_not_readable", "Baserow gave no fields for table " + table.id + " to the account of the user: use a table of nocode-baserow-catalog-list.", table);
+      }
+      var resolveField = rowsFieldResolver(tableFields);
+      var fieldByName = {};
+      tableFields.forEach(function (field) { fieldByName[trimmed(field && field.name)] = field; });
+      var wanted = [];
+      rowsNameList(opts.fields).forEach(function (name) {
+        var real = resolveField(typeof name === "object" ? name.name : name, "fields").name;
+        if (wanted.indexOf(real) < 0) {
+          wanted.push(real);
+        }
+      });
+      var filter = rowsFilterExpression(jsonOrText(opts.filter), resolveField);
+      var sorts = rowsSorts(opts.sort, resolveField);
+
+      var read = withoutLogs(function () {
+        return callC8oSequenceNative("lib_BaseRow", "TableGetDataNative", {
+          table_id: baserowId(table.id),
+          page: String(page),
+          size: String(size),
+          include_fields: wanted.length ? baserowFieldList(wanted) : null,
+          order_by: sorts.length ? JSON.stringify({ sorts: sorts }) : null,
+          filterExpression: filter ? JSON.stringify(filter) : null,
+          raw_json: "true",
+          describeStructure: "false",
+          authorization: bearer
+        });
+      });
+      var rawText = nativeText(read && read.raw);
+      var data = rawText == null ? null : (typeof rawText === "string" ? JSON.parse(rawText) : rawText);
+      var failure = nativeError(read && read.error) || (data && data.error ? data : null);
+      if (failure || !data) {
+        var failureText = failure ? errorText(failure) : "lib_BaseRow.TableGetDataNative answered no rows";
+        if (ROWS_UNREADABLE.test(failureText)) {
+          return answer("unauthorized", "table_not_readable", "The Baserow account of the user cannot read the rows of table " + table.id + " (" + failureText + ").", table);
+        }
+        if (/ERROR_INVALID_PAGE/.test(failureText)) {
+          return answer("invalid_request", "invalid_page", "Page " + page + " is past the last page of the rows that match: read from page 1, nextPage says when a page follows.", table);
+        }
+        if (ROWS_REFUSED_QUERY.test(failureText)) {
+          return answer("invalid_request", "baserow_refused_query", "Baserow refused the filter or the sort (" + failureText + "). Check each operator against the type of its column (quickReference.baserow.operators).", table);
+        }
+        return answer("error", "baserow_rows_failed", failureText, table);
+      }
+
+      var shown = wanted.length ? wanted : resolveField.names;
+      var state = { truncated: 0 };
+      var rows = ensureArray(data.results).map(function (row) {
+        var out = { id: row && row.id };
+        shown.forEach(function (name) {
+          if (row && Object.prototype.hasOwnProperty.call(row, name)) {
+            out[name] = compactCell(row[name], trimmed(fieldByName[name] && fieldByName[name].type), state);
+          }
+        });
+        return out;
+      });
+      if (state.truncated) {
+        notes.push(state.truncated + " text cell" + (state.truncated > 1 ? "s" : "") + " longer than " + ROWS_TEXT_MAX + " characters " + (state.truncated > 1 ? "are" : "is") + " cut (\u2026).");
+      }
+      var result = {
+        status: "ok",
+        table: table,
+        fields: shown.map(function (name) {
+          var field = fieldByName[name] || {};
+          var out = { name: name, type: trimmed(field.type) };
+          if (field.primary === true || field.primary === "true") {
+            out.primary = true;
+          }
+          if (trimmed(field.formula_type).length && ["formula", "lookup", "rollup", "count"].indexOf(out.type) >= 0) {
+            out.formulaType = trimmed(field.formula_type);
+          }
+          return out;
+        }),
+        rows: rows,
+        count: rows.length,
+        total: numberOrNull(data.count),
+        page: page,
+        size: size,
+        nextPage: data.next != null && String(data.next).length && String(data.next) !== "null" ? page + 1 : null
+      };
+      if (notes.length) {
+        result.notes = notes;
+      }
+      return result;
+    } catch (e) {
+      if (e && e.rowsCode) {
+        return answer("invalid_request", e.rowsCode, String(e.message), table);
+      }
+      return answer("error", "baserow_rows_failed", String(e && e.message ? e.message : e), table);
+    }
   };
 })();

@@ -797,6 +797,55 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeBaserowRowsListInputSchema() {
+    var condition = {
+      type: "object",
+      description: "{ column, operator, value }, or { all: [...] } / { any: [...] } holding conditions and groups.",
+      properties: {
+        column: { type: "string", description: "Field name of the table." },
+        operator: { type: "string", description: "Baserow filter type: contains, contains_not, equal, not_equal, empty, not_empty, higher_than, lower_than, date_equal, date_before, date_after, single_select_equal, single_select_is_any_of, boolean, link_row_has, multiple_select_has... (quickReference.baserow.operators)." },
+        value: { description: "A literal: a text, a number, a boolean, or a list for single_select_is_any_of. A select is compared by its label, a link by the id of the linked row (link_row_has) or its text (contains)." },
+        all: { type: "array", items: { type: "object" }, description: "Every condition or group holds (AND)." },
+        any: { type: "array", items: { type: "object" }, description: "At least one condition or group holds (OR)." }
+      },
+      additionalProperties: true
+    };
+    return {
+      type: "object",
+      properties: {
+        table: {
+          description: "Id of the Baserow table (a number): from nocode-baserow-catalog-list, or forms_config.table_id_int of a source or an action read by nocode-form-get. Its path Workspace~>Base~>Table (forms_config.table_id) is accepted too."
+        },
+        fields: {
+          type: "array",
+          items: { type: "string" },
+          description: "Field names to return, besides the row id. Default: every field of the table; name only those you need on a wide table."
+        },
+        filter: condition,
+        sort: {
+          type: "string",
+          description: "Order of the rows, \"Name,-Date\" (a minus sorts descending). Default: the order of the table (row id)."
+        },
+        page: {
+          type: "integer",
+          minimum: 1,
+          default: 1,
+          description: "Page to read, from 1; the answer gives nextPage when another page follows."
+        },
+        size: {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          default: 20,
+          description: "Rows per page: 20 by default, 50 at most."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["table"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeBaserowViewProperty() {
     return {
       type: "string",
@@ -2424,6 +2473,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_baserow_catalog_list") {
       return nocodeBaserowCatalogListInputSchema();
+    }
+    if (seq === "tools_nocode_baserow_rows_list") {
+      return nocodeBaserowRowsListInputSchema();
     }
     if (seq === "tools_nocode_baserow_schema_apply") {
       return nocodeBaserowSchemaApplyInputSchema();

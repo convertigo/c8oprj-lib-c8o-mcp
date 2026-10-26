@@ -47,6 +47,7 @@ Allowed Convertigo MCP tools:
 - `nocode-form-get`
 - `nocode-form-contract-get`
 - `nocode-baserow-catalog-list`
+- `nocode-baserow-rows-list`
 - `nocode-baserow-schema-apply`
 - `nocode-form-compile`
 - `nocode-form-validate`
@@ -66,6 +67,17 @@ Publishing makes a form available to its respondents, so `nocode-form-publish` r
 - Leave `access` out unless the user said who may answer. Use `anonymous` (anyone with the link answers without signing in) only when the user asked for such a link. It applies to the first publication only: on a republication, `access_change_not_supported` means the user changes access in No Code Studio (Manage access rights).
 - `unauthorized`: C8Oforms publishes only for the owner of the form or an editor with the publication right; say so and do not retry. `error`: the form may be partly published; tell the user to check it in No Code Studio and do not retry.
 - On success, give the published `version`, who may answer (`access`) and the `link`; a `newer_revision_published` warning means a save during the publication was published, so tell the user. Sharing with respondents and the application's name, colors and icon are managed in No Code Studio.
+
+## Reading Baserow rows
+
+`nocode-baserow-rows-list` reads the rows of a Baserow table with the user's own Baserow account, through the lib_BaseRow sequence the viewer's grids read through; it never writes. Check the data instead of assuming it:
+
+- After a save (a submit tested with the user, rows of `nocode-baserow-schema-apply` or `nocode-app-create`), read the table back and confirm the record holds the values entered: filter on what identifies it, for example `{ column: "Reference", operator: "equal", value: "D-104" }`.
+- To check a computed value (a formula, lookup or rollup field, an amount a flow saves), read the rows with the fields it depends on and recompute it from them; report the rows that disagree.
+- To explain an empty or surprising list, gallery or chart, read the table of its source (`forms_config.table_id_int`) with the filter of the source written in the reduced shorthand.
+- `table` is a table id from `nocode-baserow-catalog-list` or a source's `forms_config.table_id_int`. `fields` lists the columns you need (all by default). `filter` and `sort` take the shorthand of `quickReference.baserow` with literal values: `{ field }` reads a component at runtime and is refused here. `size` is 20 rows by default, 50 at most.
+- The answer gives `rows` (each with its `id`; a select by its label, a link as `{ id, value }`, a file by its name), `total` (the rows that match) and `nextPage` while more pages follow. Read further pages only when the check needs them, and show the user only the rows the check is about.
+- `unauthorized` (`table_not_readable`, `baserow_account_unavailable`): the user's account cannot read that table; say so and use no other tool to read it. `invalid_request` names the field, operator or page to fix; `baserow_refused_query` means an operator does not fit the type of its column.
 
 ## Preview capture
 

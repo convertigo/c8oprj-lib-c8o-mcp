@@ -32,7 +32,7 @@ function route(name, kind, header) {
 const tools = [
   'nocode-form-get', 'nocode-form-contract-get', 'nocode-form-compile',
   'nocode-form-validate', 'nocode-form-create', 'nocode-form-edit', 'nocode-form-update', 'nocode-form-publish', 'nocode-app-create', 'nocode-form-preview-capture',
-  'nocode-baserow-catalog-list', 'nocode-baserow-schema-apply'
+  'nocode-baserow-catalog-list', 'nocode-baserow-rows-list', 'nocode-baserow-schema-apply'
 ];
 
 test('every supported NoCode tool passes both profile and token dispatch restrictions', () => {

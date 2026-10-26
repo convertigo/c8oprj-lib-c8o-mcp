@@ -323,7 +323,8 @@ function coerceToolArguments(argumentsObject, sequenceName, requestableObject) {
 // Arguments agents give under another name: the tool ignored them and answered as if they were absent
 // (databaseobject-search with query and project scanned nothing and found nothing, run 9a).
 var ARGUMENT_ALIASES = {
-  tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" }
+  tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" },
+  tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" }
 };
 
 // Arguments an agent gets by default when it does not give them; a direct sequence call (the Assistant's table picker)
