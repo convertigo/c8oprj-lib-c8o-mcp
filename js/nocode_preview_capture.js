@@ -37,6 +37,7 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     unsupported_browser: "This browser cannot share a tab (Safari): the preview can be captured in Chrome or Edge.",
     render_timeout: "The preview did not finish rendering within 10 s.",
     capture_failed: "The page could not take an image of the preview.",
+    unknown_page: "The form has no such page: give its pageTechName, its name or its number from 1, as nocode-form-get lists its pages.",
     timeout: "The page did not answer within 60 s.",
     no_conversation: "The call names no Tigo conversation, so no page can take the request."
   };
