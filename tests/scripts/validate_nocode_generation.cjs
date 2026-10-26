@@ -247,6 +247,51 @@ test('an expression may reach browser globals such as localStorage, which the co
   const localStorage = { getItem: key => store.has(key) ? store.get(key) : null };
   assert.equal(evaluateDefault(field, { localStorage }), 'R-7', 'the compiled default reads the browser storage as written');
 });
+test('an expression whose marks do not pair up is refused with the position, modern syntax is not', () => {
+  // 26/10: the viewer said only "unexpected token: ')'" for a duplicate-score check written by the agent, which then
+  // blamed ?? and removed it; the expression had one ')' too many.
+  const gregory = "(()=>{const v=fields.score_last;const a=Array.isArray(v)?v:[];const pid=x=>((x&&typeof x==='object')?(x.id??x.value):x);const sel=fields.Joueur;if(!sel){return '0'}return a.some(r=>(String(pid(sel))===String(pid(r.Joueur))||String(pid(sel))===String((r.Joueur&&typeof r.Joueur==='object')?r.Joueur.value:r.Joueur))))?'1':'0'})()";
+  const bad = api().compile(contextExample({ source: 'expression', expression: gregory, mode: 'reactive' }, { disabled: true }));
+  assert.equal(bad.status, 'invalid');
+  const syntax = bad.validation.issues.find(i => i.code === 'expression_syntax');
+  assert.ok(syntax, JSON.stringify(bad.validation.issues));
+  assert.match(syntax.message, /^context_input defaultFrom\.expression: position \d+: '\)' found where '\}' should close the '\{' opened at position 6 \(…Joueur\.value:r\.Joueur\)\)\)\[\)\]\?'1':'0'\}\)\(\)\)$/);
+  assert.equal(syntax.path, '/formulaire/0/config/contextDefault/expression');
+  for (const expression of [
+    "fields.a?.b?.[0] ?? (x => x / 2)(fields.n) / 3",
+    "`Total: ${(fields.items || []).map(i => `${i.name} (${i.qty})`).join(', ')}`",
+    "(fields.list || []).filter(r => /^[A-Z]{2}\\/\\d+$/.test(r.code)).length",
+    "(() => { /* ) } */ const s = 'a ) b'; // (\n return s.split(/[),]/).length; })()",
+    gregory.replace("r.Joueur))))?'1'", "r.Joueur)))?'1'")
+  ]) {
+    const ok = api().compile(contextExample({ source: 'expression', expression, mode: 'reactive' }, { disabled: true }));
+    assert.ok(!ok.validation.issues.some(i => i.code === 'expression_syntax'), expression + ' -> ' + JSON.stringify(ok.validation.issues));
+  }
+  for (const [expression, message] of [
+    ['(fields.a + fields.b', /position 1: the '\(' opened here is never closed/],
+    ['fields.list.map(x => [x.a, x.b)', /position \d+: '\)' found where '\]' should close the '\[' opened at position 22/],
+    ["'abc", /position 1: the string opened by ' here is never closed/],
+    ['fields.a }', /position 10: one '\}' too many, it closes nothing/]
+  ]) {
+    const r = api().compile(contextExample({ source: 'expression', expression, mode: 'reactive' }, { disabled: true }));
+    assert.match((r.validation.issues.find(i => i.code === 'expression_syntax') || {}).message || '', message, expression);
+  }
+  const logic = api().compile({ name: 'Logic', pages: [{ name: 'P', fields: [{ type: 'text', name: 'n', label: 'N' }] }], flows: [{ id: 'formulas', name: 'Formulas', elements: [{ name: 'double', type: 'business_logic', expression: '(fields.n * 2' }] }] });
+  const logicIssue = logic.validation.issues.find(i => i.code === 'expression_syntax');
+  assert.ok(logicIssue, JSON.stringify(logic.validation.issues));
+  assert.match(logicIssue.message, /^double expression: position 1: the '\(' opened here is never closed/);
+  assert.match(logicIssue.path, /^\/flows\/0\/elements\/0\/sources\/self\/vars\/selfVar\/str$/);
+  assert.match(source, /The browsers run modern JavaScript: arrow functions, template literals, \?\. and \?\? are accepted\. The tools check that parentheses, brackets, braces and quotes pair up/);
+  // an edit bringing such an expression is refused before the save
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const saves = h.state.saves;
+  const edited = h.client.edit(start.form._id, [{ action: 'add_field', pageName: 'Home', fieldObject: { type: 'text', name: 'deja_joue', label: 'Déjà joué', disabled: true, defaultFrom: { source: 'expression', expression: gregory, mode: 'reactive' } } }], h.auth);
+  assert.notEqual(edited.status, 'ok');
+  assert.equal(edited.saved, false);
+  assert.equal(h.state.saves, saves, 'nothing written');
+  assert.ok(JSON.stringify(edited).includes("found where '}' should close the '{' opened at position 6"), JSON.stringify(edited).slice(0, 400));
+});
 test('explicit calculations retain reactive mode and warn about runtime validation', () => {
   const r = api().compile(contextExample({ source: 'expression', expression: 'fields.quantity * fields.unit_price', mode: 'reactive' }, { config: { type: 'number' }, disabled: true }));
   const field = r.form.formulaire[0];

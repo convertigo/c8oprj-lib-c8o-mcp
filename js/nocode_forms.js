@@ -872,7 +872,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-26.expression-runtime-v15",
+      contractVersion: "2026-10-26.expression-syntax-v16",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1394,10 +1394,112 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   var CONDITION_OPERATORS = ["equals", "different", "greater", "greaterequals", "minus", "minusequals", "among_following", "out_following", "contains", "not_contains", "contains_multiple_files", "contains_a_file", "does_not_contain_file", "is_filled", "is_empty"];
   var CONDITION_OPERATOR_ALIASES = { "==": "equals", "=": "equals", "!=": "different", ">": "greater", ">=": "greaterequals", "<": "minus", "<=": "minusequals", in: "among_following", not_in: "out_following", not_empty: "is_filled", filled: "is_filled", empty: "is_empty" };
   var UNARY_CONDITION_OPERATORS = ["is_filled", "is_empty", "contains_a_file", "does_not_contain_file", "contains_multiple_files"];
+
+  // The marks of an expression must pair up: an unbalanced one is a syntax error the viewer only reports when it runs
+  // the expression, without a position ("unexpected token: ')'", and the agent then blamed ??, 26/10). Strings, template
+  // literals and their ${...}, comments and regular expression literals are skipped. Only pairing is checked here: the
+  // engine of the server would refuse syntax the browsers accept (?., ??). null when everything pairs up.
+  var REGEX_AFTER_WORDS = { "return": true, "typeof": true, "case": true, "in": true, "of": true, "void": true, "delete": true, "instanceof": true, "new": true, "throw": true, "yield": true, "await": true };
+
+  function expressionDelimiterIssue(code) {
+    var text = String(code == null ? "" : code);
+    var stack = [];
+    var opening = { ")": "(", "]": "[", "}": "{" };
+    var closing = { "(": ")", "[": "]", "{": "}" };
+    var previous = "";
+    var word = "";
+    var i = 0;
+    function excerpt(at) {
+      var start = Math.max(0, at - 24);
+      var end = Math.min(text.length, at + 25);
+      return (start > 0 ? "…" : "") + text.substring(start, at) + "[" + text.charAt(at) + "]" + text.substring(at + 1, end) + (end < text.length ? "…" : "");
+    }
+    function fail(message, at) {
+      return { message: "position " + (at + 1) + ": " + message + " (" + excerpt(at) + ")", position: at + 1 };
+    }
+    function regexAllowed() {
+      if (!previous.length) { return true; }
+      if (/[A-Za-z0-9_$]/.test(previous)) { return REGEX_AFTER_WORDS[word] === true; }
+      return /[(,=:\[!&|?{};+\-*%<>~^]/.test(previous);
+    }
+    while (i < text.length) {
+      var top = stack.length ? stack[stack.length - 1] : null;
+      var c = text.charAt(i);
+      if (top && top.mark === "`") {
+        if (c === "\\") { i += 2; continue; }
+        if (c === "`") { stack.pop(); previous = "`"; word = ""; i++; continue; }
+        if (c === "$" && text.charAt(i + 1) === "{") { stack.push({ mark: "${", at: i }); previous = "{"; word = ""; i += 2; continue; }
+        i++;
+        continue;
+      }
+      if (c === "/" && text.charAt(i + 1) === "/") {
+        while (i < text.length && text.charAt(i) !== "\n") { i++; }
+        continue;
+      }
+      if (c === "/" && text.charAt(i + 1) === "*") {
+        var endComment = text.indexOf("*/", i + 2);
+        if (endComment < 0) { return fail("a comment opened here is never closed", i); }
+        i = endComment + 2;
+        continue;
+      }
+      if (c === "'" || c === "\"") {
+        var j = i + 1;
+        while (j < text.length && text.charAt(j) !== c && text.charAt(j) !== "\n") { j += text.charAt(j) === "\\" ? 2 : 1; }
+        if (j >= text.length || text.charAt(j) !== c) { return fail("the string opened by " + c + " here is never closed", i); }
+        i = j + 1;
+        previous = c;
+        word = "";
+        continue;
+      }
+      if (c === "`") { stack.push({ mark: "`", at: i }); i++; continue; }
+      if (c === "/" && regexAllowed()) {
+        var k = i + 1;
+        var inClass = false;
+        while (k < text.length && text.charAt(k) !== "\n") {
+          var r = text.charAt(k);
+          if (r === "\\") { k += 2; continue; }
+          if (r === "[") { inClass = true; } else if (r === "]") { inClass = false; } else if (r === "/" && !inClass) { break; }
+          k++;
+        }
+        // no closing slash on the line: a division after all, nothing to report
+        if (k < text.length && text.charAt(k) === "/") {
+          i = k + 1;
+          while (i < text.length && /[A-Za-z]/.test(text.charAt(i))) { i++; }
+          previous = "/";
+          word = "";
+          continue;
+        }
+      }
+      if (c === "(" || c === "[" || c === "{") {
+        stack.push({ mark: c, at: i });
+      } else if (c === ")" || c === "]" || c === "}") {
+        if (c === "}" && top && top.mark === "${") {
+          stack.pop();
+          i++;
+          continue;
+        }
+        if (!top) { return fail("one '" + c + "' too many, it closes nothing", i); }
+        if (top.mark !== opening[c]) {
+          return fail("'" + c + "' found where '" + (closing[top.mark] || "}") + "' should close the '" + top.mark + "' opened at position " + (top.at + 1), i);
+        }
+        stack.pop();
+      }
+      if (!/\s/.test(c)) {
+        if (/[A-Za-z0-9_$]/.test(c)) { word = /[A-Za-z0-9_$]/.test(previous) ? word + c : c; } else { word = ""; }
+        previous = c;
+      }
+      i++;
+    }
+    if (stack.length) {
+      var open = stack[stack.length - 1];
+      return fail(open.mark === "`" ? "the template literal opened here is never closed" : "the '" + open.mark + "' opened here is never closed", open.at);
+    }
+    return null;
+  }
   // What an expression may reach. The viewer runs it as JavaScript in its page, without a sandbox (C8Oforms viewerPage
   // createExpressionFunction): an agent took the old "no guessed globals" advice for "no window, no localStorage" and told a user that
   // two forms could not share a value through localStorage. The contract does not steer toward it, nor forbid it.
-  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device: a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\".";
+  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device: a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression.";
 
   function normalizeToastColor(value) {
     var text = trimmed(value);
@@ -2681,6 +2783,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var source = item.sources && item.sources.self;
       if (!source || !boolLike(source.enabled) || !source.vars || !source.vars.selfVar || source.vars.selfVar.type !== "ts") { issue("missing_context_default_source", "Context default requires an enabled TS self source", path); }
       if (config.contextValueMode === "reactive" && !boolLike(config.disabled)) { warning("editable_reactive_value", "A reactive value can replace a manual edit when dependencies change; use initial for prefill or a disabled control for a calculation", path); }
+      if (spec.source === "expression") {
+        var defaultSyntax = expressionDelimiterIssue(spec.expression);
+        if (defaultSyntax) { issue("expression_syntax", item.name + " defaultFrom.expression: " + defaultSyntax.message, path + "/expression"); }
+      }
       if (spec.source === "expression") { warning("context_expression_runtime_check", "Verify expression result type, dependencies, source readiness and absence of side effects at runtime; arbitrary expressions are not statically proven", path); }
       if (spec.source === "field") {
         var matches = fields.filter(function (candidate) { return candidate && candidate.name === spec.field; });
@@ -3065,6 +3171,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           var config = element.config || {};
           var source = element.sources && element.sources.self;
           var value = source && source.vars && source.vars.selfVar;
+          if (element.type === "business_logic" && value && value.type === "ts" && trimmed(value.str).length) {
+            var logicSyntax = expressionDelimiterIssue(value.str);
+            if (logicSyntax) { issue("expression_syntax", (element.name || "business_logic") + " expression: " + logicSyntax.message, path + "/sources/self/vars/selfVar/str"); }
+          }
           if (element.type === "toast" && (!enabledEntries(element.sources).length || (source && (!value || !trimmed(value.str) || trimmed(value.str) === "toast_example")))) {
             incomplete("unconfigured_toast", "Toast must have an enabled message source without prototype placeholders", path + "/sources");
           }
