@@ -225,6 +225,28 @@ test('query parameters are evaluated at runtime without expression injection', (
   assert.equal(evaluateDefault(field), 'none');
   assert.equal(evaluateDefault(field, { page: { local: { urlParams: new Map([[parameter, 'R-2']]) } } }), 'R-2');
 });
+test('an expression may reach browser globals such as localStorage, which the contract never presents as the default', () => {
+  // An agent took the old "no guessed globals" advice for "no localStorage" and told a user two forms could not share a value that way.
+  assert.doesNotMatch(source, /not guessed globals/);
+  assert.match(source, /expressions: EXPRESSION_RUNTIME,/);
+  assert.match(source, /availability: "Existing Forms TS expression context: fields, actions, api\. Use verified sources and correct return types\. A defaultFrom expression only reads: no side effects\. " \+ EXPRESSION_RUNTIME/);
+  const runtime = /var EXPRESSION_RUNTIME = "(.*)";\n/.exec(source)[1];
+  assert.match(runtime, /JavaScript run in the viewer page/);
+  assert.match(runtime, /by default share through Baserow \(submit saveTo, then a grid or field source\) or a URL parameter/);
+  assert.match(runtime, /Use localStorage only when the user asks for it, and say that it stays in one browser on one device/);
+  const shared = { name: 'Shared value', pages: [{ name: 'Request', fields: [
+    { type: 'text', name: 'reference' },
+    { type: 'text', name: 'previous_reference', defaultFrom: { source: 'expression', expression: 'localStorage.getItem("reference") ?? ""', mode: 'initial' } }
+  ] }], flows: [{ id: 'formulas', name: 'Formulas', elements: [
+    { name: 'keep_reference', type: 'business_logic', expression: '(localStorage.setItem("reference", fields.reference ?? ""), fields.reference)' }
+  ] }] };
+  const r = api().compile(shared);
+  assert.notEqual(r.status, 'invalid', JSON.stringify(r.validation && r.validation.issues));
+  const field = r.form.formulaire.find(f => f.name === 'previous_reference');
+  const store = new Map([['reference', 'R-7']]);
+  const localStorage = { getItem: key => store.has(key) ? store.get(key) : null };
+  assert.equal(evaluateDefault(field, { localStorage }), 'R-7', 'the compiled default reads the browser storage as written');
+});
 test('explicit calculations retain reactive mode and warn about runtime validation', () => {
   const r = api().compile(contextExample({ source: 'expression', expression: 'fields.quantity * fields.unit_price', mode: 'reactive' }, { config: { type: 'number' }, disabled: true }));
   const field = r.form.formulaire[0];

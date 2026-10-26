@@ -872,7 +872,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-23.tool-answers-v14",
+      contractVersion: "2026-10-26.expression-runtime-v15",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1177,6 +1177,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       flowAuthoring: {
         rule: "Use flows only when referenced by a button, when formulas/business logic are needed, or when a submit step must execute backend actions.",
         formulas: "Put business_logic elements in the flow with id formulas.",
+        expressions: EXPRESSION_RUNTIME,
         buttonFlow: "A button field sets flow to the stable flow id. Set a meaningful visible flow.name in the user's language; do not confuse it with the id. Missing names fall back to the unique triggering button label or a humanized id. Explicit names also apply to the built-in formulas/submit flows.",
         backendActions: "Attach backend sequence actions to submit elements through submit.actions; see authoringContract.backendActions.",
         toast: "message is translated into sources.self.vars.selfVar.str (text, html=false). Explicit sources take precedence. position (top, middle, bottom), duration (seconds), color and closeBtn map into config. color must be a 6-digit hex or success/danger/warning/info (compiled to readable hex); default success. See generationQuality.toasts.",
@@ -1393,6 +1394,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   var CONDITION_OPERATORS = ["equals", "different", "greater", "greaterequals", "minus", "minusequals", "among_following", "out_following", "contains", "not_contains", "contains_multiple_files", "contains_a_file", "does_not_contain_file", "is_filled", "is_empty"];
   var CONDITION_OPERATOR_ALIASES = { "==": "equals", "=": "equals", "!=": "different", ">": "greater", ">=": "greaterequals", "<": "minus", "<=": "minusequals", in: "among_following", not_in: "out_following", not_empty: "is_filled", filled: "is_filled", empty: "is_empty" };
   var UNARY_CONDITION_OPERATORS = ["is_filled", "is_empty", "contains_a_file", "does_not_contain_file", "contains_multiple_files"];
+  // What an expression may reach. The viewer runs it as JavaScript in its page, without a sandbox (C8Oforms viewerPage
+  // createExpressionFunction): an agent took the old "no guessed globals" advice for "no window, no localStorage" and told a user that
+  // two forms could not share a value through localStorage. The contract does not steer toward it, nor forbid it.
+  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device: a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\".";
 
   function normalizeToastColor(value) {
     var text = trimmed(value);
@@ -2582,7 +2587,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         clock: { property: ["today", "now"], example: { source: "clock", property: "today" }, availability: "Browser clock at evaluation. today is a local YYYY-MM-DD date; now is an ISO instant. Neither is an authoritative server audit timestamp." },
         field: { example: { source: "field", field: "selected_request", column: "Reference", mode: "reactive", fallback: "" }, availability: "Existing unique component technical name. Reads its runtime value through fields. For a grid, column names a column of the selected row and reads its text whatever the cell shape (raw text, number or date; single select { id, value, color }; link or multiple select list of { id, value }, joined with ', '; lean { value }). Otherwise optional path is an array of literal keys/indexes, not JS, read as is (column and path exclude each other). Selection/data must already be available for initial mode. Formula results use actions in an expression." },
         query: { example: { source: "query", parameter: "request_ref", fallback: "" }, availability: "Explicit navigation query parameter, a string or null. Untrusted input, never proof of identity or permission. No query values are fetched during compilation." },
-        expression: { example: { source: "expression", expression: "fields.quantity * fields.unit_price", mode: "reactive" }, availability: "Existing Forms TS expression context: fields, actions, api. Use verified sources and correct return types, not guessed globals. Expressions must be side-effect free. Dynamic/computed references and backend availability cannot be proven by compilation." },
+        expression: { example: { source: "expression", expression: "fields.quantity * fields.unit_price", mode: "reactive" }, availability: "Existing Forms TS expression context: fields, actions, api. Use verified sources and correct return types. A defaultFrom expression only reads: no side effects. " + EXPRESSION_RUNTIME + " Dynamic/computed references and backend availability cannot be proven by compilation." },
         literal: { example: { source: "literal", value: 0 }, availability: "Explicit business default, including false or 0; not fabricated personal information or business records." }
       },
       modes: {
