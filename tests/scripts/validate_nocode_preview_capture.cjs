@@ -157,3 +157,22 @@ test('the tool is declared, listed in No Code with its schema, and its sequence 
   assert.match(overrides, /enum: \["desktop", "mobile"\]/);
   assert.match(overrides, /required: \["formId"\],/);
 });
+
+test('the form is read as nocode-form-get reads it: the document itself, or fetched false; the user from the token', () => {
+  const auth = { status: 'valid', authenticated: true, user: 'google:42:testuser-convertigo@yopmail.com' };
+  const doc = { _id: '1793017822899', _rev: '3-a', name: 'Issue 1526' };
+  const calls = [];
+  const read = api.formRead(o => { calls.push(['auth', o.token]); return auth; }, (id, o) => { calls.push(['get', id, o.project]); return doc; }, '1793017822899', 'C8Oforms', '');
+  assert.equal(read.status, 'ok');
+  assert.equal(read.form, doc);
+  assert.equal(api.owner(read.authentication.user), 'testuser-convertigo@yopmail.com');
+  assert.deepEqual(calls, [['auth', ''], ['get', '1793017822899', 'C8Oforms']]);
+  const hidden = api.formRead(() => auth, () => ({ status: 'unavailable', fetched: false, error: { code: 'form_unavailable' } }), 'x', 'C8Oforms', '');
+  assert.equal(hidden.status, 'unavailable');
+  assert.equal(api.formRead(() => ({ authenticated: false }), () => doc, 'x', 'C8Oforms', '').status, 'auth_required');
+  assert.equal(api.run({ formId: 'x' }, Object.assign({}, { getForm: () => hidden })).error.code, 'forbidden', 'nothing requested');
+  const source = require('node:fs').readFileSync(require('node:path').join(root, 'js/nocode_forms.js'), 'utf8');
+  assert.match(source, /C8O\.nocodeForms\.authentication = validateToken;/);
+  assert.match(require('node:fs').readFileSync(require('node:path').join(root, 'js/nocode_preview_capture.js'), 'utf8'),
+    /return api\.formRead\(C8O\.nocodeForms\.authentication, C8O\.nocodeForms\.get, id, project, token\);/);
+});

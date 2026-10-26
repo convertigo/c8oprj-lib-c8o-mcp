@@ -153,6 +153,20 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     return answer;
   }
 
+  // nocode-form-get as this tool reads it: C8O.nocodeForms.get answers the document itself when the user may read it,
+  // else {fetched: false, status, error}; the user comes from the No Code token (C8O.nocodeForms.authentication).
+  api.formRead = function (authenticate, get, id, project, token) {
+    var authentication = authenticate({ token: token });
+    if (!authentication || authentication.authenticated !== true) {
+      return { status: "auth_required" };
+    }
+    var form = get(id, { project: project, token: token });
+    if (!form || form.fetched === false || !form._id) {
+      return { status: (form && form.status) || "unavailable", error: form && form.error };
+    }
+    return { status: "ok", form: form, authentication: authentication };
+  };
+
   // host: header(name), server() -> {get(key), set(key, value)}, newMap() -> a ConcurrentHashMap, getForm(id, project, token) -> nocode-form-get
   // answer, describe({path, question}, user), now(), sleep(ms), uuid().
   api.run = function (params, host) {
@@ -300,7 +314,7 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
         return new java.util.concurrent.ConcurrentHashMap();
       },
       getForm: function (id, project, token) {
-        return C8O.nocodeForms.get(id, { project: project, token: token });
+        return api.formRead(C8O.nocodeForms.authentication, C8O.nocodeForms.get, id, project, token);
       },
       describe: function (params, user) {
         var host = C8O.imageDescribe.javaHost();
