@@ -11,7 +11,7 @@ C8O.nocodeToolPolicy = {
       "tools_nocode_form_get", "tools_nocode_form_contract_get",
       "tools_nocode_form_compile", "tools_nocode_form_validate",
       "tools_nocode_form_create", "tools_nocode_form_edit", "tools_nocode_form_update",
-      "tools_nocode_form_publish", "tools_nocode_app_create",
+      "tools_nocode_form_publish", "tools_nocode_app_create", "tools_nocode_form_preview_capture",
       "tools_nocode_baserow_catalog_list", "tools_nocode_baserow_schema_apply",
       // Listed only when the user agreed to send Tigo's feedback (mcp_tools_list).
       "tools_nocode_report_create"
