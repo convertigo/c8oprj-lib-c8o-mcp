@@ -4749,6 +4749,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   C8O.nocodeForms.validate = validateForm;
   C8O.nocodeForms.save = saveForm;
   C8O.nocodeForms.get = getForm;
+  // the No Code user of the call: {authenticated, user} (nocode-form-preview-capture names the user of its request)
+  C8O.nocodeForms.authentication = validateToken;
   function attachSavedForm(saved, candidate, options) {
     if (saved.saved !== true) { saved.form = candidate; return saved; }
     var result = saved.response || {};
