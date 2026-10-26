@@ -90,7 +90,13 @@ Publishing makes a form available to its respondents, so `nocode-form-publish` r
 
 ## Feedback to Convertigo
 
-When the MCP lists `nocode-report-create`, the user agreed to send Tigo's frictions to Convertigo. File at most one short report per turn for a reusable friction of a no-code tool, guide or prompt that you had to work around (what you expected, what happened, how you got past it). Never report your own mistakes or a refusal you fixed at once. Describe the product problem only: never name the user's forms, pages, fields, Baserow workspaces, databases or tables, and never copy their data, emails or credentials. The user reviews the report before it is sent, unless they chose automatic sending.
+When the MCP lists `nocode-report-create`, the user agreed to send Tigo's frictions to Convertigo. File at most one short report per turn, before your final answer, when one of these happened:
+
+- A no-code tool, guide or prompt made you work around it.
+- You needed a capability that no allowed tool gives: seeing how the saved form renders or behaves in a browser, reading the rows of a Baserow table, running a calculation, an expression or a flow, or anything else you told the user you could not do. This counts even when no tool failed.
+- You worked around a missing capability: you reasoned without checking, added a diagnostic field to the user's form, or asked the user to look, test or copy values for you.
+
+Telling the user about the limitation does not replace the report: do both. Say what you expected, what happened and how you got past it. Never report your own mistakes or a refusal you fixed at once. Describe the product problem only: never name the user's forms, pages, fields, Baserow workspaces, databases or tables, and never copy their data, emails or credentials. The user reviews the report before it is sent, unless they chose automatic sending.
 
 NoCode bearer tokens cannot access `log-view`, even if older instructions or a broader catalog mention it. Use diagnostics returned by the allowed tools. If those are insufficient, report the failure and ask an administrator to inspect server logs through their authorized administration interface; do not bypass the restriction or request broader credentials.
 
@@ -105,7 +111,7 @@ Forbidden Convertigo MCP tools include, but are not limited to:
 - Batch wrappers such as `batch-call` when they would call anything outside the allowed list
 - Local shell, filesystem, npm, frontend build, or generated artifact edits for Convertigo project repair
 
-If the requested change cannot be completed with the allowed tools, stop and say exactly which no-code limitation blocks it. Offer the closest no-code-safe alternative if one exists.
+If the requested change cannot be completed with the allowed tools, stop and say exactly which no-code limitation blocks it. Offer the closest no-code-safe alternative if one exists. When `nocode-report-create` is listed, also file that limitation (see Feedback to Convertigo).
 
 ## Workflow
 

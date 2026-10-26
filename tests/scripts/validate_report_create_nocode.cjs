@@ -114,3 +114,21 @@ test('on a server: off without the feedback key; with it, the no-code user\'s ow
   // The Studio keeps its engine-wide consent.
   assert.equal(reporting({ studio: true, files: settings }).tigoMode(), 'auto');
 });
+
+// GLM 5.3 told a No Code user twice that it could not see the form in a browser nor read the rows of a table, worked
+// around it with a diagnostic field, and filed nothing: it read "a friction of a tool you had to work around" as a
+// failing tool only (gregoryv, test-nocode, 26/10). The skill and the tool name a missing capability and a workaround.
+test('the skill and the tool ask for a missing capability or a workaround, even without a failing tool', () => {
+  const skill = read('resources/convertigo-nocode/SKILL.md');
+  const section = skill.slice(skill.indexOf('## Feedback to Convertigo'), skill.indexOf('NoCode bearer tokens cannot access'));
+  assert.match(section, /before your final answer/);
+  assert.match(section, /You needed a capability that no allowed tool gives: seeing how the saved form renders or behaves in a browser, reading the rows of a Baserow table/);
+  assert.match(section, /This counts even when no tool failed\./);
+  assert.match(section, /added a diagnostic field to the user's form, or asked the user to look, test or copy values for you/);
+  assert.match(section, /Telling the user about the limitation does not replace the report: do both\./);
+  assert.match(section, /never name the user's forms, pages, fields, Baserow workspaces, databases or tables/);
+  assert.match(skill, /say exactly which no-code limitation blocks it\. Offer the closest no-code-safe alternative if one exists\. When `nocode-report-create` is listed, also file that limitation/);
+  const tool = read('_c8oProject/sequences/tools_nocode_report_create.yaml');
+  assert.match(tool, /a capability you needed that no no-code tool gives \(seeing the saved form in a browser, reading the rows of a Baserow table, running a calculation\)/);
+  assert.match(tool, /File it before your final answer, even when no tool failed\./);
+});
