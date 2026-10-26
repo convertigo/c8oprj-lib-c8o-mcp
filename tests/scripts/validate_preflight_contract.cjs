@@ -584,3 +584,165 @@ test('a refused MCP token is logged with its reason, never with the token', () =
   assert.equal(ctx.parseError.status, '401');
   assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer refused (invalid_token_record): The MCP bearer token does not match its active record.']);
 });
+
+// --- bearer token store ---------------------------------------------------------------------------
+
+// The real js/mcp_auth.js over an in-memory jwt folder with POSIX permissions: a signing key and a durable token whose
+// record was never used. Every change to a file calls the listeners, so a test can run a call in the middle of a write.
+function tokenStoreWorld() {
+  const crypto = require('node:crypto');
+  class IOException extends Error {}
+  class AccessDeniedException extends IOException {}
+  class NoSuchFileException extends IOException {}
+  class FileAlreadyExistsException extends IOException {}
+  // Rhino hands a script a Java exception as an Error carrying it.
+  const thrown = (Type, file) => Object.assign(new Error('java.nio.file.' + Type.name + ': ' + file), { javaException: new Type(file) });
+  const files = new Map();
+  const dirs = new Set();
+  const listeners = [];
+  const failures = new Map();
+  const pauses = [];
+  const changed = file => listeners.forEach(listener => listener(file));
+  const entry = file => { if (!files.has(file)) { throw thrown(NoSuchFileException, file); } return files.get(file); };
+  class File {
+    constructor(parent, name) { this.path = name === undefined ? String(parent) : (parent.path || String(parent)) + '/' + name; }
+    getAbsolutePath() { return this.path; }
+    getParentFile() { return new File(this.path.slice(0, this.path.lastIndexOf('/'))); }
+    getName() { return this.path.slice(this.path.lastIndexOf('/') + 1); }
+    isDirectory() { return dirs.has(this.path); }
+    mkdirs() { for (let p = this.path; p; p = p.slice(0, p.lastIndexOf('/'))) { dirs.add(p); } return true; }
+    isFile() { return files.has(this.path); }
+    exists() { return files.has(this.path); }
+    delete() { return files.delete(this.path); }
+    toPath() { return this; }
+    // setReadable(false, false) takes the read bit from everyone, the owner included.
+    setReadable(on) { entry(this.path).ownerRead = on; changed(this.path); return true; }
+    setWritable() { changed(this.path); return true; }
+    setExecutable() { return true; }
+  }
+  const Files = {
+    readAllBytes(file) {
+      const stored = entry(file.path);
+      const failing = failures.get(file.path) || 0;
+      if (failing > 0 || !stored.ownerRead) {
+        failures.set(file.path, failing - 1);
+        throw thrown(AccessDeniedException, file.path);
+      }
+      return Buffer.from(stored.data);
+    },
+    write(file, data, ...options) {
+      if (options.includes('CREATE_NEW') && files.has(file.path)) { throw thrown(FileAlreadyExistsException, file.path); }
+      files.set(file.path, { data: Buffer.from(data), ownerRead: true });
+      changed(file.path);
+    },
+    move(from, to) { files.set(to.path, entry(from.path)); files.delete(from.path); changed(to.path); },
+    setPosixFilePermissions(file, permissions) { entry(file.path).ownerRead = permissions[0] === 'r'; changed(file.path); }
+  };
+  class JavaString {
+    constructor(value) { this.text = Buffer.isBuffer(value) ? value.toString('utf8') : String(value); }
+    getBytes() { return Buffer.from(this.text, 'utf8'); }
+    toString() { return this.text; }
+  }
+  const java = {
+    io: { File, IOException },
+    lang: { String: JavaString, Thread: { sleep: ms => pauses.push(ms) },
+      System: { getProperty: name => (name === 'convertigo.mcp.jwt.path' ? '/jwt' : null), currentTimeMillis: () => Date.now() } },
+    nio: {
+      file: { Files, StandardOpenOption: { CREATE_NEW: 'CREATE_NEW', WRITE: 'WRITE' },
+        StandardCopyOption: { ATOMIC_MOVE: 'ATOMIC_MOVE', REPLACE_EXISTING: 'REPLACE_EXISTING' },
+        AtomicMoveNotSupportedException: class extends IOException {}, attribute: { PosixFilePermissions: { fromString: text => text } } },
+      charset: { StandardCharsets: { UTF_8: 'UTF-8' } }
+    },
+    util: { Date, HashMap: Map, TimeZone: { getTimeZone: () => ({}) }, UUID: { randomUUID: () => crypto.randomUUID() },
+      Base64: { getUrlEncoder: () => ({ withoutPadding: () => ({ encodeToString: data => Buffer.from(data).toString('base64url') }) }),
+        getUrlDecoder: () => ({ decode: text => Buffer.from(String(text), 'base64url') }) } },
+    security: { SecureRandom: class {}, MessageDigest: { getInstance: () => ({ digest: data => crypto.createHash('sha256').update(data).digest() }),
+      isEqual: (left, right) => Buffer.from(left).equals(Buffer.from(right)) } },
+    text: { SimpleDateFormat: class { setTimeZone() {} format(date) { return date.toISOString(); } } },
+    time: { Instant: { parse: text => { const ms = Date.parse(text); if (isNaN(ms)) { throw new Error('Unparseable date'); } return { toEpochMilli: () => ms }; } } }
+  };
+  const javax = { crypto: { Mac: { getInstance: () => ({ init(key) { this.key = key.key; }, doFinal(data) { return crypto.createHmac('sha256', this.key).update(data).digest(); } }) },
+    spec: { SecretKeySpec: class { constructor(key) { this.key = key; } } } } };
+  const engine = { Engine: { USER_WORKSPACE_PATH: '/workspace' }, AuthenticatedSessionManager: { Role: {}, SessionKey: {} }, requesters: {}, util: {}, enums: {} };
+  const ctx = { C8O: {}, java, Packages: { java, javax, com: { twinsoft: { convertigo: { engine } } } } };
+  vm.runInNewContext(read('js/mcp_auth.js'), ctx);
+
+  const secret = 'signing-key-of-the-test-store-'.padEnd(64, 'k');
+  const keyPath = '/jwt/keys/signing-current.key';
+  files.set(keyPath, { data: Buffer.from(secret + '\n'), ownerRead: true });
+  const id = 'mcp_0123456789abcdef0123456789abcdef';
+  const now = Math.floor(Date.now() / 1000);
+  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const input = encode({ alg: 'HS256', typ: 'JWT', kid: id }) + '.' + encode({ iss: 'lib_ConvertigoMCP', aud: 'ConvertigoMCP', sub: 'admin',
+    jti: 'jti-1', kind: 'durable', scope: 'mcp:full', iat: now, nbf: now, exp: now + 3600 });
+  const recordPath = '/jwt/tokens/active/' + id + '.json';
+  files.set(recordPath, { ownerRead: true, data: Buffer.from(JSON.stringify({ id, name: 'test', kind: 'durable', scope: 'mcp:full',
+    jtiHash: crypto.createHash('sha256').update('jti-1').digest('base64url'), createdAt: '2026-10-01T00:00:00.000Z',
+    expiresAt: '2099-01-01T00:00:00.000Z', lastUsedAt: '', revokedAt: '', createdBy: 'admin' })) });
+  return {
+    auth: ctx.C8O.mcpAuth, token: input + '.' + crypto.createHmac('sha256', secret).update(input).digest('base64url'),
+    files, keyPath, recordPath, pauses, onChange: listener => listeners.push(listener), failReads: (file, times) => failures.set(file, times)
+  };
+}
+
+const outcome = result => (result.authenticated === true ? 'ok' : result.error.code);
+
+test('a call checking a token while another call rewrites its lastUsedAt takes it (401 with a valid token)', () => {
+  const store = tokenStoreWorld();
+  const during = [];
+  let inside = false;
+  store.onChange(file => {
+    if (file === store.recordPath && !inside) {
+      inside = true;
+      try { during.push(outcome(store.auth.validate(store.token, null))); } finally { inside = false; }
+    }
+  });
+  assert.equal(outcome(store.auth.validate(store.token, null)), 'ok');
+  assert.ok(during.length > 0, 'the first call rewrote the record');
+  assert.deepEqual(during, during.map(() => 'ok'), 'a call made while the record was rewritten was refused');
+  assert.notEqual(JSON.parse(store.files.get(store.recordPath).data).lastUsedAt, '');
+});
+
+test('a token record or signing key unreadable for a moment is read again, and the token is taken', () => {
+  const store = tokenStoreWorld();
+  store.failReads(store.keyPath, 1);
+  store.failReads(store.recordPath, 2);
+  assert.equal(outcome(store.auth.validate(store.token, null)), 'ok');
+  assert.deepEqual(store.pauses, [25, 25, 50], 'a short pause before each new read');
+});
+
+test('a token store that stays unreadable answers 503, not a 401 that makes Vibe drop the server', () => {
+  const store = tokenStoreWorld();
+  store.failReads(store.recordPath, Infinity);
+  const result = store.auth.validate(store.token, null);
+  assert.equal(outcome(result), 'token_store_unreadable');
+  assert.equal(result.retryable, true);
+  assert.ok(!result.error.message.includes('/jwt/'), 'the answer does not tell where the store is');
+  const logged = [];
+  const headers = {};
+  const ctx = { include() {}, request: '{}', C8O: { mcpAuth: { authenticateRequest: () => result } },
+    context: { httpServletResponse: { setHeader: (name, value) => { headers[name] = value; } } },
+    com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn: message => logged.push(String(message)) } } } } } } };
+  vm.runInNewContext(stepExpression(endpoint, 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '503');
+  assert.equal(ctx.parseError.data.code, 'token_store_unreadable');
+  assert.equal(ctx.parseError.data.retryable, true);
+  assert.deepEqual(headers, {}, 'no authentication challenge');
+  assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer not checked (token_store_unreadable): java.nio.file.AccessDeniedException: ' + store.recordPath]);
+});
+
+test('an unknown, revoked or corrupt durable token record still refuses the token', () => {
+  const unknown = tokenStoreWorld();
+  unknown.files.delete(unknown.recordPath);
+  assert.equal(outcome(unknown.auth.validate(unknown.token, null)), 'revoked_or_unknown_token');
+  assert.equal(unknown.pauses.length, 3, 'looked for again in case it was being replaced');
+  const revoked = tokenStoreWorld();
+  revoked.files.set(revoked.recordPath.replace('/active/', '/revoked/'), revoked.files.get(revoked.recordPath));
+  assert.equal(outcome(revoked.auth.validate(revoked.token, null)), 'revoked_token');
+  assert.deepEqual(revoked.pauses, []);
+  const corrupt = tokenStoreWorld();
+  corrupt.files.get(corrupt.recordPath).data = Buffer.from('{"id":');
+  const refusal = corrupt.auth.validate(corrupt.token, null);
+  assert.equal(outcome(refusal), 'invalid_token_record');
+  assert.equal(refusal.retryable, undefined);
+});

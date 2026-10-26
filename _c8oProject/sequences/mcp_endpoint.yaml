@@ -80,7 +80,20 @@ responseTimeout: 300
   expression: |
     'include("js/mcp_auth.js");
     mcpAuthentication = C8O.mcpAuth.authenticateRequest(context);
-    if (!mcpAuthentication || mcpAuthentication.authenticated !== true) {
+    if (mcpAuthentication && mcpAuthentication.retryable === true) {
+      // The token could not be checked, it was not refused: its store could not be read. A 503 fails this call only, where
+      // a 401 makes Vibe drop every Convertigo tool for the rest of its session.
+      var unavailableError = mcpAuthentication.error || {};
+      parseError = {
+        status: "503",
+        code: -32004,
+        message: unavailableError.message || "The MCP bearer token could not be checked just now. Retry the call.",
+        data: { code: unavailableError.code || "token_store_unreadable", retryable: true }
+      };
+      try {
+        com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] MCP bearer not checked (" + (unavailableError.code || "token_store_unreadable") + "): " + (unavailableError.details || unavailableError.message || ""));
+      } catch (_ignoreUnavailableLog) {}
+    } else if (!mcpAuthentication || mcpAuthentication.authenticated !== true) {
       var authenticationError = mcpAuthentication && mcpAuthentication.error ? mcpAuthentication.error : {};
       parseError = {
         status: "401",

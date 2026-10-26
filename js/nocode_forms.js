@@ -2182,7 +2182,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var findTable = tableFinder(opts);
     function component(name, what) {
       var matches = ensureArray(doc.formulaire).filter(function (item) { return item && item.name === trimmed(name); });
-      if (matches.length !== 1) { throw new Error(what + ": no single component named \"" + name + "\" in the form"); }
+      if (matches.length !== 1) {
+        var named = ensureArray(doc.formulaire).filter(function (item) { return item && trimmed(item.name).length; }).map(function (item) { return { name: item.name }; });
+        throw new Error(what + ": no single component named \"" + name + "\" in the form." + (matches.length ? " " + matches.length + " components have that name: rename one." : namesHint(name, named, "component")));
+      }
       return matches[0];
     }
     function fieldValue(value, what) {
@@ -3793,12 +3796,78 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return out;
   }
 
+  // An agent that names nothing, or a name the form does not have, gets the names it could have given: Tigo agents
+  // retried blind after "flow id or name is required" and "field not found" (feedback of 22/10 and 26/10).
+  function editDistance(a, b) {
+    var previous = [];
+    for (var j = 0; j <= b.length; j++) { previous.push(j); }
+    for (var i = 1; i <= a.length; i++) {
+      var current = [i];
+      for (var k = 1; k <= b.length; k++) {
+        current.push(Math.min(previous[k] + 1, current[k - 1] + 1, previous[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1)));
+      }
+      previous = current;
+    }
+    return previous[b.length];
+  }
+
+  function comparableName(value) {
+    return trimmed(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  // At most 3 names close to the one given: same letters once case and separators are ignored, one inside the other, or a
+  // few typos away.
+  function closeNames(name, candidates) {
+    var wanted = comparableName(name);
+    if (!wanted.length) { return []; }
+    var scored = [];
+    ensureArray(candidates).forEach(function (candidate) {
+      var text = trimmed(candidate);
+      var other = comparableName(text);
+      if (!other.length || scored.some(function (entry) { return entry.name === text; })) { return; }
+      var distance = other === wanted ? 0 : (other.indexOf(wanted) >= 0 || wanted.indexOf(other) >= 0 ? 1 : editDistance(wanted, other));
+      if (distance <= Math.max(2, Math.floor(wanted.length / 4))) { scored.push({ name: text, distance: distance }); }
+    });
+    scored.sort(function (a, b) { return a.distance - b.distance; });
+    return scored.slice(0, 3).map(function (entry) { return entry.name; });
+  }
+
+  function itemNames(item) {
+    var names = [];
+    if (item && typeof item === "object") {
+      ["name", "id", "pageTechName"].forEach(function (key) {
+        var text = trimmed(item[key]);
+        if (text.length && names.indexOf(text) < 0) { names.push(text); }
+      });
+    }
+    return names;
+  }
+
+  // " Did you mean ...? Known flows: a (A), b." for an error message; the list stops at 15 items.
+  function namesHint(name, items, label) {
+    var list = ensureArray(items).filter(function (item) { return item && typeof item === "object"; });
+    var candidates = [];
+    list.forEach(function (item) { candidates = candidates.concat(itemNames(item)); });
+    var close = closeNames(name, candidates);
+    var shown = list.slice(0, 15).map(function (item) {
+      var names = itemNames(item);
+      return names.length > 1 ? names[0] + " (" + names.slice(1).join(", ") + ")" : names[0];
+    }).filter(function (text) { return !!text; });
+    var hint = close.length ? " Did you mean " + close.map(function (text) { return "\"" + text + "\""; }).join(" or ") + "?" : "";
+    if (shown.length) {
+      hint += " Known " + (label || "item") + "s: " + shown.join(", ") + (list.length > shown.length ? ", ... (" + list.length + ")" : "") + ".";
+    } else {
+      hint += " The form has no " + (label || "item") + ".";
+    }
+    return hint;
+  }
+
   function findByIdOrName(list, id, name, label) {
     var items = ensureArray(list);
     var textId = trimmed(id);
     var textName = trimmed(name);
     if (!textId.length && !textName.length) {
-      throw new Error((label || "item") + " id or name is required");
+      throw new Error((label || "item") + " id or name is required." + namesHint("", items, label));
     }
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
@@ -3815,7 +3884,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         return { item: item, index: i };
       }
     }
-    throw new Error((label || "item") + " not found: " + (textId || textName));
+    throw new Error((label || "item") + " not found: " + (textId || textName) + "." + namesHint(textId || textName, items, label));
   }
 
   function findPage(form, op) {
@@ -3827,11 +3896,25 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
 
   function findFlow(form, op) {
-    return findByIdOrName(form.flows, op.flowId || op.id || op.flow, op.flowName || op.name, "flow");
+    var flowRef = op.flowId || op.id || op.flow;
+    var flowName = op.flowName || op.name;
+    var elementRef = trimmed(op.elementId || op.elementName);
+    // update_flow_element and remove_flow_element name an element: without a flow, the one flow that holds it is meant.
+    if (!trimmed(flowRef).length && !trimmed(flowName).length && elementRef.length) {
+      var holders = [];
+      ensureArray(form.flows).forEach(function (flow, index) {
+        if (flow && ensureArray(flow.elements).some(function (element) { return element && (trimmed(element.id) === elementRef || trimmed(element.name) === elementRef); })) {
+          holders.push({ item: flow, index: index });
+        }
+      });
+      if (holders.length === 1) { return holders[0]; }
+    }
+    return findByIdOrName(form.flows, flowRef, flowName, "flow");
   }
 
   function findFlowElement(flow, op) {
-    return findByIdOrName(flow.elements, op.elementId || op.id || op.element, op.elementName || op.name, "flow element");
+    // an agent gives elementId the element's name as often as its id
+    return findByIdOrName(flow.elements, op.elementId || op.id || op.element, op.elementName || op.name || op.elementId, "flow element");
   }
 
   function makePageFromOperation(op, index, tabMode) {
