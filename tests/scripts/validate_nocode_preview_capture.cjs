@@ -80,11 +80,12 @@ test('the request names the conversation, the user, the form, the page and the d
 });
 
 test('a refusal or a failure of the page comes back as unavailable with its reason and what to do', () => {
-  for (const reason of ['declined', 'unsupported', 'unsupported_browser', 'render_timeout']) {
+  for (const reason of ['declined', 'unsupported', 'unsupported_browser', 'render_timeout', 'capture_failed']) {
     const w = world({ play: (now, map) => { const r = requestIn(map); if (r.status === 'pending') set(map, { status: 'taken', takenAt: now }); else if (r.status === 'taken') set(map, { status: 'failed', error: { reason } }); } });
     const answer = api.run({ formId: 'f1' }, w.host);
     assert.deepEqual([answer.status, answer.reason], ['unavailable', reason]);
     assert.match(answer.message, /Tell the user in one sentence/);
+    assert.doesNotMatch(answer.message, /within 60 s/, reason + ' has its own explanation');
   }
 });
 
