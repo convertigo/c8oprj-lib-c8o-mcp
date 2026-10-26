@@ -19,6 +19,7 @@ class FakeMap {
   get(k) { return this.m.has(k) ? this.m.get(k) : null; }
   put(k, v) { this.m.set(k, v); }
   remove(k) { this.m.delete(k); }
+  putIfAbsent(k, v) { if (!this.m.has(k)) this.m.set(k, v); return null; }
   replace(k, before, after) { if (this.m.get(k) !== before) return false; this.m.set(k, after); return true; }
   keySet() { const keys = [...this.m.keys()]; return { toArray: () => keys }; }
 }
@@ -35,7 +36,7 @@ function world(options = {}) {
     getForm: (id) => options.form || { status: 'ok', form: { _id: id, name: 'Congés' }, authentication: { authenticated: true, user: 'gregoryv@convertigo.com' } },
     describe: (params, user) => { described.push({ params, user }); return { description: 'Formulaire Congés : Nom, Date', model: 'mistral/mistral-large-4', usage: { tool: 'image-describe', callId: 'c1', model: 'mistral/mistral-large-4', inputTokens: 900, outputTokens: 100, cost: 0.002 } }; },
     now: () => clock.now,
-    sleep: ms => { if (options.play) { options.play(clock.now, store.get('lib_ConvertigoAssistant.hostRequests.agent-1')); } clock.now += ms; },
+    sleep: ms => { if (options.play) { options.play(clock.now, store.get('lib_ConvertigoAssistant.hostRequests').get('agent-1')); } clock.now += ms; },
     uuid: () => 'u1'
   };
   return { host, store, clock, described };
@@ -59,7 +60,7 @@ test('the page captures the preview: the agent gets the path, the size and the d
   assert.equal(w.described[0].user, 'gregoryv@convertigo.com', 'described with the key of the user\'s agent');
   assert.equal(w.described[0].params.path, '/workspace/agents/convertigo/users/g/conversations/agent-1/attachments/preview-1-1-mobile-1.png');
   assert.match(w.described[0].params.question, /phone, 390 px wide.*Transcribe every visible text exactly.*Then answer: Le bouton Envoyer est-il visible \?/);
-  assert.equal(w.store.get('lib_ConvertigoAssistant.hostRequests.agent-1').get('cap-u1'), null);
+  assert.equal(w.store.get('lib_ConvertigoAssistant.hostRequests').get('agent-1').get('cap-u1'), null);
 });
 
 test('the request names the conversation, the user, the form, the page and the device, and expires after 60 s', () => {
@@ -108,7 +109,7 @@ test('nothing is requested for a form the user cannot read, without authenticati
   assert.equal(api.run({ formId: 'f1' }, lost.host).reason, 'no_conversation');
   const routed = world({ conversation: '' });
   assert.equal(api.run({ formId: 'f1', conversationId: 'agent-1' }, routed.host).status, 'pending', 'the conversation set by the router');
-  assert.ok(routed.store.get('lib_ConvertigoAssistant.hostRequests.agent-1').get('cap-u1'));
+  assert.ok(routed.store.get('lib_ConvertigoAssistant.hostRequests').get('agent-1').get('cap-u1'));
   assert.equal(api.run({ formId: 'f1', conversationId: '../x' }, world({ conversation: '' }).host).reason, 'no_conversation');
   assert.equal(api.run({}, world().host).error.code, 'missing_form');
   assert.equal(api.run({ formId: 'f1', device: 'tablet' }, world().host).error.code, 'invalid_device');
@@ -116,8 +117,10 @@ test('nothing is requested for a form the user cannot read, without authenticati
 
 test('a captureId of another user or conversation is unknown; requests older than 10 minutes are swept', () => {
   const w = world();
-  const map = new (class extends FakeMap {})();
-  w.store.set('lib_ConvertigoAssistant.hostRequests.agent-1', map);
+  const map = new FakeMap();
+  const conversations = new FakeMap();
+  conversations.put('agent-1', map);
+  w.store.set('lib_ConvertigoAssistant.hostRequests', conversations);
   map.put('cap-other', JSON.stringify({ id: 'cap-other', user: 'someone@else', createdAt: w.clock.now, status: 'pending' }));
   map.put('cap-old', JSON.stringify({ id: 'cap-old', user: 'gregoryv@convertigo.com', createdAt: w.clock.now - 11 * 60000, status: 'done' }));
   assert.equal(api.run({ formId: 'f1', captureId: 'cap-other' }, w.host).error.code, 'unknown_capture');

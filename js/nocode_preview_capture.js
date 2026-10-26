@@ -3,8 +3,8 @@
  * user has open (its tab shared with getDisplayMedia, one click per session), never by a browser of the server.
  *
  * The tool leaves a request in the store the server shares between projects (context.server), under the Tigo
- * conversation of the call (X-Convertigo-Conversation-Id): lib_ConvertigoAssistant.hostRequests.<conversation>, one
- * JSON string per request. The Tigo panel takes it while it reads the turn (readResponse), passes it to the page, and
+ * conversation of the call (X-Convertigo-Conversation-Id): lib_ConvertigoAssistant.hostRequests is a map of the
+ * conversations, each one a map of its requests, one JSON string per request. The Tigo panel takes it while it reads the turn (readResponse), passes it to the page, and
  * the page's image comes back through lib_ConvertigoAssistant.AgentHostRequestResult, which writes the PNG in the
  * conversation's attachments and marks the request done (or failed with a reason). The tool waits 25 s at most, then
  * answers pending with a captureId the agent gives back to keep waiting. A request nobody took expires after 60 s.
@@ -20,7 +20,7 @@ if (typeof C8O === "undefined") {
 C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
 
 (function (api) {
-  var STORE_PREFIX = "lib_ConvertigoAssistant.hostRequests.";
+  var STORE_KEY = "lib_ConvertigoAssistant.hostRequests";
   var WAIT_MS = 25000;
   var POLL_MS = 250;
   // a request nobody took, or a capture the page never finished, stops waiting after this
@@ -151,7 +151,7 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     return answer;
   }
 
-  // host: header(name), server() -> {get(key), set(key, value)}, newMap(), getForm(id, project, token) -> nocode-form-get
+  // host: header(name), server() -> {get(key), set(key, value)}, newMap() -> a ConcurrentHashMap, getForm(id, project, token) -> nocode-form-get
   // answer, describe({path, question}, user), now(), sleep(ms), uuid().
   api.run = function (params, host) {
     params = params || {};
@@ -176,13 +176,14 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     if (!conversationId.length || !user.length) {
       return unavailable("no_conversation");
     }
+    // context.server has no putIfAbsent: only the first capture of the engine creates the map of the conversations
     var store = host.server();
-    var key = STORE_PREFIX + conversationId;
-    var map = store.get(key);
-    if (map == null) {
-      map = host.newMap();
-      store.set(key, map);
+    if (store.get(STORE_KEY) == null) {
+      store.set(STORE_KEY, host.newMap());
     }
+    var conversations = store.get(STORE_KEY);
+    conversations.putIfAbsent(conversationId, host.newMap());
+    var map = conversations.get(conversationId);
     var now = host.now();
     sweep(map, now);
     var captureId = trimmed(params.captureId);
