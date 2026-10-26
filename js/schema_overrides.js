@@ -1146,6 +1146,39 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeFormPreviewCaptureInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: nocodeFormsProjectProperty(),
+        formId: {
+          type: "string",
+          description: "Id of the form whose preview to capture, from the current No Code context (its latest saved version is shown, published or not)."
+        },
+        page: {
+          type: "string",
+          description: "Page to capture: its pageTechName, its name or its number from 1. Empty: the first page."
+        },
+        device: {
+          type: "string",
+          enum: ["desktop", "mobile"],
+          description: "desktop (1280 px, default) or mobile (390 px): use mobile when the layout on a phone matters."
+        },
+        question: {
+          type: "string",
+          description: "Optional: what the description must check, in addition to the exact texts, the layout and the visual defects."
+        },
+        captureId: {
+          type: "string",
+          description: "The captureId of a pending answer: keeps waiting for that capture instead of requesting a new one."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["formId"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeFormPublishInputSchema() {
     return {
       type: "object",
@@ -2427,6 +2460,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_form_publish") {
       return nocodeFormPublishInputSchema();
+    }
+    if (seq === "tools_nocode_form_preview_capture") {
+      return nocodeFormPreviewCaptureInputSchema();
     }
     if (seq === "tools_nocode_app_create") {
       return nocodeAppCreateInputSchema();

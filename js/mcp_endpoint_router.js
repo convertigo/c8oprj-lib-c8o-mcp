@@ -715,6 +715,10 @@ if (methodName === "initialize") {
       if (subagentSequence && managedConversationId.length) {
         callVariables.conversationId = managedConversationId;
       }
+      // The capture is requested in the conversation of the call only, never in one the model names.
+      if (targetSequence === "tools_nocode_form_preview_capture") {
+        callVariables.conversationId = managedConversationId;
+      }
       // One writer per project while a constructor sub-agent builds it: its own session only.
       try {
         if (typeof C8O.subagents === "undefined" || !C8O.subagents.projectsOfCall) {
