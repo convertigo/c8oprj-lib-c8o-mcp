@@ -49,6 +49,15 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     return /^[A-Za-z0-9._-]{1,128}$/.test(id) ? id : "";
   }
 
+  // The owner of the conversations, as the Assistant names it (agent_bridge_client.js callerUserId): C8Oforms signs an
+  // OAuth user in as "provider:subject:email", and the conversations, the Vibe home and the panel go by the email.
+  api.owner = function (user) {
+    var text = trimmed(user);
+    var parts = text.split(":");
+    var last = parts[parts.length - 1];
+    return parts.length > 2 && last.indexOf("@") > 0 ? last : text;
+  };
+
   // The same folder name as the Assistant and the Bridge give a user (agent_workspace_image.js userPathSlug).
   api.userPathSlug = function (value, sha256Hex) {
     var text = trimmed(value);
@@ -161,7 +170,7 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     if (read.status !== "ok" || !read.form) {
       return { status: "error", error: { code: "forbidden", message: "The form " + formId + " cannot be read with the user's rights: no capture is requested." } };
     }
-    var user = trimmed(read.authentication && read.authentication.user);
+    var user = api.owner(read.authentication && read.authentication.user);
     // set by the MCP router from X-Convertigo-Conversation-Id
     var conversationId = conversationIdOf(params.conversationId) || conversationIdOf(host.header("X-Convertigo-Conversation-Id"));
     if (!conversationId.length || !user.length) {

@@ -128,6 +128,8 @@ test('the key of the user\'s agent is found in the folder the Assistant and the 
   const sha = text => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
   assert.equal(api.userPathSlug('gregoryv@convertigo.com', sha), 'gregoryv_convertigo.com--44ece92f8543be9e', 'the folder of gregory on test-nocode');
   assert.equal(api.userPathSlug('studio', sha), 'studio');
+  assert.equal(api.owner('google:1093:gregoryv@convertigo.com'), 'gregoryv@convertigo.com', 'an OAuth sign-in goes by its email');
+  assert.equal(api.owner('c8o:admin'), 'c8o:admin');
   assert.match(source, /agents\/vibe\/homes-convertigo\/users\/" \+ api\.userPathSlug\(user, sha256Hex\) \+ "\/\.vibe-home\/\.env"/);
   assert.match(source, /return userAgentKey\(user\) \|\| serverKey\(\);/);
 });
