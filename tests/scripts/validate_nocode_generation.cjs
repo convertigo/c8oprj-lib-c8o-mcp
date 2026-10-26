@@ -708,6 +708,29 @@ test('ordinary semantic edits reject conflicts and cannot replace document ident
   assert.equal(h.state.creates, 1);
 });
 
+test('an edit that names no flow, or a field the form lacks, is told the names it could give', () => {
+  // Feedback of 22/10 and 26/10: agents retried blind after "flow id or name is required" and "field not found".
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const id = start.form._id;
+  const toast = start.form.flows.find(f => f.id === 'example').elements.find(e => e.type === 'toast');
+  const patched = h.client.edit(id, [{ action: 'update_flow_element', elementId: String(toast.id), patch: { config: { duration: 3 } } }], h.auth);
+  assert.equal(patched.status, 'ok', JSON.stringify(patched.error));
+  assert.equal(patched.form.flows.find(f => f.id === 'example').elements.find(e => e.id === toast.id).config.duration, 3, 'the one flow holding the element is the one meant');
+  const byName = h.client.edit(id, [{ action: 'update_flow_element', elementId: toast.name, patch: { config: { duration: 4 } } }], h.auth);
+  assert.equal(byName.status, 'ok', JSON.stringify(byName.error));
+  assert.equal(byName.form.flows.find(f => f.id === 'example').elements.find(e => e.id === toast.id).config.duration, 4, 'elementId may hold the element name');
+  const noFlow = h.client.edit(id, [{ action: 'add_flow_element', element: { type: 'toast', message: 'Hi' } }], h.auth);
+  assert.equal(noFlow.status, 'error');
+  assert.match(noFlow.error.message, /^flow id or name is required\. Known flows: .*open.*back.*example/);
+  const typo = h.client.edit(id, [{ action: 'update_field', fieldName: 'requets', patch: { label: 'X' } }], h.auth);
+  assert.equal(typo.status, 'error');
+  assert.match(typo.error.message, /^field not found: requets\. Did you mean "requests"\? Known fields: /);
+  const far = h.client.edit(id, [{ action: 'update_field', fieldName: 'zzzz', patch: { label: 'X' } }], h.auth);
+  assert.doesNotMatch(far.error.message, /Did you mean/, 'nothing close, no guess');
+  assert.match(far.error.message, /Known fields: .*welcome.*requests/);
+});
+
 test('write guard preserves attachments and leaves legacy calls unchanged', () => {
   const ctx = {};
   vm.runInNewContext(fs.readFileSync(path.join(formsRoot, 'js/form_write_guard.js'), 'utf8'), ctx);
@@ -1987,6 +2010,8 @@ test('reduced Baserow shorthands refuse what they cannot resolve, with the way o
   assert.throws(() => api().compile(unknownTable, { tableIndex: reducedTables }), /table 999 is not in the Baserow catalog/);
   const unknownField = ticketsApp(); unknownField.flows[1].elements[0].saveTo.values.Statut = 'Fermé';
   assert.throws(() => api().compile(unknownField, { tableIndex: reducedTables }), /\{ value: "Fermé" \}.*no single component named "Fermé"/);
+  const typoField = ticketsApp(); typoField.flows[1].elements[0].saveTo.values.Titre = { field: 'titr' };
+  assert.throws(() => api().compile(typoField, { tableIndex: reducedTables }), /no single component named "titr" in the form\. Did you mean "Titre"\? Known components: /);
   const noCatalog = ticketsApp();
   assert.throws(() => api().compile(noCatalog), /with nocode-form-compile alone, give \{ id, path \}/);
   assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'text', name: 't', label: 'T', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /a text has no Baserow source/);
