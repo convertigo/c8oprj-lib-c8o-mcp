@@ -364,3 +364,10 @@ The engine comes from `database.mode` (or `technology`), then from `type`, `conn
 they name an engine, then from the existing SQL connector the spec names (`database.connector`, `spec.connector`
 or the default `<project>db`), which then keeps its connection settings. Without one, the error names the field
 and the six engines. The specs are the ones two Vibe runs sent on 28/10.
+
+## Requestable targets
+
+Run `node --test tests/scripts/validate_requestable_target.cjs` after changing `C8O.requestable.parseTarget` or the
+Init step of `tools_requestable_execute`. `requestable-execute` and `requestable-stub-get`/`-set` take
+`<project>.<sequence>` and `<project>.<connector>.<transaction>`, and also the Studio QName other tools return
+(`<project>.sq:<sequence>`, `<project>.cn:<connector>.tr:<transaction>`).

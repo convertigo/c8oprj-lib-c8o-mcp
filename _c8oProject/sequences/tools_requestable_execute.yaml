@@ -11,28 +11,8 @@ comment: |
   expression: |
     'var errors = [];
     var startedAt = java.lang.System.currentTimeMillis();
-    var requestText = C8O.util.toTrimmedString(requestable);
-    if (!requestText.length) {
-        throw new Error(''requestable is required'');
-    }
-    var parts = requestText.split(''.'');
-    if (parts.length < 2) {
-        throw new Error(''requestable must be <project>[.<connector>].<requestable>'');
-    }
-    var projectName = parts[0];
-    var targetConnector = null;
-    var targetName = null;
-    var isSequence = false;
-    if (parts.length == 2) {
-        isSequence = true;
-        targetName = parts[1];
-    } else {
-        targetConnector = parts[1];
-        targetName = parts.slice(2).join(''.'');
-    }
-    if (!targetName || !targetName.length) {
-        throw new Error(''requestable name is missing'');
-    }
+    // <project>[.<connector>].<requestable>, or the Studio QName (sq:, cn:, tr:) other tools return.
+    var target = C8O.requestable.parseTarget(requestable);
     var variablesObject = C8O.util.parseObjectInput(variables, {
         label: ''variables'',
         allowEmpty: true
@@ -49,11 +29,11 @@ comment: |
     executionPlan = {
         authenticatedUser: authUser,
         previousAuthenticatedUser: null,
-        requestable: requestText,
-        project: projectName,
-        connector: targetConnector,
-        name: targetName,
-        isSequence: isSequence,
+        requestable: target.requestable,
+        project: target.project,
+        connector: target.connector,
+        name: target.name,
+        isSequence: target.isSequence,
         variables: variablesObject,
         recordSchema: recordSchemaFlag,
         includeLogs: includeLogsFlag,
@@ -338,8 +318,8 @@ comment: |
       txDbo.writeSchemaToFile(xsdTypes);
       Packages.com.twinsoft.convertigo.engine.Engine.theApp.schemaManager.clearCache(txDbo.getProject().getName());'
 ↓requestable [variables.RequestableVariable-1763053821400]: 
-  comment: Target requestable as <project>[.<connector>].<requestable>.
-  description: Target requestable as <project>[.<connector>].<requestable>.
+  comment: Target requestable as <project>[.<connector>].<requestable>, or as the Studio QName <project>.sq:<sequence> or <project>.cn:<connector>.tr:<transaction>.
+  description: Target requestable as <project>[.<connector>].<requestable>, or as the Studio QName <project>.sq:<sequence> or <project>.cn:<connector>.tr:<transaction>.
 ↓variables [variables.RequestableVariable-1763053833825]: 
   comment: Request variables as an object or a JSON string. Non-string values are serialized before execution.
   description: Request variables as an object or a JSON string. Non-string values are serialized before execution.
