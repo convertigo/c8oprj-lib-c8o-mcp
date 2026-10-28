@@ -140,6 +140,38 @@ test('the agent view lists each table once, with the column facts a source needs
   assert.ok(JSON.stringify(compact).length * 3 < JSON.stringify(full).length);
 });
 
+// The step of a sequence as the engine runs it: each declared variable is a String object of the scope
+// (Sequence.insertObjectsInScope, Context.toObject) or null; the No Code token comes with the request.
+function runSequenceStep(sequenceFile, variables, transport) {
+  const sandbox = load(transport);
+  sandbox.context = { httpServletRequest: { getHeader: name => name === 'Authorization' ? 'Bearer t' : null } };
+  const yaml = fs.readFileSync(path.join(root, '_c8oProject/sequences', sequenceFile), 'utf8');
+  const block = yaml.match(/\n {2}expression: \|\n((?: {4}.*\n)+)/)[1];
+  const expression = block.replace(/^ {4}/gm, '').trim().replace(/^'|'$/g, '').replace(/''/g, "'");
+  const toObject = vm.runInContext('(function (value) { return new String(value); })', sandbox);
+  for (const name of yaml.match(/^↓(\w+) \[variables\.RequestableVariable-\d+\]/gm).map(line => line.slice(1).split(' ')[0])) {
+    sandbox[name] = variables[name] == null ? null : toObject(variables[name]);
+  }
+  vm.runInContext(expression, sandbox, { filename: sequenceFile });
+  return plain(sandbox.result);
+}
+
+test('includeColumns without a workspace, base or table keeps the tree and says which id to give', () => {
+  // TigoAccess 0e8a7f91 (27/10): the refusal answered empty lists, read as "no workspace" while the compact view listed them.
+  const fake = fakeBaserow();
+  const answer = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', view: 'compact' }, fake.transport);
+  assert.equal(answer.status, 'ok');
+  assert.deepEqual(answer.workspaces, [{ id: 10, name: 'Team', bases: [{ id: 20, name: 'Sales', tables: [{ id: 30, name: 'Deals' }] }] }]);
+  assert.equal(answer.counts.columns, 0);
+  assert.match(answer.notes[0], /^Columns are not listed \(columns_filter_required\): .*workspaceId, databaseId or tableId.*1 tables/);
+  assert.ok(!fake.state.calls.some(c => c.name === 'formscommon_FieldsList' || c.name === '_api_database_fields_table__table_id___GET'), 'no column is read');
+  const full = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', view: 'full' }, fakeBaserow().transport);
+  assert.deepEqual([full.status, full.tables.map(t => t.id), full.columns, full.notes.length], ['ok', [30], [], 1]);
+  const columns = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', tableId: '30', view: 'compact' }, fakeBaserow().transport);
+  assert.equal(columns.notes, undefined);
+  assert.deepEqual(columns.workspaces[0].bases[0].tables[0].columns.map(c => c.name), ['Name', 'Stage', 'Company'], 'a tableId given as the engine gives it');
+});
+
 test('a field created by schema-apply is read back at once, past the stale cache', () => {
   const fake = fakeBaserow();
   const C8O = load(fake.transport).C8O;
@@ -189,6 +221,53 @@ test('writes use the user\'s Baserow account and stay inside the user\'s catalog
   load(own.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ name: 'Leads', fields: [{ name: 'Lead', type: 'text' }] }] } });
   const tableCreate = own.state.calls.find(c => c.name === '_api_database_tables_database__database_id___POST');
   assert.equal(tableCreate.params.__header_Authorization, 'JWT user-token');
+});
+
+test('a base name is looked up in the workspace the schema names, and is ambiguous without one', () => {
+  // test-nocode, Mistral run: workspaceId of My APPS with baseName "Gestion des congés" found the base of that name
+  // in Vacations, created the table there, then nocode-app-create did not find it in My APPS.
+  const fake = fakeBaserow();
+  fake.state.workspaces.push({ id: 11, name: 'Other' });
+  fake.state.bases.push({ id: 21, name: 'Leave', workspaceId: 11 });
+  const r = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { workspaceId: 10, baseName: 'Leave', tables: [{ name: 'Requests' }] } });
+  assert.equal(r.status, 'ok', JSON.stringify(r.error));
+  assert.ok(!r.actions.some(a => a.type === 'base_exists'), JSON.stringify(r.actions));
+  const created = fake.state.bases.filter(b => b.name === 'Leave' && b.workspaceId === 10);
+  assert.equal(created.length, 1, 'a new base in the named workspace');
+  assert.deepEqual(fake.state.tables.filter(t => t.name === 'Requests').map(t => t.baseId), [created[0].id]);
+  assert.deepEqual(fake.state.tables.filter(t => t.baseId === 21), [], 'nothing written in the other workspace');
+  // Called again, the base of the named workspace is reused.
+  const again = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { workspaceId: 10, baseName: 'Leave', tables: [{ name: 'Requests' }] } });
+  assert.deepEqual(plain(again.actions.find(a => a.type === 'base_exists')), { type: 'base_exists', message: 'Base already exists.', baseId: created[0].id, baseName: 'Leave', workspaceId: 10 });
+
+  const ambiguous = fakeBaserow();
+  ambiguous.state.workspaces.push({ id: 11, name: 'Other' });
+  ambiguous.state.bases.push({ id: 21, name: 'Sales', workspaceId: 11 });
+  const refused = load(ambiguous.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseName: 'Sales', tables: [{ name: 'T' }] } });
+  assert.equal(refused.error.code, 'base_name_ambiguous');
+  assert.deepEqual(plain(refused.error.bases.map(b => [b.id, b.workspaceId])), [[20, 10], [21, 11]]);
+  assert.ok(!ambiguous.state.calls.some(c => /_POST$|TableCreateColumn/.test(c.name)), 'nothing is written');
+});
+
+test('the plan of a new base shows its tables to create, even when another base has a table of that name', () => {
+  // test-nocode: the plan of a new base in tests-charles showed "Demandes de congé" of a base of Vacations as existing,
+  // and the agent renamed its table to get around it.
+  const fake = fakeBaserow();
+  fake.state.workspaces.push({ id: 11, name: 'Other' });
+  fake.state.bases.push({ id: 21, name: 'Leave', workspaceId: 11 });
+  fake.state.tables.push({ id: 31, name: 'Requests', baseId: 21 });
+  fake.state.fields[31] = [{ id: 311, name: 'Name', type: 'text', primary: true, table_id: 31 }];
+  const schema = { workspaceId: 10, baseName: 'Leave 2', tables: [{ name: 'Requests', fields: [{ name: 'Name', type: 'text' }, { name: 'Days', type: 'number' }] }] };
+  const plan = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'plan', schema });
+  assert.equal(plan.status, 'ok', JSON.stringify(plan.error));
+  assert.deepEqual(plain(plan.actions.map(a => a.type).filter(t => /base|table/.test(t))), ['create_base', 'create_table'], JSON.stringify(plan.actions));
+  assert.ok(!plan.actions.some(a => a.tableId === 31 || a.fieldId === 311), 'nothing of the other base');
+  assert.ok(!fake.state.calls.some(c => /_POST$|TableCreateColumn/.test(c.name)), 'a plan writes nothing');
+  const applied = load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema });
+  assert.equal(applied.status, 'ok', JSON.stringify(applied.error));
+  const base = fake.state.bases.find(b => b.name === 'Leave 2');
+  assert.deepEqual(fake.state.tables.filter(t => t.name === 'Requests').map(t => t.baseId).sort(), [21, base.id].sort(), 'the apply creates it too');
+  assert.deepEqual(fake.state.fields[31].map(f => f.name), ['Name'], 'the other table is left alone');
 });
 
 test('a new table holds its primary field only, named as the schema asks', () => {
@@ -304,6 +383,20 @@ test('nocode-app-create creates the base, the table and its fields, then the bou
   assert.equal(again.status, 'ok');
   assert.equal(h.fake.state.tables.filter(t => t.name === 'Demandes').length, 1);
   assert.equal(again.baserow.tables[0].created, false);
+});
+
+test('nocode-app-create creates its new base in the workspace it names, even when another workspace has that name', () => {
+  // test-nocode, Mistral run: the first call failed with "table ... was not found after the schema was applied" and
+  // the retry wrote the application into the existing base of the other workspace.
+  const h = appHarness();
+  h.fake.state.workspaces.push({ id: 11, name: 'Other' });
+  h.fake.state.bases.push({ id: 21, name: 'Achats', workspaceId: 11 });
+  const r = h.create(purchases);
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.equal(r.baserow.base.created, true);
+  const base = h.fake.state.bases.find(b => b.id === r.baserow.base.id);
+  assert.deepEqual([base.name, base.workspaceId], ['Achats', 10]);
+  assert.deepEqual(h.fake.state.tables.filter(t => t.baseId === 21), [], 'nothing written in the other workspace');
 });
 
 test('nocode-app-create on an existing table reads its columns and writes nothing to Baserow (S4)', () => {

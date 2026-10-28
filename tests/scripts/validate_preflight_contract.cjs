@@ -486,3 +486,263 @@ test('tree-apply properties: a value the engine cannot take is an error and is n
   assert.deepEqual(set, [['responseTimeout', '60'], ['accessibility', 'Private'], ['autoStart', true]]);
   assert.deepEqual([...good.applied].map(a => a.newValue), ['60', 'Private', 'true']);
 });
+
+// --- concurrent calls -------------------------------------------------------------------------------
+
+// A step like the engine's RequestableStep: its clone gets its own variables but keeps the variable order of the step it
+// was cloned from, and adding or removing a variable changes that order.
+function stepWorld() {
+  class XMLVector extends Array {
+    add(value) { this.push(value); return true; }
+    get(i) { return this[i]; }
+    size() { return this.length; }
+  }
+  const newOrder = () => { const order = new XMLVector(); order.add(new XMLVector()); return order; };
+  let priority = 1000;
+  class StepVariable {
+    constructor() { this.priority = ++priority; }
+    setName(name) { this.name = name; }
+    setValueOrNull(value) { this.value = value; }
+  }
+  class Step {
+    constructor(order) { this.vars = []; this.orderedVariables = order || newOrder(); }
+    clone() { return new Step(this.orderedVariables); }
+    setOrderedVariables(order) { this.orderedVariables = order; }
+    getVariables() {
+      const vars = this.vars.slice();
+      return { size: () => vars.length, get: i => vars[i], iterator: () => { let i = 0; return { hasNext: () => i < vars.length, next: () => vars[i++] }; } };
+    }
+    addVariable(variable) { this.vars.push(variable); this.orderedVariables.get(0).add(variable.priority); }
+    remove(variable) {
+      this.vars = this.vars.filter(v => v !== variable);
+      const order = this.orderedVariables.get(0);
+      order.splice(order.indexOf(variable.priority), 1);
+    }
+  }
+  const beans = { common: { XMLVector }, variables: { StepVariable } };
+  const com = { twinsoft: { convertigo: { beans } } };
+  return { Step, com, Packages: { com }, java: { lang: { Long: { valueOf: value => value } } } };
+}
+
+test('an MCP call adds its variables to the Call step of its own run only (friction "The provided tool call failed")', () => {
+  const { Step, com } = stepWorld();
+  const projectStep = new Step();
+  const runs = [];
+  for (const variables of [{ target: 'App', depth: 2 }, { target: 'App.sq:a' }]) {
+    const callStep = projectStep.clone();
+    runs.push(callStep);
+    vm.runInNewContext(stepExpression('_c8oProject/sequences/internal_call.yaml', 'init'), {
+      com, JSON, Object, _sequence: 'tools_databaseobject_tree_get', _variables: JSON.stringify(variables),
+      context: { requestedObject: { getStep: name => (name === 'Call' ? callStep : null) } }
+    });
+  }
+  assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
+  assert.deepEqual(runs.map(step => step.orderedVariables.get(0).length), [4, 3], 'each run orders its own variables');
+  assert.deepEqual(runs[1].vars.map(v => v.name), ['target', '__nolog', '__sequence']);
+});
+
+test('requestable-execute sets the variables of its call step on its own run only', () => {
+  const source = read('js/util.js');
+  const fnOf = name => { const at = source.indexOf('C8O.requestable.' + name + ' = '); return source.slice(at, source.indexOf('\n};\n', at) + 3); };
+  const { Step, Packages, java } = stepWorld();
+  const ctx = { C8O: { requestable: {} }, Packages, java, JSON, Object };
+  vm.runInNewContext(['_ownVariableOrder', '_clearVariables', '_addVariables'].map(fnOf).join(''), ctx);
+  const projectStep = new Step();
+  for (const variables of [{ id: 1, filter: 'a' }, { id: 2 }]) {
+    const callStep = projectStep.clone();
+    ctx.C8O.requestable._clearVariables(callStep);
+    ctx.C8O.requestable._addVariables(callStep, variables);
+    assert.deepEqual(callStep.vars.map(v => v.name), Object.keys(variables));
+    assert.equal(callStep.orderedVariables.get(0).length, Object.keys(variables).length);
+  }
+  assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
+});
+
+test('every output schema takes the argumentWarning and operatorNote the endpoint adds to an answer', () => {
+  const ctx = { C8O: {}, include() {} };
+  vm.runInNewContext(read('js/schema_overrides.js'), ctx);
+  const tight = ctx.C8O.schemaOverrides.decorateOutput('tools_databaseobject_tree_get', { type: 'object', additionalProperties: false,
+    properties: { rootQName: { type: 'string' } } });
+  assert.equal(tight.properties.argumentWarning.type, 'string');
+  assert.equal(tight.properties.operatorNote.type, 'string');
+  const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
+  for (const key of ['argumentWarning', 'operatorNote']) {
+    assert.match(endpoint, new RegExp('↓' + key + ' \\[steps\\.JsonFieldStep-'), key + ' is a top-level field of structuredContent');
+  }
+});
+
+test('a refused MCP token is logged with its reason, never with the token', () => {
+  const logged = [];
+  const ctx = {
+    include() {}, request: '{}',
+    C8O: { mcpAuth: { authenticateRequest: () => ({ status: 'error', authenticated: false,
+      error: { code: 'invalid_token_record', message: 'The MCP bearer token does not match its active record.' } }) } },
+    context: { httpServletResponse: { setHeader() {} } },
+    com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn: message => logged.push(String(message)) } } } } } }
+  };
+  vm.runInNewContext(stepExpression('_c8oProject/sequences/mcp_endpoint.yaml', 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '401');
+  assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer refused (invalid_token_record): The MCP bearer token does not match its active record.']);
+});
+
+// --- bearer token store ---------------------------------------------------------------------------
+
+// The real js/mcp_auth.js over an in-memory jwt folder with POSIX permissions: a signing key and a durable token whose
+// record was never used. Every change to a file calls the listeners, so a test can run a call in the middle of a write.
+function tokenStoreWorld() {
+  const crypto = require('node:crypto');
+  class IOException extends Error {}
+  class AccessDeniedException extends IOException {}
+  class NoSuchFileException extends IOException {}
+  class FileAlreadyExistsException extends IOException {}
+  // Rhino hands a script a Java exception as an Error carrying it.
+  const thrown = (Type, file) => Object.assign(new Error('java.nio.file.' + Type.name + ': ' + file), { javaException: new Type(file) });
+  const files = new Map();
+  const dirs = new Set();
+  const listeners = [];
+  const failures = new Map();
+  const pauses = [];
+  const changed = file => listeners.forEach(listener => listener(file));
+  const entry = file => { if (!files.has(file)) { throw thrown(NoSuchFileException, file); } return files.get(file); };
+  class File {
+    constructor(parent, name) { this.path = name === undefined ? String(parent) : (parent.path || String(parent)) + '/' + name; }
+    getAbsolutePath() { return this.path; }
+    getParentFile() { return new File(this.path.slice(0, this.path.lastIndexOf('/'))); }
+    getName() { return this.path.slice(this.path.lastIndexOf('/') + 1); }
+    isDirectory() { return dirs.has(this.path); }
+    mkdirs() { for (let p = this.path; p; p = p.slice(0, p.lastIndexOf('/'))) { dirs.add(p); } return true; }
+    isFile() { return files.has(this.path); }
+    exists() { return files.has(this.path); }
+    delete() { return files.delete(this.path); }
+    toPath() { return this; }
+    // setReadable(false, false) takes the read bit from everyone, the owner included.
+    setReadable(on) { entry(this.path).ownerRead = on; changed(this.path); return true; }
+    setWritable() { changed(this.path); return true; }
+    setExecutable() { return true; }
+  }
+  const Files = {
+    readAllBytes(file) {
+      const stored = entry(file.path);
+      const failing = failures.get(file.path) || 0;
+      if (failing > 0 || !stored.ownerRead) {
+        failures.set(file.path, failing - 1);
+        throw thrown(AccessDeniedException, file.path);
+      }
+      return Buffer.from(stored.data);
+    },
+    write(file, data, ...options) {
+      if (options.includes('CREATE_NEW') && files.has(file.path)) { throw thrown(FileAlreadyExistsException, file.path); }
+      files.set(file.path, { data: Buffer.from(data), ownerRead: true });
+      changed(file.path);
+    },
+    move(from, to) { files.set(to.path, entry(from.path)); files.delete(from.path); changed(to.path); },
+    setPosixFilePermissions(file, permissions) { entry(file.path).ownerRead = permissions[0] === 'r'; changed(file.path); }
+  };
+  class JavaString {
+    constructor(value) { this.text = Buffer.isBuffer(value) ? value.toString('utf8') : String(value); }
+    getBytes() { return Buffer.from(this.text, 'utf8'); }
+    toString() { return this.text; }
+  }
+  const java = {
+    io: { File, IOException },
+    lang: { String: JavaString, Thread: { sleep: ms => pauses.push(ms) },
+      System: { getProperty: name => (name === 'convertigo.mcp.jwt.path' ? '/jwt' : null), currentTimeMillis: () => Date.now() } },
+    nio: {
+      file: { Files, StandardOpenOption: { CREATE_NEW: 'CREATE_NEW', WRITE: 'WRITE' },
+        StandardCopyOption: { ATOMIC_MOVE: 'ATOMIC_MOVE', REPLACE_EXISTING: 'REPLACE_EXISTING' },
+        AtomicMoveNotSupportedException: class extends IOException {}, attribute: { PosixFilePermissions: { fromString: text => text } } },
+      charset: { StandardCharsets: { UTF_8: 'UTF-8' } }
+    },
+    util: { Date, HashMap: Map, TimeZone: { getTimeZone: () => ({}) }, UUID: { randomUUID: () => crypto.randomUUID() },
+      Base64: { getUrlEncoder: () => ({ withoutPadding: () => ({ encodeToString: data => Buffer.from(data).toString('base64url') }) }),
+        getUrlDecoder: () => ({ decode: text => Buffer.from(String(text), 'base64url') }) } },
+    security: { SecureRandom: class {}, MessageDigest: { getInstance: () => ({ digest: data => crypto.createHash('sha256').update(data).digest() }),
+      isEqual: (left, right) => Buffer.from(left).equals(Buffer.from(right)) } },
+    text: { SimpleDateFormat: class { setTimeZone() {} format(date) { return date.toISOString(); } } },
+    time: { Instant: { parse: text => { const ms = Date.parse(text); if (isNaN(ms)) { throw new Error('Unparseable date'); } return { toEpochMilli: () => ms }; } } }
+  };
+  const javax = { crypto: { Mac: { getInstance: () => ({ init(key) { this.key = key.key; }, doFinal(data) { return crypto.createHmac('sha256', this.key).update(data).digest(); } }) },
+    spec: { SecretKeySpec: class { constructor(key) { this.key = key; } } } } };
+  const engine = { Engine: { USER_WORKSPACE_PATH: '/workspace' }, AuthenticatedSessionManager: { Role: {}, SessionKey: {} }, requesters: {}, util: {}, enums: {} };
+  const ctx = { C8O: {}, java, Packages: { java, javax, com: { twinsoft: { convertigo: { engine } } } } };
+  vm.runInNewContext(read('js/mcp_auth.js'), ctx);
+
+  const secret = 'signing-key-of-the-test-store-'.padEnd(64, 'k');
+  const keyPath = '/jwt/keys/signing-current.key';
+  files.set(keyPath, { data: Buffer.from(secret + '\n'), ownerRead: true });
+  const id = 'mcp_0123456789abcdef0123456789abcdef';
+  const now = Math.floor(Date.now() / 1000);
+  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const input = encode({ alg: 'HS256', typ: 'JWT', kid: id }) + '.' + encode({ iss: 'lib_ConvertigoMCP', aud: 'ConvertigoMCP', sub: 'admin',
+    jti: 'jti-1', kind: 'durable', scope: 'mcp:full', iat: now, nbf: now, exp: now + 3600 });
+  const recordPath = '/jwt/tokens/active/' + id + '.json';
+  files.set(recordPath, { ownerRead: true, data: Buffer.from(JSON.stringify({ id, name: 'test', kind: 'durable', scope: 'mcp:full',
+    jtiHash: crypto.createHash('sha256').update('jti-1').digest('base64url'), createdAt: '2026-10-01T00:00:00.000Z',
+    expiresAt: '2099-01-01T00:00:00.000Z', lastUsedAt: '', revokedAt: '', createdBy: 'admin' })) });
+  return {
+    auth: ctx.C8O.mcpAuth, token: input + '.' + crypto.createHmac('sha256', secret).update(input).digest('base64url'),
+    files, keyPath, recordPath, pauses, onChange: listener => listeners.push(listener), failReads: (file, times) => failures.set(file, times)
+  };
+}
+
+const outcome = result => (result.authenticated === true ? 'ok' : result.error.code);
+
+test('a call checking a token while another call rewrites its lastUsedAt takes it (401 with a valid token)', () => {
+  const store = tokenStoreWorld();
+  const during = [];
+  let inside = false;
+  store.onChange(file => {
+    if (file === store.recordPath && !inside) {
+      inside = true;
+      try { during.push(outcome(store.auth.validate(store.token, null))); } finally { inside = false; }
+    }
+  });
+  assert.equal(outcome(store.auth.validate(store.token, null)), 'ok');
+  assert.ok(during.length > 0, 'the first call rewrote the record');
+  assert.deepEqual(during, during.map(() => 'ok'), 'a call made while the record was rewritten was refused');
+  assert.notEqual(JSON.parse(store.files.get(store.recordPath).data).lastUsedAt, '');
+});
+
+test('a token record or signing key unreadable for a moment is read again, and the token is taken', () => {
+  const store = tokenStoreWorld();
+  store.failReads(store.keyPath, 1);
+  store.failReads(store.recordPath, 2);
+  assert.equal(outcome(store.auth.validate(store.token, null)), 'ok');
+  assert.deepEqual(store.pauses, [25, 25, 50], 'a short pause before each new read');
+});
+
+test('a token store that stays unreadable answers 503, not a 401 that makes Vibe drop the server', () => {
+  const store = tokenStoreWorld();
+  store.failReads(store.recordPath, Infinity);
+  const result = store.auth.validate(store.token, null);
+  assert.equal(outcome(result), 'token_store_unreadable');
+  assert.equal(result.retryable, true);
+  assert.ok(!result.error.message.includes('/jwt/'), 'the answer does not tell where the store is');
+  const logged = [];
+  const headers = {};
+  const ctx = { include() {}, request: '{}', C8O: { mcpAuth: { authenticateRequest: () => result } },
+    context: { httpServletResponse: { setHeader: (name, value) => { headers[name] = value; } } },
+    com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn: message => logged.push(String(message)) } } } } } } };
+  vm.runInNewContext(stepExpression(endpoint, 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '503');
+  assert.equal(ctx.parseError.data.code, 'token_store_unreadable');
+  assert.equal(ctx.parseError.data.retryable, true);
+  assert.deepEqual(headers, {}, 'no authentication challenge');
+  assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer not checked (token_store_unreadable): java.nio.file.AccessDeniedException: ' + store.recordPath]);
+});
+
+test('an unknown, revoked or corrupt durable token record still refuses the token', () => {
+  const unknown = tokenStoreWorld();
+  unknown.files.delete(unknown.recordPath);
+  assert.equal(outcome(unknown.auth.validate(unknown.token, null)), 'revoked_or_unknown_token');
+  assert.equal(unknown.pauses.length, 3, 'looked for again in case it was being replaced');
+  const revoked = tokenStoreWorld();
+  revoked.files.set(revoked.recordPath.replace('/active/', '/revoked/'), revoked.files.get(revoked.recordPath));
+  assert.equal(outcome(revoked.auth.validate(revoked.token, null)), 'revoked_token');
+  assert.deepEqual(revoked.pauses, []);
+  const corrupt = tokenStoreWorld();
+  corrupt.files.get(corrupt.recordPath).data = Buffer.from('{"id":');
+  const refusal = corrupt.auth.validate(corrupt.token, null);
+  assert.equal(outcome(refusal), 'invalid_token_record');
+  assert.equal(refusal.retryable, undefined);
+});

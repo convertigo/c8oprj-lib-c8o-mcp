@@ -1,0 +1,55 @@
+accessibility: Private
+comment: |
+  Capture the preview of a No Code form in the user's browser
+  Takes an image of the preview of a form as the user's No Code Studio shows it (Ionic components, theme, data and rights of the user), through the No Code Studio page the user has open with Tigo: the user allows it once per session with the card "Autoriser l'aperçu" of the Tigo panel, and the browser shows that the tab is shared. Answers status captured with the path of the PNG, its size and a description (exact texts, layout, visual defects) for a model that does not see images; pending with a captureId after 25 s (call again with that captureId to keep waiting); or unavailable with a reason and what to do (tell the user in one sentence, do not ask again in this turn, rely on nocode-form-validate). Use it after creating or editing a form to check its rendering: one capture per page you changed, device mobile when the layout matters, 4 captures per turn at most, and at most 2 rounds of corrections from what you see.
+↓Run [steps.SimpleStep-1793030000001]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    include("js/tools_image_describe.js");
+    include("js/nocode_preview_capture.js");
+    try {
+      result = C8O.nocodePreviewCapture.run({ project: project, formId: formId, page: page, device: device, question: question, captureId: captureId, conversationId: conversationId, token: token }, C8O.nocodePreviewCapture.javaHost());
+    } catch (e) {
+      result = { status: "error", error: { code: "capture_failed", message: "Unable to capture the preview: " + (e && e.message ? e.message : e) } };
+    }'
+↓result [steps.JsonToXmlStep-1793030000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1793030000003]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓formId [variables.RequestableVariable-1793030000004]: 
+  comment: Id of the form whose preview to capture, from the current No Code context.
+  description: Id of the form whose preview to capture, from the current No Code context.
+  required: true
+↓page [variables.RequestableVariable-1793030000005]: 
+  comment: 'Page to capture: its pageTechName, its name or its number from 1. Empty: the first page.'
+  description: 'Page to capture: its pageTechName, its name or its number from 1. Empty: the first page.'
+↓device [variables.RequestableVariable-1793030000006]: 
+  comment: desktop (1280 px, default) or mobile (390 px).
+  description: desktop (1280 px, default) or mobile (390 px).
+  value: desktop
+↓question [variables.RequestableVariable-1793030000007]: 
+  comment: 'Optional: what the description must check, in addition to the texts, the layout and the visual defects.'
+  description: 'Optional: what the description must check, in addition to the texts, the layout and the visual defects.'
+↓captureId [variables.RequestableVariable-1793030000008]: 
+  comment: The captureId of a pending answer, to keep waiting for that capture instead of requesting a new one.
+  description: The captureId of a pending answer, to keep waiting for that capture instead of requesting a new one.
+↓token [variables.RequestableVariable-1793030000009]: 
+  comment: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+  description: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+↓conversationId [variables.RequestableVariable-1793030000010]: 
+  comment: 'Set by the MCP router from the X-Convertigo-Conversation-Id header of the managed agent hosts.'
+  description: 'Set by the MCP router from the X-Convertigo-Conversation-Id header of the managed agent hosts.'
+  value: ''

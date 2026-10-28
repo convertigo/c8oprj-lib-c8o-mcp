@@ -225,6 +225,73 @@ test('query parameters are evaluated at runtime without expression injection', (
   assert.equal(evaluateDefault(field), 'none');
   assert.equal(evaluateDefault(field, { page: { local: { urlParams: new Map([[parameter, 'R-2']]) } } }), 'R-2');
 });
+test('an expression may reach browser globals such as localStorage, which the contract never presents as the default', () => {
+  // An agent took the old "no guessed globals" advice for "no localStorage" and told a user two forms could not share a value that way.
+  assert.doesNotMatch(source, /not guessed globals/);
+  assert.match(source, /expressions: EXPRESSION_RUNTIME,/);
+  assert.match(source, /availability: "Existing Forms TS expression context: fields, actions, api\. Use verified sources and correct return types\. A defaultFrom expression only reads: no side effects\. " \+ EXPRESSION_RUNTIME/);
+  const runtime = /var EXPRESSION_RUNTIME = "(.*)";\n/.exec(source)[1];
+  assert.match(runtime, /JavaScript run in the viewer page/);
+  assert.match(runtime, /by default share through Baserow \(submit saveTo, then a grid or field source\) or a URL parameter/);
+  assert.match(runtime, /Use localStorage only when the user asks for it, and say that it stays in one browser on one device/);
+  const shared = { name: 'Shared value', pages: [{ name: 'Request', fields: [
+    { type: 'text', name: 'reference' },
+    { type: 'text', name: 'previous_reference', defaultFrom: { source: 'expression', expression: 'localStorage.getItem("reference") ?? ""', mode: 'initial' } }
+  ] }], flows: [{ id: 'formulas', name: 'Formulas', elements: [
+    { name: 'keep_reference', type: 'business_logic', expression: '(localStorage.setItem("reference", fields.reference ?? ""), fields.reference)' }
+  ] }] };
+  const r = api().compile(shared);
+  assert.notEqual(r.status, 'invalid', JSON.stringify(r.validation && r.validation.issues));
+  const field = r.form.formulaire.find(f => f.name === 'previous_reference');
+  const store = new Map([['reference', 'R-7']]);
+  const localStorage = { getItem: key => store.has(key) ? store.get(key) : null };
+  assert.equal(evaluateDefault(field, { localStorage }), 'R-7', 'the compiled default reads the browser storage as written');
+});
+test('an expression whose marks do not pair up is refused with the position, modern syntax is not', () => {
+  // 26/10: the viewer said only "unexpected token: ')'" for a duplicate-score check written by the agent, which then
+  // blamed ?? and removed it; the expression had one ')' too many.
+  const gregory = "(()=>{const v=fields.score_last;const a=Array.isArray(v)?v:[];const pid=x=>((x&&typeof x==='object')?(x.id??x.value):x);const sel=fields.Joueur;if(!sel){return '0'}return a.some(r=>(String(pid(sel))===String(pid(r.Joueur))||String(pid(sel))===String((r.Joueur&&typeof r.Joueur==='object')?r.Joueur.value:r.Joueur))))?'1':'0'})()";
+  const bad = api().compile(contextExample({ source: 'expression', expression: gregory, mode: 'reactive' }, { disabled: true }));
+  assert.equal(bad.status, 'invalid');
+  const syntax = bad.validation.issues.find(i => i.code === 'expression_syntax');
+  assert.ok(syntax, JSON.stringify(bad.validation.issues));
+  assert.match(syntax.message, /^context_input defaultFrom\.expression: position \d+: '\)' found where '\}' should close the '\{' opened at position 6 \(…Joueur\.value:r\.Joueur\)\)\)\[\)\]\?'1':'0'\}\)\(\)\)$/);
+  assert.equal(syntax.path, '/formulaire/0/config/contextDefault/expression');
+  for (const expression of [
+    "fields.a?.b?.[0] ?? (x => x / 2)(fields.n) / 3",
+    "`Total: ${(fields.items || []).map(i => `${i.name} (${i.qty})`).join(', ')}`",
+    "(fields.list || []).filter(r => /^[A-Z]{2}\\/\\d+$/.test(r.code)).length",
+    "(() => { /* ) } */ const s = 'a ) b'; // (\n return s.split(/[),]/).length; })()",
+    gregory.replace("r.Joueur))))?'1'", "r.Joueur)))?'1'")
+  ]) {
+    const ok = api().compile(contextExample({ source: 'expression', expression, mode: 'reactive' }, { disabled: true }));
+    assert.ok(!ok.validation.issues.some(i => i.code === 'expression_syntax'), expression + ' -> ' + JSON.stringify(ok.validation.issues));
+  }
+  for (const [expression, message] of [
+    ['(fields.a + fields.b', /position 1: the '\(' opened here is never closed/],
+    ['fields.list.map(x => [x.a, x.b)', /position \d+: '\)' found where '\]' should close the '\[' opened at position 22/],
+    ["'abc", /position 1: the string opened by ' here is never closed/],
+    ['fields.a }', /position 10: one '\}' too many, it closes nothing/]
+  ]) {
+    const r = api().compile(contextExample({ source: 'expression', expression, mode: 'reactive' }, { disabled: true }));
+    assert.match((r.validation.issues.find(i => i.code === 'expression_syntax') || {}).message || '', message, expression);
+  }
+  const logic = api().compile({ name: 'Logic', pages: [{ name: 'P', fields: [{ type: 'text', name: 'n', label: 'N' }] }], flows: [{ id: 'formulas', name: 'Formulas', elements: [{ name: 'double', type: 'business_logic', expression: '(fields.n * 2' }] }] });
+  const logicIssue = logic.validation.issues.find(i => i.code === 'expression_syntax');
+  assert.ok(logicIssue, JSON.stringify(logic.validation.issues));
+  assert.match(logicIssue.message, /^double expression: position 1: the '\(' opened here is never closed/);
+  assert.match(logicIssue.path, /^\/flows\/0\/elements\/0\/sources\/self\/vars\/selfVar\/str$/);
+  assert.match(source, /The browsers run modern JavaScript: arrow functions, template literals, \?\. and \?\? are accepted\. The tools check that parentheses, brackets, braces and quotes pair up/);
+  // an edit bringing such an expression is refused before the save
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const saves = h.state.saves;
+  const edited = h.client.edit(start.form._id, [{ action: 'add_field', pageName: 'Home', fieldObject: { type: 'text', name: 'deja_joue', label: 'Déjà joué', disabled: true, defaultFrom: { source: 'expression', expression: gregory, mode: 'reactive' } } }], h.auth);
+  assert.notEqual(edited.status, 'ok');
+  assert.equal(edited.saved, false);
+  assert.equal(h.state.saves, saves, 'nothing written');
+  assert.ok(JSON.stringify(edited).includes("found where '}' should close the '{' opened at position 6"), JSON.stringify(edited).slice(0, 400));
+});
 test('explicit calculations retain reactive mode and warn about runtime validation', () => {
   const r = api().compile(contextExample({ source: 'expression', expression: 'fields.quantity * fields.unit_price', mode: 'reactive' }, { config: { type: 'number' }, disabled: true }));
   const field = r.form.formulaire[0];
@@ -617,6 +684,7 @@ function creationHarness(options = {}) {
     if (sequence === 'formscommon_FieldsList') {
       // Like lib_BaseRow, the field list is empty until a Baserow session exists.
       if (options.fieldsNeedSession && !state.calls.includes('formscommon_ApplicationsList')) return { document: {} };
+      if (options.columnsByTable) return { document: { array: clone(options.columnsByTable[JSON.parse(params.forms_config).table_id] || []) } };
       return { document: { array: options.columns || [{name:'Reference',type:'text'},{name:'Status',type:'text'}] } };
     }
     if (sequence === 'APIV2_getDocument') {
@@ -684,6 +752,60 @@ test('ordinary semantic edits reject conflicts and cannot replace document ident
   assert.equal(updated.status, 'ok');
   assert.equal(updated.form._id, id);
   assert.equal(h.state.creates, 1);
+});
+
+test('an edit that names no flow, or a field the form lacks, is told the names it could give', () => {
+  // Feedback of 22/10 and 26/10: agents retried blind after "flow id or name is required" and "field not found".
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const id = start.form._id;
+  const toast = start.form.flows.find(f => f.id === 'example').elements.find(e => e.type === 'toast');
+  const patched = h.client.edit(id, [{ action: 'update_flow_element', elementId: String(toast.id), patch: { config: { duration: 3 } } }], h.auth);
+  assert.equal(patched.status, 'ok', JSON.stringify(patched.error));
+  assert.equal(patched.form.flows.find(f => f.id === 'example').elements.find(e => e.id === toast.id).config.duration, 3, 'the one flow holding the element is the one meant');
+  const byName = h.client.edit(id, [{ action: 'update_flow_element', elementId: toast.name, patch: { config: { duration: 4 } } }], h.auth);
+  assert.equal(byName.status, 'ok', JSON.stringify(byName.error));
+  assert.equal(byName.form.flows.find(f => f.id === 'example').elements.find(e => e.id === toast.id).config.duration, 4, 'elementId may hold the element name');
+  const noFlow = h.client.edit(id, [{ action: 'add_flow_element', element: { type: 'toast', message: 'Hi' } }], h.auth);
+  assert.equal(noFlow.status, 'error');
+  assert.match(noFlow.error.message, /^flow id or name is required\. Known flows: .*open.*back.*example/);
+  const typo = h.client.edit(id, [{ action: 'update_field', fieldName: 'requets', patch: { label: 'X' } }], h.auth);
+  assert.equal(typo.status, 'error');
+  assert.match(typo.error.message, /^field not found: requets\. Did you mean "requests"\? Known fields: /);
+  const far = h.client.edit(id, [{ action: 'update_field', fieldName: 'zzzz', patch: { label: 'X' } }], h.auth);
+  assert.doesNotMatch(far.error.message, /Did you mean/, 'nothing close, no guess');
+  assert.match(far.error.message, /Known fields: .*welcome.*requests/);
+});
+
+test('a page is found from its pageTechName, and page, field and flow take an id or a name', () => {
+  // TigoAccess 2c46f518 (26/10): delete_page with pageTechName answered "page not found" while listing that page; a page
+  // has no id, its pageTechName is its identifier.
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const id = start.form._id;
+  const [home, requests] = start.form.pages.map(p => p.pageTechName);
+  assert.equal(start.form.pages[0].id, undefined, 'a saved page has no id');
+  const renamed = h.client.edit(id, [{ action: 'update_page', pageTechName: home, patch: { name: 'Start' } }], h.auth);
+  assert.equal(renamed.status, 'ok', JSON.stringify(renamed.error));
+  assert.deepEqual(clone(renamed.form.pages.map(p => p.name)), ['Start', 'Requests']);
+  const byPage = h.client.edit(id, [{ action: 'update_page', page: 'Start', patch: { iconName: 'home' } }, { action: 'update_page', pageName: requests, patch: { iconName: 'list' } }], h.auth);
+  assert.equal(byPage.status, 'ok', JSON.stringify(byPage.error));
+  assert.deepEqual(clone(byPage.form.pages.map(p => p.iconName)), ['home', 'list'], 'page holds a visible name, pageName a pageTechName');
+  const field = h.client.edit(id, [{ action: 'update_field', field: 'welcome', patch: { config: { html: '<h2>Hello</h2>' } } }], h.auth);
+  assert.equal(field.status, 'ok', JSON.stringify(field.error));
+  assert.equal(field.form.formulaire.find(f => f.name === 'welcome').config.html, '<h2>Hello</h2>', 'field may hold the technical name');
+  const flow = h.client.edit(id, [{ action: 'update_flow', flow: 'open', patch: { name: 'Open requests' } }, { action: 'update_flow', flowId: 'Open requests', patch: { name: 'Open the requests' } }], h.auth);
+  assert.equal(flow.status, 'ok', JSON.stringify(flow.error));
+  assert.equal(flow.form.flows.find(f => f.id === 'open').name, 'Open the requests');
+  const added = h.client.edit(id, [{ action: 'add_page', name: 'Extra' }, { action: 'add_field', pageName: 'Extra', fieldObject: { type: 'text', name: 'extra_note' } }], h.auth);
+  assert.equal(added.status, 'ok', JSON.stringify(added.error));
+  const extra = added.form.pages.find(p => p.name === 'Extra').pageTechName;
+  const removed = h.client.edit(id, [{ action: 'delete_page', pageTechName: extra }], h.auth);
+  assert.equal(removed.status, 'ok', JSON.stringify(removed.error || removed.validation));
+  assert.deepEqual(clone(removed.form.pages.map(p => p.pageTechName)), [home, requests]);
+  assert.ok(!removed.form.formulaire.some(f => f.name === 'extra_note'), 'its components went with it');
+  const gone = h.client.edit(id, [{ action: 'delete_page', pageTechName: extra }], h.auth);
+  assert.match(gone.error.message, new RegExp('^page not found: ' + extra + '\\. .*Known pages: Start \\(' + home + '\\), Requests \\(' + requests + '\\)\\.$'));
 });
 
 test('write guard preserves attachments and leaves legacy calls unchanged', () => {
@@ -1965,6 +2087,8 @@ test('reduced Baserow shorthands refuse what they cannot resolve, with the way o
   assert.throws(() => api().compile(unknownTable, { tableIndex: reducedTables }), /table 999 is not in the Baserow catalog/);
   const unknownField = ticketsApp(); unknownField.flows[1].elements[0].saveTo.values.Statut = 'Fermé';
   assert.throws(() => api().compile(unknownField, { tableIndex: reducedTables }), /\{ value: "Fermé" \}.*no single component named "Fermé"/);
+  const typoField = ticketsApp(); typoField.flows[1].elements[0].saveTo.values.Titre = { field: 'titr' };
+  assert.throws(() => api().compile(typoField, { tableIndex: reducedTables }), /no single component named "titr" in the form\. Did you mean "Titre"\? Known components: /);
   const noCatalog = ticketsApp();
   assert.throws(() => api().compile(noCatalog), /with nocode-form-compile alone, give \{ id, path \}/);
   assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'text', name: 't', label: 'T', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /a text has no Baserow source/);
@@ -2012,6 +2136,141 @@ test('forms_freeVars: a column map becomes the editor list, JSON text still runs
   assert.ok(legacy.validation.warnings.some(w => w.code === 'freevars_text_shape'));
 });
 
+// Skyjo (26/10): a select of player names (value "Nom") written into the link_row column Scores.Joueur. lib_BaseRow
+// writes the text, Baserow links the first row of that primary text, and the formulas compared a name with row ids.
+const linkTables = [{ id: 7001, name: 'Joueurs', path: 'Team~>Jeux~>Joueurs' }, { id: 7002, name: 'Scores', path: 'Team~>Jeux~>Scores' }, { id: 7003, name: 'Equipes', path: 'Team~>Jeux~>Equipes' }];
+const linkColumns = {
+  7001: [{ id: 1, name: 'Nom', type: 'text', primary: true }, { id: 2, name: 'Scores', type: 'link_row', link_row_table_id: 7002 }],
+  7002: [{ id: 3, name: 'Partie', type: 'text', primary: true }, { id: 4, name: 'Points', type: 'number' }, { id: 5, name: 'Joueur', type: 'link_row', link_row_table_id: 7001 }],
+  7003: [{ id: 6, name: 'Nom', type: 'text', primary: true }]
+};
+function scoresApp(select = {}, save = { table: 7002 }) {
+  return { name: 'Points', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: [
+    { type: 'select', name: 'Joueur', label: 'Joueur', source: { table: 7001, display: 'Nom', ...select } },
+    { type: 'text', name: 'Partie', label: 'Partie' },
+    { type: 'text', name: 'Points', label: 'Points', inputType: 'number' },
+    { type: 'button', name: 'save', label: 'Enregistrer', flow: 'save_score' }
+  ] }], flows: [{ id: 'save_score', name: 'Enregistrer le score', elements: [{ type: 'submit', saveTo: save }, { type: 'toast', message: 'Score enregistré', color: 'success' }] }] };
+}
+const selectConfig = form => JSON.parse(byName(form, 'Joueur').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str);
+const saveAction = (form, key) => form.flows.find(f => f.id === 'save_score').elements[0].actions[key];
+test('create writes the linked row id from a select written into a link_row column, and the linked tables', () => {
+  for (const [save, key] of [[{ table: 7002 }, 'lib_BaseRow.forms_AddRow'], [{ table: 7002, values: { Joueur: 'Joueur', Partie: 'Partie', Points: 'Points' } }, 'lib_BaseRow.forms_AddRowFromData']]) {
+    const h = creationHarness({ columnsByTable: linkColumns });
+    const r = h.client.create(scoresApp({}, save), { ...h.auth, tableIndex: linkTables });
+    assert.equal(r.saved, true, JSON.stringify(r.validation || r.error));
+    const saved = h.state.forms[r.form._id];
+    const config = selectConfig(saved);
+    assert.equal(config.value, 'id', key);
+    assert.equal(config.displayValue, 'Nom');
+    assert.deepEqual(config.columns, ['Nom', 'id']);
+    assert.deepEqual(config.link_row_table_id, [7002], 'the table the select reads links to Scores');
+    assert.deepEqual(JSON.parse(saveAction(saved, key).vars.forms_config.str).link_row_table_id, [7001], 'Scores links to Joueurs');
+    const warning = r.validation.warnings.find(w => w.code === 'link_row_select_value_rewritten');
+    assert.ok(warning, key);
+    assert.match(warning.message, /Joueur is written into the link_row column Joueur of table 7002: its value is now the linked row id \(value "id" instead of "Nom"\)/);
+  }
+  // Already the row id: nothing to say.
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const r = h.client.create(scoresApp({ value: 'id' }), { ...h.auth, tableIndex: linkTables });
+  assert.equal(r.saved, true);
+  assert.ok(!r.validation.warnings.some(w => /^link_row_select/.test(w.code)));
+});
+test('create refuses a select of another table written into a link_row column', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const r = h.client.create(scoresApp({ table: 7003 }), { ...h.auth, tableIndex: linkTables });
+  assert.equal(r.saved, false);
+  const issue = r.validation.issues.find(i => i.code === 'link_row_select_table');
+  assert.ok(issue, JSON.stringify(r.validation.issues));
+  assert.match(issue.message, /lists the rows of table 7003 .* links to table 7001/);
+  assert.equal(h.state.saves, 0);
+});
+test('an edit rewrites a select it changes and only reports one it leaves alone', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(scoresApp({ value: 'id' }), { ...h.auth, tableIndex: linkTables });
+  const id = created.form._id;
+  // An older generation: the name as value.
+  const stored = h.state.forms[id];
+  const legacy = selectConfig(stored);
+  legacy.value = 'Nom';
+  legacy.columns = ['Nom'];
+  byName(stored, 'Joueur').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str = JSON.stringify(legacy);
+  const reads = () => h.state.calls.filter(c => c === 'formscommon_FieldsList').length;
+  const before = reads();
+  const unrelated = h.client.edit(id, [{ action: 'set_root', patch: { name: 'Points du jeu' } }], h.auth);
+  assert.equal(unrelated.saved, true);
+  assert.ok(!unrelated.validation.warnings.some(w => /^link_row_select/.test(w.code)));
+  assert.equal(reads(), before, 'an edit touching no save nor select reads no Baserow field');
+  // A new save of Scores: the select is not changed by the edit, it is reported.
+  const newSave = h.client.edit(id, [{ action: 'add_flow', flow: { id: 'save_again', name: 'Enregistrer encore', elements: [{ type: 'submit', saveTo: { table: 7002 } }] } }], { ...h.auth, tableIndex: linkTables });
+  assert.equal(newSave.saved, true, JSON.stringify(newSave.validation || newSave.error));
+  assert.equal(selectConfig(h.state.forms[id]).value, 'Nom', 'a select the edit did not change keeps its value');
+  assert.ok(newSave.validation.warnings.some(w => w.code === 'link_row_select_value' && /writes "Nom" into the link_row column Joueur of table 7002/.test(w.message)));
+  // The select itself changed: its value becomes the row id.
+  const changed = h.client.edit(id, [{ action: 'update_field', fieldName: 'Joueur', patch: { sources: { 'lib_BaseRow.formssource_GetSelectData': { vars: { forms_tableSort: { str: '', html: false, type: 'sort', conds: [{ name: 'Nom', order: 'desc' }] } } } } } }], h.auth);
+  assert.equal(changed.saved, true, JSON.stringify(changed.validation || changed.error));
+  assert.equal(selectConfig(h.state.forms[id]).value, 'id');
+  assert.ok(changed.validation.warnings.some(w => w.code === 'link_row_select_value_rewritten'));
+});
+test('nocode-form-validate refuses a select written into a link_row column with another value than the row id', () => {
+  const compiled = api().compile(scoresApp(), { tableIndex: linkTables }).form;
+  assert.equal(selectConfig(compiled).value, 'Nom', 'the offline compile does not know the column types');
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const result = h.client.validate(compiled, { ...h.auth, baserowLinks: true }).validation;
+  assert.equal(result.valid, false);
+  const issue = result.issues.find(i => i.code === 'link_row_select_value');
+  assert.ok(issue, JSON.stringify(result.issues));
+  assert.equal(issue.path, '/formulaire/' + compiled.formulaire.indexOf(byName(compiled, 'Joueur')) + '/sources/lib_BaseRow.formssource_GetSelectData/vars/forms_config');
+  assert.equal(selectConfig(compiled).value, 'Nom', 'validate does not change the form');
+  assert.ok(!h.state.calls.includes('APIV2_updateFormulaireDocument'));
+  // Without the No Code authentication the columns are not read: a warning says what was not checked.
+  const offline = api().validate(compiled, { baserowLinks: true }).validation;
+  assert.ok(offline.warnings.some(w => w.code === 'link_row_selects_unverified'));
+  assert.ok(!offline.issues.some(i => /^link_row_select/.test(i.code)));
+  // Without baserowLinks (compile, the saves) validate stays static.
+  assert.ok(!api().validate(compiled).validation.warnings.some(w => w.code === 'link_row_selects_unverified'));
+});
+// Skyjo (26/10): the current game and round were formulas over hidden grids (row_selected, 10 rows a page, the
+// defaults) and a localStorage flag set by business_logic steps; a debug field stayed in the delivered form.
+const skyjoPartie = "(()=>{try{const v=fields.score_last;const a=Array.isArray(v)?v:(v&&Array.isArray(v.data))?v.data:[];const num=(x)=>Number((x&&typeof x==='object')?x.value:x)||0;const m=a.reduce((acc,r)=>Math.max(acc,num(r.Partie)),0);return localStorage.getItem('skyjo_new_game')==='1'?(m+1):(m||1)}catch(e){return '1'}})()";
+const skyjoTour = "(()=>{var v=fields['joueur_all'];var b=Array.isArray(v)?v:[];return b.length})()";
+function skyjoLogic(grid = {}) {
+  return { name: 'Skyjo', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: [
+    { type: 'layout', name: 'score_data', visibleIf: { never: true }, fields: [
+      { type: 'grid', name: 'score_last', source: { table: 7002, columns: ['Partie', 'Tour', 'Joueur'] }, ...grid },
+      { type: 'grid', name: 'joueur_all', source: { table: 7001, columns: ['Nom'] } },
+      { type: 'grid', name: 'score_list', source: { table: 7002, columns: ['Partie', 'Points'] } }
+    ] },
+    { type: 'text', name: 'Partie', label: 'Partie', disabled: true, defaultFrom: { source: 'expression', expression: skyjoPartie, mode: 'reactive' } },
+    { type: 'text', name: 'joueurs', label: 'Joueurs', disabled: true, defaultFrom: { source: 'expression', expression: skyjoTour, mode: 'reactive' } },
+    { type: 'text', name: 'Selection', label: 'Partie choisie', disabled: true, defaultFrom: { source: 'field', field: 'score_list', column: 'Partie', mode: 'reactive', fallback: '' } },
+    { type: 'text', name: 'debug_tour', label: 'Tour calculé', disabled: true },
+    { type: 'button', name: 'new_game', label: 'Nouvelle partie', flow: 'nouvelle_partie' }
+  ] }], flows: [{ id: 'nouvelle_partie', name: 'Nouvelle partie', elements: [
+    { type: 'business_logic', name: 'start_new_game', expression: "(sessionStorage.setItem('skyjo_new_game','1'), '')" },
+    { type: 'toast', message: 'Nouvelle partie', color: 'success' }
+  ] }] };
+}
+test('validate warns about state in browser storage, computations over the rows of a grid and debug fields', () => {
+  const r = api().compile(skyjoLogic(), { tableIndex: linkTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const validation = clone(api().validate(r.form).validation);
+  assert.equal(validation.valid, true, 'warnings only');
+  const of = code => validation.warnings.filter(w => w.code === code);
+  const index = name => r.form.formulaire.indexOf(byName(r.form, name));
+  const flow = r.form.flows.findIndex(f => f.id === 'nouvelle_partie');
+  assert.deepEqual(of('browser_storage_state').map(w => w.path), ['/formulaire/' + index('Partie') + '/config/contextDefault/expression', '/flows/' + flow + '/elements/0/sources/self/vars/selfVar/str']);
+  assert.match(of('browser_storage_state')[0].message, /Partie uses localStorage: that value stays in one browser on one device/);
+  assert.match(of('browser_storage_state')[1].message, /^The formula start_new_game uses sessionStorage/);
+  const rows = of('grid_rows_in_formula');
+  assert.deepEqual(rows.map(w => /the grid (\w+)/.exec(w.message)[1]), ['score_last', 'joueur_all'], 'fields.x and fields["x"]; not the column read of the selected row');
+  assert.match(rows[0].message, /^Partie computes over the rows of the grid score_last, which gives a formula its selection \(returned_value row_selected\) and loads one page of 10 rows on a computer, every row on a phone/);
+  assert.match(rows[0].message, /groupBy and aggregations of a Baserow source/);
+  assert.deepEqual(of('debug_component').map(w => w.path), ['/formulaire/' + index('debug_tour')]);
+  // A grid giving a formula every row (all_the_data) is what such a formula reads; it is not flagged.
+  const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
+  assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
+});
 // nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
 // stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
 const TICKETS = { id: 5277, name: 'Tickets', columns: [
@@ -2205,6 +2464,8 @@ test('nocode-app-create: inputs named after their columns, an explicit mapping w
   const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
   assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
   assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
+  assert.equal(JSON.parse(link.forms_config.str).value, 'id', 'and writes the linked row id, not its primary text');
+  assert.deepEqual(JSON.parse(link.forms_config.str).columns, ['Nom', 'id']);
   // An existing boolean is entered with a Oui/Non radio, no answer chosen in advance, and written true/false by a hidden
   // field of the column's name (test-nocode S4: the agent added a checkbox of its own when the tool left it out; a
   // static radio shows the value it submits and Baserow refuses Oui).
@@ -2241,4 +2502,125 @@ test('nocode-app-create: a spec it cannot build is refused with the path and the
   refused(one({ list: true, dashboard: { groupBy: 'Statut', aggregations: ['sum:Titre'] } }), 'entities[0].screens.dashboard.aggregations', /needs a number column/);
   refused({ name: 'A', entities: [{ name: 'ticket', fields: [{ name: 'Montant', type: 'number' }] }] }, 'entities[0].fields', /needs a text field/);
   refused({ name: 'A', entities: [{ name: 'ticket', table: 999 }] }, 'entities[0].table', /not in the Baserow catalog/);
+});
+// A nested component took the first page (Accueil) whatever its container: the viewer loaded its sources there.
+function nestedPagesForm() {
+  return { name: 'Nested pages', pages: [
+    { name: 'Accueil', fields: [{ type: 'text', name: 'welcome' }] },
+    { name: 'Fiche', fields: [{ type: 'layout', name: 'record', fields: [{ type: 'layout', name: 'inner', fields: [{ type: 'text', name: 'reference' }] }] }] }
+  ] };
+}
+test('add_field into a container takes the page of its root container, whatever page is given', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const fiche = created.form.pages[1].pageTechName;
+  // A numeric id, as C8Oforms stores them, given as a string.
+  const inner = byName(created.form, 'inner');
+  inner.id = Number(inner.id);
+  h.state.forms[id].formulaire.find(item => item.name === 'inner').id = inner.id;
+  h.state.forms[id].formulaire.find(item => item.name === 'reference').parentRef = inner.id;
+  h.state.forms[id].formulaire.find(item => item.name === 'record').childrenRefs = [inner.id];
+  const added = h.client.edit(id, [
+    { action: 'add_field', parentFieldId: String(inner.id), fieldObject: { type: 'layout', name: 'nested', fields: [{ type: 'text', name: 'status' }] } },
+    { action: 'add_component', parentId: byName(created.form, 'record').id, pageName: 'Accueil', fieldObject: { type: 'text', name: 'owner' } }
+  ], h.auth);
+  assert.equal(added.saved, true);
+  ['nested', 'status', 'owner'].forEach(name => assert.equal(byName(added.form, name).config.page, fiche, name));
+  assert.equal(added.operations[0].pageTechName, fiche);
+  assert.equal(added.operations[0].note, undefined);
+  assert.match(added.operations[1].note, /ignored.*root container/);
+  assert.ok(!added.validation.warnings.some(w => w.code === 'nested_page_mismatch'));
+});
+// Skyjo (26/10): add_field wrote its parentFieldId argument as parentRef, the text "1793012950260" under a layout whose
+// id is a number; the editor, comparing with ===, showed the button twice. A reference takes the type of the id it names.
+test('add_field, update and create write parentRef and childrenRefs with the type of the ids they name', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const record = byName(created.form, 'record');
+  assert.equal(typeof record.id, 'number');
+  const added = h.client.edit(id, [
+    { action: 'add_field', parentFieldId: String(record.id), fieldObject: { type: 'button', name: 'delete', label: 'Supprimer', flow: 'delete' } },
+    { action: 'add_field', parent: 'record', fieldObject: { type: 'text', name: 'by_name' } }
+  ], h.auth);
+  assert.equal(added.saved, true, JSON.stringify(added.validation || added.error));
+  const saved = h.state.forms[id].formulaire;
+  for (const name of ['delete', 'by_name']) {
+    const child = saved.find(item => item.name === name);
+    assert.strictEqual(child.parentRef, record.id, name + ': the parent id itself, not the argument');
+    assert.ok(saved.find(item => item.name === 'record').childrenRefs.includes(child.id));
+  }
+  // A full array sent by update with text references is saved with the ids' type.
+  const patched = clone(h.state.forms[id].formulaire);
+  patched.find(item => item.name === 'delete').parentRef = String(record.id);
+  const holder = patched.find(item => item.name === 'record');
+  holder.childrenRefs = holder.childrenRefs.map(String);
+  assert.ok(api().validate({ ...clone(h.state.forms[id]), formulaire: patched }).validation.issues.some(i => i.code === 'relation_ref_type'));
+  const updated = h.client.update(id, { formulaire: patched }, h.auth);
+  assert.equal(updated.saved, true, JSON.stringify(updated.validation));
+  const after = h.state.forms[id].formulaire;
+  assert.strictEqual(after.find(item => item.name === 'delete').parentRef, record.id);
+  assert.ok(after.find(item => item.name === 'record').childrenRefs.every(ref => typeof ref === 'number'));
+  // An id given as digits in reduced JSON is the number the editor writes.
+  const digits = api().compile({ name: 'Digits', pages: [{ name: 'P', fields: [{ type: 'layout', name: 'row', id: '1900000000301', fields: [{ type: 'text', name: 'inside', id: '1900000000302' }] }] }] });
+  assert.equal(digits.status, 'ok', JSON.stringify(digits.validation.issues));
+  assert.strictEqual(byName(digits.form, 'row').id, 1900000000301);
+  assert.strictEqual(byName(digits.form, 'inside').parentRef, 1900000000301);
+  assert.deepEqual(clone(byName(digits.form, 'row').childrenRefs), [1900000000302]);
+});
+test('validate reports a reference of another type than its id and a listed child that does not point back', () => {
+  const form = api().compile(nestedPagesForm()).form;
+  const record = byName(form, 'record');
+  const inner = byName(form, 'inner');
+  const text = clone(form);
+  byName(text, 'inner').parentRef = String(record.id);
+  const issues = api().validate(text).validation.issues;
+  const typed = issues.find(i => i.code === 'relation_ref_type');
+  assert.ok(typed, JSON.stringify(issues));
+  assert.equal(typed.path, '/formulaire/' + text.formulaire.indexOf(byName(text, 'inner')) + '/parentRef');
+  assert.match(typed.message, new RegExp('"' + record.id + '" \\(string\\) while the id it names is ' + record.id + ' \\(number\\)'));
+  const listedText = clone(form);
+  byName(listedText, 'record').childrenRefs = [String(inner.id)];
+  assert.ok(api().validate(listedText).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
+  const orphan = clone(form);
+  delete byName(orphan, 'inner').parentRef;
+  const mismatch = api().validate(orphan).validation.issues.find(i => i.code === 'child_parent_mismatch');
+  assert.ok(mismatch);
+  assert.match(mismatch.message, /record lists inner in its childrenRefs, but its parentRef is missing/);
+  // The same check in a flow: an if_else branch child named by text.
+  const flowForm = clone(form);
+  flowForm.flows.push({ id: 'check', name: 'Check', elements: [
+    { id: 1900000000401, name: 'branch', cat: 'action', type: 'if_else', childrenRefs: ['1900000000402'], sources: { self: { enabled: true, vars: { selfVar: { type: 'condition', condVisible: 'and', conds: [{ operator: 'is_filled', val1: { str: String(record.id) } }], groups: [] } } } }, config: {} },
+    { id: 1900000000402, name: 'then_toast', cat: 'action', type: 'toast', parentRef: 1900000000401, sources: { self: { enabled: true, vars: { selfVar: { str: 'ok', type: 'text' } } } }, config: { color: '#15803D' } }
+  ] });
+  assert.ok(api().validate(flowForm).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
+});
+test('move_field gives the moved component and its descendants the page of their new root container', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const [accueil, fiche] = created.form.pages.map(page => page.pageTechName);
+  const into = h.client.edit(id, [{ action: 'move_field', fieldName: 'welcome', parentFieldId: String(byName(created.form, 'inner').id) }], h.auth);
+  assert.equal(byName(into.form, 'welcome').config.page, fiche);
+  const out = h.client.edit(id, [{ action: 'move_field', fieldName: 'inner', pageName: 'Accueil' }], h.auth);
+  ['inner', 'reference', 'welcome'].forEach(name => assert.equal(byName(out.form, name).config.page, accueil, name));
+  assert.equal(byName(out.form, 'inner').parentRef, undefined);
+  const back = h.client.edit(id, [{ action: 'move_field', fieldName: 'inner', parentFieldId: String(byName(out.form, 'record').id), pageName: 'Accueil' }], h.auth);
+  ['inner', 'reference', 'welcome'].forEach(name => assert.equal(byName(back.form, name).config.page, fiche, name));
+  assert.match(back.operations[0].note, /ignored/);
+  // Taken out of its container with no page, a component stays where it was shown.
+  const unnested = h.client.edit(id, [{ action: 'move_field', fieldName: 'reference' }], h.auth);
+  assert.equal(byName(unnested.form, 'reference').config.page, fiche);
+  assert.equal(byName(unnested.form, 'reference').parentRef, undefined);
+});
+test('validation flags nested components whose page is not their root container page', () => {
+  const form = api().compile(nestedPagesForm()).form;
+  assert.ok(!api().validate(form).validation.warnings.some(w => w.code === 'nested_page_mismatch'));
+  const stale = clone(form);
+  ['inner', 'reference'].forEach(name => { byName(stale, name).config.page = stale.pages[0].pageTechName; });
+  const warning = api().validate(stale).validation.warnings.find(w => w.code === 'nested_page_mismatch');
+  assert.ok(warning);
+  assert.match(warning.message, new RegExp('^2 nested .*' + byName(stale, 'inner').id + ', ' + byName(stale, 'reference').id));
+  assert.equal(api().validate(stale).validation.valid, true);
 });

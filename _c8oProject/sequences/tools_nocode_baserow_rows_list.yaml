@@ -1,0 +1,52 @@
+accessibility: Private
+comment: |
+  List the rows of a No Code Baserow table
+  Reads one page of the rows of a Baserow table with the Baserow account of the authenticated No Code user, through lib_BaseRow.TableGetDataNative, the sequence the viewer's grids read through. Takes the table id (nocode-baserow-catalog-list, or forms_config.table_id_int of a form source), optional fields, a filter in the reduced shorthand of the contract (quickReference.baserow.filter, literal values), a sort and a page (20 rows by default, 50 at most). Answers the rows with their field names, the total that match the filter and nextPage. Never writes. A table the user cannot read is refused. Use it to check a computed value, a saved record or the data behind a list or a chart.
+responseTimeout: 120
+↓Run [steps.SimpleStep-1793110000001]: 
+  expression: |
+    'include("js/nocode_baserow.js");
+    result = C8O.nocodeBaserow.rowsList({
+      token: token,
+      table: typeof table === "undefined" ? null : table,
+      fields: typeof fields === "undefined" ? null : fields,
+      filter: typeof filter === "undefined" ? null : filter,
+      sort: typeof sort === "undefined" ? null : sort,
+      page: typeof page === "undefined" ? null : page,
+      size: typeof size === "undefined" ? null : size
+    });'
+↓result [steps.JsonToXmlStep-1793110000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1793110000003]: 
+  comment: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+  description: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+↓table [variables.RequestableVariable-1793110000004]: 
+  comment: Id of the Baserow table to read, from nocode-baserow-catalog-list or forms_config.table_id_int of a form source; its path Workspace~>Base~>Table is accepted too.
+  description: Id of the Baserow table to read, from nocode-baserow-catalog-list or forms_config.table_id_int of a form source; its path Workspace~>Base~>Table is accepted too.
+  required: true
+↓fields [variables.RequestableVariable-1793110000005]: 
+  comment: Optional JSON list of the field names to return; empty returns every field.
+  description: Optional JSON list of the field names to return; empty returns every field.
+↓filter [variables.RequestableVariable-1793110000006]: 
+  comment: 'Optional filter in the reduced shorthand of the contract: { column, operator, value } or { all: [...] } / { any: [...] } nested, with literal values.'
+  description: 'Optional filter in the reduced shorthand of the contract: { column, operator, value } or { all: [...] } / { any: [...] } nested, with literal values.'
+↓sort [variables.RequestableVariable-1793110000007]: 
+  comment: 'Optional order: Name,-Date (a minus sorts descending) or a JSON list of names and { column, order }.'
+  description: 'Optional order: Name,-Date (a minus sorts descending) or a JSON list of names and { column, order }.'
+↓page [variables.RequestableVariable-1793110000008]: 
+  comment: Page to read, from 1. Default 1.
+  description: Page to read, from 1. Default 1.
+↓size [variables.RequestableVariable-1793110000009]: 
+  comment: Rows per page, 20 by default, 50 at most.
+  description: Rows per page, 20 by default, 50 at most.

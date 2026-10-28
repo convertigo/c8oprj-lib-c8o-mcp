@@ -207,12 +207,21 @@ C8O.palette.describeBeanTemplate = function (options) {
   }, propHints || []);
 };
 
+// the counts include the experimental properties only while they are shown
+C8O.palette._countCacheKey = function (classToken) {
+  var cacheKey = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(classToken) : classToken;
+  if (C8O.dbo && typeof C8O.dbo.isExperimentalShown === "function" && C8O.dbo.isExperimentalShown()) {
+    cacheKey += "#experimental";
+  }
+  return cacheKey;
+};
+
 C8O.palette._getDescribeSummary = function (className, options) {
   var classToken = C8O.util && C8O.util.toTrimmedString ? C8O.util.toTrimmedString(className || "") : String(className || "").trim();
   if (!classToken.length) {
     return null;
   }
-  var cacheKey = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(classToken) : classToken;
+  var cacheKey = C8O.palette._countCacheKey(classToken);
   var cache = C8O.palette._getProjectCacheBucket(
     C8O.palette._DESCRIBE_CACHE_KEY,
     C8O.palette._describeSummaryCache
@@ -268,7 +277,7 @@ C8O.palette.computeListEntryCounts = function (className, options) {
   if (!classToken.length) {
     return null;
   }
-  var cacheKey = C8O.util && C8O.util.toFqcn ? C8O.util.toFqcn(classToken) : classToken;
+  var cacheKey = C8O.palette._countCacheKey(classToken);
   var cache = C8O.palette._getProjectCacheBucket(
     C8O.palette._COUNT_CACHE_KEY,
     C8O.palette._listCountCache
@@ -438,6 +447,10 @@ C8O.palette._collectExplorerEntries = function (context) {
           var bean = beanIt.next();
           var classFqcn = bean.getClassName();
           if (!classFqcn) {
+            continue;
+          }
+          // the experimental steps are listed only while the engine shows them
+          if (C8O.dbo && typeof C8O.dbo.isHiddenExperimentalBean === "function" && C8O.dbo.isHiddenExperimentalBean(bean)) {
             continue;
           }
 

@@ -776,7 +776,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         includeColumns: {
           type: "boolean",
           default: false,
-          description: "Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId."
+          description: "Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList, for the tables of the workspaceId, databaseId or tableId given. Without one, the tree comes without columns and a note."
         },
         workspaceId: {
           type: "integer",
@@ -793,6 +793,55 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         view: nocodeBaserowViewProperty()
       },
       required: [],
+      additionalProperties: false
+    };
+  }
+
+  function nocodeBaserowRowsListInputSchema() {
+    var condition = {
+      type: "object",
+      description: "{ column, operator, value }, or { all: [...] } / { any: [...] } holding conditions and groups.",
+      properties: {
+        column: { type: "string", description: "Field name of the table." },
+        operator: { type: "string", description: "Baserow filter type: contains, contains_not, equal, not_equal, empty, not_empty, higher_than, lower_than, date_equal, date_before, date_after, single_select_equal, single_select_is_any_of, boolean, link_row_has, multiple_select_has... (quickReference.baserow.operators)." },
+        value: { description: "A literal: a text, a number, a boolean, or a list for single_select_is_any_of. A select is compared by its label, a link by the id of the linked row (link_row_has) or its text (contains)." },
+        all: { type: "array", items: { type: "object" }, description: "Every condition or group holds (AND)." },
+        any: { type: "array", items: { type: "object" }, description: "At least one condition or group holds (OR)." }
+      },
+      additionalProperties: true
+    };
+    return {
+      type: "object",
+      properties: {
+        table: {
+          description: "Id of the Baserow table (a number): from nocode-baserow-catalog-list, or forms_config.table_id_int of a source or an action read by nocode-form-get. Its path Workspace~>Base~>Table (forms_config.table_id) is accepted too."
+        },
+        fields: {
+          type: "array",
+          items: { type: "string" },
+          description: "Field names to return, besides the row id. Default: every field of the table; name only those you need on a wide table."
+        },
+        filter: condition,
+        sort: {
+          type: "string",
+          description: "Order of the rows, \"Name,-Date\" (a minus sorts descending). Default: the order of the table (row id)."
+        },
+        page: {
+          type: "integer",
+          minimum: 1,
+          default: 1,
+          description: "Page to read, from 1; the answer gives nextPage when another page follows."
+        },
+        size: {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          default: 20,
+          description: "Rows per page: 20 by default, 50 at most."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["table"],
       additionalProperties: false
     };
   }
@@ -869,7 +918,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         id: { type: "integer", description: "Existing Baserow table id. If omitted, the table is matched by name in the target base." },
         name: { type: "string", description: "Baserow table name." },
         primaryField: { type: "string", description: "Business display field used by clients to resolve sample row references." },
-        upsertKey: { type: "string", description: "Business key used to update existing sample rows instead of creating duplicates. When provided, the tool reads rows through lib_BaseRow.TableGetData and updates matches through lib_BaseRow.TableUpdateRow." },
+        upsertKey: { type: "string", description: "Business key used to update existing sample rows instead of creating duplicates. When provided, the tool reads the rows of the table and updates matches through lib_BaseRow.TableUpdateRow." },
         fields: {
           type: "array",
           description: "Baserow fields/columns to ensure. Use link_row for relationships and lookup for reported fields.",
@@ -1142,6 +1191,39 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         token: nocodeFormsTokenProperty()
       },
       required: ["spec"],
+      additionalProperties: false
+    };
+  }
+
+  function nocodeFormPreviewCaptureInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: nocodeFormsProjectProperty(),
+        formId: {
+          type: "string",
+          description: "Id of the form whose preview to capture, from the current No Code context (its latest saved version is shown, published or not)."
+        },
+        page: {
+          type: "string",
+          description: "Page to capture: its pageTechName, its name or its number from 1. Empty: the first page."
+        },
+        device: {
+          type: "string",
+          enum: ["desktop", "mobile"],
+          description: "desktop (1280 px, default) or mobile (390 px): use mobile when the layout on a phone matters."
+        },
+        question: {
+          type: "string",
+          description: "Optional: what the description must check, in addition to the exact texts, the layout and the visual defects."
+        },
+        captureId: {
+          type: "string",
+          description: "The captureId of a pending answer: keeps waiting for that capture instead of requesting a new one."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["formId"],
       additionalProperties: false
     };
   }
@@ -2392,6 +2474,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_nocode_baserow_catalog_list") {
       return nocodeBaserowCatalogListInputSchema();
     }
+    if (seq === "tools_nocode_baserow_rows_list") {
+      return nocodeBaserowRowsListInputSchema();
+    }
     if (seq === "tools_nocode_baserow_schema_apply") {
       return nocodeBaserowSchemaApplyInputSchema();
     }
@@ -2427,6 +2512,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_form_publish") {
       return nocodeFormPublishInputSchema();
+    }
+    if (seq === "tools_nocode_form_preview_capture") {
+      return nocodeFormPreviewCaptureInputSchema();
     }
     if (seq === "tools_nocode_app_create") {
       return nocodeAppCreateInputSchema();
@@ -2577,6 +2665,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         outputSchema.properties = {};
       }
       outputSchema.properties.error = { type: "object", description: "Set instead of the result when the tool failed: {code, message, details}." };
+      // The endpoint puts these two at the top of a successful answer: a client that checks the answer against a schema
+      // without additional properties (Vibe and the MCP SDKs do) refused the whole call when they were not declared.
+      outputSchema.properties.argumentWarning = { type: "string", description: "The arguments the tool ignored, and the ones it takes." };
+      outputSchema.properties.operatorNote = { type: "string", description: "A note from the person who supervises the agent." };
     }
     return outputSchema;
   };

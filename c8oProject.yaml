@@ -11,7 +11,7 @@
   contextTimeout: 59
   corsOrigin: =Origin
   httpSessionTimeout: 600
-  version: 0.2.27
+  version: 0.2.28
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
   ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
@@ -64,12 +64,14 @@
   ↓tools_ngx_page_create [sequences.GenericSequence]: 🗏 sequences/tools_ngx_page_create.yaml
   ↓tools_nocode_app_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_app_create.yaml
   ↓tools_nocode_baserow_catalog_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_catalog_list.yaml
+  ↓tools_nocode_baserow_rows_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_rows_list.yaml
   ↓tools_nocode_baserow_schema_apply [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_schema_apply.yaml
   ↓tools_nocode_form_compile [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_compile.yaml
   ↓tools_nocode_form_contract_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_contract_get.yaml
   ↓tools_nocode_form_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_create.yaml
   ↓tools_nocode_form_edit [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_edit.yaml
   ↓tools_nocode_form_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_get.yaml
+  ↓tools_nocode_form_preview_capture [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_preview_capture.yaml
   ↓tools_nocode_form_publish [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_publish.yaml
   ↓tools_nocode_form_update [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_update.yaml
   ↓tools_nocode_form_validate [sequences.GenericSequence]: 🗏 sequences/tools_nocode_form_validate.yaml

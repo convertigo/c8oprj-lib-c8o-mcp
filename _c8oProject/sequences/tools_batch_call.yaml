@@ -25,6 +25,7 @@ comment: |
       executionId: executionIdInput,
       optimizeMutations: (typeof optimizeMutations !== "undefined") ? optimizeMutations : true,
       reveal: (typeof reveal !== "undefined") ? reveal : false,
+      showExperimental: (typeof _showExperimental !== "undefined") ? _showExperimental : false,
       responseDetail: (typeof responseDetail !== "undefined") ? responseDetail : "compact"
     });
     
@@ -325,3 +326,6 @@ comment: |
   comment: 'Allowed values: compact or full. compact keeps read call payloads, summarizes mutations, and avoids duplicated reference results; full is intended for diagnostics.'
   description: 'Allowed values: compact or full. compact keeps read call payloads, summarizes mutations, and avoids duplicated reference results; full is intended for diagnostics.'
   value: compact
+↓_showExperimental [variables.RequestableVariable-1792900000104]: 
+  comment: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.
+  description: Set by the MCP endpoint when its URL has showExperimental=true, to show the experimental features of the engine. Internal, not a tool argument.

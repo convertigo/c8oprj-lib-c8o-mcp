@@ -79,6 +79,18 @@ a Studio is still the proof that the engine accepts the trees and that the
 pages build: `requestable-execute` on each business sequence, a production build, and a
 browser check.
 
+## Experimental features of the engine
+
+Run `node --test tests/scripts/validate_experimental_features.cjs` after
+changing `palette-list`, `palette-describe` or the property descriptions of
+`databaseobject-schema`. The JSON native steps and the JSON native properties
+of a sequence are listed only while the engine switch
+`com.twinsoft.convertigo.engine.util.ExperimentalFeatures.isShown()` is on (off
+by default, on in an Eclipse Studio whose preference shows them), using the
+engine marker (`DboBean.isExperimental()`, descriptor value `experimental`). An
+existing native sequence keeps its properties, and an engine without the switch
+or the marker hides nothing. The tests mock the Java side in memory.
+
 ## No-code capability isolation
 
 Run `node --test tests/scripts/validate_nocode_tool_policy.cjs` after changes to

@@ -75,6 +75,21 @@ try {
 } catch (_ignoreManagedRevealMode) {
   managedRevealMode = false;
 }
+// showExperimental=true on the endpoint URL (or X-Convertigo-Show-Experimental: true) shows the experimental
+// features of the engine (JSON native steps and properties) to the tools that list or describe them, even while the
+// engine switch hides them. Only the endpoint sets _showExperimental: a value passed by the model is dropped.
+var managedShowExperimental = false;
+try {
+  var managedRequest = context ? context.httpServletRequest : null;
+  if (managedRequest) {
+    var managedShowExperimentalHeader = managedRequest.getHeader("X-Convertigo-Show-Experimental");
+    var managedQuery = String(managedRequest.getQueryString() || "");
+    managedShowExperimental = String(managedShowExperimentalHeader || "").trim().toLowerCase() === "true"
+      || /(^|&)showExperimental=true(&|$)/i.test(managedQuery);
+  }
+} catch (_ignoreManagedShowExperimental) {
+  managedShowExperimental = false;
+}
 // X-Convertigo-No-Log mutes the engine logs of this request. From Convertigo 8.4.6
 // the engine MdcFilter already does it for the whole request; before, the /api path
 // is not covered by ProjectsDataFilter, so the marker is set here and log4j2 thread
@@ -87,6 +102,12 @@ try {
     Packages.org.apache.log4j.MDC.put("nolog", Packages.java.lang.Boolean.TRUE);
   }
 } catch (_ignoreManagedNoLog) {}
+var EXPERIMENTAL_CAPABLE_SEQUENCES = {
+  tools_palette_list: true,
+  tools_palette_describe: true,
+  tools_databaseobject_schema: true,
+  tools_batch_call: true
+};
 var REVEAL_CAPABLE_SEQUENCES = {
   tools_mobile_builder_open: true,
   tools_databaseobject_tree_apply: true,
@@ -302,7 +323,8 @@ function coerceToolArguments(argumentsObject, sequenceName, requestableObject) {
 // Arguments agents give under another name: the tool ignored them and answered as if they were absent
 // (databaseobject-search with query and project scanned nothing and found nothing, run 9a).
 var ARGUMENT_ALIASES = {
-  tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" }
+  tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" },
+  tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" }
 };
 
 // Arguments an agent gets by default when it does not give them; a direct sequence call (the Assistant's table picker)
@@ -694,6 +716,10 @@ if (methodName === "initialize") {
       if (subagentSequence && managedConversationId.length) {
         callVariables.conversationId = managedConversationId;
       }
+      // The capture is requested in the conversation of the call only, never in one the model names.
+      if (targetSequence === "tools_nocode_form_preview_capture") {
+        callVariables.conversationId = managedConversationId;
+      }
       // One writer per project while a constructor sub-agent builds it: its own session only.
       try {
         if (typeof C8O.subagents === "undefined" || !C8O.subagents.projectsOfCall) {
@@ -724,6 +750,10 @@ if (methodName === "initialize") {
       if (callSequence === targetSequence && managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true
           && (callVariables.reveal === undefined || callVariables.reveal === null || String(callVariables.reveal).trim().length === 0)) {
         callVariables.reveal = "true";
+      }
+      delete callVariables._showExperimental;
+      if (callSequence === targetSequence && managedShowExperimental && EXPERIMENTAL_CAPABLE_SEQUENCES[targetSequence] === true) {
+        callVariables._showExperimental = "true";
       }
       if (callSequence === targetSequence) {
         injectMeta(callVariables);

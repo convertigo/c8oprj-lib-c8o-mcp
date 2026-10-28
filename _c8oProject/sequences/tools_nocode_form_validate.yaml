@@ -1,12 +1,12 @@
 accessibility: Private
 comment: |
   Validate a No Code form document
-  Checks a full C8Oforms form document against the component catalog and semantic graph invariants before saving.
+  Checks a full C8Oforms form document against the component catalog and semantic graph invariants before saving, and with the No Code authentication the selects written into Baserow link_row columns.
 ↓Run [steps.SimpleStep-1780100000201]: 
   expression: |
     'include("js/nocode_forms.js");
     var formObject = C8O.nocodeForms.parseObject(form, "form", {});
-    result = C8O.nocodeForms.validate(formObject, { project: project });'
+    result = C8O.nocodeForms.validate(formObject, { project: project, baserowLinks: true });'
 ↓result [steps.JsonToXmlStep-1780100000202]: 
   jsonObject: 
     - xmlizable: 

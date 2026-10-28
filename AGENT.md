@@ -144,6 +144,25 @@ calls included, not one JSON-RPC method.
   chose: the Bridge has its own `mcpNoLog` option and calls the setups after
   writing its configuration.
 
+## showExperimental on the MCP endpoint
+
+`palette-list`, `palette-describe` and `databaseobject-schema` hide the
+experimental features of the engine (JSON native steps, JSON native properties
+of a sequence) while the engine switch `ExperimentalFeatures` is off. A client
+whose endpoint URL has `?showExperimental=true` (for example
+`http://localhost:18080/convertigo/api/mcp?showExperimental=true`), or that
+sends the header `X-Convertigo-Show-Experimental: true`, sees them on every
+request, whatever the switch.
+
+- `js/mcp_endpoint_router.js` reads the URL or the header and passes the hidden
+  variable `_showExperimental` to those three tools and to `batch-call`, which
+  passes it on to its calls of those tools. It is not in their input schemas,
+  and a value passed by the model is dropped.
+- `C8O.dbo.isExperimentalShown` (`js/databaseobject.js`) returns true when
+  `_showExperimental` is `true`. The palette property counts are cached apart
+  (`#experimental` key suffix).
+- Covered by `tests/scripts/validate_experimental_features.cjs`.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

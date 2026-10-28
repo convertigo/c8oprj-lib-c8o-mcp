@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Report a Tigo friction to Convertigo
-  Queues one short friction of a Convertigo no-code tool, guide or prompt that you had to work around, for the No Code Studio user's review before it is sent to Convertigo (or after the turn when they chose automatic sending). Listed only when the user agreed to send feedback. Describe the product problem only: never name the user's forms, pages, fields, Baserow workspaces, databases, tables or their data.
+  Queues one short friction for Convertigo, for the No Code Studio user's review before it is sent (or after the turn when they chose automatic sending): a no-code tool, guide or prompt you had to work around, or a capability you needed that no no-code tool gives (seeing the saved form in a browser, reading the rows of a Baserow table, running a calculation) and that you told the user about or worked around. File it before your final answer, even when no tool failed. Listed only when the user agreed to send feedback. Describe the product problem only: never name the user's forms, pages, fields, Baserow workspaces, databases, tables or their data.
 ↓IncludeHelpers [steps.SimpleStep-1792730000001]: 
   comment: Load reporting helper
   expression: include("js/reporting.js");
