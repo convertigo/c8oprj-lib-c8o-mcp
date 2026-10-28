@@ -30,7 +30,7 @@ Read `convertigo://resources/convertigo-crud-practical-cases` only when the curr
 ## Required spec
 Collect or confirm:
 - `project`
-- `database.mode`
+- `database.mode`: hsqldb, postgresql, mariadb, mysql, sqlserver or oracle (left out when `database.connector` names an existing SQL connector, whose engine is kept)
 - `database.connector`
 - `facade.prefix`
 - `entities[]`

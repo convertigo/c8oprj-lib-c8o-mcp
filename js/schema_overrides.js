@@ -271,7 +271,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         requestable: {
           type: "string",
-          description: "Target requestable as <project>[.<connector>].<requestable>."
+          description: "Target requestable as <project>[.<connector>].<requestable>, or as the Studio QName <project>.sq:<sequence> or <project>.cn:<connector>.tr:<transaction>."
         },
         variables: {
           description: "Request variables as an object or a JSON string. Non-string values are serialized before execution.",

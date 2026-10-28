@@ -23,44 +23,11 @@ C8O.requestableStub._normalizeFilename = function (value) {
 };
 
 C8O.requestableStub._parseRequestable = function (value) {
-  var text = C8O.util.toTrimmedString(value);
-  if (!text.length) {
-    throw new Error("requestable is required");
-  }
-  var parts = text.split(".");
-  if (parts.length < 2) {
-    throw new Error("requestable must be <project>[.<connector>].<requestable>");
-  }
-
-  var projectName = parts[0];
-  var connectorName = null;
-  var requestableName = null;
-  var isSequence = false;
-
-  if (parts.length === 2) {
-    isSequence = true;
-    requestableName = parts[1];
-  } else {
-    connectorName = parts[1];
-    requestableName = parts.slice(2).join(".");
-  }
-
-  if (!requestableName || !requestableName.length) {
-    throw new Error("requestable name is missing");
-  }
-
-  var qname = isSequence
-    ? projectName + ".sq:" + requestableName
-    : projectName + ".cn:" + connectorName + ".tr:" + requestableName;
-
-  return {
-    requestable: text,
-    project: projectName,
-    connector: connectorName,
-    name: requestableName,
-    isSequence: isSequence,
-    qname: qname
-  };
+  var target = C8O.requestable.parseTarget(value);
+  target.qname = target.isSequence
+    ? target.project + ".sq:" + target.name
+    : target.project + ".cn:" + target.connector + ".tr:" + target.name;
+  return target;
 };
 
 C8O.requestableStub.resolve = function (requestable, options) {

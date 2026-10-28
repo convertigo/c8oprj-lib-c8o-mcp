@@ -1269,6 +1269,15 @@ C8O.crudBackend = C8O.crudBackend || {};
     var spec = ctx.normalizeSpec(options.spec);
     result.project = spec.project;
     result.driverFamily = spec.database.driver.id;
+    if (spec.database.source === "connector") {
+      // Not a warning: any warning makes the status partial.
+      result.runtimeEvidence.database = {
+        mode: spec.database.mode,
+        source: "connector",
+        note: "spec.database.mode was not given: the engine is the one of the existing connector " + spec.database.connector +
+          ", which keeps its connection settings."
+      };
+    }
     var project = ctx.ensureProject(spec, result);
     var connector = C8O.crudBackend.ensureConnector(ctx, project, spec, result);
     result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);

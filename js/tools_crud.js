@@ -231,7 +231,27 @@ C8O.crud = C8O.crud || {};
       toBoolean: toBoolean,
       pluralize: pluralize,
       normalizedIdentifier: normalizedIdentifier,
-      normalizeEntityNames: normalizeEntityNames
+      normalizeEntityNames: normalizeEntityNames,
+      connectorEngine: connectorEngine
+    };
+  }
+
+  // The engine of an existing SQL connector, for a CRUD spec that names the connector without database.mode.
+  function connectorEngine(projectName, connectorName) {
+    var project = findProjectByName(projectName);
+    var connector = null;
+    try {
+      connector = project ? project.getConnectorByName(connectorName) : null;
+    } catch (_noSuchConnector) {
+      connector = null;
+    }
+    if (!connector || String(connector.getClass().getName()).indexOf("SqlConnector") === -1) {
+      return null;
+    }
+    return {
+      name: String(connector.getName()),
+      jdbcDriverClassName: trimmed(connector.getJdbcDriverClassName()),
+      engine: inferDriverFamilyFromConnector(connector)
     };
   }
 

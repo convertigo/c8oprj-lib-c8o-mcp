@@ -356,3 +356,18 @@ Run `node --test tests/scripts/validate_setup_claude_paths.cjs` after changing
 `js/setup_claude.js`. Without `CLAUDE_CONFIG_DIR`, Claude Code reads skills from
 `~/.claude/skills` but its MCP servers from `~/.claude.json`; with it, both live
 in that directory. An explicit `claudeHome` is treated as a `CLAUDE_CONFIG_DIR`.
+
+## CRUD database engine
+
+Run `node --test tests/scripts/validate_crud_driver.cjs` after changing how `upsert-crud` reads `spec.database`.
+The engine comes from `database.mode` (or `technology`), then from `type`, `connectorType` or `driverFamily` when
+they name an engine, then from the existing SQL connector the spec names (`database.connector`, `spec.connector`
+or the default `<project>db`), which then keeps its connection settings. Without one, the error names the field
+and the six engines. The specs are the ones two Vibe runs sent on 28/10.
+
+## Requestable targets
+
+Run `node --test tests/scripts/validate_requestable_target.cjs` after changing `C8O.requestable.parseTarget` or the
+Init step of `tools_requestable_execute`. `requestable-execute` and `requestable-stub-get`/`-set` take
+`<project>.<sequence>` and `<project>.<connector>.<transaction>`, and also the Studio QName other tools return
+(`<project>.sq:<sequence>`, `<project>.cn:<connector>.tr:<transaction>`).

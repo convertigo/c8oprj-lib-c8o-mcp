@@ -242,8 +242,8 @@ comment: |
           - ↑mode: JS
           - →→: stubResult.content
 ↓targetRequestable [variables.RequestableVariable-1773088172840]: 
-  comment: Target requestable as <project>[.<connector>].<requestable>.
-  description: Target requestable as <project>[.<connector>].<requestable>.
+  comment: Target requestable as <project>[.<connector>].<requestable>, or as the Studio QName <project>.sq:<sequence> or <project>.cn:<connector>.tr:<transaction>.
+  description: Target requestable as <project>[.<connector>].<requestable>, or as the Studio QName <project>.sq:<sequence> or <project>.cn:<connector>.tr:<transaction>.
 ↓stubFilename [variables.RequestableVariable-1773088172842]: 
   comment: Stub filename relative to stubs/. Omit to use the requestable default such as sequence_default.xml or connector.transaction_default.xml.
   description: Stub filename relative to stubs/. Omit to use the requestable default such as sequence_default.xml or connector.transaction_default.xml.

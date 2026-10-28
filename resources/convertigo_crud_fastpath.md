@@ -29,7 +29,7 @@ Out of scope:
 ## Required inputs
 Capture these before the first mutation:
 - `project`
-- `database.mode`
+- `database.mode`: hsqldb, postgresql, mariadb, mysql, sqlserver or oracle (left out when `database.connector` names an existing SQL connector, whose engine is kept)
 - `database.connector`
 - `facade.prefix`
 - `entities[]`

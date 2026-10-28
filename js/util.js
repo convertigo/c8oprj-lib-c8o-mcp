@@ -600,6 +600,32 @@ C8O.util.makeFileResult = function (status, message, extras) {
 
 C8O.requestable = C8O.requestable || {};
 
+/**
+ * The requestable a client names, <project>.<sequence> or <project>.<connector>.<transaction>, also written as the
+ * Studio QName other tools return (<project>.sq:<sequence>, <project>.cn:<connector>.tr:<transaction>).
+ */
+C8O.requestable.parseTarget = function (value) {
+  var text = C8O.util.toTrimmedString(value);
+  if (!text.length) {
+    throw new Error('requestable is required');
+  }
+  var parts = text.split('.');
+  if (parts.length < 2) {
+    throw new Error('requestable must be <project>[.<connector>].<requestable>');
+  }
+  var target = { requestable: text, project: parts[0], connector: null, name: null, isSequence: parts.length == 2 };
+  if (target.isSequence) {
+    target.name = parts[1].replace(/^sq:/, '');
+  } else {
+    target.connector = parts[1].replace(/^cn:/, '');
+    target.name = parts.slice(2).join('.').replace(/^tr:/, '');
+  }
+  if (!target.name.length) {
+    throw new Error('requestable name is missing');
+  }
+  return target;
+};
+
 C8O.requestable._findChild = function (container, options) {
   var opts = options || {};
   function matches(node) {
