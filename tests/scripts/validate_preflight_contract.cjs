@@ -589,7 +589,7 @@ test('a refused MCP token is logged with its reason, never with the token', () =
 
 // The real js/mcp_auth.js over an in-memory jwt folder with POSIX permissions: a signing key and a durable token whose
 // record was never used. Every change to a file calls the listeners, so a test can run a call in the middle of a write.
-function tokenStoreWorld() {
+function tokenStoreWorld(requesters = {}) {
   const crypto = require('node:crypto');
   class IOException extends Error {}
   class AccessDeniedException extends IOException {}
@@ -645,7 +645,7 @@ function tokenStoreWorld() {
   }
   const java = {
     io: { File, IOException },
-    lang: { String: JavaString, Thread: { sleep: ms => pauses.push(ms) },
+    lang: { String: JavaString, Thread: { sleep: ms => pauses.push(ms) }, reflect: { Array: { newInstance: (_type, size) => new Array(size) } },
       System: { getProperty: name => (name === 'convertigo.mcp.jwt.path' ? '/jwt' : null), currentTimeMillis: () => Date.now() } },
     nio: {
       file: { Files, StandardOpenOption: { CREATE_NEW: 'CREATE_NEW', WRITE: 'WRITE' },
@@ -653,7 +653,7 @@ function tokenStoreWorld() {
         AtomicMoveNotSupportedException: class extends IOException {}, attribute: { PosixFilePermissions: { fromString: text => text } } },
       charset: { StandardCharsets: { UTF_8: 'UTF-8' } }
     },
-    util: { Date, HashMap: Map, TimeZone: { getTimeZone: () => ({}) }, UUID: { randomUUID: () => crypto.randomUUID() },
+    util: { Date, HashMap: class extends Map { put(key, value) { return this.set(key, value); } }, TimeZone: { getTimeZone: () => ({}) }, UUID: { randomUUID: () => crypto.randomUUID() },
       Base64: { getUrlEncoder: () => ({ withoutPadding: () => ({ encodeToString: data => Buffer.from(data).toString('base64url') }) }),
         getUrlDecoder: () => ({ decode: text => Buffer.from(String(text), 'base64url') }) } },
     security: { SecureRandom: class {}, MessageDigest: { getInstance: () => ({ digest: data => crypto.createHash('sha256').update(data).digest() }),
@@ -663,7 +663,7 @@ function tokenStoreWorld() {
   };
   const javax = { crypto: { Mac: { getInstance: () => ({ init(key) { this.key = key.key; }, doFinal(data) { return crypto.createHmac('sha256', this.key).update(data).digest(); } }) },
     spec: { SecretKeySpec: class { constructor(key) { this.key = key; } } } } };
-  const engine = { Engine: { USER_WORKSPACE_PATH: '/workspace' }, AuthenticatedSessionManager: { Role: {}, SessionKey: {} }, requesters: {}, util: {}, enums: {} };
+  const engine = { Engine: { USER_WORKSPACE_PATH: '/workspace' }, AuthenticatedSessionManager: { Role: {}, SessionKey: {} }, requesters, util: {}, enums: {} };
   const ctx = { C8O: {}, java, Packages: { java, javax, com: { twinsoft: { convertigo: { engine } } } } };
   vm.runInNewContext(read('js/mcp_auth.js'), ctx);
 
@@ -729,6 +729,29 @@ test('a token store that stays unreadable answers 503, not a 401 that makes Vibe
   assert.equal(ctx.parseError.data.retryable, true);
   assert.deepEqual(headers, {}, 'no authentication challenge');
   assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer not checked (token_store_unreadable): java.nio.file.AccessDeniedException: ' + store.recordPath]);
+});
+
+// test-nocode 28/10 15:07: C8Oforms was being reloaded when a No Code agent called the MCP, its token check threw
+// "Unknown project", and the 401 that followed made Vibe drop the server for the rest of the session.
+test('a No Code token C8Oforms cannot check while it is reloaded answers 503, not a 401', () => {
+  const unknownProject = 'com.twinsoft.convertigo.engine.EngineException: Unknown project "C8Oforms".';
+  class InternalRequester { processRequest() { throw new Error(unknownProject); } getContext() { return null; } }
+  const store = tokenStoreWorld({ InternalRequester });
+  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const token = encode({ alg: 'HS256', typ: 'JWT' }) + '.' + encode({ iss: 'C8Oforms', sub: 'user', scope: 'forms:write' }) + '.c2ln';
+  const result = store.auth.validate(token, { httpServletRequest: null });
+  assert.equal(outcome(result), 'nocode_token_check_unavailable');
+  assert.equal(result.retryable, true);
+  assert.ok(!result.error.message.includes('Unknown project'), 'the answer does not carry the engine exception');
+  assert.equal(result.error.details, unknownProject, 'the engine log gets it');
+  const logged = [];
+  const ctx = { include() {}, request: '{}', C8O: { mcpAuth: { authenticateRequest: () => result } },
+    context: { httpServletResponse: { setHeader() {} } },
+    com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn: message => logged.push(String(message)) } } } } } } };
+  vm.runInNewContext(stepExpression(endpoint, 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '503');
+  assert.equal(ctx.parseError.data.code, 'nocode_token_check_unavailable');
+  assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer not checked (nocode_token_check_unavailable): ' + unknownProject]);
 });
 
 test('an unknown, revoked or corrupt durable token record still refuses the token', () => {
