@@ -2230,6 +2230,47 @@ test('nocode-form-validate refuses a select written into a link_row column with 
   // Without baserowLinks (compile, the saves) validate stays static.
   assert.ok(!api().validate(compiled).validation.warnings.some(w => w.code === 'link_row_selects_unverified'));
 });
+// Skyjo (26/10): the current game and round were formulas over hidden grids (row_selected, 10 rows a page, the
+// defaults) and a localStorage flag set by business_logic steps; a debug field stayed in the delivered form.
+const skyjoPartie = "(()=>{try{const v=fields.score_last;const a=Array.isArray(v)?v:(v&&Array.isArray(v.data))?v.data:[];const num=(x)=>Number((x&&typeof x==='object')?x.value:x)||0;const m=a.reduce((acc,r)=>Math.max(acc,num(r.Partie)),0);return localStorage.getItem('skyjo_new_game')==='1'?(m+1):(m||1)}catch(e){return '1'}})()";
+const skyjoTour = "(()=>{var v=fields['joueur_all'];var b=Array.isArray(v)?v:[];return b.length})()";
+function skyjoLogic(grid = {}) {
+  return { name: 'Skyjo', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: [
+    { type: 'layout', name: 'score_data', visibleIf: { never: true }, fields: [
+      { type: 'grid', name: 'score_last', source: { table: 7002, columns: ['Partie', 'Tour', 'Joueur'] }, ...grid },
+      { type: 'grid', name: 'joueur_all', source: { table: 7001, columns: ['Nom'] } },
+      { type: 'grid', name: 'score_list', source: { table: 7002, columns: ['Partie', 'Points'] } }
+    ] },
+    { type: 'text', name: 'Partie', label: 'Partie', disabled: true, defaultFrom: { source: 'expression', expression: skyjoPartie, mode: 'reactive' } },
+    { type: 'text', name: 'joueurs', label: 'Joueurs', disabled: true, defaultFrom: { source: 'expression', expression: skyjoTour, mode: 'reactive' } },
+    { type: 'text', name: 'Selection', label: 'Partie choisie', disabled: true, defaultFrom: { source: 'field', field: 'score_list', column: 'Partie', mode: 'reactive', fallback: '' } },
+    { type: 'text', name: 'debug_tour', label: 'Tour calculé', disabled: true },
+    { type: 'button', name: 'new_game', label: 'Nouvelle partie', flow: 'nouvelle_partie' }
+  ] }], flows: [{ id: 'nouvelle_partie', name: 'Nouvelle partie', elements: [
+    { type: 'business_logic', name: 'start_new_game', expression: "(sessionStorage.setItem('skyjo_new_game','1'), '')" },
+    { type: 'toast', message: 'Nouvelle partie', color: 'success' }
+  ] }] };
+}
+test('validate warns about state in browser storage, computations over the rows of a grid and debug fields', () => {
+  const r = api().compile(skyjoLogic(), { tableIndex: linkTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const validation = clone(api().validate(r.form).validation);
+  assert.equal(validation.valid, true, 'warnings only');
+  const of = code => validation.warnings.filter(w => w.code === code);
+  const index = name => r.form.formulaire.indexOf(byName(r.form, name));
+  const flow = r.form.flows.findIndex(f => f.id === 'nouvelle_partie');
+  assert.deepEqual(of('browser_storage_state').map(w => w.path), ['/formulaire/' + index('Partie') + '/config/contextDefault/expression', '/flows/' + flow + '/elements/0/sources/self/vars/selfVar/str']);
+  assert.match(of('browser_storage_state')[0].message, /Partie uses localStorage: that value stays in one browser on one device/);
+  assert.match(of('browser_storage_state')[1].message, /^The formula start_new_game uses sessionStorage/);
+  const rows = of('grid_rows_in_formula');
+  assert.deepEqual(rows.map(w => /the grid (\w+)/.exec(w.message)[1]), ['score_last', 'joueur_all'], 'fields.x and fields["x"]; not the column read of the selected row');
+  assert.match(rows[0].message, /^Partie computes over the rows of the grid score_last, which gives a formula its selection \(returned_value row_selected\) and loads one page of 10 rows on a computer, every row on a phone/);
+  assert.match(rows[0].message, /groupBy and aggregations of a Baserow source/);
+  assert.deepEqual(of('debug_component').map(w => w.path), ['/formulaire/' + index('debug_tour')]);
+  // A grid giving a formula every row (all_the_data) is what such a formula reads; it is not flagged.
+  const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
+  assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
+});
 // nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
 // stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
 const TICKETS = { id: 5277, name: 'Tickets', columns: [

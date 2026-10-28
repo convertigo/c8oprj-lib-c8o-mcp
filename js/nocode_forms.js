@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-28.link-row-select-id-v17",
+      contractVersion: "2026-10-28.derived-state-v18",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1028,7 +1028,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
           connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application (field names in the user's language: they are the grid column headers), then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
           unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
-          tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control."
+          tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control.",
+          derivedState: "State in Baserow, not localStorage (browser_storage_state); no count, maximum or 'already exists' over a grid's rows in a formula: it gets the selection and one page (grid_rows_in_formula); no debug_* field (debug_component)."
         },
         incrementalCreation: {
           rule: "Tool arguments are generated token by token by the model; a reduced JSON above roughly 4 KB is likely to arrive with a structural typo and be refused. Build large applications in steps, each with a short argument, and pass reduced as a JSON object, not as a string.",
@@ -1503,7 +1504,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // What an expression may reach. The viewer runs it as JavaScript in its page, without a sandbox (C8Oforms viewerPage
   // createExpressionFunction): an agent took the old "no guessed globals" advice for "no window, no localStorage" and told a user that
   // two forms could not share a value through localStorage. The contract does not steer toward it, nor forbid it.
-  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device: a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression.";
+  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device; never keep the state of the application there (a current record, a round, a 'new game' flag: nocode-form-validate warns browser_storage_state): a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression.";
 
   function normalizeToastColor(value) {
     var text = trimmed(value);
@@ -2772,6 +2773,72 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     delete target.defaultFrom;
   }
 
+  // Skyjo (26/10): the current game, round and "already played" fields were formulas over hidden grids and a
+  // localStorage flag. A grid gives a formula its selected row (returned_value row_selected, the default) and loads one
+  // page of gridRowsPerPage rows; localStorage stays in one browser. A debug field was left in the delivered form.
+  var BROWSER_STORAGE = /\b(localStorage|sessionStorage)\b/;
+  var ROW_LIST_USE = /Array\.isArray\s*\(|\.(reduce|filter|forEach|map|some|every|find|findIndex|flatMap)\s*\(|\.length\b|\.(data|rows)\b/;
+  var DEBUG_NAME = /(^|[^a-z])debug([^a-z]|$)/i;
+  function validateGeneratedLogic(form, warning) {
+    var items = ensureArray(form.formulaire);
+    var grids = {};
+    items.forEach(function (item) {
+      if (!item || item.type !== "grid" || item.config && item.config.returned_value === "all_the_data") { return; }
+      var source = item.sources && item.sources["lib_BaseRow.formssource_GetTableData"];
+      if (!source || !boolLike(source.enabled)) { return; }
+      grids[String(item.id)] = item;
+      grids["name:" + item.name] = item;
+    });
+    function gridsRead(text) {
+      var found = [];
+      function add(item) { if (item && found.indexOf(item) < 0) { found.push(item); } }
+      var reference = /\$\$START(\d+)\{/g;
+      var match;
+      while ((match = reference.exec(text))) { add(grids[match[1]]); }
+      var named = /\bfields\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*(["'])((?:(?!\2).)+)\2\s*\])/g;
+      while ((match = named.exec(text))) { add(grids["name:" + (match[1] || match[3])]); }
+      return found;
+    }
+    function check(owner, value, path) {
+      var text = value && value.type === "ts" ? String(value.str == null ? "" : value.str) : "";
+      if (!text.length) { return; }
+      var what = (owner.type === "business_logic" ? "The formula " : "") + (owner.name || owner.id);
+      if (BROWSER_STORAGE.test(text)) {
+        warning("browser_storage_state", what + " uses " + BROWSER_STORAGE.exec(text)[1] + ": that value stays in one browser on one device, other users and devices never see it, and clearing the browser loses it. Keep the state of the application (current game, round, a flag such as a new game) in Baserow: a save, then a source filtered on it. Keep it only when the user asked for a value kept on this device", path);
+      }
+      if (!ROW_LIST_USE.test(text)) { return; }
+      gridsRead(text).forEach(function (grid) {
+        var config = grid.config || {};
+        var paged = !(hasOwn(config, "gridPaginationEnabled") && !boolLike(config.gridPaginationEnabled));
+        var rows = Number(config.gridRowsPerPage) > 0 ? Math.floor(Number(config.gridRowsPerPage)) : 10;
+        warning("grid_rows_in_formula", what + " computes over the rows of the grid " + grid.name + ", which gives a formula its " + (config.returned_value === "nothing" ? "nothing" : "selection (returned_value " + (config.returned_value || "row_selected") + ")") + (paged ? " and loads one page of " + rows + " rows on a computer, every row on a phone" : "") + ": a count, a maximum, a last value or an 'already exists' check made there is wrong. Use the groupBy and aggregations of a Baserow source (computed on the whole table), or a source filtered on exactly the rows needed and test whether it is empty", path);
+      });
+    }
+    items.forEach(function (item, index) {
+      if (!item || typeof item !== "object") { return; }
+      var self = item.sources && item.sources.self;
+      var contextDefault = item.config && item.config.contextDefault;
+      if (contextDefault && contextDefault.source === "expression") {
+        // The expression as written; the self source holds it with the field references the compiler resolved.
+        check(item, { type: "ts", str: contextDefault.expression }, "/formulaire/" + index + "/config/contextDefault/expression");
+      } else if (!contextDefault) {
+        // A defaultFrom field/column is compiled by the tools to read the selected row: not a computation over rows.
+        check(item, self && self.vars && self.vars.selfVar, "/formulaire/" + index + "/sources/self/vars/selfVar/str");
+      }
+      var label = item.config && typeof item.config.label === "string" ? item.config.label : "";
+      if (DEBUG_NAME.test(trimmed(item.name)) || DEBUG_NAME.test(label)) {
+        warning("debug_component", (item.name || item.id) + " looks like a debugging aid: remove it from the delivered application, or keep it only if the user asked to see that value", "/formulaire/" + index);
+      }
+    });
+    ensureArray(form.flows).forEach(function (flow, idx) {
+      ensureArray(flow && flow.elements).forEach(function (element, eidx) {
+        if (!element || typeof element !== "object") { return; }
+        var self = element.sources && element.sources.self;
+        check(element, self && self.vars && self.vars.selfVar, "/flows/" + idx + "/elements/" + eidx + "/sources/self/vars/selfVar/str");
+      });
+    });
+  }
+
   function validateContextDefaults(form, issue, warning) {
     var fields = ensureArray(form.formulaire);
     var links = Object.create(null);
@@ -3393,6 +3460,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       });
       validateContextDefaults(form, issue, warning);
+      validateGeneratedLogic(form, warning);
       eachConditionGroup(form, function (group, groupPath) {
         eachCondition(group, groupPath, function (cond, condPath) {
           if (!cond || typeof cond !== "object" || cond.subject !== "field") { return; }
