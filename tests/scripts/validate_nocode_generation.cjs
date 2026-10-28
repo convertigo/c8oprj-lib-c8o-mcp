@@ -776,6 +776,37 @@ test('an edit that names no flow, or a field the form lacks, is told the names i
   assert.match(far.error.message, /Known fields: .*welcome.*requests/);
 });
 
+test('a page is found from its pageTechName, and page, field and flow take an id or a name', () => {
+  // TigoAccess 2c46f518 (26/10): delete_page with pageTechName answered "page not found" while listing that page; a page
+  // has no id, its pageTechName is its identifier.
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const id = start.form._id;
+  const [home, requests] = start.form.pages.map(p => p.pageTechName);
+  assert.equal(start.form.pages[0].id, undefined, 'a saved page has no id');
+  const renamed = h.client.edit(id, [{ action: 'update_page', pageTechName: home, patch: { name: 'Start' } }], h.auth);
+  assert.equal(renamed.status, 'ok', JSON.stringify(renamed.error));
+  assert.deepEqual(clone(renamed.form.pages.map(p => p.name)), ['Start', 'Requests']);
+  const byPage = h.client.edit(id, [{ action: 'update_page', page: 'Start', patch: { iconName: 'home' } }, { action: 'update_page', pageName: requests, patch: { iconName: 'list' } }], h.auth);
+  assert.equal(byPage.status, 'ok', JSON.stringify(byPage.error));
+  assert.deepEqual(clone(byPage.form.pages.map(p => p.iconName)), ['home', 'list'], 'page holds a visible name, pageName a pageTechName');
+  const field = h.client.edit(id, [{ action: 'update_field', field: 'welcome', patch: { config: { html: '<h2>Hello</h2>' } } }], h.auth);
+  assert.equal(field.status, 'ok', JSON.stringify(field.error));
+  assert.equal(field.form.formulaire.find(f => f.name === 'welcome').config.html, '<h2>Hello</h2>', 'field may hold the technical name');
+  const flow = h.client.edit(id, [{ action: 'update_flow', flow: 'open', patch: { name: 'Open requests' } }, { action: 'update_flow', flowId: 'Open requests', patch: { name: 'Open the requests' } }], h.auth);
+  assert.equal(flow.status, 'ok', JSON.stringify(flow.error));
+  assert.equal(flow.form.flows.find(f => f.id === 'open').name, 'Open the requests');
+  const added = h.client.edit(id, [{ action: 'add_page', name: 'Extra' }, { action: 'add_field', pageName: 'Extra', fieldObject: { type: 'text', name: 'extra_note' } }], h.auth);
+  assert.equal(added.status, 'ok', JSON.stringify(added.error));
+  const extra = added.form.pages.find(p => p.name === 'Extra').pageTechName;
+  const removed = h.client.edit(id, [{ action: 'delete_page', pageTechName: extra }], h.auth);
+  assert.equal(removed.status, 'ok', JSON.stringify(removed.error || removed.validation));
+  assert.deepEqual(clone(removed.form.pages.map(p => p.pageTechName)), [home, requests]);
+  assert.ok(!removed.form.formulaire.some(f => f.name === 'extra_note'), 'its components went with it');
+  const gone = h.client.edit(id, [{ action: 'delete_page', pageTechName: extra }], h.auth);
+  assert.match(gone.error.message, new RegExp('^page not found: ' + extra + '\\. .*Known pages: Start \\(' + home + '\\), Requests \\(' + requests + '\\)\\.$'));
+});
+
 test('write guard preserves attachments and leaves legacy calls unchanged', () => {
   const ctx = {};
   vm.runInNewContext(fs.readFileSync(path.join(formsRoot, 'js/form_write_guard.js'), 'utf8'), ctx);
