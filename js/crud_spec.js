@@ -89,26 +89,67 @@ C8O.crudSpec = C8O.crudSpec || {};
     };
   }
 
-  C8O.crudSpec.normalizeDriver = function (ctx, databaseSpec) {
-    var rawMode = ctx.trimmed(databaseSpec.mode || databaseSpec.technology).toLowerCase();
-    if (rawMode === "postgres" || rawMode === "postgresql") {
-      rawMode = "postgresql";
-    } else if (rawMode === "maria" || rawMode === "mariadb") {
-      rawMode = "mariadb";
-    } else if (rawMode === "mssql" || rawMode === "sqlserver") {
-      rawMode = "sqlserver";
-    } else if (rawMode === "oracle") {
-      rawMode = "oracle";
-    } else if (rawMode === "mysql") {
-      rawMode = "mysql";
-    } else if (rawMode === "hsql" || rawMode === "hsqldb") {
-      rawMode = "hsqldb";
+  var ENGINE_LIST = "hsqldb, postgresql, mariadb, mysql, sqlserver or oracle";
+
+  // Agents write the engine in these fields too (driverFamily is the name crud-status answers with). They count only
+  // when they name an engine: "SQL" is no engine.
+  var ENGINE_ALIAS_FIELDS = ["type", "connectorType", "driverFamily"];
+
+  // A value written as text (a JavaScript or Java string, a number), or "" for an object.
+  function textOf(ctx, value) {
+    var text = ctx.trimmed(value);
+    return /^\[object /.test(text) ? "" : text;
+  }
+
+  // The engine an engine name designates (HSQLDB, Postgres, SQL Server, mssql...), or "".
+  function engineId(ctx, value) {
+    var token = textOf(ctx, value).toLowerCase().replace(/[^a-z0-9]/g, "");
+    token = { hsql: "hsqldb", postgres: "postgresql", maria: "mariadb", mssql: "sqlserver" }[token] || token;
+    return token.length && driverProfiles().hasOwnProperty(token) ? token : "";
+  }
+
+  // The engine comes from database.mode (or technology), then from an alias field, then, when lookup names the
+  // connector upsert-crud writes into, from that connector if it already exists (ctx.connectorEngine reads its JDBC
+  // driver). A driver read from a connector carries source "connector".
+  C8O.crudSpec.normalizeDriver = function (ctx, databaseSpec, lookup) {
+    var raw = databaseSpec || {};
+    var explicit = textOf(ctx, raw.mode || raw.technology);
+    var engine = engineId(ctx, explicit);
+    if (explicit.length && !engine) {
+      throw new Error("Unsupported database.mode \"" + explicit + "\": use " + ENGINE_LIST +
+        ", or leave mode out when database.connector names an existing SQL connector of the project.");
     }
-    var profile = driverProfiles()[rawMode];
-    if (!profile) {
-      throw new Error("Unsupported database mode/technology: " + rawMode);
+    var notEngines = [];
+    for (var i = 0; !engine && i < ENGINE_ALIAS_FIELDS.length; i++) {
+      var aliasValue = raw[ENGINE_ALIAS_FIELDS[i]];
+      engine = engineId(ctx, aliasValue);
+      if (!engine && textOf(ctx, aliasValue).length) {
+        notEngines.push("database." + ENGINE_ALIAS_FIELDS[i] + " \"" + textOf(ctx, aliasValue) + "\" is not one of them.");
+      }
     }
-    return ctx.clone(profile);
+    var source = "spec";
+    var existing = null;
+    if (!engine && lookup && ctx.connectorEngine) {
+      existing = ctx.connectorEngine(lookup.project, lookup.connector);
+      engine = existing ? engineId(ctx, existing.engine) : "";
+      source = "connector";
+    }
+    if (!engine) {
+      var message = "spec.database.mode is required: " + ENGINE_LIST + ", for example \"database\": {\"mode\": \"hsqldb\"" +
+        (lookup && lookup.connector ? ", \"connector\": \"" + lookup.connector + "\"" : "") + "}." +
+        " It can be left out when database.connector names an existing SQL connector of the project.";
+      if (notEngines.length) {
+        message += " " + notEngines.join(" ");
+      }
+      if (existing) {
+        message += " Connector " + existing.name + " uses the JDBC driver " + (existing.jdbcDriverClassName || "(none)") +
+          ", which upsert-crud does not generate for.";
+      }
+      throw new Error(message);
+    }
+    var profile = ctx.clone(driverProfiles()[engine]);
+    profile.source = source;
+    return profile;
   };
 
   C8O.crudSpec.inferDriverFamilyFromConnector = function (ctx, connector) {
@@ -142,13 +183,22 @@ C8O.crudSpec = C8O.crudSpec || {};
     return jdbcClass;
   };
 
+  // A connector name written as such or as a QName (Project.cn:appdb); anything else is no name.
+  function connectorName(ctx, value) {
+    return textOf(ctx, value).split(".").pop().replace(/^cn:/, "");
+  }
+
   C8O.crudSpec.normalizeDatabaseSpec = function (ctx, spec) {
-    var raw = spec.database || {};
-    var driver = C8O.crudSpec.normalizeDriver(ctx, raw);
+    var raw = spec.database && typeof spec.database === "object" ? spec.database : {};
+    // spec.connector is where agents also put the connector name.
+    var connector = ctx.trimmed(connectorName(ctx, raw.connector) || connectorName(ctx, spec.connector) || spec.project + "db") || "appdb";
+    var driver = C8O.crudSpec.normalizeDriver(ctx, raw, { project: ctx.trimmed(spec.project), connector: connector });
     return {
       mode: driver.id,
       technology: driver.technology,
-      connector: ctx.trimmed(raw.connector || spec.project + "db") || "appdb",
+      // "connector": the engine was read from the existing connector, which keeps its connection settings.
+      source: driver.source,
+      connector: connector,
       host: ctx.trimmed(raw.host || "localhost"),
       port: raw.port != null && String(raw.port).length ? String(raw.port) : String(driver.defaultPort),
       database: ctx.trimmed(raw.database || ctx.normalizedIdentifier(spec.project)),

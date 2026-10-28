@@ -230,6 +230,12 @@ C8O.crudRuntime = C8O.crudRuntime || {};
 
   C8O.crudRuntime.connectorProperties = function (ctx, spec) {
     var db = spec.database;
+    if (db.source === "connector") {
+      // The connector gave the engine: its connection is the one it was set up with, not defaults for a new one.
+      return {
+        comment: "Deterministic CRUD connector (" + db.driver.technology + ") for " + spec.project
+      };
+    }
     return {
       jdbcDriverClassName: db.driver.jdbcDriverClassName,
       jdbcURL: C8O.crudRuntime.buildJdbcUrl(ctx, db, spec),

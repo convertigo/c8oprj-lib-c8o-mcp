@@ -17,6 +17,17 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         spec: {
           type: "object",
           description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations, seed, and UI options. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
+          properties: {
+            database: {
+              type: "object",
+              description: "The SQL database, for example {\"mode\": \"hsqldb\", \"connector\": \"appdb\"}. host, port, database, user and password set the connection of a server engine.",
+              properties: {
+                mode: { type: "string", description: "The engine: hsqldb (embedded, no server), postgresql, mariadb, mysql, sqlserver or oracle. Leave it out when connector names an existing SQL connector: its engine and connection are kept." },
+                connector: { type: "string", description: "The SQL connector to create or update. Defaults to <project>db." }
+              },
+              additionalProperties: true
+            }
+          },
           additionalProperties: true
         },
         sequence: h().booleanFlagSchema(true, "Set true to create or update CRUD business sequences in addition to SQL transactions. Generated CRUD business sequences are hidden requestables that require an authenticated context; auth_login/auth_logout skeleton sequences are also created."),
