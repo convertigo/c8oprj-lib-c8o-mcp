@@ -294,6 +294,7 @@ C8O.crud = C8O.crud || {};
       requestablePayload: requestablePayload,
       summarizeRequestableProof: summarizeRequestableProof,
       collectSqlOutputRows: collectSqlOutputRows,
+      transactionRows: transactionRows,
       saveProject: function (project, warnings) {
         return C8O.dbo.saveProject(project, warnings || []);
       },
@@ -1090,6 +1091,30 @@ C8O.crud = C8O.crud || {};
 
   function collectSqlOutputRows(payload) {
     return C8O.crudProof.collectSqlOutputRows(crudProofContext(), payload);
+  }
+
+  // All the rows of a list transaction: requestable-execute keeps the first 12 for MCP clients.
+  function transactionRows(projectName, connectorName, transactionName, result) {
+    var request = new HashMap();
+    request.put("__project", String(projectName));
+    request.put("__connector", String(connectorName));
+    request.put("__transaction", String(transactionName));
+    request.put("__nolog", "true");
+    try {
+      var requester = null;
+      try {
+        requester = new InternalRequester(request, context.httpServletRequest);
+      } catch (_ignoreHttpRequest) {
+        requester = new InternalRequester(request);
+      }
+      var response = requester.processRequest();
+      var root = response && response.getDocumentElement ? response.getDocumentElement() : response;
+      var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+      return collectSqlOutputRows(JSON.parse(String(XMLUtils.XmlToJson(root, true, true))));
+    } catch (rowsError) {
+      addWarning(result, "Unable to read the rows of " + projectName + "." + connectorName + "." + transactionName + ": " + String(rowsError));
+      return [];
+    }
   }
 
   function probeViewer(viewerUrl, projectName, facadePrefix, hasCrmRelation, sequenceQNames, warnings) {

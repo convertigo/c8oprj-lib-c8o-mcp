@@ -496,8 +496,31 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
-  function lastRow(rows) {
-    return Array.isArray(rows) && rows.length ? rows[rows.length - 1] : null;
+  // The id of the row the sample create added: the one id of the list that was not in it before. Both reads hold the
+  // whole list, so a row that was already there is never updated or deleted, and two new ids (another client wrote
+  // meanwhile) give no id.
+  function createdRowId(ctx, entity, rowsBefore, rowsAfter) {
+    var column = entity.primaryField.column;
+    var known = {};
+    ctx.ensureArray(rowsBefore).forEach(function (row) {
+      var id = rowFieldValue(ctx, row, column);
+      if (id != null) {
+        known[String(id)] = true;
+      }
+    });
+    var createdId = null;
+    var rows = ctx.ensureArray(rowsAfter);
+    for (var i = 0; i < rows.length; i++) {
+      var id = rowFieldValue(ctx, rows[i], column);
+      if (id == null || known[String(id)]) {
+        continue;
+      }
+      if (createdId != null) {
+        return null;
+      }
+      createdId = id;
+    }
+    return createdId;
   }
 
   function pickDefaultTransaction(ctx, connector, spec) {
@@ -697,11 +720,13 @@ C8O.crudBackend = C8O.crudBackend || {};
     var sampleIndex = Math.max(5, Number(spec.seed && spec.seed.rowsPerEntity || 0)) + 50;
     var createVars = createSampleVariables(ctx, spec, entity, sampleIndex, cachedRows);
     if (Object.keys(createVars).length) {
+      // requestable-execute keeps the first 12 rows of a list, and the list is in id order: the created row is read in
+      // the whole list of the transaction.
+      var beforeCreateRows = ctx.transactionRows(project, connector, listName, result);
       learnRequestableSchema(ctx, createQName, createVars, result, bucket);
-      var afterCreateRows = ctx.collectSqlOutputRows(ctx.requestablePayload(listQName, {}, result, {}) || {});
-      cachedRows[entity.name] = afterCreateRows;
-      var createdRow = lastRow(afterCreateRows);
-      var createdId = rowFieldValue(ctx, createdRow, entity.primaryField.column);
+      var afterCreateRows = ctx.transactionRows(project, connector, listName, result);
+      cachedRows[entity.name] = afterCreateRows.length ? afterCreateRows : rows;
+      var createdId = createdRowId(ctx, entity, beforeCreateRows, afterCreateRows);
       if (createdId != null) {
         var updateVars = {};
         var createKeys = Object.keys(createVars);
@@ -1551,4 +1576,5 @@ C8O.crudBackend = C8O.crudBackend || {};
 
   C8O.crudBackend.relationsForEntity = relationsForEntity;
   C8O.crudBackend.relationListName = relationListName;
+  C8O.crudBackend.learnEntitySchemas = learnEntitySchemas;
 })();

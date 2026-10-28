@@ -137,7 +137,20 @@ C8O.crudProof = C8O.crudProof || {};
     return summarizeRequestableProof(ctx, payload, requestable, result);
   }
 
+  // requestablePayload answers what requestable-execute answers: { result: { requestable, status, totalItems,
+  // payload } }, where payload is the document of the requestable, its first 12 rows for a list. The rows were looked
+  // for at the top, as in the document itself, and were never found: upsert-crud could not infer the id of the row it
+  // created (status partial), and crud-proof had no parent row to filter a relation with.
+  function executionDocument(payload) {
+    var envelope = payload && typeof payload === "object" ? payload.result : null;
+    if (envelope && typeof envelope === "object" && envelope.requestable !== undefined) {
+      return envelope.payload && typeof envelope.payload === "object" ? envelope.payload : {};
+    }
+    return payload;
+  }
+
   function firstSqlOutputRow(_ctx, payload) {
+    payload = executionDocument(payload);
     var row = collectNestedValue(payload, [
       ["row"],
       ["result", "row"],
@@ -164,6 +177,7 @@ C8O.crudProof = C8O.crudProof || {};
   }
 
   function collectSqlOutputRows(_ctx, payload) {
+    payload = executionDocument(payload);
     var rows = collectNestedValue(payload, [
       ["rows"],
       ["result", "rows"],
