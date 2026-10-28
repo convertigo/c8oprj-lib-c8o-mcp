@@ -708,9 +708,9 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     };
   }
 
-  // Not a refusal: the token could not be checked because its store could not be read. The endpoint answers 503, which
-  // fails that call only, where a 401 tells the client to get another token (Vibe drops the server for its session).
-  // details (the Java exception, with the store path) is for the engine log only.
+  // Not a refusal: the token could not be checked, because its store could not be read or C8Oforms could not run its
+  // check. The endpoint answers 503, which fails that call only, where a 401 tells the client to get another token (Vibe
+  // drops the server for its session). details (the Java exception, with the store path) is for the engine log only.
   function unavailable(code, message, details) {
     return {
       status: "error",
@@ -788,7 +788,10 @@ C8O.mcpAuth = C8O.mcpAuth || {};
       var error = validation && validation.error ? validation.error : {};
       return invalid(error.code || "invalid_token", error.message || "The C8Oforms MCP token is invalid.");
     } catch (error) {
-      return invalid("invalid_nocode_token", String(error.message || error));
+      // C8Oforms could not check the token (not loaded while it is deployed or reloaded: "Unknown project "C8Oforms"",
+      // test-nocode 28/10 15:07): it did not refuse it. A 401 made Vibe drop the server for the rest of the session.
+      return unavailable("nocode_token_check_unavailable", "C8Oforms could not check the MCP token just now. The token was not refused: retry the call.",
+        String(error.message || error));
     }
   }
 
