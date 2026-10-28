@@ -1,0 +1,67 @@
+accessibility: Private
+comment: |
+  Read workflow requests
+  With instanceId: one request as the token user sees it (its state, data, the screen of its step: actions the user can do, sections, notices, progress, how the step is done; next; permissions; history). Otherwise the requests of a list: scope inbox (the tasks of the user and of its roles, default), started, involved or all (WorkflowAdmin, or the readers of one workflow), filtered by workflow, status, state, business key or a search, 20 per page. Read-only: never starts or moves a request. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000050]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.requests({
+      instanceId: typeof instanceId === "undefined" ? null : instanceId,
+      scope: typeof scope === "undefined" ? null : scope,
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      status: typeof status === "undefined" ? null : status,
+      state: typeof state === "undefined" ? null : state,
+      businessKey: typeof businessKey === "undefined" ? null : businessKey,
+      search: typeof search === "undefined" ? null : search,
+      includeTests: typeof includeTests === "undefined" ? null : includeTests,
+      limit: typeof limit === "undefined" ? null : limit,
+      skip: typeof skip === "undefined" ? null : skip,
+      full: typeof full === "undefined" ? null : full
+    });'
+↓result [steps.JsonToXmlStep-1794200000051]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓instanceId [variables.RequestableVariable-1794200000052]: 
+  comment: 'Id of one request to read.'
+  description: 'Id of one request to read.'
+↓scope [variables.RequestableVariable-1794200000053]: 
+  comment: 'inbox (default), started, involved or all.'
+  description: 'inbox (default), started, involved or all.'
+↓workflowKey [variables.RequestableVariable-1794200000054]: 
+  comment: 'Only the requests of this workflow.'
+  description: 'Only the requests of this workflow.'
+↓status [variables.RequestableVariable-1794200000055]: 
+  comment: 'active, completed, cancelled or all.'
+  description: 'active, completed, cancelled or all.'
+↓state [variables.RequestableVariable-1794200000056]: 
+  comment: 'Only the requests at this state.'
+  description: 'Only the requests at this state.'
+↓businessKey [variables.RequestableVariable-1794200000057]: 
+  comment: 'Only the requests with this business key.'
+  description: 'Only the requests with this business key.'
+↓search [variables.RequestableVariable-1794200000058]: 
+  comment: 'Text searched in the title, business key and id.'
+  description: 'Text searched in the title, business key and id.'
+↓includeTests [variables.RequestableVariable-1794200000059]: 
+  comment: 'true also lists the test requests started on drafts.'
+  description: 'true also lists the test requests started on drafts.'
+↓limit [variables.RequestableVariable-1794200000060]: 
+  comment: 'Requests per page, 20 by default, 200 at most.'
+  description: 'Requests per page, 20 by default, 200 at most.'
+↓skip [variables.RequestableVariable-1794200000061]: 
+  comment: 'Requests to skip, for the next pages (hasMore).'
+  description: 'Requests to skip, for the next pages (hasMore).'
+↓full [variables.RequestableVariable-1794200000062]: 
+  comment: 'With instanceId: true also returns the whole view model of the engine.'
+  description: 'With instanceId: true also returns the whole view model of the engine.'

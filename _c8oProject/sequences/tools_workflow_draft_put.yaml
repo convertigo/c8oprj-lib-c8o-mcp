@@ -1,0 +1,45 @@
+accessibility: Private
+comment: |
+  Save a workflow draft
+  Saves the draft of a workflow at the revision the agent read: the whole definition, or patch, a JSON merge patch of the draft (null removes a key, objects merge, lists replace). A draft saved by someone else meanwhile is refused (conflict): read it again. Answers the new draftRevision and the validation of the engine (errors with their path); saving never publishes. Designers only. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000019]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.draftPut({
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      expectedRevision: typeof expectedRevision === "undefined" ? null : expectedRevision,
+      definition: typeof definition === "undefined" ? null : definition,
+      patch: typeof patch === "undefined" ? null : patch,
+      notes: typeof notes === "undefined" ? null : notes
+    });'
+↓result [steps.JsonToXmlStep-1794200000020]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓workflowKey [variables.RequestableVariable-1794200000021]: 
+  comment: 'Key of the workflow.'
+  description: 'Key of the workflow.'
+  required: true
+↓expectedRevision [variables.RequestableVariable-1794200000022]: 
+  comment: 'draftRevision read with workflow-get or returned by the last save.'
+  description: 'draftRevision read with workflow-get or returned by the last save.'
+  required: true
+↓definition [variables.RequestableVariable-1794200000023]: 
+  comment: 'The whole definition (JSON object), replacing the draft.'
+  description: 'The whole definition (JSON object), replacing the draft.'
+↓patch [variables.RequestableVariable-1794200000024]: 
+  comment: 'JSON merge patch applied to the draft, instead of definition.'
+  description: 'JSON merge patch applied to the draft, instead of definition.'
+↓notes [variables.RequestableVariable-1794200000025]: 
+  comment: 'Notes of the draft, kept with the next publication.'
+  description: 'Notes of the draft, kept with the next publication.'

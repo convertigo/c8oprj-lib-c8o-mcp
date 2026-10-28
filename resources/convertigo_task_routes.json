@@ -118,6 +118,17 @@
       ]
     },
     {
+      "id": "workflow",
+      "match": "Design, change, check or publish a workflow of lib_WorkflowEngine (approval circuit, requests through steps and roles), look at its requests, or build the application pages that start and handle them",
+      "required": [
+        "convertigo://resources/convertigo-workflow"
+      ],
+      "fallback": [
+        "convertigo://resources/convertigo-frontend-ngx",
+        "convertigo://resources/convertigo-backend-sequences"
+      ]
+    },
+    {
       "id": "unknown",
       "match": "Convertigo task that does not match a route above",
       "required": [

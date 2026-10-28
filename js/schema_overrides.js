@@ -1228,6 +1228,133 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // workflow-* tools (js/workflow_tools.js): the arguments of lib_WorkflowEngine, typed. The definition syntax is in the
+  // guide convertigo://resources/convertigo-workflow, not repeated here.
+  function workflowInputSchema(seq) {
+    var key = { type: "string", pattern: "^[A-Za-z0-9_-]{1,80}$", description: "Key of the workflow (workflow-list)." };
+    var revision = { type: "integer", minimum: 1, description: "draftRevision of the draft as read with workflow-get or returned by the last workflow-draft-put." };
+    var definition = { type: "object", additionalProperties: true, description: "A whole workflow definition: workflowKey, title, fields, startForm, initialState, states (label, roles, on, always, view, ui, service...), progress, ui. Syntax: convertigo://resources/convertigo-workflow." };
+    var schemas = {
+      tools_workflow_list: {
+        properties: {
+          view: { type: "string", enum: ["design", "startable"], default: "design", description: "design: every workflow (draft and published state) and the templates, designers only. startable: the published workflows the token user can start." },
+          includeArchived: { type: "boolean", default: false, description: "Design view: also the archived workflows." }
+        }
+      },
+      tools_workflow_get: {
+        properties: {
+          workflowKey: key,
+          version: { description: "draft (default): the draft to edit, with its draftRevision; published: the current published version; or a published version number.", oneOf: [{ type: "string", enum: ["draft", "published"] }, { type: "integer", minimum: 1 }] }
+        },
+        required: ["workflowKey"]
+      },
+      tools_workflow_draft_create: {
+        properties: {
+          title: { type: "string", description: "Title shown to the users of the workflow." },
+          workflowKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,80}$", description: "Key of the new workflow; it cannot change once published. Default: the key of the template when free, else derived from the title." },
+          description: { type: "string" },
+          templateKey: { type: "string", description: "Template from workflow-list (templates[].templateKey), e.g. purchase-request or Project:key." },
+          definition: definition,
+          fromForm: { type: "string", description: "Published No Code Studio form (published_<id>) whose answers start the requests; needs C8Oforms. Its fields become the fields of the workflow." },
+          circuit: { type: "string", enum: ["approval", "two-levels"], default: "approval", description: "With fromForm: a manager approves, rejects or sends back (approval), or a manager then a director (two-levels)." },
+          language: { type: "string", enum: ["en", "fr", "es", "it", "zh-CN"], default: "en", description: "With fromForm: language of the texts of the steps." }
+        }
+      },
+      tools_workflow_draft_put: {
+        properties: {
+          workflowKey: key,
+          expectedRevision: revision,
+          definition: definition,
+          patch: { type: "object", additionalProperties: true, description: "JSON merge patch of the draft (RFC 7386), instead of definition: objects merge, null removes a key, a list is replaced whole. Example: {\"states\":{\"review\":{\"color\":\"purple\"}},\"fields\":{\"oldField\":null}}." },
+          notes: { type: "string", description: "Notes of the draft, kept with its next publication." }
+        },
+        required: ["workflowKey", "expectedRevision"]
+      },
+      tools_workflow_validate: {
+        properties: {
+          workflowKey: key,
+          definition: definition
+        }
+      },
+      tools_workflow_simulate: {
+        properties: {
+          workflowKey: key,
+          source: { type: "string", enum: ["draft", "published"], default: "draft", description: "Which definition of workflowKey: the draft (designers) or a published version." },
+          version: { type: "integer", minimum: 1, description: "A published version (source published by default when given); without it, the current one." },
+          definition: definition,
+          instanceId: { type: "string", description: "A request: the dry run of one event on it as it is now, with the rights of the token user." },
+          state: { type: "string", description: "State key to start from; default the initial state." },
+          data: { type: "object", additionalProperties: true, description: "Data of the simulated request, e.g. the result a service step would have stored." },
+          businessKey: { type: "string" },
+          event: { type: "string", description: "One action to try from the state." },
+          payload: { type: "object", additionalProperties: true, description: "Values of the form of that action, by field name." },
+          path: {
+            type: "array",
+            maxItems: 20,
+            description: "Actions chained from the state, each from where the previous one led; stops at the first refused.",
+            items: { type: "object", properties: { event: { type: "string" }, payload: { type: "object", additionalProperties: true } }, required: ["event"], additionalProperties: false }
+          },
+          full: { type: "boolean", default: false, description: "Also the whole view model of the engine (large)." }
+        }
+      },
+      tools_workflow_publish: {
+        properties: {
+          workflowKey: key,
+          expectedRevision: { type: "integer", minimum: 1, description: "draftRevision the user checked (workflow-get or the last workflow-draft-put). A draft saved after it is refused." },
+          confirm: { type: "boolean", description: "true only when the user explicitly asked to publish this workflow in the conversation. Without it nothing is published and the answer says what would be." },
+          notes: { type: "string", description: "Notes of the version." }
+        },
+        required: ["workflowKey", "expectedRevision"]
+      },
+      tools_workflow_requests: {
+        properties: {
+          instanceId: { type: "string", description: "One request to read; the list arguments are then ignored." },
+          scope: { type: "string", enum: ["inbox", "started", "involved", "all"], default: "inbox", description: "inbox: the tasks of the token user and its roles; started: the requests it started; involved: those it acted on; all: every request (WorkflowAdmin, or the readers of the workflow named by workflowKey)." },
+          workflowKey: key,
+          status: { type: "string", enum: ["active", "completed", "cancelled", "all"] },
+          state: { type: "string", description: "Only the requests at this state key." },
+          businessKey: { type: "string" },
+          search: { type: "string", description: "Text searched in the title, the business key and the id." },
+          includeTests: { type: "boolean", default: false, description: "Also the test requests started on drafts." },
+          limit: { type: "integer", minimum: 1, maximum: 200, default: 20 },
+          skip: { type: "integer", minimum: 0, default: 0, description: "Requests to skip: the next page when hasMore is true." },
+          full: { type: "boolean", default: false, description: "With instanceId: also the whole view model of the engine." }
+        }
+      },
+      tools_workflow_catalog: {
+        properties: {
+          project: { type: "string", description: "Only this loaded project. The agent stack and the workflow libraries (lib_WorkflowEngine, lib_WorkflowEngine_ui_ngx) are listed only when named." },
+          kind: { type: "string", enum: ["all", "sequences", "pages", "components", "forms"], default: "all" },
+          search: { type: "string", description: "Text searched in the qualified names, routes, titles and comments." },
+          limit: { type: "integer", minimum: 1, maximum: 500, default: 150, description: "Sequences, pages and components listed at most, in all; truncated tells when more match." }
+        }
+      }
+    };
+    var schema = schemas[seq];
+    if (!schema) {
+      return null;
+    }
+    var out = { type: "object", properties: schema.properties, additionalProperties: false };
+    if (schema.required) {
+      out.required = schema.required;
+    }
+    return out;
+  }
+
+  // What every workflow-* tool answers: status first; actor is the user the call acted as and the roles the engine gave it.
+  function workflowOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string", enum: ["ok", "confirmation_required", "bad_request", "auth_required", "forbidden", "not_found", "conflict", "invalid", "unavailable", "error"] },
+      actor: openObjectSchema({
+        user: { type: "string" },
+        roles: stringArraySchema(),
+        isDesigner: { type: "boolean" },
+        isAdmin: { type: "boolean" }
+      }),
+      error: openObjectSchema({ code: { type: "string" }, message: { type: "string" }, hint: { type: "string" } })
+    });
+  }
+
   function nocodeFormPublishInputSchema() {
     return {
       type: "object",
@@ -2513,6 +2640,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_nocode_form_publish") {
       return nocodeFormPublishInputSchema();
     }
+    if (seq.indexOf("tools_workflow_") === 0 && workflowInputSchema(seq)) {
+      return workflowInputSchema(seq);
+    }
     if (seq === "tools_nocode_form_preview_capture") {
       return nocodeFormPreviewCaptureInputSchema();
     }
@@ -2638,6 +2768,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_security_audit") {
       return projectSecurityAuditOutputSchema();
+    }
+    if (seq.indexOf("tools_workflow_") === 0) {
+      return workflowOutputSchema();
     }
     var crudOutputOverride = C8O.schemaOverridesCrud && C8O.schemaOverridesCrud.applyOutput
       ? C8O.schemaOverridesCrud.applyOutput(seq)

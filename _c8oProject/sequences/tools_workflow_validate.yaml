@@ -1,0 +1,31 @@
+accessibility: Private
+comment: |
+  Validate a workflow definition
+  Runs the validator of lib_WorkflowEngine (the Check of the Workflow Studio) on the saved draft (workflowKey) or on a definition not saved (definition): errors, which block publication, and warnings, each with the path of the option, and a summary (states, transitions, fields, roles). Designers only. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000026]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.validate({
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      definition: typeof definition === "undefined" ? null : definition
+    });'
+↓result [steps.JsonToXmlStep-1794200000027]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓workflowKey [variables.RequestableVariable-1794200000028]: 
+  comment: 'Key of the workflow whose saved draft is checked.'
+  description: 'Key of the workflow whose saved draft is checked.'
+↓definition [variables.RequestableVariable-1794200000029]: 
+  comment: 'A definition (JSON object) to check without saving it.'
+  description: 'A definition (JSON object) to check without saving it.'

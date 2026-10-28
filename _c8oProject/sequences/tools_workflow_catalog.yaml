@@ -1,0 +1,39 @@
+accessibility: Private
+comment: |
+  List what a workflow can orchestrate
+  From lib_WorkflowEngine.workflowCatalog, what the Execution card of the Workflow Studio offers: the sequences of the loaded projects with their variables (service steps and calls; serviceReady when Private without authenticated context, as service steps need), the pages with their routes and the shared components with their inputs of the NGX applications (ui.page, ui.component), and the published No Code Studio forms when C8Oforms is loaded (ui.form, startForm.form). The agent stack and the workflow libraries are left out unless named; 150 entries at most by default (truncated, limit). Designers only. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000063]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.catalog({
+      project: typeof project === "undefined" ? null : project,
+      kind: typeof kind === "undefined" ? null : kind,
+      search: typeof search === "undefined" ? null : search,
+      limit: typeof limit === "undefined" ? null : limit
+    });'
+↓result [steps.JsonToXmlStep-1794200000064]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1794200000065]: 
+  comment: 'Only this project.'
+  description: 'Only this project.'
+↓kind [variables.RequestableVariable-1794200000066]: 
+  comment: 'all (default), sequences, pages, components or forms.'
+  description: 'all (default), sequences, pages, components or forms.'
+↓search [variables.RequestableVariable-1794200000067]: 
+  comment: 'Text searched in the names, routes and comments.'
+  description: 'Text searched in the names, routes and comments.'
+↓limit [variables.RequestableVariable-1794200000090]: 
+  comment: 'Sequences, pages and components listed at most, in all (150 by default, 500 at most).'
+  description: 'Sequences, pages and components listed at most, in all (150 by default, 500 at most).'

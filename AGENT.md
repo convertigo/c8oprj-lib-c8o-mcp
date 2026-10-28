@@ -163,6 +163,31 @@ request, whatever the switch.
   (`#experimental` key suffix).
 - Covered by `tests/scripts/validate_experimental_features.cjs`.
 
+## Workflow tools (lib_WorkflowEngine)
+
+`workflow-list`, `workflow-get`, `workflow-draft-create`, `workflow-draft-put`, `workflow-validate`,
+`workflow-simulate`, `workflow-publish`, `workflow-requests` and `workflow-catalog` (`js/workflow_tools.js`,
+`tools_workflow_*.yaml`) call the sequences of `lib_WorkflowEngine` and nothing else; the guide is
+`convertigo://resources/convertigo-workflow` (prompt `convertigo-workflow`).
+
+- Identity: each tool call validates the bearer of its HTTP request again (`C8O.mcpAuth.authenticateRequest`), then
+  runs the engine sequences through `InternalRequester` on an `InternalHttpServletRequest` whose session is its own
+  and signed in as the token user (`SessionAttribute.authenticatedUser`; `c8o:admin` for a token of the
+  administration console). The session carries no role: the engine resolves them as for any user (roles sequence,
+  global symbols `lib_WorkflowEngine.designers` / `admins`). The tools never call `workflowDevLogin`,
+  `workflowSessionSetRoles` or the `*As` sequences, never touch the MCP client session, and sign the internal session
+  out at the end. A No Code token is refused (the router already keeps it to the no-code tools).
+- The engine answers typed XML (`jsonToXml` with data types), read back with `XmlToJson(..., useType, docChildNodes)`:
+  definitions round-trip exactly (checked live on the templates and on keys with spaces, unicode, empty objects).
+- Every answer is `{status, actor, ...}`; engine refusals keep their code (`forbidden`, `conflict`, `invalid`,
+  `not_found`) with `error.hint` naming the token user and where the engine reads its roles. `workflow-publish`
+  publishes nothing without `confirm:true` and needs the `draftRevision` the user checked.
+- The tools stay listed when `lib_WorkflowEngine` is not loaded and answer `workflow_engine_missing`: the libraries
+  are imported during a conversation, and a tool hidden at the start of a session would not appear afterwards.
+- Covered by `tests/scripts/validate_workflow_tools.cjs`, which runs the real engine of lib_WorkflowEngine
+  (`WORKFLOW_ENGINE_ROOT`) on its MemoryStore behind a fake `InternalRequester` that only accepts the variables each
+  engine sequence declares, and live by `tests/preflight/workflow_live.py`.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

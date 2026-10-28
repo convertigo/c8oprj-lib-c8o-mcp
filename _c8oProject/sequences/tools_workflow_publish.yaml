@@ -1,0 +1,41 @@
+accessibility: Private
+comment: |
+  Publish a workflow
+  Publishes the draft of a workflow as a new immutable version, as Publish in the Workflow Studio: new requests use it, running ones keep their version. Call it only when the user explicitly asked to publish this workflow, never on your own initiative or as the next step of an edit. Pass the draftRevision the user checked: a draft saved after it is refused (conflict), and a draft with validation errors is not published. Without confirm true it publishes nothing and answers what would be published. Designers only. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000044]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.publish({
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      expectedRevision: typeof expectedRevision === "undefined" ? null : expectedRevision,
+      confirm: typeof confirm === "undefined" ? null : confirm,
+      notes: typeof notes === "undefined" ? null : notes
+    });'
+↓result [steps.JsonToXmlStep-1794200000045]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓workflowKey [variables.RequestableVariable-1794200000046]: 
+  comment: 'Key of the workflow.'
+  description: 'Key of the workflow.'
+  required: true
+↓expectedRevision [variables.RequestableVariable-1794200000047]: 
+  comment: 'draftRevision the user checked (workflow-get or the last workflow-draft-put).'
+  description: 'draftRevision the user checked (workflow-get or the last workflow-draft-put).'
+  required: true
+↓confirm [variables.RequestableVariable-1794200000048]: 
+  comment: 'true only when the user explicitly asked to publish this workflow.'
+  description: 'true only when the user explicitly asked to publish this workflow.'
+↓notes [variables.RequestableVariable-1794200000049]: 
+  comment: 'Notes of the version.'
+  description: 'Notes of the version.'

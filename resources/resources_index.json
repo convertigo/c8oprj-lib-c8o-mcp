@@ -1164,5 +1164,49 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-workflow",
+    "name": "Convertigo Workflow",
+    "title": "Convertigo Workflow",
+    "description": "Workflows of lib_WorkflowEngine: who the workflow tools act as, the tool rail from draft to publication, the definition syntax (fields, start form, states, actions, views, progress, pages, components, No Code Studio forms, service steps), the NGX application built with WorkflowStep, WorkflowStart and WorkflowTaskList, the Workflow Studio, and the pitfalls.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_workflow.md",
+    "guideId": "convertigo/workflow",
+    "revision": 1,
+    "scopeTags": [
+      "domain",
+      "workflow",
+      "approval",
+      "roles",
+      "ngx",
+      "recipe"
+    ],
+    "prerequisites": [
+      "convertigo/start@1"
+    ],
+    "recommendedTools": [
+      "workflow-list",
+      "workflow-catalog",
+      "workflow-draft-create",
+      "workflow-get",
+      "workflow-draft-put",
+      "workflow-validate",
+      "workflow-simulate",
+      "workflow-publish",
+      "workflow-requests",
+      "marketplace-describe",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "project-save",
+      "mobile-builder-open",
+      "scheduler-apply"
+    ],
+    "promptNames": [
+      "convertigo-workflow",
+      "convertigo-frontend-ngx"
+    ],
+    "guidanceLevel": "domain",
+    "fallbackToRag": false
   }
 ]

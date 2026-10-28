@@ -324,7 +324,15 @@ function coerceToolArguments(argumentsObject, sequenceName, requestableObject) {
 // (databaseobject-search with query and project scanned nothing and found nothing, run 9a).
 var ARGUMENT_ALIASES = {
   tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" },
-  tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" }
+  tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" },
+  tools_workflow_get: { key: "workflowKey", workflow: "workflowKey", workflowId: "workflowKey" },
+  tools_workflow_draft_create: { key: "workflowKey", template: "templateKey", form: "fromForm", formId: "fromForm" },
+  tools_workflow_draft_put: { key: "workflowKey", workflow: "workflowKey", revision: "expectedRevision", draftRevision: "expectedRevision", rev: "expectedRevision", mergePatch: "patch" },
+  tools_workflow_validate: { key: "workflowKey", workflow: "workflowKey" },
+  tools_workflow_simulate: { key: "workflowKey", workflow: "workflowKey", action: "event", id: "instanceId", requestId: "instanceId", events: "path" },
+  tools_workflow_publish: { key: "workflowKey", workflow: "workflowKey", revision: "expectedRevision", draftRevision: "expectedRevision", rev: "expectedRevision" },
+  tools_workflow_requests: { id: "instanceId", requestId: "instanceId", key: "workflowKey", workflow: "workflowKey", query: "search", pageSize: "limit" },
+  tools_workflow_catalog: { type: "kind", filter: "search", query: "search" }
 };
 
 // Arguments an agent gets by default when it does not give them; a direct sequence call (the Assistant's table picker)

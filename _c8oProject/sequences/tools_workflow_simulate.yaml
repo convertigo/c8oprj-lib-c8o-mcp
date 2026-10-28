@@ -1,0 +1,71 @@
+accessibility: Private
+comment: |
+  Simulate a workflow state or a path of actions
+  Dry runs on the draft (default), a published version, a definition not saved or a request: without event, what a state shows with given data (actions with their fields, sections, notices, errors under the fields, progress, how it is done: ui, service); with event, where that action leads (the state reached after the automatic routing, the data, or why it is refused); with path, several actions chained, each from where the previous one led. Nothing is saved, notified or called (service steps are skipped). The draft and a definition need a designer; a request is simulated with the rights of the token user. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000030]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.simulate({
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      source: typeof source === "undefined" ? null : source,
+      version: typeof version === "undefined" ? null : version,
+      definition: typeof definition === "undefined" ? null : definition,
+      instanceId: typeof instanceId === "undefined" ? null : instanceId,
+      state: typeof state === "undefined" ? null : state,
+      data: typeof data === "undefined" ? null : data,
+      businessKey: typeof businessKey === "undefined" ? null : businessKey,
+      event: typeof event === "undefined" ? null : event,
+      payload: typeof payload === "undefined" ? null : payload,
+      path: typeof path === "undefined" ? null : path,
+      full: typeof full === "undefined" ? null : full
+    });'
+↓result [steps.JsonToXmlStep-1794200000031]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓workflowKey [variables.RequestableVariable-1794200000032]: 
+  comment: 'Key of the workflow.'
+  description: 'Key of the workflow.'
+↓source [variables.RequestableVariable-1794200000033]: 
+  comment: 'draft (default) or published.'
+  description: 'draft (default) or published.'
+↓version [variables.RequestableVariable-1794200000034]: 
+  comment: 'A published version number (source published by default when given); without it, the current one.'
+  description: 'A published version number (source published by default when given); without it, the current one.'
+↓definition [variables.RequestableVariable-1794200000035]: 
+  comment: 'A definition (JSON object) not saved, simulated instead.'
+  description: 'A definition (JSON object) not saved, simulated instead.'
+↓instanceId [variables.RequestableVariable-1794200000036]: 
+  comment: 'Id of a request: the dry run of one event on it as it is now.'
+  description: 'Id of a request: the dry run of one event on it as it is now.'
+↓state [variables.RequestableVariable-1794200000037]: 
+  comment: 'State to simulate (default the initial state).'
+  description: 'State to simulate (default the initial state).'
+↓data [variables.RequestableVariable-1794200000038]: 
+  comment: 'Data of the simulated request (JSON object).'
+  description: 'Data of the simulated request (JSON object).'
+↓businessKey [variables.RequestableVariable-1794200000039]: 
+  comment: 'Business key of the simulated request.'
+  description: 'Business key of the simulated request.'
+↓event [variables.RequestableVariable-1794200000040]: 
+  comment: 'Action to try from the state.'
+  description: 'Action to try from the state.'
+↓payload [variables.RequestableVariable-1794200000041]: 
+  comment: 'Values of the form of that action (JSON object).'
+  description: 'Values of the form of that action (JSON object).'
+↓path [variables.RequestableVariable-1794200000042]: 
+  comment: 'Actions to chain: JSON list of { event, payload }, 20 at most.'
+  description: 'Actions to chain: JSON list of { event, payload }, 20 at most.'
+↓full [variables.RequestableVariable-1794200000043]: 
+  comment: 'true also returns the whole view model of the engine.'
+  description: 'true also returns the whole view model of the engine.'

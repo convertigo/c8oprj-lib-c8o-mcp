@@ -1,0 +1,55 @@
+accessibility: Private
+comment: |
+  Create a workflow draft
+  Creates a new workflow as a draft, never published: blank (a minimal valid skeleton), from a template (templateKey from workflow-list), from a whole definition, or from a published No Code Studio form (fromForm with C8Oforms: the fields of the form, the form as start form, a circuit approval or two-levels). Without workflowKey the key of the template is kept when free, else one is derived from the title. Answers the draft as workflow-get does. Designers only. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000009]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.draftCreate({
+      title: typeof title === "undefined" ? null : title,
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      description: typeof description === "undefined" ? null : description,
+      templateKey: typeof templateKey === "undefined" ? null : templateKey,
+      definition: typeof definition === "undefined" ? null : definition,
+      fromForm: typeof fromForm === "undefined" ? null : fromForm,
+      circuit: typeof circuit === "undefined" ? null : circuit,
+      language: typeof language === "undefined" ? null : language
+    });'
+↓result [steps.JsonToXmlStep-1794200000010]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓title [variables.RequestableVariable-1794200000011]: 
+  comment: 'Title of the workflow, shown to its users.'
+  description: 'Title of the workflow, shown to its users.'
+↓workflowKey [variables.RequestableVariable-1794200000012]: 
+  comment: 'Key of the new workflow: letters, digits, - or _ (80 at most). It cannot change once published.'
+  description: 'Key of the new workflow: letters, digits, - or _ (80 at most). It cannot change once published.'
+↓description [variables.RequestableVariable-1794200000013]: 
+  comment: 'Description shown in the catalog of requests.'
+  description: 'Description shown in the catalog of requests.'
+↓templateKey [variables.RequestableVariable-1794200000014]: 
+  comment: 'Template to start from (workflow-list templates), e.g. purchase-request or WorkflowSampleSupplier:supplier-onboarding.'
+  description: 'Template to start from (workflow-list templates), e.g. purchase-request or WorkflowSampleSupplier:supplier-onboarding.'
+↓definition [variables.RequestableVariable-1794200000015]: 
+  comment: 'A whole workflow definition (JSON object) to start from.'
+  description: 'A whole workflow definition (JSON object) to start from.'
+↓fromForm [variables.RequestableVariable-1794200000016]: 
+  comment: 'Id of a published No Code Studio form (published_<id>) whose answers the workflow handles.'
+  description: 'Id of a published No Code Studio form (published_<id>) whose answers the workflow handles.'
+↓circuit [variables.RequestableVariable-1794200000017]: 
+  comment: 'With fromForm: approval (default) or two-levels.'
+  description: 'With fromForm: approval (default) or two-levels.'
+↓language [variables.RequestableVariable-1794200000018]: 
+  comment: 'With fromForm: language of the texts of the steps, en (default), fr, es, it or zh-CN.'
+  description: 'With fromForm: language of the texts of the steps, en (default), fr, es, it or zh-CN.'

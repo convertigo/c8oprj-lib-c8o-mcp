@@ -515,5 +515,52 @@
       "mcpCritique"
     ],
     "mutatesProject": true
+  },
+  {
+    "name": "convertigo-workflow",
+    "file": "convertigo_workflow.md",
+    "title": "Convertigo Workflow",
+    "description": "Design, check and publish a workflow of lib_WorkflowEngine with the workflow tools, and build its NGX application with the generic components of lib_WorkflowEngine_ui_ngx.",
+    "promptId": "convertigo/workflow",
+    "revision": 1,
+    "roleId": "workflow",
+    "modelProfile": "balanced",
+    "scopeTags": [
+      "workflow",
+      "approval",
+      "roles",
+      "ngx"
+    ],
+    "guideIds": [
+      "convertigo/start@1",
+      "convertigo/workflow@1"
+    ],
+    "recommendedTools": [
+      "workflow-list",
+      "workflow-catalog",
+      "workflow-draft-create",
+      "workflow-get",
+      "workflow-draft-put",
+      "workflow-validate",
+      "workflow-simulate",
+      "workflow-publish",
+      "workflow-requests",
+      "databaseobject-tree-apply",
+      "batch-call",
+      "project-save",
+      "mobile-builder-open"
+    ],
+    "handoffTo": [
+      "convertigo/frontend-ngx@1",
+      "convertigo/backend@1"
+    ],
+    "outputContract": [
+      "workflow",
+      "changes",
+      "proof",
+      "publication",
+      "openPoints"
+    ],
+    "mutatesProject": true
   }
 ]

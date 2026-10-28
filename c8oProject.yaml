@@ -101,6 +101,15 @@
   ↓tools_tigo_resources [sequences.GenericSequence]: 🗏 sequences/tools_tigo_resources.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
   ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml
+  ↓tools_workflow_catalog [sequences.GenericSequence]: 🗏 sequences/tools_workflow_catalog.yaml
+  ↓tools_workflow_draft_create [sequences.GenericSequence]: 🗏 sequences/tools_workflow_draft_create.yaml
+  ↓tools_workflow_draft_put [sequences.GenericSequence]: 🗏 sequences/tools_workflow_draft_put.yaml
+  ↓tools_workflow_get [sequences.GenericSequence]: 🗏 sequences/tools_workflow_get.yaml
+  ↓tools_workflow_list [sequences.GenericSequence]: 🗏 sequences/tools_workflow_list.yaml
+  ↓tools_workflow_publish [sequences.GenericSequence]: 🗏 sequences/tools_workflow_publish.yaml
+  ↓tools_workflow_requests [sequences.GenericSequence]: 🗏 sequences/tools_workflow_requests.yaml
+  ↓tools_workflow_simulate [sequences.GenericSequence]: 🗏 sequences/tools_workflow_simulate.yaml
+  ↓tools_workflow_validate [sequences.GenericSequence]: 🗏 sequences/tools_workflow_validate.yaml
   ↓project1 [references.ProjectSchemaReference]: 
     projectName: mobilebuilder_tpl_8_4_0_ngx_legacy=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/8ca383ae844129df72bd3436a7869bfdc0a69d5c.zip
   ↓project2 [references.ProjectSchemaReference]: 

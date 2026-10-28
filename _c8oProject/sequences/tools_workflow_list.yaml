@@ -1,0 +1,31 @@
+accessibility: Private
+comment: |
+  List the workflows of lib_WorkflowEngine
+  Design view (default, WorkflowDesigner or WorkflowAdmin): every workflow with its draft revision, published version, unpublished changes, validation counts and requests per status, and the templates offered to create one (lib_WorkflowEngine workflows/definitions and those of the loaded projects, Project:key). view startable: the published workflows the token user can start. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000001]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.list({
+      view: typeof view === "undefined" ? null : view,
+      includeArchived: typeof includeArchived === "undefined" ? null : includeArchived
+    });'
+↓result [steps.JsonToXmlStep-1794200000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓view [variables.RequestableVariable-1794200000003]: 
+  comment: 'design (default): workflows and templates, designers only; startable: the published workflows the user can start.'
+  description: 'design (default): workflows and templates, designers only; startable: the published workflows the user can start.'
+↓includeArchived [variables.RequestableVariable-1794200000004]: 
+  comment: 'true also lists the archived workflows (design view).'
+  description: 'true also lists the archived workflows (design view).'

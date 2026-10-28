@@ -91,6 +91,20 @@ engine marker (`DboBean.isExperimental()`, descriptor value `experimental`). An
 existing native sequence keeps its properties, and an engine without the switch
 or the marker hides nothing. The tests mock the Java side in memory.
 
+## Workflow tools
+
+Run `node --test tests/scripts/validate_workflow_tools.cjs` after changing `js/workflow_tools.js`, the
+`tools_workflow_*` sequences, their schemas or the workflow guide. The tests load the real engine of lib_WorkflowEngine
+(`js/workflow_engine.js`, `workflow_store.js`, `workflow_expr.js` from `WORKFLOW_ENGINE_ROOT`, default
+`../c8oprj-lib-workflow-engine`; skipped when missing) with a small Java shim, on its MemoryStore, and read its
+sequences to route each call to the engine function with the variables the sequence declares (an unknown variable
+fails the test). They cover the identity (the token user in an internal session without roles, signed out after,
+no developer login), the roles from the symbols or the roles sequence, drafts and merge patches with revisions,
+validation, simulations and paths (nothing saved), the publication confirmation, requests read with the rights of
+the user, the catalog limits, and the schemas, aliases, guide and prompt. `tests/preflight/workflow_live.py` is the
+live proof on a Studio with lib_WorkflowEngine (the rail from a template to a publication, the XML round trip of
+odd keys and values, refusals, a request of another user, the MCP client session never signed in).
+
 ## No-code capability isolation
 
 Run `node --test tests/scripts/validate_nocode_tool_policy.cjs` after changes to

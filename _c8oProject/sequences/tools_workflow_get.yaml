@@ -1,0 +1,32 @@
+accessibility: Private
+comment: |
+  Read a workflow definition
+  Reads the draft to edit (default, designers): its definition, draftRevision (pass it as expectedRevision to workflow-draft-put and workflow-publish), validation, published versions and requests per state. version published or a number reads a published, immutable version instead. The definition syntax is in convertigo://resources/convertigo-workflow. Acts as the user of the MCP token, with the roles the workflow engine gives that user. Needs lib_WorkflowEngine.
+↓Run [steps.SimpleStep-1794200000005]: 
+  expression: |
+    'include("js/mcp_auth.js");
+    include("js/workflow_tools.js");
+    result = C8O.workflowTools.get({
+      workflowKey: typeof workflowKey === "undefined" ? null : workflowKey,
+      version: typeof version === "undefined" ? null : version
+    });'
+↓result [steps.JsonToXmlStep-1794200000006]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓workflowKey [variables.RequestableVariable-1794200000007]: 
+  comment: 'Key of the workflow, from workflow-list.'
+  description: 'Key of the workflow, from workflow-list.'
+  required: true
+↓version [variables.RequestableVariable-1794200000008]: 
+  comment: 'draft (default), published (the current published version) or a published version number.'
+  description: 'draft (default), published (the current published version) or a published version number.'

@@ -13,6 +13,7 @@ The bearer comes from `CONVERTIGO_MCP_TOKEN`, else from the `convertigo` proxy e
 | MCP contract, live | `python3 tests/preflight/contract_live.py [--port N] [--json out.json]` | 2 to 5 min |
 | Engine pitfalls, live | `python3 tests/preflight/pitfalls_live.py [--port N] [--only 1,6]` | 1 min |
 | Engine-context soak | `python3 ../lib_ConvertigoAssistant/tests/preflight/soak_contexts.py [--port N] [--minutes 10]` | 10 min |
+| Workflow tools, live | `python3 tests/preflight/workflow_live.py [--port N]` (lib_WorkflowEngine loaded, token user a workflow designer) | 10 s |
 
 ## MCP contract (`contract_live.py`)
 

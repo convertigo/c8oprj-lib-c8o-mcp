@@ -149,6 +149,13 @@ Every model step pays the whole conversation again: a build driven in one contex
 - Logout runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep`, and the client calls it with `__disableAutologin=true`.
 - Finish with `project-security-audit`; an anonymous configuration or login sequence is recorded with `suppress` and its reason, never left unexplained.
 
+## Workflow route
+
+- Use this route for a workflow of `lib_WorkflowEngine`: an approval circuit, requests through steps and roles, its check, simulation or publication, its requests, or the application pages that start and handle them. Design with the `workflow-*` tools only; never write the `workflow_engine` database, the engine sequences or a session of the engine directly.
+- The `workflow-*` tools act as the user of the MCP token with the roles the engine gives it (`actor` in every answer). A `forbidden` answer means a missing role: report `error.hint` to the user, never work around it.
+- Save with the last `draftRevision`; publish only on the user's explicit request (`workflow-publish` with `confirm: true` and the revision they checked).
+- The application uses the shared components `WorkflowStep`, `WorkflowStart` and `WorkflowTaskList` of `lib_WorkflowEngine_ui_ngx`: one request page and a home, no page per step.
+
 ## Viewer and mobile builder rule
 
 - Starting the viewer is the agent's decision, not the user's. As soon as frontend work is known to be part of the task, call `mobile-builder-open` with `wait=false` so the viewer starts while you keep mutating.
