@@ -171,7 +171,7 @@ function load(world) {
               Object.assign(find(world.project, op.qname).props, op.properties);
             }
           }
-          return { status: 'ok', summary: {}, errors: [], operations: [], warnings: [] };
+          return { status: 'ok', summary: {}, errors: [], operations: [], warnings: world.applyWarnings ? world.applyWarnings(args.operations) : [] };
         },
         saveProject: () => ({ saved: true }),
         refreshStudioTreeByQName: () => ({}),
@@ -310,6 +310,36 @@ test('lintSql warns that an HSQLDB identity without START WITH starts at 0 (pref
   assert.ok(G.lintSql(ddl, 'hsqldb').warnings.some(w => /starts at 0 on HSQLDB/.test(w)));
   assert.ok(!G.lintSql(ddl.replace('IDENTITY', 'IDENTITY (START WITH 1)'), 'hsqldb').warnings.some(w => /starts at 0/.test(w)));
   assert.ok(!G.lintSql(ddl, 'postgresql').warnings.some(w => /starts at 0/.test(w)));
+});
+
+test('sql-transaction-create warns on SQL of another database with the form of the connector database (feedback 28/10)', () => {
+  const world = makeWorld();
+  const db = world.project.children.find(c => c.name === 'db');
+  db.getJdbcDriverClassName = () => 'org.hsqldb.jdbc.JDBCDriver';
+  db.getJdbcURL = () => 'jdbc:hsqldb:file:./database/app';
+  // tree-apply warns on the same SQL (databaseobject_batch.js), as it does on a Studio.
+  const D = (() => { const c = { C8O: {} }; vm.createContext(c); vm.runInContext(sources['js/sql_dialect.js'], c); return c.C8O.sqlDialect; })();
+  world.applyWarnings = ops => ops.filter(op => op.properties && op.properties.sqlQuery).flatMap(op => D.foreignSyntax('hsqldb', op.properties.sqlQuery)
+    .map(f => 'gen_1: App.cn:db.tr:' + op.name + ': sqlQuery has ' + D.foreignSyntaxText(f)));
+  const G = load(world);
+  const out = G.sqlTransactionCreate({ project: 'App', transactions: [
+    { name: 'q_rencontres', sql: "SELECT FORMATDATETIME(r.date_rencontre, 'dd/MM/yyyy') AS \"date\" FROM rencontre r WHERE r.debut > CURRENT_TIMESTAMP - INTERVAL '30 minutes'" },
+    { name: 'w_rencontre', sql: 'INSERT INTO rencontre (debut) VALUES ({debut}) RETURNING id', variables: { debut: '2026-10-28T20:30' } },
+    { name: 'w_rencontre_ok', sql: "INSERT INTO rencontre (debut) VALUES (TO_TIMESTAMP({debut}, 'YYYY-MM-DD\"T\"HH24:MI'))", variables: { debut: '2026-10-28T20:30' } }] });
+  assert.equal(out.status, 'ok', 'warnings never block the creation');
+  const text = out.warnings.join('\n');
+  assert.match(text, /transactions\[0\]: FORMATDATETIME\(r\.date_rencontre, 'dd\/MM\/yyyy'\): HSQLDB has no FORMATDATETIME\(\).*Write TO_CHAR\(r\.date_rencontre, 'DD\/MM\/YYYY'\)\./);
+  assert.match(text, /transactions\[0\]: INTERVAL '30 minutes': .*Write INTERVAL '30' MINUTE/);
+  assert.match(text, /transactions\[1\]: RETURNING id: .*SELECT IDENTITY\(\)/);
+  assert.match(text, /transactions\[1\]\.variables\.debut is '2026-10-28T20:30', with a T .*binds NULL instead, without error.*TO_TIMESTAMP\(\{debut\}, 'YYYY-MM-DD"T"HH24:MI'\)/);
+  assert.doesNotMatch(text, /transactions\[2\]/, 'a value the SQL converts is fine');
+  assert.equal(out.warnings.filter(w => /FORMATDATETIME/.test(w)).length, 1, 'tree-apply does not repeat the warning of the lint');
+  // The same SQL on PostgreSQL: RETURNING and the interval are PostgreSQL's own.
+  db.getJdbcDriverClassName = () => 'org.postgresql.Driver';
+  db.getJdbcURL = () => 'jdbc:postgresql://localhost/app';
+  world.applyWarnings = null;
+  const pg = G.sqlTransactionCreate({ project: 'App', name: 'w_pg', sql: 'INSERT INTO rencontre (debut) VALUES ({debut}) RETURNING id', variables: { debut: '2026-10-28T20:30' } });
+  assert.deepEqual(plain(pg.warnings.filter(w => /RETURNING|debut/.test(w))), []);
 });
 
 test('sql-transaction-create reads ifExists on an element of transactions too (run 9a)', () => {

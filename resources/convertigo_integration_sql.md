@@ -139,6 +139,24 @@ Minimum validation proof:
 
 Other databases, from their documentation (not checked here): MariaDB/MySQL accepts `CURRENT_DATE - 120` but turns the date into a number (`20261017 - 120`), so the result is silently wrong: write `CURRENT_DATE - INTERVAL 120 DAY`. PostgreSQL reads `CURRENT_DATE - 120` as days but refuses a number on a timestamp: write `CURRENT_TIMESTAMP - INTERVAL '2 hours'`. Oracle and SQL Server count a bare number as days. `project-lint`, `databaseobject-tree-apply` and `sql-transaction-create` read the driver of the transaction's connector and apply the rule of that database.
 
+### Dates, intervals and functions written for another database
+HSQLDB, the default database, reads a DATE as `'YYYY-MM-DD'` and a TIMESTAMP as `'YYYY-MM-DD HH:MM:SS'` (fractional seconds and an offset like `+01:00` allowed, or the date alone). A literal with a `T` between date and time (what a `datetime-local` field sends: `'2026-10-28T20:30'`), a time without seconds or `'28/10/2026'` is refused with "data exception: invalid datetime format". A `{variable}` holding such a text, or an empty one, is worse: the engine binds it as NULL without any error, so the row is written without its date and a filter matches nothing (checked live). Convert the text in the SQL: `TO_TIMESTAMP({debut}, 'YYYY-MM-DD"T"HH24:MI')`, `TO_DATE({jour}, 'DD/MM/YYYY')`. These refuse an empty text, so an optional value is `CASE WHEN {debut} = '' THEN NULL ELSE TO_TIMESTAMP({debut}, 'YYYY-MM-DD"T"HH24:MI') END`.
+
+An interval is `INTERVAL '30' MINUTE` (the number alone in quotes, the unit after) or `30 MINUTE` right after a date, and a count from a variable `debut + {duree} MINUTE`. `INTERVAL '30 minutes'` (PostgreSQL) fails with "data exception: invalid interval format", `INTERVAL {duree} MINUTE` with "unexpected token: ?", and there is no `WEEK` (`14 DAY`).
+
+HSQLDB lacks these functions and clauses of other databases ("user lacks privilege or object not found: FORMATDATETIME", "unexpected token: RETURNING"):
+
+| Written for another database | HSQLDB form |
+| --- | --- |
+| `FORMATDATETIME(d, 'dd/MM/yyyy')` (H2), `DATE_FORMAT(d, '%d/%m/%Y')` | `TO_CHAR(d, 'DD/MM/YYYY')` (`HH24:MI:SS` for the time) |
+| `PARSEDATETIME`, `STR_TO_DATE` | `TO_DATE(text, 'DD/MM/YYYY')`, `TO_TIMESTAMP(text, 'DD/MM/YYYY HH24:MI')` |
+| `INSERT ... RETURNING id`, `LAST_INSERT_ID()`, `SCOPE_IDENTITY()` | `INSERT ...; SELECT IDENTITY() AS "id" FROM (VALUES(0))` in the same transaction |
+| `ON CONFLICT`, `ON DUPLICATE KEY UPDATE`, `INSERT IGNORE` | `MERGE INTO t USING (VALUES({id}, {name})) AS v(id, name) ON t.id = v.id WHEN MATCHED THEN UPDATE SET ... WHEN NOT MATCHED THEN INSERT ...` |
+| `DATE_TRUNC('month', d)`, `TRUNC(d, 'YEAR')` | `TRUNC(d, 'MM')`, `TRUNC(d, 'YYYY')` (`'DD'`, `'HH'`, `'IW'`) |
+| `GETDATE()`, `LEN(s)`, `NEWID()`, `RANDOM()`, `x::text`, `IIF`, `IF()` | `CURRENT_TIMESTAMP`, `LENGTH(s)`, `UUID()`, `RAND()`, `CAST(x AS VARCHAR(4000))`, `CASE WHEN` |
+
+It does read `NOW()`, `IFNULL`, `NVL`, `GROUP_CONCAT`, `STRING_AGG`, `DATEADD`, `DATEDIFF`, `DATE_ADD(d, INTERVAL 1 DAY)`, `LIMIT` and `TOP`. All of this was run on HSQLDB 2.7.4, the engine's. `sql-transaction-create`, `databaseobject-tree-apply` and `project-lint` (SQL-FOREIGN-DIALECT) warn on these forms with the form of the connector's database (PostgreSQL, MariaDB/MySQL, Oracle and SQL Server have their own list), and `sql-transaction-create` also on a variable default HSQLDB would bind as NULL. `requestable-execute` adds `error.hints` to these errors, with the values of the call HSQLDB does not read.
+
 ### A list filter (`IN`) takes one comma-separated string
 A variable is always bound as one value. A multivalued variable is never expanded into a list: `IN ({ids})` receives the single string `[56, 57]`, which matches nothing, or fails with "invalid character value for cast" on a numeric column. Pass the list as one comma-separated string (`"56,57"`, built in the sequence with `ids.join(",")`) and test membership with `POSITION`, which stays a bound parameter:
 
@@ -160,7 +178,7 @@ WHERE ({ownerId} = '' OR owner_id = {ownerId})
   AND ({search} = '' OR LOWER(order_number) LIKE '%' || LOWER({search}) || '%')
 ```
 
-Checked on HSQLDB, on an INTEGER column and a LIKE: without the variable every row comes back, with it only the matching ones, while the `IS NULL` form returns nothing. Keep the parameter bare: wrapping it in `NULLIF` or `COALESCE` makes HSQLDB refuse the statement at preparation ("data type cast needed for parameter", "incompatible data types in combination"). If a driver still asks for a type, cast the parameter itself, `CAST({x} AS VARCHAR(40))`, in both branches.
+Checked on HSQLDB, on an INTEGER column and a LIKE: without the variable every row comes back, with it only the matching ones, while the `IS NULL` form returns nothing. This form also works on a DATE column: the engine binds the empty value as NULL (checked live on HSQLDB). Keep the parameter bare: wrapping it in `NULLIF` or `COALESCE` makes HSQLDB refuse the statement at preparation ("data type cast needed for parameter", "incompatible data types in combination"). If a driver still asks for a type, cast the parameter itself, `CAST({x} AS VARCHAR(40))`, in both branches.
 
 ### Pattern 1: read-first validation
 Always validate the read path first.

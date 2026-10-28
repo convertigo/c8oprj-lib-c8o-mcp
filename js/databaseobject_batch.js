@@ -1190,6 +1190,10 @@ include("js/sql_dialect.js");
       pushReportWarning(report, safeQName(dbo) + ": sqlQuery adds a bare number to a date (" + dateMath.expression + "); " +
         dateMath.message + ". Write " + dateMath.fix + ".");
     }
+    // Functions and clauses of another database: FORMATDATETIME, RETURNING, INTERVAL '30 minutes' on HSQLDB (feedback 28/10).
+    C8O.sqlDialect.foreignSyntax(dialect, query).forEach(function (found) {
+      pushReportWarning(report, safeQName(dbo) + ": sqlQuery has " + C8O.sqlDialect.foreignSyntaxText(found));
+    });
     // A variable is always bound as one value: a multivalued one in IN ({x}) is never expanded to a list.
     var inMatch = /\bIN\s*\(\s*\{([A-Za-z_][\w]*)\}\s*\)/i.exec(query);
     if (inMatch && isMultiValuedVariable(dbo, node, inMatch[1])) {
