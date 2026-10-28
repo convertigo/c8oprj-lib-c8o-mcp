@@ -2740,7 +2740,7 @@ No Code Studio bearer token used to authenticate the C8Oforms API calls.
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") tools_nocode_form_validate
 
 Validate a No Code form document
-Checks a full C8Oforms form document against the component catalog and semantic graph invariants before saving.
+Checks a full C8Oforms form document against the component catalog and semantic graph invariants before saving, and with the No Code authentication the selects written into Baserow link_row columns.
 
 <span style="color:DarkGoldenRod">Variables</span>
 

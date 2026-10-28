@@ -684,6 +684,7 @@ function creationHarness(options = {}) {
     if (sequence === 'formscommon_FieldsList') {
       // Like lib_BaseRow, the field list is empty until a Baserow session exists.
       if (options.fieldsNeedSession && !state.calls.includes('formscommon_ApplicationsList')) return { document: {} };
+      if (options.columnsByTable) return { document: { array: clone(options.columnsByTable[JSON.parse(params.forms_config).table_id] || []) } };
       return { document: { array: options.columns || [{name:'Reference',type:'text'},{name:'Status',type:'text'}] } };
     }
     if (sequence === 'APIV2_getDocument') {
@@ -2135,6 +2136,100 @@ test('forms_freeVars: a column map becomes the editor list, JSON text still runs
   assert.ok(legacy.validation.warnings.some(w => w.code === 'freevars_text_shape'));
 });
 
+// Skyjo (26/10): a select of player names (value "Nom") written into the link_row column Scores.Joueur. lib_BaseRow
+// writes the text, Baserow links the first row of that primary text, and the formulas compared a name with row ids.
+const linkTables = [{ id: 7001, name: 'Joueurs', path: 'Team~>Jeux~>Joueurs' }, { id: 7002, name: 'Scores', path: 'Team~>Jeux~>Scores' }, { id: 7003, name: 'Equipes', path: 'Team~>Jeux~>Equipes' }];
+const linkColumns = {
+  7001: [{ id: 1, name: 'Nom', type: 'text', primary: true }, { id: 2, name: 'Scores', type: 'link_row', link_row_table_id: 7002 }],
+  7002: [{ id: 3, name: 'Partie', type: 'text', primary: true }, { id: 4, name: 'Points', type: 'number' }, { id: 5, name: 'Joueur', type: 'link_row', link_row_table_id: 7001 }],
+  7003: [{ id: 6, name: 'Nom', type: 'text', primary: true }]
+};
+function scoresApp(select = {}, save = { table: 7002 }) {
+  return { name: 'Points', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: [
+    { type: 'select', name: 'Joueur', label: 'Joueur', source: { table: 7001, display: 'Nom', ...select } },
+    { type: 'text', name: 'Partie', label: 'Partie' },
+    { type: 'text', name: 'Points', label: 'Points', inputType: 'number' },
+    { type: 'button', name: 'save', label: 'Enregistrer', flow: 'save_score' }
+  ] }], flows: [{ id: 'save_score', name: 'Enregistrer le score', elements: [{ type: 'submit', saveTo: save }, { type: 'toast', message: 'Score enregistré', color: 'success' }] }] };
+}
+const selectConfig = form => JSON.parse(byName(form, 'Joueur').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str);
+const saveAction = (form, key) => form.flows.find(f => f.id === 'save_score').elements[0].actions[key];
+test('create writes the linked row id from a select written into a link_row column, and the linked tables', () => {
+  for (const [save, key] of [[{ table: 7002 }, 'lib_BaseRow.forms_AddRow'], [{ table: 7002, values: { Joueur: 'Joueur', Partie: 'Partie', Points: 'Points' } }, 'lib_BaseRow.forms_AddRowFromData']]) {
+    const h = creationHarness({ columnsByTable: linkColumns });
+    const r = h.client.create(scoresApp({}, save), { ...h.auth, tableIndex: linkTables });
+    assert.equal(r.saved, true, JSON.stringify(r.validation || r.error));
+    const saved = h.state.forms[r.form._id];
+    const config = selectConfig(saved);
+    assert.equal(config.value, 'id', key);
+    assert.equal(config.displayValue, 'Nom');
+    assert.deepEqual(config.columns, ['Nom', 'id']);
+    assert.deepEqual(config.link_row_table_id, [7002], 'the table the select reads links to Scores');
+    assert.deepEqual(JSON.parse(saveAction(saved, key).vars.forms_config.str).link_row_table_id, [7001], 'Scores links to Joueurs');
+    const warning = r.validation.warnings.find(w => w.code === 'link_row_select_value_rewritten');
+    assert.ok(warning, key);
+    assert.match(warning.message, /Joueur is written into the link_row column Joueur of table 7002: its value is now the linked row id \(value "id" instead of "Nom"\)/);
+  }
+  // Already the row id: nothing to say.
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const r = h.client.create(scoresApp({ value: 'id' }), { ...h.auth, tableIndex: linkTables });
+  assert.equal(r.saved, true);
+  assert.ok(!r.validation.warnings.some(w => /^link_row_select/.test(w.code)));
+});
+test('create refuses a select of another table written into a link_row column', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const r = h.client.create(scoresApp({ table: 7003 }), { ...h.auth, tableIndex: linkTables });
+  assert.equal(r.saved, false);
+  const issue = r.validation.issues.find(i => i.code === 'link_row_select_table');
+  assert.ok(issue, JSON.stringify(r.validation.issues));
+  assert.match(issue.message, /lists the rows of table 7003 .* links to table 7001/);
+  assert.equal(h.state.saves, 0);
+});
+test('an edit rewrites a select it changes and only reports one it leaves alone', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(scoresApp({ value: 'id' }), { ...h.auth, tableIndex: linkTables });
+  const id = created.form._id;
+  // An older generation: the name as value.
+  const stored = h.state.forms[id];
+  const legacy = selectConfig(stored);
+  legacy.value = 'Nom';
+  legacy.columns = ['Nom'];
+  byName(stored, 'Joueur').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str = JSON.stringify(legacy);
+  const reads = () => h.state.calls.filter(c => c === 'formscommon_FieldsList').length;
+  const before = reads();
+  const unrelated = h.client.edit(id, [{ action: 'set_root', patch: { name: 'Points du jeu' } }], h.auth);
+  assert.equal(unrelated.saved, true);
+  assert.ok(!unrelated.validation.warnings.some(w => /^link_row_select/.test(w.code)));
+  assert.equal(reads(), before, 'an edit touching no save nor select reads no Baserow field');
+  // A new save of Scores: the select is not changed by the edit, it is reported.
+  const newSave = h.client.edit(id, [{ action: 'add_flow', flow: { id: 'save_again', name: 'Enregistrer encore', elements: [{ type: 'submit', saveTo: { table: 7002 } }] } }], { ...h.auth, tableIndex: linkTables });
+  assert.equal(newSave.saved, true, JSON.stringify(newSave.validation || newSave.error));
+  assert.equal(selectConfig(h.state.forms[id]).value, 'Nom', 'a select the edit did not change keeps its value');
+  assert.ok(newSave.validation.warnings.some(w => w.code === 'link_row_select_value' && /writes "Nom" into the link_row column Joueur of table 7002/.test(w.message)));
+  // The select itself changed: its value becomes the row id.
+  const changed = h.client.edit(id, [{ action: 'update_field', fieldName: 'Joueur', patch: { sources: { 'lib_BaseRow.formssource_GetSelectData': { vars: { forms_tableSort: { str: '', html: false, type: 'sort', conds: [{ name: 'Nom', order: 'desc' }] } } } } } }], h.auth);
+  assert.equal(changed.saved, true, JSON.stringify(changed.validation || changed.error));
+  assert.equal(selectConfig(h.state.forms[id]).value, 'id');
+  assert.ok(changed.validation.warnings.some(w => w.code === 'link_row_select_value_rewritten'));
+});
+test('nocode-form-validate refuses a select written into a link_row column with another value than the row id', () => {
+  const compiled = api().compile(scoresApp(), { tableIndex: linkTables }).form;
+  assert.equal(selectConfig(compiled).value, 'Nom', 'the offline compile does not know the column types');
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const result = h.client.validate(compiled, { ...h.auth, baserowLinks: true }).validation;
+  assert.equal(result.valid, false);
+  const issue = result.issues.find(i => i.code === 'link_row_select_value');
+  assert.ok(issue, JSON.stringify(result.issues));
+  assert.equal(issue.path, '/formulaire/' + compiled.formulaire.indexOf(byName(compiled, 'Joueur')) + '/sources/lib_BaseRow.formssource_GetSelectData/vars/forms_config');
+  assert.equal(selectConfig(compiled).value, 'Nom', 'validate does not change the form');
+  assert.ok(!h.state.calls.includes('APIV2_updateFormulaireDocument'));
+  // Without the No Code authentication the columns are not read: a warning says what was not checked.
+  const offline = api().validate(compiled, { baserowLinks: true }).validation;
+  assert.ok(offline.warnings.some(w => w.code === 'link_row_selects_unverified'));
+  assert.ok(!offline.issues.some(i => /^link_row_select/.test(i.code)));
+  // Without baserowLinks (compile, the saves) validate stays static.
+  assert.ok(!api().validate(compiled).validation.warnings.some(w => w.code === 'link_row_selects_unverified'));
+});
 // nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
 // stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
 const TICKETS = { id: 5277, name: 'Tickets', columns: [
@@ -2328,6 +2423,8 @@ test('nocode-app-create: inputs named after their columns, an explicit mapping w
   const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
   assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
   assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
+  assert.equal(JSON.parse(link.forms_config.str).value, 'id', 'and writes the linked row id, not its primary text');
+  assert.deepEqual(JSON.parse(link.forms_config.str).columns, ['Nom', 'id']);
   // An existing boolean is entered with a Oui/Non radio, no answer chosen in advance, and written true/false by a hidden
   // field of the column's name (test-nocode S4: the agent added a checkbox of its own when the tool left it out; a
   // static radio shows the value it submits and Baserow refuses Oui).
