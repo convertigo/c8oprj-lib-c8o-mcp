@@ -3972,6 +3972,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return hint;
   }
 
+  // An item from its identifier (id; a page has none, its pageTechName is one) or its name. Each argument may hold
+  // either: page, field and flow are documented as an id or a name, and delete_page with pageTechName answered
+  // "page not found" while listing that very page (26/10). Identifiers are matched before names.
   function findByIdOrName(list, id, name, label) {
     var items = ensureArray(list);
     var textId = trimmed(id);
@@ -3979,19 +3982,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!textId.length && !textName.length) {
       throw new Error((label || "item") + " id or name is required." + namesHint("", items, label));
     }
-    for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-      if (textId.length && String(item.id) === textId) {
-        return { item: item, index: i };
-      }
-      if (textName.length && String(item.name) === textName) {
-        return { item: item, index: i };
-      }
-      if (textName.length && String(item.pageTechName) === textName) {
-        return { item: item, index: i };
+    var asked = [textId, textName].filter(function (text) { return text.length > 0; });
+    var keys = [["id", "pageTechName"], ["name"]];
+    for (var k = 0; k < keys.length; k++) {
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!item || typeof item !== "object") {
+          continue;
+        }
+        for (var key = 0; key < keys[k].length; key++) {
+          var value = item[keys[k][key]];
+          if (value != null && asked.indexOf(trimmed(value)) >= 0) {
+            return { item: item, index: i };
+          }
+        }
       }
     }
     throw new Error((label || "item") + " not found: " + (textId || textName) + "." + namesHint(textId || textName, items, label));

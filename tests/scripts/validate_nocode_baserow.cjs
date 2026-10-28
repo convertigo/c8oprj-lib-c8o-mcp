@@ -140,6 +140,38 @@ test('the agent view lists each table once, with the column facts a source needs
   assert.ok(JSON.stringify(compact).length * 3 < JSON.stringify(full).length);
 });
 
+// The step of a sequence as the engine runs it: each declared variable is a String object of the scope
+// (Sequence.insertObjectsInScope, Context.toObject) or null; the No Code token comes with the request.
+function runSequenceStep(sequenceFile, variables, transport) {
+  const sandbox = load(transport);
+  sandbox.context = { httpServletRequest: { getHeader: name => name === 'Authorization' ? 'Bearer t' : null } };
+  const yaml = fs.readFileSync(path.join(root, '_c8oProject/sequences', sequenceFile), 'utf8');
+  const block = yaml.match(/\n {2}expression: \|\n((?: {4}.*\n)+)/)[1];
+  const expression = block.replace(/^ {4}/gm, '').trim().replace(/^'|'$/g, '').replace(/''/g, "'");
+  const toObject = vm.runInContext('(function (value) { return new String(value); })', sandbox);
+  for (const name of yaml.match(/^↓(\w+) \[variables\.RequestableVariable-\d+\]/gm).map(line => line.slice(1).split(' ')[0])) {
+    sandbox[name] = variables[name] == null ? null : toObject(variables[name]);
+  }
+  vm.runInContext(expression, sandbox, { filename: sequenceFile });
+  return plain(sandbox.result);
+}
+
+test('includeColumns without a workspace, base or table keeps the tree and says which id to give', () => {
+  // TigoAccess 0e8a7f91 (27/10): the refusal answered empty lists, read as "no workspace" while the compact view listed them.
+  const fake = fakeBaserow();
+  const answer = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', view: 'compact' }, fake.transport);
+  assert.equal(answer.status, 'ok');
+  assert.deepEqual(answer.workspaces, [{ id: 10, name: 'Team', bases: [{ id: 20, name: 'Sales', tables: [{ id: 30, name: 'Deals' }] }] }]);
+  assert.equal(answer.counts.columns, 0);
+  assert.match(answer.notes[0], /^Columns are not listed \(columns_filter_required\): .*workspaceId, databaseId or tableId.*1 tables/);
+  assert.ok(!fake.state.calls.some(c => c.name === 'formscommon_FieldsList' || c.name === '_api_database_fields_table__table_id___GET'), 'no column is read');
+  const full = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', view: 'full' }, fakeBaserow().transport);
+  assert.deepEqual([full.status, full.tables.map(t => t.id), full.columns, full.notes.length], ['ok', [30], [], 1]);
+  const columns = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', tableId: '30', view: 'compact' }, fakeBaserow().transport);
+  assert.equal(columns.notes, undefined);
+  assert.deepEqual(columns.workspaces[0].bases[0].tables[0].columns.map(c => c.name), ['Name', 'Stage', 'Company'], 'a tableId given as the engine gives it');
+});
+
 test('a field created by schema-apply is read back at once, past the stale cache', () => {
   const fake = fakeBaserow();
   const C8O = load(fake.transport).C8O;

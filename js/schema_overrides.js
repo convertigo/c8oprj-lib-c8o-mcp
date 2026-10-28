@@ -776,7 +776,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         includeColumns: {
           type: "boolean",
           default: false,
-          description: "Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId."
+          description: "Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList, for the tables of the workspaceId, databaseId or tableId given. Without one, the tree comes without columns and a note."
         },
         workspaceId: {
           type: "integer",

@@ -31,8 +31,8 @@ responseTimeout: 300
   comment: No Code Studio bearer token used to authenticate the catalog request.
   description: No Code Studio bearer token used to authenticate the catalog request.
 ↓includeColumns [variables.RequestableVariable-1780124961587]: 
-  comment: Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId.
-  description: Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList. Requires workspaceId, databaseId, or tableId.
+  comment: Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList, for the tables of the workspaceId, databaseId or tableId given. Without one, the tree comes without columns and a note.
+  description: Set true to hydrate Baserow field details through lib_BaseRow.formscommon_FieldsList, for the tables of the workspaceId, databaseId or tableId given. Without one, the tree comes without columns and a note.
 ↓workspaceId [variables.RequestableVariable-1780124961591]: 
   comment: Optional Baserow workspace id filter.
   description: Optional Baserow workspace id filter.

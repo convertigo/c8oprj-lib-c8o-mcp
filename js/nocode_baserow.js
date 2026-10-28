@@ -1813,32 +1813,19 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       var allCatalog = normalizeCatalog(applications);
       var catalog = filterCatalog(allCatalog, opts);
       var columns = [];
+      var notes = [];
       if (includeColumns) {
+        // Without a filter the columns of every table would be read: the tree is answered without them, with the ids to
+        // ask for (an empty refusal read as "no workspace", 27/10).
         if (numberOrNull(opts.workspaceId) == null && numberOrNull(opts.databaseId) == null && numberOrNull(opts.tableId) == null) {
-          return {
-            status: "invalid_request",
-            authentication: authentication,
-            error: {
-              code: "columns_filter_required",
-              message: "includeColumns=true requires workspaceId, databaseId, or tableId to avoid hydrating all " + allCatalog.tables.length + " tables."
-            },
-            workspaces: [],
-            bases: [],
-            tables: [],
-            columns: [],
-            counts: {
-              workspaces: 0,
-              bases: 0,
-              tables: 0,
-              columns: 0,
-              availableTables: allCatalog.tables.length
-            }
-          };
+          notes.push("Columns are not listed (columns_filter_required): includeColumns=true reads the columns of the tables of one workspaceId, databaseId or tableId, not of all " + allCatalog.tables.length + " tables. Call again with the id of the table, base or workspace you need, from the tree below.");
+        } else {
+          columns = hydrateColumns(catalog, authentication, editorBaserowBearer());
         }
-        columns = hydrateColumns(catalog, authentication, editorBaserowBearer());
       }
+      var answer;
       if (trimmed(opts.view).toLowerCase() === "compact") {
-        return {
+        answer = {
           status: "ok",
           view: "compact",
           authentication: compactAuthentication(authentication),
@@ -1851,22 +1838,27 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
             availableTables: allCatalog.tables.length
           }
         };
+      } else {
+        answer = {
+          status: "ok",
+          authentication: authentication,
+          workspaces: catalog.workspaces,
+          bases: catalog.bases,
+          tables: catalog.tables,
+          columns: columns,
+          counts: {
+            workspaces: catalog.workspaces.length,
+            bases: catalog.bases.length,
+            tables: catalog.tables.length,
+            columns: columns.length,
+            availableTables: allCatalog.tables.length
+          }
+        };
       }
-      return {
-        status: "ok",
-        authentication: authentication,
-        workspaces: catalog.workspaces,
-        bases: catalog.bases,
-        tables: catalog.tables,
-        columns: columns,
-        counts: {
-          workspaces: catalog.workspaces.length,
-          bases: catalog.bases.length,
-          tables: catalog.tables.length,
-          columns: columns.length,
-          availableTables: allCatalog.tables.length
-        }
-      };
+      if (notes.length) {
+        answer.notes = notes;
+      }
+      return answer;
     } catch (e) {
       return {
         status: "error",
@@ -1922,10 +1914,14 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return error;
   }
 
-  // A JSON object or list given as text (a sequence variable is a string); null for an argument left out.
+  // A JSON object or list given as text, else the text; null for an argument left out. A sequence variable reaches the
+  // step as a String object (Sequence.insertObjectsInScope wraps every value with Context.toObject), a value of the
+  // engine as a java.lang.String: both are text, never an object to read keys from (rows-list answered table_required
+  // for every id and path, 27/10).
   function jsonOrText(value) {
     var text = trimmed(value);
-    if (value != null && typeof value === "object" && typeof value.getClass !== "function") {
+    var boxed = /^\[object (String|Number|Boolean)\]$/.test(Object.prototype.toString.call(value));
+    if (value != null && typeof value === "object" && typeof value.getClass !== "function" && !boxed) {
       return value;
     }
     if (!text.length || text === "null" || text === "undefined") {
