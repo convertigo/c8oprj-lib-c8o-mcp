@@ -183,6 +183,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return Number(idSeed);
   }
 
+  function numericId(value) {
+    return typeof value === "string" && /^\d{1,15}$/.test(value) ? Number(value) : value;
+  }
+
   function slug(value, fallback) {
     var text = trimmed(value || fallback || "item").replace(/[^A-Za-z0-9_]+/g, "_");
     text = text.replace(/^_+|_+$/g, "");
@@ -2589,7 +2593,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var out = clone(proto, {});
     out.type = type;
-    out.id = field.id != null ? field.id : nextId();
+    // An id given as digits ("1793012950260") is the number the editor writes: childrenRefs and parentRef name it as such.
+    out.id = field.id != null ? numericId(field.id) : nextId();
     out.name = trimmed(field.name) || (type + out.id);
     if (parentId != null) {
       out.parentRef = parentId;
@@ -2921,6 +2926,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
+    normalizeRelationRefs(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
@@ -2940,6 +2946,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       form: doc,
       validation: validation
     };
+  }
+
+  // A reference equal to an id as text but not of its type ("1793012950260" for 1793012950260): the viewer and the
+  // editor compare them with ===.
+  function relationRefTypeMismatch(ref, id) {
+    return ref != null && id != null && typeof ref !== "object" && typeof ref !== typeof id;
+  }
+  function relationRefTypeMessage(what, ref, id) {
+    return what + " is " + JSON.stringify(ref) + " (" + typeof ref + ") while the id it names is " + JSON.stringify(id) + " (" + typeof id + "): the editor compares them with === and shows the component twice. Write the id as it is; nocode-form-create, nocode-form-edit and nocode-form-update do it on save";
   }
 
   function validateForm(form, options) {
@@ -3116,13 +3131,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
         if (item.parentRef != null && !ids[String(item.parentRef)]) {
           issue("unknown_parent_ref", "parentRef points to a missing component: " + item.parentRef, "/formulaire/" + idx + "/parentRef");
+        } else if (item.parentRef != null && relationRefTypeMismatch(item.parentRef, ids[String(item.parentRef)].item.id)) {
+          issue("relation_ref_type", relationRefTypeMessage("parentRef of " + item.name, item.parentRef, ids[String(item.parentRef)].item.id), "/formulaire/" + idx + "/parentRef");
         }
         ensureArray(item.childrenRefs).forEach(function (childId, cidx) {
           var child = ids[String(childId)];
           if (!child) {
             issue("unknown_child_ref", "childrenRefs points to a missing component: " + childId, "/formulaire/" + idx + "/childrenRefs/" + cidx);
-          } else if (String(child.item.parentRef) !== String(item.id)) {
-            issue("child_parent_mismatch", "Referenced child does not point back to parent", child.path + "/parentRef");
+            return;
+          }
+          if (relationRefTypeMismatch(childId, child.item.id)) {
+            issue("relation_ref_type", relationRefTypeMessage("childrenRefs of " + item.name, childId, child.item.id), "/formulaire/" + idx + "/childrenRefs/" + cidx);
+          }
+          if (String(child.item.parentRef) !== String(item.id)) {
+            issue("child_parent_mismatch", item.name + " lists " + child.item.name + " in its childrenRefs, but its parentRef " + (child.item.parentRef == null ? "is missing" : "names " + child.item.parentRef) + ": it must be " + item.id, child.path + "/parentRef");
           }
         });
       });
@@ -3237,9 +3259,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (!element || typeof element !== "object") { return; }
           var path = "/flows/" + idx + "/elements/" + eidx;
           if (element.parentRef != null && !elementIds[String(element.parentRef)]) { issue("unknown_flow_parent", "Missing flow parent", path + "/parentRef"); }
+          else if (element.parentRef != null && relationRefTypeMismatch(element.parentRef, elementIds[String(element.parentRef)].id)) {
+            issue("relation_ref_type", relationRefTypeMessage("parentRef of flow element " + (element.name || element.id), element.parentRef, elementIds[String(element.parentRef)].id), path + "/parentRef");
+          }
           ["childrenRefs", "childrenRefsElse"].forEach(function (key) {
-            ensureArray(element[key]).forEach(function (id) {
+            ensureArray(element[key]).forEach(function (id, cidx) {
               if (!elementIds[String(id)] || String(elementIds[String(id)].parentRef) !== String(element.id)) { issue("invalid_flow_child", "Flow child reference must exist and point back to its parent", path + "/" + key); }
+              else if (relationRefTypeMismatch(id, elementIds[String(id)].id)) { issue("relation_ref_type", relationRefTypeMessage(key + " of flow element " + (element.name || element.id), id, elementIds[String(id)].id), path + "/" + key + "/" + cidx); }
             });
           });
         });
@@ -3746,8 +3772,40 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  // A parentRef or a childrenRefs entry takes the type of the id it names, as the editor's repairRelationRefs does on
+  // save (C8Oforms 2.2.0-beta442): add_field wrote its parentId argument as text, "1793012950260" under a layout whose
+  // id is a number, and the editor, comparing with ===, left the button in the layout and showed it twice (Skyjo, 26/10).
+  function normalizeRelationRefs(form) {
+    var repaired = 0;
+    function retype(ref, ids) {
+      if (ref == null || typeof ref === "object" || !hasOwn(ids, String(ref))) { return ref; }
+      var id = ids[String(ref)];
+      if (typeof id === typeof ref) { return ref; }
+      repaired++;
+      return id;
+    }
+    function normalizeList(items, refKeys) {
+      var ids = {};
+      items.forEach(function (item) { if (item && typeof item === "object" && item.id != null) { ids[String(item.id)] = item.id; } });
+      items.forEach(function (item) {
+        if (!item || typeof item !== "object") { return; }
+        if (item.parentRef != null) { item.parentRef = retype(item.parentRef, ids); }
+        refKeys.forEach(function (key) {
+          if (Array.isArray(item[key])) { item[key] = item[key].map(function (ref) { return retype(ref, ids); }); }
+        });
+      });
+    }
+    if (!form || typeof form !== "object") { return 0; }
+    if (Array.isArray(form.formulaire)) { normalizeList(form.formulaire, ["childrenRefs"]); }
+    ensureArray(form.flows).forEach(function (flow) {
+      if (flow && Array.isArray(flow.elements)) { normalizeList(flow.elements, ["childrenRefs", "childrenRefsElse"]); }
+    });
+    return repaired;
+  }
+
   function sanitizeFormBeforeSave(form) {
     var out = clone(form, {});
+    normalizeRelationRefs(out);
     try { delete out.thumbnailImage; } catch (_ignoreThumbnailImageDelete) {}
     try { delete out._attachments; } catch (_ignoreAttachmentsDelete) {}
     try { delete out._c8oMeta; } catch (_ignoreC8oMetaDelete) {}
@@ -4366,14 +4424,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var fieldDef = op.fieldObject || (op.field && typeof op.field === "object" && !Array.isArray(op.field) ? op.field : op);
       var beforeLength = form.formulaire.length;
       var parentId = trimmed(op.parentId || op.parent || op.parentFieldId);
-      var addPage = parentId.length ? nestedPageForOperation(form, op, findField(form, { id: parentId }).item) : { page: pageTechNameForOperation(form, op, null) };
+      // The parent's own id, never the argument: a text "1793012950260" or a name written as parentRef does not match it.
+      var parentField = parentId.length ? findField(form, { id: parentId }).item : null;
+      var addPage = parentField ? nestedPageForOperation(form, op, parentField) : { page: pageTechNameForOperation(form, op, null) };
       var pageTech = addPage.page;
       var targetPage = ensureArray(form.pages).filter(function (candidate) { return candidate && candidate.pageTechName === pageTech; })[0];
       // Same spacing as at creation on an application page (tab or custom navigation).
       var applicationPage = !!targetPage && (boolLike(targetPage.enabledTab) || !boolLike(targetPage.enabledButtons));
-      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentId.length ? parentId : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage });
-      if (parentId.length) {
-        var parentField = findField(form, { id: parentId }).item;
+      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentField ? parentField.id : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage });
+      if (parentField) {
         parentField.childrenRefs = ensureArray(parentField.childrenRefs);
         if (parentField.childrenRefs.indexOf(compiled.id) < 0) {
           parentField.childrenRefs.splice(normalizeIndex(op.index, parentField.childrenRefs.length, parentField.childrenRefs.length), 0, compiled.id);

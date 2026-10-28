@@ -2394,6 +2394,70 @@ test('add_field into a container takes the page of its root container, whatever 
   assert.match(added.operations[1].note, /ignored.*root container/);
   assert.ok(!added.validation.warnings.some(w => w.code === 'nested_page_mismatch'));
 });
+// Skyjo (26/10): add_field wrote its parentFieldId argument as parentRef, the text "1793012950260" under a layout whose
+// id is a number; the editor, comparing with ===, showed the button twice. A reference takes the type of the id it names.
+test('add_field, update and create write parentRef and childrenRefs with the type of the ids they name', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const record = byName(created.form, 'record');
+  assert.equal(typeof record.id, 'number');
+  const added = h.client.edit(id, [
+    { action: 'add_field', parentFieldId: String(record.id), fieldObject: { type: 'button', name: 'delete', label: 'Supprimer', flow: 'delete' } },
+    { action: 'add_field', parent: 'record', fieldObject: { type: 'text', name: 'by_name' } }
+  ], h.auth);
+  assert.equal(added.saved, true, JSON.stringify(added.validation || added.error));
+  const saved = h.state.forms[id].formulaire;
+  for (const name of ['delete', 'by_name']) {
+    const child = saved.find(item => item.name === name);
+    assert.strictEqual(child.parentRef, record.id, name + ': the parent id itself, not the argument');
+    assert.ok(saved.find(item => item.name === 'record').childrenRefs.includes(child.id));
+  }
+  // A full array sent by update with text references is saved with the ids' type.
+  const patched = clone(h.state.forms[id].formulaire);
+  patched.find(item => item.name === 'delete').parentRef = String(record.id);
+  const holder = patched.find(item => item.name === 'record');
+  holder.childrenRefs = holder.childrenRefs.map(String);
+  assert.ok(api().validate({ ...clone(h.state.forms[id]), formulaire: patched }).validation.issues.some(i => i.code === 'relation_ref_type'));
+  const updated = h.client.update(id, { formulaire: patched }, h.auth);
+  assert.equal(updated.saved, true, JSON.stringify(updated.validation));
+  const after = h.state.forms[id].formulaire;
+  assert.strictEqual(after.find(item => item.name === 'delete').parentRef, record.id);
+  assert.ok(after.find(item => item.name === 'record').childrenRefs.every(ref => typeof ref === 'number'));
+  // An id given as digits in reduced JSON is the number the editor writes.
+  const digits = api().compile({ name: 'Digits', pages: [{ name: 'P', fields: [{ type: 'layout', name: 'row', id: '1900000000301', fields: [{ type: 'text', name: 'inside', id: '1900000000302' }] }] }] });
+  assert.equal(digits.status, 'ok', JSON.stringify(digits.validation.issues));
+  assert.strictEqual(byName(digits.form, 'row').id, 1900000000301);
+  assert.strictEqual(byName(digits.form, 'inside').parentRef, 1900000000301);
+  assert.deepEqual(clone(byName(digits.form, 'row').childrenRefs), [1900000000302]);
+});
+test('validate reports a reference of another type than its id and a listed child that does not point back', () => {
+  const form = api().compile(nestedPagesForm()).form;
+  const record = byName(form, 'record');
+  const inner = byName(form, 'inner');
+  const text = clone(form);
+  byName(text, 'inner').parentRef = String(record.id);
+  const issues = api().validate(text).validation.issues;
+  const typed = issues.find(i => i.code === 'relation_ref_type');
+  assert.ok(typed, JSON.stringify(issues));
+  assert.equal(typed.path, '/formulaire/' + text.formulaire.indexOf(byName(text, 'inner')) + '/parentRef');
+  assert.match(typed.message, new RegExp('"' + record.id + '" \\(string\\) while the id it names is ' + record.id + ' \\(number\\)'));
+  const listedText = clone(form);
+  byName(listedText, 'record').childrenRefs = [String(inner.id)];
+  assert.ok(api().validate(listedText).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
+  const orphan = clone(form);
+  delete byName(orphan, 'inner').parentRef;
+  const mismatch = api().validate(orphan).validation.issues.find(i => i.code === 'child_parent_mismatch');
+  assert.ok(mismatch);
+  assert.match(mismatch.message, /record lists inner in its childrenRefs, but its parentRef is missing/);
+  // The same check in a flow: an if_else branch child named by text.
+  const flowForm = clone(form);
+  flowForm.flows.push({ id: 'check', name: 'Check', elements: [
+    { id: 1900000000401, name: 'branch', cat: 'action', type: 'if_else', childrenRefs: ['1900000000402'], sources: { self: { enabled: true, vars: { selfVar: { type: 'condition', condVisible: 'and', conds: [{ operator: 'is_filled', val1: { str: String(record.id) } }], groups: [] } } } }, config: {} },
+    { id: 1900000000402, name: 'then_toast', cat: 'action', type: 'toast', parentRef: 1900000000401, sources: { self: { enabled: true, vars: { selfVar: { str: 'ok', type: 'text' } } } }, config: { color: '#15803D' } }
+  ] });
+  assert.ok(api().validate(flowForm).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
+});
 test('move_field gives the moved component and its descendants the page of their new root container', () => {
   const h = creationHarness();
   const created = h.client.create(nestedPagesForm(), h.auth);
