@@ -173,6 +173,37 @@ comment: |
             out.error.message = String(source.error.message || "") + " Cause: " + causeMatch[1];
           }
         } catch (_ignoreCause) {}
+        // Dates, intervals and functions written for another database (HSQLDB, feedback 28/10): hints right after the
+        // cause name the formats the database reads, the values of the call it refuses and the equivalents of what the
+        // statement wrote (js/sql_dialect.js). An error raised when the statement runs (TO_TIMESTAMP of an empty text)
+        // has no details: its message is the driver message.
+        try {
+          if ((executionPlan && !executionPlan.isSequence) || out.error.cause) {
+            include("js/sql_dialect.js");
+            var sqlTransaction = null;
+            if (executionPlan && !executionPlan.isSequence) {
+              var sqlProject = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+              var sqlConnector = sqlProject ? sqlProject.getConnectorByName(executionPlan.connector) : null;
+              sqlTransaction = sqlConnector ? sqlConnector.getTransactionByName(executionPlan.name) : null;
+            }
+            var statementMatch = / in statement \[([\s\S]*)\]/.exec(String(source.error.details || ""));
+            var sqlHints = C8O.sqlDialect.errorHints(C8O.sqlDialect.of(sqlTransaction), out.error.cause || String(out.error.message || ""),
+              statementMatch ? statementMatch[1] : sqlTransaction ? String(sqlTransaction.getSqlQuery()) : "", executionPlan ? executionPlan.variables : null);
+            if (sqlHints.length) {
+              var withHints = { message: out.error.message };
+              if (out.error.cause) {
+                withHints.cause = out.error.cause;
+              }
+              withHints.hints = sqlHints;
+              for (var errorKey in out.error) {
+                if (!(errorKey in withHints)) {
+                  withHints[errorKey] = out.error[errorKey];
+                }
+              }
+              out.error = withHints;
+            }
+          }
+        } catch (_ignoreSqlHints) {}
         // A script error of the called sequence came as the generic "An exception occured while executing step", its
         // own message and the step only in details (preflight checks): lift both into the message.
         try {

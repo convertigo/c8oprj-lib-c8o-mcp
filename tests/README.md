@@ -371,3 +371,14 @@ Run `node --test tests/scripts/validate_requestable_target.cjs` after changing `
 Init step of `tools_requestable_execute`. `requestable-execute` and `requestable-stub-get`/`-set` take
 `<project>.<sequence>` and `<project>.<connector>.<transaction>`, and also the Studio QName other tools return
 (`<project>.sq:<sequence>`, `<project>.cn:<connector>.tr:<transaction>`).
+
+## SQL of another database
+
+Run `node --test tests/scripts/validate_sql_foreign_dialect.cjs` after changing the rules of `js/sql_dialect.js`
+(`foreignSyntax`, `errorHints`) or the BuildCompactResult step of `tools_requestable_execute`. Each database is
+checked for the functions, clauses, intervals and date texts it lacks, with its own form: HSQLDB forms and errors
+were run on HSQLDB 2.7.4 (the engine's), PostgreSQL ones on PostgreSQL 15. An unknown driver gets no rule, the
+fast path guides pass in their own database, and the YAML step is run on the error documents the engine returns
+for a statement refused when prepared and for an error raised when it runs (TigoAccess 28/10: FORMATDATETIME,
+invalid interval and datetime formats on HSQLDB). A bound value HSQLDB cannot read as a date raises nothing: the
+engine binds NULL (`SqlConnector.prepareParameters`), which is why the guide's optional filter is never flagged.

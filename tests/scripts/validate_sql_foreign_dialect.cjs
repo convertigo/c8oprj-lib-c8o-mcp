@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-// SQL written for another database (js/sql_dialect.js foreignSyntax and errorHints).
+// SQL written for another database (js/sql_dialect.js foreignSyntax and errorHints, the hints of requestable-execute).
 // TigoAccess 28/10, Studio 8.4.6, mistral-large-4 on HSQLDB: "user lacks privilege or object not found:
 // FORMATDATETIME", "data exception: invalid interval format", "data exception: invalid datetime format"; RETURNING and
 // LAST_INSERT_ID in the Studio check. Every HSQLDB form and error below was run on HSQLDB 2.7.4 (the engine's), the
@@ -141,4 +141,83 @@ test('errorHints: the formats HSQLDB reads, the values of the call it refuses, t
   assert.match(upsert[0], /^ON CONFLICT: .*MERGE INTO/);
   assert.deepEqual(plain(D.errorHints('', 'integrity constraint violation: foreign key no parent', 'INSERT INTO t (a) VALUES ({a})', {})), []);
   assert.deepEqual(plain(D.errorHints('postgresql', 'ERROR: relation "t" does not exist', 'SELECT 1 FROM t', {})), []);
+});
+
+// --- requestable-execute: the BuildCompactResult step of the YAML, run on the error documents the engine returns ---
+
+function stepExpression(file, step) {
+  const lines = read(file).split('\n');
+  const at = lines.findIndex(l => l.startsWith('↓' + step + ' [steps.SimpleStep'));
+  const start = lines.findIndex((l, i) => i > at && /^\s*expression: \|\s*$/.test(l));
+  const indent = lines[start + 1].match(/^\s*/)[0];
+  const body = [];
+  for (let i = start + 1; i < lines.length && (lines[i].startsWith(indent) || !lines[i].trim()); i++) {
+    body.push(lines[i].slice(indent.length));
+  }
+  return body.join('\n').trim().replace(/^'|'$/g, '').replace(/''/g, "'");
+}
+
+const BUILD = stepExpression('_c8oProject/sequences/tools_requestable_execute.yaml', 'BuildCompactResult');
+
+function execute(error, plan, transaction) {
+  const connector = {
+    getJdbcDriverClassName: () => 'org.hsqldb.jdbc.JDBCDriver',
+    getJdbcURL: () => 'jdbc:hsqldb:file:./database/rencontres',
+    getTransactionByName: name => (transaction && name === plan.name ? Object.assign({ getParent: () => connector }, transaction) : null)
+  };
+  const project = { getConnectorByName: name => (name === 'rencontresDB' ? connector : null) };
+  const context = {
+    requestableResponse: {},
+    executionPlan: Object.assign({ project: 'Rencontres', connector: 'rencontresDB', isSequence: false, variables: {} }, plan),
+    executionLogsPayload: null,
+    Packages: { com: { twinsoft: { convertigo: { engine: {
+      util: { XMLUtils: { XmlToJson: () => JSON.stringify({ document: { error } }) } },
+      Engine: { theApp: { databaseObjectsManager: { getOriginalProjectByName: name => (name === 'Rencontres' ? project : null) } } } } } } } },
+    include: file => vm.runInContext(read(file), context)
+  };
+  context.C8O = {};
+  vm.createContext(context);
+  vm.runInContext(BUILD, context);
+  return plain(context.requestableExecutionResult);
+}
+
+const PREPARE = 'Unable to retrieve a prepared statement for the query on connection, ';
+
+test('requestable-execute: a statement refused when prepared gets hints right after its cause', () => {
+  const statement = "SELECT FORMATDATETIME(r.date_rencontre, 'dd/MM/yyyy') AS \"date\" FROM t_rencontre r";
+  const out = execute({ message: 'An unexpected error occured while executing transaction. Could not execute the SQL query.',
+    details: PREPARE + 'user lacks privilege or object not found: FORMATDATETIME in statement [' + statement + '], user lacks privilege or object not found: FORMATDATETIME',
+    exception: 'com.twinsoft.convertigo.engine.EngineException' }, { requestable: 'Rencontres.rencontresDB.q_rencontres', name: 'q_rencontres' });
+  assert.equal(out.status, 'error');
+  assert.equal(out.error.message, 'An unexpected error occured while executing transaction. Could not execute the SQL query. Cause: user lacks privilege or object not found: FORMATDATETIME',
+    'the message keeps its form, so the feedback groups stay the same');
+  assert.deepEqual(Object.keys(out.error).slice(0, 3), ['message', 'cause', 'hints']);
+  assert.match(out.error.hints[0], /Write TO_CHAR\(r\.date_rencontre, 'DD\/MM\/YYYY'\)\./);
+  assert.equal(out.error.exception, 'com.twinsoft.convertigo.engine.EngineException');
+
+  const interval = execute({ message: 'An unexpected error occured while executing transaction. Could not execute the SQL query.',
+    details: PREPARE + "data exception: invalid interval format in statement [SELECT l.id AS \"id\" FROM lobby l WHERE l.created_at > CURRENT_TIMESTAMP - INTERVAL '30 minutes']" },
+  { name: 'q_lobbys' });
+  assert.match(interval.error.hints.join('\n'), /INTERVAL '30' MINUTE/);
+});
+
+test('requestable-execute: an error raised when the statement runs gets hints from its message and the transaction SQL', () => {
+  // Checked live: the engine answers the driver message, with no details.
+  const out = execute({ message: "data exception: invalid datetime format: java.time.format.DateTimeParseException: Text '' could not be parsed at index 0",
+    details: '' }, { name: 'w_rencontre_insert', variables: { nom: 'Finale', debut: '' } },
+  { getSqlQuery: () => "INSERT INTO t_rencontre (nom, debut) VALUES ({nom}, TO_TIMESTAMP({debut}, 'YYYY-MM-DD\"T\"HH24:MI'))" });
+  assert.equal(out.error.cause, undefined);
+  assert.match(out.error.message, /^data exception: invalid datetime format/);
+  assert.deepEqual(Object.keys(out.error).slice(0, 2), ['message', 'hints']);
+  assert.match(out.error.hints[0], /CASE WHEN \{x\} = '' THEN NULL ELSE TO_TIMESTAMP.*debut is empty/);
+});
+
+test('requestable-execute: other errors keep their shape', () => {
+  const fk = execute({ message: 'An unexpected error occured while executing transaction. Could not execute the SQL query.',
+    details: PREPARE + 'integrity constraint violation: foreign key no parent in statement [INSERT INTO t (a) VALUES (?)]' }, { name: 'w_t' });
+  assert.equal(fk.error.cause, 'integrity constraint violation: foreign key no parent');
+  assert.equal(fk.error.hints, undefined);
+  const step = execute({ message: 'An exception occured while executing step', details: '' }, { name: 'seq', isSequence: true, connector: null });
+  assert.equal(step.error.cause, undefined);
+  assert.equal(step.error.message, 'An exception occured while executing step');
 });
