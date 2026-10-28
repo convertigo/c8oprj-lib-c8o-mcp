@@ -1356,6 +1356,22 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return value === true || String(value).toLowerCase() === "true";
   }
 
+  // The bounds of a slider as numbers, or null when min or max is not a number or min is above max.
+  function sliderBounds(config) {
+    var number = function (value) { return value === null || value === "" || typeof value === "boolean" ? NaN : Number(value); };
+    var min = number(config && config.min), max = number(config && config.max);
+    return isFinite(min) && isFinite(max) && min <= max ? { min: min, max: max } : null;
+  }
+
+  // The bound nearest to a numeric slider value outside [min, max], or null when the value is inside, empty or not a number.
+  // The slider shows only values between its bounds: a default outside them is shown as the nearest bound.
+  function sliderBoundOutside(value, bounds) {
+    if (!bounds || value === null || value === "" || typeof value === "boolean") { return null; }
+    var number = Number(value);
+    if (!isFinite(number)) { return null; }
+    return number < bounds.min ? bounds.min : number > bounds.max ? bounds.max : null;
+  }
+
   // Readable defaults for generated applications. White text on each colored
   // token, except text/muted/border/surface which are page colors.
   var DESIGN_TOKENS = {
@@ -2050,6 +2066,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           target.config[key] = field.config[key];
         }
       }
+    }
+    // The prototype default of a slider (0) stays below a min of 1 when the field gives bounds and no default: it takes the
+    // nearest bound, the value the slider shows. A default given in config is kept; validate warns when it is outside.
+    if (target.type === "slider" && !(field.config && hasOwn(field.config, "defaultvalue"))) {
+      var sliderBound = sliderBoundOutside(target.config.defaultvalue, sliderBounds(target.config));
+      if (sliderBound !== null) { target.config.defaultvalue = sliderBound; }
     }
     applyFieldLabel(target, field);
     applyFieldConditions(target, field);
@@ -3388,6 +3410,18 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
         if (hasOwn(PROTOTYPE_PLACEHOLDERS, item.type) && !boolLike(config.componentDisabled) && trimmed(config.placeholder) === PROTOTYPE_PLACEHOLDERS[item.type]) {
           warning("prototype_placeholder", "End users see the prototype hint \"" + config.placeholder + "\". Set a useful placeholder or an empty one", path + "/config/placeholder");
+        }
+        if (item.type === "slider" && !boolLike(config.componentDisabled)) {
+          // The native default, and a literal defaultFrom, outside [min, max]: the slider shows the nearest bound, and the
+          // viewers that do not clamp it submit the default itself when the user does not move the slider.
+          var bounds = sliderBounds(config);
+          var literal = config.contextDefault && config.contextDefault.source === "literal" ? config.contextDefault : null;
+          [[config.defaultvalue, path + "/config/defaultvalue", "default"], [literal ? literal.value : null, path + "/config/contextDefault/value", "literal defaultFrom"]].forEach(function (entry) {
+            var bound = sliderBoundOutside(entry[0], bounds);
+            if (bound !== null) {
+              warning("slider_default_out_of_range", (item.name || item.id) + " has the " + entry[2] + " " + entry[0] + ", outside its bounds [" + bounds.min + ", " + bounds.max + "]: the slider shows " + bound + ". Set a default between min and max (" + bound + " to start at that bound)", entry[1]);
+            }
+          });
         }
         if (item.type === "grid") {
           var gridColumns = ensureArray(config.columns);

@@ -2271,6 +2271,54 @@ test('validate warns about state in browser storage, computations over the rows 
   const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
   assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
 });
+// Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
+// config.defaultvalue, the viewer drew 1 and submitted 0.
+test('a slider compiled with bounds and no default starts at the bound nearest to the prototype default', () => {
+  const r = api().compile({ name: 'Bounds', pages: [{ name: 'Page', fields: [
+    { type: 'slider', name: 'tour', label: 'Tour', min: 1, max: 100 },
+    { type: 'slider', name: 'negative', label: 'Negative', min: -10, max: -1 },
+    { type: 'slider', name: 'inside', label: 'Inside', min: 0, max: 10 },
+    { type: 'slider', name: 'explicit', label: 'Explicit', min: 1, max: 5, config: { defaultvalue: 3 } }
+  ] }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const value = name => r.form.formulaire.find(item => item.name === name).config.defaultvalue;
+  assert.deepEqual(['tour', 'negative', 'inside', 'explicit'].map(value), [1, -1, 0, 3]);
+  assert.ok(!r.validation.warnings.some(w => w.code === 'slider_default_out_of_range'));
+});
+test('validate warns about a slider default outside its bounds, native or literal', () => {
+  // the two sliders of Skyjo rev 486, as saved
+  const skyjoSlider = (id, name, page) => ({ type: 'slider', id, name, config: { debounce: 0, defaultvalue: 0, max: 100, min: 1, pin: true, snaps: true, step: 1, mandatory: true, disabled: false, html: '<p><strong>Tour en cours</strong></p>', personalized: true, page }, sources: { self: { enabled: true, vars: { selfVar: { str: '', type: 'text', html: false } } } } });
+  const r = api().compile({ name: 'Bounds', pages: [{ name: 'Page', fields: [
+    { type: 'slider', name: 'given', label: 'Given', min: 1, max: 10, config: { defaultvalue: 0 } },
+    { type: 'slider', name: 'literal', label: 'Literal', min: 1, max: 100, defaultFrom: { source: 'literal', value: 250 } },
+    { type: 'slider', name: 'literal_inside', label: 'Literal inside', min: 1, max: 100, defaultFrom: { source: 'literal', value: 40 } }
+  ] }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const form = clone(r.form);
+  form.formulaire.push(skyjoSlider(11, 'Tour', form.pages[0].pageTechName), skyjoSlider(12, 'slider1', form.pages[0].pageTechName));
+  const validation = clone(api().validate(form).validation);
+  assert.equal(validation.valid, true, JSON.stringify(validation.issues));
+  const warnings = validation.warnings.filter(w => w.code === 'slider_default_out_of_range');
+  const index = name => form.formulaire.findIndex(item => item.name === name);
+  assert.deepEqual(warnings.map(w => w.path), [
+    '/formulaire/' + index('given') + '/config/defaultvalue',
+    '/formulaire/' + index('literal') + '/config/contextDefault/value',
+    '/formulaire/' + index('Tour') + '/config/defaultvalue',
+    '/formulaire/' + index('slider1') + '/config/defaultvalue'
+  ]);
+  assert.match(warnings[0].message, /^given has the default 0, outside its bounds \[1, 10\]: the slider shows 1\. Set a default between min and max/);
+  assert.match(warnings[1].message, /^literal has the literal defaultFrom 250, outside its bounds \[1, 100\]: the slider shows 100/);
+  // the native default the compiler brought into the bounds is not flagged for the literal sliders
+  assert.equal(byName(form, 'literal').config.defaultvalue, 1);
+});
+test('validate leaves a slider default alone when it is inside, empty, hidden or its bounds cannot be read', () => {
+  const slider = (name, config) => ({ type: 'slider', id: name.length, name, config: { defaultvalue: 0, min: 1, max: 100, page: 'Page_1', ...config } });
+  const form = { name: 'Bounds', pages: [{ name: 'Page', pageTechName: 'Page_1' }], flows: [], formulaire: [
+    slider('inside', { defaultvalue: 1 }), slider('empty', { defaultvalue: '' }), slider('hidden', { componentDisabled: true }),
+    slider('no_min', { min: '' }), slider('reversed', { min: 50, max: 10 }), slider('text_bounds', { max: 'abc' })
+  ] };
+  assert.ok(!clone(api().validate(form).validation.warnings).some(w => w.code === 'slider_default_out_of_range'));
+});
 // nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
 // stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
 const TICKETS = { id: 5277, name: 'Tickets', columns: [
