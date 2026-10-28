@@ -111,7 +111,7 @@ function javaMap(object) {
   return { entrySet: () => ({ iterator: () => { let i = 0; return { hasNext: () => i < entries.length, next: () => { const [key, value] = entries[i++]; return { getKey: () => key, getValue: () => value }; } }; } }) };
 }
 
-function load(transport) {
+function sandboxFor(transport) {
   const empty = new Proxy(function () {}, { get: (_, key) => key === Symbol.toPrimitive ? () => '' : empty });
   class HashMap { constructor() { this.values = {}; } put(key, value) { this.values[key] = value; } }
   class InternalRequester {
@@ -137,9 +137,32 @@ function load(transport) {
     java: { lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } } },
     org: { apache: { log4j: { MDC: { get: k => mdc[k], put: (k, v) => { mdc[k] = v; }, remove: k => { delete mdc[k]; } } } } }
   };
+  sandbox.include = file => vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), sandbox, { filename: file });
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(root, 'js/nocode_baserow.js'), 'utf8'), sandbox, { filename: 'js/nocode_baserow.js' });
-  return sandbox.C8O.nocodeBaserow;
+  sandbox.include('js/nocode_baserow.js');
+  return sandbox;
+}
+
+function load(transport) {
+  return sandboxFor(transport).C8O.nocodeBaserow;
+}
+
+// The step of a sequence as the engine runs it: Sequence.insertObjectsInScope puts each declared variable in the scope
+// as Context.toObject(value), a String object of that scope (typeof "object", no getClass), or null when not given;
+// internal_call gives every argument as text (JSON for a number, a list or an object). The No Code token comes with the
+// request, as the integrated assistant sends it.
+function runSequenceStep(sequenceFile, variables, transport) {
+  const sandbox = sandboxFor(transport);
+  sandbox.context = { httpServletRequest: { getHeader: name => name === 'Authorization' ? 'Bearer t' : null } };
+  const yaml = fs.readFileSync(path.join(root, '_c8oProject/sequences', sequenceFile), 'utf8');
+  const block = yaml.match(/\n {2}expression: \|\n((?: {4}.*\n)+)/)[1];
+  const expression = block.replace(/^ {4}/gm, '').trim().replace(/^'|'$/g, '').replace(/''/g, "'");
+  const toObject = vm.runInContext('(function (value) { return new String(value); })', sandbox);
+  for (const name of yaml.match(/^↓(\w+) \[variables\.RequestableVariable-\d+\]/gm).map(line => line.slice(1).split(' ')[0])) {
+    sandbox[name] = variables[name] == null ? null : toObject(variables[name]);
+  }
+  vm.runInContext(expression, sandbox, { filename: sequenceFile });
+  return plain(sandbox.result);
 }
 
 function rowsList(options, fakeOptions) {
@@ -235,7 +258,8 @@ test('the reduced filter of the contract becomes the filter expression of TableG
     assert.equal(absent.result.status, 'ok', JSON.stringify(none));
     assert.deepEqual([absent.native.params.filterExpression, absent.native.params.order_by, absent.native.params.page, absent.native.params.size], [undefined, undefined, '1', '20']);
   }
-  // A sequence variable reaches the code as a Java string: its JSON is read, not taken for an object.
+  // A Java string (a value of the engine) is text too: its JSON is read, not taken for an object. A sequence variable is
+  // a String object of the scope: see the sequence test below.
   const javaString = text => ({ getClass: () => ({}), toString: () => text });
   const fromJava = rowsList({ table: javaString('30'), fields: javaString('["Name"]'), filter: javaString('{"column":"Stage","operator":"single_select_equal","value":"Won"}'), size: javaString('2') });
   assert.equal(fromJava.result.status, 'ok', JSON.stringify(fromJava.result.error));
@@ -289,6 +313,30 @@ test('a table named by its path is found in the user\'s catalog', () => {
   assert.deepEqual([unknown.result.status, unknown.result.error.code], ['invalid_request', 'table_not_in_catalog']);
   const elsewhere = rowsList({ table: 32 });
   assert.equal(elsewhere.result.error.code, 'table_not_readable', 'an id the user cannot read, whatever the catalog');
+});
+
+test('the sequence reads its variables as the engine gives them: String objects, not objects to read an id from', () => {
+  // TigoAccess 0e8a7f91 and 77727897 (27/10): every call answered table_required, the id of the catalog as its path.
+  const step = variables => {
+    const fake = fakeBaserow();
+    return { result: runSequenceStep('tools_nocode_baserow_rows_list.yaml', variables, fake.transport), calls: fake.state.calls };
+  };
+  const byId = step({ table: '30', size: '2' });
+  assert.equal(byId.result.status, 'ok', JSON.stringify(byId.result.error));
+  assert.deepEqual([byId.result.table, byId.result.rows.map(r => r.id), byId.result.nextPage], [{ id: 30 }, [1, 2], 2]);
+  const byPath = step({ table: 'Team~>Sales~>Deals', fields: '["Name"]', size: '1' });
+  assert.equal(byPath.result.status, 'ok', JSON.stringify(byPath.result.error));
+  assert.deepEqual([byPath.result.table, byPath.result.rows], [{ id: 30, path: 'Team~>Sales~>Deals' }, [{ id: 1, Name: 'Deal 1' }]]);
+  const everything = step({ table: '30', fields: '["Name","Amount"]', filter: '{"column":"Stage","operator":"single_select_equal","value":"Won"}', sort: '-Amount', page: '2', size: '3' });
+  assert.equal(everything.result.status, 'ok', JSON.stringify(everything.result.error));
+  const native = everything.calls.find(c => c.name === 'TableGetDataNative').params;
+  assert.deepEqual(JSON.parse(native.filterExpression), { mode: 'AND', filters: [{ field: 'Stage', op: 'single_select_equal', value: 'Won' }] });
+  assert.deepEqual(JSON.parse(native.order_by), { sorts: [{ name: 'Amount', order: 'desc' }] });
+  assert.deepEqual([native.include_fields, native.page, native.size], ['Name,Amount', '2', '3']);
+  assert.deepEqual(everything.result.rows.map(r => r.id), [48, 46, 44]);
+  assert.equal(step({ table: '{"id":30}', size: '1' }).result.table.id, 30, 'a reference written as JSON is still read');
+  const missing = step({});
+  assert.deepEqual([missing.result.status, missing.result.error.code], ['invalid_request', 'table_required']);
 });
 
 test('the answers of TableGetDataNative that are not a page say what Baserow refused', () => {
