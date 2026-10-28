@@ -58,6 +58,7 @@ Use this prompt for SQL connectors and transactions that sit behind an already a
    Retrieve that template through `resources/templates/list` then `resources/read` when the live catalog is available.
 10. For a standard CRUD proof flow on a fresh starter NGX project, prefer the exact direct order from `convertigo-crud-practical-cases` over a custom validation sequence.
 11. For embedded HSQLDB demos, prefer deterministic `CREATE TABLE IF NOT EXISTS` plus `DELETE`/`INSERT` seed transactions. Do not start with `MERGE INTO` or other dialect-heavy shortcuts unless the exact project already proves them.
+   Write SQL for the connector's database, not another one. On HSQLDB: dates as `'YYYY-MM-DD HH:MM:SS'` (no `T`), `TO_CHAR` instead of `FORMATDATETIME`/`DATE_FORMAT`, `INTERVAL '30' MINUTE` instead of `INTERVAL '30 minutes'`, and `SELECT IDENTITY()` after the `INSERT` instead of `RETURNING` or `LAST_INSERT_ID()` (`convertigo-integration-sql`).
 12. Do not start with paging/search/sort cleverness. Prove `list` and `count` first, then add bounded extras only if the scenario still needs them.
 13. Use `{variable}` by default for value placeholders in the `WHERE` clause. Escalate to `{{variable}}` only for deliberate raw SQL fragments that cannot be expressed safely otherwise.
 14. Validate the read path first.

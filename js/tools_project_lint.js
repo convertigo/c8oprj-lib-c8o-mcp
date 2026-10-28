@@ -266,6 +266,10 @@
         add("SQL-DATE-UNIT", "error", dbo, "Bare number added to a date (" + dateMath.expression + "): " + dateMath.message + ".",
           "Write " + dateMath.fix + ".");
       }
+      // A warning: the rules match the text, and a database may have the function as a user routine.
+      D.foreignSyntax(dialect, query).forEach(function (found) {
+        add("SQL-FOREIGN-DIALECT", "warning", dbo, found.expression + ": " + found.message + ".", "Write " + found.fix + ".");
+      });
       var inMatch = /\bIN\s*\(\s*\{([A-Za-z_]\w*)\}\s*\)/i.exec(query);
       if (inMatch) {
         var variable = null;
