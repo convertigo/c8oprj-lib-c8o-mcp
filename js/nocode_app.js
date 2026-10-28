@@ -713,7 +713,9 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     if (type === "link_row") {
       var target = spec.links[column.name.toLowerCase()];
       field.type = "select";
-      field.source = { table: target.table, display: target.display, value: target.display, sort: target.display };
+      // The linked row id is written (value "id"), its primary field shown: lib_BaseRow writes a text as is and Baserow
+      // links the first row of that primary text (Skyjo, a select of player names written into Scores.Joueur, 26/10).
+      field.source = { table: target.table, display: target.display, value: "id", sort: target.display };
     }
     var value = fieldSpec.defaultValue;
     if (value === "user" || value === "user.name") { field.defaultFrom = { source: "user", property: "name", fallback: "" }; }

@@ -684,6 +684,7 @@ function creationHarness(options = {}) {
     if (sequence === 'formscommon_FieldsList') {
       // Like lib_BaseRow, the field list is empty until a Baserow session exists.
       if (options.fieldsNeedSession && !state.calls.includes('formscommon_ApplicationsList')) return { document: {} };
+      if (options.columnsByTable) return { document: { array: clone(options.columnsByTable[JSON.parse(params.forms_config).table_id] || []) } };
       return { document: { array: options.columns || [{name:'Reference',type:'text'},{name:'Status',type:'text'}] } };
     }
     if (sequence === 'APIV2_getDocument') {
@@ -2135,6 +2136,141 @@ test('forms_freeVars: a column map becomes the editor list, JSON text still runs
   assert.ok(legacy.validation.warnings.some(w => w.code === 'freevars_text_shape'));
 });
 
+// Skyjo (26/10): a select of player names (value "Nom") written into the link_row column Scores.Joueur. lib_BaseRow
+// writes the text, Baserow links the first row of that primary text, and the formulas compared a name with row ids.
+const linkTables = [{ id: 7001, name: 'Joueurs', path: 'Team~>Jeux~>Joueurs' }, { id: 7002, name: 'Scores', path: 'Team~>Jeux~>Scores' }, { id: 7003, name: 'Equipes', path: 'Team~>Jeux~>Equipes' }];
+const linkColumns = {
+  7001: [{ id: 1, name: 'Nom', type: 'text', primary: true }, { id: 2, name: 'Scores', type: 'link_row', link_row_table_id: 7002 }],
+  7002: [{ id: 3, name: 'Partie', type: 'text', primary: true }, { id: 4, name: 'Points', type: 'number' }, { id: 5, name: 'Joueur', type: 'link_row', link_row_table_id: 7001 }],
+  7003: [{ id: 6, name: 'Nom', type: 'text', primary: true }]
+};
+function scoresApp(select = {}, save = { table: 7002 }) {
+  return { name: 'Points', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: [
+    { type: 'select', name: 'Joueur', label: 'Joueur', source: { table: 7001, display: 'Nom', ...select } },
+    { type: 'text', name: 'Partie', label: 'Partie' },
+    { type: 'text', name: 'Points', label: 'Points', inputType: 'number' },
+    { type: 'button', name: 'save', label: 'Enregistrer', flow: 'save_score' }
+  ] }], flows: [{ id: 'save_score', name: 'Enregistrer le score', elements: [{ type: 'submit', saveTo: save }, { type: 'toast', message: 'Score enregistré', color: 'success' }] }] };
+}
+const selectConfig = form => JSON.parse(byName(form, 'Joueur').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str);
+const saveAction = (form, key) => form.flows.find(f => f.id === 'save_score').elements[0].actions[key];
+test('create writes the linked row id from a select written into a link_row column, and the linked tables', () => {
+  for (const [save, key] of [[{ table: 7002 }, 'lib_BaseRow.forms_AddRow'], [{ table: 7002, values: { Joueur: 'Joueur', Partie: 'Partie', Points: 'Points' } }, 'lib_BaseRow.forms_AddRowFromData']]) {
+    const h = creationHarness({ columnsByTable: linkColumns });
+    const r = h.client.create(scoresApp({}, save), { ...h.auth, tableIndex: linkTables });
+    assert.equal(r.saved, true, JSON.stringify(r.validation || r.error));
+    const saved = h.state.forms[r.form._id];
+    const config = selectConfig(saved);
+    assert.equal(config.value, 'id', key);
+    assert.equal(config.displayValue, 'Nom');
+    assert.deepEqual(config.columns, ['Nom', 'id']);
+    assert.deepEqual(config.link_row_table_id, [7002], 'the table the select reads links to Scores');
+    assert.deepEqual(JSON.parse(saveAction(saved, key).vars.forms_config.str).link_row_table_id, [7001], 'Scores links to Joueurs');
+    const warning = r.validation.warnings.find(w => w.code === 'link_row_select_value_rewritten');
+    assert.ok(warning, key);
+    assert.match(warning.message, /Joueur is written into the link_row column Joueur of table 7002: its value is now the linked row id \(value "id" instead of "Nom"\)/);
+  }
+  // Already the row id: nothing to say.
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const r = h.client.create(scoresApp({ value: 'id' }), { ...h.auth, tableIndex: linkTables });
+  assert.equal(r.saved, true);
+  assert.ok(!r.validation.warnings.some(w => /^link_row_select/.test(w.code)));
+});
+test('create refuses a select of another table written into a link_row column', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const r = h.client.create(scoresApp({ table: 7003 }), { ...h.auth, tableIndex: linkTables });
+  assert.equal(r.saved, false);
+  const issue = r.validation.issues.find(i => i.code === 'link_row_select_table');
+  assert.ok(issue, JSON.stringify(r.validation.issues));
+  assert.match(issue.message, /lists the rows of table 7003 .* links to table 7001/);
+  assert.equal(h.state.saves, 0);
+});
+test('an edit rewrites a select it changes and only reports one it leaves alone', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(scoresApp({ value: 'id' }), { ...h.auth, tableIndex: linkTables });
+  const id = created.form._id;
+  // An older generation: the name as value.
+  const stored = h.state.forms[id];
+  const legacy = selectConfig(stored);
+  legacy.value = 'Nom';
+  legacy.columns = ['Nom'];
+  byName(stored, 'Joueur').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str = JSON.stringify(legacy);
+  const reads = () => h.state.calls.filter(c => c === 'formscommon_FieldsList').length;
+  const before = reads();
+  const unrelated = h.client.edit(id, [{ action: 'set_root', patch: { name: 'Points du jeu' } }], h.auth);
+  assert.equal(unrelated.saved, true);
+  assert.ok(!unrelated.validation.warnings.some(w => /^link_row_select/.test(w.code)));
+  assert.equal(reads(), before, 'an edit touching no save nor select reads no Baserow field');
+  // A new save of Scores: the select is not changed by the edit, it is reported.
+  const newSave = h.client.edit(id, [{ action: 'add_flow', flow: { id: 'save_again', name: 'Enregistrer encore', elements: [{ type: 'submit', saveTo: { table: 7002 } }] } }], { ...h.auth, tableIndex: linkTables });
+  assert.equal(newSave.saved, true, JSON.stringify(newSave.validation || newSave.error));
+  assert.equal(selectConfig(h.state.forms[id]).value, 'Nom', 'a select the edit did not change keeps its value');
+  assert.ok(newSave.validation.warnings.some(w => w.code === 'link_row_select_value' && /writes "Nom" into the link_row column Joueur of table 7002/.test(w.message)));
+  // The select itself changed: its value becomes the row id.
+  const changed = h.client.edit(id, [{ action: 'update_field', fieldName: 'Joueur', patch: { sources: { 'lib_BaseRow.formssource_GetSelectData': { vars: { forms_tableSort: { str: '', html: false, type: 'sort', conds: [{ name: 'Nom', order: 'desc' }] } } } } } }], h.auth);
+  assert.equal(changed.saved, true, JSON.stringify(changed.validation || changed.error));
+  assert.equal(selectConfig(h.state.forms[id]).value, 'id');
+  assert.ok(changed.validation.warnings.some(w => w.code === 'link_row_select_value_rewritten'));
+});
+test('nocode-form-validate refuses a select written into a link_row column with another value than the row id', () => {
+  const compiled = api().compile(scoresApp(), { tableIndex: linkTables }).form;
+  assert.equal(selectConfig(compiled).value, 'Nom', 'the offline compile does not know the column types');
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const result = h.client.validate(compiled, { ...h.auth, baserowLinks: true }).validation;
+  assert.equal(result.valid, false);
+  const issue = result.issues.find(i => i.code === 'link_row_select_value');
+  assert.ok(issue, JSON.stringify(result.issues));
+  assert.equal(issue.path, '/formulaire/' + compiled.formulaire.indexOf(byName(compiled, 'Joueur')) + '/sources/lib_BaseRow.formssource_GetSelectData/vars/forms_config');
+  assert.equal(selectConfig(compiled).value, 'Nom', 'validate does not change the form');
+  assert.ok(!h.state.calls.includes('APIV2_updateFormulaireDocument'));
+  // Without the No Code authentication the columns are not read: a warning says what was not checked.
+  const offline = api().validate(compiled, { baserowLinks: true }).validation;
+  assert.ok(offline.warnings.some(w => w.code === 'link_row_selects_unverified'));
+  assert.ok(!offline.issues.some(i => /^link_row_select/.test(i.code)));
+  // Without baserowLinks (compile, the saves) validate stays static.
+  assert.ok(!api().validate(compiled).validation.warnings.some(w => w.code === 'link_row_selects_unverified'));
+});
+// Skyjo (26/10): the current game and round were formulas over hidden grids (row_selected, 10 rows a page, the
+// defaults) and a localStorage flag set by business_logic steps; a debug field stayed in the delivered form.
+const skyjoPartie = "(()=>{try{const v=fields.score_last;const a=Array.isArray(v)?v:(v&&Array.isArray(v.data))?v.data:[];const num=(x)=>Number((x&&typeof x==='object')?x.value:x)||0;const m=a.reduce((acc,r)=>Math.max(acc,num(r.Partie)),0);return localStorage.getItem('skyjo_new_game')==='1'?(m+1):(m||1)}catch(e){return '1'}})()";
+const skyjoTour = "(()=>{var v=fields['joueur_all'];var b=Array.isArray(v)?v:[];return b.length})()";
+function skyjoLogic(grid = {}) {
+  return { name: 'Skyjo', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: [
+    { type: 'layout', name: 'score_data', visibleIf: { never: true }, fields: [
+      { type: 'grid', name: 'score_last', source: { table: 7002, columns: ['Partie', 'Tour', 'Joueur'] }, ...grid },
+      { type: 'grid', name: 'joueur_all', source: { table: 7001, columns: ['Nom'] } },
+      { type: 'grid', name: 'score_list', source: { table: 7002, columns: ['Partie', 'Points'] } }
+    ] },
+    { type: 'text', name: 'Partie', label: 'Partie', disabled: true, defaultFrom: { source: 'expression', expression: skyjoPartie, mode: 'reactive' } },
+    { type: 'text', name: 'joueurs', label: 'Joueurs', disabled: true, defaultFrom: { source: 'expression', expression: skyjoTour, mode: 'reactive' } },
+    { type: 'text', name: 'Selection', label: 'Partie choisie', disabled: true, defaultFrom: { source: 'field', field: 'score_list', column: 'Partie', mode: 'reactive', fallback: '' } },
+    { type: 'text', name: 'debug_tour', label: 'Tour calculé', disabled: true },
+    { type: 'button', name: 'new_game', label: 'Nouvelle partie', flow: 'nouvelle_partie' }
+  ] }], flows: [{ id: 'nouvelle_partie', name: 'Nouvelle partie', elements: [
+    { type: 'business_logic', name: 'start_new_game', expression: "(sessionStorage.setItem('skyjo_new_game','1'), '')" },
+    { type: 'toast', message: 'Nouvelle partie', color: 'success' }
+  ] }] };
+}
+test('validate warns about state in browser storage, computations over the rows of a grid and debug fields', () => {
+  const r = api().compile(skyjoLogic(), { tableIndex: linkTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const validation = clone(api().validate(r.form).validation);
+  assert.equal(validation.valid, true, 'warnings only');
+  const of = code => validation.warnings.filter(w => w.code === code);
+  const index = name => r.form.formulaire.indexOf(byName(r.form, name));
+  const flow = r.form.flows.findIndex(f => f.id === 'nouvelle_partie');
+  assert.deepEqual(of('browser_storage_state').map(w => w.path), ['/formulaire/' + index('Partie') + '/config/contextDefault/expression', '/flows/' + flow + '/elements/0/sources/self/vars/selfVar/str']);
+  assert.match(of('browser_storage_state')[0].message, /Partie uses localStorage: that value stays in one browser on one device/);
+  assert.match(of('browser_storage_state')[1].message, /^The formula start_new_game uses sessionStorage/);
+  const rows = of('grid_rows_in_formula');
+  assert.deepEqual(rows.map(w => /the grid (\w+)/.exec(w.message)[1]), ['score_last', 'joueur_all'], 'fields.x and fields["x"]; not the column read of the selected row');
+  assert.match(rows[0].message, /^Partie computes over the rows of the grid score_last, which gives a formula its selection \(returned_value row_selected\) and loads one page of 10 rows on a computer, every row on a phone/);
+  assert.match(rows[0].message, /groupBy and aggregations of a Baserow source/);
+  assert.deepEqual(of('debug_component').map(w => w.path), ['/formulaire/' + index('debug_tour')]);
+  // A grid giving a formula every row (all_the_data) is what such a formula reads; it is not flagged.
+  const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
+  assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
+});
 // nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
 // stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
 const TICKETS = { id: 5277, name: 'Tickets', columns: [
@@ -2328,6 +2464,8 @@ test('nocode-app-create: inputs named after their columns, an explicit mapping w
   const link = byName(form, 'Client').sources['lib_BaseRow.formssource_GetSelectData'].vars;
   assert.deepEqual(JSON.parse(link.forms_config.str).table_id_int, 40);
   assert.equal(JSON.parse(link.forms_config.str).displayValue, 'Nom', 'a link lists the rows of its table by their primary field');
+  assert.equal(JSON.parse(link.forms_config.str).value, 'id', 'and writes the linked row id, not its primary text');
+  assert.deepEqual(JSON.parse(link.forms_config.str).columns, ['Nom', 'id']);
   // An existing boolean is entered with a Oui/Non radio, no answer chosen in advance, and written true/false by a hidden
   // field of the column's name (test-nocode S4: the agent added a checkbox of its own when the tool left it out; a
   // static radio shows the value it submits and Baserow refuses Oui).
@@ -2393,6 +2531,70 @@ test('add_field into a container takes the page of its root container, whatever 
   assert.equal(added.operations[0].note, undefined);
   assert.match(added.operations[1].note, /ignored.*root container/);
   assert.ok(!added.validation.warnings.some(w => w.code === 'nested_page_mismatch'));
+});
+// Skyjo (26/10): add_field wrote its parentFieldId argument as parentRef, the text "1793012950260" under a layout whose
+// id is a number; the editor, comparing with ===, showed the button twice. A reference takes the type of the id it names.
+test('add_field, update and create write parentRef and childrenRefs with the type of the ids they name', () => {
+  const h = creationHarness();
+  const created = h.client.create(nestedPagesForm(), h.auth);
+  const id = created.form._id;
+  const record = byName(created.form, 'record');
+  assert.equal(typeof record.id, 'number');
+  const added = h.client.edit(id, [
+    { action: 'add_field', parentFieldId: String(record.id), fieldObject: { type: 'button', name: 'delete', label: 'Supprimer', flow: 'delete' } },
+    { action: 'add_field', parent: 'record', fieldObject: { type: 'text', name: 'by_name' } }
+  ], h.auth);
+  assert.equal(added.saved, true, JSON.stringify(added.validation || added.error));
+  const saved = h.state.forms[id].formulaire;
+  for (const name of ['delete', 'by_name']) {
+    const child = saved.find(item => item.name === name);
+    assert.strictEqual(child.parentRef, record.id, name + ': the parent id itself, not the argument');
+    assert.ok(saved.find(item => item.name === 'record').childrenRefs.includes(child.id));
+  }
+  // A full array sent by update with text references is saved with the ids' type.
+  const patched = clone(h.state.forms[id].formulaire);
+  patched.find(item => item.name === 'delete').parentRef = String(record.id);
+  const holder = patched.find(item => item.name === 'record');
+  holder.childrenRefs = holder.childrenRefs.map(String);
+  assert.ok(api().validate({ ...clone(h.state.forms[id]), formulaire: patched }).validation.issues.some(i => i.code === 'relation_ref_type'));
+  const updated = h.client.update(id, { formulaire: patched }, h.auth);
+  assert.equal(updated.saved, true, JSON.stringify(updated.validation));
+  const after = h.state.forms[id].formulaire;
+  assert.strictEqual(after.find(item => item.name === 'delete').parentRef, record.id);
+  assert.ok(after.find(item => item.name === 'record').childrenRefs.every(ref => typeof ref === 'number'));
+  // An id given as digits in reduced JSON is the number the editor writes.
+  const digits = api().compile({ name: 'Digits', pages: [{ name: 'P', fields: [{ type: 'layout', name: 'row', id: '1900000000301', fields: [{ type: 'text', name: 'inside', id: '1900000000302' }] }] }] });
+  assert.equal(digits.status, 'ok', JSON.stringify(digits.validation.issues));
+  assert.strictEqual(byName(digits.form, 'row').id, 1900000000301);
+  assert.strictEqual(byName(digits.form, 'inside').parentRef, 1900000000301);
+  assert.deepEqual(clone(byName(digits.form, 'row').childrenRefs), [1900000000302]);
+});
+test('validate reports a reference of another type than its id and a listed child that does not point back', () => {
+  const form = api().compile(nestedPagesForm()).form;
+  const record = byName(form, 'record');
+  const inner = byName(form, 'inner');
+  const text = clone(form);
+  byName(text, 'inner').parentRef = String(record.id);
+  const issues = api().validate(text).validation.issues;
+  const typed = issues.find(i => i.code === 'relation_ref_type');
+  assert.ok(typed, JSON.stringify(issues));
+  assert.equal(typed.path, '/formulaire/' + text.formulaire.indexOf(byName(text, 'inner')) + '/parentRef');
+  assert.match(typed.message, new RegExp('"' + record.id + '" \\(string\\) while the id it names is ' + record.id + ' \\(number\\)'));
+  const listedText = clone(form);
+  byName(listedText, 'record').childrenRefs = [String(inner.id)];
+  assert.ok(api().validate(listedText).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
+  const orphan = clone(form);
+  delete byName(orphan, 'inner').parentRef;
+  const mismatch = api().validate(orphan).validation.issues.find(i => i.code === 'child_parent_mismatch');
+  assert.ok(mismatch);
+  assert.match(mismatch.message, /record lists inner in its childrenRefs, but its parentRef is missing/);
+  // The same check in a flow: an if_else branch child named by text.
+  const flowForm = clone(form);
+  flowForm.flows.push({ id: 'check', name: 'Check', elements: [
+    { id: 1900000000401, name: 'branch', cat: 'action', type: 'if_else', childrenRefs: ['1900000000402'], sources: { self: { enabled: true, vars: { selfVar: { type: 'condition', condVisible: 'and', conds: [{ operator: 'is_filled', val1: { str: String(record.id) } }], groups: [] } } } }, config: {} },
+    { id: 1900000000402, name: 'then_toast', cat: 'action', type: 'toast', parentRef: 1900000000401, sources: { self: { enabled: true, vars: { selfVar: { str: 'ok', type: 'text' } } } }, config: { color: '#15803D' } }
+  ] });
+  assert.ok(api().validate(flowForm).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
 });
 test('move_field gives the moved component and its descendants the page of their new root container', () => {
   const h = creationHarness();

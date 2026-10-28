@@ -183,6 +183,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return Number(idSeed);
   }
 
+  function numericId(value) {
+    return typeof value === "string" && /^\d{1,15}$/.test(value) ? Number(value) : value;
+  }
+
   function slug(value, fallback) {
     var text = trimmed(value || fallback || "item").replace(/[^A-Za-z0-9_]+/g, "_");
     text = text.replace(/^_+|_+$/g, "");
@@ -535,7 +539,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
             ]
           },
           multiple_select: { component: "checkbox", valuesFrom: "field.select_options[].value", writeSupport: "limited", notes: ["C8Oforms can present this as checkbox choices, but lib_BaseRow.forms_AddRow currently logs multiple_select as TODO, so do not promise robust Baserow writes without a tested action path."] },
-          link_row: { component: "select", source: "lib_BaseRow.formssource_GetSelectData", valueRule: "Use the linked row id as value and a readable linked row column as displayValue.", notes: ["For one linked row, use select/radio. For many linked rows, use checkbox only when the target write path is tested."] },
+          link_row: { component: "select", source: "lib_BaseRow.formssource_GetSelectData", valueRule: "Read the linked table with value \"id\" (the linked row id, the Identifier of the editor) and a readable column of it as displayValue. A name as value is written as text: Baserow links the first row with that primary text. create, edit and update write \"id\" for a select they write into a link_row column; nocode-form-validate refuses another value.", notes: ["For one linked row, use select/radio. For many linked rows, use checkbox only when the target write path is tested."] },
           file: { component: "file", alternatives: ["img", "signature"], notes: ["Use img/signature only when the user intent is specifically photo/signature capture; otherwise use file."] },
           created_on: { component: "description", writable: false, notes: ["Read-only Baserow metadata; do not generate an input field for writes."] },
           created_by: { component: "description", writable: false, notes: ["Read-only Baserow metadata; do not generate an input field for writes."] },
@@ -549,7 +553,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         generationRules: [
           "For Baserow single_select inputs, generate a source-backed select using lib_BaseRow.formssource_GetFieldValues. Do not materialize field.select_options as local children unless explicitly requested for an offline/static form.",
           "For select/radio/checkbox values, preserve Baserow option labels exactly, including capitalization and punctuation.",
-          "For link_row inputs, generate a source-backed select using lib_BaseRow.formssource_GetSelectData so the UI displays readable rows while submitting the linked row id.",
+          "For link_row inputs, generate a source-backed select using lib_BaseRow.formssource_GetSelectData on the linked table with value \"id\" (reduced: source { table, display: \"Name\", value: \"id\" }) so the UI displays readable rows while submitting the linked row id.",
           "Do not generate writable inputs for read-only or computed Baserow types such as formula, lookup, rollup, count, created_on, created_by, last_modified, and last_modified_by.",
           "When the target flow will call lib_BaseRow.forms_AddRow or lib_BaseRow.forms_AddRowFromData, prefer Baserow types explicitly handled by those sequences: text, long_text, number, date, boolean, email, phone_number, rating, duration, password, url, single_select, link_row, and file.",
           "For multiple_select, either keep the field read-only or require an explicit tested write strategy, because the observed lib_BaseRow forms add-row sequences do not fully implement multiple_select writes."
@@ -872,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-26.expression-syntax-v16",
+      contractVersion: "2026-10-28.derived-state-v18",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1024,7 +1028,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
           connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application (field names in the user's language: they are the grid column headers), then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
           unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
-          tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control."
+          tracking: "A tracking page must contain a real source-backed grid/cards view, not explanatory HTML or a local demonstration. Show an empty state until real records exist. Filter private data server-side; a UI filter is not access control.",
+          derivedState: "State in Baserow, not localStorage (browser_storage_state); no count, maximum or 'already exists' over a grid's rows in a formula: it gets the selection and one page (grid_rows_in_formula); no debug_* field (debug_component)."
         },
         incrementalCreation: {
           rule: "Tool arguments are generated token by token by the model; a reduced JSON above roughly 4 KB is likely to arrive with a structural typo and be refused. Build large applications in steps, each with a short argument, and pass reduced as a JSON object, not as a string.",
@@ -1166,7 +1171,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       baserowShorthand: {
         rule: "Prefer these reduced forms to the native sources and actions (baserowSources, backendActions): the tools find the table path and id in the user's catalog, encode every variable and resolve the references to fields and grids. table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list.",
         dataView: { on: "grid, chart, map, gallery", shape: "source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }" },
-        choices: { on: "select, radio, checkbox", columnChoices: "source: { table, field: \"Status\" } lists the options of a single select column", rows: "source: { table, display: \"Name\", value: \"Code\", filter, sort } lists the rows of a table" },
+        choices: { on: "select, radio, checkbox", columnChoices: "source: { table, field: \"Status\" } lists the options of a single select column", rows: "source: { table, display: \"Name\", value: \"Code\", filter, sort } lists the rows of a table", linkedRows: "for a link_row column, list the linked table with value: \"id\": the answer is the linked row id" },
         filter: "A condition { column, operator, value }, or { all: [...] } / { any: [...] } nested: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: \"High\" }] }. A plain value is a literal; { field: \"name\" } reads that component at runtime.",
         operators: { text: ["contains", "contains_not", "contains_word", "equal", "not_equal", "empty", "not_empty"], number: ["equal", "higher_than", "higher_than_or_equal", "lower_than", "lower_than_or_equal"], singleSelect: ["single_select_equal", "single_select_not_equal", "single_select_is_any_of"], other: ["boolean", "link_row_has", "multiple_select_has"], all: "baserowSources.filter.operators lists every Baserow filter type" },
         save: { on: "a submit element of a flow", add: "{ type: \"submit\", saveTo: { table } } adds a row from the inputs named like its columns (forms_AddRow)", map: "saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given (forms_AddRowFromData): a string names a field, { value } is a literal, { field, path } reads a part of a field", update: "saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid", remove: "{ type: \"submit\", deleteFrom: { table, row: \"grid_name\" } } deletes the selected row" },
@@ -1499,7 +1504,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // What an expression may reach. The viewer runs it as JavaScript in its page, without a sandbox (C8Oforms viewerPage
   // createExpressionFunction): an agent took the old "no guessed globals" advice for "no window, no localStorage" and told a user that
   // two forms could not share a value through localStorage. The contract does not steer toward it, nor forbid it.
-  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device: a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression.";
+  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device; never keep the state of the application there (a current record, a round, a 'new game' flag: nocode-form-validate warns browser_storage_state): a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression.";
 
   function normalizeToastColor(value) {
     var text = trimmed(value);
@@ -2589,7 +2594,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var out = clone(proto, {});
     out.type = type;
-    out.id = field.id != null ? field.id : nextId();
+    // An id given as digits ("1793012950260") is the number the editor writes: childrenRefs and parentRef name it as such.
+    out.id = field.id != null ? numericId(field.id) : nextId();
     out.name = trimmed(field.name) || (type + out.id);
     if (parentId != null) {
       out.parentRef = parentId;
@@ -2767,6 +2773,72 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     delete target.defaultFrom;
   }
 
+  // Skyjo (26/10): the current game, round and "already played" fields were formulas over hidden grids and a
+  // localStorage flag. A grid gives a formula its selected row (returned_value row_selected, the default) and loads one
+  // page of gridRowsPerPage rows; localStorage stays in one browser. A debug field was left in the delivered form.
+  var BROWSER_STORAGE = /\b(localStorage|sessionStorage)\b/;
+  var ROW_LIST_USE = /Array\.isArray\s*\(|\.(reduce|filter|forEach|map|some|every|find|findIndex|flatMap)\s*\(|\.length\b|\.(data|rows)\b/;
+  var DEBUG_NAME = /(^|[^a-z])debug([^a-z]|$)/i;
+  function validateGeneratedLogic(form, warning) {
+    var items = ensureArray(form.formulaire);
+    var grids = {};
+    items.forEach(function (item) {
+      if (!item || item.type !== "grid" || item.config && item.config.returned_value === "all_the_data") { return; }
+      var source = item.sources && item.sources["lib_BaseRow.formssource_GetTableData"];
+      if (!source || !boolLike(source.enabled)) { return; }
+      grids[String(item.id)] = item;
+      grids["name:" + item.name] = item;
+    });
+    function gridsRead(text) {
+      var found = [];
+      function add(item) { if (item && found.indexOf(item) < 0) { found.push(item); } }
+      var reference = /\$\$START(\d+)\{/g;
+      var match;
+      while ((match = reference.exec(text))) { add(grids[match[1]]); }
+      var named = /\bfields\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*(["'])((?:(?!\2).)+)\2\s*\])/g;
+      while ((match = named.exec(text))) { add(grids["name:" + (match[1] || match[3])]); }
+      return found;
+    }
+    function check(owner, value, path) {
+      var text = value && value.type === "ts" ? String(value.str == null ? "" : value.str) : "";
+      if (!text.length) { return; }
+      var what = (owner.type === "business_logic" ? "The formula " : "") + (owner.name || owner.id);
+      if (BROWSER_STORAGE.test(text)) {
+        warning("browser_storage_state", what + " uses " + BROWSER_STORAGE.exec(text)[1] + ": that value stays in one browser on one device, other users and devices never see it, and clearing the browser loses it. Keep the state of the application (current game, round, a flag such as a new game) in Baserow: a save, then a source filtered on it. Keep it only when the user asked for a value kept on this device", path);
+      }
+      if (!ROW_LIST_USE.test(text)) { return; }
+      gridsRead(text).forEach(function (grid) {
+        var config = grid.config || {};
+        var paged = !(hasOwn(config, "gridPaginationEnabled") && !boolLike(config.gridPaginationEnabled));
+        var rows = Number(config.gridRowsPerPage) > 0 ? Math.floor(Number(config.gridRowsPerPage)) : 10;
+        warning("grid_rows_in_formula", what + " computes over the rows of the grid " + grid.name + ", which gives a formula its " + (config.returned_value === "nothing" ? "nothing" : "selection (returned_value " + (config.returned_value || "row_selected") + ")") + (paged ? " and loads one page of " + rows + " rows on a computer, every row on a phone" : "") + ": a count, a maximum, a last value or an 'already exists' check made there is wrong. Use the groupBy and aggregations of a Baserow source (computed on the whole table), or a source filtered on exactly the rows needed and test whether it is empty", path);
+      });
+    }
+    items.forEach(function (item, index) {
+      if (!item || typeof item !== "object") { return; }
+      var self = item.sources && item.sources.self;
+      var contextDefault = item.config && item.config.contextDefault;
+      if (contextDefault && contextDefault.source === "expression") {
+        // The expression as written; the self source holds it with the field references the compiler resolved.
+        check(item, { type: "ts", str: contextDefault.expression }, "/formulaire/" + index + "/config/contextDefault/expression");
+      } else if (!contextDefault) {
+        // A defaultFrom field/column is compiled by the tools to read the selected row: not a computation over rows.
+        check(item, self && self.vars && self.vars.selfVar, "/formulaire/" + index + "/sources/self/vars/selfVar/str");
+      }
+      var label = item.config && typeof item.config.label === "string" ? item.config.label : "";
+      if (DEBUG_NAME.test(trimmed(item.name)) || DEBUG_NAME.test(label)) {
+        warning("debug_component", (item.name || item.id) + " looks like a debugging aid: remove it from the delivered application, or keep it only if the user asked to see that value", "/formulaire/" + index);
+      }
+    });
+    ensureArray(form.flows).forEach(function (flow, idx) {
+      ensureArray(flow && flow.elements).forEach(function (element, eidx) {
+        if (!element || typeof element !== "object") { return; }
+        var self = element.sources && element.sources.self;
+        check(element, self && self.vars && self.vars.selfVar, "/flows/" + idx + "/elements/" + eidx + "/sources/self/vars/selfVar/str");
+      });
+    });
+  }
+
   function validateContextDefaults(form, issue, warning) {
     var fields = ensureArray(form.formulaire);
     var links = Object.create(null);
@@ -2921,6 +2993,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
+    normalizeRelationRefs(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
@@ -2940,6 +3013,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       form: doc,
       validation: validation
     };
+  }
+
+  // A reference equal to an id as text but not of its type ("1793012950260" for 1793012950260): the viewer and the
+  // editor compare them with ===.
+  function relationRefTypeMismatch(ref, id) {
+    return ref != null && id != null && typeof ref !== "object" && typeof ref !== typeof id;
+  }
+  function relationRefTypeMessage(what, ref, id) {
+    return what + " is " + JSON.stringify(ref) + " (" + typeof ref + ") while the id it names is " + JSON.stringify(id) + " (" + typeof id + "): the editor compares them with === and shows the component twice. Write the id as it is; nocode-form-create, nocode-form-edit and nocode-form-update do it on save";
   }
 
   function validateForm(form, options) {
@@ -3116,13 +3198,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
         if (item.parentRef != null && !ids[String(item.parentRef)]) {
           issue("unknown_parent_ref", "parentRef points to a missing component: " + item.parentRef, "/formulaire/" + idx + "/parentRef");
+        } else if (item.parentRef != null && relationRefTypeMismatch(item.parentRef, ids[String(item.parentRef)].item.id)) {
+          issue("relation_ref_type", relationRefTypeMessage("parentRef of " + item.name, item.parentRef, ids[String(item.parentRef)].item.id), "/formulaire/" + idx + "/parentRef");
         }
         ensureArray(item.childrenRefs).forEach(function (childId, cidx) {
           var child = ids[String(childId)];
           if (!child) {
             issue("unknown_child_ref", "childrenRefs points to a missing component: " + childId, "/formulaire/" + idx + "/childrenRefs/" + cidx);
-          } else if (String(child.item.parentRef) !== String(item.id)) {
-            issue("child_parent_mismatch", "Referenced child does not point back to parent", child.path + "/parentRef");
+            return;
+          }
+          if (relationRefTypeMismatch(childId, child.item.id)) {
+            issue("relation_ref_type", relationRefTypeMessage("childrenRefs of " + item.name, childId, child.item.id), "/formulaire/" + idx + "/childrenRefs/" + cidx);
+          }
+          if (String(child.item.parentRef) !== String(item.id)) {
+            issue("child_parent_mismatch", item.name + " lists " + child.item.name + " in its childrenRefs, but its parentRef " + (child.item.parentRef == null ? "is missing" : "names " + child.item.parentRef) + ": it must be " + item.id, child.path + "/parentRef");
           }
         });
       });
@@ -3237,9 +3326,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (!element || typeof element !== "object") { return; }
           var path = "/flows/" + idx + "/elements/" + eidx;
           if (element.parentRef != null && !elementIds[String(element.parentRef)]) { issue("unknown_flow_parent", "Missing flow parent", path + "/parentRef"); }
+          else if (element.parentRef != null && relationRefTypeMismatch(element.parentRef, elementIds[String(element.parentRef)].id)) {
+            issue("relation_ref_type", relationRefTypeMessage("parentRef of flow element " + (element.name || element.id), element.parentRef, elementIds[String(element.parentRef)].id), path + "/parentRef");
+          }
           ["childrenRefs", "childrenRefsElse"].forEach(function (key) {
-            ensureArray(element[key]).forEach(function (id) {
+            ensureArray(element[key]).forEach(function (id, cidx) {
               if (!elementIds[String(id)] || String(elementIds[String(id)].parentRef) !== String(element.id)) { issue("invalid_flow_child", "Flow child reference must exist and point back to its parent", path + "/" + key); }
+              else if (relationRefTypeMismatch(id, elementIds[String(id)].id)) { issue("relation_ref_type", relationRefTypeMessage(key + " of flow element " + (element.name || element.id), id, elementIds[String(id)].id), path + "/" + key + "/" + cidx); }
             });
           });
         });
@@ -3367,6 +3460,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       });
       validateContextDefaults(form, issue, warning);
+      validateGeneratedLogic(form, warning);
       eachConditionGroup(form, function (group, groupPath) {
         eachCondition(group, groupPath, function (cond, condPath) {
           if (!cond || typeof cond !== "object" || cond.subject !== "field") { return; }
@@ -3590,7 +3684,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return !error && envelope && envelope.array ? ensureArray(envelope.array) : null;
   }
 
-  function validateBaserowColumns(form, authentication, options, validation) {
+  // The fields of a table read with the authenticated No Code account, once per table and call.
+  function tableFieldsReader(authentication) {
     var cache = {};
     var baserowSession = { bearer: "" };
     // formscommon_FieldsList reuses the Baserow token already stored in the HTTP
@@ -3604,6 +3699,22 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       try { callC8oSequence("lib_BaseRow", "formscommon_ApplicationsList", {}); } catch (_catalogError) {}
       return true;
     }
+    return function (tableId) {
+      var table = String(tableId);
+      if (!hasOwn(cache, table)) {
+        var fetched = null;
+        try { fetched = readBaserowTableFields(tableId, authentication, baserowSession); } catch (_fieldsError) { fetched = null; }
+        if ((!fetched || !fetched.length) && primeBaserowSession()) {
+          try { fetched = readBaserowTableFields(tableId, authentication, baserowSession); } catch (_retryError) { fetched = null; }
+        }
+        cache[table] = fetched;
+      }
+      return cache[table];
+    };
+  }
+
+  function validateBaserowColumns(form, authentication, options, validation) {
+    var fieldsOf = tableFieldsReader(authentication);
     baserowBindings(form).forEach(function (binding) {
       if (form._id && ensureArray(options.strictBindingPaths).indexOf(binding.path) < 0) { return; }
       if (!binding.config || !binding.config.table_id_int) { return; }
@@ -3614,15 +3725,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         return;
       }
       var table = String(binding.config.table_id_int);
-      if (!hasOwn(cache, table)) {
-        var fetched = null;
-        try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication, baserowSession); } catch (_fieldsError) { fetched = null; }
-        if ((!fetched || !fetched.length) && primeBaserowSession()) {
-          try { fetched = readBaserowTableFields(binding.config.table_id_int, authentication, baserowSession); } catch (_retryError) { fetched = null; }
-        }
-        cache[table] = fetched;
-      }
-      var fields = cache[table];
+      var fields = fieldsOf(binding.config.table_id_int);
       if (!fields || !fields.length) { problem("baserow_schema_unavailable", "Cannot read the columns of Baserow table " + table + " with the authenticated No Code account, even after opening a Baserow session; check that this account can access the table before saving. Do not remove the connection to work around this"); return; }
       var names = fields.map(function (field) { return String(field.name); });
       var columns = /\/sources[^/]*\//.test(binding.path) ? ensureArray(binding.config.columns) : [];
@@ -3640,10 +3743,126 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           problem("unmapped_baserow_inputs", "No input technical name matches the selected table columns. Use forms_AddRowFromData with an explicit column/value mapping");
         }
       }
+      // As the editor writes it (modalConfigure): the tables the link_row columns of the table point to. After a save, the
+      // viewer refreshes the sources of the written table and of the tables it links to (findSameSourceInBaserow).
+      var links = linkedTableIds(fields);
+      if (JSON.stringify(ensureArray(binding.config.link_row_table_id)) !== JSON.stringify(links)) {
+        binding.config.link_row_table_id = links;
+        binding.variable.str = JSON.stringify(binding.config);
+      }
     });
+    checkLinkRowSelects(form, fieldsOf, validation, { rewrite: true, strictBindingPaths: form._id ? ensureArray(options.strictBindingPaths) : null });
     validation.issueCount = validation.issues.length;
     validation.warningCount = validation.warnings.length;
     validation.valid = validation.issueCount === 0;
+  }
+
+  function hasUnverifiedLinkRowSelects(form) {
+    var bindings = baserowBindings(form);
+    return bindings.some(function (binding) { return /\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path); }) &&
+      bindings.some(function (binding) { return /\/lib_BaseRow\.formssource_GetSelectData$/.test(binding.path) && binding.config && trimmed(binding.config.value) !== "id"; });
+  }
+
+  function linkedTableIds(fields) {
+    var links = [];
+    ensureArray(fields).forEach(function (field) {
+      var target = field && field.type === "link_row" ? Number(field.link_row_table_id != null ? field.link_row_table_id : field.link_row_table) : NaN;
+      if (isFinite(target) && target > 0 && links.indexOf(target) < 0) { links.push(target); }
+    });
+    return links;
+  }
+
+  // The selects (GetSelectData) whose answer a save writes into a link_row column: forms_AddRow by the name of the
+  // input, forms_AddRowFromData by a reference to it in forms_freeVars. The value written must be the linked row id
+  // (value "id", the editor's Identifier): with a column such as Nom, lib_BaseRow writes the text and Baserow finds the
+  // row by its primary field, wrong for two rows of the same name or a name with a comma, and the formulas compare a
+  // name with ids (Skyjo, select Joueur on Joueurs written into Scores.Joueur, 26/10).
+  // strict (an edit): only the saves it changed and the ones writing a select it changed are read, the other saves of
+  // the form cost no Baserow call.
+  function linkRowSelectFindings(form, fieldsOf, strict) {
+    var items = ensureArray(form.formulaire);
+    var findings = [];
+    var touchedSelects = strict ? items.filter(function (item, index) { return strict.indexOf("/formulaire/" + index + "/sources/lib_BaseRow.formssource_GetSelectData") >= 0; }) : [];
+    function relevant(write, fromData) {
+      if (!strict || strict.indexOf(write.path) >= 0) { return true; }
+      if (!fromData) { return touchedSelects.length > 0; }
+      return ensureArray(write.entry.vars.forms_freeVars).some(function (entry) {
+        return entry && touchedSelects.some(function (item) { return String(entry.str).indexOf("$$START" + item.id + "{") >= 0; });
+      });
+    }
+    function selectSource(item) {
+      var entry = item && item.sources && item.sources["lib_BaseRow.formssource_GetSelectData"];
+      if (!entry || !boolLike(entry.enabled) || !entry.vars || !entry.vars.forms_config) { return null; }
+      var config;
+      try { config = JSON.parse(entry.vars.forms_config.str); } catch (_invalidConfig) { config = null; }
+      return config && typeof config === "object" && !Array.isArray(config) ? { entry: entry, config: config } : null;
+    }
+    baserowBindings(form).forEach(function (write) {
+      var fromData = /\/lib_BaseRow\.forms_AddRowFromData$/.test(write.path);
+      if (!fromData && !/\/lib_BaseRow\.forms_AddRow$/.test(write.path)) { return; }
+      if (!write.config || !write.config.table_id_int || !relevant(write, fromData)) { return; }
+      var fields = fieldsOf(write.config.table_id_int);
+      if (!fields || !fields.length) { return; }
+      fields.forEach(function (field) {
+        if (!field || field.type !== "link_row") { return; }
+        var target = Number(field.link_row_table_id != null ? field.link_row_table_id : field.link_row_table);
+        var column = String(field.name);
+        var writers = [];
+        if (fromData) {
+          ensureArray(write.entry.vars.forms_freeVars).forEach(function (entry) {
+            if (!entry || trimmed(entry.name) !== column) { return; }
+            var reference = /^\s*\$\$START(\d+)\{[\s\S]*\}END\1\$\$\s*$/.exec(String(entry.str == null ? "" : entry.str));
+            if (reference) { writers = writers.concat(items.filter(function (item) { return item && String(item.id) === reference[1]; })); }
+          });
+        } else {
+          writers = items.filter(function (item) { return item && item.name === column; });
+        }
+        writers.forEach(function (item) {
+          var source = selectSource(item);
+          if (!source) { return; }
+          findings.push({
+            item: item, index: items.indexOf(item), source: source, column: column, target: target, write: write,
+            otherTable: isFinite(target) && Number(source.config.table_id_int) !== target,
+            wrongValue: trimmed(source.config.value) !== "id"
+          });
+        });
+      });
+    });
+    return findings.filter(function (finding) { return finding.otherTable || finding.wrongValue; });
+  }
+
+  // options.rewrite (create, edit, update): a select the call creates or changes gets value "id"; a select it leaves
+  // alone in an existing form is reported, since formulas of the user may compare its names. Without rewrite
+  // (nocode-form-validate) every finding is an issue.
+  function checkLinkRowSelects(form, fieldsOf, validation, options) {
+    var opts = options || {};
+    var strict = opts.strictBindingPaths;
+    linkRowSelectFindings(form, fieldsOf, strict).forEach(function (finding) {
+      var sourcePath = "/formulaire/" + finding.index + "/sources/lib_BaseRow.formssource_GetSelectData";
+      var touched = !strict || strict.indexOf(sourcePath) >= 0;
+      var concerned = touched || strict.indexOf(finding.write.path) >= 0;
+      if (!concerned) { return; }
+      var config = finding.source.config;
+      var name = finding.item.name;
+      var where = "column " + finding.column + " of table " + finding.write.config.table_id_int;
+      if (finding.otherTable) {
+        var tableMessage = name + " lists the rows of table " + config.table_id_int + " but its answer is written into the link_row " + where + ", which links to table " + finding.target + ": list the rows of table " + finding.target + " with value \"id\" and a readable column of it as displayValue";
+        (opts.rewrite && !touched ? validation.warnings : validation.issues).push({ code: "link_row_select_table", message: tableMessage, path: sourcePath + "/vars/forms_config" });
+        return;
+      }
+      if (opts.rewrite && touched) {
+        var previous = config.value;
+        config.value = "id";
+        config.columns = ensureArray(config.columns).filter(function (column) { return column !== previous || column === config.displayValue; });
+        if (trimmed(config.displayValue).length && config.columns.indexOf(config.displayValue) < 0) { config.columns.unshift(config.displayValue); }
+        if (config.columns.indexOf("id") < 0) { config.columns.push("id"); }
+        finding.source.entry.vars.forms_config.str = JSON.stringify(config);
+        validation.warnings.push({ code: "link_row_select_value_rewritten", message: name + " is written into the link_row " + where + ": its value is now the linked row id (value \"id\" instead of " + JSON.stringify(previous == null ? "" : previous) + "), it still shows " + (config.displayValue || "its rows") + ". Conditions and formulas that read " + name + " get that id: compare it with ids, not names", path: sourcePath + "/vars/forms_config" });
+        return;
+      }
+      var valueMessage = name + " writes " + JSON.stringify(config.value == null ? "" : config.value) + " into the link_row " + where + ": lib_BaseRow writes it as text and Baserow links the first row whose primary field has that text, wrong for two rows of the same name or a text with a comma. Its value must be the linked row id: set value \"id\" in its forms_config (update_field), and compare ids in the conditions and formulas that read it";
+      (opts.rewrite ? validation.warnings : validation.issues).push({ code: "link_row_select_value", message: valueMessage, path: sourcePath + "/vars/forms_config" });
+    });
   }
 
   function saveForm(form, options) {
@@ -3746,8 +3965,40 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  // A parentRef or a childrenRefs entry takes the type of the id it names, as the editor's repairRelationRefs does on
+  // save (C8Oforms 2.2.0-beta442): add_field wrote its parentId argument as text, "1793012950260" under a layout whose
+  // id is a number, and the editor, comparing with ===, left the button in the layout and showed it twice (Skyjo, 26/10).
+  function normalizeRelationRefs(form) {
+    var repaired = 0;
+    function retype(ref, ids) {
+      if (ref == null || typeof ref === "object" || !hasOwn(ids, String(ref))) { return ref; }
+      var id = ids[String(ref)];
+      if (typeof id === typeof ref) { return ref; }
+      repaired++;
+      return id;
+    }
+    function normalizeList(items, refKeys) {
+      var ids = {};
+      items.forEach(function (item) { if (item && typeof item === "object" && item.id != null) { ids[String(item.id)] = item.id; } });
+      items.forEach(function (item) {
+        if (!item || typeof item !== "object") { return; }
+        if (item.parentRef != null) { item.parentRef = retype(item.parentRef, ids); }
+        refKeys.forEach(function (key) {
+          if (Array.isArray(item[key])) { item[key] = item[key].map(function (ref) { return retype(ref, ids); }); }
+        });
+      });
+    }
+    if (!form || typeof form !== "object") { return 0; }
+    if (Array.isArray(form.formulaire)) { normalizeList(form.formulaire, ["childrenRefs"]); }
+    ensureArray(form.flows).forEach(function (flow) {
+      if (flow && Array.isArray(flow.elements)) { normalizeList(flow.elements, ["childrenRefs", "childrenRefsElse"]); }
+    });
+    return repaired;
+  }
+
   function sanitizeFormBeforeSave(form) {
     var out = clone(form, {});
+    normalizeRelationRefs(out);
     try { delete out.thumbnailImage; } catch (_ignoreThumbnailImageDelete) {}
     try { delete out._attachments; } catch (_ignoreAttachmentsDelete) {}
     try { delete out._c8oMeta; } catch (_ignoreC8oMetaDelete) {}
@@ -4366,14 +4617,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var fieldDef = op.fieldObject || (op.field && typeof op.field === "object" && !Array.isArray(op.field) ? op.field : op);
       var beforeLength = form.formulaire.length;
       var parentId = trimmed(op.parentId || op.parent || op.parentFieldId);
-      var addPage = parentId.length ? nestedPageForOperation(form, op, findField(form, { id: parentId }).item) : { page: pageTechNameForOperation(form, op, null) };
+      // The parent's own id, never the argument: a text "1793012950260" or a name written as parentRef does not match it.
+      var parentField = parentId.length ? findField(form, { id: parentId }).item : null;
+      var addPage = parentField ? nestedPageForOperation(form, op, parentField) : { page: pageTechNameForOperation(form, op, null) };
       var pageTech = addPage.page;
       var targetPage = ensureArray(form.pages).filter(function (candidate) { return candidate && candidate.pageTechName === pageTech; })[0];
       // Same spacing as at creation on an application page (tab or custom navigation).
       var applicationPage = !!targetPage && (boolLike(targetPage.enabledTab) || !boolLike(targetPage.enabledButtons));
-      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentId.length ? parentId : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage });
-      if (parentId.length) {
-        var parentField = findField(form, { id: parentId }).item;
+      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentField ? parentField.id : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage });
+      if (parentField) {
         parentField.childrenRefs = ensureArray(parentField.childrenRefs);
         if (parentField.childrenRefs.indexOf(compiled.id) < 0) {
           parentField.childrenRefs.splice(normalizeIndex(op.index, parentField.childrenRefs.length, parentField.childrenRefs.length), 0, compiled.id);
@@ -4626,7 +4878,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       baserow: {
         tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
         dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",
-        choices: "select, radio, checkbox: source: { table, field: \"Status\" } (the options of a single select column; the answer is the option id) or { table, display: \"Name\", value: \"Code\", filter, sort } (rows of a table).",
+        choices: "select, radio, checkbox: source: { table, field: \"Status\" } (the options of a single select column; the answer is the option id) or { table, display: \"Name\", value: \"Code\", filter, sort } (rows of a table; value: \"id\" for a link_row column, the linked row id).",
         filter: "{ column, operator, value }, or { all: [...] } / { any: [...] } nested. value is a literal, or { field: \"name\" } to read that component at runtime. A search over two columns: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: { field: \"priority\" } }] }.",
         operators: "text: contains, contains_not, contains_word, equal, not_equal, empty, not_empty; number: equal, higher_than, higher_than_or_equal, lower_than, lower_than_or_equal; single select: single_select_equal, single_select_not_equal, single_select_is_any_of (an option label or id); other: boolean, link_row_has, multiple_select_has. Section baserowSources lists every Baserow filter type.",
         save: "On a submit element: saveTo: { table } adds a row from the inputs named like its columns; saveTo: { table, values: { \"Column\": \"field_name\", \"Status\": { value: \"New\" } } } writes the columns given ({ field, path } reads a part of a field); saveTo: { table, row: \"grid_name\", values } updates the row selected in that grid; deleteFrom: { table, row: \"grid_name\" } deletes it."
@@ -4750,7 +5002,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   };
 
   C8O.nocodeForms.compile = compileReduced;
-  C8O.nocodeForms.validate = validateForm;
+  // nocode-form-validate (baserowLinks): the static checks, then, with the authenticated No Code account, the selects
+  // written into a link_row column (read only: the fields of the written tables).
+  C8O.nocodeForms.validate = function (form, options) {
+    var result = validateForm(form, options);
+    if (!options || options.baserowLinks !== true || !result || !result.validation || !form || typeof form !== "object") { return result; }
+    var validation = result.validation;
+    var authentication = null;
+    try { authentication = validateToken(options); } catch (_authenticationError) { authentication = null; }
+    if (authentication && authentication.authenticated === true) {
+      checkLinkRowSelects(form, tableFieldsReader(authentication), validation, { rewrite: false });
+    } else if (hasUnverifiedLinkRowSelects(form)) {
+      validation.warnings.push({ code: "link_row_selects_unverified", message: "The Baserow columns written by the selects of this form were not read (no authenticated No Code account): a select written into a link_row column must have value \"id\", the linked row id", path: "/formulaire" });
+    }
+    validation.issueCount = validation.issues.length;
+    validation.warningCount = validation.warnings.length;
+    validation.valid = validation.issueCount === 0;
+    return result;
+  };
   C8O.nocodeForms.save = saveForm;
   C8O.nocodeForms.get = getForm;
   // the No Code user of the call: {authenticated, user} (nocode-form-preview-capture names the user of its request)
@@ -4768,7 +5037,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (actual && String(actual._id) === String(id)) {
         saved.form = actual;
         saved.readbackVerified = true;
+        var savedWarnings = saveTimeWarnings(saved.validation);
         saved.validation = validateForm(actual, readOptions).validation;
+        keepSaveTimeWarnings(saved.validation, savedWarnings);
         return saved;
       }
     } catch (_readbackError) {}
@@ -4779,6 +5050,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     saved.validation.warnings.push({ code: "saved_form_readback_unavailable", message: "Save succeeded but readback could not be verified. Re-read this id; do not retry create.", path: "" });
     saved.validation.warningCount = saved.validation.warnings.length;
     return saved;
+  }
+
+  // The warnings of a save that read Baserow (the link_row selects it rewrote or reports): the static validation of the
+  // read-back form cannot find them again.
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table"];
+  function saveTimeWarnings(validation) {
+    return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
+  }
+  function keepSaveTimeWarnings(validation, warnings) {
+    if (!validation || !warnings.length) { return; }
+    var seen = {};
+    validation.warnings = Array.isArray(validation.warnings) ? validation.warnings : [];
+    validation.warnings.forEach(function (item) { if (item) { seen[item.code + "|" + item.path] = true; } });
+    warnings.forEach(function (item) { if (!seen[item.code + "|" + item.path]) { validation.warnings.push(item); } });
+    validation.warningCount = validation.warnings.length;
   }
 
   function finalizeBaserowBindings(saved, options, expectedCount, newForm) {
@@ -4831,7 +5117,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         if (!finalized || finalized.saved !== true) { return pending(finalized && finalized.status === "conflict" ? "form_changed_before_finalization" : "binding_save_failed"); }
         // Keep the successful second revision even if its readback fails.
         saved.response = finalized.response;
+        // What the first save rewrote is no longer there to see in the second one.
+        var firstSaveWarnings = saveTimeWarnings(saved.validation);
         saved.validation = finalized.validation;
+        keepSaveTimeWarnings(saved.validation, firstSaveWarnings);
         attachSavedForm(saved, candidate, finalOptions);
       } catch (_finalizationError) {
         return pending("binding_finalization_failed");
