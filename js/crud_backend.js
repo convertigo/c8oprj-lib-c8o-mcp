@@ -349,10 +349,14 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
-  function pruneUnexpectedChildSteps(ctx, parent, allowedNames, result) {
+  // options.keepBefore: the call step of a business sequence. The steps before it are the app's own guards and checks
+  // (a role check before a delete, an IfStep + XMLErrorStep before a create, as the guides say): upsert-crud removed them
+  // at its next run without a word (usage tests 29/10). The unexpected steps after it are still removed, and named.
+  function pruneUnexpectedChildSteps(ctx, parent, allowedNames, result, options) {
     if (!parent || typeof parent.getDatabaseObjectChildren !== "function") {
       return;
     }
+    var keepBefore = options && options.keepBefore ? String(options.keepBefore) : "";
     var allowed = {};
     var entries = ctx.ensureArray(allowedNames);
     for (var i = 0; i < entries.length; i++) {
@@ -360,6 +364,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
     var children = parent.getDatabaseObjectChildren();
     var toRemove = [];
+    var callSeen = !keepBefore.length;
     for (var childIndex = 0; childIndex < children.size(); childIndex++) {
       var child = children.get(childIndex);
       var logical = ctx.logicalClassName(child);
@@ -367,11 +372,18 @@ C8O.crudBackend = C8O.crudBackend || {};
         continue;
       }
       var childName = String(child.getName ? child.getName() : "");
-      if (!allowed[childName]) {
+      if (childName === keepBefore) {
+        callSeen = true;
+      }
+      if (!allowed[childName] && callSeen) {
         toRemove.push(child);
       }
     }
     for (var removeIndex = 0; removeIndex < toRemove.length; removeIndex++) {
+      if (keepBefore.length && typeof ctx.addWarning === "function") {
+        ctx.addWarning(result, "upsert-crud removed the step " + String(toRemove[removeIndex].getName()) + " after the call of " +
+          String(parent.getName()) + ": it is not part of the generated answer. Put an app's own checks before the call.");
+      }
       removeChild(parent, toRemove[removeIndex], result);
     }
   }
@@ -418,7 +430,8 @@ C8O.crudBackend = C8O.crudBackend || {};
         result
       );
     }
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Rows"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Rows"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
     pruneUnexpectedChildSteps(ctx, rowsStep, ["RowsIterator"], result);
     pruneUnexpectedChildSteps(ctx, iterator, ["Item"], result);
     pruneUnexpectedChildSteps(ctx, rowStep, allowedNames, result);
@@ -447,7 +460,8 @@ C8O.crudBackend = C8O.crudBackend || {};
         result
       );
     }
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Row"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Row"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
     pruneUnexpectedChildSteps(ctx, rowStep, allowedNames, result);
   }
 
@@ -462,7 +476,8 @@ C8O.crudBackend = C8O.crudBackend || {};
       "number",
       result
     );
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Total"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Total"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
   }
 
   function buildCanonicalMutationPayload(ctx, sequence, txStep, result) {
@@ -476,7 +491,8 @@ C8O.crudBackend = C8O.crudBackend || {};
       "string",
       result
     );
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Message"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Message"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
   }
 
   function configurePublicSequencePayload(ctx, sequence, txStep, options, result) {
@@ -1175,6 +1191,8 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
     return out;
   };
+
+  C8O.crudBackend.pruneUnexpectedChildSteps = pruneUnexpectedChildSteps;
 
   C8O.crudBackend.buildAddColumnSql = function (ctx, table, field, driver) {
     var definition = C8O.crudBackend.renderColumnDefinition(ctx, field, driver);
