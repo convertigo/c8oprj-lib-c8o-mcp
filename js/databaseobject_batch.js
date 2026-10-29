@@ -302,6 +302,13 @@ include("js/sql_dialect.js");
   C8O.dbo.batchUnwrapValue = unwrapValue;
   C8O.dbo.batchParseObjectInput = parseObjectInput;
   C8O.dbo.batchFirstProvidedInput = firstProvidedInput;
+  // Warnings tree-apply gives on one written node, and on a write under a CRUD-kit page (tests and callers that check a tree).
+  C8O.dbo.batchNodeWarnings = function (dbo, node, options) {
+    var report = { warnings: [] };
+    warnIfManagedCrudTarget({ managedCrudWriter: !!(options && options.managedCrudWriter) }, dbo, report);
+    warnNode(dbo, node, report);
+    return report.warnings;
+  };
 
   function normalizeOnError(rawOnError, strict) {
     if (strict === true) {
@@ -516,7 +523,7 @@ include("js/sql_dialect.js");
   }
 
   function warnIfManagedCrudTarget(ctx, dbo, report) {
-    if (!dbo || !C8O.crudUiRefresh || typeof C8O.crudUiRefresh.managedCrudMutationWarning !== "function") {
+    if (!dbo || (ctx && ctx.managedCrudWriter) || !C8O.crudUiRefresh || typeof C8O.crudUiRefresh.managedCrudMutationWarning !== "function") {
       return;
     }
     var warning = C8O.crudUiRefresh.managedCrudMutationWarning({
@@ -853,13 +860,16 @@ include("js/sql_dialect.js");
   function applyNodeExtras(ctx, dbo, node, report) {
     applyTransactionHandlers(ctx, dbo, node, report);
     declareSqlVariables(ctx, dbo, node, report);
+    warnNode(dbo, node, report);
+  }
+
+  function warnNode(dbo, node, report) {
     warnQuotedSqlVariables(dbo, node, report);
     warnAdjacentTexts(dbo, node, report);
     warnNonBooleanCondition(dbo, node, report);
     warnControlEventName(dbo, node, report);
     warnMenuItem(dbo, node, report);
     warnSmtpStep(dbo, node, report);
-    warnPageLoadEvent(dbo, node, report);
     warnTemplatePageReference(dbo, node, report);
     warnI18nKeyText(dbo, node, report);
   }
@@ -1070,6 +1080,15 @@ include("js/sql_dialect.js");
     if (!/\.UIControlEvent$/.test(className)) {
       return;
     }
+    // On a shared component instance the event is one of the component's own UICompEvent names (ItemSelected...),
+    // generated as (ItemSelected)="...": those names need no on/ion prefix.
+    var parentClass = "";
+    try {
+      parentClass = String(dbo.getParent().getClass().getName());
+    } catch (_noParent) {}
+    if (/\.UIUseShared$/.test(parentClass)) {
+      return;
+    }
     var guess = eventName.trim().replace(/^\(|\)$/g, "");
     guess = "on" + guess.charAt(0).toUpperCase() + guess.substring(1);
     pushReportWarning(report, safeQName(dbo) + ": eventName \"" + eventName + "\" is not one of the control events (onClick, onChange, onInput, " +
@@ -1119,24 +1138,6 @@ include("js/sql_dialect.js");
     if (/\.SmtpStep$/.test(className)) {
       pushReportWarning(report, safeQName(dbo) + ": SmtpStep never fails the sequence: a failed send only logs an ERROR (log-view q:\"SmtpStep\"). " +
         "When the sequence must know whether the mail left, send it from a SimpleStep with javax.mail and catch the error (convertigo-backend-sequences).");
-    }
-  }
-
-  // pageWillLoad and pageDidLoad generate ionViewWillLoad / ionViewDidLoad, which nothing calls under Ionic 4 and later
-  // (checked in a generated 8.4 NGX app and in c8ocaf): their actions never run.
-  function warnPageLoadEvent(dbo, node, report) {
-    var props = node && node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
-    var viewEvent = props ? props.viewEvent : undefined;
-    if (typeof viewEvent !== "string" || !/^(page|on)(Will|Did)Load$/.test(viewEvent.trim())) {
-      return;
-    }
-    var className = "";
-    try {
-      className = String(dbo.getClass().getName());
-    } catch (_noClass) {}
-    if (/\.ngx\.components\.UIPageEvent$/.test(className)) {
-      pushReportWarning(report, safeQName(dbo) + ": viewEvent " + viewEvent + " never fires in an NGX app (Ionic calls no ionViewWillLoad or ionViewDidLoad): " +
-        "its actions never run. Use onWillEnter (pageWillEnter), which also fires when the app opens on this page's URL.");
     }
   }
 
@@ -1796,6 +1797,8 @@ include("js/sql_dialect.js");
       onError: onError,
       autoSave: autoSave,
       dryRun: dryRun,
+      // The CRUD kit writes its own managed pages and components: no "direct edit" warning about them then.
+      managedCrudWriter: asBoolean(params.managedCrudWriter, false) === true,
       strategy: strategy,
       touchedQNames: [],
       touchedQNameSet: {},
