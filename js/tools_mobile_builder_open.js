@@ -35,6 +35,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var parseOpenUrl = helper.readiness.parseOpenUrl;
   var collectBuilderLogs = helper.readiness.collectBuilderLogs;
   var BUILD_CYCLE_SETTLE_MS = 1200;
+  // stateOnly stops waiting once the builder has been idle this long with a viewer that does not show the app.
+  var IDLE_VIEWER_STOP_MS = 8000;
   var BUILDER_STARTUP_GRACE_MS = 120000;
   var BUILDER_LAUNCH_PREFIX = "convertigo.mcp.mobileBuilder.launch.";
 
@@ -899,6 +901,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var generationFailed = generationState.status === "failed";
     var terminalBuildObserved = false;
     var viewerHydrating = false;
+    var idleViewerWithoutApp = false;
     var readinessDecision = {
       ready: false,
       viewerReady: false,
@@ -1070,6 +1073,12 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (waitingForViewerHydration) {
         snapshot.building = true;
       }
+      // stateOnly never reloads the viewer. A live builder with no build or generation to wait for and a viewer that
+      // does not show the application read "building" until the timeout, call after call: four waits of 46 s while a
+      // call without stateOnly answered ready at once (usage tests 29/10).
+      idleViewerWithoutApp = stateOnlyValue === true && builderProcessAlive && buildJobState.supported === true &&
+        !buildJobActive && !waitingForGeneration && !waitingForScheduledCycle && !waitingForPendingCycle &&
+        !waitingForViewerReload && !waitingForRecentLaunch && snapshot.failed !== true && currentViewerReady !== true;
       readinessDecision = classifyReadiness({
         viewerReady: currentViewerReady,
         browserControlReady: currentBrowserControlReady,
@@ -1093,10 +1102,19 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       snapshot.failed !== true &&
       snapshot.building !== true;
 
+    var idleSince = 0;
     while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
       ready = refreshCurrentState();
       if (ready) {
         break;
+      }
+      if (idleViewerWithoutApp) {
+        idleSince = idleSince || java.lang.System.currentTimeMillis();
+        if (java.lang.System.currentTimeMillis() - idleSince >= IDLE_VIEWER_STOP_MS) {
+          break;
+        }
+      } else {
+        idleSince = 0;
       }
       stateOnlyStopped = stateOnlyValue === true &&
         snapshot.failed !== true &&
@@ -1190,7 +1208,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         )
         : (status === "building"
           ? (
-            viewerHydrating
+            idleViewerWithoutApp
+              ? "No build is running and the Studio viewer does not show the application; stateOnly does not reload it. " +
+                "Call mobile-builder-open with stateOnly false and wait true: it opens the application root page in the viewer."
+              : viewerHydrating
               ? "Mobile builder is reachable, but the application DOM is still loading in the Studio viewer."
               : (browserState && compactText(browserState.statusText || "").length
               ? ("Mobile builder is still building: " + compactText(browserState.statusText))
@@ -1214,7 +1235,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
           wait: false
         }
       }
-      : null;
+      : (status === "building" && idleViewerWithoutApp
+        ? { tool: "mobile-builder-open", arguments: { project: projectName, stateOnly: false, wait: true } }
+        : null);
     if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
