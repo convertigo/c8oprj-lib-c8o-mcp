@@ -589,8 +589,23 @@ test('a refused MCP token is logged with its reason, never with the token', () =
 
 // The real js/mcp_auth.js over an in-memory jwt folder with POSIX permissions: a signing key and a durable token whose
 // record was never used. Every change to a file calls the listeners, so a test can run a call in the middle of a write.
+// A java.util.Map as the scripts use it: put, get, entrySet().iterator() with remove.
+class JavaMap extends Map {
+  put(key, value) { this.set(key, value); }
+  entrySet() {
+    const map = this;
+    return { iterator() {
+      const keys = [...map.keys()];
+      let at = -1;
+      return { hasNext: () => at + 1 < keys.length, next: () => { at++; return { getKey: () => keys[at], getValue: () => map.get(keys[at]) }; },
+        remove: () => map.delete(keys[at]) };
+    } };
+  }
+}
+
 function tokenStoreWorld(requesters = {}) {
   const crypto = require('node:crypto');
+  const clock = {};
   class IOException extends Error {}
   class AccessDeniedException extends IOException {}
   class NoSuchFileException extends IOException {}
@@ -646,7 +661,7 @@ function tokenStoreWorld(requesters = {}) {
   const java = {
     io: { File, IOException },
     lang: { String: JavaString, Thread: { sleep: ms => pauses.push(ms) }, reflect: { Array: { newInstance: (_type, size) => new Array(size) } },
-      System: { getProperty: name => (name === 'convertigo.mcp.jwt.path' ? '/jwt' : null), currentTimeMillis: () => Date.now() } },
+      System: { getProperty: name => (name === 'convertigo.mcp.jwt.path' ? '/jwt' : null), currentTimeMillis: () => clock.now || Date.now() } },
     nio: {
       file: { Files, StandardOpenOption: { CREATE_NEW: 'CREATE_NEW', WRITE: 'WRITE' },
         StandardCopyOption: { ATOMIC_MOVE: 'ATOMIC_MOVE', REPLACE_EXISTING: 'REPLACE_EXISTING' },
@@ -654,6 +669,7 @@ function tokenStoreWorld(requesters = {}) {
       charset: { StandardCharsets: { UTF_8: 'UTF-8' } }
     },
     util: { Date, HashMap: class extends Map { put(key, value) { return this.set(key, value); } }, TimeZone: { getTimeZone: () => ({}) }, UUID: { randomUUID: () => crypto.randomUUID() },
+      concurrent: { ConcurrentHashMap: JavaMap },
       Base64: { getUrlEncoder: () => ({ withoutPadding: () => ({ encodeToString: data => Buffer.from(data).toString('base64url') }) }),
         getUrlDecoder: () => ({ decode: text => Buffer.from(String(text), 'base64url') }) } },
     security: { SecureRandom: class {}, MessageDigest: { getInstance: () => ({ digest: data => crypto.createHash('sha256').update(data).digest() }),
@@ -680,7 +696,7 @@ function tokenStoreWorld(requesters = {}) {
     jtiHash: crypto.createHash('sha256').update('jti-1').digest('base64url'), createdAt: '2026-10-01T00:00:00.000Z',
     expiresAt: '2099-01-01T00:00:00.000Z', lastUsedAt: '', revokedAt: '', createdBy: 'admin' })) });
   return {
-    auth: ctx.C8O.mcpAuth, token: input + '.' + crypto.createHmac('sha256', secret).update(input).digest('base64url'),
+    auth: ctx.C8O.mcpAuth, clock, token: input + '.' + crypto.createHmac('sha256', secret).update(input).digest('base64url'),
     files, keyPath, recordPath, pauses, onChange: listener => listeners.push(listener), failReads: (file, times) => failures.set(file, times)
   };
 }
@@ -752,6 +768,58 @@ test('a No Code token C8Oforms cannot check while it is reloaded answers 503, no
   assert.equal(ctx.parseError.status, '503');
   assert.equal(ctx.parseError.data.code, 'nocode_token_check_unavailable');
   assert.deepEqual(logged, ['[lib_ConvertigoMCP] MCP bearer not checked (nocode_token_check_unavailable): ' + unknownProject]);
+});
+
+// Vibe reports any HTTP error of the MCP as mcp_http_error, not retryable, without its status (feedback group 1d0f4cb9,
+// 28/10): the endpoint keeps its retryable answers where the Agent Bridge of the engine reads them.
+test('a retryable answer is kept for the Agent Bridge under the Tigo conversation, ten minutes at most', () => {
+  const world = tokenStoreWorld();
+  const shared = new Map();
+  const server = { get: key => (shared.has(key) ? shared.get(key) : null), set: (key, value) => shared.set(key, value) };
+  const call = conversationId => ({ server, httpServletRequest: { getHeader: name => (name === 'X-Convertigo-Conversation-Id' ? conversationId : null) } });
+  world.clock.now = 1000000;
+  assert.equal(world.auth.noteRetryableAnswer(call('agent-bf6a810d'), 503, 'nocode_token_check_unavailable'), true);
+  const answers = shared.get('lib_ConvertigoMCP.retryableAnswers');
+  assert.deepEqual(JSON.parse(answers.get('agent-bf6a810d')), { at: 1000000, status: 503, code: 'nocode_token_check_unavailable' });
+  world.clock.now = 1000000 + 5 * 60000;
+  world.auth.noteRetryableAnswer(call('agent-2'), '503', 'token_store_unreadable');
+  assert.deepEqual([...answers.keys()], ['agent-bf6a810d', 'agent-2'], 'one per conversation, kept a while');
+  world.clock.now = 1000000 + 10 * 60000;
+  world.auth.noteRetryableAnswer(call('agent-2'), 503, 'nocode_token_check_unavailable');
+  assert.deepEqual([...answers.keys()], ['agent-2'], 'an answer of ten minutes ago is forgotten');
+  assert.equal(JSON.parse(answers.get('agent-2')).code, 'nocode_token_check_unavailable', 'the last answer of the conversation');
+  for (const conversationId of [null, '', 'bad id"', 'x'.repeat(129)]) {
+    assert.equal(world.auth.noteRetryableAnswer(call(conversationId), 503, 'c'), false, String(conversationId));
+  }
+  assert.equal(world.auth.noteRetryableAnswer({ httpServletRequest: call('agent-3').httpServletRequest }, 503, 'c'), false, 'no shared store');
+  assert.equal(world.auth.noteRetryableAnswer(null, 503, 'c'), false);
+  assert.deepEqual([...answers.keys()], ['agent-2']);
+});
+
+test('the endpoint notes its 503 for the Agent Bridge, never a refusal', () => {
+  const noted = [];
+  const parse = result => {
+    const ctx = { include() {}, request: '{}',
+      C8O: { mcpAuth: { authenticateRequest: () => result, noteRetryableAnswer: (context, status, code) => noted.push([context, status, code]) } },
+      context: { httpServletResponse: { setHeader() {} } },
+      com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn() {} } } } } } } };
+    vm.runInNewContext(stepExpression(endpoint, 'Parse'), ctx);
+    return ctx;
+  };
+  const unavailable = parse({ status: 'error', authenticated: false, retryable: true,
+    error: { code: 'nocode_token_check_unavailable', message: 'C8Oforms could not check the MCP token just now.', details: '' } });
+  assert.equal(unavailable.parseError.status, '503');
+  assert.deepEqual(noted.map(([context, status, code]) => [context === unavailable.context, status, code]), [[true, 503, 'nocode_token_check_unavailable']]);
+  parse({ status: 'error', authenticated: false, retryable: true, error: { message: 'unreadable' } });
+  assert.equal(noted[1][2], 'token_store_unreadable', 'the code the answer carries');
+  const refused = parse({ status: 'error', authenticated: false, error: { code: 'revoked_token', message: 'revoked' } });
+  assert.equal(refused.parseError.status, '401');
+  assert.equal(noted.length, 2, 'a refused token is not retryable');
+  // An older engine copy of mcp_auth.js without the function: the 503 is answered all the same.
+  const ctx = { include() {}, request: '{}', C8O: { mcpAuth: { authenticateRequest: () => ({ retryable: true, error: { code: 'x' } }) } },
+    context: { httpServletResponse: { setHeader() {} } }, com: { twinsoft: { convertigo: { engine: { Engine: { logEngine: { warn() {} } } } } } } };
+  vm.runInNewContext(stepExpression(endpoint, 'Parse'), ctx);
+  assert.equal(ctx.parseError.status, '503');
 });
 
 test('an unknown, revoked or corrupt durable token record still refuses the token', () => {

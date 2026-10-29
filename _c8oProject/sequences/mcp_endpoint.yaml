@@ -93,6 +93,10 @@ responseTimeout: 300
       try {
         com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] MCP bearer not checked (" + (unavailableError.code || "token_store_unreadable") + "): " + (unavailableError.details || unavailableError.message || ""));
       } catch (_ignoreUnavailableLog) {}
+      // Vibe reports the 503 as mcp_http_error, not retryable, without the status: the Agent Bridge reads it here.
+      try {
+        C8O.mcpAuth.noteRetryableAnswer(context, 503, parseError.data.code);
+      } catch (_ignoreRetryableNote) {}
     } else if (!mcpAuthentication || mcpAuthentication.authenticated !== true) {
       var authenticationError = mcpAuthentication && mcpAuthentication.error ? mcpAuthentication.error : {};
       parseError = {

@@ -937,6 +937,45 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     return validate(bearerToken(contextObject), contextObject);
   }
 
+  // The retryable answers of the endpoint, for the Agent Bridge of the same engine: Vibe reports any HTTP error of an MCP
+  // as mcp_http_error, not retryable, without its status or its body, so the 503 of a token C8Oforms could not check
+  // (C8Oforms deployed during a No Code turn, test-nocode 28/10) read as a lasting failure (feedback group 1d0f4cb9).
+  // The last one of each Tigo conversation (X-Convertigo-Conversation-Id, which the Bridge sends) is kept for
+  // RETRYABLE_ANSWER_KEEP_MS in the store the server shares between projects, as one JSON string {at, status, code}.
+  var RETRYABLE_ANSWERS_KEY = "lib_ConvertigoMCP.retryableAnswers";
+  var RETRYABLE_ANSWER_KEEP_MS = 10 * 60000;
+
+  function noteRetryableAnswer(contextObject, status, code) {
+    try {
+      var request = contextObject && contextObject.httpServletRequest;
+      var conversationId = request ? trim(request.getHeader("X-Convertigo-Conversation-Id")) : "";
+      var store = contextObject ? contextObject.server : null;
+      if (!/^[A-Za-z0-9._-]{1,128}$/.test(conversationId) || !store) {
+        return false;
+      }
+      // context.server has no putIfAbsent: the first retryable answer of the engine creates the map
+      if (store.get(RETRYABLE_ANSWERS_KEY) == null) {
+        store.set(RETRYABLE_ANSWERS_KEY, new Packages.java.util.concurrent.ConcurrentHashMap());
+      }
+      var answers = store.get(RETRYABLE_ANSWERS_KEY);
+      var at = Number(Packages.java.lang.System.currentTimeMillis());
+      var kept = answers.entrySet().iterator();
+      while (kept.hasNext()) {
+        var answer = null;
+        try {
+          answer = JSON.parse(String(kept.next().getValue()));
+        } catch (_unreadable) {}
+        if (!answer || !(at - Number(answer.at) < RETRYABLE_ANSWER_KEEP_MS)) {
+          kept.remove();
+        }
+      }
+      answers.put(conversationId, JSON.stringify({ at: at, status: Number(status), code: String(code || "") }));
+      return true;
+    } catch (_ignoreNote) {
+      return false;
+    }
+  }
+
   C8O.mcpAuth.adminStatus = adminStatus;
   C8O.mcpAuth.list = list;
   C8O.mcpAuth.createDurable = createDurable;
@@ -944,6 +983,7 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   C8O.mcpAuth.revoke = revoke;
   C8O.mcpAuth.validate = validate;
   C8O.mcpAuth.authenticateRequest = authenticateRequest;
+  C8O.mcpAuth.noteRetryableAnswer = noteRetryableAnswer;
   C8O.mcpAuth.setupLocalAgent = setupLocalAgent;
   C8O.mcpAuth.isWebAdmin = isWebAdmin;
   C8O.mcpAuth.endpointUrl = endpointUrl;
