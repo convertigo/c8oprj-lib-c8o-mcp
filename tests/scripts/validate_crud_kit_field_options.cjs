@@ -65,3 +65,14 @@ test('the form builder, the draft and the bindings use the options and the defau
   assert.match(kit, /\(field\.relation \? "RelationSelect" : \(field\.options && field\.options\.length \? "OptionSelect" : "Input"\)\)/);
   assert.match(kit, /C8O\.crudUiKit\.applyColumnDefaults\(ctx, projectName, hydrated\);/);
 });
+
+// actionLabel "Nouveau chantier" made the save button read as the button that opens a new record: a verifier clicked it to
+// open the form and saved an empty row (usage tests 29/10, S5 replay).
+test('a save label that reads as opening a new record is reported, and the input schema says what actionLabel labels', () => {
+  const kit = read('js/crud_ui_kit.js');
+  assert.match(kit, /\/\^\(nouveau\|nouvelle\|nouvel\|new\|add\|ajouter\|cr\[ée\]er\)\\b\/i\.test\(saveLabel\)/);
+  const pattern = /^(nouveau|nouvelle|nouvel|new|add|ajouter|cr[ée]er)\b/i;
+  assert.ok(pattern.test('Nouveau chantier') && pattern.test('New invoice') && pattern.test('Créer'));
+  assert.ok(!pattern.test('Enregistrer') && !pattern.test('Save intervention'));
+  assert.match(read('js/schema_overrides_crud.js'), /ui\.actionLabel is the label of the edit form's save button/);
+});

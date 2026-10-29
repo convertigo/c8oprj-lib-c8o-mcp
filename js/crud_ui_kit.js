@@ -1367,6 +1367,13 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         ctx.addWarning(result, "ui fields of " + entities[u].name + ": " + unknownRefs.join(", ") + " " + (unknownRefs.length > 1 ? "are" : "is") +
           " not a field of the entity and " + (unknownRefs.length > 1 ? "were" : "was") + " left out. Fields: " + fieldNames + ".");
       }
+      // actionLabel names the form's save button: "Nouvelle intervention" there read as the button that opens a new
+      // record, and a verifier that clicked it to open the form saved an empty row (usage tests 29/10).
+      var saveLabel = ctx.trimmed(uiConfig.actionLabel || "");
+      if (/^(nouveau|nouvelle|nouvel|new|add|ajouter|cr[ée]er)\b/i.test(saveLabel)) {
+        ctx.addWarning(result, "ui.actionLabel \"" + saveLabel + "\" of " + entities[u].name + " labels the edit form's save button, " +
+          "where it reads as opening a new record: give the save label (Enregistrer, Save).");
+      }
       // The fields come from the rows of the list sequence: one that returns the id alone gives pages with no value and
       // a form that edits nothing (usage tests 29/10, after an upsert-crud that regenerated the entity without fields).
       if (!ctx.ensureArray(uiConfig.editableFields).length) {
