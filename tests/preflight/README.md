@@ -34,6 +34,8 @@ It builds `PfContract` with the tools an agent uses (starter import, connector, 
   property, the value and what it takes, and leaves the property as it was.
 - **palette**: `palette-describe` takes every className `databaseobject-tree-get` gives on the NGX application
   (ApplicationComponent included), and the page lists `isRoot`.
+- **schemas**: every structuredContent of the run matches the outputSchema of its tool, as Vibe's MCP client checks
+  it: a property a closed object does not declare fails the call there with `mcp_transport_failed`.
 
 `project-save` with an unknown project re-exports the MCP project itself while that defect is there: restore its
 YAML with `git checkout -- _c8oProject c8oProject.yaml` in a git clone.

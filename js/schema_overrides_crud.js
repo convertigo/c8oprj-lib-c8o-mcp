@@ -294,6 +294,10 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         type: "array",
         items: crudProofCheckSchema()
       },
+      crm: h().openObjectSchema({
+        enabled: { type: "boolean" },
+        relationRequestable: { type: "string" }
+      }),
       missing: h().stringArraySchema(),
       warnings: h().stringArraySchema()
     });
