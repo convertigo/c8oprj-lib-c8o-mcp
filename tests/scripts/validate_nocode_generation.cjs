@@ -2616,6 +2616,30 @@ test('validate warns about state in browser storage, computations over the rows 
   const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
   assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
 });
+// A sticky component placed after a list: the viewer's position: sticky; top: 0 only sticks it once the page has
+// scrolled down to it, so behind a long list it is not in view while the list is read (usage tests, 29/10).
+function stickyPage(barFirst) {
+  const bar = { type: 'layout', name: 'item_actions', sticky: 'always', fields: [
+    { type: 'button', name: 'add_item', label: 'Ajouter', flow: 'open_other' }
+  ] };
+  const list = { type: 'layout', name: 'item_card', fields: [
+    { type: 'grid', name: 'item_list', label: 'Éléments', source: { table: 7002, columns: ['Joueur', 'Points'] } }
+  ] };
+  return { name: 'Sticky', navigationMode: 'custom', pages: [
+    { name: 'Liste', fields: [{ type: 'text', name: 'search', label: 'Rechercher', sticky: 'always' }].concat(barFirst ? [bar, list] : [list, bar]) },
+    { name: 'Autre', fields: [{ type: 'description', name: 'other', description: '<p>Autre</p>' }] }
+  ], flows: [{ id: 'open_other', name: 'Autre page', elements: [{ type: 'push_page', targetPage: 'Autre' }] }] };
+}
+test('validate warns about a sticky component placed after a list, which sticks only once the list is scrolled through', () => {
+  const after = api().compile(stickyPage(false), { tableIndex: linkTables });
+  assert.equal(after.status, 'ok', JSON.stringify(after.validation.issues));
+  const warnings = clone(api().validate(after.form).validation.warnings).filter(w => w.code === 'sticky_below_list');
+  const bar = after.form.formulaire.findIndex(item => item.name === 'item_actions');
+  assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + bar + '/config/sticky'], 'the bar after the layout holding the grid; not the search bar above it');
+  assert.match(warnings[0].message, /^item_actions is sticky but comes after the list item_list: .*move it above the list/);
+  const before = api().compile(stickyPage(true), { tableIndex: linkTables });
+  assert.deepEqual(clone(api().validate(before.form).validation.warnings).filter(w => w.code === 'sticky_below_list'), []);
+});
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
 // config.defaultvalue, the viewer drew 1 and submitted 0.
 test('a slider compiled with bounds and no default starts at the bound nearest to the prototype default', () => {

@@ -2962,6 +2962,46 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
   }
 
+  // Usage tests (29/10, test-nocode): an action bar placed after a long list was made sticky to stay in view; the
+  // viewer's position: sticky; top: 0 only stuck it once the list was scrolled through.
+  var LIST_VIEW_TYPES = ["grid", "gallery"];
+  function componentsById(form) {
+    var byId = {};
+    ensureArray(form.formulaire).forEach(function (item) { if (item && item.id != null) { byId[String(item.id)] = item; } });
+    return byId;
+  }
+  function validateStickyPlacement(form, warning) {
+    var items = ensureArray(form.formulaire);
+    var byId = componentsById(form);
+    function holdsList(item, depth) {
+      if (!item || depth > 8) { return null; }
+      if (LIST_VIEW_TYPES.indexOf(item.type) >= 0) { return item; }
+      var found = null;
+      ensureArray(item.childrenRefs).concat(ensureArray(item.childrenRefsElse)).some(function (ref) {
+        found = holdsList(byId[String(ref)], depth + 1);
+        return !!found;
+      });
+      return found;
+    }
+    // The components of each page at its top level, in the order the viewer stacks them.
+    var pages = {};
+    items.forEach(function (item, index) {
+      if (!item || item.parentRef != null && byId[String(item.parentRef)]) { return; }
+      var page = item.config && item.config.page;
+      (pages[page] = pages[page] || []).push({ item: item, index: index });
+    });
+    Object.keys(pages).forEach(function (page) {
+      var listAbove = null;
+      pages[page].forEach(function (entry) {
+        var item = entry.item, sticky = item.config && item.config.sticky;
+        if ((sticky === "always" || sticky === "notOnPhone") && listAbove) {
+          warning("sticky_below_list", (item.name || item.id) + " is sticky but comes after the list " + (listAbove.name || listAbove.id) + ": a sticky component stays at the top of the screen only once the page has scrolled down to it, so behind a long list it shows only at the end. To keep it in view, move it above the list (next to the search bar)", "/formulaire/" + entry.index + "/config/sticky");
+        }
+        listAbove = listAbove || holdsList(item, 0);
+      });
+    });
+  }
+
   function validateContextDefaults(form, issue, warning) {
     var fields = ensureArray(form.formulaire);
     var links = Object.create(null);
@@ -3612,6 +3652,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       });
       validateContextDefaults(form, issue, warning);
       validateGeneratedLogic(form, warning);
+      validateStickyPlacement(form, warning);
       eachConditionGroup(form, function (group, groupPath) {
         eachCondition(group, groupPath, function (cond, condPath) {
           if (!cond || typeof cond !== "object" || cond.subject !== "field") { return; }
