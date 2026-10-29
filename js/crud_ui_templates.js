@@ -225,7 +225,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       return tree;
     }
     tree.properties = tree.properties || {};
-    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages template clone) for " + String(componentName || tree.name || "component") + ". Direct edits may be overwritten; prefer entity.ui hints.";
+    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages template clone) for " + String(componentName || tree.name || "component") + ". Direct edits may be overwritten; prefer entity.ui hints (labels, fields) and the kit's language option (language: \"fr\" writes its buttons, titles and messages in French).";
     return tree;
   }
 
@@ -234,7 +234,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       return tree;
     }
     tree.properties = tree.properties || {};
-    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages page template clone) for " + String(pageName || tree.name || "page") + ". Direct edits may be overwritten; prefer template sources and entity.ui hints.";
+    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages page template clone) for " + String(pageName || tree.name || "page") + ". Direct edits may be overwritten; prefer template sources, entity.ui hints and the kit's language option (language: \"fr\" writes its texts in French).";
     return tree;
   }
 

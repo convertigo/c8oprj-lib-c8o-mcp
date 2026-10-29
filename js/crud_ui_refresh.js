@@ -256,7 +256,7 @@ include("js/mobile_builder_cycle.js");
     if (!info) {
       return "";
     }
-    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` may be overwritten or break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel/ui.relationFields hints instead.";
+    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` may be overwritten or break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel/ui.relationFields hints instead, and its language option (stage final, language \"fr\") to translate the texts the kit wrote.";
   }
 
   function collectManagedCrudCleanupQNames(ctx, ngxApp, expectedQNames) {
