@@ -34,6 +34,12 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
   row and inserts the demo rows again. Read its SQL first. `seed.reset:true` resets the tables to the demo rows, only
   when the user asks for it.
 
+## Language of the kit texts
+The kit writes its buttons, titles, states and messages in English unless `language` says otherwise. For a French
+app, or to translate pages the kit wrote in English, run `upsert-ngx-crud-kit` with `stage: "final"`,
+`language: "fr"` and the same entities and ui hints as before: one call instead of editing every text. Texts you
+wrote yourself (field labels, action labels) come from the ui hints.
+
 ## Server-side checks (validation)
 - Put the check in the create and update business sequences (`crud_create_<entity>`, `crud_update_<entity>`): an
   `IfStep` on the variable, holding an `XMLErrorStep` with `code` and the message the user reads (`output: true`), before

@@ -35,6 +35,7 @@ Capture these before the first mutation:
 - `entities[]`
 - `ui.entryPage`
 - optional `ui.variant`
+- `ui.language`: the user's language for the texts the kit writes (`fr` or `en`, default `en`); pass the same `language` to `upsert-ngx-crud-kit`
 
 Default assumptions for the fast path:
 - starter-derived NGX app

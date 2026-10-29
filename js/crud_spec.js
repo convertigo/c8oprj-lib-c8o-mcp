@@ -796,6 +796,7 @@ C8O.crudSpec = C8O.crudSpec || {};
     result.seed.data = normalizeSeedData(ctx, result.entities, result.seed.data);
     result.ui.entryPage = ctx.trimmed(result.ui.entryPage || "Home");
     result.ui.variant = ctx.trimmed(result.ui.variant || "entity-pages");
+    result.ui.language = ctx.trimmed(result.ui.language || "").toLowerCase().substring(0, 2);
     C8O.crudSpec.applyCrmDefaults(ctx, result);
     result.relations = C8O.crudSpec.normalizeRelations(ctx, result, spec.relations);
     if (isNaN(result.seed.rowsPerEntity) || result.seed.rowsPerEntity <= 0) {

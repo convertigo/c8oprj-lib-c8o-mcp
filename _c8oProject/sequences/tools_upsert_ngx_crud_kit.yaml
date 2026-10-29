@@ -45,6 +45,7 @@ comment: |
       stage: stage,
       facadePrefix: facadePrefix,
       entryPage: entryPage,
+      language: (typeof language === ''undefined'' || language == null) ? '''' : String(language),
       runtimeEvidence: parsedRuntimeEvidence
     });'
 ↓Result [steps.JsonObjectStep-1773318401003]: 
@@ -151,6 +152,9 @@ comment: |
   comment: Visible entry page name. Defaults to Home.
   description: Visible entry page name. Defaults to Home.
   value: Home
+↓language [variables.RequestableVariable-1793302000001]: 
+  comment: Language of the texts the kit writes, fr or en (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English.
+  description: Language of the texts the kit writes, fr or en (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English.
 ↓runtimeEvidence [variables.RequestableVariable-1773318401015]: 
   comment: Optional runtime evidence object or JSON string used to surface live counts in the shell.
   description: Optional runtime evidence object or JSON string used to surface live counts in the shell.

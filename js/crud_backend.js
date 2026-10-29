@@ -1782,6 +1782,7 @@ C8O.crudBackend = C8O.crudBackend || {};
         stage: "bootstrap",
         facadePrefix: spec.facade.prefix,
         entryPage: spec.ui.entryPage,
+        language: spec.ui.language,
         runtimeEvidence: result.runtimeEvidence
       });
       result.runtimeEvidence.ui = {
