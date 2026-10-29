@@ -2558,7 +2558,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         properties: {
           id: { type: "string", description: "Existing form document id from the current No Code context." },
           rev: { type: "string", description: "Optional document revision. Omit to read the latest saved version." },
-          find: { type: "string", description: "Optional word or text. Answers only the texts of the form a user sees that hold it (names of the form and pages, labels, texts, placeholders, choices, flow names, toast and alert messages), case and accents ignored, each with its path and its component or flow, instead of the whole form. Use it before changing a word everywhere." },
+          find: { type: "string", description: "Optional word or text. Answers only the texts of the form a user sees that hold it (names of the form and pages, labels, texts, placeholders, choices, flow names, toast and alert messages), case and accents ignored, each with its path, its component or flow and, when it is HTML or holds references, its stored value (raw) to patch, instead of the whole form. Use it before changing a word everywhere." },
           token: nocodeFormsTokenProperty()
         },
         required: ["id"],

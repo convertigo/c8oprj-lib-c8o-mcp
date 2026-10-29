@@ -2717,6 +2717,10 @@ test('nocode-form-get find lists every visible text holding a word, flow message
   }
   assert.ok(found.matches.every(m => /^\/(name|pages|formulaire|flows)\//.test(m.path) || m.path === '/name'), 'each match has the path to change');
   assert.deepEqual(clone(api().findText(r.form, 'etat')).matches.map(m => m.component), ['state'], 'accents ignored');
+  // The stored value comes with a text that is not plain (HTML, tokens), to patch it without reading the whole form.
+  const intro = found.matches.find(m => m.component === 'intro');
+  assert.match(intro.raw, /^<h2>Saisir une Commande<\/h2>/);
+  assert.equal(found.matches.find(m => m.where === 'placeholder').raw, undefined, 'a plain text has no raw copy');
   assert.equal(clone(api().findText(r.form, 'livraison')).count, 0);
 
   const sequence = fs.readFileSync(path.join(root, '_c8oProject/sequences/tools_nocode_form_get.yaml'), 'utf8');

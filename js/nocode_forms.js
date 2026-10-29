@@ -5679,7 +5679,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   });
   // nocode-form-get find: every text of the form a user sees that holds a word (names of the form and its pages,
   // labels, texts, placeholders, choices, button labels, flow names, toast and alert messages), compared without case
-  // nor accents. A rename "everywhere" (usage tests, 29/10) changed 15 texts by hand and missed a toast message.
+  // nor accents. A rename "everywhere" (usage tests, 29/10) changed 15 texts by hand and missed a toast message. Each
+  // match carries the stored value (raw) when it is not the plain text: an agent given the text only read the whole
+  // form again with shell commands to find the HTML to patch.
   var FOLD_FROM = "àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝŸŒÆ";
   var FOLD_TO = ["a", "a", "a", "a", "a", "a", "c", "e", "e", "e", "e", "i", "i", "i", "i", "n", "o", "o", "o", "o", "o", "u", "u", "u", "u", "y", "y", "oe", "ae",
     "a", "a", "a", "a", "a", "a", "c", "e", "e", "e", "e", "i", "i", "i", "i", "n", "o", "o", "o", "o", "o", "u", "u", "u", "u", "y", "y", "oe", "ae"];
@@ -5696,6 +5698,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       .replace(/&nbsp;/g, " ").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, "\"").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
   }
   var FIND_MAX = 100;
+  var FIND_RAW_MAX = 1200;
   function findText(form, query) {
     var wanted = foldText(visibleText(query));
     var matches = [];
@@ -5707,6 +5710,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       total++;
       if (matches.length < FIND_MAX) {
         var match = { where: where, path: path, text: shown.length > 160 ? shown.substring(0, 159) + "…" : shown };
+        // The value as stored (HTML, tokens) when it differs from the text shown: the agent patches it as it is.
+        var stored = String(text);
+        if (stored !== shown) { match.raw = stored.length > FIND_RAW_MAX ? stored.substring(0, FIND_RAW_MAX - 1) + "…" : stored; }
         if (owner) { Object.keys(owner).forEach(function (key) { if (owner[key] != null && owner[key] !== "") { match[key] = owner[key]; } }); }
         matches.push(match);
       }
