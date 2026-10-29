@@ -2464,6 +2464,37 @@ test('an edit rewrites a select it changes and only reports one it leaves alone'
   assert.equal(selectConfig(h.state.forms[id]).value, 'id');
   assert.ok(changed.validation.warnings.some(w => w.code === 'link_row_select_value_rewritten'));
 });
+// A save that leaves a table's primary field empty: Baserow and every link to the row show « unnamed row N » (usage
+// tests, 29/10: an edit removed the only input of a primary text column). A computed primary (formula) needs no input.
+const primaryTables = [{ id: 9101, name: 'Articles', path: 'Team~>Stock~>Articles' }, { id: 9102, name: 'Mouvements', path: 'Team~>Stock~>Mouvements' }];
+const primaryColumns = {
+  9101: [{ id: 11, name: 'Titre', type: 'text', primary: true }, { id: 12, name: 'Quantité', type: 'number' }],
+  9102: [{ id: 13, name: 'Résumé', type: 'formula', primary: true }, { id: 14, name: 'Quantité', type: 'number' }]
+};
+function primaryApp(table, inputs, save = { table }) {
+  return { name: 'Stock', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: inputs.map(name => ({ type: 'text', name, label: name }))
+    .concat([{ type: 'button', name: 'save', label: 'Enregistrer', flow: 'save_row' }]) }],
+    flows: [{ id: 'save_row', name: 'Enregistrer', elements: [{ type: 'submit', saveTo: save }] }] };
+}
+test('create and edit warn when a save leaves the primary field of its table empty', () => {
+  const of = r => clone(r.validation.warnings).filter(w => w.code === 'primary_field_not_filled');
+  let h = creationHarness({ columnsByTable: primaryColumns });
+  const filled = h.client.create(primaryApp(9101, ['Titre', 'Quantité']), { ...h.auth, tableIndex: primaryTables });
+  assert.equal(filled.saved, true, JSON.stringify(filled.validation || filled.error));
+  assert.deepEqual(of(filled), []);
+  // The edit removes the only input of the primary field: the unchanged save no longer fills it.
+  const removed = h.client.edit(filled.form._id, [{ action: 'remove_field', fieldName: 'Titre' }], h.auth);
+  assert.equal(removed.saved, true, JSON.stringify(removed.validation || removed.error));
+  assert.equal(of(removed).length, 1, JSON.stringify(removed.validation.warnings.map(w => w.code)));
+  assert.match(of(removed)[0].message, /adds rows to Articles without filling its primary field "Titre": .*« unnamed row N »/);
+  // Created without it, with a mapping without it, and a computed primary.
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.equal(of(h.client.create(primaryApp(9101, ['Quantité']), { ...h.auth, tableIndex: primaryTables })).length, 1);
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.equal(of(h.client.create(primaryApp(9101, ['Titre', 'Quantité'], { table: 9101, values: { Quantité: 'Quantité' } }), { ...h.auth, tableIndex: primaryTables })).length, 1);
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.deepEqual(of(h.client.create(primaryApp(9102, ['Quantité']), { ...h.auth, tableIndex: primaryTables })), []);
+});
 test('nocode-form-validate refuses a select written into a link_row column with another value than the row id', () => {
   const compiled = api().compile(scoresApp(), { tableIndex: linkTables }).form;
   assert.equal(selectConfig(compiled).value, 'Nom', 'the offline compile does not know the column types');
@@ -2615,6 +2646,87 @@ test('validate warns about state in browser storage, computations over the rows 
   // A grid giving a formula every row (all_the_data) is what such a formula reads; it is not flagged.
   const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
   assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
+});
+// A sticky component placed after a list: the viewer's position: sticky; top: 0 only sticks it once the page has
+// scrolled down to it, so behind a long list it is not in view while the list is read (usage tests, 29/10).
+function stickyPage(barFirst) {
+  const bar = { type: 'layout', name: 'item_actions', sticky: 'always', fields: [
+    { type: 'button', name: 'add_item', label: 'Ajouter', flow: 'open_other' }
+  ] };
+  const list = { type: 'layout', name: 'item_card', fields: [
+    { type: 'grid', name: 'item_list', label: 'Éléments', source: { table: 7002, columns: ['Joueur', 'Points'] } }
+  ] };
+  return { name: 'Sticky', navigationMode: 'custom', pages: [
+    { name: 'Liste', fields: [{ type: 'text', name: 'search', label: 'Rechercher', sticky: 'always' }].concat(barFirst ? [bar, list] : [list, bar]) },
+    { name: 'Autre', fields: [{ type: 'description', name: 'other', description: '<p>Autre</p>' }] }
+  ], flows: [{ id: 'open_other', name: 'Autre page', elements: [{ type: 'push_page', targetPage: 'Autre' }] }] };
+}
+test('validate warns about a sticky component placed after a list, which sticks only once the list is scrolled through', () => {
+  const after = api().compile(stickyPage(false), { tableIndex: linkTables });
+  assert.equal(after.status, 'ok', JSON.stringify(after.validation.issues));
+  const warnings = clone(api().validate(after.form).validation.warnings).filter(w => w.code === 'sticky_below_list');
+  const bar = after.form.formulaire.findIndex(item => item.name === 'item_actions');
+  assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + bar + '/config/sticky'], 'the bar after the layout holding the grid; not the search bar above it');
+  assert.match(warnings[0].message, /^item_actions is sticky but comes after the list item_list: .*move it above the list/);
+  const before = api().compile(stickyPage(true), { tableIndex: linkTables });
+  assert.deepEqual(clone(api().validate(before.form).validation.warnings).filter(w => w.code === 'sticky_below_list'), []);
+});
+// A token in a text on a grid cell without .value/.displayValue shows the cell's display HTML as text (usage tests,
+// 29/10: a total read from a grouped grid showed « <div style="display:flex; …">1500.00</div> »).
+test('validate warns about a text token on a grid cell that does not end with value or displayValue', () => {
+  const r = api().compile({ name: 'Cell token', pages: [{ name: 'Page', fields: [
+    { type: 'grid', name: 'totals', label: 'Totaux', source: { table: 7002, columns: ['Joueur', 'Points'] }, visibleIf: { never: true } },
+    { type: 'description', name: 'kpi_raw', description: '<p>Total</p>' },
+    { type: 'description', name: 'kpi_value', description: '<p>Total</p>' },
+    { type: 'description', name: 'kpi_display', description: '<p>Total</p>' },
+    { type: 'text', name: 'other', label: 'Autre' }
+  ] }] }, { tableIndex: linkTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const form = clone(r.form);
+  const grid = byName(form, 'totals'), other = byName(form, 'other');
+  const token = (target, path) => '$$START' + target.id + JSON.stringify({ c8otype: 'path', c8opath: path, c8oPrettyPath: '', c8obuiltin: 'false', fakeId: 'fakeId1', c8oName: null }) + 'END' + target.id + '$$';
+  byName(form, 'kpi_raw').config.html = '<p>Total ' + token(grid, 'totals.0.sum_Points') + '</p>';
+  byName(form, 'kpi_value').config.html = '<p>Total ' + token(grid, 'totals.0.sum_Points.value') + ' ' + token(other, '') + '</p>';
+  byName(form, 'kpi_display').config.html = '<p>Total ' + token(grid, 'totals.Joueur.displayValue') + '</p>';
+  const warnings = clone(api().validate(form).validation.warnings).filter(w => w.code === 'grid_cell_token_text');
+  assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + form.formulaire.indexOf(byName(form, 'kpi_raw')) + '/config/html']);
+  assert.match(warnings[0].message, /^The text of kpi_raw shows totals\.0\.sum_Points, a cell of the grid totals: .*End the path with \.value/);
+});
+// nocode-form-get find: a rename "everywhere" changed the labels and pages by hand and missed a toast message (usage
+// tests, 29/10). find lists every text a user sees that holds the word, case and accents ignored.
+test('nocode-form-get find lists every visible text holding a word, flow messages included', () => {
+  const r = api().compile({ name: 'Commandes', navigationMode: 'custom', pages: [
+    { name: 'Nouvelle commande', fields: [
+      { type: 'description', name: 'intro', description: '<h2>Saisir une Commande</h2><p>Une ligne par article.</p>' },
+      { type: 'text', name: 'ref', label: 'Référence de la commande', placeholder: 'COMMANDE-001' },
+      { type: 'select', name: 'state', label: 'État', values: ['Commandée', 'Livrée'] },
+      { type: 'button', name: 'save', label: 'Enregistrer la commande', flow: 'save_order' }
+    ] },
+    { name: 'Articles', fields: [{ type: 'text', name: 'item', label: 'Article' }] }
+  ], flows: [{ id: 'save_order', name: 'Enregistrer la commande', elements: [{ type: 'toast', message: 'Commande enregistrée', color: 'success' }] }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const found = clone(api().findText(r.form, 'COMMANDE'));
+  const where = found.matches.map(m => [m.where, m.component || m.flow || '', m.text]);
+  assert.equal(found.count, found.matches.length);
+  for (const expected of [
+    ['form name', '', 'Commandes'], ['page name', '', 'Nouvelle commande'], ['text', 'intro', 'Saisir une Commande Une ligne par article.'],
+    ['label', 'ref', 'Référence de la commande'], ['placeholder', 'ref', 'COMMANDE-001'], ['choice', 'state', 'Commandée'],
+    ['label', 'save', 'Enregistrer la commande'], ['flow name', 'save_order', 'Enregistrer la commande'], ['toast message', 'save_order', 'Commande enregistrée']
+  ]) {
+    assert.ok(where.some(m => JSON.stringify(m) === JSON.stringify(expected)), JSON.stringify(expected) + ' in ' + JSON.stringify(where));
+  }
+  assert.ok(found.matches.every(m => /^\/(name|pages|formulaire|flows)\//.test(m.path) || m.path === '/name'), 'each match has the path to change');
+  assert.deepEqual(clone(api().findText(r.form, 'etat')).matches.map(m => m.component), ['state'], 'accents ignored');
+  assert.equal(clone(api().findText(r.form, 'livraison')).count, 0);
+
+  const sequence = fs.readFileSync(path.join(root, '_c8oProject/sequences/tools_nocode_form_get.yaml'), 'utf8');
+  assert.match(sequence, /↓find \[variables\.RequestableVariable-\d+\]: \n/);
+  assert.match(sequence, /C8O\.nocodeForms\.findText\(current, wanted\)/);
+  const overrides = { C8O: {}, include() {} };
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'js/schema_overrides.js'), 'utf8'), overrides);
+  const schema = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_get', null, null));
+  assert.deepEqual(Object.keys(schema.properties).sort(), ['find', 'id', 'rev', 'token']);
+  assert.match(fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8'), /call `nocode-form-get` with `find`/);
 });
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
 // config.defaultvalue, the viewer drew 1 and submitted 0.
