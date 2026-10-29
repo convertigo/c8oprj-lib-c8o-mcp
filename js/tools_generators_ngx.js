@@ -729,12 +729,21 @@ include("js/tools_generators.js");
           if (str(f.helper).length) {
             props.HelperText = { mode: "PLAIN", value: str(f.helper) };
           }
-          if (f.value !== undefined) {
+          if (f.from !== undefined && str(f.from).length) {
+            // An edit form shows the record the page loaded: the control reads the page data, filled when the page's
+            // business sequence answers. A value computed at page enter came before that answer, so the form of a
+            // generated edit page never filled (usage tests 29/10).
+            props.Value = { mode: "SOURCE", local: "data." + str(f.from).replace(/^\.+/, "").replace(/^data\./, "") };
+          } else if (f.value !== undefined) {
             // The initial value is a TypeScript expression (new Date()..., c8oPage.navParams...): it is computed at page
             // enter into a local and the control reads that local. Written in the template, it broke the Angular build.
             var initLocal = "init" + pascal(f.name);
             locals[initLocal] = String(f.value);
             props.Value = { mode: "SOURCE", local: initLocal };
+            if (/(^|[^\w.])(c8oPage\.)?(local\??\.)?data\??\./.test(String(f.value))) {
+              warnings.push("form.fields " + str(f.name) + ": value is computed at page enter, before the page data arrives " +
+                "(and c8oPage.data is never set): write from: \"<path in the page data>\" to show the loaded record.");
+            }
           }
           if (f.disabled !== undefined && f.disabled !== false && str(f.disabled) !== "false") {
             // Read-only when the expression is true. Computed at page enter like value: written in the template, an

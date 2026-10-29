@@ -1220,3 +1220,21 @@ test('the default route of a page is its name in lower case, words joined by a d
   G.ngxPageCreate({ project: 'App', name: 'LivreModification', title: 'Modifier', kind: 'list', sequence: 'poste_list', list: { item: 'l', title: 'titre' } });
   assert.equal(creates(world, 'ngx.components.PageComponent#PageComponent')[0].properties.segment, 'livre-modification');
 });
+
+// An edit page built with the tool never filled its form: its fields had value: "c8oPage.data?.livre?.titre", an
+// expression computed at page enter, before the page data arrived, on a path the page never sets (usage tests 29/10).
+test('a form field shows the record the page loaded with from, and a value that reads the page data is reported', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'LivreModification', kind: 'form', sequence: 'poste_list',
+    form: { submit: 'declaration_declare', submitLabel: 'Enregistrer', cancelLabel: 'Annuler', success: { message: 'OK' }, fields: [
+      { name: 'commentaire', label: 'Titre', from: 'livre.titre' },
+      { name: 'source', label: 'Année', value: 'c8oPage.data?.livre?.annee || ""' }] } });
+  const page = creates(world, 'ngx.components.PageComponent#PageComponent')[0];
+  const nodes = {};
+  walk(page, n => { nodes[n.name] = nodes[n.name] || n; });
+  const titre = Object.values(nodes).find(n => n.properties && n.properties.ControlName && n.properties.ControlName.value === 'commentaire');
+  assert.deepEqual(plain(titre.properties.Value), { mode: 'SOURCE', local: 'data.livre.titre' });
+  assert.match(out.warnings.join(' '), /form\.fields source: value is computed at page enter, before the page data arrives/);
+  assert.doesNotMatch(out.warnings.join(' '), /form\.fields commentaire/);
+});
