@@ -412,6 +412,21 @@ test('a selfVar changed in No Code Studio is the expression that runs: context_d
   const rows = warnings().filter(w => w.code === 'grid_rows_in_formula');
   assert.deepEqual(clone(rows.map(w => w.path)), ['/formulaire/' + index + '/sources/self/vars/selfVar/str'], JSON.stringify(warnings()));
 });
+test('the form read back keeps config.contextDefault as saved: a fallback "" is not context_default_stale', () => {
+  // 29/10: nocode-form-get answered the form without the empty values, the fallback "" of a defaultFrom included;
+  // nocode-form-validate on that form then warned context_default_stale and asked to send defaultFrom again.
+  const input = contextExample({ source: 'field', field: 'requests', column: 'Reference', mode: 'reactive', fallback: '' }, { disabled: true, label: 'Reference' });
+  input.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'Reference', type: 'text' }], config: { sourceEnabled: false } });
+  const forms = api();
+  const compiled = forms.compile(input);
+  assert.equal(compiled.status, 'ok', JSON.stringify(compiled.validation));
+  const read = forms.agentView(clone(compiled.form));
+  const field = read.formulaire.find(f => f.name === 'context_input');
+  assert.deepEqual(clone(field.config.contextDefault), { source: 'field', field: 'requests', column: 'Reference', mode: 'reactive', fallback: '' });
+  const warnings = forms.validate(read).validation.warnings;
+  assert.equal(warnings.some(w => w.code === 'context_default_stale'), false, JSON.stringify(warnings));
+  assert.doesNotMatch(JSON.stringify(read.formulaire.map(f => ({ ...f.config, contextDefault: undefined }))), /:""/, 'the other empty values are still left out');
+});
 function example() {
   return {
     name: 'Generation quality test', navigationMode: 'custom',
