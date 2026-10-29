@@ -22,7 +22,7 @@ function run(message, authenticatedUser) {
 
 test('Authentication required without authenticatedUser says to pass it', () => {
   assert.ok(start > 0);
-  assert.match(run('Authentication required').hint, /call it again with authenticatedUser .*keeps no session for the next call/);
+  assert.match(run('Authentication required').hint, /call it again with authenticatedUser .*or with before: .*A login run by an earlier call keeps no session/);
   assert.equal(run('Authentication required', 'demo').hint, undefined, 'a call that gave a user gets no such hint');
   assert.equal(run('Could not execute the SQL query').hint, undefined);
 });

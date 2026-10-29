@@ -295,6 +295,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           description: "Optional user to run this call as (what the login sequence passes to context.setAuthenticatedUser, for example an email), for this call only. Without it the call has no authenticated user and sequences marked authenticatedContextRequired answer Authentication required."
         },
+        before: {
+          description: "Requestables to run first, in order, in the same session as this call: [{\"requestable\": \"<project>.<login sequence>\", \"variables\": {\"user\": \"...\", \"password\": \"...\"}}]. Use it for a call that needs a session another requestable sets (a login that stores the user or a role): a login run by an earlier requestable-execute keeps no session for the next call. The call does not run when one of them answers an error; their session ends with the call.",
+          oneOf: [{ type: "array", items: { type: "object", additionalProperties: true } }, { type: "string" }]
+        },
         allowDataReset: {
           type: "boolean",
           default: false,

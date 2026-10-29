@@ -927,6 +927,129 @@ C8O.requestable._countRows = function (connector, tables) {
   return out;
 };
 
+// A call that needs a session another requestable sets (a login storing the user or a role) could not be run: each
+// requestable-execute has its own session, and authenticatedUser sets the user only, not what the login stores; an agent
+// spent its run on it (usage tests 29/10). executionPlan.before runs requestables first, in order, through the same
+// HTTP request, so they share the session of the call; endBefore removes what they added once the call has answered.
+C8O.requestable.runBefore = function (executionPlan) {
+  if (!executionPlan || executionPlan.beforeDone === true) {
+    return;
+  }
+  executionPlan.beforeDone = true;
+  var raw = executionPlan.before;
+  if (raw === null || raw === undefined || !C8O.util.toTrimmedString(raw).length) {
+    return;
+  }
+  var list = [];
+  var javaArray = false;
+  try {
+    javaArray = !!(raw.getClass && raw.getClass().isArray());
+  } catch (_notJava) {}
+  if (javaArray) {
+    // An array argument can reach the sequence as a multivalued variable: one JSON text per item.
+    for (var j = 0; j < raw.length; j++) {
+      list.push(C8O.util.parseObjectInput(raw[j], { label: 'before[' + j + ']', allowEmpty: true, allowArray: true }));
+    }
+    if (list.length === 1 && Array.isArray(list[0])) {
+      list = list[0];
+    }
+  } else {
+    var parsed = C8O.util.parseObjectInput(raw, { label: 'before', allowEmpty: true, allowArray: true });
+    list = Array.isArray(parsed) ? parsed : (Object.keys(parsed || {}).length ? [parsed] : []);
+  }
+  if (!list.length) {
+    return;
+  }
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var HashMap = Packages.java.util.HashMap;
+  var InternalRequester = Packages.com.twinsoft.convertigo.engine.requesters.InternalRequester;
+  var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
+  var JsonOutput = Packages.com.twinsoft.convertigo.engine.enums.JsonOutput;
+  executionPlan.sessionAttributesBefore = C8O.requestable._sessionAttributeNames();
+  executionPlan.beforeResults = [];
+  for (var i = 0; i < list.length; i++) {
+    var item = typeof list[i] === 'string' ? { requestable: list[i] }
+      : C8O.util.parseObjectInput(list[i], { label: 'before[' + i + ']', allowEmpty: true });
+    if (!C8O.util.toTrimmedString(item.requestable).length) {
+      throw new Error('before[' + i + '] needs a requestable: {"requestable": "<project>.<sequence>", "variables": {...}}.');
+    }
+    var target = C8O.requestable.parseTarget(item.requestable);
+    var params = new HashMap();
+    params.put('__project', target.project);
+    if (target.isSequence) {
+      params.put('__sequence', target.name);
+    } else {
+      params.put('__connector', target.connector);
+      params.put('__transaction', target.name);
+    }
+    params.put('__context', 'mcp_before_' + java.lang.System.currentTimeMillis() + '_' + i);
+    var variables = C8O.util.parseObjectInput(item.variables, { label: 'before[' + i + '].variables', allowEmpty: true }) || {};
+    var keys = Object.keys(variables);
+    for (var k = 0; k < keys.length; k++) {
+      var value = variables[keys[k]];
+      if (value !== null && value !== undefined) {
+        params.put(String(keys[k]), typeof value === 'object' ? JSON.stringify(value) : String(value));
+      }
+    }
+    var requester = null;
+    try {
+      requester = context.httpServletRequest ? new InternalRequester(params, context.httpServletRequest) : new InternalRequester(params);
+    } catch (_noRequest) {
+      requester = new InternalRequester(params);
+    }
+    var response = null;
+    try {
+      response = requester.processRequest();
+    } catch (callError) {
+      executionPlan.beforeResults.push({ requestable: target.requestable, status: 'error' });
+      var cause = callError && callError.javaException ? callError.javaException.getMessage() : (callError && callError.message) || String(callError);
+      throw new Error('before[' + i + '] ' + target.requestable + ' failed: ' + cause + ' ' + executionPlan.requestable + ' was not run.');
+    }
+    try {
+      Engine.theApp.contextManager.remove(requester.getContext());
+    } catch (_ignoreContext) {}
+    var json = {};
+    try {
+      json = JSON.parse(String(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode)));
+    } catch (_unreadable) {}
+    var documentJson = json && json.document ? json.document : json;
+    var error = documentJson && documentJson.error ? documentJson.error : null;
+    executionPlan.beforeResults.push({ requestable: target.requestable, status: error ? 'error' : 'ok' });
+    if (error) {
+      throw new Error('before[' + i + '] ' + target.requestable + ' answered an error: ' + (error.message || JSON.stringify(error)) +
+        '. ' + executionPlan.requestable + ' was not run.');
+    }
+  }
+};
+
+C8O.requestable._sessionAttributeNames = function () {
+  var names = {};
+  try {
+    var attributes = context.httpSession.getAttributeNames();
+    while (attributes.hasMoreElements()) {
+      names[String(attributes.nextElement())] = true;
+    }
+  } catch (_noSession) {}
+  return names;
+};
+
+C8O.requestable.endBefore = function (executionPlan) {
+  if (!executionPlan || !executionPlan.sessionAttributesBefore) {
+    return;
+  }
+  var kept = executionPlan.sessionAttributesBefore;
+  var now = C8O.requestable._sessionAttributeNames();
+  var names = Object.keys(now);
+  for (var i = 0; i < names.length; i++) {
+    if (!kept[names[i]]) {
+      try {
+        context.httpSession.removeAttribute(names[i]);
+      } catch (_ignoreRemove) {}
+    }
+  }
+  executionPlan.sessionAttributesBefore = null;
+};
+
 // A transaction that is not there (one deleted earlier in the conversation) reached the engine, whose
 // NullPointerException ("targetTransaction is null") said nothing of the cause (usage tests 29/10): name what is
 // missing and what exists.
@@ -970,6 +1093,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
   if (!executionPlan) {
     throw new Error('Execution plan is missing');
   }
+  C8O.requestable.runBefore(executionPlan);
 
   var EngineLog = Packages.com.twinsoft.convertigo.engine.Engine.logEngine;
   var SequenceClassName = 'com.twinsoft.convertigo.beans.steps.SequenceStep';
