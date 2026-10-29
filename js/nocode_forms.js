@@ -572,7 +572,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           outsideContract: "table_id_int alone is not a full source configuration: supply the discovered table path and requested columns too. Runtime identity fields are automatic for new creation; existing saved bindings must contain verified identities."
         },
         tableData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], link_row_table_id: [] } },
-        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], link_row_table_id: [] } },
+        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], columnsRule: "columns holds displayValue and value, \"id\" (the row id) included: C8Oforms refuses the rows of a select whose displayed or stored value is not among them to the respondents of the published form, while the preview of its owner still reads them. create, edit and update add them to a select they change; nocode-form-validate refuses the gap (baserow_select_columns).", example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], link_row_table_id: [] } },
         fieldValues: { required: ["table_id", "columns"], example: { table_id: 123, columns: ["Status"] } }
       },
       filter: {
@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-29.grid-value-v19",
+      contractVersion: "2026-10-29.select-columns-v22",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1223,6 +1223,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
           { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index"], example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
           { action: "add_flow", required: ["flowId"], example: { action: "add_flow", flowId: "flow_save", name: "Save", flowData: { elements: [] } } },
+          { action: "remove_flow", aliases: ["delete_flow"], requiredOneOf: ["flowId", "flowName"], note: "Refused with flow_in_use, nothing saved, while a component the edit keeps still has this flow: remove that component or point it to another flow in the same edit. Several buttons can share a flow: check form.formulaire first.", example: [{ action: "remove_field", fieldName: "old_button" }, { action: "remove_flow", flowId: "old_button_flow" }] },
           { action: "set_root", note: "config is merged device by device and key by key; see rootFields.config.", example: { action: "set_root", config: { desktop: { horizontalMargin: { unit: "px", value: "32" } }, phoneL: { horizontalMargin: { unit: "px", value: "0" } }, phoneP: { horizontalMargin: { unit: "px", value: "0" } } } } },
           { action: "add_flow_element", required: ["flowId", "element"], example: { action: "add_flow_element", flowId: "flow_save", element: { type: "toast", message: "Saved", color: "success" } } },
           { action: "update_field", note: "Reduced conditions and button variants are accepted in patches; a reduced condition replaces the whole group.", example: { action: "update_field", fieldName: "open_contact", patch: { variant: "secondary", disabledIf: { field: "contacts", operator: "is_empty" } } } },
@@ -2400,7 +2401,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         key = "lib_BaseRow.formssource_GetSelectData";
         var display = trimmed(spec.display);
         var valueColumn = trimmed(spec.value) || display;
-        if (!columns.length) { columns = valueColumn === display ? [display] : [display, valueColumn]; }
+        // The published form refuses the rows of a select whose displayed or stored value is not among its columns.
+        [display, valueColumn].forEach(function (column) { if (columns.indexOf(column) < 0) { columns.push(column); } });
         vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, displayValue: display, value: valueColumn, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
         if (spec.filter != null) { vars.forms_Filter = filterVariable(spec.filter, what); }
         if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
@@ -2713,6 +2715,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return out;
   }
 
+  // defaultFrom { source: "clock", property: "today" }: the local date as YYYY-MM-DD.
+  var CLOCK_TODAY_EXPRESSION = '(function () { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); })()';
+
   function contextualDefaultsContract() {
     return {
       rule: "Before asking for a value, check whether the runtime context can supply it reliably and appropriately. Do not infer an identity binding from a field label alone. Never embed the app author's identity as an end-user default.",
@@ -2730,7 +2735,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         initial: "Applies at source initialization only; preserves response edits, same-field URL values and an already entered value. Later dependency changes do not reapply it. If prerequisite data is unavailable, use a fallback and manual input; do not promise late auto-fill.",
         reactive: "Explicit derived value: recomputes when Forms observes field/SmartSource dependencies. Use for calculations, usually with a disabled control, not editable identity defaults. Clock and user context are not polling subscriptions."
       },
-      native: "defaultFrom compiles into sources.self.vars.selfVar (type=ts, html=false), the code the viewer runs, and config.contextValueMode; config.contextDefault keeps the declaration it was compiled from. Change the value with defaultFrom again (update_field patch { defaultFrom }; a patch of config.contextDefault is compiled the same way), never by patching selfVar: that patch is refused on a defaultFrom field. No Code Studio saves selfVar with each reference as a token $$START<id>{...\"name\":\"<name>\"...}END<id>$$ (fields.<name>) and leaves config.contextDefault as it was: nocode-form-validate then warns context_default_stale, and selfVar is the expression that runs. Requires a Forms viewer supporting contextValueMode; deploy Forms and MCP together. Existing native sources and drafts without this mode keep their behavior. Conflicting explicit sources/defaults are rejected, not overwritten.",
+      native: "defaultFrom compiles into sources.self.vars.selfVar (type=ts, html=false), the code the viewer runs, and config.contextValueMode; config.contextDefault keeps the declaration it was compiled from. Change the value with defaultFrom again (update_field patch { defaultFrom }; a patch of config.contextDefault is compiled the same way), never by patching selfVar: that patch is refused on a defaultFrom field. No Code Studio saves selfVar with each reference as a token $$START<id>{...\"name\":\"<name>\"...}END<id>$$ (fields.<name>) and leaves config.contextDefault as it was: nocode-form-validate then warns context_default_stale, and selfVar is the expression that runs. The viewer reads contextValueMode since C8Oforms 2.2.0-beta338 (an older viewer recomputes the value like a reactive one); the editor never shows it. Existing native sources and drafts without this mode keep their behavior. Conflicting explicit sources/defaults are rejected, not overwritten.",
+      // 28/10 on test-nocode: asked how to prefill a datetime with today's date, an agent sent the user to a "clock"
+      // default in the field properties, which the editor does not have. What the editor shows, read on C8Oforms
+      // 2.2.0-beta457 (origin/NGX: itemDateSelector, DefaultValueEditorWithPalette, dataSourceEditor, i18n).
+      editor: "Where No Code Studio sets a default by hand: select the text, slider, datetime, time or barcode component, tab Default value (French: Valeur par d\u00e9faut) of its configuration. It holds one value, typed as text, or as JavaScript after the JavaScript logo button (advanced mode, Mode avanc\u00e9), with a palette of the form's fields and of api.*; it edits sources.self.vars.selfVar, so a defaultFrom shows there as the JavaScript it compiled to. That tab has no clock, today, user or query choice and no initial/reactive switch. The Data & Interactions tab (Donn\u00e9es & Interactions) of a datetime has the minimum and maximum dates and two switches that refuse a date before or after today: they restrict the entry and fill nothing. Today's date as a datetime default, by hand: Default value tab, JavaScript mode, " + CLOCK_TODAY_EXPRESSION + " (what defaultFrom { source: \"clock\", property: \"today\" } compiles to); or offer to set that defaultFrom yourself. The contract names no other editor control: for any other setting, say you cannot see where the editor puts it, and offer to make the change or give the value to paste.",
       otherComponents: "For select/radio/checkbox and groups, use existing sources.self default expressions/config.defaultValuesMode with the actual choice values. External choice options and selected defaults are distinct. Grids/data views use real source connections, never scalar defaultFrom. Location needs user permission; files/signatures must not be fabricated.",
       review: ["For each field choose user input, initial context value, reactive calculation or backend-managed value.", "Preserve existing answers and intentional defaults, including empty strings, false and 0.", "Check auth/profile absence, required fields, record switching, source readiness and expression result type.", "Keep identity/ownership/access checks server-side. Do not populate identifying fields in anonymous/anonymized journeys without explicit intent."]
     };
@@ -2763,7 +2772,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     } else if (spec.source === "clock") {
       allowed.push("property");
       if (["today", "now"].indexOf(spec.property) < 0) { throw new Error("defaultFrom clock property must be today or now"); }
-      expression = spec.property === "now" ? "new Date().toISOString()" : '(function () { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); })()';
+      expression = spec.property === "now" ? "new Date().toISOString()" : CLOCK_TODAY_EXPRESSION;
     } else if (spec.source === "field") {
       allowed.push("field", "path", "column");
       if (typeof spec.field !== "string" || !trimmed(spec.field)) { throw new Error("defaultFrom.field must be a technical name"); }
@@ -3061,7 +3070,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
+    var completedSelects = completeSelectColumns(doc, null);
     var validation = validateForm(doc, { project: projectName, generation: true }).validation;
+    completedSelects.forEach(function (item) { validation.warnings.push(item); });
+    validation.warningCount = validation.warnings.length;
     if (!doc.formulaire.length) {
       // A reduced form without a single component is never a deliverable
       // application; it usually means the reduced JSON was lost on the way.
@@ -3131,6 +3143,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       if (/formssource_Get(Table|Select)Data$/.test(key) && (!Array.isArray(binding.columns) || !binding.columns.length || binding.columns.some(function (column) { return typeof column !== "string" || !trimmed(column); }))) {
         incomplete("missing_baserow_columns", "A Baserow data source requires non-empty column names from the discovered table", path + "/vars/forms_config");
+      }
+      var selectGap = key === "lib_BaseRow.formssource_GetSelectData" ? selectColumnsGap(binding) : null;
+      if (selectGap) {
+        incomplete("baserow_select_columns", selectColumnsMessage(owner.name, selectGap), path + "/vars/forms_config");
       }
       var rowId = entry.vars.forms_id;
       if (key === "lib_BaseRow.forms_DeleteRow" && (!rowId || !trimmed(rowId.str))) {
@@ -3833,6 +3849,51 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     validation.valid = validation.issueCount === 0;
   }
 
+  // A select (GetSelectData) whose displayed or stored value is not among its columns: C8Oforms refuses its rows to the
+  // respondents of the published form (js/baserow_published_read.js), while the preview of its owner still reads them.
+  // "id", the row id (the Identifier of the editor), counts as a column (Skyjo, joueur_histo with value "id" and columns
+  // ["Nom"], 29/10). No Code Studio adds them when it saves or opens the application (C8Oforms #1741), older versions
+  // only warn under Source configuration. Compared as the server does, without trimming. null when nothing is missing,
+  // or when the source has no columns (it reads every field).
+  function selectColumnsGap(config) {
+    if (!config || !Array.isArray(config.columns) || !config.columns.length) { return null; }
+    var shown = config.displayValue || config.column;
+    var stored = config.value || config.line;
+    var named = function (name) { return typeof name === "string" && name !== "" && name.length <= 255; };
+    var unnamed = [];
+    if (!named(shown)) { unnamed.push("displayValue"); }
+    if (!named(stored)) { unnamed.push("value"); }
+    var missing = [];
+    [shown, stored].forEach(function (name) { if (named(name) && config.columns.indexOf(name) < 0 && missing.indexOf(name) < 0) { missing.push(name); } });
+    return unnamed.length || missing.length ? { shown: shown, stored: stored, columns: config.columns, unnamed: unnamed, missing: missing } : null;
+  }
+  function selectColumnsMessage(name, gap) {
+    var what = gap.unnamed.length ? "has no " + gap.unnamed.join(" nor ") + " in its forms_config (columns " + JSON.stringify(gap.columns) + ")" :
+      "shows " + JSON.stringify(gap.shown) + " and stores " + JSON.stringify(gap.stored) + ", but " + gap.missing.map(function (column) { return JSON.stringify(column); }).join(" and ") +
+      (gap.missing.length > 1 ? " are" : " is") + " not among its columns " + JSON.stringify(gap.columns);
+    return name + " " + what + ": C8Oforms refuses its rows to the respondents of the published form, while the preview of its owner still reads them. " +
+      "Its columns must hold the displayed and the stored value, \"id\" (the row id) included: nocode-form-edit, nocode-form-update and nocode-form-create add them to a select they change, for example with update_field, as No Code Studio does when it saves the application. A form already published keeps the refused source until it is published again";
+  }
+
+  // create, edit and update: a select the call creates or changes gets its displayed and stored values among its
+  // columns and its hidden columns, as No Code Studio writes them (baserowReadColumns of the editor page, C8Oforms
+  // #1741). The rows it shows do not change: lib_BaseRow reads those two fields whatever the columns. A select an edit
+  // leaves alone is only reported (baserow_select_columns).
+  function completeSelectColumns(form, strict) {
+    var warnings = [];
+    baserowBindings(form).forEach(function (binding) {
+      if (!/\/lib_BaseRow\.formssource_GetSelectData$/.test(binding.path) || (strict && strict.indexOf(binding.path) < 0)) { return; }
+      var gap = selectColumnsGap(binding.config);
+      if (!gap || gap.unnamed.length) { return; }
+      var hidden = ensureArray(binding.config.hidden);
+      binding.config.columns = binding.config.columns.concat(gap.missing);
+      binding.config.hidden = hidden.concat(gap.missing.filter(function (column) { return hidden.indexOf(column) < 0; }));
+      binding.variable.str = JSON.stringify(binding.config);
+      warnings.push({ code: "select_columns_completed", message: binding.item.name + ": " + gap.missing.map(function (column) { return JSON.stringify(column); }).join(" and ") + " added to the columns of its source. C8Oforms refuses the rows of a select to the respondents of the published form when its displayed or stored value is not among its columns; the rows it shows do not change", path: binding.path + "/vars/forms_config" });
+    });
+    return warnings;
+  }
+
   function hasUnverifiedLinkRowSelects(form) {
     var bindings = baserowBindings(form);
     return bindings.some(function (binding) { return /\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path); }) &&
@@ -3962,7 +4023,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (thumbnailImage.media) {
       sanitized.thumbnail = { enabled: true, index: 0, type: "custom" };
     }
+    var completedSelects = completeSelectColumns(sanitized, sanitized._id ? ensureArray(opts.strictBindingPaths) : null);
     var validation = validateForm(sanitized, opts).validation;
+    completedSelects.forEach(function (item) { validation.warnings.push(item); });
+    validation.warningCount = validation.warnings.length;
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
     }
@@ -4942,6 +5006,38 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     throw new Error("Unsupported no-code edit action: " + action);
   }
 
+  // 28/10 on test-nocode (Skyjo): remove_flow took away the flow of a button the edit kept. ensureButtonFlows then put an
+  // empty flow of that id back, and the save answered valid with one empty_button_flow warning among 22: the button did
+  // nothing. The editor names the components that use a flow before deleting it (findFlowConsumers: any component whose
+  // flow is that id). The removal is refused while a component kept by the whole edit still uses the flow.
+  function refuseRemovedFlowsInUse(form, summary) {
+    var keptFlows = {};
+    ensureArray(form.flows).forEach(function (flow) { if (flow && flow.id != null) { keptFlows[String(flow.id)] = true; } });
+    var pageNames = {};
+    ensureArray(form.pages).forEach(function (page) { if (page && page.pageTechName != null) { pageNames[String(page.pageTechName)] = trimmed(page.name) || page.pageTechName; } });
+    var byId = fieldsById(form);
+    var inUse = [];
+    summary.forEach(function (entry) {
+      if (entry.action !== "remove_flow" && entry.action !== "delete_flow") { return; }
+      var flowId = String(entry.flowId);
+      if (keptFlows[flowId] || inUse.some(function (refused) { return refused.flowId === flowId; })) { return; }
+      var users = ensureArray(form.formulaire).filter(function (item) { return item && item.flow != null && String(item.flow) === flowId; }).map(function (item) {
+        var page = rootFieldPage(byId, item);
+        return { name: item.name, id: item.id, type: item.type, page: page != null ? pageNames[String(page)] || page : null };
+      });
+      if (users.length) { inUse.push({ flowId: flowId, usedBy: users }); }
+    });
+    if (!inUse.length) { return; }
+    var error = new Error("Nothing saved: " + inUse.map(function (refused) {
+      return "flow " + refused.flowId + " is still the flow of " + refused.usedBy.map(function (user) {
+        return (user.name || user.id) + " (" + user.type + (user.page != null ? ", page " + user.page : "") + ")";
+      }).join(", ");
+    }).join("; ") + ". Removing it would leave a button that does nothing. In the same edit, remove those components (remove_field) or point them to another flow (update_field { fieldName, patch: { flow: \"<flow id>\" } }); otherwise keep the flow.");
+    error.code = "flow_in_use";
+    error.flowsInUse = inUse;
+    throw error;
+  }
+
   function applyEditOperations(form, operations, options) {
     var opts = options || {};
     var contract = readAllTypes(opts.project || opts.projectName || "C8Oforms");
@@ -4952,6 +5048,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     for (var i = 0; i < ops.length; i++) {
       applyEditOperation(edited, ops[i], catalogByType, summary);
     }
+    refuseRemovedFlowsInUse(edited, summary);
     ensureButtonFlows(edited);
     resolveAuthoringReferences(edited);
     applyReducedBaserow(edited, opts);
@@ -4982,7 +5079,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         others: "img, file, signature, location, barcode: name, label, mandatory, config. ion-card is a card title only: group fields with section."
       },
       conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
-      defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field: \"<grid>\", column: \"Column\", mode: \"reactive\" } (the text of a column of the selected row, whatever its cell shape; path: [...] reads literal keys instead), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults has the rules.",
+      defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field: \"<grid>\", column: \"Column\", mode: \"reactive\" } (the text of a column of the selected row, whatever its cell shape; path: [...] reads literal keys instead), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults: rules, and the editor's Default value tab.",
       flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for that, and no page header repeating the form name (shown in the title card). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow).",
       baserow: {
         tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
@@ -5112,11 +5209,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   C8O.nocodeForms.compile = compileReduced;
   // nocode-form-validate (baserowLinks): the static checks, then, with the authenticated No Code account, the selects
-  // written into a link_row column (read only: the fields of the written tables).
+  // written into a link_row column (read only: the fields of the written tables). A select the respondents of the
+  // published form cannot read is an issue there, whoever wrote it; a save only reports one it leaves alone.
   C8O.nocodeForms.validate = function (form, options) {
     var result = validateForm(form, options);
     if (!options || options.baserowLinks !== true || !result || !result.validation || !form || typeof form !== "object") { return result; }
     var validation = result.validation;
+    validation.warnings = validation.warnings.filter(function (item) {
+      if (!item || item.code !== "baserow_select_columns") { return true; }
+      validation.issues.push(item);
+      return false;
+    });
     var authentication = null;
     try { authentication = validateToken(options); } catch (_authenticationError) { authentication = null; }
     if (authentication && authentication.authenticated === true) {
@@ -5161,9 +5264,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return saved;
   }
 
-  // The warnings of a save that read Baserow (the link_row selects it rewrote or reports): the static validation of the
-  // read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table"];
+  // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
+  // columns it added to a select): the static validation of the read-back form cannot find them again.
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }
@@ -5300,6 +5403,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var saved = saveForm(compiled.form, createOptions);
     attachSavedForm(saved, compiled.form, createOptions);
+    // The columns the compilation added to a native select source.
+    if (saved.validation) { keepSaveTimeWarnings(saved.validation, saveTimeWarnings(compiled.validation)); }
     saved.allTypesPath = compiled.allTypesPath;
     if (saved.saved === true) { finalizeBaserowBindings(saved, createOptions, compiled.bindingFinalization.bindingCount, true); }
     return saved;
@@ -5333,14 +5438,16 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       saved.allTypesPath = applied.allTypesPath;
       return saved;
     } catch (e) {
-      return {
+      var failure = {
         status: "error",
         saved: false,
         error: {
-          code: "edit_failed",
+          code: e && e.code ? e.code : "edit_failed",
           message: String(e && e.message ? e.message : e)
         }
       };
+      if (e && e.flowsInUse) { failure.error.flowsInUse = e.flowsInUse; }
+      return failure;
     }
   };
   // What the form tools answer an agent: the form without its empty values and empty condition groups, the write

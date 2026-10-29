@@ -908,6 +908,72 @@ test('a page is found from its pageTechName, and page, field and flow take an id
   assert.match(gone.error.message, new RegExp('^page not found: ' + extra + '\\. .*Known pages: Start \\(' + home + '\\), Requests \\(' + requests + '\\)\\.$'));
 });
 
+test('the agent names the editor place of a default, or says it cannot see the editor', () => {
+  // gregoryv, test-nocode 28/10: asked how to prefill a datetime with today's date, the agent sent the user to a
+  // "clock" default in the field properties, then to a "context" choice that "needs a recent viewer". Neither exists:
+  // the editor has a Default value tab, text or JavaScript; the contract only spoke of defaultFrom and of the viewer.
+  const client = api();
+  const section = client.contract({ sections: ['contextualDefaults'] }).sections.contextualDefaults;
+  assert.match(section.editor, /^Where No Code Studio sets a default by hand: select the text, slider, datetime, time or barcode component, tab Default value \(French: Valeur par défaut\) of its configuration\./);
+  assert.match(section.editor, /typed as text, or as JavaScript after the JavaScript logo button/);
+  assert.match(section.editor, /That tab has no clock, today, user or query choice and no initial\/reactive switch\./);
+  assert.match(section.editor, /two switches that refuse a date before or after today: they restrict the entry and fill nothing/);
+  assert.match(section.editor, /The contract names no other editor control: for any other setting, say you cannot see where the editor puts it/);
+  // The code it gives for today's date is the one defaultFrom clock today compiles to.
+  const today = client.compile({ name: 'Today', pages: [{ name: 'Entry', fields: [{ type: 'datetime', name: 'when', label: 'Date', defaultFrom: { source: 'clock', property: 'today' } }] }] });
+  const code = today.form.formulaire.find(f => f.name === 'when').sources.self.vars.selfVar.str;
+  assert.ok(section.editor.includes('JavaScript mode, ' + code + ' (what defaultFrom'), code);
+  assert.match(evaluateDefault({ sources: { self: { vars: { selfVar: { str: code } } } } }), /^\d{4}-\d{2}-\d{2}$/);
+  // The viewer note no longer reads as an editor version to look for.
+  assert.doesNotMatch(section.native, /deploy Forms and MCP together/);
+  assert.match(section.native, /The viewer reads contextValueMode since C8Oforms 2\.2\.0-beta338 \(an older viewer recomputes the value like a reactive one\); the editor never shows it\./);
+  assert.match(client.contract({}).quickReference.defaults, /Section contextualDefaults: rules, and the editor's Default value tab\.$/);
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  assert.match(skill, /- You do not see the No Code Studio editor\. Name a tab, button, menu or choice of the editor only when the contract names it \(`contextualDefaults\.editor` for default values\), never from a tool property/);
+  assert.match(skill, /say you cannot see where the editor puts it, then offer to make the change with the tools or to give the value or code to paste\./);
+  assert.match(skill, /- By hand, a user sets a default in the component's Default value tab \(Valeur par défaut\): a text, or JavaScript in its advanced mode\. It has no clock, user or query choice/);
+  // The tab names are the editor's own (C8Oforms i18n), when the C8Oforms checkout is there.
+  for (const [lang, label] of [['fr', 'Valeur par défaut'], ['en', 'Default value']]) {
+    const file = path.join(formsRoot, 'DisplayObjects/mobile/assets/i18n/' + lang + '.json');
+    if (fs.existsSync(file)) assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).defaultvalue, label);
+  }
+});
+
+test('remove_flow is refused while a component the edit keeps still uses the flow', () => {
+  // gregoryv, test-nocode 28/10 (Skyjo, rev 503): asked to delete a button, the agent sent remove_field and remove_flow;
+  // the flow was also the flow of another button. The edit saved, an empty flow of that id came back in its place, and
+  // the validation said valid with one empty_button_flow warning among 22: that button did nothing.
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const id = start.form._id;
+  const shared = h.client.edit(id, [{ action: 'add_field', pageName: 'Home', fieldObject: { type: 'button', name: 'back_copy', label: 'Home', flow: 'back' } }], h.auth);
+  assert.equal(shared.status, 'ok', JSON.stringify(shared.error || shared.validation));
+  const savesBefore = h.state.saves;
+  const refused = h.client.edit(id, [{ action: 'remove_field', fieldName: 'back_copy' }, { action: 'remove_flow', flowId: 'back' }], h.auth);
+  assert.equal(refused.status, 'error');
+  assert.equal(refused.saved, false);
+  assert.equal(refused.error.code, 'flow_in_use');
+  assert.match(refused.error.message, /^Nothing saved: flow back is still the flow of back \(button, page Requests\)\. .*remove_field.*update_field \{ fieldName, patch: \{ flow: /);
+  assert.deepEqual(clone(refused.error.flowsInUse), [{ flowId: 'back', usedBy: [{ name: 'back', id: start.form.formulaire.find(f => f.name === 'back').id, type: 'button', page: 'Requests' }] }]);
+  assert.equal(h.state.saves, savesBefore, 'nothing written');
+  assert.ok(h.state.forms[id].formulaire.some(f => f.name === 'back_copy'));
+  assert.equal(h.state.forms[id].flows.find(f => f.id === 'back').elements.length, 1);
+  // delete_flow, and a flow used by two kept buttons, name every component.
+  const both = h.client.edit(id, [{ action: 'delete_flow', flowId: 'back' }], h.auth);
+  assert.equal(both.error.code, 'flow_in_use');
+  assert.match(both.error.message, /flow back is still the flow of back \(button, page Requests\), back_copy \(button, page Home\)/);
+  // Allowed when the same edit removes the components, points them to another flow, or adds the flow back.
+  const repointed = h.client.edit(id, [{ action: 'update_field', fieldName: 'back_copy', patch: { flow: 'open' } }, { action: 'remove_field', fieldName: 'back' }, { action: 'remove_flow', flowId: 'back' }], h.auth);
+  assert.equal(repointed.status, 'ok', JSON.stringify(repointed.error || repointed.validation));
+  assert.ok(!repointed.form.flows.some(f => f.id === 'back'), 'no empty flow put back');
+  assert.equal(repointed.form.formulaire.find(f => f.name === 'back_copy').flow, 'open');
+  const replaced = h.client.edit(id, [{ action: 'remove_flow', flowId: 'open' }, { action: 'add_flow', flowId: 'open', name: 'Open', flowData: { elements: [{ type: 'push_page', targetPage: 'Requests' }] } }], h.auth);
+  assert.equal(replaced.status, 'ok', JSON.stringify(replaced.error || replaced.validation));
+  const removed = h.client.edit(id, [{ action: 'remove_field', fieldName: 'back_copy' }, { action: 'remove_field', fieldName: 'open' }, { action: 'remove_flow', flowId: 'open' }], h.auth);
+  assert.equal(removed.status, 'ok', JSON.stringify(removed.error || removed.validation));
+  assert.ok(!removed.form.flows.some(f => f.id === 'open'));
+});
+
 test('write guard preserves attachments and leaves legacy calls unchanged', () => {
   const ctx = {};
   vm.runInNewContext(fs.readFileSync(path.join(formsRoot, 'js/form_write_guard.js'), 'utf8'), ctx);
@@ -2329,6 +2395,99 @@ test('nocode-form-validate refuses a select written into a link_row column with 
   assert.ok(!offline.issues.some(i => /^link_row_select/.test(i.code)));
   // Without baserowLinks (compile, the saves) validate stays static.
   assert.ok(!api().validate(compiled).validation.warnings.some(w => w.code === 'link_row_selects_unverified'));
+});
+// Skyjo (29/10): joueur_histo listed the players with value "id" and columns ["Nom"]. C8Oforms refuses the rows of a
+// select whose displayed or stored value is not among its columns to the respondents of the published form
+// (js/baserow_published_read.js); No Code Studio warned under Source configuration, nocode-form-validate passed it.
+function historyApp(source = {}) {
+  return { name: 'Historiques', navigationMode: 'custom', pages: [{ name: 'Historiques', fields: [
+    { type: 'select', name: 'joueur_histo', label: 'Joueur', source: { table: 7001, display: 'Nom', value: 'id', ...source } }
+  ] }] };
+}
+const histoSource = form => byName(form, 'joueur_histo').sources['lib_BaseRow.formssource_GetSelectData'];
+const histoConfig = form => JSON.parse(histoSource(form).vars.forms_config.str);
+function setHistoColumns(form, columns) {
+  const config = histoConfig(form);
+  config.columns = columns;
+  histoSource(form).vars.forms_config.str = JSON.stringify(config);
+}
+test('the reduced source puts the displayed and stored values among its columns', () => {
+  for (const [source, columns] of [[{}, ['Nom', 'id']], [{ columns: ['Nom'] }, ['Nom', 'id']], [{ value: 'Nom' }, ['Nom']],
+    [{ columns: ['Prénom'], value: 'Nom' }, ['Prénom', 'Nom']]]) {
+    const compiled = api().compile(historyApp(source), { tableIndex: linkTables });
+    assert.equal(compiled.status, 'ok', JSON.stringify(compiled.validation.issues));
+    assert.deepEqual(histoConfig(compiled.form).columns, columns, JSON.stringify(source));
+  }
+});
+test('nocode-form-validate refuses a select whose displayed or stored value is not among its columns', () => {
+  const form = api().compile(historyApp(), { tableIndex: linkTables }).form;
+  form._id = 'skyjo';
+  setHistoColumns(form, ['Nom']);
+  const path = '/formulaire/' + form.formulaire.indexOf(byName(form, 'joueur_histo')) + '/sources/lib_BaseRow.formssource_GetSelectData/vars/forms_config';
+  const result = api().validate(form, { baserowLinks: true }).validation;
+  assert.equal(result.valid, false);
+  const issue = result.issues.find(i => i.code === 'baserow_select_columns');
+  assert.ok(issue, JSON.stringify(result.issues));
+  assert.equal(issue.path, path);
+  assert.match(issue.message, /^joueur_histo shows "Nom" and stores "id", but "id" is not among its columns \["Nom"\]: C8Oforms refuses its rows to the respondents of the published form/);
+  assert.match(issue.message, /A form already published keeps the refused source until it is published again$/);
+  assert.ok(!result.warnings.some(w => w.code === 'baserow_select_columns'));
+  assert.deepEqual(histoConfig(form).columns, ['Nom'], 'validate does not change the form');
+  // The static validation of a saved form (a read, a save that leaves the select alone) reports it without refusing.
+  const draft = api().validate(form).validation;
+  assert.ok(draft.warnings.some(w => w.code === 'baserow_select_columns' && w.path === path));
+  assert.ok(!draft.issues.some(i => i.code === 'baserow_select_columns'));
+  // The display outside the columns, a missing value, and the editor's own shape.
+  setHistoColumns(form, ['id']);
+  assert.match(api().validate(form, { baserowLinks: true }).validation.issues.find(i => i.code === 'baserow_select_columns').message, /but "Nom" is not among its columns \["id"\]/);
+  const config = histoConfig(form);
+  delete config.value;
+  config.columns = ['Nom'];
+  histoSource(form).vars.forms_config.str = JSON.stringify(config);
+  assert.match(api().validate(form, { baserowLinks: true }).validation.issues.find(i => i.code === 'baserow_select_columns').message, /^joueur_histo has no value in its forms_config \(columns \["Nom"\]\): C8Oforms refuses its rows/);
+  setHistoColumns(form, ['Nom', 'id']);
+  const fixed = histoConfig(form);
+  fixed.value = 'id';
+  histoSource(form).vars.forms_config.str = JSON.stringify(fixed);
+  assert.ok(!api().validate(form, { baserowLinks: true }).validation.issues.some(i => i.code === 'baserow_select_columns'));
+});
+test('compile and create add the missing values to the columns of a native select source', () => {
+  const native = () => ({ name: 'Historiques', navigationMode: 'custom', pages: [{ name: 'Historiques', fields: [
+    { type: 'select', name: 'joueur_histo', label: 'Joueur', sources: { 'lib_BaseRow.formssource_GetSelectData': { enabled: true, vars: {
+      forms_config: { str: JSON.stringify({ table_id: 'Team~>Jeux~>Joueurs', table_id_int: 7001, columns: ['Nom'], displayValue: 'Nom', value: 'id', hidden: [], link_row_table_id: [] }), html: false } } } } }
+  ] }] });
+  const compiled = api().compile(native(), { tableIndex: linkTables });
+  assert.equal(compiled.status, 'ok', JSON.stringify(compiled.validation.issues));
+  assert.deepEqual(histoConfig(compiled.form).columns, ['Nom', 'id']);
+  assert.deepEqual(histoConfig(compiled.form).hidden, ['id'], 'hidden as well, as No Code Studio adds it (C8Oforms #1741)');
+  assert.ok(compiled.validation.warnings.some(w => w.code === 'select_columns_completed'));
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(native(), { ...h.auth, tableIndex: linkTables });
+  assert.equal(created.saved, true, JSON.stringify(created.validation || created.error));
+  assert.deepEqual(histoConfig(h.state.forms[created.form._id]).columns, ['Nom', 'id']);
+  assert.ok(created.validation.warnings.some(w => w.code === 'select_columns_completed'), JSON.stringify(created.validation.warnings.map(w => w.code)));
+});
+test('an edit adds the missing values to the columns of a select it changes and only reports one it leaves alone', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(historyApp(), { ...h.auth, tableIndex: linkTables });
+  assert.equal(created.saved, true, JSON.stringify(created.validation || created.error));
+  assert.ok(!created.validation.warnings.some(w => w.code === 'select_columns_completed'), 'the reduced source has them already');
+  const id = created.form._id;
+  setHistoColumns(h.state.forms[id], ['Nom']);
+  const unrelated = h.client.edit(id, [{ action: 'set_root', patch: { name: 'Historiques du jeu' } }], h.auth);
+  assert.equal(unrelated.saved, true, JSON.stringify(unrelated.validation || unrelated.error));
+  assert.deepEqual(histoConfig(h.state.forms[id]).columns, ['Nom'], 'a select the edit did not change keeps its columns');
+  assert.ok(unrelated.validation.warnings.some(w => w.code === 'baserow_select_columns'));
+  assert.ok(!unrelated.validation.warnings.some(w => w.code === 'select_columns_completed'));
+  const changed = h.client.edit(id, [{ action: 'update_field', fieldName: 'joueur_histo', patch: { sources: { 'lib_BaseRow.formssource_GetSelectData': { vars: { forms_tableSort: { str: '', html: false, type: 'sort', conds: [{ name: 'Nom', order: 'asc' }] } } } } } }], h.auth);
+  assert.equal(changed.saved, true, JSON.stringify(changed.validation || changed.error));
+  assert.deepEqual(histoConfig(h.state.forms[id]).columns, ['Nom', 'id']);
+  assert.deepEqual(histoConfig(h.state.forms[id]).hidden, ['id']);
+  assert.equal(histoConfig(h.state.forms[id]).value, 'id');
+  const warning = changed.validation.warnings.find(w => w.code === 'select_columns_completed');
+  assert.ok(warning, 'kept after the readback: ' + JSON.stringify(changed.validation.warnings.map(w => w.code)));
+  assert.match(warning.message, /^joueur_histo: "id" added to the columns of its source/);
+  assert.ok(!changed.validation.warnings.some(w => w.code === 'baserow_select_columns'));
 });
 // Skyjo (26/10): the current game and round were formulas over hidden grids (row_selected, 10 rows a page, the
 // defaults) and a localStorage flag set by business_logic steps; a debug field stayed in the delivered form.

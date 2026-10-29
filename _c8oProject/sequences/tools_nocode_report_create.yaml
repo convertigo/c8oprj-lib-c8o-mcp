@@ -14,66 +14,22 @@ comment: |
       severity: severity,
       summary: summary,
       suggestion: suggestion
-    });'
-↓result [steps.JsonObjectStep-1792730000005]: 
+    });
+    // An invalid call answers its error whole: every missing or invalid field at once, nothing written.
+    result = reportResult.error ? reportResult : { status: reportResult.status, message: reportResult.message, reportId: reportResult.reportId, createdAt: reportResult.createdAt };'
+↓result [steps.JsonToXmlStep-1792730000005]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
   key: 
     - xmlizable: 
       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
       - SmartType: 
         - ↑mode: PLAIN
         - →→: result
-  ↓status [steps.JsonFieldStep-1792730000007]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: status
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: reportResult.status
-  ↓message [steps.JsonFieldStep-1792730000009]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: message
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: reportResult.message
-  ↓reportId [steps.JsonFieldStep-1792730000011]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: reportId
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: reportResult.reportId
-  ↓createdAt [steps.JsonFieldStep-1792730000013]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: createdAt
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: reportResult.createdAt
 ↓area [variables.RequestableVariable-1792730000015]: 
   comment: 'Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.'
   description: 'Feedback area. Allowed values: tool, guide, prompt, scenario, fixture, product-knowledge-gap.'
