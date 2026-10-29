@@ -840,6 +840,8 @@ test('ngx-page-create builds a list page with filters, badges and the session re
     actions: [{ label: 'Logout', sequence: 'auth_logout', page: 'Login' }] });
   assert.equal(out.page, 'App.Application.NgxApp.Postes');
   assert.equal(out.style, 'AppLayout created');
+  // The default route is the page name, not the Studio's path-to-<name> (usage tests 29/10).
+  assert.equal(creates(world, 'ngx.components.PageComponent#PageComponent')[0].properties.segment, 'postes');
   assert.deepEqual(plain(out.created), ['App.Application.NgxApp.AppLayout', 'App.Application.NgxApp.Postes']);
   assert.match(out.warnings.join(' '), /onItem\.page Detail is not a page of App yet/);
   assert.match(out.warnings[0], /^English default texts were used for .*list\.empty "No record\."/);
@@ -1210,4 +1212,11 @@ test('business-sequence-create takes auth:true as the default, a session require
   const out = load(world).businessSequenceCreate(sequenceSpec({ auth: true }));
   assert.equal(out.status || 'ok', 'ok');
   assert.ok(creates(world, 'sequences.GenericSequence')[0].children.some(c => c.name === 'auth'));
+});
+
+test('the default route of a page is its name in lower case, words joined by a dash', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'LivreModification', title: 'Modifier', kind: 'list', sequence: 'poste_list', list: { item: 'l', title: 'titre' } });
+  assert.equal(creates(world, 'ngx.components.PageComponent#PageComponent')[0].properties.segment, 'livre-modification');
 });

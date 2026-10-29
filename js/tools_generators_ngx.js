@@ -841,7 +841,10 @@ include("js/tools_generators.js");
     var currentRoot = appPages(app).filter(isRootPage)[0] || null;
     var makeRoot = askedRoot || !currentRoot;
 
-    var segment = str(spec.segment) || "path-to-" + name.toLowerCase();
+    // The route the user reads in the address bar: livre-modification, not the Studio's path-to-livremodification
+    // (usage tests 29/10, an app built with this tool).
+    var segment = str(spec.segment) || (name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "page");
     // In the menu by default: list and dashboard pages, which need no parameter; forms and details open from a page.
     var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard") : (spec.inMenu === true || String(spec.inMenu) === "true");
     var pageProps = { title: title, segment: segment, inAutoMenu: inMenu,
