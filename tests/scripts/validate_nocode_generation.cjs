@@ -2692,6 +2692,42 @@ test('validate warns about a text token on a grid cell that does not end with va
   assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + form.formulaire.indexOf(byName(form, 'kpi_raw')) + '/config/html']);
   assert.match(warnings[0].message, /^The text of kpi_raw shows totals\.0\.sum_Points, a cell of the grid totals: .*End the path with \.value/);
 });
+// nocode-form-get find: a rename "everywhere" changed the labels and pages by hand and missed a toast message (usage
+// tests, 29/10). find lists every text a user sees that holds the word, case and accents ignored.
+test('nocode-form-get find lists every visible text holding a word, flow messages included', () => {
+  const r = api().compile({ name: 'Commandes', navigationMode: 'custom', pages: [
+    { name: 'Nouvelle commande', fields: [
+      { type: 'description', name: 'intro', description: '<h2>Saisir une Commande</h2><p>Une ligne par article.</p>' },
+      { type: 'text', name: 'ref', label: 'Référence de la commande', placeholder: 'COMMANDE-001' },
+      { type: 'select', name: 'state', label: 'État', values: ['Commandée', 'Livrée'] },
+      { type: 'button', name: 'save', label: 'Enregistrer la commande', flow: 'save_order' }
+    ] },
+    { name: 'Articles', fields: [{ type: 'text', name: 'item', label: 'Article' }] }
+  ], flows: [{ id: 'save_order', name: 'Enregistrer la commande', elements: [{ type: 'toast', message: 'Commande enregistrée', color: 'success' }] }] });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const found = clone(api().findText(r.form, 'COMMANDE'));
+  const where = found.matches.map(m => [m.where, m.component || m.flow || '', m.text]);
+  assert.equal(found.count, found.matches.length);
+  for (const expected of [
+    ['form name', '', 'Commandes'], ['page name', '', 'Nouvelle commande'], ['text', 'intro', 'Saisir une Commande Une ligne par article.'],
+    ['label', 'ref', 'Référence de la commande'], ['placeholder', 'ref', 'COMMANDE-001'], ['choice', 'state', 'Commandée'],
+    ['label', 'save', 'Enregistrer la commande'], ['flow name', 'save_order', 'Enregistrer la commande'], ['toast message', 'save_order', 'Commande enregistrée']
+  ]) {
+    assert.ok(where.some(m => JSON.stringify(m) === JSON.stringify(expected)), JSON.stringify(expected) + ' in ' + JSON.stringify(where));
+  }
+  assert.ok(found.matches.every(m => /^\/(name|pages|formulaire|flows)\//.test(m.path) || m.path === '/name'), 'each match has the path to change');
+  assert.deepEqual(clone(api().findText(r.form, 'etat')).matches.map(m => m.component), ['state'], 'accents ignored');
+  assert.equal(clone(api().findText(r.form, 'livraison')).count, 0);
+
+  const sequence = fs.readFileSync(path.join(root, '_c8oProject/sequences/tools_nocode_form_get.yaml'), 'utf8');
+  assert.match(sequence, /↓find \[variables\.RequestableVariable-\d+\]: \n/);
+  assert.match(sequence, /C8O\.nocodeForms\.findText\(current, wanted\)/);
+  const overrides = { C8O: {}, include() {} };
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'js/schema_overrides.js'), 'utf8'), overrides);
+  const schema = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_get', null, null));
+  assert.deepEqual(Object.keys(schema.properties).sort(), ['find', 'id', 'rev', 'token']);
+  assert.match(fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8'), /call `nocode-form-get` with `find`/);
+});
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
 // config.defaultvalue, the viewer drew 1 and submitted 0.
 test('a slider compiled with bounds and no default starts at the bound nearest to the prototype default', () => {

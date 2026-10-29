@@ -5677,6 +5677,83 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var raw = C8O.nocodeForms[name];
     C8O.nocodeForms[name] = function () { return agentResult(raw.apply(null, arguments)); };
   });
+  // nocode-form-get find: every text of the form a user sees that holds a word (names of the form and its pages,
+  // labels, texts, placeholders, choices, button labels, flow names, toast and alert messages), compared without case
+  // nor accents. A rename "everywhere" (usage tests, 29/10) changed 15 texts by hand and missed a toast message.
+  var FOLD_FROM = "àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæÀÂÄÁÃÅÇÉÈÊËÍÌÎÏÑÓÒÔÖÕÚÙÛÜÝŸŒÆ";
+  var FOLD_TO = ["a", "a", "a", "a", "a", "a", "c", "e", "e", "e", "e", "i", "i", "i", "i", "n", "o", "o", "o", "o", "o", "u", "u", "u", "u", "y", "y", "oe", "ae",
+    "a", "a", "a", "a", "a", "a", "c", "e", "e", "e", "e", "i", "i", "i", "i", "n", "o", "o", "o", "o", "o", "u", "u", "u", "u", "y", "y", "oe", "ae"];
+  function foldText(text) {
+    var value = String(text == null ? "" : text).toLowerCase(), out = "";
+    for (var i = 0; i < value.length; i++) {
+      var at = FOLD_FROM.indexOf(value.charAt(i));
+      out += at >= 0 ? FOLD_TO[at] : value.charAt(i);
+    }
+    return out;
+  }
+  function visibleText(text) {
+    return String(text == null ? "" : text).replace(/\$\$START(\d+)\{.*?\}END\1\$\$/g, " ").replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/g, " ").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, "\"").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  }
+  var FIND_MAX = 100;
+  function findText(form, query) {
+    var wanted = foldText(visibleText(query));
+    var matches = [];
+    var total = 0;
+    if (!wanted.length || !form || typeof form !== "object") { return { matches: matches, count: 0 }; }
+    function look(text, where, path, owner) {
+      var shown = visibleText(text);
+      if (!shown.length || foldText(shown).indexOf(wanted) < 0) { return; }
+      total++;
+      if (matches.length < FIND_MAX) {
+        var match = { where: where, path: path, text: shown.length > 160 ? shown.substring(0, 159) + "…" : shown };
+        if (owner) { Object.keys(owner).forEach(function (key) { if (owner[key] != null && owner[key] !== "") { match[key] = owner[key]; } }); }
+        matches.push(match);
+      }
+    }
+    look(form.name, "form name", "/name");
+    look(form.descform, "form description", "/descform");
+    var pageNames = {};
+    ensureArray(form.pages).forEach(function (page, index) {
+      if (!page) { return; }
+      pageNames[page.pageTechName] = page.name;
+      look(page.name, "page name", "/pages/" + index + "/name", { page: page.name });
+    });
+    ensureArray(form.formulaire).forEach(function (item, index) {
+      if (!item || typeof item !== "object") { return; }
+      var config = item.config || {};
+      var owner = { component: item.name, type: item.type, page: pageNames[config.page] };
+      var base = "/formulaire/" + index;
+      if (config.personalized && typeof config.html === "string") { look(config.html, item.type === "description" ? "text" : "label", base + "/config/html", owner); }
+      else if (typeof config.label === "string") { look(config.label, "label", base + "/config/label", owner); }
+      if (!config.personalized && typeof config.html === "string" && config.html !== config.label) { look(config.html, "text", base + "/config/html", owner); }
+      ["placeholder", "description", "text", "okText", "cancelText"].forEach(function (key) {
+        if (typeof config[key] === "string") { look(config[key], key, base + "/config/" + key, owner); }
+      });
+      if (config.title && typeof config.title === "object") { look(config.title.html || config.title.text, "title", base + "/config/title", owner); }
+      else if (typeof config.title === "string") { look(config.title, "title", base + "/config/title", owner); }
+      ensureArray(item.children).forEach(function (choice, c) {
+        if (!choice || typeof choice !== "object") { return; }
+        look(choice.label != null ? choice.label : choice.value, "choice", base + "/children/" + c, owner);
+      });
+    });
+    ensureArray(form.flows).forEach(function (flow, f) {
+      if (!flow) { return; }
+      look(flow.name, "flow name", "/flows/" + f + "/name", { flow: flow.id });
+      ensureArray(flow.elements).forEach(function (element, e) {
+        if (!element || typeof element !== "object") { return; }
+        var self = element.sources && element.sources.self && element.sources.self.vars && element.sources.self.vars.selfVar;
+        var path = "/flows/" + f + "/elements/" + e;
+        if (self && self.type !== "ts" && typeof self.str === "string") { look(self.str, (element.type || "step") + " message", path + "/sources/self/vars/selfVar/str", { flow: flow.id, step: element.name }); }
+        var config = element.config || {};
+        ["title", "message", "header", "subHeader", "okText", "cancelText"].forEach(function (key) {
+          if (typeof config[key] === "string") { look(config[key], (element.type || "step") + " " + key, path + "/config/" + key, { flow: flow.id, step: element.name }); }
+        });
+      });
+    });
+    return { matches: matches, count: total };
+  }
+  C8O.nocodeForms.findText = findText;
   C8O.nocodeForms.agentView = agentView;
   C8O.nocodeForms.parseObject = parseObject;
   C8O.nocodeForms.assertStrictJsonText = assertStrictJsonText;

@@ -156,6 +156,7 @@ If the requested change cannot be completed with the allowed tools, stop and say
 4. For existing forms:
    - First call read-only `nocode-form-get` with the document `id` from the host context; a form the user names without its id is found with `nocode-form-list` and its `name` first. Inspect `form.pages`, `form.formulaire`, and `form.flows` before proposing improvements or edits. This reads the saved version; it does not include unsaved editor changes.
    - Suggestions and audits must remain read-only unless the user requests changes. Never infer the form contents from its name.
+   - To change a word or a text everywhere (a rename, a wording), call `nocode-form-get` with `find`: it lists every text a user sees that holds it, flow messages included; change each one, then call it again to check that none is left.
    - `auth_required` indicates a token/authentication failure. `form_unavailable` means missing or inaccessible: the API does not distinguish those cases, so do not claim a proven permission denial. Do not fall back to `requestable-execute` or any Studio tool.
    - Prefer `nocode-form-edit` for semantic edits when the document id is known and the integrated No Code Studio authentication context is available.
    - Use `nocode-form-edit` for operations such as adding, moving, or removing no-code components, adding page navigation buttons, or updating fields without replacing whole arrays like `formulaire`, `pages`, or `flows`.

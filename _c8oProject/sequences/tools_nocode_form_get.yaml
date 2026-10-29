@@ -7,7 +7,16 @@ comment: |
     'include("js/nocode_forms.js");
     try {
       var current = C8O.nocodeForms.get(id, { project: "C8Oforms", rev: rev, token: token });
-      result = current && current.fetched === false ? current : { status: "ok", fetched: true, form: C8O.nocodeForms.agentView(current) };
+      var wanted = typeof find === "undefined" || find == null ? "" : String(find).trim();
+      if (current && current.fetched === false) {
+        result = current;
+      } else if (wanted.length) {
+        // Only the texts that hold the word, not the whole form.
+        var found = C8O.nocodeForms.findText(current, wanted);
+        result = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), find: wanted, count: found.count, matches: found.matches };
+      } else {
+        result = { status: "ok", fetched: true, form: C8O.nocodeForms.agentView(current) };
+      }
     } catch (e) {
       result = { status: "error", fetched: false, error: { code: "form_read_failed", message: "Unable to read the form through the No Code API." } };
     }'
@@ -30,5 +39,8 @@ comment: |
   required: true
 ↓rev [variables.RequestableVariable-1789129239384]: 
   comment: Optional revision. Empty reads latest.
+↓find [variables.RequestableVariable-1793300000001]: 
+  comment: Optional text. Answers only the visible texts of the form that hold it (case and accents ignored), each with its path, instead of the whole form.
+  description: Optional text. Answers only the visible texts of the form that hold it (case and accents ignored), each with its path, instead of the whole form.
 ↓token [variables.RequestableVariable-1789129239386]: 
   comment: Optional compatibility field; bearer credential supplied by the host.
