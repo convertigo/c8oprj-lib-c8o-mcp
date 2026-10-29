@@ -55,9 +55,12 @@ app, or to translate pages the kit wrote in English, run `upsert-ngx-crud-kit` w
 wrote yourself (field labels, action labels) come from the ui hints.
 
 ## Server-side checks (validation)
-- Put the check in the create and update business sequences (`crud_create_<entity>`, `crud_update_<entity>`): an
-  `IfStep` on the variable, holding an `XMLErrorStep` with `code` and the message the user reads (`output: true`), before
-  the call of the transaction. The sequence then answers an `error` element and the call resolves.
+- upsert-crud already checks the required fields (`fields[].required`): their create and update sequences answer
+  "<Label> is required." (in French with `ui.language: "fr"` in the spec) and write nothing.
+- Put another check in the create and update business sequences (`crud_create_<entity>`, `crud_update_<entity>`): an
+  `IfStep` on the variable, holding an `XMLErrorStep` with `code` and the message the user reads (`output: true`) and
+  then a `ReturnStep`, before the call of the transaction. An `XMLErrorStep` alone does not stop the sequence: the write
+  still runs. The sequence answers an `error` element and the call resolves. upsert-crud keeps the steps before the call.
 - The kit edit form shows that message above its buttons and does not emit `Saved`. A form generated before this
   behaviour gets it from `upsert-ngx-crud-kit` with `stage: "final"` (same entities and ui hints as before); check the
   message with a save the check refuses.
