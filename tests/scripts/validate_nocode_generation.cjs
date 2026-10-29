@@ -893,6 +893,37 @@ test('a page is found from its pageTechName, and page, field and flow take an id
   assert.match(gone.error.message, new RegExp('^page not found: ' + extra + '\\. .*Known pages: Start \\(' + home + '\\), Requests \\(' + requests + '\\)\\.$'));
 });
 
+test('the agent names the editor place of a default, or says it cannot see the editor', () => {
+  // gregoryv, test-nocode 28/10: asked how to prefill a datetime with today's date, the agent sent the user to a
+  // "clock" default in the field properties, then to a "context" choice that "needs a recent viewer". Neither exists:
+  // the editor has a Default value tab, text or JavaScript; the contract only spoke of defaultFrom and of the viewer.
+  const client = api();
+  const section = client.contract({ sections: ['contextualDefaults'] }).sections.contextualDefaults;
+  assert.match(section.editor, /^Where No Code Studio sets a default by hand: select the text, slider, datetime, time or barcode component, tab Default value \(French: Valeur par défaut\) of its configuration\./);
+  assert.match(section.editor, /typed as text, or as JavaScript after the JavaScript logo button/);
+  assert.match(section.editor, /That tab has no clock, today, user or query choice and no initial\/reactive switch\./);
+  assert.match(section.editor, /two switches that refuse a date before or after today: they restrict the entry and fill nothing/);
+  assert.match(section.editor, /The contract names no other editor control: for any other setting, say you cannot see where the editor puts it/);
+  // The code it gives for today's date is the one defaultFrom clock today compiles to.
+  const today = client.compile({ name: 'Today', pages: [{ name: 'Entry', fields: [{ type: 'datetime', name: 'when', label: 'Date', defaultFrom: { source: 'clock', property: 'today' } }] }] });
+  const code = today.form.formulaire.find(f => f.name === 'when').sources.self.vars.selfVar.str;
+  assert.ok(section.editor.includes('JavaScript mode, ' + code + ' (what defaultFrom'), code);
+  assert.match(evaluateDefault({ sources: { self: { vars: { selfVar: { str: code } } } } }), /^\d{4}-\d{2}-\d{2}$/);
+  // The viewer note no longer reads as an editor version to look for.
+  assert.doesNotMatch(section.native, /deploy Forms and MCP together/);
+  assert.match(section.native, /The viewer reads contextValueMode since C8Oforms 2\.2\.0-beta338 \(an older viewer recomputes the value like a reactive one\); the editor never shows it\./);
+  assert.match(client.contract({}).quickReference.defaults, /Section contextualDefaults: rules, and the editor's Default value tab\.$/);
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  assert.match(skill, /- You do not see the No Code Studio editor\. Name a tab, button, menu or choice of the editor only when the contract names it \(`contextualDefaults\.editor` for default values\), never from a tool property/);
+  assert.match(skill, /say you cannot see where the editor puts it, then offer to make the change with the tools or to give the value or code to paste\./);
+  assert.match(skill, /- By hand, a user sets a default in the component's Default value tab \(Valeur par défaut\): a text, or JavaScript in its advanced mode\. It has no clock, user or query choice/);
+  // The tab names are the editor's own (C8Oforms i18n), when the C8Oforms checkout is there.
+  for (const [lang, label] of [['fr', 'Valeur par défaut'], ['en', 'Default value']]) {
+    const file = path.join(formsRoot, 'DisplayObjects/mobile/assets/i18n/' + lang + '.json');
+    if (fs.existsSync(file)) assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).defaultvalue, label);
+  }
+});
+
 test('remove_flow is refused while a component the edit keeps still uses the flow', () => {
   // gregoryv, test-nocode 28/10 (Skyjo, rev 503): asked to delete a button, the agent sent remove_field and remove_flow;
   // the flow was also the flow of another button. The edit saved, an empty flow of that id came back in its place, and
