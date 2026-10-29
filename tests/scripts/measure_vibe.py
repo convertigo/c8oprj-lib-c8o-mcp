@@ -4,6 +4,7 @@
 A session folder is <vibe home>/logs/session/unified/<session>, with journal/*.jsonl. Active time is the sum of the
 gaps under 10 minutes; a model request is one succeeded completion. The Convertigo MCP calls the agent makes from
 run_typescript code are journaled as their own actions (mcp_Convertigo.<tool>), so they count as convertigo calls.
+Every Convertigo MCP server counts (a group mcp_<name> whose name contains convertigo), per server and in total.
 
     python3 measure_vibe.py <session folder | vibe home> [...]
 """
@@ -15,6 +16,12 @@ import sys
 from pathlib import Path
 
 GAP_MS = 10 * 60 * 1000
+
+
+def convertigo_server(tool):
+    """The group of a tool of a Convertigo MCP server (mcp_Convertigo.project_list: mcp_Convertigo), else None."""
+    group, separator, _name = tool.partition(".")
+    return group if separator and group.startswith("mcp_") and "convertigo" in group.lower() else None
 
 
 def journals(paths):
@@ -70,6 +77,10 @@ def measure(files):
                         failed[tool] += 1
     times.sort()
     active = sum(b - a for a, b in zip(times, times[1:]) if b - a < GAP_MS)
+    servers = collections.Counter()
+    for tool, count in tools.items():
+        if convertigo_server(tool):
+            servers[convertigo_server(tool)] += count
     return {
         "journals": len(files),
         "active_minutes": round(active / 60000, 1),
@@ -80,11 +91,12 @@ def measure(files):
         "output_tokens": usage["output_tokens"],
         "tool_calls": sum(tools.values()),
         "tool_failures": sum(failed.values()),
-        "convertigo_calls": sum(v for k, v in tools.items() if k.startswith("mcp_Convertigo.")),
+        "convertigo_calls": sum(v for k, v in tools.items() if convertigo_server(k)),
         "bash_calls": sum(v for k, v in tools.items() if k.endswith(".bash") or k == "bash"),
         "finish_reasons": dict(finish),
         "top_tools": dict(tools.most_common(15)),
         "failures_by_tool": dict(failed.most_common(10)),
+        "convertigo_calls_by_server": dict(servers.most_common()),
     }
 
 

@@ -8,6 +8,15 @@ from pathlib import Path
 
 
 SCHEMA_VERSION = "1.0.0"
+# Every Convertigo MCP server proves a save, a run or a frontend with its own tools, and they weigh the same: a server
+# that relays project-save and requestable-execute under their names also promotes its checked sources and runs them
+# itself; the viewer of mobile-builder-open or a check in a browser proves a frontend.
+EQUIVALENT_TOOLS = {
+    "project-save": ("project-save", "code-promote", "flow-code-promote"),
+    "requestable-execute": ("requestable-execute", "code-run", "flow-code-run", "flow-test"),
+    "mobile-builder-open": ("mobile-builder-open", "browser-verify"),
+}
+BROWSER_SERVER_MARKERS = ("playwright", "browser", "chrome", "puppeteer", "devtools")
 
 
 def parse_args():
@@ -35,12 +44,25 @@ def contains_any(text, tokens):
     return any(normalize_text(token) in haystack for token in tokens)
 
 
+def proves(call, tool):
+    """Whether a tool call proves what the tool proves, on any Convertigo MCP server."""
+    if call["name"] in EQUIVALENT_TOOLS.get(tool, (tool,)):
+        return True
+    server = str(call.get("server") or "").lower()
+    return tool == "mobile-builder-open" and any(marker in server for marker in BROWSER_SERVER_MARKERS)
+
+
+def successful_calls(report, tool):
+    return sum(1 for call in report["toolCalls"] if call["status"] == "success" and proves(call, tool))
+
+
 def has_save_evidence(report):
-    return any(call["name"] == "project-save" and call["status"] == "success" for call in report["toolCalls"]) or contains_any(
+    return successful_calls(report, "project-save") > 0 or contains_any(
         report["finalOutput"]["rawText"],
         [
             "saved:",
             "project-save",
+            "code-promote",
             "saved project",
             "no save was needed",
             "no save needed",
@@ -54,7 +76,7 @@ def has_runtime_evidence(report):
     section_names = {name.lower() for name in report["finalOutput"]["sectionNames"]}
     if any(name in section_names for name in {"runtime evidence", "runtime evidence or skip", "contract check", "stub status"}):
         return True
-    return any(call["name"] == "requestable-execute" and call["status"] == "success" for call in report["toolCalls"])
+    return successful_calls(report, "requestable-execute") > 0
 
 
 def linear_score(value, soft_limit, hard_limit):
@@ -84,8 +106,7 @@ def evaluate_gate(gate, scenario, run_report, critic_report, run_record):
         section_names = set(run_report["finalOutput"]["sectionNames"])
         return all(section in section_names for section in gate["sections"])
     if gate_type == "requiredToolCalls":
-        tool_names = {call["name"] for call in run_report["toolCalls"]}
-        return all(tool in tool_names for tool in gate["tools"])
+        return all(any(proves(call, tool) for call in run_report["toolCalls"]) for tool in gate["tools"])
     if gate_type == "requiredTerms":
         return all(normalize_text(term) in normalize_text(run_report["finalOutput"]["rawText"]) for term in gate["terms"])
     if gate_type == "forbiddenTerms":
@@ -129,7 +150,7 @@ def contract_score(run_report, critic_report):
 
 
 def runtime_score(run_report):
-    successful_execs = sum(1 for call in run_report["toolCalls"] if call["name"] == "requestable-execute" and call["status"] == "success")
+    successful_execs = successful_calls(run_report, "requestable-execute")
     if successful_execs >= 2:
         return 100.0
     if successful_execs == 1:

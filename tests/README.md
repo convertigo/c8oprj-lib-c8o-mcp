@@ -22,6 +22,16 @@ the batch judgment (a warning is no error, the deletes in a second batch), the r
 `--structural` leaves out. A run on a disposable project in a Studio is still the proof that the MCP keeps what is
 sent.
 
+## Run measures and campaign scores
+
+`scripts/measure_run.py` measures a Claude Code or Codex run from its transcripts, `scripts/measure_vibe.py` a Vibe
+run from its session journal. Both count every Convertigo MCP server, per server and in total. `measure_run.py` also
+counts the tools a Convertigo MCP server relays as calls of the tool they relay, and applies the same rules to both
+agents for shell, browser and Playwright calls, failures, call times and tokens. `scripts/score_campaign.py` weighs
+the same the proofs of a save, a run or a frontend made with the tools of another Convertigo MCP server. Run
+`python3 tests/scripts/test_measure_run.py` and `python3 tests/scripts/test_score_campaign.py` after changing them:
+the measures and scores of a run on the Convertigo MCP alone must not change.
+
 ## Shared tag domain
 
 Run `node --test tests/scripts/validate_tags.cjs` after editing the tag tools.
