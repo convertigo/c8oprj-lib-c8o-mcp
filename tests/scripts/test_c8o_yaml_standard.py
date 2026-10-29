@@ -732,7 +732,7 @@ ORACLE = Path(__file__).resolve().parent / "StandardYamlOracle.java"
 FUZZ_PIECES = [
     "a", "Z", "0", "7", "-", ".", " ", "  ", "\t", "\n", "\n\n", "\r", "\r\n", ":", ": ", "#", " #", "?", "[", "]", "{", "}",
     ",", "&", "*", "!", "|", ">", "'", '"', "%", "@", "`", "\\", "~", "$", "${", "=", "<<", "---", "...", "yes", "no", "on",
-    "null", "true", "1.5", "0x1F", "012", "1_000", "2001-01-01", ".inf", "\x00", "\x07", "\x1b", "\x85", "\xa0",
+    "null", "true", "1.5", "0x1F", "012", "1_000", "2001-01-01", ".inf", "\x00", "\x07", "\x1b", "\x7f", "\x85", "\xa0",
     "\u2028", "\u2029", "\ufeff", "\ufffe", "é", "漢", "🙂", "C8O_LITERAL_0", "\\L", "\\P", "- ", "? ", "→", "↑", "↓",
 ]
 ENGINE_VALUES = [
@@ -856,16 +856,19 @@ class EngineOracleTests(unittest.TestCase):
             if os.environ.get("C8O_NODE_YAML"):
                 check_yaml12(self, {k: v.decode("utf-8") for k, v in expected.items()}, os.environ["C8O_NODE_YAML"])
 
-    def test_a_del_character_is_escaped_for_the_engine_reader(self) -> None:
-        # The one deliberate difference: the engine's emitter writes U+007F raw, which its reader refuses (it cannot
-        # save this tree); Python writes \x7f, which the engine reads back.
-        tree = project_tree(prop("a", "del\x7f"), prop("b", prop("c", "x\x7f\ny")), std.Element("bean", attrs={"yaml_key": "d\x7f [steps.SimpleStep]"}))
-        files = std.render_project(tree, references=False)
+    def test_a_del_character_is_escaped_as_the_engine_does(self) -> None:
+        # snakeyaml-engine writes U+007F raw, which YAML does not allow in a stream: since #1256 the engine writes
+        # \x7f, as Python does, also in a document with an XML list or a literal block (both are parsed again).
+        tree = project_tree(prop("a", "del\x7f"), prop("b", prop("c", "x\x7f\ny")),
+                            std.Element("bean", attrs={"yaml_key": "d\x7f [steps.SimpleStep]"}))
+        files = std.render_project(tree)
         self.assertIn('a: "del\\x7f"', files["c8oProject.yaml"])
         folder = Path(self.tmp.name) / "del"
-        (folder / "c8oProject.yaml").parent.mkdir(parents=True)
-        (folder / "c8oProject.yaml").write_text(files["c8oProject.yaml"], encoding="utf-8")
-        self.assertEqual(parse_records(self.oracle("dump", str(folder))), records(tree))
+        folder.mkdir()
+        (folder / "records").write_text(records_text(tree), encoding="utf-8")
+        self.oracle("write", str(folder / "records"), str(folder / "engine"))
+        self.assertEqual(yaml_files(folder / "engine"), {k: v.encode("utf-8") for k, v in files.items()})
+        self.assertEqual(parse_records(self.oracle("dump", str(folder / "engine"))), records(tree))
 
 
 if __name__ == "__main__":

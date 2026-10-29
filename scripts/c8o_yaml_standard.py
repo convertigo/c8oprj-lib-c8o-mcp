@@ -20,12 +20,11 @@ a minimum engine version of 8.5.0 or more, one project bean, sources local to _c
 
 The writer gives the bytes the engine writes for the same tree: same quoting, literal blocks with
 their chomping and indentation indicators, XML lists indented as in the legacy format, no final line
-break unless the last value is a literal block that ends with one. One deliberate difference: a DEL
-character (U+007F) is written as the escape \\x7f. The engine's emitter (snakeyaml-engine 3.2) writes
-it raw, which its own reader (SnakeYAML 2.6) refuses: the engine then fails to save the file (when
-it holds an XML list or a literal block) or writes one it cannot load again; it reads \\x7f back. `format` rewrites the sources of
-standard projects that way (what the next Studio save would write); --check lists the files that
-differ and changes nothing. Legacy projects are left as they are.
+break unless the last value is a literal block that ends with one; a DEL character (U+007F) is the
+escape \\x7f, as the engine writes it (convertigo/convertigo#1256: its emitter, snakeyaml-engine 3.2,
+writes DEL raw, which YAML does not allow in a stream; the engine replaces it, Python never writes it).
+`format` rewrites the sources of standard projects that way (what the next Studio save would write);
+--check lists the files that differ and changes nothing. Legacy projects are left as they are.
 
 PyYAML is needed for the standard format only (pip install pyyaml); the legacy format needs nothing
 but the standard library.
@@ -835,7 +834,7 @@ def _utf16_len(text: str) -> int:
 
 
 def _printable(c: int) -> bool:
-    """snakeyaml-engine StreamReader.isPrintable, but U+007F (see the module documentation)."""
+    """snakeyaml-engine StreamReader.isPrintable, but U+007F, which the engine replaces by \\x7f."""
     return (
         0x20 <= c <= 0x7E or c in (0x09, 0x0A, 0x0D, 0x85) or 0xA0 <= c <= 0xD7FF
         or 0xE000 <= c <= 0xFFFD or 0x10000 <= c <= 0x10FFFF
