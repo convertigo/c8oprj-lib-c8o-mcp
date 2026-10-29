@@ -327,6 +327,75 @@ test('semantic edits persist contextual defaults and preserve unrelated sources'
   const unrelated = h.client.edit(created.form._id, [{ action: 'update_field', fieldName: 'context_input', patch: { config: { placeholder: 'Your name' } } }], h.auth);
   assert.deepEqual(clone(unrelated.form.formulaire[0].sources), before);
 });
+test('a defaultFrom field changes through defaultFrom: config.contextDefault is compiled, selfVar alone is refused (2ba0a64a)', () => {
+  // 27/10 (Skyjo): the agent patched config.defaultFrom (stored as is), config.contextDefault (selfVar kept the old
+  // expression) and selfVar alone (contextDefault kept the old one); the viewer runs selfVar.
+  const h = creationHarness();
+  const created = h.client.create(contextExample({ source: 'expression', expression: 'fields.a * 2', mode: 'reactive' }, { disabled: true }), h.auth);
+  const id = created.form._id;
+  const run = field => evaluateDefault(field, { fields: { a: 3 } });
+  const edit = patch => h.client.edit(id, [{ action: 'update_field', fieldName: 'context_input', patch }], h.auth);
+  let r = edit({ config: { contextDefault: { expression: 'fields.a * 10' } } });
+  assert.equal(r.saved, true, JSON.stringify(r).slice(0, 400));
+  let field = r.form.formulaire[0];
+  assert.deepEqual(clone(field.config.contextDefault), { source: 'expression', expression: 'fields.a * 10', mode: 'reactive' }, 'merged with the declaration');
+  assert.equal(run(field), 30, 'the viewer runs the new expression');
+  assert.equal(field.config.contextValueMode, 'reactive');
+  r = edit({ config: { defaultFrom: { source: 'expression', expression: 'fields.a + 1', mode: 'reactive' } } });
+  field = r.form.formulaire[0];
+  assert.equal(field.config.defaultFrom, undefined, 'defaultFrom under config is not stored as is');
+  assert.equal(field.config.contextDefault.expression, 'fields.a + 1');
+  assert.equal(run(field), 4);
+  r = edit({ config: { contextDefault: { source: 'expression', expression: 'fields.a - 1', mode: null }, contextValueMode: 'initial' } });
+  assert.equal(r.saved, true, JSON.stringify(r).slice(0, 400));
+  field = r.form.formulaire[0];
+  assert.deepEqual([field.config.contextDefault.mode, field.config.contextValueMode, run(field)], ['initial', 'initial', 2], 'the mode given beside the declaration');
+  assert.equal(api().validate(r.form).validation.warnings.some(w => w.code === 'context_default_stale'), false);
+  const saves = h.state.saves;
+  for (const patch of [
+    { sources: { self: { enabled: true, vars: { selfVar: { str: '(fields.a * 100)', type: 'ts', html: false } } } } },
+    { defaultFrom: { source: 'expression', expression: 'fields.a * 100' }, sources: { self: { vars: { selfVar: { str: '(fields.a * 100)' } } } } },
+    { config: { contextDefault: { expression: 'fields.a * 100' } }, sources: { self: { vars: { selfVar: { str: '(fields.a * 100)' } } } } }
+  ]) {
+    r = edit(patch);
+    assert.equal(r.saved, false, JSON.stringify(patch));
+    assert.match(JSON.stringify(r), /context_input: sources\.self\.vars\.selfVar is compiled from defaultFrom \(declared in config\.contextDefault\) and the viewer runs it\. Change the value with patch \{ defaultFrom:/);
+  }
+  assert.equal(h.state.saves, saves, 'nothing written');
+  r = edit({ config: { contextDefault: null }, sources: { self: { vars: { selfVar: { str: '(fields.a * 100)' } } } } });
+  assert.equal(r.saved, true, 'without its declaration, selfVar is hand-written');
+  field = r.form.formulaire[0];
+  assert.equal(field.config.contextDefault, undefined);
+  assert.equal(run(field), 300);
+});
+test('a selfVar changed in No Code Studio is the expression that runs: context_default_stale, checks made on it (2ba0a64a)', () => {
+  // The editor saves selfVar with each reference as a SmartSource token, formatted again (line breaks, double quotes,
+  // semicolons); config.contextDefault stays.
+  const token = (name, id = 1900000000001) => '$$START' + id + '{"c8otype":"path","c8opath":"","c8oPrettyPath":null,"c8obuiltin":"false","id":' + id + ',"pathPrefix":"fields","nested":null,"name":"' + name + '"}END' + id + '$$';
+  const compiled = api().compile({ name: 'Stale', pages: [{ name: 'P', fields: [
+    { type: 'grid', name: 'score_last', label: 'Scores', source: { table: { id: 7002, path: 'W~>Skyjo~>Scores' }, columns: ['Partie'] } },
+    { type: 'text', name: 'n', label: 'N', disabled: true, defaultFrom: { source: 'expression', expression: "fields['a'] === 'x' ? 1 : 2", mode: 'reactive' } }
+  ] }] });
+  const form = clone(compiled.form);
+  const index = form.formulaire.findIndex(f => f.name === 'n');
+  const selfVar = form.formulaire[index].sources.self.vars.selfVar;
+  const warnings = () => api().validate(form).validation.warnings;
+  selfVar.str = '(\n  ' + token('a') + ' === "x"\n    ? 1\n    : 2;\n)';
+  assert.equal(warnings().some(w => w.code === 'context_default_stale'), false, 'the same expression in the encoding of the editor');
+  selfVar.str = '(' + token('a') + ' === "y" ? 1 : 2)';
+  const stale = warnings().find(w => w.code === 'context_default_stale');
+  assert.ok(stale, JSON.stringify(warnings()));
+  assert.equal(stale.path, '/formulaire/' + index + '/config/contextDefault');
+  assert.match(stale.message, /^n: the viewer runs sources\.self\.vars\.selfVar, which is no longer the compilation of config\.contextDefault/);
+  selfVar.str = '((' + token('a') + ' === "y" ? 1 : 2)';
+  const syntax = api().validate(form).validation.issues.find(i => i.code === 'expression_syntax');
+  assert.ok(syntax, 'the syntax of the code that runs');
+  assert.equal(syntax.path, '/formulaire/' + index + '/sources/self/vars/selfVar/str');
+  assert.match(syntax.message, /^n selfVar: position 1: the '\(' opened here is never closed/);
+  selfVar.str = '(' + token('score_last', form.formulaire.find(f => f.name === 'score_last').id) + '.length)';
+  const rows = warnings().filter(w => w.code === 'grid_rows_in_formula');
+  assert.deepEqual(clone(rows.map(w => w.path)), ['/formulaire/' + index + '/sources/self/vars/selfVar/str'], JSON.stringify(warnings()));
+});
 function example() {
   return {
     name: 'Generation quality test', navigationMode: 'custom',
