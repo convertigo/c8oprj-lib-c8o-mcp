@@ -34,6 +34,14 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
   row and inserts the demo rows again. Read its SQL first. `seed.reset:true` resets the tables to the demo rows, only
   when the user asks for it.
 
+## Server-side checks (validation)
+- Put the check in the create and update business sequences (`crud_create_<entity>`, `crud_update_<entity>`): an
+  `IfStep` on the variable, holding an `XMLErrorStep` with `code` and the message the user reads (`output: true`), before
+  the call of the transaction. The sequence then answers an `error` element and the call resolves.
+- The kit edit form shows that message above its buttons and does not emit `Saved`. A form generated before this
+  behaviour gets it from `upsert-ngx-crud-kit` with `stage: "final"` (same entities and ui hints as before); check the
+  message with a save the check refuses.
+
 ## Deterministic rail for an existing CRUD project
 1. Run `crud-status` to confirm the current project, connector, business sequence prefix, entry page, and UI variant.
 2. Build the full updated CRUD `spec` in one pass.
