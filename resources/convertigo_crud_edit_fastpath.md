@@ -33,6 +33,8 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
 - Never run `init_schema` by hand to apply a schema change: the `init_schema` of an app generated earlier deletes every
   row and inserts the demo rows again. Read its SQL first. `seed.reset:true` resets the tables to the demo rows, only
   when the user asks for it.
+- A row you create to check a change (`requestable-execute`, a browser proof) lands among the user's rows: delete it by
+  its id as soon as its check is done, before the next step, and say in the answer if one is left.
 
 ## Language of the kit texts
 The kit writes its buttons, titles, states and messages in English unless `language` says otherwise. For a French
