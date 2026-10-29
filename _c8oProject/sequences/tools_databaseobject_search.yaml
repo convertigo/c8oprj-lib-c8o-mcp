@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Search database objects
-  Searches names, comments, and QNames under one root or across all projects. Supports cursor pagination and optional regex matching.
+  Finds the objects whose own YAML holds the search terms: name, comment, QName and every property value (the texts a page shows, labels, SQL, step expressions, page actions), under one root or across all projects, with a snippet around the match. Use it to find every place a word, a column or a call appears before renaming or changing it. A shown text lives in a UIText or in a value passed to a shared component (UIUseVariable, a component variable default): search without objectType to see both. Space-separated terms must all appear, in any order. Supports cursor pagination and optional regex matching.
 ↓IncludeHelpers [steps.SimpleStep-1762941123244]: 
   comment: Load shared database helpers
   expression: include("js/databaseobject.js");

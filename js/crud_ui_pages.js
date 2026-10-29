@@ -227,9 +227,11 @@ C8O.crudUiPages = C8O.crudUiPages || {};
             }
           ]
         },
+        // Every time the page shows, not once per instance: the menu brings back the instance already in the navigation
+        // stack, whose ngOnInit does not run again, and the page stayed on its spinner (usage tests 29/10, verifier).
         ctx.pageEventNode(
           "PageEvent",
-          "onWillLoad",
+          "onWillEnter",
           [
             loginBootstrapChainNode(
               ctx,
@@ -261,9 +263,10 @@ C8O.crudUiPages = C8O.crudUiPages || {};
           scriptContent: blankPageScriptContent()
         },
         children: [
+          // onWillEnter, as in the page root above: the menu brings back an instance whose ngOnInit does not run again.
           ctx.pageEventNode(
             "PageEvent",
-            "onWillLoad",
+            "onWillEnter",
             [
               loginBootstrapChainNode(
                 ctx,

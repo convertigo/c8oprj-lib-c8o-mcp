@@ -113,13 +113,16 @@ function reloadAdapter(studioMode) {
     schemaManager:{clearCache:name=>calls.push(['schema',name])},
     databaseObjectsManager:{clearCache:name=>calls.push(['release',name]),getProjectByName:name=>{calls.push(['import',name]);return {};}}
   }};
+  const cachedProject = {hasChanged:false};
   const sandbox = {C8O:{util:{toTrimmedString:value=>String(value).trim()}},Packages:{com:{twinsoft:{convertigo:{engine:{Engine}}}}}};
   vm.runInNewContext(read('js/databaseobject_studio.js'),sandbox);
   const api = sandbox.C8O.dbo;
   api.getReloadStudioPlugin = () => ({getDefault:()=>({reloadProject:name=>calls.push(['studio',name])})});
   api.getCachedProjectIdentity = () => 42;
+  api.getCachedProject = () => cachedProject;
+  api.withStudioLock = fn => { calls.push(['lock']); return fn(); };
   api.waitForProjectReload = (_plugin,name,identity) => calls.push(['wait',name,identity]);
-  return {api,Engine,calls};
+  return {api,Engine,calls,cachedProject};
 }
 
 test('headless Reload uses the ordinary engine lifecycle, not the Eclipse plugin', () => {
@@ -131,8 +134,19 @@ test('headless Reload uses the ordinary engine lifecycle, not the Eclipse plugin
 test('Studio Reload still waits for the Studio tree, and the active MCP server stays protected', () => {
   const {api,calls} = reloadAdapter(true);
   assert.equal(api.reloadProject('Demo',[]).reloaded,true);
-  assert.deepEqual(calls,[['studio','Demo'],['wait','Demo',42]]);
+  assert.deepEqual(calls,[['lock'],['studio','Demo'],['wait','Demo',42]]);
   assert.ok(read('_c8oProject/sequences/tools_project_reload.yaml').includes('Reloading the active MCP server project is forbidden'));
+});
+
+test('Studio Reload drops unsaved changes first, so the Studio asks no modal question', () => {
+  const {api,calls,cachedProject} = reloadAdapter(true);
+  cachedProject.hasChanged = true;
+  const result = api.reloadProject('Demo',[]);
+  assert.equal(cachedProject.hasChanged,false);
+  assert.equal(result.discardedUnsavedChanges,true);
+  assert.match(result.message,/Unsaved in-memory changes were discarded/);
+  assert.deepEqual(calls,[['lock'],['studio','Demo'],['wait','Demo',42]]);
+  assert.equal(reloadAdapter(true).api.reloadProject('Demo',[]).discardedUnsavedChanges,false);
 });
 
 test('failed headless Reload is not reported as success', () => {

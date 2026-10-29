@@ -89,7 +89,8 @@ class Battery:
         return self.m.call("databaseobject-tree-apply", args)
 
     def run(self, requestable, variables=None, **extra):
-        args = {"requestable": requestable, "variables": variables or {}}
+        # The traps reseed their own scratch tables on purpose.
+        args = {"requestable": requestable, "variables": variables or {}, "allowDataReset": True}
         args.update(extra)
         return self.m.call("requestable-execute", args)
 

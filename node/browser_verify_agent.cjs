@@ -327,6 +327,11 @@ function createGateway(config, key, fetchImpl) {
         reasoning = "";
         continue;
       }
+      // A model that does not take a named tool in tool_choice still has to call one.
+      if (response.status === 400 && request.tool_choice && typeof request.tool_choice === "object") {
+        request.tool_choice = "required";
+        continue;
+      }
       if (response.status === 429 || response.status >= 500) {
         lastError = new Error("The LLM gateway answered HTTP " + response.status + ": " + redact(text.substring(0, 300), key));
         var retryAfter = Number(response.headers && response.headers.get ? response.headers.get("retry-after") : NaN);
@@ -1016,6 +1021,7 @@ async function run(rawConfig, deps) {
   var report = null;
   var turns = 0;
   var nudged = false;
+  var finishTurns = 0;
   var forcing = false;
   var stopReason = "";
 
@@ -1033,7 +1039,8 @@ async function run(rawConfig, deps) {
       break;
     }
     compactHistory(messages, config);
-    var body = await gateway.complete(wireMessages(messages), forcing ? { toolChoice: "required" } : null);
+    var toolChoice = finishTurns > 0 ? { type: "function", "function": { name: "finish" } } : (forcing ? "required" : null);
+    var body = await gateway.complete(wireMessages(messages), toolChoice ? { toolChoice: toolChoice } : null);
     turns++;
     var choice = (body.choices && body.choices[0]) || {};
     var message = choice.message || {};
@@ -1049,6 +1056,14 @@ async function run(rawConfig, deps) {
       if (!nudged) {
         nudged = true;
         messages.push({ role: "user", content: "Continue with the tools, and end with the finish tool." });
+        continue;
+      }
+      // A second answer without a tool: the walk is over, the report is what is missing. A verifier that had walked
+      // its paths for 47 turns stopped here with an empty report (usage tests 29/10): finish is now required, twice at
+      // most.
+      if (finishTurns < 2) {
+        finishTurns++;
+        messages.push({ role: "user", content: "You stopped without the finish tool. Call finish now with what you have seen; mark what you could not check as not_checked." });
         continue;
       }
       report = normalizeReport({ verdict: "partial", summary: str(assistant.content) || "The verification agent stopped without a report.", checks: [] }, config, state.screenshots);

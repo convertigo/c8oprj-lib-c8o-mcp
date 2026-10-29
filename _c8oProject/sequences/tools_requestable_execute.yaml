@@ -25,6 +25,10 @@ comment: |
     try {
         includeLogsFlag = C8O.util.toBoolean ? C8O.util.toBoolean(includeLogs, false) : (String(includeLogs || '''').toLowerCase() === ''true'');
     } catch (_ignoreIl) {}
+    var allowResetFlag = false;
+    try {
+        allowResetFlag = C8O.util.toBoolean(typeof allowDataReset === ''undefined'' ? false : allowDataReset, false);
+    } catch (_ignoreAr) {}
     var authUser = C8O.util.toTrimmedString(typeof authenticatedUser === ''undefined'' ? '''' : authenticatedUser);
     executionPlan = {
         authenticatedUser: authUser,
@@ -37,6 +41,7 @@ comment: |
         variables: variablesObject,
         recordSchema: recordSchemaFlag,
         includeLogs: includeLogsFlag,
+        allowDataReset: allowResetFlag === true,
         startedAt: startedAt
     };
     if (authUser.length) {
@@ -204,6 +209,12 @@ comment: |
             }
           }
         } catch (_ignoreSqlHints) {}
+        // An agent that met this answer called the login sequence and tried again, twice: a login run by
+        // requestable-execute keeps no session for the next call (usage tests 29/10).
+        if (/^Authentication required\b/.test(String(out.error.message || "")) && !(executionPlan && executionPlan.authenticatedUser)) {
+          out.error.hint = "This sequence needs a signed-in user: call it again with authenticatedUser (the user name the login " +
+            "sequence sets, for example \"demo\"). A login sequence run by requestable-execute keeps no session for the next call.";
+        }
         // A script error of the called sequence came as the generic "An exception occured while executing step", its
         // own message and the step only in details (preflight checks): lift both into the message.
         try {
@@ -364,6 +375,9 @@ comment: |
 ↓authenticatedUser [variables.RequestableVariable-1772727101099]: 
   comment: Optional authenticated user for this call only (what the login sequence passes to context.setAuthenticatedUser), to run a sequence marked authenticatedContextRequired.
   description: Optional authenticated user for this call only (what the login sequence passes to context.setAuthenticatedUser), to run a sequence marked authenticatedContextRequired.
+↓allowDataReset [variables.RequestableVariable-1793300000001]: 
+  comment: Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it.
+  description: Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it.
 ↓ip [core.TestCase-1763981218508]: 
   ↓requestable [variables.TestCaseVariable-1763981219651]: 
     value: codex_test.http_demo.get_ip

@@ -294,6 +294,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         authenticatedUser: {
           type: "string",
           description: "Optional user to run this call as (what the login sequence passes to context.setAuthenticatedUser, for example an email), for this call only. Without it the call has no authenticated user and sequences marked authenticatedContextRequired answer Authentication required."
+        },
+        allowDataReset: {
+          type: "boolean",
+          default: false,
+          description: "Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it."
         }
       },
       required: ["requestable"],
@@ -525,7 +530,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         qname: { type: "string", description: "Optional root QName. Omit to search across all loaded projects." },
-        filter: { type: "string", description: "Search text. Space-separated terms must all appear in the object's YAML (name, properties, comment); pair with useRegExp=true for a regex." },
+        filter: { type: "string", description: "Search text. Space-separated terms must all appear in the object's YAML (name, comment and every property value: shown texts, labels, SQL, expressions); pair with useRegExp=true for a regex." },
         limit: integerSchema(1, 1000, 200, "Maximum matches returned per call. 1 to 1000; default 200."),
         matchCase: booleanFlagSchema(false, "Set true for case-sensitive matching."),
         useRegExp: booleanFlagSchema(false, "Set true to treat filter as a Java regular expression."),
@@ -2483,7 +2488,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
           reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none is fast and cheap; high only for a hard case." },
           maxSteps: { type: "integer", minimum: 6, maximum: 80, default: 40 },
-          timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "The sub-agent reports what it has when it runs out." },
+          timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "Default 150, or 40 per path when that is more. The sub-agent reports what it has when it runs out." },
           cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open)." },
           waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report. A verification still running then answers status running with its verificationId; keep the default, it fits every agent host." },
           verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits up to waitSec again." }

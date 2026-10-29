@@ -122,6 +122,9 @@ C8O.crudProof = C8O.crudProof || {};
       if (extra.includeLogs === true) {
         args.includeLogs = true;
       }
+      if (extra.allowDataReset === true) {
+        args.allowDataReset = true;
+      }
       return ctx.callInternalSequence("tools_requestable_execute", args);
     } catch (proofError) {
       ctx.addWarning(result, "Unable to execute proof for " + requestable + ": " + String(proofError));

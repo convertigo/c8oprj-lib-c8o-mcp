@@ -225,7 +225,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       return tree;
     }
     tree.properties = tree.properties || {};
-    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages template clone) for " + String(componentName || tree.name || "component") + ". Direct edits may be overwritten; prefer entity.ui hints.";
+    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages template clone) for " + String(componentName || tree.name || "component") + ". Direct edits may be overwritten; prefer entity.ui hints (labels, fields) and the kit's language option (language: \"fr\" writes its buttons, titles and messages in French).";
     return tree;
   }
 
@@ -234,7 +234,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       return tree;
     }
     tree.properties = tree.properties || {};
-    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages page template clone) for " + String(pageName || tree.name || "page") + ". Direct edits may be overwritten; prefer template sources and entity.ui hints.";
+    tree.properties.comment = "Managed by upsert-ngx-crud-kit (entity-pages page template clone) for " + String(pageName || tree.name || "page") + ". Direct edits may be overwritten; prefer template sources, entity.ui hints and the kit's language option (language: \"fr\" writes its texts in French).";
     return tree;
   }
 
@@ -617,12 +617,11 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     }
     if (formNode) {
       var existingChildren = Array.isArray(formNode.children) ? formNode.children.slice() : [];
-      var formChildren = buildFormFieldChildren(ctx, config, entities, projectName);
-      if (existingChildren.length >= 2) {
-        formChildren.push(existingChildren[existingChildren.length - 2]);
-        formChildren.push(existingChildren[existingChildren.length - 1]);
-      }
-      formNode.children = formChildren;
+      // The entity fields first, then every other child of the template form in its order (the save error, the buttons,
+      // the submit event).
+      formNode.children = buildFormFieldChildren(ctx, config, entities, projectName).concat(existingChildren.filter(function (child) {
+        return !/^Field\d+$/.test(String(child && child.name || ""));
+      }));
     }
     return markManagedClone(tree, targetName);
   }
@@ -697,8 +696,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "TplWorkInProgressCardContent",
               children: [
-                ctx.scriptTextNode("TplWorkInProgressText", "this.Message"),
-                ctx.plainTextNode("TplWorkInProgressHint", "This page will be ready in a moment.")
+                ctx.textElementNode("ngx.components.UIDynamicElement#Paragraph", "TplWorkInProgressMessage",
+                  ctx.scriptTextNode("TplWorkInProgressText", "this.Message")),
+                ctx.textElementNode("ngx.components.UIDynamicElement#Paragraph", "TplWorkInProgressHintParagraph",
+                  ctx.plainTextNode("TplWorkInProgressHint", "This page will be ready in a moment."))
               ]
             }
           ]
@@ -1395,6 +1396,14 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
+  // A sequence answers a refused save (a server check, a constraint) with an error element and the call resolves: the form
+  // keeps the answer, shows its error and emits Saved only without one (usage tests 29/10: the form closed as if saved).
+  function keepSaveResultNode(ctx, name) {
+    var node = ctx.setLocalActionNode(name, "lastSave", "out");
+    node.properties.comment = "Keep the save answer: its error is shown above the buttons.";
+    return node;
+  }
+
   function templateEntityEditFormTree(ctx) {
     var singular = TOKENS.ENTITY_SINGULAR;
     return {
@@ -1433,6 +1442,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           "Load",
           "onChanges",
           [
+            ctx.setLocalActionNode("ClearSaveResult", "lastSave", "null"),
             ctx.ifActionNode(
               "WhenCreateMode",
               "this.Mode === 'create' || !this.SelectedId",
@@ -1495,6 +1505,15 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                     identifier: ENTITY_FORM_IDENTIFIER
                   },
                   children: [
+                    ctx.ifDirectiveNode("SaveErrorVisible", "!!this.local?.lastSave?.error", [
+                      {
+                        className: "ngx.components.UIDynamicElement#Paragraph",
+                        name: "SaveError",
+                        children: [
+                          ctx.scriptTextNode("SaveErrorText", "this.local?.lastSave?.error?.message || this.local?.lastSave?.error?.code || 'Error'")
+                        ]
+                      }
+                    ]),
                     entityEditActionsGridNode(ctx),
                     ctx.controlEventNode(
                       "Submit1",
@@ -1512,11 +1531,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                                   comment: "Create a new row from the submitted form."
                                 }
                               ),
-                              ctx.emitEventActionNode(
-                                "EmitSaved",
-                                componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
-                                "script:{ id: (out.row || (out.rows && out.rows[0]) || {}).id, mode: 'create' }",
-                                "Notify the page glue that the create succeeded."
+                              keepSaveResultNode(ctx, "KeepCreateResult"),
+                              ctx.ifActionNode(
+                                "WhenCreateSaved",
+                                "!this.local?.lastSave?.error",
+                                [
+                                  ctx.emitEventActionNode(
+                                    "EmitSaved",
+                                    componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
+                                    "script:{ id: (this.local.lastSave.row || (this.local.lastSave.rows && this.local.lastSave.rows[0]) || {}).id, mode: 'create' }",
+                                    "Notify the page glue that the create succeeded."
+                                  )
+                                ]
                               )
                             ])
                           ]
@@ -1536,11 +1562,18 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                                   comment: "Update the selected row from the submitted form."
                                 }
                               ),
-                              ctx.emitEventActionNode(
-                                "EmitSaved",
-                                componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
-                                "script:{ id: this.SelectedId, mode: 'update' }",
-                                "Notify the page glue that the update succeeded."
+                              keepSaveResultNode(ctx, "KeepUpdateResult"),
+                              ctx.ifActionNode(
+                                "WhenUpdateSaved",
+                                "!this.local?.lastSave?.error",
+                                [
+                                  ctx.emitEventActionNode(
+                                    "EmitSaved",
+                                    componentEventQName(templateComponentName("EntityEditForm"), "Saved"),
+                                    "script:{ id: this.SelectedId, mode: 'update' }",
+                                    "Notify the page glue that the update succeeded."
+                                  )
+                                ]
                               )
                             ])
                           ]

@@ -170,6 +170,172 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return normalized;
   };
 
+  // French texts use the typographic apostrophe (’): a straight one inside a script literal broke the TS build of a page.
+  // The kit writes its buttons, titles, states and messages in English. For a French app the user had them translated
+  // by hand: 13 minutes and 233 tool calls in a usage run (29/10). With language "fr" the shown texts of the kit's
+  // operations are translated: UIText values, values passed to shared components, component variables, page titles.
+  var FR_TEXTS = {
+    "Select a record, edit it, or create a new one.": "Sélectionnez un enregistrement, modifiez-le ou créez-en un.",
+    "Back to home": "Retour à l’accueil",
+    "Rows": "Lignes",
+    "Rows: ": "Lignes : ",
+    "No rows available yet.": "Aucune ligne pour le moment.",
+    "No record selected.": "Aucun enregistrement sélectionné.",
+    "Selected id: ": "Identifiant sélectionné : ",
+    "Loading records...": "Chargement des enregistrements…",
+    "Retry": "Réessayer",
+    "Try again if loading fails.": "Réessayez si le chargement échoue.",
+    "Cancel": "Annuler",
+    "Choose what you want to manage.": "Choisissez ce que vous voulez gérer.",
+    "Work in progress": "En préparation",
+    "This page will be ready in a moment.": "Cette page sera prête dans un instant.",
+    "Preparing the application.": "Préparation de l’application.",
+    "Opening the application.": "Ouverture de l’application.",
+    "Opening the app": "Ouverture de l’application",
+    "Please wait a moment.": "Veuillez patienter un instant.",
+    "Preparing session": "Préparation de la session",
+    "Error": "Erreur",
+    "No primary value": "Aucune valeur",
+    "No secondary value": "Aucune valeur",
+    "Manage your records": "Gérez vos enregistrements",
+    "Template Login": "Connexion",
+    "Home": "Accueil",
+    "Login": "Connexion"
+  };
+  var FR_PATTERNS = [
+    [/^Manage (.+)$/, function (m) { return "Gérer les " + m[1].toLowerCase(); }],
+    [/^Browse, add, and update (.+)\.$/, function (m) { return "Parcourez, ajoutez et modifiez les " + m[1] + "."; }],
+    [/^Create (.+)$/, function (m) { return "Création : " + m[1]; }],
+    [/^Edit (.+)$/, function (m) { return "Modification : " + m[1]; }],
+    [/^Delete( .+)?$/, function () { return "Supprimer"; }],
+    [/^Save( .+)?$/, function () { return "Enregistrer"; }],
+    [/^New (.+)$/, function () { return "Ajouter"; }],
+    [/^Select (.+)$/, function (m) { return "Sélectionner : " + m[1]; }],
+    [/^(.+) detail$/, function (m) { return "Détails : " + m[1]; }],
+    // A field label before its value, "Auteur: ", takes a space before the colon in French.
+    [/^([^:]*[^ :]): $/, function (m) { return m[1] + " : "; }]
+  ];
+
+  C8O.crudUiKit.translatedCount = 0;
+
+  C8O.crudUiKit.translateText = function (text, language) {
+    if (language !== "fr" || typeof text !== "string") {
+      return text;
+    }
+    if (Object.prototype.hasOwnProperty.call(FR_TEXTS, text)) {
+      C8O.crudUiKit.translatedCount++;
+      return FR_TEXTS[text];
+    }
+    for (var i = 0; i < FR_PATTERNS.length; i++) {
+      var match = FR_PATTERNS[i][0].exec(text);
+      if (match) {
+        C8O.crudUiKit.translatedCount++;
+        return FR_PATTERNS[i][1](match);
+      }
+    }
+    return text;
+  };
+
+  // A script value: each quoted literal is a shown text ('Cancel', 'Rows: ' + count); identifiers stay.
+  function translateScript(value, language) {
+    return String(value).replace(/'((?:[^'\\]|\\.)*)'/g, function (whole, literal) {
+      var translated = C8O.crudUiKit.translateText(literal, language);
+      return translated === literal ? whole : "'" + translated.replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
+    });
+  }
+
+  function translateSmart(value, language) {
+    if (typeof value === "string") {
+      var prefixed = /^(script|plain):([\s\S]*)$/.exec(value);
+      if (prefixed) {
+        return prefixed[1] + ":" + (prefixed[1] === "plain" ? C8O.crudUiKit.translateText(prefixed[2], language) : translateScript(prefixed[2], language));
+      }
+      return value;
+    }
+    if (value && typeof value === "object") {
+      // {mode, value} as the kit builds it, {mode, expression} as a template clone (tree-get) has it.
+      var key = typeof value.value === "string" ? "value" : typeof value.expression === "string" ? "expression" : "";
+      var mode = String(value.mode || "").toUpperCase();
+      if (key.length) {
+        value[key] = mode === "PLAIN" ? C8O.crudUiKit.translateText(value[key], language) : mode === "SCRIPT" ? translateScript(value[key], language) : value[key];
+      }
+    }
+    return value;
+  }
+
+  var SHOWN_PROPERTIES = { textValue: true, varValue: true, value: true, title: true };
+
+  C8O.crudUiKit.translateOperations = function (operations, language) {
+    if (language !== "fr") {
+      return operations;
+    }
+    function walk(node) {
+      if (!node || typeof node !== "object") {
+        return;
+      }
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      var className = String(node.className || "");
+      var props = node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) ? node.properties : null;
+      // Call variables (UIControlVariable) are left alone: a value passed to an action can be a page or a code.
+      if (props && /UIText|UIUseVariable|UICompVariable|PageComponent/.test(className)) {
+        Object.keys(props).forEach(function (key) {
+          if (!SHOWN_PROPERTIES[key]) {
+            return;
+          }
+          var current = props[key];
+          if (key === "title" && typeof current === "string") {
+            props[key] = C8O.crudUiKit.translateText(current, language);
+          } else if (key === "value" && typeof current === "string" && !/^(script|plain):/.test(current)) {
+            // A component variable default is a bare expression: 'Manage your records'.
+            props[key] = translateScript(current, language);
+          } else {
+            props[key] = translateSmart(current, language);
+          }
+        });
+      }
+      walk(node.children);
+      walk(node.tree);
+      walk(node.patch);
+    }
+    ctxlessEach(operations, function (op) {
+      walk(op);
+      // A setProperties operation names its object by QName: its text properties are translated the same way.
+      if (op && op.properties && !op.className && /\.(Text|[A-Za-z]*Text|ActionLabel|Title|CreateTitle|EditTitle|DeleteLabel)$/.test(String(op.qname || ""))) {
+        Object.keys(op.properties).forEach(function (key) {
+          if (SHOWN_PROPERTIES[key]) {
+            op.properties[key] = translateSmart(op.properties[key], language);
+          }
+        });
+      }
+    });
+    return operations;
+  };
+
+  function ctxlessEach(list, fn) {
+    var entries = Array.isArray(list) ? list : [];
+    for (var i = 0; i < entries.length; i++) {
+      fn(entries[i]);
+    }
+  }
+
+  C8O.crudUiKit.facadeEntitiesOf = function (ctx, project, facadePrefix) {
+    var entities = [];
+    var pattern = new RegExp("^" + String(facadePrefix).replace(/[^A-Za-z0-9_]/g, "") + "_count_([A-Za-z0-9_]+)$");
+    try {
+      var sequences = project.getSequencesList();
+      for (var i = 0; i < sequences.size(); i++) {
+        var match = pattern.exec(String(sequences.get(i).getName()));
+        if (match) {
+          entities.push({ name: match[1] });
+        }
+      }
+    } catch (_noSequences) {}
+    return entities;
+  };
+
   C8O.crudUiKit.hydrateUiEntityFromFacade = function (ctx, projectName, facadePrefix, entity, result) {
     if (!entity || !needsUiFieldHydration(ctx, entity)) {
       return entity;
@@ -334,7 +500,10 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       ctx.addWarning(result, "Unable to configure WorkInProgressCard shared sources: invalid component priority for " + componentQName);
       return [];
     }
-    var textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressText";
+    var textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressMessage.TplWorkInProgressText";
+    if (!ctx.resolveQName(textQName, { optional: true })) {
+      textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressText";
+    }
     if (!ctx.resolveQName(textQName, { optional: true })) {
       textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.WorkInProgressText";
     }
@@ -707,6 +876,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       { qname: componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create.EmitSaved", property: "data", value: "{ id: (out.row || (out.rows && out.rows[0]) || {}).id, mode: 'create' }" },
       { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.EmitSaved", property: "data", value: "{ id: this.SelectedId, mode: 'update' }" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create.KeepCreateResult.WhenCreateSaved.EmitSaved", property: "data", value: "{ id: (this.local.lastSave.row || (this.local.lastSave.rows && this.local.lastSave.rows[0]) || {}).id, mode: 'create' }" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.KeepUpdateResult.WhenUpdateSaved.EmitSaved", property: "data", value: "{ id: this.SelectedId, mode: 'update' }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
@@ -1055,7 +1226,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         if (!renameResult || renameResult.renamed !== true) {
           throw new Error("Unable to rename starter entry page Page to Home for " + projectName);
         }
-        ctx.addWarning(result, "Renamed starter entry page Page to Home for " + projectName + ".");
+        // A step of every new app, not a problem: a warning made each upsert-crud answer partial.
+        result.runtimeEvidence = result.runtimeEvidence || {};
+        result.runtimeEvidence.entryPageRenamed = "Page -> " + requestedName;
         return requestedName;
       }
     }
@@ -1137,14 +1310,37 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       throw new Error("Project " + projectName + " is not loaded");
     }
     var facadePrefix = ctx.trimmed(options.facadePrefix || "crud");
+    var requestedEntities = ctx.ensureArray(options.entities);
+    if (!requestedEntities.length) {
+      // Without entities the kit built the CRM demo pair (companies, contacts) in any project: the entities are the
+      // ones upsert-crud generated, one <prefix>_count_<entity> sequence each; their fields come from their lists.
+      requestedEntities = C8O.crudUiKit.facadeEntitiesOf(ctx, project, facadePrefix);
+    }
     var entities = C8O.crudUiKit.hydrateUiEntitiesFromFacade(
       ctx,
       projectName,
       facadePrefix,
-      C8O.crudUiKit.normalizeUiEntities(ctx, options.entities),
+      C8O.crudUiKit.normalizeUiEntities(ctx, requestedEntities),
       result
     );
     var entryPage = ensureEntryPage(ctx, projectName, options.entryPage || "Home", result);
+    // A field name the entity does not have was left out of the pages without a word: the field it meant disappeared.
+    for (var u = 0; u < entities.length && typeof ctx.entityUiConfig === "function"; u++) {
+      var uiConfig = ctx.entityUiConfig(projectName, facadePrefix, entities[u], entities) || {};
+      var unknownRefs = ctx.ensureArray(uiConfig.unknownFieldRefs);
+      var fieldNames = ctx.ensureArray(entities[u].fields).map(function (f) { return f.column || f.name; }).join(", ");
+      if (unknownRefs.length) {
+        ctx.addWarning(result, "ui fields of " + entities[u].name + ": " + unknownRefs.join(", ") + " " + (unknownRefs.length > 1 ? "are" : "is") +
+          " not a field of the entity and " + (unknownRefs.length > 1 ? "were" : "was") + " left out. Fields: " + fieldNames + ".");
+      }
+      // The fields come from the rows of the list sequence: one that returns the id alone gives pages with no value and
+      // a form that edits nothing (usage tests 29/10, after an upsert-crud that regenerated the entity without fields).
+      if (!ctx.ensureArray(uiConfig.editableFields).length) {
+        ctx.addWarning(result, entities[u].name + " has no field besides its id (fields: " + fieldNames + "): its pages show no " +
+          "value and its form edits nothing. Check what its list sequence returns (crud-status, requestable-execute).");
+      }
+    }
+    var language = ctx.trimmed(options.language || "").toLowerCase().substring(0, 2);
     var variant = ctx.trimmed(options.variant || "entity-pages").toLowerCase() || "entity-pages";
     var stage = ctx.trimmed(options.stage || "final").toLowerCase() || "final";
     var isMasterDetail = variant === "master-detail";
@@ -1472,6 +1668,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         target: ctx.pageQName(projectName, entryPage)
       };
     }
+    C8O.crudUiKit.translatedCount = 0;
+    C8O.crudUiKit.translateOperations(batchOperations, language);
+    result.runtimeEvidence.translatedTexts = C8O.crudUiKit.translatedCount;
     var batchApplyResult = ctx.batchApply({
       target: ctx.ngxAppQName(projectName),
       strict: true,
@@ -1528,6 +1727,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       }
     }
     if (sharedBindingOperations.length) {
+      C8O.crudUiKit.translateOperations(sharedBindingOperations, language);
+      result.runtimeEvidence.translatedTexts = C8O.crudUiKit.translatedCount;
       var sharedBindingsBatch = ctx.batchApply({
         target: ctx.ngxAppQName(projectName),
         strict: true,

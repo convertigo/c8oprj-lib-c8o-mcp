@@ -227,6 +227,7 @@ C8O.crud = C8O.crud || {};
     return {
       trimmed: trimmed,
       clone: clone,
+      optionalNormalizedIdentifier: optionalNormalizedIdentifier,
       ensureArray: ensureArray,
       toBoolean: toBoolean,
       pluralize: pluralize,

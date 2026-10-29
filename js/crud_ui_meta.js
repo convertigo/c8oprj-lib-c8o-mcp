@@ -180,6 +180,11 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     if (compact.length && lookup[compact]) {
       return lookup[compact];
     }
+    // client_id__label, the label column a list answers for a relation, names the relation field: it shows that label.
+    var labelOf = primary.replace(/_+label$/, "");
+    if (labelOf !== primary && labelOf.length) {
+      return lookupByAliases(ctx, lookup, labelOf);
+    }
     return null;
   }
 
@@ -427,6 +432,9 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     for (var i = 0; i < refs.length; i++) {
       var token = ctx.normalizedIdentifier(refs[i]);
       var field = lookupByAliases(ctx, lookup, token);
+      if (!field && token.length && currentOptions.unknown) {
+        currentOptions.unknown.push(token);
+      }
       if (!field || seen[field.column]) {
         continue;
       }
@@ -461,9 +469,19 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     });
     var previewDefaults = C8O.crudUiMeta.schemaPreviewFields(ctx, entity, 2, false);
     var detailDefaults = C8O.crudUiMeta.schemaPreviewFields(ctx, entity, 2, true);
-    var listFields = resolveFieldList(ctx, entity, overrideUi.listFields, previewDefaults, { excludePrimary: false });
-    var detailFields = resolveFieldList(ctx, entity, overrideUi.detailFields, detailDefaults, { excludePrimary: false });
-    var formFields = resolveFieldList(ctx, entity, overrideUi.formFields, editableFields, { excludePrimary: true });
+    var unknownFieldRefs = [];
+    var listFields = resolveFieldList(ctx, entity, overrideUi.listFields, previewDefaults, { excludePrimary: false, unknown: unknownFieldRefs });
+    var detailFields = resolveFieldList(ctx, entity, overrideUi.detailFields, detailDefaults, { excludePrimary: false, unknown: unknownFieldRefs });
+    var formFields = resolveFieldList(ctx, entity, overrideUi.formFields, editableFields, { excludePrimary: true, unknown: unknownFieldRefs });
+    // A label for a field the entity lacks: the field the agent meant is not in the pages either.
+    var labelLookup = resolvedFieldLookup(ctx, entity);
+    var labelKeys = Object.keys(overrideUi.fieldLabels || {});
+    for (var labelIndex = 0; labelIndex < labelKeys.length; labelIndex++) {
+      var labelToken = ctx.normalizedIdentifier(labelKeys[labelIndex]);
+      if (labelToken.length && !lookupByAliases(ctx, labelLookup, labelToken)) {
+        unknownFieldRefs.push(labelToken);
+      }
+    }
     var fieldLabels = {};
     var allConfigFields = listFields.concat(detailFields).concat(formFields);
     for (var fieldIndex = 0; fieldIndex < allConfigFields.length; fieldIndex++) {
@@ -537,6 +555,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       editableFields: mappedEditableFields,
       relationFields: mappedRelationFields,
       fieldLabels: fieldLabels,
+      unknownFieldRefs: unknownFieldRefs.filter(function (token, index) { return unknownFieldRefs.indexOf(token) === index; }),
       uniqueFields: uniqueFields
     };
   };

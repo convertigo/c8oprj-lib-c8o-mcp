@@ -111,6 +111,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         },
         facadePrefix: { type: "string", description: "CRUD business sequence prefix used for shell labels and future wiring." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
+        language: { type: "string", enum: ["en", "fr"], description: "Language of the texts the kit writes (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English." },
         runtimeEvidence: {
           description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",
           oneOf: [

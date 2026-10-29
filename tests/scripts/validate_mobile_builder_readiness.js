@@ -164,3 +164,14 @@ assert.strictEqual(classify({
 }).ready, false, "generation_no_change must not bypass viewer hydration");
 
 console.log("mobile builder readiness decision tests passed");
+
+// stateOnly on a live builder with nothing to wait for and a viewer that does not show the app: four waits of 46 s
+// answered "building" while a call without stateOnly answered ready at once (usage tests 29/10). The wait stops after
+// IDLE_VIEWER_STOP_MS and the answer says to call without stateOnly.
+assert.match(openSource, /idleViewerWithoutApp = stateOnlyValue === true && builderProcessAlive && buildJobState\.supported === true &&\s*!buildJobActive && !waitingForGeneration && !waitingForScheduledCycle && !waitingForPendingCycle &&\s*!waitingForViewerReload && !waitingForRecentLaunch && snapshot\.failed !== true && currentViewerReady !== true;/,
+  "an idle builder whose viewer does not show the app is recognised in stateOnly mode");
+assert.match(openSource, /if \(idleViewerWithoutApp\) \{\s*idleSince = idleSince \|\| java\.lang\.System\.currentTimeMillis\(\);\s*if \(java\.lang\.System\.currentTimeMillis\(\) - idleSince >= IDLE_VIEWER_STOP_MS\) \{\s*break;/,
+  "the waited stateOnly loop stops once the builder has been idle long enough");
+assert.match(openSource, /status === "building" && idleViewerWithoutApp\s*\? \{ tool: "mobile-builder-open", arguments: \{ project: projectName, stateOnly: false, wait: true \} \}/,
+  "the answer points to a call without stateOnly");
+assert.match(openSource, /var IDLE_VIEWER_STOP_MS = 8000;/);

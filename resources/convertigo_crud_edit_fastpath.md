@@ -27,16 +27,35 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
 - `upsert-crud` keeps the rows of tables that already hold rows: no reset, no demo seed. A field added to an entity
   becomes a new column (`ALTER TABLE ... ADD`), filled on the existing rows with its `default` (`fields[].default`);
   `runtimeEvidence.existingDatabase` lists the rows kept and the columns added.
+- List every field of an entity you change: a field left out leaves its CRUD (its column and values stay in the table),
+  and the answer warns about the table columns left out. An entity named without fields, only for a relation, keeps
+  all the columns of its table (`runtimeEvidence.existingDatabase.keptColumns`).
 - It never changes or drops an existing column. A type change (more decimals, a longer text) is an `ALTER TABLE` you
   write in a one-shot transaction (`sql-transaction-create`), run once, then delete; the answer of `upsert-crud` gives
   the statement when the spec asks for more decimals than the column has.
 - Never run `init_schema` by hand to apply a schema change: the `init_schema` of an app generated earlier deletes every
   row and inserts the demo rows again. Read its SQL first. `seed.reset:true` resets the tables to the demo rows, only
   when the user asks for it.
+- A row you create to check a change (`requestable-execute`, a browser proof) lands among the user's rows: delete it by
+  its id as soon as its check is done, before the next step, and say in the answer if one is left.
+
+## Language of the kit texts
+The kit writes its buttons, titles, states and messages in English unless `language` says otherwise. For a French
+app, or to translate pages the kit wrote in English, run `upsert-ngx-crud-kit` with `stage: "final"`,
+`language: "fr"` and the same entities and ui hints as before: one call instead of editing every text. Texts you
+wrote yourself (field labels, action labels) come from the ui hints.
+
+## Server-side checks (validation)
+- Put the check in the create and update business sequences (`crud_create_<entity>`, `crud_update_<entity>`): an
+  `IfStep` on the variable, holding an `XMLErrorStep` with `code` and the message the user reads (`output: true`), before
+  the call of the transaction. The sequence then answers an `error` element and the call resolves.
+- The kit edit form shows that message above its buttons and does not emit `Saved`. A form generated before this
+  behaviour gets it from `upsert-ngx-crud-kit` with `stage: "final"` (same entities and ui hints as before); check the
+  message with a save the check refuses.
 
 ## Deterministic rail for an existing CRUD project
 1. Run `crud-status` to confirm the current project, connector, business sequence prefix, entry page, and UI variant.
-2. Build the full updated CRUD `spec` in one pass.
+2. Build the full updated CRUD `spec` in one pass: every field of each entity you change.
 3. Run `upsert-crud` with `sequence=true` and `ui=false`.
 4. Run backend `crud-proof`.
 5. If the task includes UI, run `upsert-ngx-crud-kit` once with `stage=final`.

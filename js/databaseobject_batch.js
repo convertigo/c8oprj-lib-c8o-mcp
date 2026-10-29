@@ -1303,7 +1303,9 @@ include("js/sql_dialect.js");
     for (var p = 0; p < propertyNames.length; p++) {
       var rawName = propertyNames[p];
       var normalized = C8O.dbo._normalizePropertyLookupKey ? C8O.dbo._normalizePropertyLookupKey(rawName) : String(rawName).toLowerCase();
-      if (reservedKeys[normalized]) {
+      // "Name" on an NGX dynamic element is an Ionic property (the kind of an ion-spinner), not the object name.
+      var ionName = rawName === "Name" && /\.UIDynamicElement$/.test(String(dbo && dbo.getClass ? dbo.getClass().getName() : ""));
+      if (reservedKeys[normalized] && !ionName) {
         if (normalized === "name") {
           report.warnings.push(scopeName + ": property '" + rawName + "' ignored. Use databaseobject-rename.");
         } else {

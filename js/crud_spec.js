@@ -291,7 +291,8 @@ C8O.crudSpec = C8O.crudSpec || {};
       var rawEntityKey = entityKeys[entityIndex];
       var entity = C8O.crudSpec.findEntityByName(ctx, entities, rawEntityKey);
       if (!entity) {
-        throw new Error("seed.data contains an unknown entity: " + rawEntityKey);
+        throw new Error("seed.data contains an unknown entity: " + rawEntityKey + ". Key it by an entity name of the spec: " +
+          C8O.crudSpec.entityNamesOf(ctx, entities).join(", ") + ".");
       }
       var rawRows = ctx.ensureArray(rawSeedData[rawEntityKey]);
       var normalizedRows = [];
@@ -401,6 +402,8 @@ C8O.crudSpec = C8O.crudSpec || {};
     }
     var normalized = {
       name: naming.name,
+      // The name the spec gave, so seed.data and relations find the entity by it even when plural/singular rename it.
+      sourceName: ctx.optionalNormalizedIdentifier ? ctx.optionalNormalizedIdentifier(rawEntity.name || rawEntity.entity || "") : "",
       singular: naming.singular,
       label: naming.displayLabel,
       displayLabel: naming.displayLabel,
@@ -435,14 +438,28 @@ C8O.crudSpec = C8O.crudSpec || {};
   };
 
   C8O.crudSpec.findEntityByName = function (ctx, entities, entityName) {
-    var expected = ctx.pluralize(ctx.normalizedIdentifier(entityName || ""));
+    var given = ctx.normalizedIdentifier(entityName || "");
+    var expected = ctx.pluralize(given);
     var entries = ctx.ensureArray(entities);
     for (var i = 0; i < entries.length; i++) {
       if (entries[i] && entries[i].name === expected) {
         return entries[i];
       }
     }
+    // The entity as the spec named it (Company with plural "Sociétés"), or its singular.
+    for (var j = 0; j < entries.length; j++) {
+      var entry = entries[j];
+      if (entry && (entry.sourceName === given || entry.singular === given || entry.name === given)) {
+        return entry;
+      }
+    }
     return null;
+  };
+
+  C8O.crudSpec.entityNamesOf = function (ctx, entities) {
+    return ctx.ensureArray(entities).map(function (entry) {
+      return entry && (entry.sourceName || entry.name);
+    }).filter(function (name) { return !!name; });
   };
 
   C8O.crudSpec.findField = function (ctx, entity, predicate) {
@@ -534,6 +551,22 @@ C8O.crudSpec = C8O.crudSpec || {};
     if (!rawRelation || typeof rawRelation !== "object") {
       return null;
     }
+    // {from: "Contact.CompanyId", to: "Company"} is the short form of fromEntity/fromField and toEntity/toField.
+    if (!rawRelation.fromEntity && typeof rawRelation.from === "string" && rawRelation.from.indexOf(".") > 0) {
+      rawRelation = ctx.clone ? ctx.clone(rawRelation) : JSON.parse(JSON.stringify(rawRelation));
+      rawRelation.fromEntity = rawRelation.from.split(".")[0];
+      rawRelation.fromField = rawRelation.fromField || rawRelation.from.split(".").slice(1).join(".");
+    }
+    if (!rawRelation.toEntity && typeof rawRelation.to === "string" && rawRelation.to.length) {
+      rawRelation.toEntity = rawRelation.to.split(".")[0];
+      rawRelation.toField = rawRelation.toField || rawRelation.to.split(".").slice(1).join(".") || "id";
+    }
+    if (!ctx.trimmed(rawRelation.fromEntity || "").length || !ctx.trimmed(rawRelation.fromField || rawRelation.toField || "").length ||
+        !ctx.trimmed(rawRelation.toEntity || "").length) {
+      throw new Error("Invalid relation definition: fromEntity, fromField and toEntity are required (toField defaults to id), " +
+        "for example {\"fromEntity\": \"contacts\", \"fromField\": \"company_id\", \"toEntity\": \"companies\"} " +
+        "or {\"from\": \"contacts.company_id\", \"to\": \"companies\"}. Got " + JSON.stringify(rawRelation) + ".");
+    }
     var rawType = ctx.trimmed(rawRelation.type || "many-to-one").toLowerCase();
     var source = {
       name: ctx.trimmed(rawRelation.name || ""),
@@ -558,8 +591,12 @@ C8O.crudSpec = C8O.crudSpec || {};
     if (!source.fromEntity.length || !source.fromField.length || !source.toEntity.length || !source.toField.length) {
       throw new Error("Invalid relation definition: fromEntity/fromField/toEntity/toField are required");
     }
-    var fromEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, source.fromEntity);
-    var toEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, source.toEntity);
+    var rawFrom = rawType === "one-to-many" ? rawRelation.toEntity : rawRelation.fromEntity;
+    var rawTo = rawType === "one-to-many" ? rawRelation.fromEntity : rawRelation.toEntity;
+    var fromEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, source.fromEntity) || C8O.crudSpec.findEntityByName(ctx, spec.entities, rawFrom);
+    var toEntity = C8O.crudSpec.findEntityByName(ctx, spec.entities, source.toEntity) || C8O.crudSpec.findEntityByName(ctx, spec.entities, rawTo);
+    source.fromEntity = fromEntity ? fromEntity.name : source.fromEntity;
+    source.toEntity = toEntity ? toEntity.name : source.toEntity;
     if (!fromEntity) {
       throw new Error("Unknown relation fromEntity: " + source.fromEntity);
     }
@@ -796,6 +833,7 @@ C8O.crudSpec = C8O.crudSpec || {};
     result.seed.data = normalizeSeedData(ctx, result.entities, result.seed.data);
     result.ui.entryPage = ctx.trimmed(result.ui.entryPage || "Home");
     result.ui.variant = ctx.trimmed(result.ui.variant || "entity-pages");
+    result.ui.language = ctx.trimmed(result.ui.language || "").toLowerCase().substring(0, 2);
     C8O.crudSpec.applyCrmDefaults(ctx, result);
     result.relations = C8O.crudSpec.normalizeRelations(ctx, result, spec.relations);
     if (isNaN(result.seed.rowsPerEntity) || result.seed.rowsPerEntity <= 0) {
