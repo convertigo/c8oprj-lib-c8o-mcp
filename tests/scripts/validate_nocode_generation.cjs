@@ -3158,12 +3158,23 @@ test('add_field and move_field place a top-level component by its place on the p
   let r = h.client.edit(id, [{ action: 'move_field', fieldName: 'b3', pageName: 'Deux', index: 1 }], h.auth);
   assert.equal(r.saved, true, JSON.stringify(r.validation || r.error));
   assert.deepEqual(order(r.form, 'Deux'), ['b1', 'b3', 'b2'], 'index 1 is the second place on page Deux');
-  r = h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 9 }], h.auth);
-  assert.deepEqual(order(r.form, 'Une'), ['a2', 'a3', 'box', 'a1'], 'past the end: last on the page');
+  // A position in the whole form, as agents counted before 0.2.29-beta.7 (b2 is the 8th component): refused, nothing saved.
+  const saves = h.state.saves;
+  const whole = h.client.edit(id, [{ action: 'move_field', fieldName: 'b3', pageName: 'Deux', index: 7 }], h.auth);
+  assert.equal(whole.saved, false);
+  assert.match(whole.error.message, /^index 7 is past the 2 top-level components of page "Deux" \(b1, b2\): give the place among them from 0 \(2 = after the last\), or before\/after a component$/);
+  assert.equal(h.state.saves, saves);
+  const added = h.client.edit(id, [{ action: 'add_field', fieldObject: { type: 'text', name: 'b9', label: 'b9' }, pageName: 'Deux', index: 4 }], h.auth);
+  assert.match(added.error.message, /^index 4 is past the 3 top-level components of page "Deux"/);
+  r = h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 4 }], h.auth);
+  assert.deepEqual(order(r.form, 'Une'), ['a2', 'a3', 'box', 'a1'], 'counted with the component that moves, 4 is still the last place');
+  assert.deepEqual(clone(r.operations[0].placed), { index: 3, after: 'box', before: null, container: null });
+  assert.equal(h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 5 }], h.auth).saved, false);
   r = h.client.edit(id, [{ action: 'move_field', fieldName: 'b1', after: 'b2' }], h.auth);
   assert.deepEqual(order(r.form, 'Deux'), ['b3', 'b2', 'b1']);
   r = h.client.edit(id, [{ action: 'move_field', fieldName: 'a3', before: 'y' }], h.auth);
   assert.deepEqual(kids(r.form, 'box'), ['x', 'a3', 'y'], 'before a child: into its container at its place');
+  assert.deepEqual(clone(r.operations[0].placed), { index: 1, after: 'x', before: 'y', container: 'box' });
   assert.equal(byName(r.form, 'a3').parentRef, byName(r.form, 'box').id);
   r = h.client.edit(id, [{ action: 'add_field', fieldObject: { type: 'text', name: 'b0', label: 'b0' }, pageName: 'Deux', index: 0 }], h.auth);
   assert.deepEqual(order(r.form, 'Deux'), ['b0', 'b3', 'b2', 'b1']);
