@@ -497,7 +497,10 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       ctx.addWarning(result, "Unable to configure WorkInProgressCard shared sources: invalid component priority for " + componentQName);
       return [];
     }
-    var textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressText";
+    var textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressMessage.TplWorkInProgressText";
+    if (!ctx.resolveQName(textQName, { optional: true })) {
+      textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.TplWorkInProgressText";
+    }
     if (!ctx.resolveQName(textQName, { optional: true })) {
       textQName = componentQName + ".WorkInProgressCardRoot.WorkInProgressCardContent.WorkInProgressText";
     }
@@ -1220,7 +1223,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         if (!renameResult || renameResult.renamed !== true) {
           throw new Error("Unable to rename starter entry page Page to Home for " + projectName);
         }
-        ctx.addWarning(result, "Renamed starter entry page Page to Home for " + projectName + ".");
+        // A step of every new app, not a problem: a warning made each upsert-crud answer partial.
+        result.runtimeEvidence = result.runtimeEvidence || {};
+        result.runtimeEvidence.entryPageRenamed = "Page -> " + requestedName;
         return requestedName;
       }
     }

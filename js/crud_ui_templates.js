@@ -696,8 +696,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
               className: "ngx.components.UIDynamicElement#CardContent",
               name: "TplWorkInProgressCardContent",
               children: [
-                ctx.scriptTextNode("TplWorkInProgressText", "this.Message"),
-                ctx.plainTextNode("TplWorkInProgressHint", "This page will be ready in a moment.")
+                ctx.textElementNode("ngx.components.UIDynamicElement#Paragraph", "TplWorkInProgressMessage",
+                  ctx.scriptTextNode("TplWorkInProgressText", "this.Message")),
+                ctx.textElementNode("ngx.components.UIDynamicElement#Paragraph", "TplWorkInProgressHintParagraph",
+                  ctx.plainTextNode("TplWorkInProgressHint", "This page will be ready in a moment."))
               ]
             }
           ]

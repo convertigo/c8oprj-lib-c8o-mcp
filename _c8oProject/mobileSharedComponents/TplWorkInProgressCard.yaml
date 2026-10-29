@@ -18,13 +18,19 @@ comment: Template source for the bootstrap work-in-progress card.
   ↓TplWorkInProgressCardContent [ngx.components.UIDynamicElement-1775818410350]: 
     beanData: '{"ionBean":"CardContent"}'
     tagName: ion-card-content
-    ↓TplWorkInProgressText [ngx.components.UIText-1775818410352]: 
-      textValue: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-          - MobileSmartSourceType: script:this.Message
-    ↓TplWorkInProgressHint [ngx.components.UIText-1775818410354]: 
-      textValue: 
-        - xmlizable: 
-          - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
-          - MobileSmartSourceType: plain:This page will be ready in a moment.
+    ↓TplWorkInProgressMessage [ngx.components.UIDynamicElement-1793302100001]: 
+      beanData: '{"ionBean":"Paragraph"}'
+      tagName: p
+      ↓TplWorkInProgressText [ngx.components.UIText-1775818410352]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: script:this.Message
+    ↓TplWorkInProgressHintParagraph [ngx.components.UIDynamicElement-1793302100003]: 
+      beanData: '{"ionBean":"Paragraph"}'
+      tagName: p
+      ↓TplWorkInProgressHint [ngx.components.UIText-1775818410354]: 
+        textValue: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+            - MobileSmartSourceType: plain:This page will be ready in a moment.
