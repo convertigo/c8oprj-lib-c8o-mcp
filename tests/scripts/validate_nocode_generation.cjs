@@ -2381,6 +2381,99 @@ test('nocode-form-validate refuses a select written into a link_row column with 
   // Without baserowLinks (compile, the saves) validate stays static.
   assert.ok(!api().validate(compiled).validation.warnings.some(w => w.code === 'link_row_selects_unverified'));
 });
+// Skyjo (29/10): joueur_histo listed the players with value "id" and columns ["Nom"]. C8Oforms refuses the rows of a
+// select whose displayed or stored value is not among its columns to the respondents of the published form
+// (js/baserow_published_read.js); No Code Studio warned under Source configuration, nocode-form-validate passed it.
+function historyApp(source = {}) {
+  return { name: 'Historiques', navigationMode: 'custom', pages: [{ name: 'Historiques', fields: [
+    { type: 'select', name: 'joueur_histo', label: 'Joueur', source: { table: 7001, display: 'Nom', value: 'id', ...source } }
+  ] }] };
+}
+const histoSource = form => byName(form, 'joueur_histo').sources['lib_BaseRow.formssource_GetSelectData'];
+const histoConfig = form => JSON.parse(histoSource(form).vars.forms_config.str);
+function setHistoColumns(form, columns) {
+  const config = histoConfig(form);
+  config.columns = columns;
+  histoSource(form).vars.forms_config.str = JSON.stringify(config);
+}
+test('the reduced source puts the displayed and stored values among its columns', () => {
+  for (const [source, columns] of [[{}, ['Nom', 'id']], [{ columns: ['Nom'] }, ['Nom', 'id']], [{ value: 'Nom' }, ['Nom']],
+    [{ columns: ['Prénom'], value: 'Nom' }, ['Prénom', 'Nom']]]) {
+    const compiled = api().compile(historyApp(source), { tableIndex: linkTables });
+    assert.equal(compiled.status, 'ok', JSON.stringify(compiled.validation.issues));
+    assert.deepEqual(histoConfig(compiled.form).columns, columns, JSON.stringify(source));
+  }
+});
+test('nocode-form-validate refuses a select whose displayed or stored value is not among its columns', () => {
+  const form = api().compile(historyApp(), { tableIndex: linkTables }).form;
+  form._id = 'skyjo';
+  setHistoColumns(form, ['Nom']);
+  const path = '/formulaire/' + form.formulaire.indexOf(byName(form, 'joueur_histo')) + '/sources/lib_BaseRow.formssource_GetSelectData/vars/forms_config';
+  const result = api().validate(form, { baserowLinks: true }).validation;
+  assert.equal(result.valid, false);
+  const issue = result.issues.find(i => i.code === 'baserow_select_columns');
+  assert.ok(issue, JSON.stringify(result.issues));
+  assert.equal(issue.path, path);
+  assert.match(issue.message, /^joueur_histo shows "Nom" and stores "id", but "id" is not among its columns \["Nom"\]: C8Oforms refuses its rows to the respondents of the published form/);
+  assert.match(issue.message, /A form already published keeps the refused source until it is published again$/);
+  assert.ok(!result.warnings.some(w => w.code === 'baserow_select_columns'));
+  assert.deepEqual(histoConfig(form).columns, ['Nom'], 'validate does not change the form');
+  // The static validation of a saved form (a read, a save that leaves the select alone) reports it without refusing.
+  const draft = api().validate(form).validation;
+  assert.ok(draft.warnings.some(w => w.code === 'baserow_select_columns' && w.path === path));
+  assert.ok(!draft.issues.some(i => i.code === 'baserow_select_columns'));
+  // The display outside the columns, a missing value, and the editor's own shape.
+  setHistoColumns(form, ['id']);
+  assert.match(api().validate(form, { baserowLinks: true }).validation.issues.find(i => i.code === 'baserow_select_columns').message, /but "Nom" is not among its columns \["id"\]/);
+  const config = histoConfig(form);
+  delete config.value;
+  config.columns = ['Nom'];
+  histoSource(form).vars.forms_config.str = JSON.stringify(config);
+  assert.match(api().validate(form, { baserowLinks: true }).validation.issues.find(i => i.code === 'baserow_select_columns').message, /^joueur_histo has no value in its forms_config \(columns \["Nom"\]\): C8Oforms refuses its rows/);
+  setHistoColumns(form, ['Nom', 'id']);
+  const fixed = histoConfig(form);
+  fixed.value = 'id';
+  histoSource(form).vars.forms_config.str = JSON.stringify(fixed);
+  assert.ok(!api().validate(form, { baserowLinks: true }).validation.issues.some(i => i.code === 'baserow_select_columns'));
+});
+test('compile and create add the missing values to the columns of a native select source', () => {
+  const native = () => ({ name: 'Historiques', navigationMode: 'custom', pages: [{ name: 'Historiques', fields: [
+    { type: 'select', name: 'joueur_histo', label: 'Joueur', sources: { 'lib_BaseRow.formssource_GetSelectData': { enabled: true, vars: {
+      forms_config: { str: JSON.stringify({ table_id: 'Team~>Jeux~>Joueurs', table_id_int: 7001, columns: ['Nom'], displayValue: 'Nom', value: 'id', hidden: [], link_row_table_id: [] }), html: false } } } } }
+  ] }] });
+  const compiled = api().compile(native(), { tableIndex: linkTables });
+  assert.equal(compiled.status, 'ok', JSON.stringify(compiled.validation.issues));
+  assert.deepEqual(histoConfig(compiled.form).columns, ['Nom', 'id']);
+  assert.deepEqual(histoConfig(compiled.form).hidden, ['id'], 'hidden as well, as No Code Studio adds it (C8Oforms #1741)');
+  assert.ok(compiled.validation.warnings.some(w => w.code === 'select_columns_completed'));
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(native(), { ...h.auth, tableIndex: linkTables });
+  assert.equal(created.saved, true, JSON.stringify(created.validation || created.error));
+  assert.deepEqual(histoConfig(h.state.forms[created.form._id]).columns, ['Nom', 'id']);
+  assert.ok(created.validation.warnings.some(w => w.code === 'select_columns_completed'), JSON.stringify(created.validation.warnings.map(w => w.code)));
+});
+test('an edit adds the missing values to the columns of a select it changes and only reports one it leaves alone', () => {
+  const h = creationHarness({ columnsByTable: linkColumns });
+  const created = h.client.create(historyApp(), { ...h.auth, tableIndex: linkTables });
+  assert.equal(created.saved, true, JSON.stringify(created.validation || created.error));
+  assert.ok(!created.validation.warnings.some(w => w.code === 'select_columns_completed'), 'the reduced source has them already');
+  const id = created.form._id;
+  setHistoColumns(h.state.forms[id], ['Nom']);
+  const unrelated = h.client.edit(id, [{ action: 'set_root', patch: { name: 'Historiques du jeu' } }], h.auth);
+  assert.equal(unrelated.saved, true, JSON.stringify(unrelated.validation || unrelated.error));
+  assert.deepEqual(histoConfig(h.state.forms[id]).columns, ['Nom'], 'a select the edit did not change keeps its columns');
+  assert.ok(unrelated.validation.warnings.some(w => w.code === 'baserow_select_columns'));
+  assert.ok(!unrelated.validation.warnings.some(w => w.code === 'select_columns_completed'));
+  const changed = h.client.edit(id, [{ action: 'update_field', fieldName: 'joueur_histo', patch: { sources: { 'lib_BaseRow.formssource_GetSelectData': { vars: { forms_tableSort: { str: '', html: false, type: 'sort', conds: [{ name: 'Nom', order: 'asc' }] } } } } } }], h.auth);
+  assert.equal(changed.saved, true, JSON.stringify(changed.validation || changed.error));
+  assert.deepEqual(histoConfig(h.state.forms[id]).columns, ['Nom', 'id']);
+  assert.deepEqual(histoConfig(h.state.forms[id]).hidden, ['id']);
+  assert.equal(histoConfig(h.state.forms[id]).value, 'id');
+  const warning = changed.validation.warnings.find(w => w.code === 'select_columns_completed');
+  assert.ok(warning, 'kept after the readback: ' + JSON.stringify(changed.validation.warnings.map(w => w.code)));
+  assert.match(warning.message, /^joueur_histo: "id" added to the columns of its source/);
+  assert.ok(!changed.validation.warnings.some(w => w.code === 'baserow_select_columns'));
+});
 // Skyjo (26/10): the current game and round were formulas over hidden grids (row_selected, 10 rows a page, the
 // defaults) and a localStorage flag set by business_logic steps; a debug field stayed in the delivered form.
 const skyjoPartie = "(()=>{try{const v=fields.score_last;const a=Array.isArray(v)?v:(v&&Array.isArray(v.data))?v.data:[];const num=(x)=>Number((x&&typeof x==='object')?x.value:x)||0;const m=a.reduce((acc,r)=>Math.max(acc,num(r.Partie)),0);return localStorage.getItem('skyjo_new_game')==='1'?(m+1):(m||1)}catch(e){return '1'}})()";

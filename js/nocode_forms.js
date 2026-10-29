@@ -572,7 +572,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           outsideContract: "table_id_int alone is not a full source configuration: supply the discovered table path and requested columns too. Runtime identity fields are automatic for new creation; existing saved bindings must contain verified identities."
         },
         tableData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Amount"], hidden: [], link_row_table_id: [] } },
-        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], link_row_table_id: [] } },
+        selectData: { required: ["table_id", "table_id_int", "columns"], optional: ["view_id", "displayValue", "value", "hidden", "link_row_table_id"], columnsRule: "columns holds displayValue and value, \"id\" (the row id) included: C8Oforms refuses the rows of a select whose displayed or stored value is not among them to the respondents of the published form, while the preview of its owner still reads them. create, edit and update add them to a select they change; nocode-form-validate refuses the gap (baserow_select_columns).", example: { table_id: "Workspace~>Database~>Table", table_id_int: 123, columns: ["Name", "Code"], displayValue: "Name", value: "Code", hidden: [], link_row_table_id: [] } },
         fieldValues: { required: ["table_id", "columns"], example: { table_id: 123, columns: ["Status"] } }
       },
       filter: {
@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-29.editor-defaults-v21",
+      contractVersion: "2026-10-29.select-columns-v22",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -2401,7 +2401,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         key = "lib_BaseRow.formssource_GetSelectData";
         var display = trimmed(spec.display);
         var valueColumn = trimmed(spec.value) || display;
-        if (!columns.length) { columns = valueColumn === display ? [display] : [display, valueColumn]; }
+        // The published form refuses the rows of a select whose displayed or stored value is not among its columns.
+        [display, valueColumn].forEach(function (column) { if (columns.indexOf(column) < 0) { columns.push(column); } });
         vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, displayValue: display, value: valueColumn, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
         if (spec.filter != null) { vars.forms_Filter = filterVariable(spec.filter, what); }
         if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
@@ -3069,7 +3070,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
+    var completedSelects = completeSelectColumns(doc, null);
     var validation = validateForm(doc, { project: projectName, generation: true }).validation;
+    completedSelects.forEach(function (item) { validation.warnings.push(item); });
+    validation.warningCount = validation.warnings.length;
     if (!doc.formulaire.length) {
       // A reduced form without a single component is never a deliverable
       // application; it usually means the reduced JSON was lost on the way.
@@ -3139,6 +3143,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       if (/formssource_Get(Table|Select)Data$/.test(key) && (!Array.isArray(binding.columns) || !binding.columns.length || binding.columns.some(function (column) { return typeof column !== "string" || !trimmed(column); }))) {
         incomplete("missing_baserow_columns", "A Baserow data source requires non-empty column names from the discovered table", path + "/vars/forms_config");
+      }
+      var selectGap = key === "lib_BaseRow.formssource_GetSelectData" ? selectColumnsGap(binding) : null;
+      if (selectGap) {
+        incomplete("baserow_select_columns", selectColumnsMessage(owner.name, selectGap), path + "/vars/forms_config");
       }
       var rowId = entry.vars.forms_id;
       if (key === "lib_BaseRow.forms_DeleteRow" && (!rowId || !trimmed(rowId.str))) {
@@ -3841,6 +3849,51 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     validation.valid = validation.issueCount === 0;
   }
 
+  // A select (GetSelectData) whose displayed or stored value is not among its columns: C8Oforms refuses its rows to the
+  // respondents of the published form (js/baserow_published_read.js), while the preview of its owner still reads them.
+  // "id", the row id (the Identifier of the editor), counts as a column (Skyjo, joueur_histo with value "id" and columns
+  // ["Nom"], 29/10). No Code Studio adds them when it saves or opens the application (C8Oforms #1741), older versions
+  // only warn under Source configuration. Compared as the server does, without trimming. null when nothing is missing,
+  // or when the source has no columns (it reads every field).
+  function selectColumnsGap(config) {
+    if (!config || !Array.isArray(config.columns) || !config.columns.length) { return null; }
+    var shown = config.displayValue || config.column;
+    var stored = config.value || config.line;
+    var named = function (name) { return typeof name === "string" && name !== "" && name.length <= 255; };
+    var unnamed = [];
+    if (!named(shown)) { unnamed.push("displayValue"); }
+    if (!named(stored)) { unnamed.push("value"); }
+    var missing = [];
+    [shown, stored].forEach(function (name) { if (named(name) && config.columns.indexOf(name) < 0 && missing.indexOf(name) < 0) { missing.push(name); } });
+    return unnamed.length || missing.length ? { shown: shown, stored: stored, columns: config.columns, unnamed: unnamed, missing: missing } : null;
+  }
+  function selectColumnsMessage(name, gap) {
+    var what = gap.unnamed.length ? "has no " + gap.unnamed.join(" nor ") + " in its forms_config (columns " + JSON.stringify(gap.columns) + ")" :
+      "shows " + JSON.stringify(gap.shown) + " and stores " + JSON.stringify(gap.stored) + ", but " + gap.missing.map(function (column) { return JSON.stringify(column); }).join(" and ") +
+      (gap.missing.length > 1 ? " are" : " is") + " not among its columns " + JSON.stringify(gap.columns);
+    return name + " " + what + ": C8Oforms refuses its rows to the respondents of the published form, while the preview of its owner still reads them. " +
+      "Its columns must hold the displayed and the stored value, \"id\" (the row id) included: nocode-form-edit, nocode-form-update and nocode-form-create add them to a select they change, for example with update_field, as No Code Studio does when it saves the application. A form already published keeps the refused source until it is published again";
+  }
+
+  // create, edit and update: a select the call creates or changes gets its displayed and stored values among its
+  // columns and its hidden columns, as No Code Studio writes them (baserowReadColumns of the editor page, C8Oforms
+  // #1741). The rows it shows do not change: lib_BaseRow reads those two fields whatever the columns. A select an edit
+  // leaves alone is only reported (baserow_select_columns).
+  function completeSelectColumns(form, strict) {
+    var warnings = [];
+    baserowBindings(form).forEach(function (binding) {
+      if (!/\/lib_BaseRow\.formssource_GetSelectData$/.test(binding.path) || (strict && strict.indexOf(binding.path) < 0)) { return; }
+      var gap = selectColumnsGap(binding.config);
+      if (!gap || gap.unnamed.length) { return; }
+      var hidden = ensureArray(binding.config.hidden);
+      binding.config.columns = binding.config.columns.concat(gap.missing);
+      binding.config.hidden = hidden.concat(gap.missing.filter(function (column) { return hidden.indexOf(column) < 0; }));
+      binding.variable.str = JSON.stringify(binding.config);
+      warnings.push({ code: "select_columns_completed", message: binding.item.name + ": " + gap.missing.map(function (column) { return JSON.stringify(column); }).join(" and ") + " added to the columns of its source. C8Oforms refuses the rows of a select to the respondents of the published form when its displayed or stored value is not among its columns; the rows it shows do not change", path: binding.path + "/vars/forms_config" });
+    });
+    return warnings;
+  }
+
   function hasUnverifiedLinkRowSelects(form) {
     var bindings = baserowBindings(form);
     return bindings.some(function (binding) { return /\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path); }) &&
@@ -3970,7 +4023,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (thumbnailImage.media) {
       sanitized.thumbnail = { enabled: true, index: 0, type: "custom" };
     }
+    var completedSelects = completeSelectColumns(sanitized, sanitized._id ? ensureArray(opts.strictBindingPaths) : null);
     var validation = validateForm(sanitized, opts).validation;
+    completedSelects.forEach(function (item) { validation.warnings.push(item); });
+    validation.warningCount = validation.warnings.length;
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
     }
@@ -5153,11 +5209,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   C8O.nocodeForms.compile = compileReduced;
   // nocode-form-validate (baserowLinks): the static checks, then, with the authenticated No Code account, the selects
-  // written into a link_row column (read only: the fields of the written tables).
+  // written into a link_row column (read only: the fields of the written tables). A select the respondents of the
+  // published form cannot read is an issue there, whoever wrote it; a save only reports one it leaves alone.
   C8O.nocodeForms.validate = function (form, options) {
     var result = validateForm(form, options);
     if (!options || options.baserowLinks !== true || !result || !result.validation || !form || typeof form !== "object") { return result; }
     var validation = result.validation;
+    validation.warnings = validation.warnings.filter(function (item) {
+      if (!item || item.code !== "baserow_select_columns") { return true; }
+      validation.issues.push(item);
+      return false;
+    });
     var authentication = null;
     try { authentication = validateToken(options); } catch (_authenticationError) { authentication = null; }
     if (authentication && authentication.authenticated === true) {
@@ -5202,9 +5264,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return saved;
   }
 
-  // The warnings of a save that read Baserow (the link_row selects it rewrote or reports): the static validation of the
-  // read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table"];
+  // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
+  // columns it added to a select): the static validation of the read-back form cannot find them again.
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }
@@ -5341,6 +5403,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var saved = saveForm(compiled.form, createOptions);
     attachSavedForm(saved, compiled.form, createOptions);
+    // The columns the compilation added to a native select source.
+    if (saved.validation) { keepSaveTimeWarnings(saved.validation, saveTimeWarnings(compiled.validation)); }
     saved.allTypesPath = compiled.allTypesPath;
     if (saved.saved === true) { finalizeBaserowBindings(saved, createOptions, compiled.bindingFinalization.bindingCount, true); }
     return saved;
