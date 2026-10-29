@@ -1,0 +1,26 @@
+accessibility: Private
+comment: |
+  What a held No Code write answers the agent instead of the tool (js/nocode_write_confirm.js): the user refused the change on the confirmation card of the Tigo panel, the card waits for the user, or it was not answered in time. The MCP router calls it with the answer it built; it is not a tool and is never listed.
+↓Run [steps.SimpleStep-1793290000001]: 
+  expression: |
+    'try {
+      result = JSON.parse(String(answer));
+    } catch (e) {
+      result = { status: "refused", saved: false, reason: "confirm_unavailable", message: "The confirmation of this change could not be asked: nothing was saved." };
+    }'
+↓result [steps.JsonToXmlStep-1793290000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓answer [variables.RequestableVariable-1793290000003]: 
+  comment: The answer to the agent, as JSON.
+  description: The answer to the agent, as JSON.

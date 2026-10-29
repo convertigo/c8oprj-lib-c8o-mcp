@@ -755,6 +755,33 @@ if (methodName === "initialize") {
       if (callSequence === targetSequence && managedShowExperimental && EXPERIMENTAL_CAPABLE_SEQUENCES[targetSequence] === true) {
         callVariables._showExperimental = "true";
       }
+      // "Confirmer avant de modifier": while the No Code user has it on, a write waits for their answer on a card of the
+      // Tigo panel (js/nocode_write_confirm.js), whatever the agent's provider. Off unless the Assistant wrote it on.
+      if (callSequence === targetSequence && typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind === "nocode") {
+        var heldAnswer = null;
+        try {
+          if (typeof C8O.nocodeWriteConfirm === "undefined" || !C8O.nocodeWriteConfirm.run) {
+            include("js/nocode_write_confirm.js");
+          }
+          heldAnswer = C8O.nocodeWriteConfirm.run(targetSequence, callVariables, { user: mcpAuthentication.user, conversationId: managedConversationId }, C8O.nocodeWriteConfirm.javaHost());
+        } catch (heldError) {
+          // A user who asked to confirm never gets an unconfirmed write.
+          var confirmOn = true;
+          try {
+            confirmOn = C8O.nocodeWriteConfirm.isOn(context.server, mcpAuthentication.user);
+          } catch (_unknownChoice) {}
+          if (confirmOn && C8O.nocodeWriteConfirm.WRITE_TOOLS && C8O.nocodeWriteConfirm.WRITE_TOOLS[targetSequence]) {
+            heldAnswer = { status: "refused", saved: false, reason: "confirm_unavailable", message: "The confirmation of this change could not be asked: nothing was saved. Tell the user in one sentence." };
+          }
+          try {
+            com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] change confirmation failed: " + heldError);
+          } catch (_ignoreHeldLog) {}
+        }
+        if (heldAnswer) {
+          callSequence = "nocode_write_held";
+          callVariables = { answer: JSON.stringify(heldAnswer) };
+        }
+      }
       if (callSequence === targetSequence) {
         injectMeta(callVariables);
       }

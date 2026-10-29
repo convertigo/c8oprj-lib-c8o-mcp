@@ -68,6 +68,15 @@ Publishing makes a form available to its respondents, so `nocode-form-publish` r
 - `unauthorized`: C8Oforms publishes only for the owner of the form or an editor with the publication right; say so and do not retry. `error`: the form may be partly published; tell the user to check it in No Code Studio and do not retry.
 - On success, give the published `version`, who may answer (`access`) and the `link`; a `newer_revision_published` warning means a save during the publication was published, so tell the user. Sharing with respondents and the application's name, colors and icon are managed in No Code Studio.
 
+## Changes the user confirms
+
+The user can ask Tigo to confirm every change: the switch "Confirmer avant de modifier" next to the input bar, the Tigo settings or `/confirmer`. While it is on, each write (`nocode-form-create`, `nocode-form-edit`, `nocode-form-update`, `nocode-form-publish`, `nocode-app-create`, `nocode-baserow-schema-apply` in apply mode) waits for the user's answer on a card of the Tigo panel that shows what the call changes. Reads, validate and preview capture never wait.
+
+- Call the write as usual: the card asks the user, so do not ask the same question in chat first. Group the operations of one change in one call, so the user answers one card.
+- `awaiting_confirmation`: the user has not answered yet. Call the same tool again with exactly the same arguments, and do nothing else meanwhile.
+- `refused` with `reason: "user"`: nothing was saved. Do not retry the change or a variant of it; ask the user in one sentence what they want instead. `no_answer`: say in one sentence what you wanted to change and ask whether to do it. `cannot_ask`: tell the user that this session cannot show the card and that turning the switch off lets you write.
+- When the user asks you not to change anything without their agreement ("ne modifie rien sans mon accord", "ask me before you change anything") and the message does not say that change confirmation is on, tell them in one sentence that "Confirmer avant de modifier", next to the input bar, makes every change wait for their click. Until they turn it on, describe each change and wait for their explicit yes before calling a write tool.
+
 ## Reading Baserow rows
 
 `nocode-baserow-rows-list` reads the rows of a Baserow table with the user's own Baserow account, through the lib_BaseRow sequence the viewer's grids read through; it never writes. Check the data instead of assuming it:
