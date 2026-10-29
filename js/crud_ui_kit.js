@@ -198,6 +198,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     "No primary value": "Aucune valeur",
     "No secondary value": "Aucune valeur",
     "Manage your records": "Gérez vos enregistrements",
+    "Template Login": "Connexion",
     "Home": "Accueil",
     "Login": "Connexion"
   };
@@ -210,6 +211,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     [/^Save( .+)?$/, function () { return "Enregistrer"; }],
     [/^New (.+)$/, function () { return "Ajouter"; }],
     [/^Select (.+)$/, function (m) { return "Sélectionner : " + m[1]; }],
+    [/^(.+) detail$/, function (m) { return "Détails : " + m[1]; }],
     // A field label before its value, "Auteur: ", takes a space before the colon in French.
     [/^([^:]*[^ :]): $/, function (m) { return m[1] + " : "; }]
   ];

@@ -54,6 +54,8 @@ test('a field label before its value takes the French colon', () => {
   assert.equal(K.translateText('Montant (€): ', 'fr'), 'Montant (€) : ');
   assert.equal(K.translateText('Rows: ', 'fr'), 'Lignes : ');
   assert.equal(K.translateText('Auteur: ', 'en'), 'Auteur: ');
+  assert.equal(K.translateText('Interventions detail', 'fr'), 'Détails : Interventions');
+  assert.equal(K.translateText('Template Login', 'fr'), 'Connexion');
 });
 
 test('a French text keeps a script literal valid, and English is left as it is', () => {
