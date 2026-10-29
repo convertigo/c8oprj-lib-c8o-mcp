@@ -60,3 +60,11 @@ test('a write under a CRUD-kit page warns an agent, never the kit writing its ow
   assert.equal((tools.match(/args\.managedCrudWriter = true;\n\s*return C8O\.dbo\.batchApply\(args\);/g) || []).length, 2,
     'both batchApply helpers of the CRUD kit mark the kit as the writer');
 });
+
+test('"Name" of an NGX dynamic element is its Ionic property, not the object name', () => {
+  // tree-apply of an ion-spinner with Name (its kind) warned "property 'Name' ignored. Use databaseobject-rename" and
+  // dropped it; the CRUD kit's own Login template got that warning on every generation (usage tests 29/10).
+  const source = fs.readFileSync(path.join(root, 'js/databaseobject_batch.js'), 'utf8');
+  assert.match(source, /var ionName = rawName === "Name" && \/\\\.UIDynamicElement\$\/\.test\(/);
+  assert.match(source, /if \(reservedKeys\[normalized\] && !ionName\) \{/);
+});
