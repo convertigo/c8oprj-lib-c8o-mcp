@@ -170,6 +170,21 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return normalized;
   };
 
+  C8O.crudUiKit.facadeEntitiesOf = function (ctx, project, facadePrefix) {
+    var entities = [];
+    var pattern = new RegExp("^" + String(facadePrefix).replace(/[^A-Za-z0-9_]/g, "") + "_count_([A-Za-z0-9_]+)$");
+    try {
+      var sequences = project.getSequencesList();
+      for (var i = 0; i < sequences.size(); i++) {
+        var match = pattern.exec(String(sequences.get(i).getName()));
+        if (match) {
+          entities.push({ name: match[1] });
+        }
+      }
+    } catch (_noSequences) {}
+    return entities;
+  };
+
   C8O.crudUiKit.hydrateUiEntityFromFacade = function (ctx, projectName, facadePrefix, entity, result) {
     if (!entity || !needsUiFieldHydration(ctx, entity)) {
       return entity;
@@ -1139,11 +1154,17 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       throw new Error("Project " + projectName + " is not loaded");
     }
     var facadePrefix = ctx.trimmed(options.facadePrefix || "crud");
+    var requestedEntities = ctx.ensureArray(options.entities);
+    if (!requestedEntities.length) {
+      // Without entities the kit built the CRM demo pair (companies, contacts) in any project: the entities are the
+      // ones upsert-crud generated, one <prefix>_count_<entity> sequence each; their fields come from their lists.
+      requestedEntities = C8O.crudUiKit.facadeEntitiesOf(ctx, project, facadePrefix);
+    }
     var entities = C8O.crudUiKit.hydrateUiEntitiesFromFacade(
       ctx,
       projectName,
       facadePrefix,
-      C8O.crudUiKit.normalizeUiEntities(ctx, options.entities),
+      C8O.crudUiKit.normalizeUiEntities(ctx, requestedEntities),
       result
     );
     var entryPage = ensureEntryPage(ctx, projectName, options.entryPage || "Home", result);
