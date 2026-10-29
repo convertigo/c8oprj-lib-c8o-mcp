@@ -2715,7 +2715,9 @@ C8O.dbo._findNgxCreateCandidateByLogicalClass = function (classNameWithLogicalId
 C8O.dbo._listNgxComponentsByBaseClass = function (baseClassFqcn, referenceDbo, options) {
   options = options || {};
   var baseClass = C8O.util.toTrimmedString ? C8O.util.toTrimmedString(baseClassFqcn || "") : String(baseClassFqcn || "").trim();
-  if (!baseClass.length || !C8O.dbo._isNgxClassFqcn(baseClass)) {
+  // anyBaseClass: every NGX entry, whatever its class (close names for a guessed one).
+  var anyBaseClass = options.anyBaseClass === true;
+  if (!anyBaseClass && (!baseClass.length || !C8O.dbo._isNgxClassFqcn(baseClass))) {
     return [];
   }
 
@@ -2781,7 +2783,7 @@ C8O.dbo._listNgxComponentsByBaseClass = function (baseClassFqcn, referenceDbo, o
       } catch (_ignoreCandidateClassName) {
         candidateClassName = "";
       }
-      if (!candidateClassName.length || candidateClassName !== baseClass) {
+      if (!candidateClassName.length || (anyBaseClass ? !C8O.dbo._isNgxClassFqcn(candidateClassName) : candidateClassName !== baseClass)) {
         continue;
       }
 
@@ -2832,37 +2834,109 @@ C8O.dbo._formatNgxCandidates = function (candidates, maxItems) {
   return labels.join(", ");
 };
 
-// Close NGX entries for a logical id that does not exist (#Column -> #GridCol "Grid Column"):
-// the id or the palette label contains the requested word, or a usual synonym does.
+// Palette names close to a guessed one (22/10: palette-describe and palette-list answered a guessed NGX name with
+// nothing to try next). words: the guessed word first, then usual synonyms. candidates: [{name, keys, rank}], keys being
+// the words an entry is known by (logical id, label, HTML tag, class). A key is close to the guessed word when they are
+// the same once case, separators and the ion-, Ion, UI and UIDynamic prefixes are dropped (#IonButton, ion-button and
+// UIButton are #Button), when one holds the other, or when they are a few typos apart; a synonym only by the first
+// two. Closest first, then rank (0 for the class asked for), then the nearest length; at most maxItems names.
+C8O.dbo.closePaletteNames = function (words, candidates, maxItems) {
+  function comparable(text) {
+    var squashed = String(text == null ? "" : text).toLowerCase().replace(/[^a-z0-9]/g, "");
+    var bare = squashed.replace(/^(?:uidynamic|ion|ui)/, "");
+    return bare.length >= 3 ? bare : squashed;
+  }
+  function editDistance(a, b) {
+    var previous = [];
+    for (var k = 0; k <= b.length; k++) {
+      previous.push(k);
+    }
+    for (var i = 1; i <= a.length; i++) {
+      var current = [i];
+      for (var j = 1; j <= b.length; j++) {
+        current.push(Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1)));
+      }
+      previous = current;
+    }
+    return previous[b.length];
+  }
+  var wanted = [];
+  for (var w = 0; w < (words || []).length; w++) {
+    var word = comparable(words[w]);
+    if (word.length >= 3 && wanted.indexOf(word) === -1) {
+      wanted.push(word);
+    }
+  }
+  var scored = [];
+  for (var c = 0; c < (candidates || []).length && wanted.length; c++) {
+    var candidate = candidates[c];
+    var best = -1;
+    for (var k2 = 0; k2 < (candidate.keys || []).length; k2++) {
+      var key = comparable(candidate.keys[k2]);
+      if (key.length < 3) {
+        continue;
+      }
+      for (var x = 0; x < wanted.length; x++) {
+        var target = wanted[x];
+        var distance = key === target ? 0 : (key.indexOf(target) !== -1 || target.indexOf(key) !== -1 ? 1 : -1);
+        if (distance === -1 && x === 0) {
+          var typos = editDistance(target, key);
+          distance = typos <= (target.length <= 4 ? 1 : Math.max(2, Math.floor(target.length / 4))) ? typos + 1 : -1;
+        }
+        if (distance === -1) {
+          continue;
+        }
+        var score = (x === 0 ? distance : 10 + distance) * 1000 + (candidate.rank || 0) * 100 + Math.min(99, Math.abs(key.length - target.length));
+        if (best === -1 || score < best) {
+          best = score;
+        }
+      }
+    }
+    if (best !== -1) {
+      scored.push({ name: candidate.name, score: best, order: c });
+    }
+  }
+  scored.sort(function (a, b) {
+    return a.score - b.score || a.order - b.order;
+  });
+  var out = [];
+  for (var s = 0; s < scored.length && out.length < (maxItems || 6); s++) {
+    if (out.indexOf(scored[s].name) === -1) {
+      out.push(scored[s].name);
+    }
+  }
+  return out;
+};
+
+// Close NGX entries, of any NGX class, for a guessed className: #Column -> #GridCol "Grid Column" (a usual synonym),
+// #IonButton or ion-button -> #Button, UIDynamicElement#CallSequenceAction -> UIDynamicAction#CallSequenceAction. The
+// logical id is the guessed word, or the class name when there is no '#' (ngx.components.UIButton). Entries of the
+// class asked for come first at the same distance.
 C8O.dbo.suggestNgxLogicalClasses = function (classNameWithLogicalId, maxItems) {
   var parsed = C8O.dbo.parseLogicalClassToken(classNameWithLogicalId || "");
-  if (!parsed.hasLogicalId) {
-    return [];
-  }
-  var wanted = String(parsed.logicalId || "").toLowerCase();
+  var baseSimple = String(parsed.baseClassFqcn || "").substring(String(parsed.baseClassFqcn || "").lastIndexOf(".") + 1);
+  var wanted = String(parsed.hasLogicalId ? parsed.logicalId : baseSimple).toLowerCase();
   var synonyms = { table: ["grid", "list"], column: ["gridcol", "col"], row: ["gridrow"], cell: ["gridcol"],
     title: ["bartitle", "cardtitle", "heading"], text: ["textitem", "paragraph", "span"], container: ["div", "content"],
     image: ["image", "img"], link: ["button", "anchor"], section: ["div", "heading2"] };
-  var words = [wanted].concat(synonyms[wanted] || []);
-  var found = [];
-  var candidates = [];
+  var entries = [];
   try {
-    candidates = C8O.dbo._listNgxComponentsByBaseClass(parsed.baseClassFqcn, null, { requireAllowedInParent: false });
+    entries = C8O.dbo._listNgxComponentsByBaseClass("", null, { requireAllowedInParent: false, anyBaseClass: true });
   } catch (_ignoreList) {}
-  // Words in order: the requested one first, then its synonyms, so the closest entries come first.
-  var seen = {};
-  for (var w = 0; w < words.length && found.length < (maxItems || 6); w++) {
-    for (var i = 0; i < candidates.length && found.length < (maxItems || 6); i++) {
-      var id = String(candidates[i].logicalId || "").toLowerCase();
-      var label = "";
-      try { label = String(candidates[i].component.getLabel() || ""); } catch (_ignoreLabel) {}
-      if (!seen[id] && words[w].length >= 3 && (id.indexOf(words[w]) !== -1 || label.toLowerCase().indexOf(words[w]) !== -1)) {
-        seen[id] = true;
-        found.push(C8O.util.fromFqcn(candidates[i].logicalClassName) + (label.length ? " (" + label + ")" : ""));
-      }
-    }
+  var candidates = [];
+  for (var i = 0; i < entries.length; i++) {
+    var label = "";
+    var tag = "";
+    try { label = String(entries[i].component.getLabel() || ""); } catch (_ignoreLabel) {}
+    try { tag = String(entries[i].component.getTag() || ""); } catch (_ignoreTag) {}
+    var entryBase = String(entries[i].baseClassFqcn);
+    candidates.push({
+      name: C8O.util.fromFqcn(entries[i].logicalClassName) + (label.length ? " (" + label + ")" : ""),
+      keys: [entries[i].logicalId, label, tag],
+      rank: entryBase.substring(entryBase.lastIndexOf(".") + 1) === baseSimple ? 0 : 1
+    });
   }
-  return found;
+  return C8O.dbo.closePaletteNames([wanted].concat(synonyms[wanted] || []), candidates, maxItems || 6);
 };
 
 C8O.dbo.findNgxComponentByLogicalClass = function (classNameWithLogicalId, referenceDbo, options) {
