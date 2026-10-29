@@ -298,7 +298,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         allowDataReset: {
           type: "boolean",
           default: false,
-          description: "Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it."
+          description: "Set true only when the user's own words ask to empty or reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it. A request to fix values (cents lost, a wrong label) is not one: UPDATE the rows concerned; deleting and inserting the demo rows again loses the rows the user entered."
         }
       },
       required: ["requestable"],

@@ -376,8 +376,8 @@ comment: |
   comment: Optional authenticated user for this call only (what the login sequence passes to context.setAuthenticatedUser), to run a sequence marked authenticatedContextRequired.
   description: Optional authenticated user for this call only (what the login sequence passes to context.setAuthenticatedUser), to run a sequence marked authenticatedContextRequired.
 ↓allowDataReset [variables.RequestableVariable-1793300000001]: 
-  comment: Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it.
-  description: Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it.
+  comment: Set true only when the user's own words ask to empty or reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it. A request to fix values (cents lost, a wrong label) is not one: UPDATE the rows concerned; deleting and inserting the demo rows again loses the rows the user entered.
+  description: Set true only when the user's own words ask to empty or reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it. A request to fix values (cents lost, a wrong label) is not one: UPDATE the rows concerned; deleting and inserting the demo rows again loses the rows the user entered.
 ↓ip [core.TestCase-1763981218508]: 
   ↓requestable [variables.TestCaseVariable-1763981219651]: 
     value: codex_test.http_demo.get_ip
