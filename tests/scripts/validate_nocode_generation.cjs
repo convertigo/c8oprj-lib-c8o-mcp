@@ -2464,6 +2464,37 @@ test('an edit rewrites a select it changes and only reports one it leaves alone'
   assert.equal(selectConfig(h.state.forms[id]).value, 'id');
   assert.ok(changed.validation.warnings.some(w => w.code === 'link_row_select_value_rewritten'));
 });
+// A save that leaves a table's primary field empty: Baserow and every link to the row show « unnamed row N » (usage
+// tests, 29/10: an edit removed the only input of a primary text column). A computed primary (formula) needs no input.
+const primaryTables = [{ id: 9101, name: 'Articles', path: 'Team~>Stock~>Articles' }, { id: 9102, name: 'Mouvements', path: 'Team~>Stock~>Mouvements' }];
+const primaryColumns = {
+  9101: [{ id: 11, name: 'Titre', type: 'text', primary: true }, { id: 12, name: 'Quantité', type: 'number' }],
+  9102: [{ id: 13, name: 'Résumé', type: 'formula', primary: true }, { id: 14, name: 'Quantité', type: 'number' }]
+};
+function primaryApp(table, inputs, save = { table }) {
+  return { name: 'Stock', navigationMode: 'custom', pages: [{ name: 'Saisie', fields: inputs.map(name => ({ type: 'text', name, label: name }))
+    .concat([{ type: 'button', name: 'save', label: 'Enregistrer', flow: 'save_row' }]) }],
+    flows: [{ id: 'save_row', name: 'Enregistrer', elements: [{ type: 'submit', saveTo: save }] }] };
+}
+test('create and edit warn when a save leaves the primary field of its table empty', () => {
+  const of = r => clone(r.validation.warnings).filter(w => w.code === 'primary_field_not_filled');
+  let h = creationHarness({ columnsByTable: primaryColumns });
+  const filled = h.client.create(primaryApp(9101, ['Titre', 'Quantité']), { ...h.auth, tableIndex: primaryTables });
+  assert.equal(filled.saved, true, JSON.stringify(filled.validation || filled.error));
+  assert.deepEqual(of(filled), []);
+  // The edit removes the only input of the primary field: the unchanged save no longer fills it.
+  const removed = h.client.edit(filled.form._id, [{ action: 'remove_field', fieldName: 'Titre' }], h.auth);
+  assert.equal(removed.saved, true, JSON.stringify(removed.validation || removed.error));
+  assert.equal(of(removed).length, 1, JSON.stringify(removed.validation.warnings.map(w => w.code)));
+  assert.match(of(removed)[0].message, /adds rows to Articles without filling its primary field "Titre": .*« unnamed row N »/);
+  // Created without it, with a mapping without it, and a computed primary.
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.equal(of(h.client.create(primaryApp(9101, ['Quantité']), { ...h.auth, tableIndex: primaryTables })).length, 1);
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.equal(of(h.client.create(primaryApp(9101, ['Titre', 'Quantité'], { table: 9101, values: { Quantité: 'Quantité' } }), { ...h.auth, tableIndex: primaryTables })).length, 1);
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.deepEqual(of(h.client.create(primaryApp(9102, ['Quantité']), { ...h.auth, tableIndex: primaryTables })), []);
+});
 test('nocode-form-validate refuses a select written into a link_row column with another value than the row id', () => {
   const compiled = api().compile(scoresApp(), { tableIndex: linkTables }).form;
   assert.equal(selectConfig(compiled).value, 'Nom', 'the offline compile does not know the column types');

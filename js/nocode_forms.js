@@ -3929,10 +3929,40 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     };
   }
 
+  // Usage tests (29/10, test-nocode): an edit removed the only input of a table's primary field (a text column the
+  // saves filled); the rows saved since have an empty primary value, and every link to them (a select, a grid column
+  // of another table) shows « unnamed row N ». Neither the edit answer nor validate said so.
+  var COMPUTED_FIELD_TYPES = ["formula", "autonumber", "created_on", "last_modified", "created_by", "last_modified_by", "uuid", "count", "rollup", "lookup"];
+  function primaryFieldNotFilled(form, binding, fields, validation) {
+    var primary = ensureArray(fields).filter(function (field) { return field && (field.primary === true || field.primary === "true"); })[0];
+    if (!primary || COMPUTED_FIELD_TYPES.indexOf(String(primary.type)) >= 0) { return; }
+    var name = String(primary.name);
+    var filled;
+    if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) {
+      var columns = freeVarsColumns(binding.entry.vars.forms_freeVars);
+      if (!columns) { return; }
+      filled = columns.indexOf(name) >= 0;
+    } else {
+      filled = ensureArray(form.formulaire).some(function (item) { return item && item.name === name && ["description", "button", "layout", "grid", "map"].indexOf(item.type) < 0; });
+    }
+    if (filled) { return; }
+    var table = String(binding.config.table_id || binding.config.table_id_int).split("~>").pop();
+    validation.warnings.push({ code: "primary_field_not_filled", message: (binding.item && (binding.item.name || binding.item.id) || "A save") + " adds rows to " + table + " without filling its primary field " + JSON.stringify(name) + ": in Baserow and in every link to those rows (a select or a grid column of another table) they show as « unnamed row N ». Keep an input named " + JSON.stringify(name) + " in the form (or map it with forms_AddRowFromData), or tell the user that the rows will have no name", path: binding.path });
+  }
+
   function validateBaserowColumns(form, authentication, options, validation) {
     var fieldsOf = tableFieldsReader(authentication);
+    var removedInputs = ensureArray(options.removedInputNames);
     baserowBindings(form).forEach(function (binding) {
-      if (form._id && ensureArray(options.strictBindingPaths).indexOf(binding.path) < 0) { return; }
+      if (form._id && ensureArray(options.strictBindingPaths).indexOf(binding.path) < 0) {
+        // An edit that removes an input leaves an unchanged save without the column it filled.
+        if (removedInputs.length && /\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path) && binding.config && binding.config.table_id_int &&
+            (!binding.config.source_owner || binding.config.source_owner === authentication.user)) {
+          var unchangedFields = fieldsOf(binding.config.table_id_int);
+          if (unchangedFields && unchangedFields.length) { primaryFieldNotFilled(form, binding, unchangedFields, validation); }
+        }
+        return;
+      }
       if (!binding.config || !binding.config.table_id_int) { return; }
       function problem(code, message) { validation.issues.push({ code: code, message: message, path: binding.path }); }
       // Do not fetch another account's catalog while editing a shared binding.
@@ -3959,6 +3989,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           problem("unmapped_baserow_inputs", "No input technical name matches the selected table columns. Use forms_AddRowFromData with an explicit column/value mapping");
         }
       }
+      if (/\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path)) { primaryFieldNotFilled(form, binding, fields, validation); }
       // As the editor writes it (modalConfigure): the tables the link_row columns of the table point to. After a save, the
       // viewer refreshes the sources of the written table and of the tables it links to (findSameSourceInBaserow).
       var links = linkedTableIds(fields);
@@ -5397,7 +5428,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
   // columns it added to a select): the static validation of the read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted"];
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted", "primary_field_not_filled"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }
@@ -5499,6 +5530,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     edited._id = current._id;
     edited._rev = current._rev;
     opts.strictBindingPaths = prepareEditedBaserowBindings(current, edited, trimmed(authentication.user));
+    var editedNames = {};
+    ensureArray(edited.formulaire).forEach(function (item) { if (item && item.name) { editedNames[item.name] = true; } });
+    opts.removedInputNames = ensureArray(current.formulaire).filter(function (item) {
+      return item && item.name && !editedNames[item.name] && ["description", "button", "layout", "grid", "map"].indexOf(item.type) < 0;
+    }).map(function (item) { return item.name; });
     var expected = baserowBindings(edited).filter(function (binding) { return opts.strictBindingPaths.indexOf(binding.path) >= 0; });
     var saved = saveForm(edited, opts);
     attachSavedForm(saved, sanitizeFormBeforeSave(edited), opts);
