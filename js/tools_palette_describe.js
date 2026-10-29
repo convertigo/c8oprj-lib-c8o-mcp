@@ -132,6 +132,87 @@ function mapHints(hints, className, compact) {
   return results;
 }
 
+// The built-in palette entries (steps, transactions, variables...): their short className and display name.
+function listExplorerEntries() {
+  var out = [];
+  var groupIt = Engine.theApp.getDboExplorerManager().getGroups().iterator();
+  while (groupIt.hasNext()) {
+    var categoryIt = groupIt.next().getCategories().iterator();
+    while (categoryIt.hasNext()) {
+      var beansIt = categoryIt.next().getBeans().iterator();
+      while (beansIt.hasNext()) {
+        var beanIt = beansIt.next().getBeans().iterator();
+        while (beanIt.hasNext()) {
+          var bean = beanIt.next();
+          if (!bean.getClassName() || (C8O.dbo.isHiddenExperimentalBean && C8O.dbo.isHiddenExperimentalBean(bean))) {
+            continue;
+          }
+          var fqcn = String(bean.getClassName());
+          var displayName = "";
+          try { displayName = String(Packages.java.lang.Class.forName(fqcn + "BeanInfo").getConstructor().newInstance().getBeanDescriptor().getDisplayName()); } catch (_noBeanInfo) {}
+          out.push({ className: C8O.util.fromFqcn(fqcn), displayName: displayName });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// How to find the real names, at the end of every "not found": palette-list without target lists NGX classes
+// without their logical id (ngx.components.UIText), which this tool refuses, so the target matters.
+var LIST_REAL_NAMES = "palette-list with target=<parent QName> lists the exact classNames that parent accepts (filter=<word> narrows it); " +
+  "NGX entries, ngx.components.<Class>#<logicalId>, are listed only for an NGX target such as <Project>.Application.NgxApp.pg:<Page>.";
+
+// Close entries for a className that is not in the palette: NGX ones (with their '#<logicalId>') and built-in ones,
+// the NGX ones first when the guess looks like an NGX name (#..., ion-..., Ion..., UI...).
+function closeEntries(token, parsed) {
+  var ngxClose = [];
+  try {
+    ngxClose = C8O.dbo.suggestNgxLogicalClasses(token, 6);
+  } catch (_ignoreNgxClose) {}
+  var builtInClose = [];
+  if (!C8O.dbo._isNgxClassFqcn(parsed.baseClassFqcn)) {
+    var simple = String(parsed.baseClassName).substring(String(parsed.baseClassName).lastIndexOf(".") + 1);
+    var candidates = [];
+    try {
+      candidates = listExplorerEntries().filter(function (entry) {
+        return entry.className.indexOf("ngx.") !== 0;
+      }).map(function (entry) {
+        return { name: entry.className + (entry.displayName.length ? " (" + entry.displayName + ")" : ""),
+          keys: [entry.className.substring(entry.className.lastIndexOf(".") + 1), entry.displayName] };
+      });
+    } catch (_ignoreExplorer) {}
+    builtInClose = C8O.dbo.closePaletteNames([parsed.hasLogicalId ? parsed.logicalId : simple], candidates, 6);
+  }
+  var ngxFirst = parsed.hasLogicalId || /^(?:ion-|Ion[A-Z]|UI[A-Z])|(?:^|\.)ngx\./.test(token);
+  return (ngxFirst ? ngxClose.concat(builtInClose) : builtInClose.concat(ngxClose)).slice(0, 6);
+}
+
+function notFound(token, parsed, detail) {
+  var close = closeEntries(token, parsed);
+  return new Error("Palette entry not found for className '" + token + "'" + (detail ? ": " + detail : "") +
+    (close.length ? ". Close entries: " + close.join(", ") : "") + ". " + LIST_REAL_NAMES);
+}
+
+// Palette entries of an NGX class, written <Class>#<logicalId>, for a className without its '#': the usual ones first.
+function ngxEntriesOfClass(baseClassFqcn) {
+  var entries = [];
+  try {
+    Packages.java.lang.Class.forName(baseClassFqcn);
+  } catch (_noClass) {
+    return null;
+  }
+  try {
+    entries = C8O.dbo._listNgxComponentsByBaseClass(baseClassFqcn, null, { requireAllowedInParent: false });
+  } catch (_ignoreEntries) {}
+  var usual = ["Button", "Input", "FormItem", "Card", "List", "Label", "Grid", "CallSequenceAction", "SetLocalAction"];
+  return entries.slice().sort(function (a, b) {
+    var ia = usual.indexOf(String(a.logicalId));
+    var ib = usual.indexOf(String(b.logicalId));
+    return (ia === -1 ? usual.length : ia) - (ib === -1 ? usual.length : ib);
+  });
+}
+
 function locateExplorerEntry(classNameText) {
   var explorer = Engine.theApp.getDboExplorerManager();
   var groups = explorer.getGroups();
@@ -276,7 +357,21 @@ var hintClassLabel = parsedRequested.baseClassName || parsedRequested.baseClassF
 
 if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
   if (!parsedRequested.hasLogicalId) {
-    throw new Error("For NGX palette describe, className must include '#<logicalId>'");
+    // palette-list without target lists NGX classes this way. A class of one palette entry is that entry, as
+    // databaseobject-tree-apply creates it; a class of several needs its '#<logicalId>'; a class that does not exist
+    // was guessed (ngx.components.UIButton).
+    var ofClass = ngxEntriesOfClass(parsedRequested.baseClassFqcn);
+    if (ofClass === null) {
+      throw notFound(requestedClassToken, parsedRequested, "there is no NGX class " + parsedRequested.baseClassName);
+    }
+    if (ofClass.length !== 1) {
+      throw new Error("For NGX palette describe, className must include '#<logicalId>'" + (ofClass.length ?
+        ": " + parsedRequested.baseClassName + " is the class of " + ofClass.length + " palette entries, such as " +
+        ofClass.slice(0, 6).map(function (entry) { return C8O.util.fromFqcn(entry.logicalClassName); }).join(", ") :
+        ", and " + parsedRequested.baseClassName + " has no palette entry") + ". " + LIST_REAL_NAMES);
+    }
+    requestedClassToken = C8O.util.fromFqcn(ofClass[0].logicalClassName);
+    parsedRequested = C8O.dbo.parseLogicalClassToken(requestedClassToken);
   }
   var ngxEntry = locateNgxEntry(requestedClassToken);
   var ownDescribed = !ngxEntry && ngxOwnClass ? describeNgxOwnClass(parsedRequested, ngxOwnClass) : null;
@@ -284,10 +379,7 @@ if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
     entryPayload = ownDescribed.entry;
     describeData = ownDescribed.describe;
   } else if (!ngxEntry) {
-    var closeEntries = C8O.dbo.suggestNgxLogicalClasses ? C8O.dbo.suggestNgxLogicalClasses(requestedClassToken, 6) : [];
-    throw new Error("Palette entry not found for className '" + requestedClassToken + "'" +
-      (closeEntries.length ? ". Close entries: " + closeEntries.join(", ") : "") +
-      ". palette-list on the intended parent lists every entry it accepts.");
+    throw notFound(requestedClassToken, parsedRequested, "");
   }
   if (ngxEntry) {
     var ngxDesc = splitDescription(ngxEntry.description);
@@ -313,7 +405,7 @@ if (C8O.dbo._isNgxClassFqcn(parsedRequested.baseClassFqcn)) {
   var requestedClass = parsedRequested.baseClassFqcn;
   var match = locateExplorerEntry(requestedClass);
   if (!match) {
-    throw new Error("Palette entry not found for className '" + requestedClassToken + "'");
+    throw notFound(requestedClassToken, parsedRequested, "");
   }
 
   var descriptor = match.beanInfo.getBeanDescriptor();

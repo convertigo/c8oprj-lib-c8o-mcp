@@ -539,7 +539,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        className: { type: "string", description: "Palette entry class token, usually copied from palette-list." },
+        className: { type: "string", description: "Palette className, copied from palette-list on the intended parent. An NGX entry is ngx.components.<Class>#<logicalId> (ngx.components.UIDynamicElement#Button): its logical id is the palette one, never an HTML tag (ion-button) or a guessed name." },
         verbose: booleanFlagSchema(false, "Default false returns the property list (names, types, defaults, allowed values). Set true to add property descriptions, hints and the creation template.")
       },
       additionalProperties: false
@@ -550,7 +550,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        target: { type: "string", description: "Parent QName. Append :FolderType only when you need a specific logical folder view." },
+        target: { type: "string", description: "QName of the parent whose creatable entries are listed, not a className. NGX palette names (ngx.components.<Class>#<logicalId>) are listed only for an NGX parent such as <Project>.Application.NgxApp.pg:<Page>. Append :FolderType only when you need a specific logical folder view." },
         includeBuiltIn: booleanFlagSchema(true, "Default true. Set false to hide built-in entries."),
         includeShared: booleanFlagSchema(true, "Default true. Set false to hide shared library entries."),
         filter: { type: "string", description: "Case-insensitive substring filter on category and item names. Use one specific term; a space-separated value is not an OR query." },

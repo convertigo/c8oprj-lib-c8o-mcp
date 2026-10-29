@@ -110,9 +110,24 @@ comment: |
           }
         } catch (_ignoredCandidate) {}
       }
-      // An unknown target used to fall back to the whole palette (370 entries, mostly UI components).
+      // A QName with guessed type prefixes, or a nested step written with st:, is found as the other tools find it.
       if (parentDbo == null) {
-        throw new Error("target: Database object not found: " + targetRaw + ". Create it first, or call palette-list without target to list every entry.");
+        parentDbo = C8O.dbo.resolve(targetRaw, { optional: true });
+      }
+      // An unknown target used to fall back to the whole palette (370 entries, mostly UI components). A className given
+      // as target (22/10) is told apart from a missing object, which gets the close QNames the other tools give.
+      if (parentDbo == null) {
+        var firstSegment = targetRaw.split(".")[0];
+        var isProject = false;
+        try {
+          isProject = Engine.theApp.databaseObjectsManager.existsProject(firstSegment) === true;
+        } catch (_ignoreExists) {}
+        if (!isProject && (targetRaw.indexOf("#") !== -1 || /^(?:(?:ngx|mobile)\.components|steps|sequences|transactions|connectors|variables|statements|common)\.[A-Z]/.test(targetRaw))) {
+          throw new Error("target: " + targetRaw + " is a palette className, not a database object. target takes the QName of the parent whose entries are listed "
+            + "(<Project>.Application.NgxApp.pg:<Page> for NGX components, <Project>.sq:<sequence> for steps); palette-describe takes the className.");
+        }
+        throw new Error(C8O.dbo._buildResolveError(targetRaw, { messagePrefix: "target" }).message + " If it does not exist yet, create it first. "
+          + "Without target, palette-list lists the built-in entries and the NGX classes without their #logicalId: NGX palette names need an NGX target.");
       }
     }
     
@@ -460,7 +475,7 @@ comment: |
           - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
           - SmartType: 
             - ↑mode: JS
-            - →→: '"Use describe.tool with arguments.className to fetch creation template and property hints." + (resultInfo && resultInfo.parentQName && String(resultInfo.parentQName).indexOf(".") === -1 ? " This lists what goes directly under a project: steps go under a sequence (target <project>.<sequence>), variables under a sequence or a transaction." : "")'
+            - →→: '"Use describe.tool with arguments.className to fetch creation template and property hints." + (resultInfo && resultInfo.parentQName && String(resultInfo.parentQName).indexOf(".") === -1 ? " This lists what goes directly under a project: steps go under a sequence (target <project>.<sequence>), variables under a sequence or a transaction." : "") + (resultInfo && !resultInfo.parentQName ? " Without target, NGX components are listed by class only (ngx.components.UIText): their palette names, ngx.components.<Class>#<logicalId>, are listed for an NGX target such as <Project>.Application.NgxApp.pg:<Page>." : "")'
   ↓NextCursorIf [steps.IfStep-1763569773859]: 
     condition: notEmpty(resultInfo && resultInfo.nextCursor)
     ↓NextCursor [steps.JsonFieldStep-1763569779641]: 
@@ -477,8 +492,8 @@ comment: |
             - ↑mode: JS
             - →→: resultInfo.nextCursor
 ↓target [variables.RequestableVariable-1762338110014]: 
-  comment: Parent QName. Append :FolderType only when you need a specific logical folder view.
-  description: Parent QName. Append :FolderType only when you need a specific logical folder view.
+  comment: QName of the parent whose creatable entries are listed, not a className. NGX palette names (ngx.components.<Class>#<logicalId>) are listed only for an NGX parent such as <Project>.Application.NgxApp.pg:<Page>. Append :FolderType only when you need a specific logical folder view.
+  description: QName of the parent whose creatable entries are listed, not a className. NGX palette names (ngx.components.<Class>#<logicalId>) are listed only for an NGX parent such as <Project>.Application.NgxApp.pg:<Page>. Append :FolderType only when you need a specific logical folder view.
 ↓includeBuiltIn [variables.RequestableVariable-1772554401038]: 
   comment: Default true. Set false to hide built-in entries.
   description: Default true. Set false to hide built-in entries.

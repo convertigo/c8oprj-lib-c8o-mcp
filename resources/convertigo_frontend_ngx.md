@@ -39,6 +39,15 @@ For data-backed pages, run the recipe's final tree-readback self-audit before an
 - Prefer stable class names such as `admin-list-item` applied through `Attribute` objects over broad selectors that affect every Ionic component of the same type.
 - If a temporary inline style was used while probing a layout, remove it before completion and replace it with a palette `Attribute` class plus a dedicated `UIStyle` rule.
 
+## NGX palette names
+
+An NGX palette entry is named `ngx.components.<Class>#<logicalId>`, always written in full: `palette-describe` and `databaseobject-tree-apply` do not add the `ngx.components.` prefix.
+
+- `<Class>` is the class of the object: `UIDynamicElement` for Ionic and HTML elements (`#Button`, `#Input`, `#FormItem`, `#Card`, `#List`, `#Heading2`, `#DivTag`), `UIDynamicAction` for actions (`#CallSequenceAction`, `#SetLocalAction`), and a class of its own for the others, whose logical id repeats the class (`ngx.components.UIText#UIText`, `ngx.components.UIControlEvent#UIControlEvent`, `ngx.components.UIStyle#UIStyle`).
+- `<logicalId>` is the palette's own id, in PascalCase. It is not the HTML tag (`ion-button`, `ion-card`), it takes no `Ion` or `UI` prefix (`#IonButton`), and it is not a name of your page (`#SearchForm`, `#ResultsList`). An id belongs to one class: `CallSequenceAction` is a `UIDynamicAction`, not a `UIDynamicElement`.
+- The exact names come from `palette-list` with an NGX parent as `target` (`<Project>.Application.NgxApp.pg:<Page>`, or the component that will hold the new one) and one word as `filter` (`button`, `card`). Pass the returned `className` unchanged to `palette-describe` and `databaseobject-tree-apply`. Without `target`, `palette-list` lists the built-in entries and the NGX classes without their logical id, which are not palette names.
+- When a palette tool answers `Palette entry not found` or `Database object not found`, take one of the close entries it lists, or list the parent once. Do not try another guessed name.
+
 ## Basic presentation
 
 Wiring makes a page work; these patterns make it readable. Checked in a production build: each one renders as described. `ngx-page-create` builds list, detail, form and dashboard pages with them (see `convertigo-recipe-multipage-app`, Generators); apply them by hand to the pages it does not cover.
