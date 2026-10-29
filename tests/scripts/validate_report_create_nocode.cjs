@@ -30,14 +30,14 @@ function route(name, kind, profile) {
 }
 
 // reporting.js on a server: a workspace of files, the TIGO_FEEDBACK_KEY environment variable and the MCP token's user.
-function reporting({ studio = false, env = {}, files = {}, policy = '', user = null } = {}) {
+function reporting({ studio = false, env = {}, files = {}, policy = '', user = null, compiled = 'off' } = {}) {
   const sandbox = {
     C8O: { util: { toTrimmedString: v => v == null ? '' : String(v).trim() } },
     include: () => {},
     Packages: { com: { twinsoft: { convertigo: { engine: { Engine: {
       isStudioMode: () => studio,
       USER_WORKSPACE_PATH: '/ws',
-      theApp: { databaseObjectsManager: { symbolsGetValue: name => name === 'assistant.feedback.policy' ? policy : null, getCompiledValue: () => 'off' } }
+      theApp: { databaseObjectsManager: { symbolsGetValue: name => name === 'assistant.feedback.policy' ? policy : null, getCompiledValue: () => compiled } }
     } } } } } },
     java: {
       lang: {
@@ -131,4 +131,49 @@ test('the skill and the tool ask for a missing capability or a workaround, even 
   const tool = read('_c8oProject/sequences/tools_nocode_report_create.yaml');
   assert.match(tool, /a capability you needed that no no-code tool gives \(seeing the saved form in a browser, reading the rows of a Baserow table, running a calculation\)/);
   assert.match(tool, /File it before your final answer, even when no tool failed\./);
+});
+
+// gregoryv, test-nocode 28/10: filing one friction took four calls. nocode-report-create listed every argument as an
+// optional text and refused area, then severity, then subjectId, each time as an engine exception with a Rhino trace.
+test('report-create declares the finding it needs and refuses a call once, with every missing or invalid field', () => {
+  const overrides = { C8O: {}, include() {} };
+  vm.runInNewContext(read('js/schema_overrides.js'), overrides);
+  const R = reporting({ env: { TIGO_FEEDBACK_KEY: KEY }, files: { ['/ws/agents/feedback/users/alice_example.com--ff8d9819fc0e12bf/settings.json']: '{"mode":"ask"}' }, user: 'google:1:alice@example.com' });
+  const variables = file => [...read(file).matchAll(/^\u2193(\w+) \[variables\.RequestableVariable-/gm)].map(m => m[1]).sort();
+  for (const [sequence, file] of [['tools_nocode_report_create', '_c8oProject/sequences/tools_nocode_report_create.yaml'], ['tools_report_create', '_c8oProject/sequences/tools_report_create.yaml']]) {
+    const schema = JSON.parse(JSON.stringify(overrides.C8O.schemaOverrides.applyInput(sequence, null, null)));
+    assert.deepEqual(schema.required, ['area', 'subjectId', 'severity', 'summary'], sequence);
+    assert.deepEqual(schema.properties.area.enum, [...R.AREAS], sequence);
+    assert.deepEqual(schema.properties.severity.enum, [...R.SEVERITIES], sequence);
+    assert.equal(schema.additionalProperties, false);
+    assert.deepEqual(Object.keys(schema.properties).sort(), variables(file), sequence + ': one property per variable');
+    assert.ok(!schema.properties.area.description, 'the variable description is added by decorateInput');
+    const output = overrides.C8O.schemaOverrides.applyOutput(sequence, null, null);
+    assert.ok(output.properties.error.properties.fields, sequence + ' answers the list of fields');
+    // The answer is the script's object as it is, so the error keeps its list of fields.
+    const tool = read(file);
+    assert.match(tool, /result = reportResult\.error \? reportResult : \{ status: reportResult\.status, message: reportResult\.message, reportId: reportResult\.reportId, /);
+    assert.match(tool, /\u2193result \[steps\.JsonToXmlStep-\d+\]: \n  jsonObject: \n/);
+    assert.doesNotMatch(tool, /JsonFieldStep/);
+  }
+
+  // gregory's first call: a summary alone. One answer names the three missing fields, and nothing is written (the
+  // sandbox has no Files.write: a write would throw).
+  const first = R.writeTigoReport({ summary: 'Hovering a component scrolls the editor page.' });
+  assert.equal(first.status, 'error');
+  assert.equal(first.error.code, 'invalid_arguments');
+  assert.deepEqual(JSON.parse(JSON.stringify(first.error.fields)), [
+    { field: 'area', problem: 'missing', allowed: ['tool', 'guide', 'prompt', 'scenario', 'fixture', 'product-knowledge-gap'] },
+    { field: 'subjectId', problem: 'missing' },
+    { field: 'severity', problem: 'missing', allowed: ['low', 'medium', 'high'] }
+  ]);
+  assert.equal(first.error.message, 'Nothing filed: area is missing (one of tool, guide, prompt, scenario, fixture, product-knowledge-gap); subjectId is missing; severity is missing (one of low, medium, high). Send the call again with area, subjectId, severity and summary.');
+  const wrong = R.writeTigoReport({ area: 'editor', subjectId: ' ', severity: 'urgent', summary: '' });
+  assert.deepEqual([...wrong.error.fields].map(f => [f.field, f.problem, f.received || ''].join(' ')), ['area invalid editor', 'subjectId missing ', 'severity invalid urgent', 'summary missing ']);
+  assert.deepEqual(JSON.parse(JSON.stringify(R._checkFinding({ area: ' Tool ', subjectId: 'nocode-form-edit', severity: 'HIGH', summary: ' x ' }))), { finding: { area: 'tool', subjectId: 'nocode-form-edit', severity: 'high', summary: 'x' } });
+  // report-create (benchmark mode) answers the same before reading the project.
+  const lowCode = reporting({ compiled: 'benchmark' }).writeReport({ area: 'tool', summary: 'x' });
+  assert.deepEqual(JSON.parse(JSON.stringify(lowCode.error.fields.map(f => f.field))), ['subjectId', 'severity']);
+  // Without consent nothing changes: the call is still refused as disabled.
+  assert.throws(() => reporting().writeTigoReport({ summary: 'x' }), /Reporting is disabled/);
 });

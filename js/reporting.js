@@ -236,12 +236,32 @@ C8O.reporting._resolveFeedbackDirectory = function (projectInfo, createdAtDate) 
   return feedbackDir;
 };
 
-C8O.reporting._validateEnum = function (label, value, allowed) {
-  var normalized = C8O.util.toTrimmedString(value).toLowerCase();
-  if (!allowed[normalized]) {
-    throw new Error(label + " must be one of: " + Object.keys(allowed).join(", "));
+C8O.reporting.AREAS = ["tool", "guide", "prompt", "scenario", "fixture", "product-knowledge-gap"];
+C8O.reporting.SEVERITIES = ["low", "medium", "high"];
+
+// gregoryv, test-nocode 28/10: nocode-report-create refused area, then severity, then subjectId, one call each, every
+// refusal an engine exception with a Rhino trace. The finding is checked whole: an invalid call gets one answer that
+// lists every missing or invalid field, and writes nothing.
+C8O.reporting._checkFinding = function (input) {
+  var fields = [];
+  var finding = {};
+  [["area", C8O.reporting.AREAS], ["subjectId", null], ["severity", C8O.reporting.SEVERITIES], ["summary", null]].forEach(function (spec) {
+    var text = C8O.util.toTrimmedString(input && input[spec[0]]);
+    var value = spec[1] ? text.toLowerCase() : text;
+    if (!text.length) {
+      fields.push(spec[1] ? { field: spec[0], problem: "missing", allowed: spec[1] } : { field: spec[0], problem: "missing" });
+    } else if (spec[1] && spec[1].indexOf(value) < 0) {
+      fields.push({ field: spec[0], problem: "invalid", received: text, allowed: spec[1] });
+    }
+    finding[spec[0]] = value;
+  });
+  if (!fields.length) {
+    return { finding: finding };
   }
-  return normalized;
+  var message = "Nothing filed: " + fields.map(function (field) {
+    return field.field + (field.problem === "missing" ? " is missing" : " \"" + field.received + "\" is not allowed") + (field.allowed ? " (one of " + field.allowed.join(", ") + ")" : "");
+  }).join("; ") + ". Send the call again with area, subjectId, severity and summary.";
+  return { invalid: { status: "error", error: { code: "invalid_arguments", message: message, fields: fields } } };
 };
 
 C8O.reporting._optionalString = function (value) {
@@ -259,28 +279,15 @@ C8O.reporting.writeReport = function (input) {
     return C8O.reporting.writeTigoReport(input);
   }
 
+  var checked = C8O.reporting._checkFinding(input);
+  if (checked.invalid) {
+    return checked.invalid;
+  }
   var info = C8O.reporting._resolveProjectInfo();
-  var area = C8O.reporting._validateEnum("area", input && input.area, {
-    tool: true,
-    guide: true,
-    prompt: true,
-    scenario: true,
-    fixture: true,
-    "product-knowledge-gap": true
-  });
-  var severity = C8O.reporting._validateEnum("severity", input && input.severity, {
-    low: true,
-    medium: true,
-    high: true
-  });
-  var subjectId = C8O.util.toTrimmedString(input && input.subjectId);
-  if (!subjectId.length) {
-    throw new Error("subjectId is required");
-  }
-  var summary = C8O.util.toTrimmedString(input && input.summary);
-  if (!summary.length) {
-    throw new Error("summary is required");
-  }
+  var area = checked.finding.area;
+  var severity = checked.finding.severity;
+  var subjectId = checked.finding.subjectId;
+  var summary = checked.finding.summary;
 
   var createdDate = new Date();
   var createdAt = createdDate.toISOString();
@@ -351,20 +358,14 @@ C8O.reporting.writeTigoReport = function (input) {
   if (mode === "off") {
     throw new Error("Reporting is disabled");
   }
-  var area = C8O.reporting._validateEnum("area", input && input.area, {
-    tool: true,
-    guide: true,
-    prompt: true,
-    scenario: true,
-    fixture: true,
-    "product-knowledge-gap": true
-  });
-  var severity = C8O.reporting._validateEnum("severity", input && input.severity, { low: true, medium: true, high: true });
-  var subjectId = C8O.util.toTrimmedString(input && input.subjectId);
-  var summary = C8O.util.toTrimmedString(input && input.summary);
-  if (!subjectId.length || !summary.length) {
-    throw new Error("subjectId and summary are required");
+  var checked = C8O.reporting._checkFinding(input);
+  if (checked.invalid) {
+    return checked.invalid;
   }
+  var area = checked.finding.area;
+  var severity = checked.finding.severity;
+  var subjectId = checked.finding.subjectId;
+  var summary = checked.finding.summary;
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var createdAt = new Date().toISOString();
   var reportId = String(Packages.java.util.UUID.randomUUID().toString());

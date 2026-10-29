@@ -1195,6 +1195,53 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // gregoryv, test-nocode 28/10: nocode-report-create listed every argument as an optional free text, and the agent
+  // learned area, then severity, then subjectId from three refusals. The schema says what a finding needs (the lists of
+  // C8O.reporting.AREAS and SEVERITIES); the descriptions come from the sequence variables.
+  var REPORT_AREAS = ["tool", "guide", "prompt", "scenario", "fixture", "product-knowledge-gap"];
+  var REPORT_SEVERITIES = ["low", "medium", "high"];
+
+  function reportCreateInputSchema(nocode) {
+    var properties = {
+      area: { type: "string", enum: REPORT_AREAS },
+      subjectId: { type: "string", minLength: 1 },
+      severity: { type: "string", enum: REPORT_SEVERITIES },
+      summary: { type: "string", minLength: 1 },
+      suggestion: { type: "string" }
+    };
+    if (!nocode) {
+      ["evidence", "rolePrompt", "project", "runMode", "runId", "provider", "model"].forEach(function (name) {
+        properties[name] = { type: "string" };
+      });
+    }
+    return {
+      type: "object",
+      properties: properties,
+      required: ["area", "subjectId", "severity", "summary"],
+      additionalProperties: false
+    };
+  }
+
+  function reportCreateOutputSchema(nocode) {
+    var properties = {
+      status: { type: "string", enum: ["written", "error"] },
+      message: { type: "string" },
+      reportId: { type: "string" },
+      createdAt: { type: "string" },
+      error: openObjectSchema({
+        code: { type: "string" },
+        message: { type: "string" },
+        fields: { type: "array", items: openObjectSchema({ field: { type: "string" }, problem: { type: "string", enum: ["missing", "invalid"] } }) }
+      })
+    };
+    if (!nocode) {
+      ["mode", "path", "relativePath"].forEach(function (name) {
+        properties[name] = { type: "string" };
+      });
+    }
+    return openObjectSchema(properties);
+  }
+
   function nocodeFormPreviewCaptureInputSchema() {
     return {
       type: "object",
@@ -2519,6 +2566,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_nocode_app_create") {
       return nocodeAppCreateInputSchema();
     }
+    if (seq === "tools_nocode_report_create" || seq === "tools_report_create") {
+      return reportCreateInputSchema(seq === "tools_nocode_report_create");
+    }
     if (seq === "tools_rag_query") {
       return ragQueryInputSchema();
     }
@@ -2638,6 +2688,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_security_audit") {
       return projectSecurityAuditOutputSchema();
+    }
+    if (seq === "tools_nocode_report_create" || seq === "tools_report_create") {
+      return reportCreateOutputSchema(seq === "tools_nocode_report_create");
     }
     var crudOutputOverride = C8O.schemaOverridesCrud && C8O.schemaOverridesCrud.applyOutput
       ? C8O.schemaOverridesCrud.applyOutput(seq)
