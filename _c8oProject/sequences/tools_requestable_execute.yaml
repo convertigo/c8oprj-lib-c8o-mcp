@@ -209,6 +209,12 @@ comment: |
             }
           }
         } catch (_ignoreSqlHints) {}
+        // An agent that met this answer called the login sequence and tried again, twice: a login run by
+        // requestable-execute keeps no session for the next call (usage tests 29/10).
+        if (/^Authentication required\b/.test(String(out.error.message || "")) && !(executionPlan && executionPlan.authenticatedUser)) {
+          out.error.hint = "This sequence needs a signed-in user: call it again with authenticatedUser (the user name the login " +
+            "sequence sets, for example \"demo\"). A login sequence run by requestable-execute keeps no session for the next call.";
+        }
         // A script error of the called sequence came as the generic "An exception occured while executing step", its
         // own message and the step only in details (preflight checks): lift both into the message.
         try {
