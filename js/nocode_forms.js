@@ -1222,7 +1222,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion; the component takes the page of the container's root (move_field into a parent too). index is the place among the parent's children, or among the top-level components of the page; before or after (a component's name or id) puts it next to that component, in its container when it has one.", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
           { action: "update_field", requiredOneOf: ["fieldId", "fieldName"], required: ["patch"], example: { action: "update_field", fieldName: "child_name", patch: { label: "Child", config: { mandatory: false } } } },
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
-          { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index", "before", "after"], note: "index counts the parent's children, or the top-level components of the page, from 0; before or after (a component's name or id) places it next to that component.", example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
+          { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index", "before", "after"], note: "index counts the parent's children, or the top-level components of the page, from 0 (past the last is refused); before or after (a component's name or id) places it next to that component. The summary of each add_field and move_field gives where it landed (placed: index, after, before).", example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
           { action: "add_flow", required: ["flowId"], example: { action: "add_flow", flowId: "flow_save", name: "Save", flowData: { elements: [] } } },
           { action: "remove_flow", aliases: ["delete_flow"], requiredOneOf: ["flowId", "flowName"], note: "Refused with flow_in_use, nothing saved, while a component the edit keeps still has this flow: remove that component or point it to another flow in the same edit. Several buttons can share a flow: check form.formulaire first.", example: [{ action: "remove_field", fieldName: "old_button" }, { action: "remove_flow", flowId: "old_button_flow" }] },
           { action: "set_root", note: "config is merged device by device and key by key; see rootFields.config.", example: { action: "set_root", config: { desktop: { horizontalMargin: { unit: "px", value: "32" } }, phoneL: { horizontalMargin: { unit: "px", value: "0" } }, phoneP: { horizontalMargin: { unit: "px", value: "0" } } } } },
@@ -4784,10 +4784,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return out;
   }
   // Where a top-level component goes in form.formulaire: before the root at that place of the page, or after the
-  // last component of the page (its last root and what that root holds).
-  function topLevelInsertIndex(form, pageTechName, index) {
+  // last component of the page (its last root and what that root holds). spare: 1 when the component that moves was
+  // one of the page's roots, so that an index counted with it still reaches the last place.
+  function topLevelInsertIndex(form, pageTechName, index, spare) {
     var roots = pageRootIndexes(form, pageTechName);
     if (index == null || index === "") { return form.formulaire.length; }
+    // Up to 0.2.29-beta.6 a top-level index was a position in the whole form: one past the page's components is
+    // refused rather than guessed, with the components to place it among.
+    if (isFinite(Number(index)) && Math.floor(Number(index)) > roots.length + (spare || 0)) {
+      var page = ensureArray(form.pages).filter(function (candidate) { return candidate && candidate.pageTechName === pageTechName; })[0];
+      var names = roots.map(function (at) { return form.formulaire[at].name || String(form.formulaire[at].id); });
+      throw new Error("index " + index + " is past the " + roots.length + " top-level components of page " + JSON.stringify(page && page.name || pageTechName) +
+        (names.length ? " (" + names.slice(0, 40).join(", ") + (names.length > 40 ? ", ..." : "") + ")" : "") +
+        ": give the place among them from 0 (" + roots.length + " = after the last), or before/after a component");
+    }
     var place = normalizeIndex(index, roots.length, roots.length);
     if (place < roots.length) { return roots[place]; }
     if (!roots.length) { return form.formulaire.length; }
@@ -4797,18 +4807,23 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     for (var i = end + 1; i < form.formulaire.length; i++) { if (form.formulaire[i] && inside[String(form.formulaire[i].id)]) { end = i; } }
     return end + 1;
   }
-  function anchorInsertIndex(form, anchor) {
-    var at = findField(form, { id: anchor.item.id }).index;
-    if (!anchor.after) { return at; }
-    var inside = collectDescendantIds(form.formulaire, anchor.item.id, {});
-    var end = at;
-    for (var i = at + 1; i < form.formulaire.length; i++) { if (form.formulaire[i] && inside[String(form.formulaire[i].id)]) { end = i; } }
-    return end + 1;
+  // Where a component landed, for the summary of add_field and move_field: its place among the children of its container
+  // or the top-level components of its page, and the components on each side (null at an end).
+  function placedBetween(form, id) {
+    var item = findFieldOrNull(form, id);
+    if (!item) { return null; }
+    var parent = item.parentRef != null ? findFieldOrNull(form, item.parentRef) : null;
+    var ids = parent ? ensureArray(parent.childrenRefs).map(String) :
+      pageRootIndexes(form, item.config && item.config.page).map(function (at) { return String(form.formulaire[at].id); });
+    var at = ids.indexOf(String(id));
+    var label = function (ref) { var found = ref != null && findFieldOrNull(form, ref); return found ? found.name || String(found.id) : null; };
+    return { index: at, after: at > 0 ? label(ids[at - 1]) : null, before: at >= 0 ? label(ids[at + 1]) : null, container: parent ? parent.name || String(parent.id) : null };
   }
 
   function moveFieldById(form, id, pageTechName, parentId, index) {
     var found = findField(form, { id: id });
     var ids = collectDescendantIds(form.formulaire, found.item.id, {});
+    var wasRoot = pageRootIndexes(form, pageTechName).some(function (at) { return String(form.formulaire[at].id) === String(found.item.id); });
     var moving = [];
     var remaining = [];
     for (var i = 0; i < form.formulaire.length; i++) {
@@ -4833,7 +4848,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     } else {
       try { delete found.item.parentRef; } catch (_ignoreParentDelete) {}
-      var insertAt = topLevelInsertIndex(form, pageTechName, index);
+      var insertAt = topLevelInsertIndex(form, pageTechName, index, wasRoot ? 1 : 0);
       form.formulaire.splice(insertAt, 0, found.item);
       for (var n = 1; n < moving.length; n++) {
         form.formulaire.splice(insertAt + n, 0, moving[n]);
@@ -5038,7 +5053,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         var added = form.formulaire.splice(beforeLength);
         Array.prototype.splice.apply(form.formulaire, [topLevelInsertIndex(form, pageTech, op.index), 0].concat(added));
       }
-      var addSummary = { action: action, fieldId: compiled.id, name: compiled.name, pageTechName: pageTech };
+      var addSummary = { action: action, fieldId: compiled.id, name: compiled.name, pageTechName: pageTech, placed: placedBetween(form, compiled.id) };
       if (addPage.note) { addSummary.note = addPage.note; }
       summary.push(addSummary);
       return;
@@ -5176,7 +5191,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         : { page: pageTechNameForOperation(form, op, rootFieldPage(fieldsById(form), moveField.item) || (moveField.item.config && moveField.item.config.page)) };
       var movePage = moveTarget.page;
       moveFieldById(form, moveField.item.id, movePage, moveParentId.length ? moveParentId : null, op.index);
-      var moveSummary = { action: action, fieldId: moveField.item.id, pageTechName: movePage, parentId: moveParentId || null };
+      var moveSummary = { action: action, fieldId: moveField.item.id, pageTechName: movePage, parentId: moveParentId || null, placed: placedBetween(form, moveField.item.id) };
       if (moveTarget.note) { moveSummary.note = moveTarget.note; }
       summary.push(moveSummary);
       return;
@@ -5693,7 +5708,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (saved.saved === true) { finalizeBaserowBindings(saved, createOptions, compiled.bindingFinalization.bindingCount, true); }
     return saved;
   };
+  // Usage tests (29/10, test-nocode): an edit sent with operations [] by mistake went through the save and advanced the
+  // revision; the agent then read a revision it had not written and wondered who had saved. Nothing to change: no save.
+  function nothingToSave(code, message) {
+    return { status: "error", saved: false, error: { code: code, message: message + ": nothing was saved. Read a form with nocode-form-get" } };
+  }
   C8O.nocodeForms.update = function (id, patch, options) {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length) { return nothingToSave("empty_patch", "The patch changes nothing"); }
     var current = getForm(id, options);
     if (current && current.fetched === false) {
       current.saved = false;
@@ -5706,6 +5727,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   C8O.nocodeForms.edit = function (id, operations, options) {
     try {
       var requestedOperations = ensureArray(operations);
+      if (!requestedOperations.length) { return nothingToSave("no_operations", "No operation given"); }
       if (requestedOperations.some(function (op) { return op && op.action === "finalize_baserow_bindings"; })) {
         if (requestedOperations.length !== 1) { throw new Error("finalize_baserow_bindings must be the only operation; resume the saved creation before other edits"); }
         return resumeBaserowFinalization(id, options);

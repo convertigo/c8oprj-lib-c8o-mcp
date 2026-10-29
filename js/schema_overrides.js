@@ -1389,7 +1389,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         parentFieldId: { type: "string", description: "Parent field id when adding or moving a field inside a layout/container." },
         parentElementId: { type: "string", description: "Parent flow element id when adding or moving inside an if/loop/action container." },
         refKey: { type: "string", enum: ["childrenRefs", "childrenRefsElse"], description: "Flow child reference branch. Default childrenRefs." },
-        index: { type: "integer", minimum: 0, description: "Destination place from 0: among the parent's children, or among the top-level components of the page for a field (a page or a flow element in its own list). Omit to append." },
+        index: { type: "integer", minimum: 0, description: "Destination place from 0: among the parent's children, or among the top-level components of the page for a field (a page or a flow element in its own list); a top-level place past the last component of the page is refused. Omit to append." },
         before: { type: "string", description: "add_field, move_field: put the field just before this component (name or id), in its container when it has one." },
         after: { type: "string", description: "add_field, move_field: put the field just after this component (name or id), in its container when it has one." },
         fromIndex: { type: "integer", minimum: 0, description: "Source index for move_page when no page identifier is supplied." },
