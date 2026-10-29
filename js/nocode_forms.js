@@ -1219,10 +1219,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "update_page", requiredOneOf: ["pageTechName", "pageName"], required: ["patch"], example: { action: "update_page", pageName: "Details", patch: { iconName: "people", enabledTab: true } } },
           { action: "add_field", aliases: ["add_component", "add_element"], requiredOneOf: ["pageTechName", "pageName"], required: ["fieldObject"], example: { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } } },
           { action: "add_field", note: "On an application page a new top-level component gets the role spacing (styleDefaults:false keeps the viewer card); a section can be added the same way.", example: { action: "add_field", pageName: "Details", fieldObject: { type: "section", name: "contract", title: "Contrat", fields: [{ type: "text", name: "amount", label: "Montant" }, { type: "datetime", name: "signed_on", label: "Signé le" }] } } },
-          { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion; the component takes the page of the container's root (move_field into a parent too).", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
+          { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion; the component takes the page of the container's root (move_field into a parent too). index is the place among the parent's children, or among the top-level components of the page; before or after (a component's name or id) puts it next to that component, in its container when it has one.", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
           { action: "update_field", requiredOneOf: ["fieldId", "fieldName"], required: ["patch"], example: { action: "update_field", fieldName: "child_name", patch: { label: "Child", config: { mandatory: false } } } },
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
-          { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index"], example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
+          { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index", "before", "after"], note: "index counts the parent's children, or the top-level components of the page, from 0; before or after (a component's name or id) places it next to that component.", example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
           { action: "add_flow", required: ["flowId"], example: { action: "add_flow", flowId: "flow_save", name: "Save", flowData: { elements: [] } } },
           { action: "remove_flow", aliases: ["delete_flow"], requiredOneOf: ["flowId", "flowName"], note: "Refused with flow_in_use, nothing saved, while a component the edit keeps still has this flow: remove that component or point it to another flow in the same edit. Several buttons can share a flow: check form.formulaire first.", example: [{ action: "remove_field", fieldName: "old_button" }, { action: "remove_flow", flowId: "old_button_flow" }] },
           { action: "set_root", note: "config is merged device by device and key by key; see rootFields.config.", example: { action: "set_root", config: { desktop: { horizontalMargin: { unit: "px", value: "32" } }, phoneL: { horizontalMargin: { unit: "px", value: "0" } }, phoneP: { horizontalMargin: { unit: "px", value: "0" } } } } },
@@ -4721,6 +4721,59 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return Object.keys(ids);
   }
 
+  // Usage tests (29/10, test-nocode): « index: 2 » meant the third place on the page, the tools read it in the whole
+  // formulaire array (every page): the component landed first on its page and the agent edited twice more to place it.
+  // A top-level index now counts the components at the top level of the target page; before/after place a component
+  // next to another one (name or id), in its container when it has one.
+  function placementAnchor(form, op) {
+    var key = ["before", "beforeFieldName", "beforeFieldId", "after", "afterFieldName", "afterFieldId"].filter(function (name) { return op && op[name] != null && trimmed(op[name]).length; })[0];
+    if (!key) { return null; }
+    var ref = trimmed(op[key]);
+    var found = null;
+    for (var i = 0; i < ensureArray(form.formulaire).length; i++) {
+      var item = form.formulaire[i];
+      if (item && (String(item.id) === ref || trimmed(item.name) === ref)) { found = item; break; }
+    }
+    if (!found) { throw new Error(key + " names no component of the form: " + ref + ". Give the name or the id of a component"); }
+    return { item: found, after: /^after/.test(key) };
+  }
+  function findFieldOrNull(form, id) {
+    var items = ensureArray(form.formulaire);
+    for (var i = 0; i < items.length; i++) { if (items[i] && String(items[i].id) === String(id)) { return items[i]; } }
+    return null;
+  }
+  function pageRootIndexes(form, pageTechName) {
+    var byId = {};
+    ensureArray(form.formulaire).forEach(function (item) { if (item && item.id != null) { byId[String(item.id)] = item; } });
+    var out = [];
+    ensureArray(form.formulaire).forEach(function (item, index) {
+      if (item && (item.parentRef == null || !byId[String(item.parentRef)]) && item.config && item.config.page === pageTechName) { out.push(index); }
+    });
+    return out;
+  }
+  // Where a top-level component goes in form.formulaire: before the root at that place of the page, or after the
+  // last component of the page (its last root and what that root holds).
+  function topLevelInsertIndex(form, pageTechName, index) {
+    var roots = pageRootIndexes(form, pageTechName);
+    if (index == null || index === "") { return form.formulaire.length; }
+    var place = normalizeIndex(index, roots.length, roots.length);
+    if (place < roots.length) { return roots[place]; }
+    if (!roots.length) { return form.formulaire.length; }
+    var last = form.formulaire[roots[roots.length - 1]];
+    var inside = collectDescendantIds(form.formulaire, last.id, {});
+    var end = roots[roots.length - 1];
+    for (var i = end + 1; i < form.formulaire.length; i++) { if (form.formulaire[i] && inside[String(form.formulaire[i].id)]) { end = i; } }
+    return end + 1;
+  }
+  function anchorInsertIndex(form, anchor) {
+    var at = findField(form, { id: anchor.item.id }).index;
+    if (!anchor.after) { return at; }
+    var inside = collectDescendantIds(form.formulaire, anchor.item.id, {});
+    var end = at;
+    for (var i = at + 1; i < form.formulaire.length; i++) { if (form.formulaire[i] && inside[String(form.formulaire[i].id)]) { end = i; } }
+    return end + 1;
+  }
+
   function moveFieldById(form, id, pageTechName, parentId, index) {
     var found = findField(form, { id: id });
     var ids = collectDescendantIds(form.formulaire, found.item.id, {});
@@ -4748,7 +4801,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     } else {
       try { delete found.item.parentRef; } catch (_ignoreParentDelete) {}
-      var insertAt = normalizeIndex(index, form.formulaire.length, form.formulaire.length);
+      var insertAt = topLevelInsertIndex(form, pageTechName, index);
       form.formulaire.splice(insertAt, 0, found.item);
       for (var n = 1; n < moving.length; n++) {
         form.formulaire.splice(insertAt + n, 0, moving[n]);
@@ -4917,6 +4970,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (action === "add_field") {
       var fieldDef = op.fieldObject || (op.field && typeof op.field === "object" && !Array.isArray(op.field) ? op.field : op);
+      var addAnchor = placementAnchor(form, op);
+      if (addAnchor) {
+        var addAnchorParent = addAnchor.item.parentRef != null && findFieldOrNull(form, addAnchor.item.parentRef);
+        op = clone(op, {});
+        delete op.pageName;
+        op.pageTechName = rootFieldPage(fieldsById(form), addAnchor.item) || (addAnchor.item.config && addAnchor.item.config.page);
+        if (addAnchorParent) {
+          op.parentFieldId = String(addAnchorParent.id);
+          op.index = ensureArray(addAnchorParent.childrenRefs).map(String).indexOf(String(addAnchor.item.id)) + (addAnchor.after ? 1 : 0);
+        } else {
+          delete op.parentFieldId;
+          op.index = pageRootIndexes(form, op.pageTechName).map(function (index) { return String(form.formulaire[index].id); }).indexOf(String(addAnchor.item.id)) + (addAnchor.after ? 1 : 0);
+        }
+      }
       var beforeLength = form.formulaire.length;
       var parentId = trimmed(op.parentId || op.parent || op.parentFieldId);
       // The parent's own id, never the argument: a text "1793012950260" or a name written as parentRef does not match it.
@@ -4937,7 +5004,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         Array.prototype.splice.apply(form.formulaire, [parentIndexForAdd + 1, 0].concat(addedChildren));
       } else if (op.index != null) {
         var added = form.formulaire.splice(beforeLength);
-        Array.prototype.splice.apply(form.formulaire, [normalizeIndex(op.index, form.formulaire.length, form.formulaire.length), 0].concat(added));
+        Array.prototype.splice.apply(form.formulaire, [topLevelInsertIndex(form, pageTech, op.index), 0].concat(added));
       }
       var addSummary = { action: action, fieldId: compiled.id, name: compiled.name, pageTechName: pageTech };
       if (addPage.note) { addSummary.note = addPage.note; }
@@ -5053,6 +5120,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (action === "move_field") {
       var moveField = findField(form, op);
+      var moveAnchor = placementAnchor(form, op);
+      if (moveAnchor && String(moveAnchor.item.id) === String(moveField.item.id)) { throw new Error("move_field: before/after names the component that moves"); }
+      if (moveAnchor) {
+        // Next to the anchor: in its container at its place, or at its place on its page.
+        var anchorParent = moveAnchor.item.parentRef != null && findFieldOrNull(form, moveAnchor.item.parentRef);
+        op = clone(op, {});
+        delete op.pageName;
+        op.pageTechName = rootFieldPage(fieldsById(form), moveAnchor.item) || (moveAnchor.item.config && moveAnchor.item.config.page);
+        if (anchorParent) {
+          op.parentFieldId = String(anchorParent.id);
+          var siblings = ensureArray(anchorParent.childrenRefs).filter(function (ref) { return String(ref) !== String(moveField.item.id); });
+          op.index = siblings.map(String).indexOf(String(moveAnchor.item.id)) + (moveAnchor.after ? 1 : 0);
+        } else {
+          delete op.parentFieldId;
+          var pageRoots = pageRootIndexes(form, op.pageTechName).filter(function (index) { return String(form.formulaire[index].id) !== String(moveField.item.id); });
+          op.index = pageRoots.map(function (index) { return String(form.formulaire[index].id); }).indexOf(String(moveAnchor.item.id)) + (moveAnchor.after ? 1 : 0);
+        }
+      }
       var moveParentId = trimmed(op.parentId || op.parent || op.parentFieldId);
       // Taken out of its container with no page, a component stays on the page where it was shown.
       var moveTarget = moveParentId.length ? nestedPageForOperation(form, op, findField(form, { id: moveParentId }).item)

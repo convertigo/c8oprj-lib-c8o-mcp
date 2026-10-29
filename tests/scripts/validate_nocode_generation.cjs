@@ -3123,6 +3123,43 @@ test('move_field gives the moved component and its descendants the page of their
   assert.equal(byName(unnested.form, 'reference').config.page, fiche);
   assert.equal(byName(unnested.form, 'reference').parentRef, undefined);
 });
+// A top-level index counts the components of the target page, not the whole formulaire (usage tests, 29/10: index 2
+// meant the third place on the page and the component landed first); before/after place a component next to another.
+function placementForm() {
+  const text = name => ({ type: 'text', name, label: name });
+  return { name: 'Placement', navigationMode: 'custom', pages: [
+    { name: 'Une', fields: [text('a1'), text('a2'), text('a3'), { type: 'layout', name: 'box', fields: [text('x'), text('y')] }] },
+    { name: 'Deux', fields: [text('b1'), text('b2'), text('b3')] }
+  ] };
+}
+test('add_field and move_field place a top-level component by its place on the page, or before/after another one', () => {
+  const h = creationHarness();
+  const created = h.client.create(placementForm(), h.auth);
+  const id = created.form._id;
+  const order = (form, page) => {
+    const tech = form.pages.find(p => p.name === page).pageTechName;
+    return clone(form.formulaire.filter(item => item.config && item.config.page === tech && item.parentRef == null).map(item => item.name));
+  };
+  const kids = (form, name) => clone(byName(form, name).childrenRefs.map(ref => form.formulaire.find(item => String(item.id) === String(ref)).name));
+  let r = h.client.edit(id, [{ action: 'move_field', fieldName: 'b3', pageName: 'Deux', index: 1 }], h.auth);
+  assert.equal(r.saved, true, JSON.stringify(r.validation || r.error));
+  assert.deepEqual(order(r.form, 'Deux'), ['b1', 'b3', 'b2'], 'index 1 is the second place on page Deux');
+  r = h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 9 }], h.auth);
+  assert.deepEqual(order(r.form, 'Une'), ['a2', 'a3', 'box', 'a1'], 'past the end: last on the page');
+  r = h.client.edit(id, [{ action: 'move_field', fieldName: 'b1', after: 'b2' }], h.auth);
+  assert.deepEqual(order(r.form, 'Deux'), ['b3', 'b2', 'b1']);
+  r = h.client.edit(id, [{ action: 'move_field', fieldName: 'a3', before: 'y' }], h.auth);
+  assert.deepEqual(kids(r.form, 'box'), ['x', 'a3', 'y'], 'before a child: into its container at its place');
+  assert.equal(byName(r.form, 'a3').parentRef, byName(r.form, 'box').id);
+  r = h.client.edit(id, [{ action: 'add_field', fieldObject: { type: 'text', name: 'b0', label: 'b0' }, pageName: 'Deux', index: 0 }], h.auth);
+  assert.deepEqual(order(r.form, 'Deux'), ['b0', 'b3', 'b2', 'b1']);
+  r = h.client.edit(id, [{ action: 'add_field', fieldObject: { type: 'text', name: 'a9', label: 'a9' }, after: 'a2' }], h.auth);
+  assert.deepEqual(order(r.form, 'Une'), ['a2', 'a9', 'box', 'a1']);
+  assert.equal(byName(r.form, 'a9').config.page, r.form.pages[0].pageTechName, 'the page of the anchor');
+  const unknown = h.client.edit(id, [{ action: 'move_field', fieldName: 'a2', before: 'nothing' }], h.auth);
+  assert.equal(unknown.saved, false);
+  assert.match(JSON.stringify(unknown.error || unknown.validation), /before names no component of the form: nothing/);
+});
 test('validation flags nested components whose page is not their root container page', () => {
   const form = api().compile(nestedPagesForm()).form;
   assert.ok(!api().validate(form).validation.warnings.some(w => w.code === 'nested_page_mismatch'));
