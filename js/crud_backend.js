@@ -1019,9 +1019,18 @@ C8O.crudBackend = C8O.crudBackend || {};
   // An existing database, the one of an app in use: upsert-crud keeps its rows and adds the columns the spec has and the
   // tables lack. CREATE TABLE IF NOT EXISTS adds no column (every query then failed on the new one, usage tests 29/10)
   // and the seed of init_schema deletes every row. seed.reset:true resets the tables to the demo rows as before.
-  C8O.crudBackend.planExistingDatabase = function (ctx, spec, inspection) {
+  C8O.crudBackend.planExistingDatabase = function (ctx, spec, inspection, options) {
     var plan = { inspected: !!(inspection && inspection.reachable), keep: false, rows: {}, alters: [], notes: [] };
     if (!plan.inspected) {
+      // A connector that was there before the call points at a database that may hold the user's rows: one the probe
+      // could not open is kept as it is. Treated as fresh, init_schema deleted the rows of an app whose connector the
+      // engine had not opened yet (usage tests 29/10).
+      if (options && options.connectorExisted === true && !(spec.seed && spec.seed.reset === true)) {
+        plan.keep = true;
+        plan.notes.push("The database of connector " + spec.database.connector + " could not be inspected (" +
+          ((inspection && inspection.error) || "no answer") + "): upsert-crud kept it as it is, seeded nothing and added no " +
+          "column. Add the columns of new fields with a one-shot ALTER TABLE transaction, or pass seed.reset:true to reset it.");
+      }
       return plan;
     }
     var driver = spec.database.driver;
@@ -1618,7 +1627,9 @@ C8O.crudBackend = C8O.crudBackend || {};
       };
     }
     var project = ctx.ensureProject(spec, result);
+    var createdBeforeConnector = result.created.length;
     var connector = C8O.crudBackend.ensureConnector(ctx, project, spec, result);
+    var connectorExisted = result.created.length === createdBeforeConnector;
     result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);
     result.primaryTargets.sql = result.connectorQname;
 
@@ -1630,7 +1641,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       spec.relations = widened.relations;
       spec.seed.data = widened.seed.data;
     }
-    var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec, inspection);
+    var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec, inspection, { connectorExisted: connectorExisted });
     if (existingDatabase.keep) {
       // The rows are the user's: init_schema only creates what is missing, and nothing reseeds them.
       spec.seed.enabled = false;
@@ -1838,6 +1849,11 @@ C8O.crudBackend = C8O.crudBackend || {};
       result,
       learnedSchemas
     );
+    if (!existingDatabase.inspected) {
+      for (var u = 0; u < existingDatabase.notes.length; u++) {
+        ctx.addWarning(result, existingDatabase.notes[u]);
+      }
+    }
     if (existingDatabase.inspected) {
       var applied = existingDatabase.alters.length ? (ctx.applyAlters || C8O.crudBackend.applyAlters)(ctx, connector, existingDatabase.alters) : [];
       result.runtimeEvidence.existingDatabase = {

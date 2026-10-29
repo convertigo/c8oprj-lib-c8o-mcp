@@ -178,8 +178,23 @@ test('column types and defaults read from JDBC become spec types and fields[].de
 test('upsert-crud widens the spec from the inspection it plans the database with', () => {
   const source = read('js/crud_backend.js');
   const keep = source.indexOf('var keptColumns = C8O.crudBackend.keepExistingColumns(ctx, options.spec, spec, inspection);');
-  const plan = source.indexOf('var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec, inspection);');
+  const plan = source.indexOf('var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec, inspection, ');
   assert.ok(keep > 0 && keep < plan);
   assert.match(source, /result\.runtimeEvidence\.existingDatabase\.keptColumns = keptColumns\.kept;/);
+});
+
+test('a connector that was there before the call and a database the probe cannot open: nothing is reset', () => {
+  const B = backend();
+  const unreachable = { reachable: false, tables: {}, error: 'java.sql.SQLException: Database does not exist' };
+  const kept = B.planExistingDatabase(ctx, spec(), unreachable, { connectorExisted: true });
+  assert.equal(kept.keep, true);
+  assert.equal(kept.inspected, false);
+  assert.match(kept.notes[0], /could not be inspected \(java\.sql\.SQLException: Database does not exist\): upsert-crud kept it as it is/);
+  // A connector the call created points at a new database; seed.reset says the user asked for the demo rows.
+  assert.equal(B.planExistingDatabase(ctx, spec(), unreachable, { connectorExisted: false }).keep, false);
+  assert.equal(B.planExistingDatabase(ctx, spec('hsqldb', [], { enabled: true, reset: true }), unreachable, { connectorExisted: true }).keep, false);
+  const source = read('js/crud_backend.js');
+  assert.match(source, /var connectorExisted = result\.created\.length === createdBeforeConnector;/);
+  assert.match(source, /planExistingDatabase\(ctx, spec, inspection, \{ connectorExisted: connectorExisted \}\)/);
 });
 
