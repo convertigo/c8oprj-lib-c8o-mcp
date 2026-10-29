@@ -170,7 +170,7 @@ console.log("mobile builder readiness decision tests passed");
 // IDLE_VIEWER_STOP_MS and the answer says to call without stateOnly.
 assert.match(openSource, /idleViewerWithoutApp = stateOnlyValue === true && builderProcessAlive && buildJobState\.supported === true &&\s*!buildJobActive && !waitingForGeneration && !waitingForScheduledCycle && !waitingForPendingCycle &&\s*!waitingForViewerReload && !waitingForRecentLaunch && snapshot\.failed !== true && currentViewerReady !== true;/,
   "an idle builder whose viewer does not show the app is recognised in stateOnly mode");
-assert.match(openSource, /if \(idleViewerWithoutApp\) \{\s*idleSince = idleSince \|\| java\.lang\.System\.currentTimeMillis\(\);\s*if \(java\.lang\.System\.currentTimeMillis\(\) - idleSince >= IDLE_VIEWER_STOP_MS\) \{\s*break;/,
+assert.match(openSource, /if \(idleViewerWithoutApp\) \{\s*idleSince = idleSince \|\| java\.lang\.System\.currentTimeMillis\(\);\s*if \(java\.lang\.System\.currentTimeMillis\(\) - idleSince >= IDLE_VIEWER_STOP_MS\) \{[\s\S]*?break;/,
   "the waited stateOnly loop stops once the builder has been idle long enough");
 assert.match(openSource, /status === "building" && idleViewerWithoutApp\s*\? \{ tool: "mobile-builder-open", arguments: \{ project: projectName, stateOnly: false, wait: true \} \}/,
   "the answer points to a call without stateOnly");
@@ -182,3 +182,9 @@ assert.match(openSource, /if \(viewerShowsNothing\(readBrowserState\(editor\), p
   "a call without stateOnly reloads a viewer that shows nothing");
 assert.match(openSource, /function viewerShowsNothing\(browserState, projectRef\) \{[\s\S]*?url === "about:blank"[\s\S]*?readLiveBuildJob\(liveBuildJobName\(projectRef, String\(projectRef\.getName\(\)\)\)\)\.active !== true;/,
   "a page still building is never reloaded");
+
+// The stateOnly answer that pointed to a call without stateOnly was ignored: the agent kept polling and sleeping. An
+// idle builder with an open viewer that does not show the app gets its root page loaded once, then the wait goes on.
+assert.match(openSource, /if \(!idleViewerReloaded && editorRef != null\) \{\s*idleViewerReloaded = reloadOpenViewer\(editorRef, rootPageSegmentValue\);\s*idleSince = 0;\s*continue;\s*\}\s*break;/,
+  "the waited stateOnly loop reloads the open viewer once before it stops");
+assert.match(openSource, /function reloadOpenViewer\(editorRef, segment\) \{[\s\S]*?editorRef\.selectPage\(null\);\s*editorRef\.selectPage\(segment \|\| null\);/);

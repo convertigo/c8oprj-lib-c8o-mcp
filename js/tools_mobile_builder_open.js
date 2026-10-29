@@ -535,6 +535,23 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return "Live build for " + appName;
   }
 
+  function reloadOpenViewer(editorRef, segment) {
+    var reloaded = false;
+    try {
+      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      ConvertigoPlugin.syncExec(new Packages.java.lang.Runnable({ run: function () {
+        try {
+          if (editorRef.selectPage) {
+            editorRef.selectPage(null);
+            editorRef.selectPage(segment || null);
+            reloaded = true;
+          }
+        } catch (_ignoreSelect) {}
+      } }));
+    } catch (_ignoreReload) {}
+    return reloaded;
+  }
+
   function viewerShowsNothing(browserState, projectRef) {
     if (!browserState || browserState.hasBrowser !== true || browserState.hasError === true) {
       return false;
@@ -1125,6 +1142,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       snapshot.building !== true;
 
     var idleSince = 0;
+    var idleViewerReloaded = false;
     while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
       ready = refreshCurrentState();
       if (ready) {
@@ -1133,6 +1151,14 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (idleViewerWithoutApp) {
         idleSince = idleSince || java.lang.System.currentTimeMillis();
         if (java.lang.System.currentTimeMillis() - idleSince >= IDLE_VIEWER_STOP_MS) {
+          // The answer that pointed to a call without stateOnly was ignored: the agent kept polling and sleeping
+          // (usage tests 29/10). The open viewer loads the root page once (no build, no new editor), then the wait
+          // goes on; still nothing after that, the wait stops.
+          if (!idleViewerReloaded && editorRef != null) {
+            idleViewerReloaded = reloadOpenViewer(editorRef, rootPageSegmentValue);
+            idleSince = 0;
+            continue;
+          }
           break;
         }
       } else {
