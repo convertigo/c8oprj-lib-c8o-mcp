@@ -530,7 +530,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         qname: { type: "string", description: "Optional root QName. Omit to search across all loaded projects." },
-        filter: { type: "string", description: "Search text. Space-separated terms must all appear in the object's YAML (name, properties, comment); pair with useRegExp=true for a regex." },
+        filter: { type: "string", description: "Search text. Space-separated terms must all appear in the object's YAML (name, comment and every property value: shown texts, labels, SQL, expressions); pair with useRegExp=true for a regex." },
         limit: integerSchema(1, 1000, 200, "Maximum matches returned per call. 1 to 1000; default 200."),
         matchCase: booleanFlagSchema(false, "Set true for case-sensitive matching."),
         useRegExp: booleanFlagSchema(false, "Set true to treat filter as a Java regular expression."),
