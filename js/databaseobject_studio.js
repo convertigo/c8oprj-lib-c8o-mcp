@@ -418,9 +418,9 @@ C8O.dbo.flushStudioUiQueue = function (ConvertigoPlugin) {
   ConvertigoPlugin.syncExec(new Runnable({ run: function () {} }));
 };
 
-C8O.dbo.getCachedProjectIdentity = function (projectName) {
+// The loaded project, without loading it (null when it is not in the engine cache).
+C8O.dbo.getCachedProject = function (projectName) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-  var System = Packages.java.lang.System;
   var dbom = Engine.theApp.databaseObjectsManager;
   var dbomClass = dbom.getClass();
   while (dbomClass != null) {
@@ -431,12 +431,16 @@ C8O.dbo.getCachedProjectIdentity = function (projectName) {
         continue;
       }
       method.setAccessible(true);
-      var project = method.invoke(dbom, projectName);
-      return project == null ? 0 : System.identityHashCode(project);
+      return method.invoke(dbom, projectName);
     }
     dbomClass = dbomClass.getSuperclass();
   }
   throw new Error("Unable to inspect loaded project cache");
+};
+
+C8O.dbo.getCachedProjectIdentity = function (projectName) {
+  var project = C8O.dbo.getCachedProject(projectName);
+  return project == null ? 0 : Packages.java.lang.System.identityHashCode(project);
 };
 
 C8O.dbo.isStudioProjectTreeLoaded = function (ConvertigoPlugin, projectName) {
@@ -521,10 +525,24 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
       return { reloaded: true, message: "" };
     }
     var ConvertigoPlugin = C8O.dbo.getReloadStudioPlugin();
-    var previousIdentity = C8O.dbo.getCachedProjectIdentity(name);
-    ConvertigoPlugin.getDefault().reloadProject(name);
-    C8O.dbo.waitForProjectReload(ConvertigoPlugin, name, previousIdentity);
-    return { reloaded: true, message: "" };
+    return C8O.dbo.withStudioLock(function () {
+      // The Studio closes a modified project with a modal "save your work now?" question on the UI thread: the call,
+      // and every engine request behind it, waited until someone answered (usage tests 29/10, after deletes with
+      // autoSave false). project-reload means disk state wins, so the in-memory changes are dropped first.
+      var cached = C8O.dbo.getCachedProject(name);
+      var discarded = cached != null && cached.hasChanged === true;
+      if (discarded) {
+        cached.hasChanged = false;
+      }
+      var previousIdentity = C8O.dbo.getCachedProjectIdentity(name);
+      ConvertigoPlugin.getDefault().reloadProject(name);
+      C8O.dbo.waitForProjectReload(ConvertigoPlugin, name, previousIdentity);
+      return {
+        reloaded: true,
+        message: discarded ? "Unsaved in-memory changes were discarded: the project is the disk state again." : "",
+        discardedUnsavedChanges: discarded
+      };
+    });
   } catch (reloadError) {
     var reloadMessage = String(reloadError);
     if (errors && errors.push) {
