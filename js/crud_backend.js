@@ -1111,13 +1111,14 @@ C8O.crudBackend = C8O.crudBackend || {};
     return null;
   };
 
-  // An app in use: an entity the spec names with some of its fields (or none, only to point a relation at it) keeps
-  // the other columns of its table. Without this, upsert-crud regenerated its transactions, sequences and pages from
-  // the listed fields only: an agent that cited clients for a relation got read_client selecting the id alone and an
-  // update_client with an empty SET (usage tests 29/10). Returns the raw spec with the kept columns as fields, in the
-  // table's column order, the fields the table does not have yet after them, and the kept columns by entity.
+  // An app in use. An entity the spec names without fields, only to point a relation at it, keeps the columns of its
+  // table: upsert-crud regenerated it from no field, so read_client selected the id alone, update_client had an empty
+  // SET and the kit rebuilt the Clients pages with no field (usage tests 29/10). An entity given with fields gets those
+  // fields exactly (one left out of a second call leaves the CRUD); the columns of its table it leaves out are reported,
+  // an agent that listed only the new field had dropped four others without a word. Returns the raw spec with the kept
+  // columns as fields (table order), the kept columns and the columns left out, by entity.
   C8O.crudBackend.keepExistingColumns = function (ctx, rawSpec, spec, inspection) {
-    var out = { spec: null, kept: {} };
+    var out = { spec: null, kept: {}, leftOut: {} };
     if (!inspection || !inspection.reachable) {
       return out;
     }
@@ -1135,44 +1136,25 @@ C8O.crudBackend = C8O.crudBackend || {};
       for (var f = 0; f < entity.fields.length; f++) {
         known[String(entity.fields[f].column).toLowerCase()] = true;
       }
-      var rawFields = ctx.ensureArray(rawEntities[i].fields);
-      var rawByColumn = {};
-      for (var r = 0; r < rawFields.length; r++) {
-        var rawField = rawFields[r] || {};
-        rawByColumn[ctx.normalizedIdentifier(rawField.column || rawField.name || "")] = rawField;
-      }
-      var ordered = [];
-      var kept = [];
       var columns = table.columns || {};
-      var names = Object.keys(columns);
-      for (var c = 0; c < names.length; c++) {
-        var name = names[c];
-        var listed = rawByColumn[ctx.normalizedIdentifier(name)];
-        if (listed) {
-          ordered.push(listed);
-          delete rawByColumn[ctx.normalizedIdentifier(name)];
-        } else if (!known[name]) {
-          var column = columns[name];
-          var keptField = { name: name, type: C8O.crudBackend.specTypeOfColumn(column), required: column.nullable === false };
-          var keptDefault = C8O.crudBackend.specDefaultOfColumn(column);
-          if (keptDefault !== null) {
-            keptField["default"] = keptDefault;
-          }
-          ordered.push(keptField);
-          kept.push(name);
-        }
-      }
-      if (!kept.length) {
+      var missing = Object.keys(columns).filter(function (name) { return !known[name]; });
+      if (!missing.length) {
         continue;
       }
-      for (var n = 0; n < rawFields.length; n++) {
-        var rest = rawFields[n] || {};
-        if (rawByColumn[ctx.normalizedIdentifier(rest.column || rest.name || "")] === rest) {
-          ordered.push(rest);
-        }
+      if (ctx.ensureArray(rawEntities[i].fields).length) {
+        out.leftOut[entity.name] = missing;
+        continue;
       }
-      rawEntities[i].fields = ordered;
-      out.kept[entity.name] = kept;
+      rawEntities[i].fields = missing.map(function (name) {
+        var column = columns[name];
+        var keptField = { name: name, type: C8O.crudBackend.specTypeOfColumn(column), required: column.nullable === false };
+        var keptDefault = C8O.crudBackend.specDefaultOfColumn(column);
+        if (keptDefault !== null) {
+          keptField["default"] = keptDefault;
+        }
+        return keptField;
+      });
+      out.kept[entity.name] = missing;
       changed = true;
     }
     if (changed) {
@@ -1866,8 +1848,15 @@ C8O.crudBackend = C8O.crudBackend || {};
       };
       if (Object.keys(keptColumns.kept).length) {
         result.runtimeEvidence.existingDatabase.keptColumns = keptColumns.kept;
-        result.runtimeEvidence.existingDatabase.keptColumnsNote = "Columns of the existing tables the spec did not list stay " +
-          "fields of their entity (transactions, sequences and pages keep them): list only the fields you add or change.";
+        result.runtimeEvidence.existingDatabase.keptColumnsNote = "An entity named without fields keeps the columns of its " +
+          "table as fields (transactions, sequences and pages keep them).";
+      }
+      var leftOutEntities = Object.keys(keptColumns.leftOut);
+      for (var lo = 0; lo < leftOutEntities.length; lo++) {
+        var leftOut = keptColumns.leftOut[leftOutEntities[lo]];
+        ctx.addWarning(result, leftOutEntities[lo] + ": the table columns " + leftOut.join(", ") + " are not in the spec, so its " +
+          "CRUD no longer reads or writes them (the columns and their values stay in the table). List every field of an entity " +
+          "you change, or name it without fields to keep all of them.");
       }
       for (var a = 0; a < applied.length; a++) {
         if (applied[a].status !== "ok") {

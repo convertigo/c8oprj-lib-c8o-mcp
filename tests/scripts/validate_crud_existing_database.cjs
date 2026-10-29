@@ -129,7 +129,7 @@ const ATELIER_TABLES = {
   },
 };
 
-test('an entity cited without its fields, or with some of them, keeps the other columns of its table', () => {
+test('an entity named without fields keeps its columns; one given with fields reports the columns it leaves out', () => {
   const B = backend();
   // What r15 sent: clients only to point the relation at it, interventions with the new field only.
   const raw = { project: 'Atelier', entities: [{ name: 'clients' }, { name: 'interventions', fields: [{ name: 'priorite', type: 'VARCHAR(16)', default: 'normale' }] }] };
@@ -138,17 +138,18 @@ test('an entity cited without its fields, or with some of them, keeps the other 
     { name: 'interventions', fields: [field('id', 'INT', { primary: true }), field('priorite', 'VARCHAR(16)'), field('client_id', 'INT')] },
   ] };
   const out = B.keepExistingColumns(ctx, JSON.stringify(raw), normalized, ATELIER_TABLES);
-  assert.deepEqual(JSON.parse(JSON.stringify(out.kept)), { clients: ['nom', 'ville', 'telephone'], interventions: ['titre', 'montant'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(out.kept)), { clients: ['nom', 'ville', 'telephone'] });
   assert.deepEqual(JSON.parse(JSON.stringify(out.spec.entities[0].fields)), [
     { name: 'nom', type: 'VARCHAR(255)', required: true },
     { name: 'ville', type: 'VARCHAR(255)', required: false },
     { name: 'telephone', type: 'VARCHAR(32)', required: false, default: 'inconnu' },
   ]);
-  // Table order first, the field the table lacks after; the relation field (client_id) and the id stay the spec's.
-  assert.deepEqual(JSON.parse(JSON.stringify(out.spec.entities[1].fields.map(f => f.name))), ['titre', 'montant', 'priorite']);
-  assert.equal(out.spec.entities[1].fields[1].type, 'DECIMAL(12,2)');
-  assert.equal(out.spec.entities[1].fields[1].default, 0);
+  // The fields given stay the fields (a field left out of a second call leaves the CRUD); the others are reported.
+  assert.deepEqual(JSON.parse(JSON.stringify(out.leftOut)), { interventions: ['titre', 'montant'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(out.spec.entities[1].fields.map(f => f.name))), ['priorite']);
   assert.equal(raw.entities[0].fields, undefined, 'the caller spec is not changed');
+  const source = read('js/crud_backend.js');
+  assert.match(source, /are not in the spec, so its " \+\n\s*"CRUD no longer reads or writes them/);
 });
 
 test('nothing is kept on a fresh database or when the spec lists every column', () => {
@@ -156,7 +157,9 @@ test('nothing is kept on a fresh database or when the spec lists every column', 
   const raw = { entities: [{ name: 'clients', fields: [{ name: 'nom' }, { name: 'ville' }, { name: 'telephone' }] }] };
   const normalized = { entities: [{ name: 'clients', fields: [field('id', 'INT', { primary: true }), field('nom', 'VARCHAR(255)'),
     field('ville', 'VARCHAR(255)'), field('telephone', 'VARCHAR(255)')] }] };
-  assert.equal(B.keepExistingColumns(ctx, raw, normalized, ATELIER_TABLES).spec, null);
+  const full = B.keepExistingColumns(ctx, raw, normalized, ATELIER_TABLES);
+  assert.equal(full.spec, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(full.leftOut)), {});
   assert.equal(B.keepExistingColumns(ctx, raw, normalized, { reachable: false, tables: {} }).spec, null);
   assert.equal(B.keepExistingColumns(ctx, raw, normalized, { reachable: true, tables: {} }).spec, null);
 });
