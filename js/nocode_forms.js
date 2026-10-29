@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-28.derived-state-v18",
+      contractVersion: "2026-10-29.grid-value-v19",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1520,7 +1520,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // What an expression may reach. The viewer runs it as JavaScript in its page, without a sandbox (C8Oforms viewerPage
   // createExpressionFunction): an agent took the old "no guessed globals" advice for "no window, no localStorage" and told a user that
   // two forms could not share a value through localStorage. The contract does not steer toward it, nor forbid it.
-  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device; never keep the state of the application there (a current record, a round, a 'new game' flag: nocode-form-validate warns browser_storage_state): a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression.";
+  // 6e89967b (27/10): a duplicate check compared the link cells of an all_the_data grid as raw values. Checked live 29/10
+  // (C8Oforms 2.2.0-beta457): the shape of fields.<grid> for each returned_value, and what a reactive value does on a refresh.
+  var GRID_VALUE = "fields.<grid> depends on its returned_value. row_selected (the default) gives the selected row as Baserow gives it, { id, order, <Column>: value } (a text or a number as is, a single select { id, value, color }, a link or a multiple select a list of { id, value }), and {} while no row is selected; multiple_row_selected a list of those rows; cell_selected the chosen cell; all_the_data the list of the rows read (1000 at most), each cell wrapped as { value, displayValue (its HTML), type, displayName, technicalName }, the hidden id and order cells included: read row[\"<Column>\"].value (a link: a list of { id, value }), never the cell itself or its displayValue. A reactive value is computed again when the rows of a grid it reads arrive (refresh_grid, a save that refreshes the grid) or when its selection changes, a grid hidden by visibleIf included. An expression that throws shows a toast with its error in the preview of a draft, nothing in a published application (browser console only), and empties a reactive field. No tool reads values at run time: check the rows with nocode-baserow-rows-list and the value shown with nocode-form-preview-capture.";
+  var EXPRESSION_RUNTIME = "A business_logic expression or a defaultFrom expression is JavaScript run in the viewer page with fields, actions and api (saving it needs the formulas right, granted by default). Browser globals such as window and localStorage are reachable, but they are not the no-code way to keep or share values: by default share through Baserow (submit saveTo, then a grid or field source) or a URL parameter (defaultFrom { source: \"query\", parameter }). Use localStorage only when the user asks for it, and say that it stays in one browser on one device; never keep the state of the application there (a current record, a round, a 'new game' flag: nocode-form-validate warns browser_storage_state): a business_logic expression can write it, e.g. (localStorage.setItem(\"key\", fields.x ?? \"\"), fields.x), and a defaultFrom expression read it, e.g. localStorage.getItem(\"key\") ?? \"\". The browsers run modern JavaScript: arrow functions, template literals, ?. and ?? are accepted. The tools check that parentheses, brackets, braces and quotes pair up (expression_syntax gives the position of the first mismatch); any other syntax error only shows when the viewer runs the expression. " + GRID_VALUE;
 
   function normalizeToastColor(value) {
     var text = trimmed(value);
@@ -2727,7 +2730,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         initial: "Applies at source initialization only; preserves response edits, same-field URL values and an already entered value. Later dependency changes do not reapply it. If prerequisite data is unavailable, use a fallback and manual input; do not promise late auto-fill.",
         reactive: "Explicit derived value: recomputes when Forms observes field/SmartSource dependencies. Use for calculations, usually with a disabled control, not editable identity defaults. Clock and user context are not polling subscriptions."
       },
-      native: "defaultFrom compiles into sources.self.vars.selfVar (type=ts, html=false) and config.contextValueMode. Requires a Forms viewer supporting contextValueMode; deploy Forms and MCP together. Existing native sources and drafts without this mode keep their behavior. Conflicting explicit sources/defaults are rejected, not overwritten.",
+      native: "defaultFrom compiles into sources.self.vars.selfVar (type=ts, html=false), the code the viewer runs, and config.contextValueMode; config.contextDefault keeps the declaration it was compiled from. Change the value with defaultFrom again (update_field patch { defaultFrom }; a patch of config.contextDefault is compiled the same way), never by patching selfVar: that patch is refused on a defaultFrom field. No Code Studio saves selfVar with each reference as a token $$START<id>{...\"name\":\"<name>\"...}END<id>$$ (fields.<name>) and leaves config.contextDefault as it was: nocode-form-validate then warns context_default_stale, and selfVar is the expression that runs. Requires a Forms viewer supporting contextValueMode; deploy Forms and MCP together. Existing native sources and drafts without this mode keep their behavior. Conflicting explicit sources/defaults are rejected, not overwritten.",
       otherComponents: "For select/radio/checkbox and groups, use existing sources.self default expressions/config.defaultValuesMode with the actual choice values. External choice options and selected defaults are distinct. Grids/data views use real source connections, never scalar defaultFrom. Location needs user permission; files/signatures must not be fabricated.",
       review: ["For each field choose user input, initial context value, reactive calculation or backend-managed value.", "Preserve existing answers and intentional defaults, including empty strings, false and 0.", "Check auth/profile absence, required fields, record switching, source readiness and expression result type.", "Keep identity/ownership/access checks server-side. Do not populate identifying fields in anonymous/anonymized journeys without explicit intent."]
     };
@@ -2795,6 +2798,37 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     delete target.defaultFrom;
   }
 
+  // An expression as the viewer runs it, whatever its layout: the No Code Studio editor keeps each component reference
+  // as a SmartSource token $$START<id>{..."pathPrefix":"fields","name":"<name>"...}END<id>$$ (fields.<name> in the
+  // editor and at run time) and formats the code again when it saves it (line breaks, double quotes, semicolons).
+  function comparableExpression(text) {
+    return String(text == null ? "" : text)
+      .replace(/\$\$START(\d+)(\{.*?\})END\1\$\$/g, function (token, id, payload) {
+        var meta;
+        try { meta = JSON.parse(payload); } catch (_badPayload) { return token; }
+        var name = meta && meta.name ? String(meta.name) : id;
+        var path = meta && meta.c8opath ? String(meta.c8opath) : "";
+        if (path === name || path.indexOf(name + ".") === 0) { path = path.slice(name.length + 1); }
+        return (meta && meta.pathPrefix ? meta.pathPrefix : "fields") + "." + name + (path ? "." + path : "");
+      })
+      .replace(/\bfields\s*\[\s*(["'])([A-Za-z_$][\w$]*)\1\s*\]/g, "fields.$2")
+      .replace(/'/g, "\"")
+      .replace(/[\s;]+/g, "");
+  }
+
+  // 2ba0a64a (27/10): the viewer runs sources.self.vars.selfVar; config.contextDefault only says what the tools compiled
+  // it from. The editor changes selfVar alone, and so did a selfVar patch: the field then declares an expression it does
+  // not run. True when selfVar is no longer the compilation of config.contextDefault.
+  function contextDefaultStale(item) {
+    var spec = item && item.config && item.config.contextDefault;
+    var selfVar = item && item.sources && item.sources.self && item.sources.self.vars && item.sources.self.vars.selfVar;
+    if (!spec || typeof spec !== "object" || Array.isArray(spec) || !selfVar || typeof selfVar.str !== "string") { return false; }
+    var compiled = { type: item.type, config: {} };
+    try { applyContextDefault(compiled, { defaultFrom: spec }); }
+    catch (_invalid) { return false; }
+    return comparableExpression(compiled.sources.self.vars.selfVar.str) !== comparableExpression(selfVar.str);
+  }
+
   // Skyjo (26/10): the current game, round and "already played" fields were formulas over hidden grids and a
   // localStorage flag. A grid gives a formula its selected row (returned_value row_selected, the default) and loads one
   // page of gridRowsPerPage rows; localStorage stays in one browser. A debug field was left in the delivered form.
@@ -2840,11 +2874,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (!item || typeof item !== "object") { return; }
       var self = item.sources && item.sources.self;
       var contextDefault = item.config && item.config.contextDefault;
-      if (contextDefault && contextDefault.source === "expression") {
+      var expressionDefault = contextDefault && contextDefault.source === "expression";
+      var stale = expressionDefault && contextDefaultStale(item);
+      if (expressionDefault && !stale) {
         // The expression as written; the self source holds it with the field references the compiler resolved.
         check(item, { type: "ts", str: contextDefault.expression }, "/formulaire/" + index + "/config/contextDefault/expression");
-      } else if (!contextDefault) {
+      } else if (!contextDefault || stale) {
         // A defaultFrom field/column is compiled by the tools to read the selected row: not a computation over rows.
+        // An expression whose selfVar changed apart from its declaration (contextDefaultStale) runs as selfVar says.
         check(item, self && self.vars && self.vars.selfVar, "/formulaire/" + index + "/sources/self/vars/selfVar/str");
       }
       var label = item.config && typeof item.config.label === "string" ? item.config.label : "";
@@ -2877,9 +2914,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var source = item.sources && item.sources.self;
       if (!source || !boolLike(source.enabled) || !source.vars || !source.vars.selfVar || source.vars.selfVar.type !== "ts") { issue("missing_context_default_source", "Context default requires an enabled TS self source", path); }
       if (config.contextValueMode === "reactive" && !boolLike(config.disabled)) { warning("editable_reactive_value", "A reactive value can replace a manual edit when dependencies change; use initial for prefill or a disabled control for a calculation", path); }
-      if (spec.source === "expression") {
-        var defaultSyntax = expressionDelimiterIssue(spec.expression);
-        if (defaultSyntax) { issue("expression_syntax", item.name + " defaultFrom.expression: " + defaultSyntax.message, path + "/expression"); }
+      var stale = contextDefaultStale(item);
+      if (stale) {
+        warning("context_default_stale", item.name + ": the viewer runs sources.self.vars.selfVar, which is no longer the compilation of config.contextDefault (changed in No Code Studio, or patched alone). Read the expression in selfVar: a token $$START<id>{...\"name\":\"<name>\"...}END<id>$$ is fields.<name>. To change it, send defaultFrom with the whole expression: the tool compiles selfVar from it", path);
+      }
+      if (spec.source === "expression" || stale) {
+        // the syntax of the code the viewer runs
+        var defaultSyntax = expressionDelimiterIssue(stale ? source.vars.selfVar.str : spec.expression);
+        if (defaultSyntax) { issue("expression_syntax", item.name + (stale ? " selfVar: " : " defaultFrom.expression: ") + defaultSyntax.message, stale ? "/formulaire/" + index + "/sources/self/vars/selfVar/str" : path + "/expression"); }
       }
       if (spec.source === "expression") { warning("context_expression_runtime_check", "Verify expression result type, dependencies, source readiness and absence of side effects at runtime; arbitrary expressions are not statically proven", path); }
       if (spec.source === "field") {
@@ -4714,6 +4756,27 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         fieldFound.item.config.sourceEnabled = true;
         delete mergePatch.source;
       }
+      // 2ba0a64a (27/10): the value of a defaultFrom field changes through defaultFrom, compiled into the selfVar the viewer
+      // runs. defaultFrom put under config, or a change of config.contextDefault (what defaultFrom compiled), is that
+      // change: it was stored as is and the viewer kept running the old selfVar.
+      var contextSpec = hasOwn(fieldPatch, "defaultFrom") ? fieldPatch.defaultFrom : undefined;
+      var configPatch = mergePatch.config && typeof mergePatch.config === "object" && !Array.isArray(mergePatch.config) ? mergePatch.config : null;
+      var currentContext = fieldFound.item.config && fieldFound.item.config.contextDefault;
+      if (configPatch && hasOwn(configPatch, "defaultFrom")) {
+        if (contextSpec !== undefined) { throw new Error(fieldFound.item.name + ": give defaultFrom once, at the root of the patch"); }
+        contextSpec = configPatch.defaultFrom;
+        delete configPatch.defaultFrom;
+      }
+      if (configPatch && configPatch.contextDefault && typeof configPatch.contextDefault === "object" && !Array.isArray(configPatch.contextDefault)) {
+        if (contextSpec !== undefined) { throw new Error(fieldFound.item.name + ": give defaultFrom or config.contextDefault, not both"); }
+        contextSpec = applyMergePatch(currentContext && typeof currentContext === "object" ? currentContext : {}, configPatch.contextDefault);
+        delete configPatch.contextDefault;
+      }
+      var selfVarPatched = !!(mergePatch.sources && mergePatch.sources.self && mergePatch.sources.self.vars && hasOwn(mergePatch.sources.self.vars, "selfVar"));
+      var contextRemoved = !!(configPatch && hasOwn(configPatch, "contextDefault") && configPatch.contextDefault === null);
+      if (selfVarPatched && (contextSpec !== undefined || (currentContext && !contextRemoved))) {
+        throw new Error(fieldFound.item.name + ": sources.self.vars.selfVar is compiled from defaultFrom (declared in config.contextDefault) and the viewer runs it. Change the value with patch { defaultFrom: { source: \"expression\", expression: \"...\", mode: \"reactive\" } } alone: the tool compiles selfVar from it. To keep a hand-written selfVar instead, remove the declaration in the same patch with config: { contextDefault: null }");
+      }
       if (mergePatch.sources) { normalizeRequestableEntries(mergePatch.sources); }
       if (mergePatch.actions) { normalizeRequestableEntries(mergePatch.actions); }
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);
@@ -4735,11 +4798,23 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       applyFieldLabel(form.formulaire[fieldFound.index], fieldPatch);
       if (hasOwn(fieldPatch, "label")) { delete form.formulaire[fieldFound.index].label; }
       if (hasOwn(fieldPatch, "description")) { delete form.formulaire[fieldFound.index].description; }
-      if (hasOwn(fieldPatch, "defaultFrom")) {
+      if (contextSpec !== undefined) {
         // An explicit contextual edit replaces the old scalar self default only;
         // never silently replace a backend/choice data source.
         if (Object.keys(fieldFound.item.sources || {}).some(function (key) { return key !== "self" && boolLike(fieldFound.item.sources[key].enabled); })) { throw new Error("Cannot replace an enabled external source with defaultFrom"); }
-        applyContextDefault(form.formulaire[fieldFound.index], fieldPatch);
+        var contextField = {};
+        Object.keys(fieldPatch).forEach(function (key) { contextField[key] = fieldPatch[key]; });
+        if (configPatch) {
+          // the mode given beside the declaration is its mode, not a conflicting native default
+          contextField.config = clone(configPatch, {});
+          var modeGiven = contextField.config.contextValueMode;
+          if (modeGiven != null && contextSpec && typeof contextSpec === "object" && !Array.isArray(contextSpec)) {
+            if (contextSpec.mode == null) { contextSpec = applyMergePatch(contextSpec, { mode: modeGiven }); }
+            if (contextSpec.mode === modeGiven) { delete contextField.config.contextValueMode; }
+          }
+        }
+        contextField.defaultFrom = contextSpec;
+        applyContextDefault(form.formulaire[fieldFound.index], contextField);
       }
       summary.push({ action: action, fieldId: form.formulaire[fieldFound.index].id, name: form.formulaire[fieldFound.index].name });
       return;
