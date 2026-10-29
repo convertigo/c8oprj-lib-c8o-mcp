@@ -23,6 +23,18 @@ C8O.crudBackend = C8O.crudBackend || {};
     } catch (_ignoreDescription) {}
   }
 
+  // The default of a create variable: the value a caller that leaves the field out gets. The INSERT lists every
+  // column, so the column default never applied and a field left out was stored '' (usage tests 29/10: priorite ''
+  // instead of 'normale'). null removes a default the field no longer has.
+  function safeDefaultValue(variable, entry) {
+    if (!variable || typeof variable.setValueOrNull !== "function" || !entry || !Object.prototype.hasOwnProperty.call(entry, "defaultValue")) {
+      return;
+    }
+    try {
+      variable.setValueOrNull(entry.defaultValue === null || entry.defaultValue === undefined ? null : String(entry.defaultValue));
+    } catch (_ignoreDefaultValue) {}
+  }
+
   function applySequenceSecurity(ctx, requestable, accessibility, authenticatedContextRequired, result) {
     if (!ctx || !requestable || typeof ctx.applyUpdates !== "function") {
       return;
@@ -1460,6 +1472,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
       safeDescription(variable, variableEntries[i].description || "");
       safeComment(variable, variableEntries[i].comment || "");
+      safeDefaultValue(variable, variableEntries[i]);
     }
     result.updated.push(tx.getFullQName ? String(tx.getFullQName()) : name);
     return tx;
@@ -1488,6 +1501,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
       safeDescription(variable, normalizedEntries[i].description || "");
       safeComment(variable, normalizedEntries[i].comment || "");
+      safeDefaultValue(variable, normalizedEntries[i]);
     }
     // These are all the variables of the container: a field dropped from the spec left its variable, which filtered
     // silently (preflight checks).
@@ -1505,6 +1519,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
       safeDescription(variable, normalizedEntries[i].description || "");
       safeComment(variable, normalizedEntries[i].comment || "");
+      safeDefaultValue(variable, normalizedEntries[i]);
     }
     // These are all the variables of the container: a field dropped from the spec left its variable, which filtered
     // silently (preflight checks).
@@ -1663,7 +1678,8 @@ C8O.crudBackend = C8O.crudBackend || {};
           continue;
         }
         var entityFieldDoc = fieldVariableDescription(ctx, spec, entity, entityField.column);
-        createVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc });
+        createVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc,
+          defaultValue: entityField.defaultValue === null || entityField.defaultValue === undefined ? null : entityField.defaultValue });
         updateVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc });
       }
       updateVarsEntries.push({ name: entity.primaryField.column, description: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column), comment: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column) });
