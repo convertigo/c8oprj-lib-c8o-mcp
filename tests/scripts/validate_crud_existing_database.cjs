@@ -198,3 +198,26 @@ test('a connector that was there before the call and a database the probe cannot
   assert.match(source, /planExistingDatabase\(ctx, spec, inspection, \{ connectorExisted: connectorExisted \}\)/);
 });
 
+test('the probe of a connector not opened since its project was reloaded resolves the HSQLDB file itself', () => {
+  const urls = [];
+  const context = {
+    C8O: { util: {} },
+    Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { filePropertyManager: {
+      getFilepathFromProperty: (file, project) => '/workspace/' + project + '/' + file.replace(/^\.\//, '') } } } } } } } },
+    java: { lang: { Class: { forName() {} } }, sql: { DriverManager: { getConnection(url) { urls.push(url); throw new Error('probe stopped'); } } } },
+  };
+  vm.createContext(context);
+  vm.runInContext(read('js/crud_proof.js'), context);
+  vm.runInContext(read('js/crud_backend.js'), context);
+  const connector = {
+    getRealJdbcURL: () => null,
+    getJdbcURL: () => 'jdbc:hsqldb:file:./ContactsVibe_hsqldb',
+    getProject: () => ({ getName: () => 'ContactsVibe' }),
+    getJdbcDriverClassName: () => 'org.hsqldb.jdbcDriver',
+    getRealJdbcUserName: () => 'SA',
+    getRealJdbcUserPassword: () => '',
+  };
+  const out = context.C8O.crudBackend.inspectDatabase(ctx, connector, ['contacts']);
+  assert.deepEqual(urls, ['jdbc:hsqldb:file:/workspace/ContactsVibe/ContactsVibe_hsqldb;ifexists=true']);
+  assert.match(out.error, /probe stopped/);
+});

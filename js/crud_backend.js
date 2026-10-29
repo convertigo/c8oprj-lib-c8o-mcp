@@ -1209,7 +1209,8 @@ C8O.crudBackend = C8O.crudBackend || {};
     if (!url.length || url === "null") {
       url = String(connector.getJdbcURL() || "");
       if (url.indexOf("jdbc:hsqldb:file:") === 0) {
-        url = "jdbc:hsqldb:file:" + String(Engine.theApp.filePropertyManager.getFilepathFromProperty(
+        // The connector of a project reloaded since its last transaction has no real URL yet (usage tests 29/10).
+        url = "jdbc:hsqldb:file:" + String(Packages.com.twinsoft.convertigo.engine.Engine.theApp.filePropertyManager.getFilepathFromProperty(
           url.substring("jdbc:hsqldb:file:".length), String(connector.getProject().getName())));
       }
     }
