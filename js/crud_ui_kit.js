@@ -1326,11 +1326,18 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     var entryPage = ensureEntryPage(ctx, projectName, options.entryPage || "Home", result);
     // A field name the entity does not have was left out of the pages without a word: the field it meant disappeared.
     for (var u = 0; u < entities.length && typeof ctx.entityUiConfig === "function"; u++) {
-      var unknownRefs = ctx.ensureArray((ctx.entityUiConfig(projectName, facadePrefix, entities[u], entities) || {}).unknownFieldRefs);
+      var uiConfig = ctx.entityUiConfig(projectName, facadePrefix, entities[u], entities) || {};
+      var unknownRefs = ctx.ensureArray(uiConfig.unknownFieldRefs);
+      var fieldNames = ctx.ensureArray(entities[u].fields).map(function (f) { return f.column || f.name; }).join(", ");
       if (unknownRefs.length) {
         ctx.addWarning(result, "ui fields of " + entities[u].name + ": " + unknownRefs.join(", ") + " " + (unknownRefs.length > 1 ? "are" : "is") +
-          " not a field of the entity and " + (unknownRefs.length > 1 ? "were" : "was") + " left out. Fields: " +
-          ctx.ensureArray(entities[u].fields).map(function (f) { return f.column || f.name; }).join(", ") + ".");
+          " not a field of the entity and " + (unknownRefs.length > 1 ? "were" : "was") + " left out. Fields: " + fieldNames + ".");
+      }
+      // The fields come from the rows of the list sequence: one that returns the id alone gives pages with no value and
+      // a form that edits nothing (usage tests 29/10, after an upsert-crud that regenerated the entity without fields).
+      if (!ctx.ensureArray(uiConfig.editableFields).length) {
+        ctx.addWarning(result, entities[u].name + " has no field besides its id (fields: " + fieldNames + "): its pages show no " +
+          "value and its form edits nothing. Check what its list sequence returns (crud-status, requestable-execute).");
       }
     }
     var language = ctx.trimmed(options.language || "").toLowerCase().substring(0, 2);

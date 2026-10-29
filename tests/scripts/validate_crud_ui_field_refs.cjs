@@ -50,3 +50,19 @@ test('a relation label name lists the relation field, and an unknown name is rep
   const kit = fs.readFileSync(path.join(root, 'js/crud_ui_kit.js'), 'utf8');
   assert.match(kit, /not a field of the entity and/, 'the kit warns about the names it left out');
 });
+
+// The S1 replay of 29/10 regenerated clients without fields: the kit got the id alone from its list sequence, wrote
+// pages and a form with no field, and answered success although the call gave labels for nom, ville and telephone.
+test('labels for fields the entity lacks are reported, and an entity with no field but its id is flagged', () => {
+  const M = meta();
+  const bare = { name: 'clients', singular: 'client', label: 'Clients', fields: [field('id', { primary: true, type: 'INT' })],
+    ui: { fieldLabels: { nom: 'Nom', ville: 'Ville', telephone: 'Téléphone' } } };
+  const config = JSON.parse(JSON.stringify(M.entityUiConfig(ctx, 'Atelier', 'crud', bare, [bare])));
+  assert.deepEqual(config.unknownFieldRefs, ['nom', 'ville', 'telephone']);
+  assert.deepEqual(config.editableFields, []);
+  const labelled = JSON.parse(JSON.stringify(M.entityUiConfig(ctx, 'Atelier', 'crud',
+    Object.assign({}, clients, { ui: { fieldLabels: { nom: 'Nom' } } }), [clients])));
+  assert.deepEqual(labelled.unknownFieldRefs, []);
+  const kit = fs.readFileSync(path.join(root, 'js/crud_ui_kit.js'), 'utf8');
+  assert.match(kit, /if \(!ctx\.ensureArray\(uiConfig\.editableFields\)\.length\) \{\n\s*ctx\.addWarning\(result, entities\[u\]\.name \+ " has no field besides its id/);
+});

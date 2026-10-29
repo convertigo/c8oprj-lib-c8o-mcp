@@ -473,6 +473,15 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     var listFields = resolveFieldList(ctx, entity, overrideUi.listFields, previewDefaults, { excludePrimary: false, unknown: unknownFieldRefs });
     var detailFields = resolveFieldList(ctx, entity, overrideUi.detailFields, detailDefaults, { excludePrimary: false, unknown: unknownFieldRefs });
     var formFields = resolveFieldList(ctx, entity, overrideUi.formFields, editableFields, { excludePrimary: true, unknown: unknownFieldRefs });
+    // A label for a field the entity lacks: the field the agent meant is not in the pages either.
+    var labelLookup = resolvedFieldLookup(ctx, entity);
+    var labelKeys = Object.keys(overrideUi.fieldLabels || {});
+    for (var labelIndex = 0; labelIndex < labelKeys.length; labelIndex++) {
+      var labelToken = ctx.normalizedIdentifier(labelKeys[labelIndex]);
+      if (labelToken.length && !lookupByAliases(ctx, labelLookup, labelToken)) {
+        unknownFieldRefs.push(labelToken);
+      }
+    }
     var fieldLabels = {};
     var allConfigFields = listFields.concat(detailFields).concat(formFields);
     for (var fieldIndex = 0; fieldIndex < allConfigFields.length; fieldIndex++) {
