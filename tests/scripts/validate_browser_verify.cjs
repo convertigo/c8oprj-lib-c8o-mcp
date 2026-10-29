@@ -568,3 +568,33 @@ test('viewport: desktop by default, mobile, WxH or an object, bounded', () => {
   assert.deepEqual(api.parseViewport('1024x768'), { width: 1024, height: 768 });
   assert.deepEqual(api.parseViewport({ width: 99999, height: 10 }), { width: 3840, height: 320 });
 });
+
+test('agent loop: a model that stops answering without tools is made to call finish', async () => {
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-verify-'));
+  const sent = [];
+  const fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    sent.push(body);
+    const forced = body.tool_choice && body.tool_choice.function && body.tool_choice.function.name === 'finish';
+    const calls = sent.length === 1
+      ? [{ id: 's1', type: 'function', function: { name: 'snapshot', arguments: '{}' } }]
+      : forced ? [{ id: 'f', type: 'function', function: { name: 'finish', arguments: '{"verdict":"passed","summary":"Priority shown on the 5 rows.","checks":[]}' } }] : [];
+    return fakeResponse(200, completion(calls), 0.001);
+  };
+  const result = await agent.run({ cdpEndpoint: 'http://127.0.0.1:1', outDir, paths: ['list'] }, { key: KEY, playwright: fakePlaywright([]), fetch });
+  // snapshot, empty answer (nudged), empty answer (finish required), finish.
+  assert.equal(sent.length, 4);
+  assert.equal(sent[2].tool_choice, 'auto');
+  assert.deepEqual(sent[3].tool_choice, { type: 'function', function: { name: 'finish' } });
+  assert.equal(result.report.summary, 'Priority shown on the 5 rows.');
+  assert.equal(result.stopReason, 'finished');
+});
+
+test('gateway: a named tool refused in tool_choice falls back to required', async () => {
+  const sent = [];
+  const replies = [fakeResponse(400, { error: { message: 'Invalid tool_choice' } }), fakeResponse(200, completion([]), 0.001)];
+  const config = agent.normalizeConfig({ cdpEndpoint: 'http://127.0.0.1:1', outDir: os.tmpdir(), paths: ['x'] });
+  const gateway = agent.createGateway(config, KEY, async (url, init) => { sent.push(JSON.parse(init.body)); return replies.shift(); });
+  await gateway.complete([{ role: 'user', content: 'x' }], { toolChoice: { type: 'function', function: { name: 'finish' } } });
+  assert.deepEqual(sent.map(b => b.tool_choice), [{ type: 'function', function: { name: 'finish' } }, 'required']);
+});
