@@ -349,10 +349,14 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
   }
 
-  function pruneUnexpectedChildSteps(ctx, parent, allowedNames, result) {
+  // options.keepBefore: the call step of a business sequence. The steps before it are the app's own guards and checks
+  // (a role check before a delete, an IfStep + XMLErrorStep before a create, as the guides say): upsert-crud removed them
+  // at its next run without a word (usage tests 29/10). The unexpected steps after it are still removed, and named.
+  function pruneUnexpectedChildSteps(ctx, parent, allowedNames, result, options) {
     if (!parent || typeof parent.getDatabaseObjectChildren !== "function") {
       return;
     }
+    var keepBefore = options && options.keepBefore ? String(options.keepBefore) : "";
     var allowed = {};
     var entries = ctx.ensureArray(allowedNames);
     for (var i = 0; i < entries.length; i++) {
@@ -360,6 +364,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
     var children = parent.getDatabaseObjectChildren();
     var toRemove = [];
+    var callSeen = !keepBefore.length;
     for (var childIndex = 0; childIndex < children.size(); childIndex++) {
       var child = children.get(childIndex);
       var logical = ctx.logicalClassName(child);
@@ -367,11 +372,18 @@ C8O.crudBackend = C8O.crudBackend || {};
         continue;
       }
       var childName = String(child.getName ? child.getName() : "");
-      if (!allowed[childName]) {
+      if (childName === keepBefore) {
+        callSeen = true;
+      }
+      if (!allowed[childName] && callSeen) {
         toRemove.push(child);
       }
     }
     for (var removeIndex = 0; removeIndex < toRemove.length; removeIndex++) {
+      if (keepBefore.length && typeof ctx.addWarning === "function") {
+        ctx.addWarning(result, "upsert-crud removed the step " + String(toRemove[removeIndex].getName()) + " after the call of " +
+          String(parent.getName()) + ": it is not part of the generated answer. Put an app's own checks before the call.");
+      }
       removeChild(parent, toRemove[removeIndex], result);
     }
   }
@@ -418,7 +430,8 @@ C8O.crudBackend = C8O.crudBackend || {};
         result
       );
     }
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Rows"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Rows"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
     pruneUnexpectedChildSteps(ctx, rowsStep, ["RowsIterator"], result);
     pruneUnexpectedChildSteps(ctx, iterator, ["Item"], result);
     pruneUnexpectedChildSteps(ctx, rowStep, allowedNames, result);
@@ -447,7 +460,8 @@ C8O.crudBackend = C8O.crudBackend || {};
         result
       );
     }
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Row"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Row"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
     pruneUnexpectedChildSteps(ctx, rowStep, allowedNames, result);
   }
 
@@ -462,7 +476,8 @@ C8O.crudBackend = C8O.crudBackend || {};
       "number",
       result
     );
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Total"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Total"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
   }
 
   function buildCanonicalMutationPayload(ctx, sequence, txStep, result) {
@@ -476,7 +491,8 @@ C8O.crudBackend = C8O.crudBackend || {};
       "string",
       result
     );
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Message"], result);
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Message"], result,
+      { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
   }
 
   function configurePublicSequencePayload(ctx, sequence, txStep, options, result) {
@@ -1176,6 +1192,8 @@ C8O.crudBackend = C8O.crudBackend || {};
     return out;
   };
 
+  C8O.crudBackend.pruneUnexpectedChildSteps = pruneUnexpectedChildSteps;
+
   C8O.crudBackend.buildAddColumnSql = function (ctx, table, field, driver) {
     var definition = C8O.crudBackend.renderColumnDefinition(ctx, field, driver);
     if (driver.id === "oracle") {
@@ -1548,9 +1566,78 @@ C8O.crudBackend = C8O.crudBackend || {};
     txStep.setSourceTransaction(sourceTransaction);
     txStep.setOutput(false);
     C8O.crudBackend.ensureStepVariables(ctx, txStep, normalizedEntries, result);
+    if (currentOptions.kind === "crud" && currentOptions.entity && (currentOptions.verb === "create" || currentOptions.verb === "update")) {
+      C8O.crudBackend.ensureRequiredChecks(ctx, sequence, txStep, currentOptions.entity, currentOptions.spec, result);
+    }
     configurePublicSequencePayload(ctx, sequence, txStep, currentOptions, result);
     return sequence;
   };
+
+  // A required field left empty was saved as '' (NOT NULL takes it): the kit form submits whatever its validity, and a
+  // verifier saved an empty row (usage tests 29/10). Each required field gets a Require_<column> step before the call:
+  // an IfStep on an empty value holding the error the kit form shows (XMLErrorStep) and a ReturnStep, so nothing is
+  // written. A field no longer required loses its step; the app's own steps before the call stay.
+  C8O.crudBackend.ensureRequiredChecks = function (ctx, sequence, txStep, entity, spec, result) {
+    var french = spec && spec.ui && String(spec.ui.language || "").toLowerCase() === "fr";
+    var wanted = {};
+    var fields = ctx.ensureArray(entity.fields);
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field || field.primary === true || field.required !== true) {
+        continue;
+      }
+      var column = String(field.column);
+      var name = "Require_" + column;
+      wanted[name] = true;
+      var label = ctx.trimmed(field.label || column) || column;
+      label = label.charAt(0).toUpperCase() + label.substring(1);
+      var check = ctx.ensureChild(sequence, "steps.IfStep", name, result);
+      ctx.applyUpdates(check, {
+        condition: "typeof " + column + " === 'undefined' || " + column + " == null || String(" + column + ").trim() === ''"
+      }, result);
+      var error = ctx.ensureChild(check, "steps.XMLErrorStep", "RequiredError", result);
+      ctx.applyUpdates(error, {
+        code: plainSmartType("1"),
+        message: plainSmartType(french ? label + " est obligatoire." : label + " is required.")
+      }, result);
+      ctx.ensureChild(check, "steps.ReturnStep", "StopBeforeWrite", result);
+      moveBefore(sequence, check, txStep);
+    }
+    pruneMatchingSteps(ctx, sequence, function (stepName) { return /^Require_/.test(stepName) && !wanted[stepName]; }, result);
+  };
+
+  function moveBefore(sequence, step, anchor) {
+    try {
+      var ordered = sequence.getOrderedSteps().get(0);
+      var stepPriority = java.lang.Long.valueOf(step.priority);
+      var anchorPriority = java.lang.Long.valueOf(anchor.priority);
+      var at = ordered.indexOf(stepPriority);
+      var anchorAt = ordered.indexOf(anchorPriority);
+      if (at < 0 || anchorAt < 0 || at < anchorAt) {
+        return;
+      }
+      ordered.remove(at);
+      ordered.add(anchorAt, stepPriority);
+      sequence.hasChanged = true;
+    } catch (_ignoreOrder) {}
+  }
+
+  function pruneMatchingSteps(ctx, parent, matches, result) {
+    if (!parent || typeof parent.getDatabaseObjectChildren !== "function") {
+      return;
+    }
+    var children = parent.getDatabaseObjectChildren();
+    var toRemove = [];
+    for (var i = 0; i < children.size(); i++) {
+      var child = children.get(i);
+      if (ctx.logicalClassName(child).indexOf("steps.") === 0 && matches(String(child.getName()))) {
+        toRemove.push(child);
+      }
+    }
+    for (var r = 0; r < toRemove.length; r++) {
+      removeChild(parent, toRemove[r], result);
+    }
+  }
 
   C8O.crudBackend.ensureAuthLoginSequence = function (ctx, project, result) {
     var sequence = ctx.ensureChild(project, "sequences.GenericSequence", "auth_login", result);
