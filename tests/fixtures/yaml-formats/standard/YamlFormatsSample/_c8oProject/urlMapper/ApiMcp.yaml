@@ -1,0 +1,17 @@
+path: /mcp
+↓Get [rest.GetOperation-1761839223002]:
+  targetRequestable: lib_ConvertigoMCP.mcp_ping
+↓Post [rest.PostOperation]:
+  comment: Streamable HTTP entry point for MCP requests
+  targetRequestable: lib_ConvertigoMCP.mcp_endpoint
+  ↓request [rest.BodyParameter-1761203524284]:
+    comment: JSON-RPC request body
+    inputContent: noConvert
+    mappedVariableName: request
+    required: true
+  ↓__context [rest.QueryParameter-1792274900001]:
+    comment: Each MCP request runs in its own context. In the Studio, a context name not starting with studio_ is replaced by the shared studio_lib_ConvertigoMCP:S:mcp_endpoint, so every MCP call of the Studio waited for the previous one; studio_mcp* keeps the studio_ prefix and the trailing * numbers a fresh context in the request-scoped session, removed with it at the end of the request.
+    value: studio_mcp*
+  ↓jsonOnly [rest.QueryParameter-1764154409088]:
+    mappedVariableName: jsonOnly
+    value: false

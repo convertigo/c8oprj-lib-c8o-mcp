@@ -1,0 +1,38 @@
+accessibility: Hidden
+comment: |-
+  Values whose spelling matters
+  	a tabbed line with a trailing space 
+
+  and a last line
+↓Script [steps.SimpleStep-1761000000001]:
+  expression: |
+    // a script with tabs, quotes, YAML syntax and a hash
+    var answer = 'yes';
+    	if (answer) {
+    		log.message("tab, #hash and key: value " + answer);
+    	}
+↓Ambiguous [variables.RequestableVariable-1761000000002]:
+  description: 'null'
+  value: 'yes'
+↓Number [variables.RequestableVariable-1761000000003]:
+  comment: '1.50'
+  value: '007'
+↓Spaces [variables.RequestableVariable-1761000000004]:
+  value: ' leading and trailing '
+↓Indented [steps.SimpleStep-1761000000005]:
+  expression: |2-
+      starts with two spaces
+    ends here
+↓Empty [steps.SimpleStep-1761000000006]: ''
+↓Copy [steps.XMLCopyStep-1761000000007]:
+  sourceDefinition:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector:
+        - java.lang.String:
+          - ↑value: 1761000000001
+        - java.lang.String:
+          - ↑value: ./text()
+↓Bound [steps.SimpleStep-1761000000008]:
+  expression: true
+  isEnabled: false

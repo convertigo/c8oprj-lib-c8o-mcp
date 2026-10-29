@@ -1,0 +1,44 @@
+accessibility: Private
+comment: used for internal call
+↓init [steps.SimpleStep-1761735196037]: 
+  expression: |
+    'if (!_sequence) {
+      throw "_sequence should be defined";
+    }
+    
+    var callStep = context.requestedObject.getStep("Call");
+    
+    try {
+      let vars = JSON.parse(_variables);
+      if (vars.__nolog === undefined || vars.__nolog === null) {
+        vars.__nolog = true;
+      }
+      vars.__sequence = _sequence;
+      for (let k in vars) {
+        if (Object.prototype.toString.call(vars[k]) != "[object String]") {
+          vars[k] = JSON.stringify(vars[k]);
+        }
+        let myvar = new com.twinsoft.convertigo.beans.variables.StepVariable();
+        myvar.setName(k);
+        myvar.setValueOrNull(vars[k]);
+        callStep.addVariable(myvar);
+      }
+    } finally {
+      delete _sequence;
+      delete _variables;
+    }'
+↓Call [steps.SequenceStep-1761735196040]: 
+  comment: Runs the tool in a context of its own, named after the context of this call, so concurrent MCP calls of the Studio do not wait for each other.
+  contextName: '"studio_" + String(context.name).replace(/^studio_/, "") + "_tool*"'
+  sourceSequence: lib_ConvertigoMCP.internal_call_stub
+↓Copy [steps.XMLCopyStep-1761735196043]: 
+  sourceDefinition: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+      - com.twinsoft.convertigo.beans.common.XMLVector: 
+        - java.lang.String: 
+          - ↑value: 1761735196040
+        - java.lang.String: 
+          - ↑value: ./document/*
+↓_sequence [variables.RequestableVariable-1761735196046]: 
+↓_variables [variables.RequestableVariable-1761735669343]: 

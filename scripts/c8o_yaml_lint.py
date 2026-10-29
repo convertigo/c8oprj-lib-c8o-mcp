@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Lint Convertigo YAML dialect files (c8oProject.yaml and _c8oProject/*.yaml).
+Lint Convertigo YAML project files (c8oProject.yaml and _c8oProject/*.yaml).
 
-This is not a generic YAML validator. It validates the custom line grammar used
-by Convertigo's YamlConverter parser.
+Each project is checked in the format its c8oProject.yaml starts with. In the legacy format
+(↑convertigo: ...), this is not a generic YAML validator: it validates the custom line grammar
+used by Convertigo's YamlConverter parser. In the standard YAML format of Convertigo 8.5
+(convertigo: 8.5.0.m006), files are read as the engine reads them (c8o_yaml_standard.py next to
+this script, which needs PyYAML): YAML syntax, one mapping document, no alias, custom tag or
+duplicate key, bean identities, XML names, source paths; then the same checks on beans
+(priorities, names, bound attributes, step source vectors) and the reference graph.
 """
 
 from __future__ import annotations
@@ -74,6 +79,33 @@ class RefEdge:
     line_no: int
     target_file: Path
     raw_rel_path: str
+
+
+LEGACY_FORMAT = "legacy"
+STANDARD_FORMAT = "standard"
+
+
+def _project_root_of(file_path: Path) -> Path | None:
+    if file_path.name == "c8oProject.yaml" and file_path.parent.name != "_c8oProject":
+        return file_path.parent
+    for parent in file_path.parents:
+        if parent.name == "_c8oProject" and (parent.parent / "c8oProject.yaml").is_file():
+            return parent.parent
+    return None
+
+
+def yaml_format(file_path: Path) -> str:
+    """The format of the file's project (YamlConverter.getFormat: a c8oProject.yaml whose first line starts with
+    ↑ or ↓ is legacy, any other is standard); legacy for a file outside a project."""
+    root = _project_root_of(file_path)
+    if root is None or not (root / "c8oProject.yaml").is_file():
+        return LEGACY_FORMAT
+    try:
+        with open(root / "c8oProject.yaml", "rb") as stream:
+            first = re.split(r"\r\n|\r|\n", stream.read(4096).decode("utf-8", errors="replace"), maxsplit=1)[0]
+    except OSError:
+        return LEGACY_FORMAT
+    return LEGACY_FORMAT if first.startswith(("↑", "↓")) else STANDARD_FORMAT
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:
@@ -253,6 +285,8 @@ def _lint_empty_xmlvector_source_references(file_path: Path, lines: list[str]) -
 
 
 def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], list[str], list[RefEdge]]:
+    if yaml_format(file_path) == STANDARD_FORMAT:
+        return lint_standard_file(file_path, check_external_refs)
     errors: list[str] = []
     warnings: list[str] = []
     refs: list[RefEdge] = []
@@ -465,6 +499,163 @@ def lint_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], li
     return errors, warnings, refs
 
 
+# Why standard files could not be checked (PyYAML or c8o_yaml_standard.py missing), once: main reports it.
+STANDARD_UNAVAILABLE: list[str] = []
+STANDARD_UNCHECKED: list[Path] = []
+XMLVECTOR_TAG = "com.twinsoft.convertigo.beans.common.XMLVector"
+
+
+def _standard_codec():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.dont_write_bytecode = True  # no __pycache__ inside the project folder
+    try:
+        import c8o_yaml_standard  # noqa: PLC0415
+    finally:
+        sys.path.pop(0)
+    return c8o_yaml_standard
+
+
+def _elements(element) -> list:
+    return [child for child in element.children if hasattr(child, "tag")]
+
+
+def _text(element) -> str:
+    return "".join(child.value for child in element.children if not hasattr(child, "tag"))
+
+
+def _lint_standard_beans(file_path: Path, document) -> tuple[list[str], list[str]]:
+    """The checks of lint_file that are about beans, not about the legacy line grammar, on the element tree."""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    def bound_attribute_scripts(bean, attr_name: str) -> None:
+        # The MobileSmartSourceType values of a UIAttribute bean, not those of a UIAttribute nested in it.
+        def walk(element) -> None:
+            for child in _elements(element):
+                if child.tag == "bean":
+                    if _bean_class_name(child.attrs.get("yaml_key", "")) != "ngx.components.UIAttribute":
+                        walk(child)
+                    continue
+                if child.tag == "MobileSmartSourceType":
+                    value = _text(child)
+                    if "script:" in value and '"' in value:
+                        errors.append(
+                            f"{file_path}:{child.line_no}: bound attribute {attr_name} uses double quotes inside script; "
+                            "generated HTML attribute is double-quoted and may break Angular parsing. "
+                            "Use single quotes in JS strings."
+                        )
+                walk(child)
+
+        walk(bean)
+
+    def walk_beans(element) -> None:
+        names: set[str] = set()
+        for child in _elements(element):
+            if child.tag != "bean":
+                continue
+            key = child.attrs.get("yaml_key", "")
+            unnumbered = UNNUMBERED_BEAN_RE.fullmatch(key)
+            if unnumbered and unnumbered.group(2) not in ("ApplicationComponent",):
+                warnings.append(
+                    f"{file_path}:{child.line_no}: '{key}' has no -<priority>: after a project-reload it gets priority 0, "
+                    "and step sources and the order of its siblings rely on unique priorities; create it with "
+                    "yaml_mcp_delta_apply.py --structural --save (the Studio then writes its priority) or give it a unique number"
+                )
+            name = _bean_display_name(key)
+            if name in names:
+                warnings.append(f"{file_path}:{child.line_no}: duplicate bean name '{name}' at same nesting level")
+            names.add(name)
+            if _bean_class_name(key) == "ngx.components.UIAttribute":
+                attr_names = [_text(e) for e in _elements(child) if e.tag == "attrName"]
+                attr_name = attr_names[0] if attr_names else ""
+                if attr_name.startswith("[") and attr_name.endswith("]"):
+                    bound_attribute_scripts(child, attr_name)
+            file_ref = child.attrs.get("yaml_file", "")
+            if file_ref.startswith("🗏"):
+                errors.append(
+                    f"{file_path}:{child.line_no}: '🗏' is the legacy file marker: in the standard format the bean's value "
+                    f"is the path alone ({_bean_display_name(key)}: {file_ref[1:].strip() or '<path>'})"
+                )
+            walk_beans(child)
+
+    walk_beans(document)
+
+    # An empty XMLVector followed by java.lang.String fields that look like a step source: the fields are at the
+    # wrong level (the legacy check reads the lines after the vector; here, the next elements in document order).
+    order: list[tuple[object, object]] = []  # (element, parent)
+
+    def flatten(element) -> None:
+        for child in _elements(element):
+            order.append((child, element))
+            flatten(child)
+
+    flatten(document)
+    for index, (vector, _parent) in enumerate(order):
+        if vector.tag != XMLVECTOR_TAG or vector.children or vector.attrs or index + 1 >= len(order):
+            continue
+        first, first_parent = order[index + 1]
+        priority = first.attrs.get("value", "") if first.tag == "java.lang.String" else ""
+        if not NUMERIC_PRIORITY_RE.fullmatch(priority):
+            continue
+        siblings = _elements(first_parent)
+        following = [e for e in siblings[siblings.index(first) + 1:] if e.tag == "java.lang.String"]
+        xpath = following[0].attrs.get("value") if following else None
+        if xpath is not None and _looks_like_source_xpath(xpath):
+            errors.append(
+                f"{file_path}:{vector.line_no}: XMLVector is empty, but following fields look like a dynamic "
+                f"source reference ({priority}, {xpath}); indent them under this XMLVector "
+                "instead of leaving them at the default-value level"
+            )
+        else:
+            warnings.append(
+                f"{file_path}:{vector.line_no}: XMLVector is empty, but the following field is a numeric priority-like "
+                f"value ({priority}); if this is a source reference, it is probably indented at the wrong level"
+            )
+    return errors, warnings
+
+
+def lint_standard_file(file_path: Path, check_external_refs: bool) -> tuple[list[str], list[str], list[RefEdge]]:
+    """lint_file for a file of a standard YAML project: what the engine refuses to load is an error."""
+    refs: list[RefEdge] = []
+    try:
+        codec = _standard_codec()
+        codec.require_yaml()
+    except Exception as exc:
+        if not STANDARD_UNAVAILABLE:
+            STANDARD_UNAVAILABLE.append(str(exc))
+        STANDARD_UNCHECKED.append(file_path)
+        return [], [], refs
+    try:
+        data = file_path.read_bytes()
+    except Exception as exc:
+        return [f"cannot read file: {exc}"], [], refs
+    try:
+        document = codec.read_document(codec.decode_source(data, file_path), file_path)
+    except codec.StandardYamlError as exc:
+        exc.path = file_path
+        return [str(exc)], [], refs
+    errors, warnings = _lint_standard_beans(file_path, document)
+
+    project = codec.project_root_of(file_path)
+    sources = project / codec.SOURCES_DIR if project is not None else external_ref_base(file_path)
+
+    def collect(element) -> None:
+        for child in _elements(element):
+            rel = child.attrs.get("yaml_file", "") if child.tag == "bean" else ""
+            if rel:
+                target = (sources / rel).resolve()
+                refs.append(RefEdge(file_path, child.line_no, target, rel))
+                if check_external_refs and not rel.startswith("🗏") and not target.exists():
+                    errors.append(
+                        f"{file_path}:{child.line_no}: source file of {_bean_display_name(child.attrs.get('yaml_key', ''))} "
+                        f"does not exist: {target} (the project does not load)"
+                    )
+            collect(child)
+
+    collect(document)
+    return errors, warnings, refs
+
+
 def lint_reference_graph(project_root: Path, refs_by_file: dict[Path, list[RefEdge]]) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -495,17 +686,41 @@ def lint_reference_graph(project_root: Path, refs_by_file: dict[Path, list[RefEd
             if edge.target_file.exists():
                 stack.append(edge.target_file)
 
+    standard = yaml_format(root_file) == STANDARD_FORMAT
     unreachable = sorted(expected_files - reachable)
     for file_path in unreachable:
         warnings.append(
             f"{file_path}: unreachable YAML (not referenced from c8oProject.yaml)"
+            + ("; a Studio save of this standard YAML project deletes it" if standard else "")
         )
+    if standard:
+        errors.extend(_reference_cycles(root_file, refs_by_file))
 
     return errors, warnings
 
 
+def _reference_cycles(root_file: Path, refs_by_file: dict[Path, list[RefEdge]]) -> list[str]:
+    """Source files that hold, directly or not, the bean they are read for: the engine refuses to load them."""
+    errors: list[str] = []
+    done: set[Path] = set()
+
+    def visit(current: Path, path: list[Path]) -> None:
+        for edge in refs_by_file.get(current, []):
+            if edge.target_file in path:
+                errors.append(
+                    f"{edge.source_file}:{edge.line_no}: cyclic source reference ({edge.raw_rel_path} is already being read): "
+                    "the project does not load"
+                )
+            elif edge.target_file not in done and edge.target_file.exists():
+                visit(edge.target_file, path + [edge.target_file])
+        done.add(current)
+
+    visit(root_file, [root_file])
+    return errors
+
+
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Lint Convertigo YAML dialect files.")
+    parser = argparse.ArgumentParser(description="Lint Convertigo YAML project files (legacy or standard format).")
     parser.add_argument(
         "paths",
         nargs="*",
@@ -520,7 +735,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--no-check-external-refs",
         action="store_true",
-        help="Do not check 🗏 referenced files existence.",
+        help="Do not check that referenced files exist (🗏 references, or the source paths of standard YAML beans).",
     )
     parser.add_argument(
         "--no-check-reference-graph",
@@ -546,9 +761,15 @@ def main(argv: list[str]) -> int:
 
     if not args.no_check_reference_graph:
         for project_root in project_roots:
+            if STANDARD_UNAVAILABLE and yaml_format(project_root / "c8oProject.yaml") == STANDARD_FORMAT:
+                continue  # its references were not read
             graph_errors, graph_warnings = lint_reference_graph(project_root, refs_by_file)
             all_errors.extend(graph_errors)
             all_warnings.extend(graph_warnings)
+    if STANDARD_UNAVAILABLE:
+        all_errors.append(
+            f"{len(STANDARD_UNCHECKED)} file(s) of standard YAML projects (Convertigo 8.5) not checked: {STANDARD_UNAVAILABLE[0]}"
+        )
     if ENGINE_IMPORT_ERRORS:
         all_warnings.append(
             f"{Path(__file__).resolve().parent / 'yaml_mcp_delta_apply.py'} could not be imported "

@@ -32,6 +32,20 @@ the same the proofs of a save, a run or a frontend made with the tools of anothe
 `python3 tests/scripts/test_measure_run.py` and `python3 tests/scripts/test_score_campaign.py` after changing them:
 the measures and scores of a run on the Convertigo MCP alone must not change.
 
+## Project YAML formats
+
+Run `python3 tests/scripts/test_c8o_yaml_standard.py` (PyYAML required) after changing `scripts/c8o_yaml_standard.py`,
+or the way `scripts/yaml_mcp_delta_apply.py` and `scripts/c8o_yaml_lint.py` read project files. Both scripts read a
+project in the format its `c8oProject.yaml` starts with: legacy (`↑convertigo:`, `🗏` references, standard library
+only) or the standard YAML of Convertigo 8.5 (`convertigo: 8.5.0.m006`, a bean's value is its source path, read and
+written with PyYAML by `c8o_yaml_standard.py`). The fixtures under `tests/fixtures/yaml-formats` are one project in
+both formats: the legacy one is made of files of this project plus `sequences/Edge.yaml`, the standard one is its
+conversion by the engine. The tests check that both formats give the same trees, index, deltas and save checks, that
+the Python writer gives the engine's bytes, and the lint on both. Set `C8O_ENGINE_CLASSPATH` (engine jar and its
+dependencies, Java 21+) to compare with the engine itself through `tests/scripts/StandardYamlOracle.java`, and
+`C8O_NODE_YAML` (a `node_modules/js-yaml` or `node_modules/yaml` folder) to also parse the written files with a
+YAML 1.2 parser.
+
 ## Shared tag domain
 
 Run `node --test tests/scripts/validate_tags.cjs` after editing the tag tools.

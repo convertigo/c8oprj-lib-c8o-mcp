@@ -1,0 +1,23 @@
+convertigo: 8.5.0.m006
+↓YamlFormatsSample [core.Project]:
+  comment: |-
+    # Convertigo MCP
+
+    Secure Streamable HTTP MCP server for Convertigo. It exposes structured project tools, prompts, resources, setup helpers, and authoring guides to AI agents.
+
+    The project includes a WEB_ADMIN application for durable token management, short-lived managed credentials for the integrated Tigo Assistant, and one-click local setup for Codex and Mistral Vibe.
+
+    Endpoint: `http://localhost:18080/convertigo/api/mcp`
+  contextTimeout: 59
+  corsOrigin: =Origin
+  httpSessionTimeout: 600
+  version: 0.2.27
+  ↓rag [connectors.HttpConnector]: connectors/rag.yaml
+  ↓internal_call [sequences.GenericSequence-1753965105243]: sequences/internal_call.yaml
+  ↓mcp_ping [sequences.GenericSequence]: sequences/mcp_ping.yaml
+  ↓Edge [sequences.GenericSequence]: sequences/Edge.yaml
+  ↓project1 [references.ProjectSchemaReference]:
+    projectName: mobilebuilder_tpl_8_4_0_ngx_legacy=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/8ca383ae844129df72bd3436a7869bfdc0a69d5c.zip
+  ↓UrlMapper [core.UrlMapper]: urlMapper.yaml
+  ↓Application [core.MobileApplication-1773933153815]:
+    ↓NgxApp [ngx.components.ApplicationComponent-1773933165318]: mobileNgxApp.yaml

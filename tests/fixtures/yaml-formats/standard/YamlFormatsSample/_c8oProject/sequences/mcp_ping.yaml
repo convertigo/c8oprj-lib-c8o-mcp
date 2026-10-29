@@ -1,0 +1,9 @@
+accessibility: Private
+comment: Builds the MCP ping response
+↓result [steps.JsonObjectStep-1761755022130]:
+  key:
+    - xmlizable:
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType:
+        - ↑mode: PLAIN
+        - →→: result

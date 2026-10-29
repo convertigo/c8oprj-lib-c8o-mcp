@@ -9,7 +9,10 @@ held in Studio memory, through the Convertigo MCP, without a project-reload.
 How it works:
 - Each YAML file is read with a port of the engine's YamlConverter reader: values come out exactly
   as a project-reload reads them, and a file the engine cannot read stops the run (exit 2) before
-  any change.
+  any change. A project is read in the format its c8oProject.yaml starts with: the legacy one
+  (↑convertigo: ..., 🗏 file references) or the standard YAML of Convertigo 8.5 (convertigo: 8.5.0.m006,
+  a bean's value is the path of its file), read with c8o_yaml_standard.py next to this script, which
+  needs PyYAML (the legacy format needs nothing but the standard library).
 - Every synced object is compared with databaseobject-tree-get: the properties the YAML lists
   (scalars, SmartType, MobileSmartSourceType, XMLVector, FormatedContent, transaction handlers,
   the ion properties of an NGX beanData, a page's ↑isRoot), and the properties it no longer lists,
@@ -18,8 +21,9 @@ How it works:
 - --refresh triggers the NGX mobile builder for each mutation: pass it whenever a page, a shared
   component or the application (mobilePages/*.yaml, mobileNgxApp.yaml) changes, or the generated
   app sources stay as they were (run 12: three project-reloads to get them regenerated).
-- --structural also creates, deletes and reorders children (a new 🗏 file is created with its
-  content); without it, each child the YAML adds, removes, replaces or reorders is NOT APPLIED.
+- --structural also creates, deletes and reorders children (a new child held by its own file is
+  created with that file's content); without it, each child the YAML adds, removes, replaces or
+  reorders is NOT APPLIED.
 - Every mutation is queued and run with autoSave=false in a batch-call that stops on the first
   error; the deletes of children the YAML no longer has run in a second batch-call, only when the
   first one has no error (a warning is no error: it is printed). On failure the calls already
@@ -63,6 +67,54 @@ from typing import Any
 PARSE_RE = re.compile(r"( *)(- )?(↑)?(→)?(↓)?(.*?): (🗏 )?(.*)")
 BEAN_KEY_RE = re.compile(r"^(.*) \[[^\]]+\]$")
 BEAN_CLASS_RE = re.compile(r"^.* \[([^\]]+)\]$")
+
+# The two project YAML formats. A project keeps the one its c8oProject.yaml starts with (YamlConverter.getFormat):
+# a first line beginning with ↑ or ↓ is legacy, anything else standard; its _c8oProject sources follow it.
+LEGACY_FORMAT = "legacy"
+STANDARD_FORMAT = "standard"
+# A file no bean of the project is read from, in messages: legacy beans name it with 🗏, standard ones by its path.
+NOT_REFERENCED = {LEGACY_FORMAT: "not referenced by 🗏", STANDARD_FORMAT: "no bean names it as its source file"}
+NO_REFERENCE_NAMES_IT = {LEGACY_FORMAT: "no 🗏 reference names it", STANDARD_FORMAT: "no bean names it as its source file"}
+
+
+def yaml_format_of_text(text: str) -> str:
+    first = re.split(r"\r\n|\r|\n", text, maxsplit=1)[0]
+    return LEGACY_FORMAT if first.startswith(("↑", "↓")) else STANDARD_FORMAT
+
+
+def yaml_project_root(path: Path) -> Path | None:
+    """The project folder of a c8oProject.yaml or of a file under its _c8oProject folder."""
+    path = Path(os.path.abspath(path))
+    if path.name == "c8oProject.yaml" and path.parent.name != "_c8oProject":
+        return path.parent
+    for parent in path.parents:
+        if parent.name == "_c8oProject" and (parent.parent / "c8oProject.yaml").is_file():
+            return parent.parent
+    return None
+
+
+def project_yaml_format(project_root: Path) -> str:
+    with open(project_root / "c8oProject.yaml", "rb") as stream:
+        return yaml_format_of_text(stream.read(4096).decode("utf-8", errors="replace"))
+
+
+def yaml_format_for(path: Path) -> str:
+    """The format of a project YAML file: the one of its project, legacy for a file outside a project."""
+    root = yaml_project_root(path)
+    if root is None or not (root / "c8oProject.yaml").is_file():
+        return LEGACY_FORMAT
+    return project_yaml_format(root)
+
+
+def standard_codec() -> Any:
+    """c8o_yaml_standard.py, next to this script: read only for standard projects."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    sys.dont_write_bytecode = True  # no __pycache__ inside the project folder
+    import c8o_yaml_standard  # noqa: PLC0415
+
+    return c8o_yaml_standard
 
 
 # Prefix of every message about a YAML change that the run could not push to the Studio: the
@@ -435,6 +487,11 @@ def discover_changed_yaml_files(project_root: Path) -> list[Path]:
 
 
 def parse_root_project_name(root_yaml: Path) -> str:
+    if yaml_format_for(root_yaml) == STANDARD_FORMAT:
+        try:
+            return standard_codec().project_name(read_engine_yaml(root_yaml))
+        except Exception as exc:
+            raise RuntimeError(f"Unable to infer project name from {root_yaml}: {exc}") from None
     for raw in read_java_lines(read_yaml_text(root_yaml)):
         if not raw or raw.lstrip().startswith("#"):
             continue
@@ -609,6 +666,8 @@ def build_file_qname_index(project_root: Path) -> tuple[str, dict[Path, str]]:
     mapping: dict[Path, str] = {root_yaml: project_name}
     queue: list[Ref] = [Ref(root_yaml, project_name)]
     visited: set[Path] = set()
+    if yaml_format_for(root_yaml) == STANDARD_FORMAT:
+        return project_name, standard_file_qname_index(project_root, root_yaml, mapping, queue)
 
     while queue:
         item = queue.pop(0)
@@ -659,6 +718,43 @@ def build_file_qname_index(project_root: Path) -> tuple[str, dict[Path, str]]:
                 queue.append(Ref(target, mapping[target]))
 
     return project_name, mapping
+
+
+def standard_file_qname_index(project_root: Path, root_yaml: Path, mapping: dict[Path, str], queue: list[Ref]) -> dict[Path, str]:
+    """build_file_qname_index for a standard project, from the element trees (YAML has no line grammar). A file
+    the engine cannot read is left out here: the run reports its error when it parses the files to sync."""
+    visited: set[Path] = set()
+    while queue:
+        item = queue.pop(0)
+        if item.file_path in visited:
+            continue
+        visited.add(item.file_path)
+        if not item.file_path.exists():
+            continue
+        try:
+            document = read_engine_yaml(item.file_path)
+        except YamlSyntaxError:
+            continue
+
+        def walk(element: XElem, parent_qname: str, top: bool) -> None:
+            for child in element.elements():
+                if child.tag != "bean":
+                    continue
+                child_name = bean_name_from_key(child.attrs.get("yaml_key", ""))
+                if item.file_path == root_yaml and top and child_name == item.qname:
+                    child_qname = item.qname  # the project bean of c8oProject.yaml is the project itself
+                else:
+                    child_qname = f"{parent_qname}.{child_name}" if parent_qname else child_name
+                rel = child.attrs.get("yaml_file", "")
+                if rel:
+                    target = resolve_include_path(item.file_path, project_root, rel)
+                    mapping.setdefault(target, child_qname)
+                    queue.append(Ref(target, mapping[target]))
+                else:
+                    walk(child, child_qname, False)
+
+        walk(document, item.qname, True)
+    return mapping
 
 
 def parse_child_decl(key: str, has_file_ref: bool, line_no: int) -> ChildDecl:
@@ -889,7 +985,32 @@ class EngineYamlReader:
         return root
 
 
+def read_standard_yaml(text: str, path: Path) -> XElem:
+    """A standard YAML file as the same element tree as EngineYamlReader: a bean held by another file records
+    its path in yaml_file, that file is not read. Raises YamlSyntaxError where the engine fails to load."""
+    codec = standard_codec()
+    try:
+        return codec.read_document(text, path, element=XElem, text_node=XText)
+    except codec.StandardYamlError as exc:
+        raise YamlSyntaxError(str(exc)) from None
+
+
+def read_yaml_document(text: str, path: Path, fmt: str | None = None) -> XElem:
+    """The element tree of a YAML file's text, in its project's format (or the one given)."""
+    if (fmt or yaml_format_for(path)) == STANDARD_FORMAT:
+        return read_standard_yaml(text, path)
+    return EngineYamlReader(text, path).read_document()
+
+
 def read_engine_yaml(file_path: Path) -> XElem:
+    if yaml_format_for(file_path) == STANDARD_FORMAT:
+        codec = standard_codec()
+        try:
+            # The engine reads standard sources with a strict UTF-8 decoder.
+            text = codec.decode_source(file_path.read_bytes(), file_path)
+        except codec.StandardYamlError as exc:
+            raise YamlSyntaxError(str(exc)) from None
+        return read_standard_yaml(text, file_path)
     return EngineYamlReader(read_yaml_text(file_path), file_path).read_document()
 
 
@@ -1015,8 +1136,8 @@ def bean_to_node(bean: XElem, name: str, class_name: str | None, file_backed: bo
 
 def parse_yaml_tree(file_path: Path) -> tuple[YamlNode, list[str]]:
     """
-    Parse a Convertigo YAML subfile into a lightweight node tree, with the engine's own grammar.
-    The returned root node represents the file object itself. Raises YamlSyntaxError.
+    Parse a Convertigo YAML subfile into a lightweight node tree, with the engine's own grammar, in the
+    format of its project. The returned root node represents the file object itself. Raises YamlSyntaxError.
     """
     document = read_engine_yaml(file_path)
     return bean_to_node(document, "__root__", None, False), []
@@ -2752,6 +2873,13 @@ def run(argv: list[str]) -> int:
     if not (project_root / "c8oProject.yaml").exists():
         eprint(f"ERROR: {project_root} does not contain c8oProject.yaml")
         return 2
+    project_format = project_yaml_format(project_root)
+    if project_format == STANDARD_FORMAT:
+        try:
+            standard_codec().require_yaml()
+        except Exception as exc:
+            eprint(f"ERROR: {project_root} uses the standard YAML format of Convertigo 8.5: {exc}")
+            return 2
 
     try:
         project_name, file_qname_map = build_file_qname_index(project_root)
@@ -2829,7 +2957,7 @@ def run(argv: list[str]) -> int:
     for yaml_file, root in parsed_files:
         qname = file_qname_map.get(yaml_file)
         if not qname:
-            parse_warnings.append(not_applied(f"unable to infer QName for file (not referenced by 🗏): {yaml_file}"))
+            parse_warnings.append(not_applied(f"unable to infer QName for file ({NOT_REFERENCED[project_format]}): {yaml_file}"))
             continue
         sync_root, root_warning = select_sync_root_node(
             file_path=yaml_file,
@@ -3187,12 +3315,12 @@ def bean_priority_paths(document: XElem) -> dict[str, str]:
     return paths
 
 
-def yaml_meaning(path: Path, text: str, ignore_project_version: bool = False) -> Any:
+def yaml_meaning(path: Path, text: str, ignore_project_version: bool = False, fmt: str | None = None) -> Any:
     """What a YAML file means to the engine, without its formatting: quoting, block style, beanData
     indentation and bean priorities left out. A step source names its step by the path of that step, so
     that a save which gives a step a new priority and its sources the same one means the same, while a
     source left on a priority no step has any more shows. ignore_project_version leaves out the version
-    of the project bean."""
+    of the project bean. fmt is the YAML format of the text (default: the one of the file's project)."""
     targets: dict[str, str] = {}
 
     def norm(element: Any, in_source: bool = False) -> Any:
@@ -3240,7 +3368,7 @@ def yaml_meaning(path: Path, text: str, ignore_project_version: bool = False) ->
                 pass
         return (element.tag, sorted(attrs.items()), children)
     try:
-        document = EngineYamlReader(text, path).read_document()
+        document = read_yaml_document(text, path, fmt)
     except YamlSyntaxError:
         return ("unreadable", text)
     targets.update(bean_priority_paths(document))
@@ -3279,6 +3407,15 @@ def save_keeping_yaml(client: McpClient, project_name: str, project_root: Path, 
         )
     root_yaml = (project_root / "c8oProject.yaml").resolve()
     after = project_yaml_files(project_root)
+
+    def text_format(files: dict[Path, bytes]) -> str:
+        """The format of a snapshot of the files: the one its c8oProject.yaml starts with."""
+        root = files.get(project_root / "c8oProject.yaml")
+        if root is None:
+            return yaml_format_for(root_yaml)
+        return yaml_format_of_text(root[:4096].decode("utf-8", errors="replace"))
+
+    format_before, format_after = text_format(before), text_format(after)
     for path, data in before.items():
         new_data = after.get(path)
         if new_data is None:
@@ -3292,14 +3429,15 @@ def save_keeping_yaml(client: McpClient, project_name: str, project_root: Path, 
                 ))
             else:
                 all_warnings.append(
-                    f"{path}: the save deleted it; no 🗏 reference names it (the engine does not read it): put back"
+                    f"{path}: the save deleted it; {NO_REFERENCE_NAMES_IT[format_before]} "
+                    "(the engine does not read it): put back"
                 )
             continue
         if new_data == data:
             continue
         ignore_version = bumped and path.resolve() == root_yaml
         text, new_text = (b.decode("utf-8", errors="replace") for b in (data, new_data))
-        if yaml_meaning(path, new_text, ignore_version) != yaml_meaning(path, text, ignore_version):
+        if yaml_meaning(path, new_text, ignore_version, format_after) != yaml_meaning(path, text, ignore_version, format_before):
             path.write_bytes(data)
             all_warnings.append(not_applied(
                 f"{path}: the save wrote a different content (an edit the Studio did not have); "
