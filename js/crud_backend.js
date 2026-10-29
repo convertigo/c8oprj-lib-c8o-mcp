@@ -1721,7 +1721,8 @@ C8O.crudBackend = C8O.crudBackend || {};
     result.runtimeEvidence.init_schema = summarizeSchemaLearning(
       ctx,
       spec.project + "." + spec.database.connector + ".init_schema",
-      ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, { recordSchema: true }),
+      // The demo seed of a new, empty or reset database: no user rows there (the tables that hold some are kept).
+      ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, { recordSchema: true, allowDataReset: !existingDatabase.keep }),
       result,
       learnedSchemas
     );
@@ -1752,7 +1753,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     }
     learnRelationSchemas(ctx, spec, cachedRows, result, learnedSchemas);
     if (spec.entities.length && !existingDatabase.keep) {
-      ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, {});
+      ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, { allowDataReset: true });
     }
     result.runtimeEvidence.schemaLearning = learnedSchemas;
     if (crm) {

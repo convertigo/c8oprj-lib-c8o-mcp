@@ -378,6 +378,7 @@ class Contract:
             ("execute unknown requestable", "requestable-execute", {"requestable": P + ".nope"}),
             ("execute bad variables JSON", "requestable-execute", {"requestable": P + ".hand_seq", "variables": "{not json"}),
             ("execute failing step", "requestable-execute", {"requestable": P + ".broken_seq"}),
+            ("execute a reset of tables holding rows", "requestable-execute", {"requestable": P + ".db.w_init"}),
             ("stub-get unknown requestable", "requestable-stub-get", {"targetRequestable": P + ".nope"}),
             ("sql refused by the rules", "sql-transaction-create", {"project": P, "connector": "db", "name": "q_bad",
                                                                    "sql": "SELECT label FROM item WHERE owner IS NULL OR {x} IS NULL"}),

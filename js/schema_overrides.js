@@ -294,6 +294,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         authenticatedUser: {
           type: "string",
           description: "Optional user to run this call as (what the login sequence passes to context.setAuthenticatedUser, for example an email), for this call only. Without it the call has no authenticated user and sequences marked authenticatedContextRequired answer Authentication required."
+        },
+        allowDataReset: {
+          type: "boolean",
+          default: false,
+          description: "Set true only when the user asked to reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it."
         }
       },
       required: ["requestable"],

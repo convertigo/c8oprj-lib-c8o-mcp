@@ -817,6 +817,116 @@ C8O.requestable._resetExecutionState = function (executionPlan, seqStep, txStep)
  * Configures the CallSequence/CallTransaction steps inside tools_requestable_execute
  * so that sequences/transactions can be invoked without relying on a separate internal_call.
  */
+// Tables a SQL text empties or drops: DELETE FROM t with no WHERE, TRUNCATE TABLE t, DROP TABLE t (and DROP SCHEMA as *).
+C8O.requestable.resetTables = function (sql) {
+  var text = String(sql || '').replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  var tables = [];
+  var statements = text.split(';');
+  for (var i = 0; i < statements.length; i++) {
+    var statement = statements[i].replace(/\s+/g, ' ').trim();
+    var m = /^DELETE FROM ([A-Za-z_"][\w."]*)\s*$/i.exec(statement) || /^TRUNCATE TABLE ([A-Za-z_"][\w."]*)/i.exec(statement) ||
+      /^DROP TABLE (?:IF EXISTS )?([A-Za-z_"][\w."]*)/i.exec(statement);
+    if (m) {
+      tables.push(m[1].replace(/"/g, '').split('.').pop());
+    } else if (/^DROP SCHEMA\b/i.test(statement)) {
+      tables.push('*');
+    }
+  }
+  return tables;
+};
+
+// An agent ran init_schema by hand on an app in use to apply a schema change: its seed deleted every row and put the
+// demo rows back (usage tests 29/10). A transaction that empties or drops a table holding rows runs only with
+// allowDataReset:true; the rows are counted through the connector's JDBC metadata.
+C8O.requestable.guardDataReset = function (executionPlan) {
+  if (executionPlan.allowDataReset === true) {
+    return;
+  }
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  var tx = null;
+  var connector = null;
+  try {
+    var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+    connector = project != null ? project.getConnectorByName(executionPlan.connector) : null;
+    tx = connector != null ? connector.getTransactionByName(executionPlan.name) : null;
+  } catch (_noTransaction) {}
+  if (!tx || typeof tx.getSqlQuery !== 'function') {
+    return;
+  }
+  var tables = C8O.requestable.resetTables(tx.getSqlQuery());
+  if (!tables.length) {
+    return;
+  }
+  var counts = C8O.requestable._countRows(connector, tables);
+  var full = [];
+  for (var t = 0; t < counts.length; t++) {
+    if (counts[t].rows > 0) {
+      full.push(counts[t].table + ' (' + counts[t].rows + ' rows)');
+    }
+  }
+  if (full.length) {
+    throw new Error(executionPlan.requestable + ' empties or drops tables that hold rows: ' + full.join(', ') +
+      '. On an app in use that deletes the user\'s data (an init_schema with a seed inserts the demo rows again). To change ' +
+      'the schema, run upsert-crud, which keeps the rows and adds the columns, or a one-shot ALTER TABLE. Run it with ' +
+      'allowDataReset:true only when the user asked to reset these rows.');
+  }
+};
+
+C8O.requestable._countRows = function (connector, tables) {
+  var out = [];
+  var jdbc = null;
+  try {
+    var url = '';
+    try { url = String(connector.getRealJdbcURL() || ''); } catch (_noRealUrl) {}
+    if (!url.length || url === 'null') {
+      url = String(connector.getJdbcURL() || '');
+      if (url.indexOf('jdbc:hsqldb:file:') === 0) {
+        url = 'jdbc:hsqldb:file:' + String(Packages.com.twinsoft.convertigo.engine.Engine.theApp.filePropertyManager.getFilepathFromProperty(
+          url.substring('jdbc:hsqldb:file:'.length), String(connector.getProject().getName())));
+      }
+    }
+    if (url.indexOf('jdbc:hsqldb:file:') === 0) {
+      url = url.split(';')[0] + ';ifexists=true';
+    }
+    try { java.lang.Class.forName(String(connector.getJdbcDriverClassName())); } catch (_driverLoaded) {}
+    var user = '';
+    var password = '';
+    try { user = String(connector.getRealJdbcUserName() || ''); } catch (_noUser) {}
+    try { password = String(connector.getRealJdbcUserPassword() || ''); } catch (_noPassword) {}
+    jdbc = java.sql.DriverManager.getConnection(url, user, password);
+    var names = [];
+    if (tables.indexOf('*') >= 0) {
+      var rs = jdbc.getMetaData().getTables(null, null, '%', ['TABLE']);
+      while (rs.next()) {
+        var schema = String(rs.getString('TABLE_SCHEM') || '');
+        if (!/^(INFORMATION_SCHEMA|SYSTEM_LOBS|SYS|pg_catalog)$/i.test(schema)) {
+          names.push(String(rs.getString('TABLE_NAME')));
+        }
+      }
+      rs.close();
+    }
+    names = names.concat(tables.filter(function (name) { return name !== '*'; }));
+    for (var i = 0; i < names.length; i++) {
+      var statement = jdbc.createStatement();
+      try {
+        var count = statement.executeQuery('SELECT COUNT(*) FROM ' + names[i]);
+        out.push({ table: names[i], rows: count.next() ? Number(count.getLong(1)) : 0 });
+      } catch (_noTable) {
+        out.push({ table: names[i], rows: 0 });
+      } finally {
+        statement.close();
+      }
+    }
+  } catch (_unreachable) {
+    // A database that cannot be read has no rows to keep: the transaction runs as before.
+  } finally {
+    if (jdbc) {
+      try { jdbc.close(); } catch (_closed) {}
+    }
+  }
+  return out;
+};
+
 C8O.requestable.configureExecutor = function (executionPlan) {
   if (Packages.com.twinsoft.convertigo.engine.Engine.logEngine) {
     Packages.com.twinsoft.convertigo.engine.Engine.logEngine.debug('[tools_requestable_execute] configuring ' + (executionPlan && executionPlan.requestable ? executionPlan.requestable : 'n/a'));
@@ -896,6 +1006,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
   if (!txStep) {
     throw new Error('CallTransaction step not found');
   }
+  C8O.requestable.guardDataReset(executionPlan);
   txStep.setSourceTransaction(executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   C8O.requestable._clearVariables(txStep);
   C8O.requestable._addVariables(txStep, executionPlan.variables || {});
