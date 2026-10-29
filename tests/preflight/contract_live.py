@@ -127,7 +127,8 @@ class Contract:
         def walk(node, path):
             if isinstance(node, dict):
                 for k, v in node.items():
-                    if k in ("oldQName", "previousQName", "fromQName") or (k == "qname" and "newQName" in node):
+                    # missing lists name what a status found absent: those QNames do not open, by definition.
+                    if k in ("oldQName", "previousQName", "fromQName", "missing") or (k == "qname" and "newQName" in node):
                         continue
                     walk(v, path + [k])
             elif isinstance(node, list):
@@ -334,8 +335,8 @@ class Contract:
             stale = self.m.call("databaseobject-search", {"qname": P, "filter": "body", "limit": 50})
             hits = [h for h in _qnames_in(stale.data) if re.search(r"(?i)body", h.rsplit(".", 1)[-1])]
             self._expect("upsert", "upsert-crud without a field leaves no variable or column behind", not hits, f"left: {hits[:6]}")
-            self.call("crud status", "crud-status", {"project": P, "facadePrefix": "ct"})
-            self.call("crud proof", "crud-proof", {"project": P, "facadePrefix": "ct"})
+            self.call("crud status", "crud-status", {"project": P, "facadePrefix": "ct", "entryPage": "Items"})
+            self.call("crud proof", "crud-proof", {"project": P, "facadePrefix": "ct", "entryPage": "Items"})
 
     # --- output schemas ------------------------------------------------------------------------
 
