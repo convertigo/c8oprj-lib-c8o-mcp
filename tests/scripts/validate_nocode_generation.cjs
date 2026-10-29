@@ -57,36 +57,44 @@ function visibleQuestion(field) {
   const config = field.type === 'ion-card' ? field.config.title : field.config;
   return config.personalized ? config.html : config[field.type === 'ion-card' ? 'text' : 'label'];
 }
-test('plain labels replace the HTML prototype for every question component', () => {
-  const types = ['text', 'checkbox', 'checkbox_group', 'radio', 'radio_group', 'slider', 'select', 'datetime', 'time', 'img', 'grid', 'gallery', 'chart', 'map', 'barcode', 'file', 'signature', 'location', 'description', 'ion-card'];
+// The C8Oforms editor writes every question label rich, a paragraph (getObjToInsert: "<p>" + question + "</p>",
+// personalized true), and no longer offers the plain one. Description blocks and card titles keep their own rules.
+const QUESTION_TYPES = ['text', 'checkbox', 'checkbox_group', 'radio', 'radio_group', 'slider', 'select', 'datetime', 'time', 'img', 'grid', 'gallery', 'chart', 'map', 'barcode', 'file', 'signature', 'location'];
+test('labels are written as rich paragraphs for every question component', () => {
+  const types = [...QUESTION_TYPES, 'description', 'ion-card'];
   const fields = types.map((type, index) => ({ type, name: 'label_test_' + index, label: 'Question ' + index }));
   const r = api().compile({ name: 'Labels', pages: [{ name: 'Page', fields }] });
   for (const [index, field] of r.form.formulaire.entries()) {
-    assert.equal(visibleQuestion(field), 'Question ' + index, field.type);
+    const question = QUESTION_TYPES.includes(field.type);
+    assert.equal(visibleQuestion(field), question ? '<p>Question ' + index + '</p>' : 'Question ' + index, field.type);
+    if (question) assert.equal(field.config.personalized, true, field.type);
     assert.doesNotMatch(JSON.stringify(field.config), /Exemple de question/);
   }
 });
 test('labels coexist with contextual defaults and disabled controls', () => {
   const r = api().compile(contextExample({ source: 'user', property: 'email', fallback: '' }, { label: 'Adresse e-mail', disabled: true }));
   const field = r.form.formulaire[0];
-  assert.equal(visibleQuestion(field), 'Adresse e-mail');
+  assert.equal(visibleQuestion(field), '<p>Adresse e-mail</p>');
   assert.equal(field.config.personalized, true, 'the rich question remains visible for disabled inputs');
   assert.equal(evaluateDefault(field, { api: { user: { authenticated: true, email: 'person@example.invalid' } } }), 'person@example.invalid');
   assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_question_label'));
 });
-test('explicit rich text and mode take precedence over shorthand labels', () => {
+test('explicit rich text takes precedence over shorthand labels, and a plain label given is written rich', () => {
   const variants = [
     { label: 'Plain', description: '<p>Rich question</p>' },
     { label: 'Plain', description: '<p>Shorthand</p>', config: { html: '<strong>Explicit HTML</strong>' } },
     { label: 'Shorthand', config: { label: 'Explicit label' } },
     { label: 'Plain mode', config: { personalized: false } },
+    { config: { label: 'Native plain', personalized: false } },
     { label: 'Do not restore', config: { html: '', personalized: true } },
     { label: '' }
   ];
-  const expected = ['<p>Rich question</p>', '<strong>Explicit HTML</strong>', 'Explicit label', 'Plain mode', '', ''];
+  const expected = ['<p>Rich question</p>', '<p><strong>Explicit HTML</strong></p>', '<p>Explicit label</p>', '<p>Plain mode</p>', '<p>Native plain</p>', '', ''];
   for (const [index, extra] of variants.entries()) {
     const r = api().compile({ name: 'Labels', pages: [{ name: 'Page', fields: [{ type: 'text', name: 'question', ...extra }] }] });
     assert.equal(visibleQuestion(r.form.formulaire[0]), expected[index]);
+    assert.equal(r.form.formulaire[0].config.personalized, true, JSON.stringify(extra));
+    assert.ok(!r.validation.warnings.some(w => w.code === 'plain_question_label'));
   }
 });
 test('literal labels are HTML-escaped but complete SmartSource payloads are preserved', () => {
@@ -96,7 +104,7 @@ test('literal labels are HTML-escaped but complete SmartSource payloads are pres
     { type: 'text', name: 'record', id: 1900000000101, label: 'Record' },
     { type: 'text', name: 'question', label }
   ] }] });
-  assert.equal(r.form.formulaire[1].config.html, 'A &amp; B &lt;img src=x&gt; &quot;quote&quot; &#39;apostrophe&#39; ' + ref);
+  assert.equal(r.form.formulaire[1].config.html, '<p>A &amp; B &lt;img src=x&gt; &quot;quote&quot; &#39;apostrophe&#39; ' + ref + '</p>');
   assert.equal(r.form.formulaire[1].config.label, label);
 });
 test('semantic label edits repair persisted HTML and preserve unrelated rich content', () => {
@@ -106,14 +114,92 @@ test('semantic label edits repair persisted HTML and preserve unrelated rich con
   h.state.forms[id].formulaire[0].config.html = '<p>Exemple de question</p>';
   const repaired = h.client.edit(id, [{ action: 'update_field', fieldName: 'context_input', patch: { label: 'Libellé corrigé' } }], h.auth);
   assert.equal(repaired.saved, true);
-  assert.equal(visibleQuestion(repaired.form.formulaire[0]), 'Libellé corrigé');
+  assert.equal(visibleQuestion(repaired.form.formulaire[0]), '<p>Libellé corrigé</p>');
   assert.equal(repaired.form.formulaire[0].label, undefined);
   const rich = h.client.edit(id, [{ action: 'update_field', fieldName: 'context_input', patch: { description: '<p><b>Rich label</b></p>' } }], h.auth);
   assert.equal(visibleQuestion(rich.form.formulaire[0]), '<p><b>Rich label</b></p>');
   const unrelated = h.client.edit(id, [{ action: 'update_field', fieldName: 'context_input', patch: { config: { boxStyle: { margin: '16px' } } } }], h.auth);
   assert.equal(visibleQuestion(unrelated.form.formulaire[0]), '<p><b>Rich label</b></p>');
   const native = h.client.edit(id, [{ action: 'update_field', fieldName: 'context_input', patch: { config: { label: 'Native label' } } }], h.auth);
-  assert.equal(visibleQuestion(native.form.formulaire[0]), 'Native label');
+  assert.equal(visibleQuestion(native.form.formulaire[0]), '<p>Native label</p>');
+  const plain = h.client.edit(id, [{ action: 'update_field', fieldName: 'context_input', patch: { config: { personalized: false } } }], h.auth);
+  assert.equal(plain.saved, true);
+  assert.equal(plain.form.formulaire[0].config.personalized, true);
+  assert.equal(visibleQuestion(plain.form.formulaire[0]), '<p>Native label</p>');
+});
+// Labels saved before rich ones were enforced: « Nom » of the Skyjo form (29/10) was personalized with html "Nom", no
+// paragraph, so the viewer drew it against its input; older drafts may hold personalized:false. The next write of the
+// form converts every one, as the editor's migration to technicalVersion 1.0.5 did; editor-made labels, description
+// blocks and card titles stay as they are. nocode-form-validate flags them meanwhile.
+function plainLabelsForm(h) {
+  const created = h.client.create({ name: 'Skyjo', pages: [{ name: 'Joueurs', fields: [
+    { type: 'description', name: 'title', description: '<h3>Joueur</h3>' },
+    { type: 'ion-card', name: 'card', label: 'Carte' },
+    { type: 'text', name: 'Nom', label: 'Nom' },
+    { type: 'text', name: 'prenom', label: 'Prénom' },
+    { type: 'chart', name: 'chart1', label: 'Total' },
+    { type: 'select', name: 'joueur', label: 'Joueur', values: ['A', 'B'] },
+    { type: 'text', name: 'inputText1', label: 'Saisissez votre question ici' }
+  ] }] }, h.auth);
+  assert.equal(created.saved, true);
+  assert.ok(!created.validation.warnings.some(w => w.code === 'plain_labels_converted'), 'new labels are written rich, not converted');
+  const stored = h.state.forms[created.form._id];
+  const by = name => stored.formulaire.find(f => f.name === name).config;
+  Object.assign(by('Nom'), { html: 'Nom', personalized: true, label: 'Nom' });
+  Object.assign(by('prenom'), { html: '<p>Exemple de question</p>', personalized: false, label: 'Prénom & surnom' });
+  Object.assign(by('chart1'), { html: 'Total des points <b>par joueur</b>', personalized: true });
+  delete by('chart1').label;
+  delete by('joueur').personalized;
+  by('joueur').label = 'Joueur';
+  delete by('inputText1').label;
+  return { id: created.form._id, stored };
+}
+function assertRichLabels(form) {
+  const by = name => form.formulaire.find(f => f.name === name).config;
+  assert.deepEqual(['Nom', 'prenom', 'chart1', 'joueur', 'inputText1'].map(name => [by(name).personalized, by(name).html]), [
+    [true, '<p>Nom</p>'],
+    [true, '<p>Prénom &amp; surnom</p>'],
+    [true, '<p>Total des points <b>par joueur</b></p>'],
+    [true, '<p>Joueur</p>'],
+    [true, '<p>Saisissez votre question ici</p>']
+  ]);
+  assert.equal(by('title').html, '<h3>Joueur</h3>');
+  assert.equal(by('card').title.html, 'Carte');
+}
+test('nocode-form-validate flags the plain labels a form still holds', () => {
+  const h = creationHarness();
+  const { stored } = plainLabelsForm(h);
+  const warnings = api().validate(clone(stored)).validation.warnings.filter(w => w.code === 'plain_question_label');
+  const paths = clone(warnings.map(w => w.path));
+  const index = name => stored.formulaire.findIndex(f => f.name === name);
+  assert.deepEqual(paths, ['Nom', 'prenom', 'chart1', 'joueur'].map(name => '/formulaire/' + index(name) + '/config/html'));
+  assert.match(warnings[0].message, /next save/);
+});
+test('an edit converts the plain labels of the whole form, not only of the fields it touches', () => {
+  const h = creationHarness();
+  const { id } = plainLabelsForm(h);
+  const edited = h.client.edit(id, [{ action: 'add_field', pageName: 'Joueurs', fieldObject: { type: 'text', name: 'score', label: 'Score' } }], h.auth);
+  assert.equal(edited.saved, true);
+  assertRichLabels(h.state.forms[id]);
+  const score = h.state.forms[id].formulaire.find(f => f.name === 'score').config;
+  assert.deepEqual([score.personalized, score.html], [true, '<p>Score</p>']);
+  assert.ok(!edited.validation.warnings.some(w => w.code === 'plain_question_label'));
+  const converted = edited.validation.warnings.filter(w => w.code === 'plain_labels_converted');
+  assert.equal(converted.length, 1);
+  assert.match(converted[0].message, /: Nom, prenom, chart1, joueur$/);
+});
+test('nocode-form-update writes rich labels, including the plain ones its patch gives', () => {
+  const h = creationHarness();
+  const { id, stored } = plainLabelsForm(h);
+  const formulaire = clone(stored.formulaire);
+  Object.assign(formulaire.find(f => f.name === 'inputText1').config, { personalized: false, label: 'Votre question' });
+  const updated = h.client.update(id, { formulaire }, h.auth);
+  assert.equal(updated.saved, true);
+  const saved = h.state.forms[id];
+  const question = saved.formulaire.find(f => f.name === 'inputText1').config;
+  assert.deepEqual([question.personalized, question.html], [true, '<p>Votre question</p>']);
+  question.html = '<p>Saisissez votre question ici</p>';
+  assertRichLabels(saved);
 });
 test('prototype question diagnostics stay advisory for existing drafts', () => {
   const r = api().compile(contextExample({ source: 'literal', value: '' }));

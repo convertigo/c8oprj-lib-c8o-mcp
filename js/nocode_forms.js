@@ -2007,6 +2007,60 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }).join("");
   }
 
+  // The question label of these components, as the C8Oforms editor writes it (editorPage getObjToInsert): personalized
+  // true and config.html a paragraph, "<p>" + question + "</p>". The editor no longer offers the plain label
+  // (personalized false: config.label in an ion-label without margin) and its migration to technicalVersion 1.0.5 made
+  // each one "<p>" + label + "</p>". The viewer sets config.html as the innerHTML of the label, so text without a
+  // paragraph was drawn against its input (« Nom », Skyjo, 29/10). config.label keeps the text: the editor leaves it on
+  // the labels it converted and nothing shows it beside a rich label. Description blocks and card titles have rules of
+  // their own, a button has a caption.
+  var QUESTION_LABEL_TYPES = ["text", "checkbox", "checkbox_group", "radio", "radio_group", "slider", "select", "datetime", "time", "img", "grid", "gallery", "chart", "map", "barcode", "file", "signature", "location", "workflow_progress", "workflow_instance", "workflow_status", "workflow_token"];
+  var BLOCK_HTML = /<(?:p|h[1-6]|div|ul|ol|table|blockquote|pre|section|article|header|footer|figure|dl|hr)\b/i;
+
+  function labelParagraph(label) {
+    var html = labelToHtml(label);
+    return trimmed(html).length ? "<p>" + html + "</p>" : "";
+  }
+
+  // The rich label of a question component, or null when it already has one. A plain label shown (personalized false or
+  // missing) becomes a paragraph of its escaped text, rich text without a block of its own is put in a paragraph, an
+  // empty question stays empty.
+  function richQuestionLabel(item) {
+    if (!item || typeof item !== "object" || QUESTION_LABEL_TYPES.indexOf(item.type) < 0 || !item.config || typeof item.config !== "object") { return null; }
+    var config = item.config;
+    var html = typeof config.html === "string" ? config.html : "";
+    if (!config.personalized) {
+      var label = config.label != null ? String(config.label) : "";
+      // Without a plain label, the HTML an agent wrote beside personalized false is what it meant to show.
+      html = trimmed(label).length || isPrototypeQuestion(html) ? labelParagraph(label) : html;
+    }
+    var rich = !trimmed(html).length || BLOCK_HTML.test(html) ? html : "<p>" + html + "</p>";
+    return config.personalized === true && rich === config.html ? null : rich;
+  }
+
+  function plainQuestionLabels(form) {
+    var found = [];
+    function scan(items, path) {
+      ensureArray(items).forEach(function (item, index) {
+        var rich = richQuestionLabel(item);
+        if (rich != null) { found.push({ item: item, path: path + "/" + index, html: rich }); }
+        // Cards of old forms hold their fields in children, as the editor's migration reads them.
+        if (item && item.type === "ion-card" && Array.isArray(item.children)) { scan(item.children, path + "/" + index + "/children"); }
+      });
+    }
+    scan(form && form.formulaire, "/formulaire");
+    return found;
+  }
+
+  function normalizeQuestionLabels(form) {
+    var found = plainQuestionLabels(form);
+    found.forEach(function (entry) {
+      entry.item.config.personalized = true;
+      entry.item.config.html = entry.html;
+    });
+    return found;
+  }
+
   function applyFieldLabel(target, field) {
     var explicit = field.config || {};
     var config = target.config || (target.config = {});
@@ -2025,9 +2079,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (!hasOwn(explicit, "personalized")) { config.personalized = true; }
       if (!hasLabel && field.description != null) { config[plainKey] = String(field.description).replace(/<[^>]*>/g, ""); }
     } else if (hasLabel && (hasOwn(config, "html") || hasOwn(config, "personalized") || target.type === "description")) {
-      config.html = labelToHtml(label);
-      // Keep the HTML question renderer (also used for disabled inputs).
-      // An explicit plain/rich mode remains authoritative.
+      config.html = QUESTION_LABEL_TYPES.indexOf(target.type) >= 0 ? labelParagraph(label) : labelToHtml(label);
+      // Keep the HTML question renderer (also used for disabled inputs). An explicit personalized:false stays here for
+      // description blocks and card titles; a question is made rich by normalizeQuestionLabels on compile and save.
       if (!hasOwn(explicit, "personalized")) { config.personalized = true; }
     }
   }
@@ -3067,6 +3121,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
     normalizeRelationRefs(doc);
+    normalizeQuestionLabels(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
@@ -3441,6 +3496,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         return out;
       }
       function isControl(item) { return TEXT_COLOR_CONTROL_TYPES.indexOf(item.type) >= 0 && !boolLike(item.config && item.config.componentDisabled); }
+      plainQuestionLabels(form).forEach(function (entry) {
+        warning("plain_question_label", "Plain question label, or one without a paragraph: the viewer draws it against its input and the editor writes only rich labels. The next save of this form by nocode-form-edit or nocode-form-update writes it as a paragraph (personalized:true, config.html <p>...</p>), text unchanged", entry.path + "/config/html");
+      });
       ensureArray(form.formulaire).forEach(function (item, idx) {
         if (item && item.flow && !flowIds[String(item.flow)]) {
           issue("unknown_field_flow", "Field references unknown flow: " + item.flow, "/formulaire/" + idx + "/flow");
@@ -4005,6 +4063,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function saveForm(form, options) {
     var opts = options || {};
     var rawThumbnailImage = opts.thumbnailImage || (form && form.thumbnailImage);
+    var convertedLabels = plainQuestionLabels(form);
     var sanitized = sanitizeFormBeforeSave(form);
     var thumbnailImage = normalizeThumbnailImage(rawThumbnailImage);
     if (thumbnailImage.error) {
@@ -4026,6 +4085,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var completedSelects = completeSelectColumns(sanitized, sanitized._id ? ensureArray(opts.strictBindingPaths) : null);
     var validation = validateForm(sanitized, opts).validation;
     completedSelects.forEach(function (item) { validation.warnings.push(item); });
+    if (convertedLabels.length) {
+      // The agent tells the user why fields it did not touch changed.
+      validation.warnings.push({ code: "plain_labels_converted", message: "Plain question labels written as rich paragraphs, as the editor writes them, text unchanged: " + convertedLabels.map(function (entry) { return entry.item.name || entry.item.id; }).join(", "), path: "/formulaire" });
+    }
     validation.warningCount = validation.warnings.length;
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
@@ -4139,6 +4202,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function sanitizeFormBeforeSave(form) {
     var out = clone(form, {});
     normalizeRelationRefs(out);
+    // Every write, of any field: the labels saved plain before, or given plain to nocode-form-update, become rich.
+    normalizeQuestionLabels(out);
     try { delete out.thumbnailImage; } catch (_ignoreThumbnailImageDelete) {}
     try { delete out._attachments; } catch (_ignoreAttachmentsDelete) {}
     try { delete out._c8oMeta; } catch (_ignoreC8oMetaDelete) {}
@@ -5266,7 +5331,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
   // columns it added to a select): the static validation of the read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed"];
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }
