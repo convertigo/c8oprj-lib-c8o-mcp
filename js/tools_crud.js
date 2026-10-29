@@ -468,7 +468,9 @@ C8O.crud = C8O.crud || {};
       statefulBootstrapStageQName: statefulBootstrapStageQName,
       scriptLiteral: scriptLiteral,
       batchApply: function (options) {
-        return C8O.dbo.batchApply(options);
+        var args = options || {};
+        args.managedCrudWriter = true;
+        return C8O.dbo.batchApply(args);
       },
       renameObject: function (options) {
         return C8O.dbo.renameObject(options || {});
@@ -571,7 +573,9 @@ C8O.crud = C8O.crud || {};
         return C8O.dbo.getCanonicalPropertiesMap(dbo, mode, options || {});
       },
       batchApply: function (options) {
-        return C8O.dbo.batchApply(options);
+        var args = options || {};
+        args.managedCrudWriter = true;
+        return C8O.dbo.batchApply(args);
       },
       operationSummary: operationSummary,
       collectBatchWarnings: collectBatchWarnings,

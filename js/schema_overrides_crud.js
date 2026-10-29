@@ -16,7 +16,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         spec: {
           type: "object",
-          description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations, seed, and UI options. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
+          description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations, seed, and UI options. On a database whose tables hold rows, the rows are kept and a field added to an entity becomes a new column, filled with its `default` (fields[].default); seed.reset:true resets the tables to the demo rows. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
           properties: {
             database: {
               type: "object",
@@ -294,6 +294,10 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         type: "array",
         items: crudProofCheckSchema()
       },
+      crm: h().openObjectSchema({
+        enabled: { type: "boolean" },
+        relationRequestable: { type: "string" }
+      }),
       missing: h().stringArraySchema(),
       warnings: h().stringArraySchema()
     });

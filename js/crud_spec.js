@@ -208,6 +208,16 @@ C8O.crudSpec = C8O.crudSpec || {};
     };
   };
 
+  function normalizeDefaultValue(value) {
+    if (value === undefined || value === null) {
+      return null;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+    return String(value);
+  }
+
   C8O.crudSpec.normalizeField = function (ctx, field, entityName, index) {
     var rawField = field || {};
     var rawName = ctx.trimmed(rawField.name || rawField.column || "");
@@ -224,6 +234,8 @@ C8O.crudSpec = C8O.crudSpec || {};
       generated: ctx.toBoolean(rawField.generated, false),
       unique: isPrimary ? true : ctx.toBoolean(rawField.unique, false),
       required: rawField.required == null ? isPrimary : ctx.toBoolean(rawField.required, false),
+      // Column default (string, number or boolean): the value of the rows that exist when upsert-crud adds the column.
+      defaultValue: normalizeDefaultValue(rawField["default"] !== undefined ? rawField["default"] : rawField.defaultValue),
       references: rawField.references && typeof rawField.references === "object" ? ctx.clone(rawField.references) : null
     };
   };
@@ -778,6 +790,7 @@ C8O.crudSpec = C8O.crudSpec || {};
     result.facade.prefix = ctx.trimmed(result.facade.prefix || "crud");
     result.facade.publicListSequence = ctx.trimmed(result.facade.publicListSequence || "");
     result.seed.enabled = result.seed.enabled == null ? true : ctx.toBoolean(result.seed.enabled, true);
+    result.seed.reset = ctx.toBoolean(result.seed.reset, false);
     result.seed.profile = ctx.trimmed(result.seed.profile || "");
     result.seed.rowsPerEntity = parseInt(result.seed.rowsPerEntity, 10);
     result.seed.data = normalizeSeedData(ctx, result.entities, result.seed.data);

@@ -898,7 +898,24 @@ C8O.crudBackend = C8O.crudBackend || {};
     if (raw === "INT" || raw === "INTEGER") {
       return driver.id === "oracle" ? "NUMBER" : "INT";
     }
+    // A bare DECIMAL or NUMERIC has scale 0 on HSQLDB, SQL Server and MySQL: 980.50 is stored 980. An amount keeps its cents.
+    if (raw === "DECIMAL" || raw === "NUMERIC" || raw === "MONEY" || raw === "CURRENCY") {
+      return driver.id === "oracle" ? "NUMBER(12,2)" : "DECIMAL(12,2)";
+    }
     return raw;
+  };
+
+  C8O.crudBackend.renderDefaultValue = function (_ctx, value, driver) {
+    if (value === null || value === undefined) {
+      return "";
+    }
+    if (typeof value === "boolean") {
+      return driver.booleanType === "BOOLEAN" ? (value ? "TRUE" : "FALSE") : (value ? "1" : "0");
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    return "'" + String(value).replace(/'/g, "''") + "'";
   };
 
   C8O.crudBackend.renderColumnDefinition = function (ctx, field, driver) {
@@ -910,6 +927,9 @@ C8O.crudBackend = C8O.crudBackend || {};
       return field.column + " " + pkType + " PRIMARY KEY";
     }
     var segments = [field.column, C8O.crudBackend.mapSqlType(ctx, field, driver)];
+    if (field.defaultValue !== null && field.defaultValue !== undefined) {
+      segments.push("DEFAULT " + C8O.crudBackend.renderDefaultValue(ctx, field.defaultValue, driver));
+    }
     if (field.required) {
       segments.push("NOT NULL");
     }
@@ -994,6 +1014,195 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
     }
     return chunks.join("\n\n");
+  };
+
+  // An existing database, the one of an app in use: upsert-crud keeps its rows and adds the columns the spec has and the
+  // tables lack. CREATE TABLE IF NOT EXISTS adds no column (every query then failed on the new one, usage tests 29/10)
+  // and the seed of init_schema deletes every row. seed.reset:true resets the tables to the demo rows as before.
+  C8O.crudBackend.planExistingDatabase = function (ctx, spec, inspection) {
+    var plan = { inspected: !!(inspection && inspection.reachable), keep: false, rows: {}, alters: [], notes: [] };
+    if (!plan.inspected) {
+      return plan;
+    }
+    var driver = spec.database.driver;
+    var tables = inspection.tables || {};
+    var entities = C8O.crudBackend.orderedEntities(ctx, spec);
+    for (var i = 0; i < entities.length; i++) {
+      var entity = entities[i];
+      var table = tables[String(entity.name).toLowerCase()];
+      if (!table) {
+        continue;
+      }
+      var rows = Number(table.rows) || 0;
+      plan.rows[entity.name] = rows;
+      if (rows > 0) {
+        plan.keep = true;
+      }
+      for (var f = 0; f < entity.fields.length; f++) {
+        var field = entity.fields[f];
+        var existing = (table.columns || {})[String(field.column).toLowerCase()];
+        var declaredType = C8O.crudBackend.mapSqlType(ctx, field, driver);
+        if (!existing) {
+          var hasDefault = field.defaultValue !== null && field.defaultValue !== undefined;
+          var column = field;
+          if (field.required && !hasDefault && rows > 0) {
+            // NOT NULL without a default fails on a table that has rows: the column comes nullable.
+            column = ctx.clone ? ctx.clone(field) : JSON.parse(JSON.stringify(field));
+            column.required = false;
+            plan.notes.push(entity.name + "." + field.column + " is required but has no default: it was added nullable and the " +
+              rows + " existing rows hold NULL. Give the field a default (fields[].default) to fill them.");
+          }
+          plan.alters.push({
+            table: entity.name,
+            column: field.column,
+            sql: C8O.crudBackend.buildAddColumnSql(ctx, entity.name, column, driver)
+          });
+          continue;
+        }
+        var declaredScale = /^(DECIMAL|NUMERIC|NUMBER)\s*\(\s*\d+\s*,\s*(\d+)\s*\)$/i.exec(declaredType);
+        if (declaredScale && existing.digits !== null && existing.digits !== undefined && Number(existing.digits) < Number(declaredScale[2])) {
+          plan.notes.push(entity.name + "." + field.column + " keeps " + existing.digits + " decimals in the database (" + existing.type +
+            ") and the spec says " + declaredType + ": upsert-crud never changes an existing column. Change it with " +
+            C8O.crudBackend.alterColumnTypeSql(entity.name, field.column, declaredType, driver) + ".");
+        }
+      }
+    }
+    if (spec.seed && spec.seed.reset === true) {
+      plan.keep = false;
+    }
+    return plan;
+  };
+
+  C8O.crudBackend.buildAddColumnSql = function (ctx, table, field, driver) {
+    var definition = C8O.crudBackend.renderColumnDefinition(ctx, field, driver);
+    if (driver.id === "oracle") {
+      return "ALTER TABLE " + table + " ADD (" + definition + ")";
+    }
+    return "ALTER TABLE " + table + " ADD " + (driver.id === "sqlserver" ? "" : "COLUMN ") + definition;
+  };
+
+  C8O.crudBackend.alterColumnTypeSql = function (table, column, type, driver) {
+    switch (driver.id) {
+      case "hsqldb": return "ALTER TABLE " + table + " ALTER COLUMN " + column + " SET DATA TYPE " + type;
+      case "postgresql": return "ALTER TABLE " + table + " ALTER COLUMN " + column + " TYPE " + type;
+      case "mysql":
+      case "mariadb": return "ALTER TABLE " + table + " MODIFY " + column + " " + type;
+      case "oracle": return "ALTER TABLE " + table + " MODIFY (" + column + " " + type + ")";
+      default: return "ALTER TABLE " + table + " ALTER COLUMN " + column + " " + type;
+    }
+  };
+
+  function jdbcUrlOf(connector) {
+    var url = "";
+    try {
+      url = String(connector.getRealJdbcURL() || "");
+    } catch (_noRealUrl) {}
+    if (!url.length || url === "null") {
+      url = String(connector.getJdbcURL() || "");
+      if (url.indexOf("jdbc:hsqldb:file:") === 0) {
+        url = "jdbc:hsqldb:file:" + String(Engine.theApp.filePropertyManager.getFilepathFromProperty(
+          url.substring("jdbc:hsqldb:file:".length), String(connector.getProject().getName())));
+      }
+    }
+    if (url.indexOf("jdbc:hsqldb:file:") === 0) {
+      // ifexists: the probe never creates a database; and no shutdown=true, which would close it under the engine.
+      url = url.split(";")[0] + ";ifexists=true";
+    }
+    return url;
+  }
+
+  function withJdbc(connector, work) {
+    var jdbc = null;
+    try {
+      try {
+        java.lang.Class.forName(String(connector.getJdbcDriverClassName()));
+      } catch (_driverLoaded) {}
+      var user = "";
+      var password = "";
+      try { user = String(connector.getRealJdbcUserName() || ""); } catch (_noUser) {}
+      try { password = String(connector.getRealJdbcUserPassword() || ""); } catch (_noPassword) {}
+      jdbc = java.sql.DriverManager.getConnection(jdbcUrlOf(connector), user, password);
+      return work(jdbc);
+    } finally {
+      if (jdbc) {
+        try { jdbc.close(); } catch (_closed) {}
+      }
+    }
+  }
+
+  // Tables of the entities, with their columns (lower case) and row count, from the JDBC metadata of the connector's
+  // database: the same on every engine. unreachable (a database not created yet, a driver not loaded) means fresh.
+  C8O.crudBackend.inspectDatabase = function (ctx, connector, tableNames) {
+    var out = { reachable: false, tables: {}, error: "" };
+    try {
+      withJdbc(connector, function (jdbc) {
+        var meta = jdbc.getMetaData();
+        var escape = String(meta.getSearchStringEscape() || "");
+        for (var i = 0; i < tableNames.length; i++) {
+          var name = String(tableNames[i]);
+          var variants = [name, name.toUpperCase(), name.toLowerCase()];
+          var columns = {};
+          var found = "";
+          for (var v = 0; v < variants.length && !found.length; v++) {
+            var pattern = escape.length ? variants[v].replace(/[_%]/g, function (c) { return escape + c; }) : variants[v];
+            var rs = meta.getColumns(null, null, pattern, "%");
+            try {
+              while (rs.next()) {
+                var digits = rs.getInt("DECIMAL_DIGITS");
+                var noDigits = rs.wasNull();
+                var size = rs.getInt("COLUMN_SIZE");
+                columns[String(rs.getString("COLUMN_NAME")).toLowerCase()] = {
+                  type: String(rs.getString("TYPE_NAME")) + "(" + size + (noDigits ? "" : "," + digits) + ")",
+                  digits: noDigits ? null : digits
+                };
+                found = String(rs.getString("TABLE_NAME"));
+              }
+            } finally {
+              rs.close();
+            }
+          }
+          if (!found.length) {
+            continue;
+          }
+          var statement = jdbc.createStatement();
+          try {
+            var count = statement.executeQuery("SELECT COUNT(*) FROM " + found);
+            out.tables[name.toLowerCase()] = { name: found, columns: columns, rows: count.next() ? count.getLong(1) : 0 };
+          } finally {
+            statement.close();
+          }
+        }
+        out.reachable = true;
+      });
+    } catch (e) {
+      out.error = String(e).substring(0, 300);
+    }
+    return out;
+  };
+
+  C8O.crudBackend.applyAlters = function (ctx, connector, alters) {
+    var applied = [];
+    if (!alters.length) {
+      return applied;
+    }
+    try {
+      withJdbc(connector, function (jdbc) {
+        for (var i = 0; i < alters.length; i++) {
+          var statement = jdbc.createStatement();
+          try {
+            statement.execute(alters[i].sql);
+            applied.push({ sql: alters[i].sql, status: "ok" });
+          } catch (e) {
+            applied.push({ sql: alters[i].sql, status: "error", error: String(e).substring(0, 300) });
+          } finally {
+            statement.close();
+          }
+        }
+      });
+    } catch (e) {
+      applied.push({ sql: "", status: "error", error: String(e).substring(0, 300) });
+    }
+    return applied;
   };
 
   C8O.crudBackend.listColumns = function (_ctx, entity) {
@@ -1308,6 +1517,12 @@ C8O.crudBackend = C8O.crudBackend || {};
     result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);
     result.primaryTargets.sql = result.connectorQname;
 
+    var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec,
+      (ctx.inspectDatabase || C8O.crudBackend.inspectDatabase)(ctx, connector, spec.entities.map(function (entity) { return entity.name; })));
+    if (existingDatabase.keep) {
+      // The rows are the user's: init_schema only creates what is missing, and nothing reseeds them.
+      spec.seed.enabled = false;
+    }
     pruneObsoleteTransactions(ctx, connector, result);
     C8O.crudBackend.ensureSqlTransaction(ctx, connector, "init_schema", C8O.crudBackend.buildInitSql(ctx, spec), ctx.SqlTransaction.AUTOCOMMIT_EACH, result, {
       kind: "init",
@@ -1510,6 +1725,24 @@ C8O.crudBackend = C8O.crudBackend || {};
       result,
       learnedSchemas
     );
+    if (existingDatabase.inspected) {
+      var applied = existingDatabase.alters.length ? (ctx.applyAlters || C8O.crudBackend.applyAlters)(ctx, connector, existingDatabase.alters) : [];
+      result.runtimeEvidence.existingDatabase = {
+        rowsKept: existingDatabase.keep,
+        rows: existingDatabase.rows,
+        addedColumns: applied.filter(function (a) { return a.status === "ok"; }).map(function (a) { return a.sql; }),
+        note: existingDatabase.keep ? "The tables hold rows: upsert-crud kept them, added the missing columns and seeded nothing. " +
+          "seed.reset:true resets them to the demo rows." : ""
+      };
+      for (var a = 0; a < applied.length; a++) {
+        if (applied[a].status !== "ok") {
+          ctx.addWarning(result, "Adding a column failed: " + applied[a].sql + " -> " + applied[a].error);
+        }
+      }
+      for (var n = 0; n < existingDatabase.notes.length; n++) {
+        ctx.addWarning(result, existingDatabase.notes[n]);
+      }
+    }
     var cachedRows = {};
     for (var e = 0; e < spec.entities.length; e++) {
       var currentEntity = spec.entities[e];
@@ -1518,7 +1751,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       result.runtimeEvidence[C8O.crudBackend.txName(ctx, currentEntity, "count")] = entityLearn.count;
     }
     learnRelationSchemas(ctx, spec, cachedRows, result, learnedSchemas);
-    if (spec.entities.length) {
+    if (spec.entities.length && !existingDatabase.keep) {
       ctx.requestablePayload(spec.project + "." + spec.database.connector + ".init_schema", {}, result, {});
     }
     result.runtimeEvidence.schemaLearning = learnedSchemas;

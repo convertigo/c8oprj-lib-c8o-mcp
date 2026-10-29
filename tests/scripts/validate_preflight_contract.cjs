@@ -571,6 +571,49 @@ test('every output schema takes the argumentWarning and operatorNote the endpoin
   }
 });
 
+// The subset of JSON Schema the output schemas use; Vibe's MCP client checks structuredContent the same way and fails
+// the call with mcp_transport_failed on a property a closed object does not declare.
+function schemaErrors(schema, value, where = '$') {
+  if (!schema || typeof schema !== 'object') return [];
+  if (schema.oneOf || schema.anyOf) {
+    const branches = (schema.oneOf || schema.anyOf).map(b => schemaErrors(b, value, where));
+    return branches.some(e => !e.length) ? [] : [where + ': matches no branch (' + branches.map(e => e[0]).join(' | ') + ')'];
+  }
+  const kind = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  const types = [].concat(schema.type || []);
+  if (types.length && !types.some(t => t === kind || (t === 'integer' && Number.isInteger(value)) || (t === 'number' && kind === 'number'))) {
+    return [where + ': ' + kind + ' where the schema takes ' + types.join('|')];
+  }
+  const errors = [];
+  if (kind === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      const declared = schema.properties && schema.properties[key];
+      if (declared) errors.push(...schemaErrors(declared, item, where + '.' + key));
+      else if (schema.additionalProperties === false) errors.push(where + '.' + key + ' is not declared and the object is closed');
+      else if (schema.additionalProperties && typeof schema.additionalProperties === 'object') errors.push(...schemaErrors(schema.additionalProperties, item, where + '.' + key));
+    }
+  }
+  if (kind === 'array' && schema.items) value.forEach((item, i) => errors.push(...schemaErrors(schema.items, item, where + '[' + i + ']')));
+  return errors;
+}
+
+function outputSchemaOf(sequence) {
+  const ctx = { C8O: {}, include(file) { vm.runInContext(read(file), ctx); } };
+  vm.createContext(ctx);
+  vm.runInContext(read('js/schema_overrides.js'), ctx);
+  const schema = ctx.C8O.schemaOverrides.applyOutput(sequence, { type: 'object' }, null);
+  return JSON.parse(JSON.stringify(ctx.C8O.schemaOverrides.decorateOutput(sequence, schema, null)));
+}
+
+test('crud-proof: its output schema takes the answer a Studio gives, crm included (usage tests 29/10)', () => {
+  // Answer of crud-proof {project, connector, expectUiShell, viewerUrl} on the Atelier app (MCP 0.2.29-beta.5): the
+  // closed schema had no crm, Vibe failed the call 3 times with mcp_transport_failed and the agent lost the proof.
+  const answer = JSON.parse(read('tests/fixtures/crud/crud_proof_answer_atelier.json'));
+  assert.deepEqual(schemaErrors(outputSchemaOf('tools_crud_proof'), answer), []);
+  assert.deepEqual(schemaErrors({ type: 'object', additionalProperties: false, properties: {} }, { crm: {} }),
+    ['$.crm is not declared and the object is closed'], 'the checker sees an undeclared property');
+});
+
 test('a refused MCP token is logged with its reason, never with the token', () => {
   const logged = [];
   const ctx = {

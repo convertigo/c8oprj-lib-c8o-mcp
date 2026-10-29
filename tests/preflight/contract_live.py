@@ -34,7 +34,7 @@ def args_parser():
     ap.add_argument("--allow-port", type=int, action="append", default=[])
     ap.add_argument("--cap", type=int, default=30000, help="answer size cap in characters")
     ap.add_argument("--keep", action="store_true", help="keep the scratch project")
-    ap.add_argument("--only", default="", help="comma list of sections: qnames,size,upsert,errors,palette")
+    ap.add_argument("--only", default="", help="comma list of sections: qnames,size,upsert,errors,palette,schemas")
     ap.add_argument("--json", default="", help="write the result table to this file")
     return ap
 
@@ -127,7 +127,8 @@ class Contract:
         def walk(node, path):
             if isinstance(node, dict):
                 for k, v in node.items():
-                    if k in ("oldQName", "previousQName", "fromQName") or (k == "qname" and "newQName" in node):
+                    # missing lists name what a status found absent: those QNames do not open, by definition.
+                    if k in ("oldQName", "previousQName", "fromQName", "missing") or (k == "qname" and "newQName" in node):
                         continue
                     walk(v, path + [k])
             elif isinstance(node, list):
@@ -334,6 +335,24 @@ class Contract:
             stale = self.m.call("databaseobject-search", {"qname": P, "filter": "body", "limit": 50})
             hits = [h for h in _qnames_in(stale.data) if re.search(r"(?i)body", h.rsplit(".", 1)[-1])]
             self._expect("upsert", "upsert-crud without a field leaves no variable or column behind", not hits, f"left: {hits[:6]}")
+            self.call("crud status", "crud-status", {"project": P, "facadePrefix": "ct", "entryPage": "Items"})
+            self.call("crud proof", "crud-proof", {"project": P, "facadePrefix": "ct", "entryPage": "Items"})
+
+    # --- output schemas ------------------------------------------------------------------------
+
+    def check_schemas(self):
+        """Every structuredContent against the outputSchema of its tool, as Vibe's MCP client checks it: a property a
+        closed object does not declare fails the call there with mcp_transport_failed (crud-proof crm, 29/10)."""
+        schemas = {t["name"]: t.get("outputSchema") for t in self.m.tools()}
+        seen, bad = set(), {}
+        for label, tool, a in self.answers:
+            if a.is_error or a.structured is None or not schemas.get(tool):
+                continue
+            seen.add(tool)
+            for err in schema_errors(schemas[tool], a.structured)[:3]:
+                bad.setdefault(tool, []).append(f"{label}: {err}")
+        for tool in sorted(seen):
+            self._expect("schemas", f"{tool} answers match its outputSchema", tool not in bad, "; ".join(bad.get(tool, []))[:600])
 
     def _expect(self, section, name, ok, detail):
         self.r.add(section, name, "PASS" if ok else "FAIL", detail)
@@ -547,10 +566,43 @@ class Contract:
                 self.check_palette()
             if self.section("qnames"):
                 self.check_qnames()
+            if self.section("schemas"):
+                self.check_schemas()
         finally:
             if not self.o.keep:
                 self.m.call("project-delete", {"project": P})
         return self.r.finish(self.o.json or None)
+
+
+def schema_errors(schema, value, where="$"):
+    """The subset of JSON Schema the MCP output schemas use (type, properties, additionalProperties, items, oneOf)."""
+    if not isinstance(schema, dict):
+        return []
+    branches = schema.get("oneOf") or schema.get("anyOf")
+    if branches:
+        results = [schema_errors(b, value, where) for b in branches]
+        return [] if any(not r for r in results) else [f"{where}: matches no branch ({' | '.join(r[0] for r in results)})"]
+    kind = ("null" if value is None else "boolean" if isinstance(value, bool) else "number" if isinstance(value, (int, float))
+            else "string" if isinstance(value, str) else "array" if isinstance(value, list) else "object")
+    types = schema.get("type")
+    types = [types] if isinstance(types, str) else (types or [])
+    if types and not any(t == kind or (t == "integer" and kind == "number" and float(value).is_integer()) for t in types):
+        return [f"{where}: {kind} where the schema takes {'|'.join(types)}"]
+    errors = []
+    if kind == "object":
+        props = schema.get("properties") or {}
+        extra = schema.get("additionalProperties")
+        for key, item in value.items():
+            if key in props:
+                errors += schema_errors(props[key], item, f"{where}.{key}")
+            elif extra is False:
+                errors.append(f"{where}.{key} is not declared and the object is closed")
+            elif isinstance(extra, dict):
+                errors += schema_errors(extra, item, f"{where}.{key}")
+    if kind == "array" and isinstance(schema.get("items"), dict):
+        for i, item in enumerate(value):
+            errors += schema_errors(schema["items"], item, f"{where}[{i}]")
+    return errors
 
 
 def _message(a):

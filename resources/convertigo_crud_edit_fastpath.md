@@ -23,6 +23,17 @@ Use this rail only when all of these are already true:
 
 If those conditions do not hold, fall back to `convertigo://resources/convertigo-crud-fastpath`.
 
+## An app whose tables hold data
+- `upsert-crud` keeps the rows of tables that already hold rows: no reset, no demo seed. A field added to an entity
+  becomes a new column (`ALTER TABLE ... ADD`), filled on the existing rows with its `default` (`fields[].default`);
+  `runtimeEvidence.existingDatabase` lists the rows kept and the columns added.
+- It never changes or drops an existing column. A type change (more decimals, a longer text) is an `ALTER TABLE` you
+  write in a one-shot transaction (`sql-transaction-create`), run once, then delete; the answer of `upsert-crud` gives
+  the statement when the spec asks for more decimals than the column has.
+- Never run `init_schema` by hand to apply a schema change: the `init_schema` of an app generated earlier deletes every
+  row and inserts the demo rows again. Read its SQL first. `seed.reset:true` resets the tables to the demo rows, only
+  when the user asks for it.
+
 ## Deterministic rail for an existing CRUD project
 1. Run `crud-status` to confirm the current project, connector, business sequence prefix, entry page, and UI variant.
 2. Build the full updated CRUD `spec` in one pass.

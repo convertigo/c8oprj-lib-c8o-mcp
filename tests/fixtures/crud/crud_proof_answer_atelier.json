@@ -1,0 +1,406 @@
+{
+ "status": "success",
+ "project": "Atelier",
+ "driverFamily": "hsqldb",
+ "connectorQname": "Atelier.cn:Atelierdb",
+ "entryPage": "Home",
+ "expectUiShell": true,
+ "transactions": {
+  "present": [
+   "Atelier.Atelierdb.init_schema",
+   "Atelier.Atelierdb.list_interventions_by_client",
+   "Atelier.Atelierdb.count_clients",
+   "Atelier.Atelierdb.count_interventions",
+   "Atelier.Atelierdb.create_client",
+   "Atelier.Atelierdb.create_intervention",
+   "Atelier.Atelierdb.delete_client",
+   "Atelier.Atelierdb.delete_intervention",
+   "Atelier.Atelierdb.list_clients",
+   "Atelier.Atelierdb.list_interventions",
+   "Atelier.Atelierdb.read_client",
+   "Atelier.Atelierdb.read_intervention",
+   "Atelier.Atelierdb.update_client",
+   "Atelier.Atelierdb.update_intervention"
+  ],
+  "missing": []
+ },
+ "sequences": {
+  "present": [
+   "Atelier.crud_list_interventions_by_client",
+   "Atelier.sq:crud_count_clients",
+   "Atelier.sq:crud_count_interventions",
+   "Atelier.sq:crud_create_client",
+   "Atelier.sq:crud_create_intervention",
+   "Atelier.sq:crud_delete_client",
+   "Atelier.sq:crud_delete_intervention",
+   "Atelier.sq:crud_list_clients",
+   "Atelier.sq:crud_list_interventions",
+   "Atelier.sq:crud_list_interventions_by_client",
+   "Atelier.sq:crud_read_client",
+   "Atelier.sq:crud_read_intervention",
+   "Atelier.sq:crud_update_client",
+   "Atelier.sq:crud_update_intervention",
+   "Atelier.auth_login",
+   "Atelier.auth_logout"
+  ],
+  "missing": []
+ },
+ "ui": {
+  "starterDominant": false,
+  "visibleShellPresent": true,
+  "liveBindingPresent": true,
+  "statefulActionsPresent": true,
+  "pageBootstrapPresent": true,
+  "authBootstrapPresent": true,
+  "workInProgressVisible": false,
+  "expectedGlobals": [
+   "crudBuildStage",
+   "crudLoading",
+   "crudError",
+   "crudStatus",
+   "crudRows",
+   "crudCounts",
+   "crudSamples",
+   "crudSelected",
+   "crudDrafts",
+   "crudRelationSearch",
+   "crudModes",
+   "crudEntityStatus",
+   "crudEntityErrors"
+  ],
+  "targetQName": "Atelier.Application.NgxApp.Home.Content",
+  "retryActionPresent": false,
+  "sessionBootstrapPresent": true,
+  "sessionRootRedirectPresent": true,
+  "builderProbe": {
+   "status": "ready",
+   "project": "Atelier",
+   "message": "Mobile builder viewer and browser control are ready; compilation completion was not observed.",
+   "ready": true,
+   "viewerReady": true,
+   "viewerHydrating": false,
+   "compileState": "unknown",
+   "buildObserved": false,
+   "readyReason": "browser_control_ready",
+   "launched": true,
+   "launchRequested": false,
+   "reusedBuild": true,
+   "wait": true,
+   "waited": true,
+   "revealWaitCapApplied": false,
+   "stateOnly": false,
+   "studioMode": true,
+   "threadAlive": true,
+   "timeoutSec": 20,
+   "elapsedMs": 1803,
+   "startedAt": 1793293188508,
+   "finishedAt": 1793293190311,
+   "endpoint": "http://localhost:18090/convertigo",
+   "baseUrl": "http://localhost:47135",
+   "viewerUrl": "http://localhost:47135",
+   "viewerBaseUrl": "http://localhost:47135",
+   "viewerHomeUrl": "http://localhost:47135/login",
+   "port": 47135,
+   "nodeUrl": "http://localhost:47135",
+   "browserDebugUrl": "http://localhost:47389",
+   "browserDevToolsJsonUrl": "http://localhost:47389/json",
+   "browserDevToolsWebSocketUrl": "ws://localhost:47389/devtools/page/31BDEDE9D6D3CFF20E09243E68BC190B",
+   "browserDevToolsTarget": {
+    "id": "31BDEDE9D6D3CFF20E09243E68BC190B",
+    "type": "page",
+    "title": "Atelier",
+    "url": "http://localhost:47135/interventions",
+    "webSocketDebuggerUrl": "ws://localhost:47389/devtools/page/31BDEDE9D6D3CFF20E09243E68BC190B",
+    "devtoolsFrontendUrl": "https://chrome-devtools-frontend.appspot.com/serve_rev/@b28eac7a1a97ec8d7bc58eca0242958254be494d/inspector.html?ws=localhost:47389/devtools/page/31BDEDE9D6D3CFF20E09243E68BC190B"
+   },
+   "browserRemoteDebuggingPort": 47389,
+   "browserDebugPortRequested": 0,
+   "browserDebugPortApplied": false,
+   "browserDebugPortMatched": true,
+   "browserControlReady": true,
+   "browserControlTargetUrl": "http://localhost:47135/interventions",
+   "browserControlHint": "No managed browser is attached to this MCP client (browserDebugPortRequested is 0), so a generic Playwright MCP cannot reach the Studio JxBrowser. Smoke the viewer by navigating your own browser tool to viewerHomeUrl, in a browser profile that holds no session of another Studio on localhost.",
+   "nextAction": null,
+   "editor": {
+    "requested": true,
+    "opened": true,
+    "builderLaunchRequested": false,
+    "stateOnly": false,
+    "message": "NGX editor already running; reused current builder",
+    "error": ""
+   },
+   "editorOpened": true,
+   "browser": {
+    "currentUrl": "http://localhost:47135/interventions",
+    "locationHref": "http://localhost:47135/interventions",
+    "title": "Atelier",
+    "statusText": "",
+    "errorText": "",
+    "bodyTextSample": "Interventions\nSelect a record, edit it, or create a new one.\nBack to home\nInterventions\nRows: 5\nNew intervention\nR\u00e9paration four\n\nStatut: \u00e0 faire\n\nDate pr\u00e9vue: 2026-11-03\n\nMontant (\u20ac): 450\n\nClient: Boulangerie Martin\n\nContr\u00f4le chaudi\u00e8re\n\nStatut: en cours\n\nDate pr\u00e9vue: 2026-10-30\n\nMontant (\u20ac): 120\n\nClient: Garage Petit\n\nRemplacement vitrine\n\nStatut: termin\u00e9e\n\nDate pr\u00e9vue: 2026-10-20\n\nMontant (\u20ac): 980.5\n\nClient: Boulangerie Martin\n\nInstallation alarme\n\nStatut: \u00e0 faire\n\nDate pr\u00e9vue: 2026-11-10\n\nMontant (\u20ac): 1500\n\nClient: Cabinet Leroy\n\nEntretien climatisation\n\nStatut: termin\u00e9e\n\nDate pr\u00e9vue: 2026-10-15\n\nMontant (\u20ac): 200\n\nClient: Cabinet Leroy\n\nInterventions detail\n\nNo record selected.\n\nCreate intervention\nTitre\nStatut\nDate pr\u00e9vue\nMontant (\u20ac)\nNouvelle interventionCancel",
+    "appRootHydrated": true,
+    "appRootChildCount": 1,
+    "progress": 0
+   },
+   "build": {
+    "supported": true,
+    "jobName": "Live build for Atelier",
+    "active": false,
+    "state": "none",
+    "processAlive": true,
+    "launchRequestedAt": 0,
+    "observed": false,
+    "finishedAtObserved": 0,
+    "requestedAt": 0,
+    "terminalObserved": false,
+    "generation": {
+     "supported": true,
+     "id": 0,
+     "status": "none",
+     "startedAt": 0,
+     "completedAt": 0,
+     "changedFileCount": 0,
+     "noChange": false,
+     "failed": false,
+     "error": ""
+    }
+   },
+   "compileErrors": [],
+   "logs": [],
+   "logQuery": {
+    "category": "Studio",
+    "contextId": "",
+    "project": "",
+    "requestable": "",
+    "connector": "",
+    "transaction": "",
+    "startMillis": 1793293187508,
+    "endMillis": 1793293191273,
+    "limit": 240,
+    "scanned": 670,
+    "cutMessages": 0,
+    "droppedLines": 0
+   }
+  },
+  "viewerProbe": {
+   "attempted": true,
+   "ok": true,
+   "url": "http://localhost:47135/login",
+   "finalUrl": "http://localhost:47135/login",
+   "statusCode": 200,
+   "htmlOk": true,
+   "bundleCount": 15,
+   "displayPath": "/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/DisplayObjects/mobile",
+   "indexPath": "/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/DisplayObjects/mobile/index.html",
+   "scriptUrls": [
+    "http://localhost:47135/cordova.js",
+    "http://localhost:47135/polyfills.js",
+    "http://localhost:47135/main.js"
+   ],
+   "fetchedBundles": [
+    {
+     "url": "http://localhost:47135/cordova.js",
+     "statusCode": 200,
+     "size": 14
+    },
+    {
+     "url": "http://localhost:47135/polyfills.js",
+     "statusCode": 200,
+     "size": 8655
+    },
+    {
+     "url": "http://localhost:47135/main.js",
+     "statusCode": 200,
+     "size": 114227
+    },
+    {
+     "url": "http://localhost:47135/main.js",
+     "statusCode": 200,
+     "size": 114227
+    },
+    {
+     "url": "http://localhost:47135/chunk-XDHDTOEK.js",
+     "statusCode": 200,
+     "size": 213754
+    },
+    {
+     "url": "http://localhost:47135/@fs/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/_private/ionic/.angular/cache/20.3.41/app/vite/deps/@angular_platform-browser.js?v=8058b482",
+     "statusCode": 200,
+     "size": 13481
+    },
+    {
+     "url": "http://localhost:47135/@fs/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/_private/ionic/.angular/cache/20.3.41/app/vite/deps/@angular_router.js?v=8058b482",
+     "statusCode": 200,
+     "size": 20058
+    },
+    {
+     "url": "http://localhost:47135/@fs/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/_private/ionic/.angular/cache/20.3.41/app/vite/deps/@ionic_angular_standalone.js?v=8058b482",
+     "statusCode": 200,
+     "size": 1386660
+    },
+    {
+     "url": "http://localhost:47135/home.routes-BER75N7J.js",
+     "statusCode": 200,
+     "size": 180873
+    },
+    {
+     "url": "http://localhost:47135/login.routes-AIKOYZ2Q.js",
+     "statusCode": 200,
+     "size": 43364
+    },
+    {
+     "url": "http://localhost:47135/clientspage.routes-CPXFB4GU.js",
+     "statusCode": 200,
+     "size": 401663
+    },
+    {
+     "url": "http://localhost:47135/interventionspage.routes-U2X7FAV6.js",
+     "statusCode": 200,
+     "size": 424106
+    },
+    {
+     "url": "http://localhost:47135/@fs/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/_private/ionic/.angular/cache/20.3.41/app/vite/deps/@angular_core.js?v=8058b482",
+     "statusCode": 200,
+     "size": 102866
+    },
+    {
+     "url": "http://localhost:47135/@fs/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/_private/ionic/.angular/cache/20.3.41/app/vite/deps/@ngx-translate_core.js?v=8058b482",
+     "statusCode": 200,
+     "size": 34245
+    },
+    {
+     "url": "http://localhost:47135/@fs/Users/charlesg/dev/convertigo/studios/Studio_8.4_usage/Atelier/_private/ionic/.angular/cache/20.3.41/app/vite/deps/rxjs_operators.js?v=8058b482",
+     "statusCode": 200,
+     "size": 15926
+    }
+   ],
+   "markersFound": [
+    "crud_list_clients",
+    "crud_list_interventions"
+   ],
+   "missingMarkers": [],
+   "message": "Viewer build artifacts exist and include the expected CRUD bundle markers."
+  }
+ },
+ "requestables": [
+  {
+   "requestable": "Atelier.Atelierdb.list_clients",
+   "status": "ok",
+   "ok": true
+  },
+  {
+   "requestable": "Atelier.Atelierdb.list_interventions_by_client",
+   "status": "ok",
+   "ok": true
+  }
+ ],
+ "checks": [
+  {
+   "id": "transactions",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.cn:Atelierdb"
+  },
+  {
+   "id": "sequences",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "relations",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "facade-hidden-authenticated",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "auth-sequences",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "requestable:atelier_crud_list_clients",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.crud_list_clients"
+  },
+  {
+   "id": "relation:atelier_crud_list_interventions_by_client",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.crud_list_interventions_by_client"
+  },
+  {
+   "id": "relation-label:atelier_crud_list_interventions_by_client",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.crud_list_interventions_by_client"
+  },
+  {
+   "id": "ui-visible-shell",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.Application.NgxApp.Home.Content"
+  },
+  {
+   "id": "ui-starter-replaced",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.Application.NgxApp.Home.Content"
+  },
+  {
+   "id": "ui-live-binding",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.Application.NgxApp.Home.Content"
+  },
+  {
+   "id": "ui-stateful-actions",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "ui-page-bootstrap",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier.Application.NgxApp.Home"
+  },
+  {
+   "id": "ui-mobile-builder",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "ui-work-in-progress-hidden",
+   "status": "ok",
+   "ok": true,
+   "target": "http://localhost:47135/login"
+  },
+  {
+   "id": "ui-auth-bootstrap",
+   "status": "ok",
+   "ok": true,
+   "target": "Atelier"
+  },
+  {
+   "id": "ui-viewer-probe",
+   "status": "ok",
+   "ok": true,
+   "target": "http://localhost:47135/login"
+  }
+ ],
+ "missing": [],
+ "warnings": [],
+ "crm": {
+  "enabled": false,
+  "relationRequestable": ""
+ }
+}

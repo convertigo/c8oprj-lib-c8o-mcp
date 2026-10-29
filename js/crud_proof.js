@@ -1032,6 +1032,9 @@ C8O.crudProof = C8O.crudProof || {};
     if (!connector && !connectorName.length) {
       connectorName = fakeSpec.database.connector;
     }
+    // The transactions are looked for under the connector found (<Project>db for upsert-crud), never under the
+    // placeholder name: without connector, crud-status and crud-proof listed every transaction as missing in appdb.
+    fakeSpec.database.connector = connectorName;
     var status = buildCrudStatus(ctx, fakeSpec, connector, {
       sequence: true,
       warnings: []
