@@ -35,6 +35,13 @@ comment: Template source for the CRUD entity edit form.
 ↓Load [ngx.components.UISharedComponentEvent-1775818415358]: 
   comment: Maintain the entity draft in component-local state.
   componentEvent: onChanges
+  ↓ClearSaveResult [ngx.components.UIDynamicAction-1793301000001]: 
+    beanData: |
+      '{
+       "ionBean": "SetLocalAction",
+       "Property": "plain:lastSave",
+       "Value": "script:null"
+      }'
   ↓WhenCreateMode [ngx.components.UIDynamicAction-1775818415360]: 
     beanData: '{"ionBean":"IfAction","condition":"script:this.Mode === ''create'' || !this.SelectedId"}'
     comment: Initialize the local draft when the page switches to create mode.
@@ -87,6 +94,17 @@ comment: Template source for the CRUD entity edit form.
     tagName: ion-card-content
     ↓Form [ngx.components.UIForm-1775818415382]: 
       identifier: entityForm
+      ↓SaveErrorVisible [ngx.components.UIControlDirective-1793301000003]: 
+        directiveExpression: '!!this.local?.lastSave?.error'
+        directiveName: If
+        ↓SaveError [ngx.components.UIDynamicElement-1793301000005]: 
+          beanData: '{"ionBean":"Paragraph"}'
+          tagName: p
+          ↓SaveErrorText [ngx.components.UIText-1793301000007]: 
+            textValue: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
+                - MobileSmartSourceType: 'script:this.local?.lastSave?.error?.message || this.local?.lastSave?.error?.code || ''Error'''
       ↓ActionsGrid [ngx.components.UIDynamicElement-1775818417320]: 
         beanData: '{"ionBean":"Grid"}'
         tagName: ion-grid
@@ -173,14 +191,24 @@ comment: Template source for the CRUD entity edit form.
           ↓Create [ngx.components.UIDynamicAction-1775818417356]: 
             beanData: '{"ionBean":"CallSequenceAction","requestable":"plain:__PROJECT_NAME__.__FACADE_PREFIX___create___ENTITY_SINGULAR__"}'
             comment: Create a new row from the submitted form.
-            ↓EmitSaved [ngx.components.UIDynamicEmit-1775818417358]: 
+            ↓KeepCreateResult [ngx.components.UIDynamicAction-1793301000009]: 
               beanData: |
                 '{
-                 "ionBean": "EmitEventAction",
-                 "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Saved",
-                 "data": "script:{ id: (out.row || (out.rows && out.rows[0]) || {}).id, mode: ''create'' }"
+                 "ionBean": "SetLocalAction",
+                 "Property": "plain:lastSave",
+                 "Value": "script:out"
                 }'
-              comment: Notify the page glue that the create succeeded.
+              comment: 'Keep the save answer: its error is shown above the buttons.'
+              ↓WhenCreateSaved [ngx.components.UIDynamicAction-1793301000011]: 
+                beanData: '{"ionBean":"IfAction","condition":"script:!this.local?.lastSave?.error"}'
+                ↓EmitSaved [ngx.components.UIDynamicEmit-1775818417358]: 
+                  beanData: |
+                    '{
+                     "ionBean": "EmitEventAction",
+                     "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Saved",
+                     "data": "script:{ id: (this.local.lastSave.row || (this.local.lastSave.rows && this.local.lastSave.rows[0]) || {}).id, mode: ''create'' }"
+                    }'
+                  comment: Notify the page glue that the create succeeded.
         ↓WhenUpdateMode [ngx.components.UIDynamicAction-1775818417360]: 
           beanData: '{"ionBean":"IfAction","condition":"script:this.Mode !== ''create'' && !!this.SelectedId"}'
           ↓Update [ngx.components.UIDynamicAction-1775818417362]: 
@@ -191,11 +219,21 @@ comment: Template source for the CRUD entity edit form.
                 - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                   - MobileSmartSourceType: script:this.SelectedId
-            ↓EmitSaved [ngx.components.UIDynamicEmit-1775818417366]: 
+            ↓KeepUpdateResult [ngx.components.UIDynamicAction-1793301000013]: 
               beanData: |
                 '{
-                 "ionBean": "EmitEventAction",
-                 "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Saved",
-                 "data": "script:{ id: this.SelectedId, mode: ''update'' }"
+                 "ionBean": "SetLocalAction",
+                 "Property": "plain:lastSave",
+                 "Value": "script:out"
                 }'
-              comment: Notify the page glue that the update succeeded.
+              comment: 'Keep the save answer: its error is shown above the buttons.'
+              ↓WhenUpdateSaved [ngx.components.UIDynamicAction-1793301000015]: 
+                beanData: '{"ionBean":"IfAction","condition":"script:!this.local?.lastSave?.error"}'
+                ↓EmitSaved [ngx.components.UIDynamicEmit-1775818417366]: 
+                  beanData: |
+                    '{
+                     "ionBean": "EmitEventAction",
+                     "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Saved",
+                     "data": "script:{ id: this.SelectedId, mode: ''update'' }"
+                    }'
+                  comment: Notify the page glue that the update succeeded.

@@ -707,6 +707,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       { qname: componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create.EmitSaved", property: "data", value: "{ id: (out.row || (out.rows && out.rows[0]) || {}).id, mode: 'create' }" },
       { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.EmitSaved", property: "data", value: "{ id: this.SelectedId, mode: 'update' }" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create.KeepCreateResult.WhenCreateSaved.EmitSaved", property: "data", value: "{ id: (this.local.lastSave.row || (this.local.lastSave.rows && this.local.lastSave.rows[0]) || {}).id, mode: 'create' }" },
+      { qname: componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update.KeepUpdateResult.WhenUpdateSaved.EmitSaved", property: "data", value: "{ id: this.SelectedId, mode: 'update' }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
