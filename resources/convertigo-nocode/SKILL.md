@@ -316,7 +316,7 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 - `table_id` is the human-readable Baserow path, commonly shaped like `Workspace~>Database~>Table`; `table_id_int` is the numeric Baserow table id.
 - The effective Baserow output columns are dynamically deduced from `forms_config.columns`, with `forms_config.hidden` indicating hidden columns.
 - The source variables sit next to `forms_config` under `sources["lib_BaseRow.formssource_GetTableData"].vars`. `forms_tableFilter`, `forms_tableSort`, `forms_tableDistinct`, `forms_tableGroupBy`, and `forms_tableAggregations` carry optional query behavior. Empty strings mean no extra filter, sort, distinct, grouping, or aggregation is applied; populated `conds` arrays describe active filter/sort criteria.
-- Use `nocode-form-get` for inspection. Never use an empty edit/update to read a form, because it persists through the C8Oforms API and can advance the document revision. If the read tool is unavailable, report the missing capability.
+- Use `nocode-form-get` for inspection. If the read tool is unavailable, report the missing capability.
 
 ## Error Handling
 

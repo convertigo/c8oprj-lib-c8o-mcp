@@ -5693,7 +5693,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (saved.saved === true) { finalizeBaserowBindings(saved, createOptions, compiled.bindingFinalization.bindingCount, true); }
     return saved;
   };
+  // Usage tests (29/10, test-nocode): an edit sent with operations [] by mistake went through the save and advanced the
+  // revision; the agent then read a revision it had not written and wondered who had saved. Nothing to change: no save.
+  function nothingToSave(code, message) {
+    return { status: "error", saved: false, error: { code: code, message: message + ": nothing was saved. Read a form with nocode-form-get" } };
+  }
   C8O.nocodeForms.update = function (id, patch, options) {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length) { return nothingToSave("empty_patch", "The patch changes nothing"); }
     var current = getForm(id, options);
     if (current && current.fetched === false) {
       current.saved = false;
@@ -5706,6 +5712,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   C8O.nocodeForms.edit = function (id, operations, options) {
     try {
       var requestedOperations = ensureArray(operations);
+      if (!requestedOperations.length) { return nothingToSave("no_operations", "No operation given"); }
       if (requestedOperations.some(function (op) { return op && op.action === "finalize_baserow_bindings"; })) {
         if (requestedOperations.length !== 1) { throw new Error("finalize_baserow_bindings must be the only operation; resume the saved creation before other edits"); }
         return resumeBaserowFinalization(id, options);

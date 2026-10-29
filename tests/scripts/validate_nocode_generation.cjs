@@ -3174,6 +3174,20 @@ test('add_field and move_field place a top-level component by its place on the p
   assert.equal(unknown.saved, false);
   assert.match(JSON.stringify(unknown.error || unknown.validation), /before names no component of the form: nothing/);
 });
+test('an edit with no operation and an update with an empty patch save nothing', () => {
+  const h = creationHarness();
+  const id = h.client.create(placementForm(), h.auth).form._id;
+  const saves = h.state.saves;
+  const rev = h.state.forms[id]._rev;
+  [[h.client.edit(id, [], h.auth), 'no_operations'], [h.client.edit(id, null, h.auth), 'no_operations'], [h.client.update(id, {}, h.auth), 'empty_patch']].forEach(([r, code]) => {
+    assert.equal(r.saved, false);
+    assert.equal(r.error.code, code);
+    assert.match(r.error.message, /: nothing was saved\. Read a form with nocode-form-get$/);
+  });
+  assert.equal(h.state.saves, saves);
+  assert.equal(h.state.forms[id]._rev, rev);
+  assert.equal(h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 1 }], h.auth).saved, true);
+});
 test('validation flags nested components whose page is not their root container page', () => {
   const form = api().compile(nestedPagesForm()).form;
   assert.ok(!api().validate(form).validation.warnings.some(w => w.code === 'nested_page_mismatch'));
