@@ -105,6 +105,16 @@
     "\"issues\":[{\"id\":<id>,\"fixed\":\"<the corrected string>\",\"kind\":\"accents|spelling|grammar|language\"}]}. " +
     "Return an empty issues array when everything is correct.";
 
+  function gatewayErrorText(body) {
+    var text = String(body || "");
+    try {
+      var parsed = JSON.parse(text);
+      text = String((parsed && parsed.error && (parsed.error.message || parsed.error)) || text);
+    } catch (_notJson) {}
+    var inner = /"message"\s*:\s*"([^"]+)"/.exec(text);
+    return (inner ? inner[1] : text).replace(/\s+/g, " ").substring(0, 240);
+  }
+
   // One review per language: the app's own texts (the language is detected) and each i18n file in its language.
   C8O.lint.reviewTexts = function (options, order, owners, i18n, add, project) {
     if (options.checkTexts === false) {
@@ -146,6 +156,7 @@
       return { skipped: "no Convertigo agent key in this Studio (set it from the Tigo assistant)" };
     }
     var model = str(options.textModel) || C8O.imageDescribe.DEFAULT_MODEL;
+    var reasoningEffort = "low";
     var usages = [];
     var reviewed = 0;
     var problems = 0;
@@ -155,26 +166,37 @@
       for (var it = 0; it < items.length; it++) {
         lines.push(it + "\t" + items[it].text.replace(/[\t\r\n]+/g, " ").substring(0, 300));
       }
+      // mistral-large-4 refuses reasoning_effort "none" (low, medium or high) and, at temperature 0, a top_p other than 1:
+      // every review answered 400 (usage tests 29/10). Without an effort it reasons by default and can spend max_tokens on it.
       var request = {
         model: model,
         max_tokens: 4000,
         temperature: 0,
-        reasoning_effort: "none",
+        top_p: 1,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: REVIEW_PROMPT },
           { role: "user", content: (groups[g].language ? "Expected language: " + groups[g].language + "\n" : "") + lines.join("\n") }
         ]
       };
+      if (reasoningEffort.length) {
+        request.reasoning_effort = reasoningEffort;
+      }
       var started = host.now();
       var response;
       try {
         response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+        if (response.status === 400 && request.reasoning_effort && /reasoning_effort/i.test(String(response.body || ""))) {
+          // A model that takes no reasoning level: the next calls go without one.
+          reasoningEffort = "";
+          delete request.reasoning_effort;
+          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+        }
       } catch (postError) {
         return { skipped: "gateway call failed: " + C8O.imageDescribe.redact(String(postError), key), usages: usages };
       }
       if (response.status < 200 || response.status >= 300) {
-        return { skipped: "gateway answered " + response.status, usages: usages };
+        return { skipped: "gateway answered " + response.status + ": " + C8O.imageDescribe.redact(gatewayErrorText(response.body), key), usages: usages };
       }
       var body = JSON.parse(response.body);
       var usage = C8O.imageDescribe.usageOf(body, model, response.header("x-litellm-response-cost"), host.now() - started, response.header("x-litellm-call-id"));

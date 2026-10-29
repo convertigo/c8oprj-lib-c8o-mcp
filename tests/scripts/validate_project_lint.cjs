@@ -57,4 +57,29 @@ assert.strictEqual(review.reviewed, 3);
 assert.strictEqual(review.usages[0].tool, "project-lint");
 assert.strictEqual(context.C8O.lint.reviewTexts({ checkTexts: false }, ["x"], { x: ["P"] }, { values: {} }, add).skipped.split(":")[0], "No text review");
 
+// A refused reasoning level is retried without one, and a gateway refusal says why (every review answered a bare 400 with
+// mistral-large-4: reasoning_effort "none" and top_p are refused, usage tests 29/10).
+const calls = [];
+const refusing = {
+  readKey: () => "sk-test", now: () => 0, header: () => null,
+  post: (url, key, body) => {
+    const request = JSON.parse(body);
+    calls.push(request);
+    if (request.reasoning_effort) {
+      return { status: 400, body: JSON.stringify({ error: { message: "litellm.BadRequestError: MistralException - {\"message\":\"reasoning_effort low is not supported for this model\"}" } }), header: () => null };
+    }
+    return { status: 200, body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ language: "fr", issues: [] }) } }] }), header: () => null };
+  }
+};
+const retried = context.C8O.lint.reviewTexts({ host: refusing }, ["Gérer"], { "Gérer": ["P.a"] }, { values: {} }, add, null);
+assert.strictEqual(calls[0].reasoning_effort, "low");
+assert.strictEqual(calls[0].top_p, 1);
+assert.strictEqual(calls[0].temperature, 0);
+assert.strictEqual(calls[1].reasoning_effort, undefined);
+assert.strictEqual(retried.reviewed, 1);
+const refused = context.C8O.lint.reviewTexts({ host: { readKey: () => "sk-test", now: () => 0, header: () => null,
+  post: () => ({ status: 400, body: JSON.stringify({ error: { message: "litellm.BadRequestError: MistralException - {\"message\":\"top_p must be 1 when using greedy sampling.\"}" } }), header: () => null }) } },
+  ["Gérer"], { "Gérer": ["P.a"] }, { values: {} }, add, null);
+assert.match(refused.skipped, /^gateway answered 400: top_p must be 1 when using greedy sampling\.$/);
+
 console.log("project-lint boundary rules OK");
