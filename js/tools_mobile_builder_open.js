@@ -535,6 +535,21 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return "Live build for " + appName;
   }
 
+  function viewerShowsNothing(browserState, projectRef) {
+    if (!browserState || browserState.hasBrowser !== true || browserState.hasError === true) {
+      return false;
+    }
+    var url = lower(browserState.currentUrl || browserState.locationHref || "");
+    if (!url.length || url === "about:blank") {
+      return true;
+    }
+    if (browserState.appRootHydrated === true || compactText(browserState.bodyTextSample || "").length > 0 ||
+      compactText(browserState.statusText || "").length > 0 || browserState.progress > 0) {
+      return false;
+    }
+    return readLiveBuildJob(liveBuildJobName(projectRef, String(projectRef.getName()))).active !== true;
+  }
+
   function readLiveBuildJob(jobName) {
     var state = {
       supported: false,
@@ -697,6 +712,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 result.editorState.browserRemoteDebuggingPort === browserDebugPort;
               if (editor != null) {
                 if (result.rootPageSegment.length && editor.selectPage) {
+                  // selectPage does nothing for the page the editor already has: a viewer left blank, or on a page that
+                  // shows nothing while no build runs, stayed so call after call (usage tests 29/10). It loads the base
+                  // URL first.
+                  if (viewerShowsNothing(readBrowserState(editor), projectRef)) {
+                    editor.selectPage(null);
+                    result.viewerReloaded = true;
+                  }
                   editor.selectPage(result.rootPageSegment);
                 }
                 if (browserDebugPort > 0 && result.editorState.browserRemoteDebuggingPort !== browserDebugPort) {

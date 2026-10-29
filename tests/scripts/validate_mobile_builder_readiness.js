@@ -175,3 +175,10 @@ assert.match(openSource, /if \(idleViewerWithoutApp\) \{\s*idleSince = idleSince
 assert.match(openSource, /status === "building" && idleViewerWithoutApp\s*\? \{ tool: "mobile-builder-open", arguments: \{ project: projectName, stateOnly: false, wait: true \} \}/,
   "the answer points to a call without stateOnly");
 assert.match(openSource, /var IDLE_VIEWER_STOP_MS = 8000;/);
+
+// selectPage does nothing for the page the editor already has: a blank viewer, or one on a page that shows nothing
+// while no build runs, is loaded again from its base URL before the root page is selected (usage tests 29/10).
+assert.match(openSource, /if \(viewerShowsNothing\(readBrowserState\(editor\), projectRef\)\) \{\s*editor\.selectPage\(null\);/,
+  "a call without stateOnly reloads a viewer that shows nothing");
+assert.match(openSource, /function viewerShowsNothing\(browserState, projectRef\) \{[\s\S]*?url === "about:blank"[\s\S]*?readLiveBuildJob\(liveBuildJobName\(projectRef, String\(projectRef\.getName\(\)\)\)\)\.active !== true;/,
+  "a page still building is never reloaded");
