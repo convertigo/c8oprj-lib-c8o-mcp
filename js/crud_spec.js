@@ -382,13 +382,42 @@ C8O.crudSpec = C8O.crudSpec || {};
       }
     }
 
+    // A field with a fixed set of values is a select ({priorite: ["basse", "normale", "haute"]}, or {value, label}
+    // items): agents built it by hand after every generation (usage tests 29/10). fieldDefaults seeds the create form.
+    var fieldOptions = {};
+    var rawFieldOptions = source.fieldOptions && typeof source.fieldOptions === "object" ? source.fieldOptions : {};
+    var rawFieldOptionKeys = Object.keys(rawFieldOptions);
+    for (var optionIndex = 0; optionIndex < rawFieldOptionKeys.length; optionIndex++) {
+      var optionKey = ctx.normalizedIdentifier(rawFieldOptionKeys[optionIndex]);
+      var options = ctx.ensureArray(rawFieldOptions[rawFieldOptionKeys[optionIndex]]).map(function (item) {
+        var value = item && typeof item === "object" ? item.value : item;
+        var label = item && typeof item === "object" && item.label != null ? item.label : value;
+        return value == null ? null : { value: String(value), label: ctx.trimmed(String(label)) || String(value) };
+      }).filter(function (item) { return item !== null; });
+      if (optionKey.length && options.length) {
+        fieldOptions[optionKey] = options;
+      }
+    }
+    var fieldDefaults = {};
+    var rawFieldDefaults = source.fieldDefaults && typeof source.fieldDefaults === "object" ? source.fieldDefaults : {};
+    var rawFieldDefaultKeys = Object.keys(rawFieldDefaults);
+    for (var defaultIndex = 0; defaultIndex < rawFieldDefaultKeys.length; defaultIndex++) {
+      var defaultKey = ctx.normalizedIdentifier(rawFieldDefaultKeys[defaultIndex]);
+      var defaultValue = rawFieldDefaults[rawFieldDefaultKeys[defaultIndex]];
+      if (defaultKey.length && defaultValue !== null && defaultValue !== undefined && typeof defaultValue !== "object") {
+        fieldDefaults[defaultKey] = String(defaultValue);
+      }
+    }
+
     return {
       listFields: normalizeFieldRefs(source.listFields),
       detailFields: normalizeFieldRefs(source.detailFields),
       formFields: normalizeFieldRefs(source.formFields),
       fieldLabels: fieldLabels,
       actionLabel: ctx.trimmed(source.actionLabel || ""),
-      relationFields: relationFields
+      relationFields: relationFields,
+      fieldOptions: fieldOptions,
+      fieldDefaults: fieldDefaults
     };
   };
 

@@ -39,6 +39,12 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
 - A row you create to check a change (`requestable-execute`, a browser proof) lands among the user's rows: delete it by
   its id as soon as its check is done, before the next step, and say in the answer if one is left.
 
+## A field with a fixed set of values
+Give the kit `ui.fieldOptions.<field>` (values, or `{value, label}` items, for example
+`{"priorite": [{"value": "basse", "label": "Basse"}, {"value": "normale", "label": "Normale"}]}`): its form shows a
+select instead of a text input. The create form starts from `ui.fieldDefaults.<field>`, else from the column default;
+`fields[].default` of upsert-crud also applies to a create that leaves the field out. No hand edit of the form.
+
 ## Language of the kit texts
 The kit writes its buttons, titles, states and messages in English unless `language` says otherwise. For a French
 app, or to translate pages the kit wrote in English, run `upsert-ngx-crud-kit` with `stage: "final"`,
