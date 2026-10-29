@@ -170,12 +170,13 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     return normalized;
   };
 
+  // French texts use the typographic apostrophe (’): a straight one inside a script literal broke the TS build of a page.
   // The kit writes its buttons, titles, states and messages in English. For a French app the user had them translated
   // by hand: 13 minutes and 233 tool calls in a usage run (29/10). With language "fr" the shown texts of the kit's
   // operations are translated: UIText values, values passed to shared components, component variables, page titles.
   var FR_TEXTS = {
     "Select a record, edit it, or create a new one.": "Sélectionnez un enregistrement, modifiez-le ou créez-en un.",
-    "Back to home": "Retour à l'accueil",
+    "Back to home": "Retour à l’accueil",
     "Rows": "Lignes",
     "Rows: ": "Lignes : ",
     "No rows available yet.": "Aucune ligne pour le moment.",
@@ -188,9 +189,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     "Choose what you want to manage.": "Choisissez ce que vous voulez gérer.",
     "Work in progress": "En préparation",
     "This page will be ready in a moment.": "Cette page sera prête dans un instant.",
-    "Preparing the application.": "Préparation de l'application.",
-    "Opening the application.": "Ouverture de l'application.",
-    "Opening the app": "Ouverture de l'application",
+    "Preparing the application.": "Préparation de l’application.",
+    "Opening the application.": "Ouverture de l’application.",
+    "Opening the app": "Ouverture de l’application",
     "Please wait a moment.": "Veuillez patienter un instant.",
     "Preparing session": "Préparation de la session",
     "Error": "Erreur",

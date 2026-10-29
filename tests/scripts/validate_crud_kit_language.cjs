@@ -40,7 +40,7 @@ test('French texts for the shown values, nothing else', () => {
   assert.equal(props[0].value.value, "'Création : intervention'");
   assert.equal(props[1].value.value, "'Enregistrer'");
   assert.equal(props[2].textValue.value, "'Lignes : ' + (this.rows || []).length");
-  assert.equal(props[3].textValue.value, "Retour à l'accueil");
+  assert.equal(props[3].textValue.value, "Retour à l’accueil");
   assert.equal(props[4].textValue.value, "'Gérer les interventions'");
   assert.equal(props[5].varValue, "script:'Ajouter'");
   assert.deepEqual(props[6], { varValue: { mode: 'SCRIPT', value: "'Login'" }, value: 'Home' }, 'a value passed to an action stays');
@@ -56,11 +56,11 @@ test('a field label before its value takes the French colon', () => {
   assert.equal(K.translateText('Auteur: ', 'en'), 'Auteur: ');
 });
 
-test('an apostrophe stays valid in a script literal, and English is left as it is', () => {
+test('a French text keeps a script literal valid, and English is left as it is', () => {
   const K = kit();
   const ops = [{ tree: node('UIText', 'Back', { textValue: { mode: 'SCRIPT', expression: "'Back to home'" } }) }];
   K.translateOperations(ops, 'fr');
-  assert.equal(ops[0].tree.properties.textValue.expression, "'Retour à l\\'accueil'", 'the {mode, expression} form of a template clone');
+  assert.equal(ops[0].tree.properties.textValue.expression, "'Retour à l’accueil'", 'typographic apostrophe, the {mode, expression} form of a template clone');
   const en = [{ tree: node('UIText', 'Back', { textValue: { mode: 'SCRIPT', value: "'Back to home'" } }) }];
   K.translateOperations(en, 'en');
   assert.equal(en[0].tree.properties.textValue.value, "'Back to home'");
