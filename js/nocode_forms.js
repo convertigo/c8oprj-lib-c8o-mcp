@@ -3947,7 +3947,38 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (filled) { return; }
     var table = String(binding.config.table_id || binding.config.table_id_int).split("~>").pop();
-    validation.warnings.push({ code: "primary_field_not_filled", message: (binding.item && (binding.item.name || binding.item.id) || "A save") + " adds rows to " + table + " without filling its primary field " + JSON.stringify(name) + ": in Baserow and in every link to those rows (a select or a grid column of another table) they show as « unnamed row N ». Keep an input named " + JSON.stringify(name) + " in the form (or map it with forms_AddRowFromData), or tell the user that the rows will have no name", path: binding.path });
+    validation.warnings.push({ code: "primary_field_not_filled", message: (binding.item && (binding.item.name || binding.item.id) || "A save") + " adds rows to " + table + " without filling its primary field " + JSON.stringify(name) + ": in Baserow and in every link to those rows (a select or a grid column of another table) they show as « unnamed row N ». Keep an input named " + JSON.stringify(name) + " in the form, or map it in forms_AddRowFromData together with every other column the save must keep writing, or tell the user that the rows will have no name", path: binding.path });
+  }
+
+  // Usage tests (29/10, test-nocode): to keep a primary field filled, an agent replaced a save by name (forms_AddRow)
+  // with a mapping (forms_AddRowFromData) of that one column; the four other inputs of the page, columns of the same
+  // table, were no longer saved. forms_AddRowFromData writes only the columns it lists.
+  function inputsNotSaved(form, binding, fields, validation) {
+    var columns = freeVarsColumns(binding.entry.vars.forms_freeVars);
+    if (!columns) { return; }
+    var flowId = null;
+    ensureArray(form.flows).some(function (flow) {
+      return ensureArray(flow && flow.elements).some(function (element) {
+        if (element && element.id != null && binding.item && String(element.id) === String(binding.item.id)) { flowId = flow.id; return true; }
+        return false;
+      });
+    });
+    if (flowId == null) { return; }
+    var byId = {};
+    ensureArray(form.formulaire).forEach(function (item) { if (item && item.id != null) { byId[String(item.id)] = item; } });
+    var pages = {};
+    ensureArray(form.formulaire).forEach(function (item) {
+      if (item && String(item.flow) === String(flowId)) { pages[rootFieldPage(byId, item) || (item.config && item.config.page)] = true; }
+    });
+    var writable = {};
+    ensureArray(fields).forEach(function (field) { if (field && COMPUTED_FIELD_TYPES.indexOf(String(field.type)) < 0) { writable[String(field.name)] = true; } });
+    var dropped = ensureArray(form.formulaire).filter(function (item) {
+      if (!item || !item.name || ["description", "button", "layout", "grid", "map"].indexOf(item.type) >= 0) { return false; }
+      return pages[rootFieldPage(byId, item) || (item.config && item.config.page)] === true && writable[item.name] === true && columns.indexOf(item.name) < 0;
+    }).map(function (item) { return item.name; });
+    if (!dropped.length) { return; }
+    var table = String(binding.config.table_id || binding.config.table_id_int).split("~>").pop();
+    validation.warnings.push({ code: "inputs_not_saved", message: (binding.item && (binding.item.name || binding.item.id) || "A save") + " maps only " + JSON.stringify(columns) + " into " + table + ": the inputs " + dropped.map(function (name) { return JSON.stringify(name); }).join(", ") + " of the page are columns of that table and are no longer saved (forms_AddRowFromData writes only the columns it lists). Map them too, or use forms_AddRow, which saves the inputs named after the columns", path: binding.path });
   }
 
   function validateBaserowColumns(form, authentication, options, validation) {
@@ -3990,6 +4021,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         }
       }
       if (/\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path)) { primaryFieldNotFilled(form, binding, fields, validation); }
+      if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) { inputsNotSaved(form, binding, fields, validation); }
       // As the editor writes it (modalConfigure): the tables the link_row columns of the table point to. After a save, the
       // viewer refreshes the sources of the written table and of the tables it links to (findSameSourceInBaserow).
       var links = linkedTableIds(fields);
@@ -5513,7 +5545,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
   // columns it added to a select): the static validation of the read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted", "primary_field_not_filled"];
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted", "primary_field_not_filled", "inputs_not_saved"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }

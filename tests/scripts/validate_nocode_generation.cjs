@@ -2495,6 +2495,20 @@ test('create and edit warn when a save leaves the primary field of its table emp
   h = creationHarness({ columnsByTable: primaryColumns });
   assert.deepEqual(of(h.client.create(primaryApp(9102, ['Quantité']), { ...h.auth, tableIndex: primaryTables })), []);
 });
+// forms_AddRowFromData writes only the columns it maps: a save rewritten to map one column stopped saving the other
+// inputs of its page (usage tests, 29/10).
+test('create and edit warn when a mapped save leaves inputs of its page that are columns of its table', () => {
+  const of = r => clone(r.validation.warnings).filter(w => w.code === 'inputs_not_saved');
+  let h = creationHarness({ columnsByTable: primaryColumns });
+  const one = h.client.create(primaryApp(9101, ['Titre', 'Quantité'], { table: 9101, values: { Titre: 'Titre' } }), { ...h.auth, tableIndex: primaryTables });
+  assert.equal(one.saved, true, JSON.stringify(one.validation || one.error));
+  assert.equal(of(one).length, 1, JSON.stringify(one.validation.warnings.map(w => w.code)));
+  assert.match(of(one)[0].message, /maps only \["Titre"\] into Articles: the inputs "Quantité" of the page are columns of that table and are no longer saved/);
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.deepEqual(of(h.client.create(primaryApp(9101, ['Titre', 'Quantité'], { table: 9101, values: { Titre: 'Titre', Quantité: 'Quantité' } }), { ...h.auth, tableIndex: primaryTables })), []);
+  h = creationHarness({ columnsByTable: primaryColumns });
+  assert.deepEqual(of(h.client.create(primaryApp(9101, ['Titre', 'Quantité']), { ...h.auth, tableIndex: primaryTables })), [], 'a save by name saves the inputs named after the columns');
+});
 test('nocode-form-validate refuses a select written into a link_row column with another value than the row id', () => {
   const compiled = api().compile(scoresApp(), { tableIndex: linkTables }).form;
   assert.equal(selectConfig(compiled).value, 'Nom', 'the offline compile does not know the column types');
