@@ -98,6 +98,21 @@ C8O.subagents = C8O.subagents || {};
     return numberIn(value, DEFAULT_WAIT_SEC, 5, MAX_WAIT_SEC, "waitSec", true);
   };
 
+  // A verifier walks its paths in about 25 s each: the default budget (150 s, 40 steps) stopped a 7-path check before the
+  // last one, and the agent ran the whole check again (usage tests 29/10). The defaults grow with the paths asked; the
+  // profile bounds and the call's own limits still win.
+  api.scaledLimits = function (key, limits, params) {
+    var scaled = { maxSteps: limits.maxSteps, timeBudgetSec: limits.timeBudgetSec, maxCostUsd: limits.maxCostUsd };
+    if (key !== "verifier") {
+      return scaled;
+    }
+    var raw = params && params.paths !== undefined && params.paths !== null ? params.paths : api.objectArg(params && params.inputs).paths;
+    var count = Array.isArray(raw) ? raw.length : (str(raw).length ? str(raw).split(/\r?\n/).filter(function (line) { return str(line).length; }).length : 0);
+    scaled.timeBudgetSec = Math.max(limits.timeBudgetSec, 40 * count);
+    scaled.maxSteps = Math.max(limits.maxSteps, 9 * count);
+    return scaled;
+  };
+
   // The profile with the workspace overrides, then the call's own model and limits within the profile bounds.
   api.resolveProfile = function (name, params, settings) {
     var key = str(name).toLowerCase() || "verifier";
@@ -106,10 +121,12 @@ C8O.subagents = C8O.subagents || {};
       throw new Error("Unknown profile " + name + ": use one of " + Object.keys(api.PROFILES).join(", ") + ".");
     }
     var override = (settings && settings.profiles && settings.profiles[key]) || {};
+    var defaults = api.scaledLimits(key, base.limits, params);
     var limits = {};
     ["maxSteps", "timeBudgetSec", "maxCostUsd"].forEach(function (limit) {
       var bounds = base.bounds[limit];
-      var fallback = numberIn(override[limit], base.limits[limit], bounds[0], bounds[1], limit, limit !== "maxCostUsd");
+      var fallback = numberIn(override[limit], Math.max(bounds[0], Math.min(bounds[1], defaults[limit])), bounds[0], bounds[1], limit,
+        limit !== "maxCostUsd");
       limits[limit] = numberIn(params && params[limit], fallback, bounds[0], bounds[1], limit, limit !== "maxCostUsd");
     });
     return {

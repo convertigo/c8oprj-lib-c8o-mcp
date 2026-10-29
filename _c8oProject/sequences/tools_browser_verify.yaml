@@ -49,12 +49,12 @@ responseTimeout: 300
   description: 'none (default, fast) or high (the model reasons before each step: slower and dearer).'
   value: ''
 ↓maxSteps [variables.RequestableVariable-1792270000010]: 
-  comment: 'Maximum model turns, 6 to 80; default 40.'
-  description: 'Maximum model turns, 6 to 80; default 40.'
+  comment: 'Maximum model turns, 6 to 80; default 40, or 9 per path when that is more.'
+  description: 'Maximum model turns, 6 to 80; default 40, or 9 per path when that is more.'
   value: ''
 ↓timeBudgetSec [variables.RequestableVariable-1792270000011]: 
-  comment: 'Time budget in seconds, 30 to 540; default 150. The sub-agent reports what it has when it runs out.'
-  description: 'Time budget in seconds, 30 to 540; default 150. The sub-agent reports what it has when it runs out.'
+  comment: 'Time budget in seconds, 30 to 540; default 150, or 40 per path when that is more. The sub-agent reports what it has when it runs out.'
+  description: 'Time budget in seconds, 30 to 540; default 150, or 40 per path when that is more. The sub-agent reports what it has when it runs out.'
   value: ''
 ↓cdpEndpoint [variables.RequestableVariable-1792270000012]: 
   comment: 'Loopback CDP endpoint of the Studio browser when the agent host does not send the viewer debug port.'

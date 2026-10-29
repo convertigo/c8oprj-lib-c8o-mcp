@@ -2481,7 +2481,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
           reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none is fast and cheap; high only for a hard case." },
           maxSteps: { type: "integer", minimum: 6, maximum: 80, default: 40 },
-          timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "The sub-agent reports what it has when it runs out." },
+          timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "Default 150, or 40 per path when that is more. The sub-agent reports what it has when it runs out." },
           cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open)." },
           waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report. A verification still running then answers status running with its verificationId; keep the default, it fits every agent host." },
           verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits up to waitSec again." }
