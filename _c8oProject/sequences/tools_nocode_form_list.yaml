@@ -1,0 +1,44 @@
+accessibility: Private
+comment: |
+  List the forms and applications of the No Code user
+  Lists the forms and applications the authenticated No Code user can open, as the Edition list of the No Code Studio home shows them: C8Oforms.APIV2_ExecuteView (target formsV2/search) with the user's C8Oforms rights, the forms they own and those shared with them, folders included, the newest first. Takes an optional name (part of the name, matched without case nor accents), a limit (20 by default, 40 at most) and the cursor of the previous answer. Answers total (every form that matches), forms (id, name, access owner or shared with its creator, publication never, published or changed since its publication, version, modified, folders) and nextCursor. Never writes. Use it to count the user's forms or applications, or to find the id of a form the user names, then read it with nocode-form-get.
+responseTimeout: 120
+↓Run [steps.SimpleStep-1793320000001]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    include("js/nocode_form_list.js");
+    try {
+      result = C8O.nocodeFormList.list({
+        name: typeof name === "undefined" ? null : name,
+        limit: typeof limit === "undefined" ? null : limit,
+        cursor: typeof cursor === "undefined" ? null : cursor,
+        token: typeof token === "undefined" ? null : token
+      }, C8O.nocodeFormList.javaHost({ project: "C8Oforms" }));
+    } catch (e) {
+      result = { status: "error", error: { code: "form_list_failed", message: "Unable to list the forms through the No Code API." } };
+    }'
+↓result [steps.JsonToXmlStep-1793320000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1793320000003]: 
+  comment: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+  description: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+↓name [variables.RequestableVariable-1793320000004]: 
+  comment: Optional part of the form name, matched without case nor accents. Empty lists every form.
+  description: Optional part of the form name, matched without case nor accents. Empty lists every form.
+↓limit [variables.RequestableVariable-1793320000005]: 
+  comment: Forms per answer, 20 by default, 40 at most.
+  description: Forms per answer, 20 by default, 40 at most.
+↓cursor [variables.RequestableVariable-1793320000006]: 
+  comment: nextCursor of the previous answer, with the same name, to read the next forms.
+  description: nextCursor of the previous answer, with the same name, to read the next forms.
