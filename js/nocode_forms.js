@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-29.select-columns-v22",
+      contractVersion: "2026-10-29.rich-labels-v23",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -943,7 +943,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       generationQuality: {
         labels: {
           rule: "Every visible question needs a domain-appropriate label or rich description. name is technical and defaultFrom supplies the answer, not the question. Resolve prototype_question_label warnings before delivery.",
-          mapping: "label populates the plain label and escaped HTML for HTML-backed questions. description supplies rich question HTML, not separate help text. Explicit config.label/config.html and config.personalized take precedence. Unrelated edits preserve existing rich content."
+          mapping: "A question label is always rich, as the editor writes it: personalized:true, config.html <p>escaped label</p>. description or config.html gives its HTML instead (not help text); text outside a block goes in a <p>. Saves convert plain labels."
         },
         navigation: {
           custom: "Disables automatic tabs and page buttons. Create native button fields linked to named flows containing push_page. Every page needs a reachable entry and a return path.",
@@ -1019,7 +1019,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         },
         dataViews: {
           grids: "Lists: at most 5 short visible columns; hide long text (notes, descriptions) and technical columns with forms_config.hidden and show them on the detail page. AutoSizeColumns true sizes columns to their content and scrolls horizontally: set it false for wide tables so columns fit the width. Number columns keep the Baserow decimal places; aggregation results (sum, average) are not rounded by the source, so prefer a count or show amounts on rows.",
-          label: "The grid label is small plain text: put the section title in a description block (h3) above the grid and keep the grid label short or empty.",
+          label: "The grid label is a short line: put the section title in a description block (h3) above the grid and keep the grid label short or empty.",
           headers: "Grid column headers show the source column names as they are, and aggregation columns their label (authoringContract.baserowSources.groupAggregations.labels: sum:Amount=Montant, else Somme · Amount); no grid property renames them. When the application creates its Baserow schema, name the fields in the user's language as they should read in the grids (Montant du contrat, not contract_value). With an existing base whose names do not suit, show few columns and explain them in the title above the grid; label the aggregations of a grid or a chart shown to end users.",
           selects: "A source-backed select lists every row, including rows whose display column is empty (blank options). Add a not-empty rule on the display column in forms_Filter and sort with forms_tableSort. A select default from a grid selection uses sources.self.vars.selfVar { type: 'ts', str: \"(function (v) { while (v != null && typeof v === 'object' && !Array.isArray(v) && 'value' in v) { v = v.value; } return v == null ? '' : v; })(fields.<grid> ? fields.<grid>['<column>'] : null)\" }: the cell of the selected row is raw for a text, { id, value, color } for a single select or { value } in lean cells, so unwrap every value, giving a value that exists among the options (otherwise the select stays empty).",
           placeholders: "Give text, select and date inputs a useful placeholder or none: a missing placeholder is compiled to an empty one, never the prototype example text."
@@ -1057,8 +1057,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       commonFieldFields: {
         name: { type: "string", required: true, description: "Stable technical name used by formulas as fields.<name>." },
         type: { type: "string", required: true, enum: types },
-        description: { type: "string", html: true, optional: true, mapsTo: "config.html", description: "Rich question/content text, not secondary help text. Takes precedence over label for HTML display; explicit config.html takes precedence over both." },
-        label: { type: "string", optional: true, description: "Visible plain-text question/button label. For HTML-backed questions, also replaces the prototype HTML with escaped text. Explicit description/config.html are preserved. Card labels target config.title." },
+        description: { type: "string", html: true, optional: true, mapsTo: "config.html", description: "Question/content HTML, not secondary help text. Wins over label; explicit config.html wins over both. A question without a block of its own is put in a <p>." },
+        label: { type: "string", optional: true, description: "Visible question or button text. A question is written as a rich label like the editor (no plain label): config.html <p>escaped text</p>, personalized:true. Explicit description/config.html are preserved. Card labels target config.title." },
         placeholder: { type: "string", optional: true },
         defaultFrom: { type: "object", optional: true, description: "Context-derived value. See contextualDefaults for sources, initial/reactive modes and availability. Supported on text, slider, datetime, time and barcode; use native choice defaults for choices." },
         mandatory: { type: "boolean", optional: true },
@@ -1219,7 +1219,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           { action: "add_field", aliases: ["add_component", "add_element"], requiredOneOf: ["pageTechName", "pageName"], required: ["fieldObject"], example: { action: "add_field", pageName: "Details", fieldObject: { type: "text", name: "child_name", description: "Child name", mandatory: true } } },
           { action: "add_field", note: "On an application page a new top-level component gets the role spacing (styleDefaults:false keeps the viewer card); a section can be added the same way.", example: { action: "add_field", pageName: "Details", fieldObject: { type: "section", name: "contract", title: "Contrat", fields: [{ type: "text", name: "amount", label: "Montant" }, { type: "datetime", name: "signed_on", label: "Signé le" }] } } },
           { action: "add_field", note: "To add inside a layout/container, provide parentFieldId instead of an index-only top-level insertion; the component takes the page of the container's root (move_field into a parent too).", example: { action: "add_field", parentFieldId: "1779979310404", fieldObject: { type: "select", name: "status", description: "Status", values: ["Open", "Closed"] } } },
-          { action: "update_field", requiredOneOf: ["fieldId", "fieldName"], required: ["patch"], example: { action: "update_field", fieldName: "child_name", patch: { config: { mandatory: false, label: "Child" } } } },
+          { action: "update_field", requiredOneOf: ["fieldId", "fieldName"], required: ["patch"], example: { action: "update_field", fieldName: "child_name", patch: { label: "Child", config: { mandatory: false } } } },
           { action: "remove_field", aliases: ["delete_field", "remove_component"], requiredOneOf: ["fieldId", "fieldName"], example: { action: "remove_field", fieldName: "obsolete_field" } },
           { action: "move_field", requiredOneOf: ["fieldId", "fieldName"], optional: ["pageName", "pageTechName", "parentFieldId", "index"], example: { action: "move_field", fieldName: "status", pageName: "Details", index: 0 } },
           { action: "add_flow", required: ["flowId"], example: { action: "add_flow", flowId: "flow_save", name: "Save", flowData: { elements: [] } } },
@@ -2007,6 +2007,60 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }).join("");
   }
 
+  // The question label of these components, as the C8Oforms editor writes it (editorPage getObjToInsert): personalized
+  // true and config.html a paragraph, "<p>" + question + "</p>". The editor no longer offers the plain label
+  // (personalized false: config.label in an ion-label without margin) and its migration to technicalVersion 1.0.5 made
+  // each one "<p>" + label + "</p>". The viewer sets config.html as the innerHTML of the label, so text without a
+  // paragraph was drawn against its input (« Nom », Skyjo, 29/10). config.label keeps the text: the editor leaves it on
+  // the labels it converted and nothing shows it beside a rich label. Description blocks and card titles have rules of
+  // their own, a button has a caption.
+  var QUESTION_LABEL_TYPES = ["text", "checkbox", "checkbox_group", "radio", "radio_group", "slider", "select", "datetime", "time", "img", "grid", "gallery", "chart", "map", "barcode", "file", "signature", "location", "workflow_progress", "workflow_instance", "workflow_status", "workflow_token"];
+  var BLOCK_HTML = /<(?:p|h[1-6]|div|ul|ol|table|blockquote|pre|section|article|header|footer|figure|dl|hr)\b/i;
+
+  function labelParagraph(label) {
+    var html = labelToHtml(label);
+    return trimmed(html).length ? "<p>" + html + "</p>" : "";
+  }
+
+  // The rich label of a question component, or null when it already has one. A plain label shown (personalized false or
+  // missing) becomes a paragraph of its escaped text, rich text without a block of its own is put in a paragraph, an
+  // empty question stays empty.
+  function richQuestionLabel(item) {
+    if (!item || typeof item !== "object" || QUESTION_LABEL_TYPES.indexOf(item.type) < 0 || !item.config || typeof item.config !== "object") { return null; }
+    var config = item.config;
+    var html = typeof config.html === "string" ? config.html : "";
+    if (!config.personalized) {
+      var label = config.label != null ? String(config.label) : "";
+      // Without a plain label, the HTML an agent wrote beside personalized false is what it meant to show.
+      html = trimmed(label).length || isPrototypeQuestion(html) ? labelParagraph(label) : html;
+    }
+    var rich = !trimmed(html).length || BLOCK_HTML.test(html) ? html : "<p>" + html + "</p>";
+    return config.personalized === true && rich === config.html ? null : rich;
+  }
+
+  function plainQuestionLabels(form) {
+    var found = [];
+    function scan(items, path) {
+      ensureArray(items).forEach(function (item, index) {
+        var rich = richQuestionLabel(item);
+        if (rich != null) { found.push({ item: item, path: path + "/" + index, html: rich }); }
+        // Cards of old forms hold their fields in children, as the editor's migration reads them.
+        if (item && item.type === "ion-card" && Array.isArray(item.children)) { scan(item.children, path + "/" + index + "/children"); }
+      });
+    }
+    scan(form && form.formulaire, "/formulaire");
+    return found;
+  }
+
+  function normalizeQuestionLabels(form) {
+    var found = plainQuestionLabels(form);
+    found.forEach(function (entry) {
+      entry.item.config.personalized = true;
+      entry.item.config.html = entry.html;
+    });
+    return found;
+  }
+
   function applyFieldLabel(target, field) {
     var explicit = field.config || {};
     var config = target.config || (target.config = {});
@@ -2025,9 +2079,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (!hasOwn(explicit, "personalized")) { config.personalized = true; }
       if (!hasLabel && field.description != null) { config[plainKey] = String(field.description).replace(/<[^>]*>/g, ""); }
     } else if (hasLabel && (hasOwn(config, "html") || hasOwn(config, "personalized") || target.type === "description")) {
-      config.html = labelToHtml(label);
-      // Keep the HTML question renderer (also used for disabled inputs).
-      // An explicit plain/rich mode remains authoritative.
+      config.html = QUESTION_LABEL_TYPES.indexOf(target.type) >= 0 ? labelParagraph(label) : labelToHtml(label);
+      // Keep the HTML question renderer (also used for disabled inputs). An explicit personalized:false stays here for
+      // description blocks and card titles; a question is made rich by normalizeQuestionLabels on compile and save.
       if (!hasOwn(explicit, "personalized")) { config.personalized = true; }
     }
   }
@@ -3067,6 +3121,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
     normalizeRelationRefs(doc);
+    normalizeQuestionLabels(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
@@ -3441,6 +3496,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         return out;
       }
       function isControl(item) { return TEXT_COLOR_CONTROL_TYPES.indexOf(item.type) >= 0 && !boolLike(item.config && item.config.componentDisabled); }
+      plainQuestionLabels(form).forEach(function (entry) {
+        warning("plain_question_label", "Plain question label, or one without a paragraph: the viewer draws it against its input and the editor writes only rich labels. The next save of this form by nocode-form-edit or nocode-form-update writes it as a paragraph (personalized:true, config.html <p>...</p>), text unchanged", entry.path + "/config/html");
+      });
       ensureArray(form.formulaire).forEach(function (item, idx) {
         if (item && item.flow && !flowIds[String(item.flow)]) {
           issue("unknown_field_flow", "Field references unknown flow: " + item.flow, "/formulaire/" + idx + "/flow");
@@ -3450,7 +3508,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         var config = item.config || {};
         var displayedQuestion = config.personalized ? config.html : config.label;
         if (!boolLike(config.componentDisabled) && typeof displayedQuestion === "string" && /^exemple de question[.!?]?$/i.test(trimmed(displayedQuestion.replace(/<[^>]*>/g, "")))) {
-          warning("prototype_question_label", "The visible question still contains the prototype text. Set label (plain text) or description/config.html (rich text); a technical name or defaultFrom is not a label", path + (config.personalized ? "/config/html" : "/config/label"));
+          warning("prototype_question_label", "The visible question still contains the prototype text. Set label (its text) or description (its HTML); a technical name or defaultFrom is not a label", path + (config.personalized ? "/config/html" : "/config/label"));
         }
         if (item.type === "button" && !boolLike(config.componentDisabled)) {
           var flow = ensureArray(form.flows).filter(function (flow) { return flow && flow.id === item.flow; })[0];
@@ -4005,6 +4063,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function saveForm(form, options) {
     var opts = options || {};
     var rawThumbnailImage = opts.thumbnailImage || (form && form.thumbnailImage);
+    var convertedLabels = plainQuestionLabels(form);
     var sanitized = sanitizeFormBeforeSave(form);
     var thumbnailImage = normalizeThumbnailImage(rawThumbnailImage);
     if (thumbnailImage.error) {
@@ -4026,6 +4085,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var completedSelects = completeSelectColumns(sanitized, sanitized._id ? ensureArray(opts.strictBindingPaths) : null);
     var validation = validateForm(sanitized, opts).validation;
     completedSelects.forEach(function (item) { validation.warnings.push(item); });
+    if (convertedLabels.length) {
+      // The agent tells the user why fields it did not touch changed.
+      validation.warnings.push({ code: "plain_labels_converted", message: "Plain question labels written as rich paragraphs, as the editor writes them, text unchanged: " + convertedLabels.map(function (entry) { return entry.item.name || entry.item.id; }).join(", "), path: "/formulaire" });
+    }
     validation.warningCount = validation.warnings.length;
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
@@ -4139,6 +4202,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function sanitizeFormBeforeSave(form) {
     var out = clone(form, {});
     normalizeRelationRefs(out);
+    // Every write, of any field: the labels saved plain before, or given plain to nocode-form-update, become rich.
+    normalizeQuestionLabels(out);
     try { delete out.thumbnailImage; } catch (_ignoreThumbnailImageDelete) {}
     try { delete out._attachments; } catch (_ignoreAttachmentsDelete) {}
     try { delete out._c8oMeta; } catch (_ignoreC8oMetaDelete) {}
@@ -5065,7 +5130,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask (sections:[...]) for details. Return each contract answer from its own call: one answer over about 16 KB is spilled to a file.",
       form: "{ name, description, language: \"fr\", navigationMode: custom (an application: buttons and push_page flows) | buttons (a linear questionnaire) | tabs, titleDisplay: form|page|none, backgroundColor, thumbnailColor, thumbnailImage: { contentType, base64 } (below 512x512 px), pages: [...], flows: [...] }. Pass reduced as a JSON object, not a string. The tools write _id, _rev, formulaire, pageTechName, creator and ACLs: never give them.",
       page: "{ name (unique, the target of push_page), iconName: home|list|people|person|business|calendar|calendar-clear|document-text|receipt|settings|stats-chart|search, header: { title, subtitle } (title block first on the page), description (HTML block after the header), isNameDisplayed (false by default in custom and tabs navigation), fields: [...] }.",
-      field: "Every component: { type, name (unique technical name, read as fields.<name>), label (plain question or button text), description (HTML question, wins over label), placeholder, mandatory, disabled, sticky: always|notOnPhone (stays at the top while the page scrolls), visibleIf, defaultFrom, boxStyle, config (merged onto the native config) }. Section componentAuthoring lists each component's options.",
+      field: "Every component: { type, name (unique technical name, read as fields.<name>), label (question or button text), description (HTML question, wins over label), placeholder, mandatory, disabled, sticky: always|notOnPhone (stays at the top while the page scrolls), visibleIf, defaultFrom, boxStyle, config (merged onto the native config) }. Section componentAuthoring lists each component's options.",
       components: {
         text: "config.type: text, email, number, tel, url, password or search; short:false makes it a growing multi-line field.",
         choices: "select, radio, checkbox: values [\"A\", \"B\"] or [{ value, selected }]; select and checkbox start with no answer, radio with its first option. select config.selectionMode single|multiple. A Baserow column's options: source (see baserow).",
@@ -5266,7 +5331,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
   // columns it added to a select): the static validation of the read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed"];
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }
