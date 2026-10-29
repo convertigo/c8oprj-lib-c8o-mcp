@@ -13,7 +13,7 @@ const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 function backend() {
-  const context = { C8O: {} };
+  const context = { C8O: { util: { parseObjectInput: v => (typeof v === 'string' ? JSON.parse(v) : v) } } };
   vm.createContext(context);
   vm.runInContext(read('js/crud_proof.js'), context);
   vm.runInContext(read('js/crud_backend.js'), context);
@@ -111,3 +111,75 @@ test('upsert-crud reads the database before init_schema, adds the columns after 
   assert.match(source, /if \(existingDatabase\.keep\) \{\n\s*\/\/[^\n]*\n\s*spec\.seed\.enabled = false;/);
   assert.match(source, /if \(spec\.entities\.length && !existingDatabase\.keep\) \{\n\s*ctx\.requestablePayload\([^\n]*init_schema/);
 });
+
+// The Atelier tables as JDBC gives them: columns in table order, with nullability and defaults.
+const ATELIER_TABLES = {
+  reachable: true,
+  tables: {
+    clients: { name: 'CLIENTS', rows: 3, columns: {
+      id: { typeName: 'INTEGER', size: 32, digits: 0, nullable: false, defaultValue: null },
+      nom: { typeName: 'VARCHAR', size: 255, digits: null, nullable: false, defaultValue: null },
+      ville: { typeName: 'VARCHAR', size: 255, digits: null, nullable: true, defaultValue: null },
+      telephone: { typeName: 'VARCHAR', size: 32, digits: null, nullable: true, defaultValue: "'inconnu'" } } },
+    interventions: { name: 'INTERVENTIONS', rows: 5, columns: {
+      id: { typeName: 'INTEGER', size: 32, digits: 0, nullable: false, defaultValue: null },
+      titre: { typeName: 'VARCHAR', size: 255, digits: null, nullable: false, defaultValue: null },
+      montant: { typeName: 'DECIMAL', size: 12, digits: 2, nullable: true, defaultValue: '0' },
+      client_id: { typeName: 'INTEGER', size: 32, digits: 0, nullable: true, defaultValue: null } } },
+  },
+};
+
+test('an entity cited without its fields, or with some of them, keeps the other columns of its table', () => {
+  const B = backend();
+  // What r15 sent: clients only to point the relation at it, interventions with the new field only.
+  const raw = { project: 'Atelier', entities: [{ name: 'clients' }, { name: 'interventions', fields: [{ name: 'priorite', type: 'VARCHAR(16)', default: 'normale' }] }] };
+  const normalized = { entities: [
+    { name: 'clients', fields: [field('id', 'INT', { primary: true })] },
+    { name: 'interventions', fields: [field('id', 'INT', { primary: true }), field('priorite', 'VARCHAR(16)'), field('client_id', 'INT')] },
+  ] };
+  const out = B.keepExistingColumns(ctx, JSON.stringify(raw), normalized, ATELIER_TABLES);
+  assert.deepEqual(JSON.parse(JSON.stringify(out.kept)), { clients: ['nom', 'ville', 'telephone'], interventions: ['titre', 'montant'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(out.spec.entities[0].fields)), [
+    { name: 'nom', type: 'VARCHAR(255)', required: true },
+    { name: 'ville', type: 'VARCHAR(255)', required: false },
+    { name: 'telephone', type: 'VARCHAR(32)', required: false, default: 'inconnu' },
+  ]);
+  // Table order first, the field the table lacks after; the relation field (client_id) and the id stay the spec's.
+  assert.deepEqual(JSON.parse(JSON.stringify(out.spec.entities[1].fields.map(f => f.name))), ['titre', 'montant', 'priorite']);
+  assert.equal(out.spec.entities[1].fields[1].type, 'DECIMAL(12,2)');
+  assert.equal(out.spec.entities[1].fields[1].default, 0);
+  assert.equal(raw.entities[0].fields, undefined, 'the caller spec is not changed');
+});
+
+test('nothing is kept on a fresh database or when the spec lists every column', () => {
+  const B = backend();
+  const raw = { entities: [{ name: 'clients', fields: [{ name: 'nom' }, { name: 'ville' }, { name: 'telephone' }] }] };
+  const normalized = { entities: [{ name: 'clients', fields: [field('id', 'INT', { primary: true }), field('nom', 'VARCHAR(255)'),
+    field('ville', 'VARCHAR(255)'), field('telephone', 'VARCHAR(255)')] }] };
+  assert.equal(B.keepExistingColumns(ctx, raw, normalized, ATELIER_TABLES).spec, null);
+  assert.equal(B.keepExistingColumns(ctx, raw, normalized, { reachable: false, tables: {} }).spec, null);
+  assert.equal(B.keepExistingColumns(ctx, raw, normalized, { reachable: true, tables: {} }).spec, null);
+});
+
+test('column types and defaults read from JDBC become spec types and fields[].default', () => {
+  const B = backend();
+  assert.equal(B.specTypeOfColumn({ typeName: 'VARCHAR', size: 80 }), 'VARCHAR(80)');
+  assert.equal(B.specTypeOfColumn({ typeName: 'NUMERIC', size: 10, digits: 3 }), 'NUMERIC(10,3)');
+  assert.equal(B.specTypeOfColumn({ typeName: 'INTEGER', size: 32, digits: 0 }), 'INTEGER');
+  assert.equal(B.specTypeOfColumn({ typeName: 'DATE', size: 10, digits: null }), 'DATE');
+  assert.equal(B.specDefaultOfColumn({ defaultValue: "'normale'" }), 'normale');
+  assert.equal(B.specDefaultOfColumn({ defaultValue: "'l''atelier'" }), "l'atelier");
+  assert.equal(B.specDefaultOfColumn({ defaultValue: '12.5' }), 12.5);
+  assert.equal(B.specDefaultOfColumn({ defaultValue: 'TRUE' }), true);
+  assert.equal(B.specDefaultOfColumn({ defaultValue: 'CURRENT_TIMESTAMP' }), null);
+  assert.equal(B.specDefaultOfColumn({ defaultValue: null }), null);
+});
+
+test('upsert-crud widens the spec from the inspection it plans the database with', () => {
+  const source = read('js/crud_backend.js');
+  const keep = source.indexOf('var keptColumns = C8O.crudBackend.keepExistingColumns(ctx, options.spec, spec, inspection);');
+  const plan = source.indexOf('var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec, inspection);');
+  assert.ok(keep > 0 && keep < plan);
+  assert.match(source, /result\.runtimeEvidence\.existingDatabase\.keptColumns = keptColumns\.kept;/);
+});
+

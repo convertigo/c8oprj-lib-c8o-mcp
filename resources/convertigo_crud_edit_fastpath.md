@@ -27,6 +27,8 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
 - `upsert-crud` keeps the rows of tables that already hold rows: no reset, no demo seed. A field added to an entity
   becomes a new column (`ALTER TABLE ... ADD`), filled on the existing rows with its `default` (`fields[].default`);
   `runtimeEvidence.existingDatabase` lists the rows kept and the columns added.
+- An entity keeps the columns its table already has: list only the fields you add or change, and name an entity without
+  fields when a relation points at it. `runtimeEvidence.existingDatabase.keptColumns` lists the columns kept that way.
 - It never changes or drops an existing column. A type change (more decimals, a longer text) is an `ALTER TABLE` you
   write in a one-shot transaction (`sql-transaction-create`), run once, then delete; the answer of `upsert-crud` gives
   the statement when the spec asks for more decimals than the column has.
@@ -52,7 +54,7 @@ wrote yourself (field labels, action labels) come from the ui hints.
 
 ## Deterministic rail for an existing CRUD project
 1. Run `crud-status` to confirm the current project, connector, business sequence prefix, entry page, and UI variant.
-2. Build the full updated CRUD `spec` in one pass.
+2. Build the CRUD `spec` in one pass: the entities you change, with the fields you add or change.
 3. Run `upsert-crud` with `sequence=true` and `ui=false`.
 4. Run backend `crud-proof`.
 5. If the task includes UI, run `upsert-ngx-crud-kit` once with `stage=final`.

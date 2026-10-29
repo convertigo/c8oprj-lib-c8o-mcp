@@ -1073,6 +1073,106 @@ C8O.crudBackend = C8O.crudBackend || {};
     return plan;
   };
 
+  // The spec type of a column read from the JDBC metadata.
+  C8O.crudBackend.specTypeOfColumn = function (column) {
+    var name = String(column.typeName || "VARCHAR").toUpperCase();
+    if (/^(VARCHAR|CHAR|CHARACTER|CHARACTER VARYING|NVARCHAR|NCHAR|VARCHAR2|NVARCHAR2)$/.test(name) && Number(column.size) > 0) {
+      return name + "(" + column.size + ")";
+    }
+    if (/^(DECIMAL|NUMERIC|NUMBER)$/.test(name) && Number(column.size) > 0 && column.digits !== null && column.digits !== undefined) {
+      return name + "(" + column.size + "," + column.digits + ")";
+    }
+    return name;
+  };
+
+  // A column default as the JDBC metadata gives it ('normale', 0, TRUE), as fields[].default takes it; null for an
+  // expression (CURRENT_TIMESTAMP, a sequence), which upsert-crud does not copy.
+  C8O.crudBackend.specDefaultOfColumn = function (column) {
+    var text = column.defaultValue === null || column.defaultValue === undefined ? "" : String(column.defaultValue).trim();
+    var quoted = /^'((?:[^']|'')*)'$/.exec(text);
+    if (quoted) {
+      return quoted[1].replace(/''/g, "'");
+    }
+    if (/^-?\d+(\.\d+)?$/.test(text)) {
+      return Number(text);
+    }
+    if (/^(TRUE|FALSE)$/i.test(text)) {
+      return text.toUpperCase() === "TRUE";
+    }
+    return null;
+  };
+
+  // An app in use: an entity the spec names with some of its fields (or none, only to point a relation at it) keeps
+  // the other columns of its table. Without this, upsert-crud regenerated its transactions, sequences and pages from
+  // the listed fields only: an agent that cited clients for a relation got read_client selecting the id alone and an
+  // update_client with an empty SET (usage tests 29/10). Returns the raw spec with the kept columns as fields, in the
+  // table's column order, the fields the table does not have yet after them, and the kept columns by entity.
+  C8O.crudBackend.keepExistingColumns = function (ctx, rawSpec, spec, inspection) {
+    var out = { spec: null, kept: {} };
+    if (!inspection || !inspection.reachable) {
+      return out;
+    }
+    var raw = JSON.parse(JSON.stringify(C8O.util.parseObjectInput(rawSpec, { label: "spec", allowEmpty: false })));
+    var rawEntities = ctx.ensureArray(raw.entities);
+    var tables = inspection.tables || {};
+    var changed = false;
+    for (var i = 0; i < spec.entities.length && i < rawEntities.length; i++) {
+      var entity = spec.entities[i];
+      var table = tables[String(entity.name).toLowerCase()];
+      if (!table || !rawEntities[i] || typeof rawEntities[i] !== "object") {
+        continue;
+      }
+      var known = {};
+      for (var f = 0; f < entity.fields.length; f++) {
+        known[String(entity.fields[f].column).toLowerCase()] = true;
+      }
+      var rawFields = ctx.ensureArray(rawEntities[i].fields);
+      var rawByColumn = {};
+      for (var r = 0; r < rawFields.length; r++) {
+        var rawField = rawFields[r] || {};
+        rawByColumn[ctx.normalizedIdentifier(rawField.column || rawField.name || "")] = rawField;
+      }
+      var ordered = [];
+      var kept = [];
+      var columns = table.columns || {};
+      var names = Object.keys(columns);
+      for (var c = 0; c < names.length; c++) {
+        var name = names[c];
+        var listed = rawByColumn[ctx.normalizedIdentifier(name)];
+        if (listed) {
+          ordered.push(listed);
+          delete rawByColumn[ctx.normalizedIdentifier(name)];
+        } else if (!known[name]) {
+          var column = columns[name];
+          var keptField = { name: name, type: C8O.crudBackend.specTypeOfColumn(column), required: column.nullable === false };
+          var keptDefault = C8O.crudBackend.specDefaultOfColumn(column);
+          if (keptDefault !== null) {
+            keptField["default"] = keptDefault;
+          }
+          ordered.push(keptField);
+          kept.push(name);
+        }
+      }
+      if (!kept.length) {
+        continue;
+      }
+      for (var n = 0; n < rawFields.length; n++) {
+        var rest = rawFields[n] || {};
+        if (rawByColumn[ctx.normalizedIdentifier(rest.column || rest.name || "")] === rest) {
+          ordered.push(rest);
+        }
+      }
+      rawEntities[i].fields = ordered;
+      out.kept[entity.name] = kept;
+      changed = true;
+    }
+    if (changed) {
+      raw.entities = rawEntities;
+      out.spec = raw;
+    }
+    return out;
+  };
+
   C8O.crudBackend.buildAddColumnSql = function (ctx, table, field, driver) {
     var definition = C8O.crudBackend.renderColumnDefinition(ctx, field, driver);
     if (driver.id === "oracle") {
@@ -1151,9 +1251,14 @@ C8O.crudBackend = C8O.crudBackend || {};
                 var digits = rs.getInt("DECIMAL_DIGITS");
                 var noDigits = rs.wasNull();
                 var size = rs.getInt("COLUMN_SIZE");
+                var columnDefault = rs.getString("COLUMN_DEF");
                 columns[String(rs.getString("COLUMN_NAME")).toLowerCase()] = {
                   type: String(rs.getString("TYPE_NAME")) + "(" + size + (noDigits ? "" : "," + digits) + ")",
-                  digits: noDigits ? null : digits
+                  typeName: String(rs.getString("TYPE_NAME")),
+                  size: size,
+                  digits: noDigits ? null : digits,
+                  nullable: rs.getInt("NULLABLE") !== java.sql.DatabaseMetaData.columnNoNulls,
+                  defaultValue: columnDefault == null ? null : String(columnDefault)
                 };
                 found = String(rs.getString("TABLE_NAME"));
               }
@@ -1517,8 +1622,15 @@ C8O.crudBackend = C8O.crudBackend || {};
     result.connectorQname = connector.getFullQName ? String(connector.getFullQName()) : (spec.project + "." + spec.database.connector);
     result.primaryTargets.sql = result.connectorQname;
 
-    var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec,
-      (ctx.inspectDatabase || C8O.crudBackend.inspectDatabase)(ctx, connector, spec.entities.map(function (entity) { return entity.name; })));
+    var inspection = (ctx.inspectDatabase || C8O.crudBackend.inspectDatabase)(ctx, connector, spec.entities.map(function (entity) { return entity.name; }));
+    var keptColumns = C8O.crudBackend.keepExistingColumns(ctx, options.spec, spec, inspection);
+    if (keptColumns.spec) {
+      var widened = ctx.normalizeSpec(keptColumns.spec);
+      spec.entities = widened.entities;
+      spec.relations = widened.relations;
+      spec.seed.data = widened.seed.data;
+    }
+    var existingDatabase = C8O.crudBackend.planExistingDatabase(ctx, spec, inspection);
     if (existingDatabase.keep) {
       // The rows are the user's: init_schema only creates what is missing, and nothing reseeds them.
       spec.seed.enabled = false;
@@ -1735,6 +1847,11 @@ C8O.crudBackend = C8O.crudBackend || {};
         note: existingDatabase.keep ? "The tables hold rows: upsert-crud kept them, added the missing columns and seeded nothing. " +
           "seed.reset:true resets them to the demo rows." : ""
       };
+      if (Object.keys(keptColumns.kept).length) {
+        result.runtimeEvidence.existingDatabase.keptColumns = keptColumns.kept;
+        result.runtimeEvidence.existingDatabase.keptColumnsNote = "Columns of the existing tables the spec did not list stay " +
+          "fields of their entity (transactions, sequences and pages keep them): list only the fields you add or change.";
+      }
       for (var a = 0; a < applied.length; a++) {
         if (applied[a].status !== "ok") {
           ctx.addWarning(result, "Adding a column failed: " + applied[a].sql + " -> " + applied[a].error);
