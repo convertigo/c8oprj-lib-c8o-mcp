@@ -893,6 +893,41 @@ test('a page is found from its pageTechName, and page, field and flow take an id
   assert.match(gone.error.message, new RegExp('^page not found: ' + extra + '\\. .*Known pages: Start \\(' + home + '\\), Requests \\(' + requests + '\\)\\.$'));
 });
 
+test('remove_flow is refused while a component the edit keeps still uses the flow', () => {
+  // gregoryv, test-nocode 28/10 (Skyjo, rev 503): asked to delete a button, the agent sent remove_field and remove_flow;
+  // the flow was also the flow of another button. The edit saved, an empty flow of that id came back in its place, and
+  // the validation said valid with one empty_button_flow warning among 22: that button did nothing.
+  const h = creationHarness();
+  const start = h.client.create(example(), h.auth);
+  const id = start.form._id;
+  const shared = h.client.edit(id, [{ action: 'add_field', pageName: 'Home', fieldObject: { type: 'button', name: 'back_copy', label: 'Home', flow: 'back' } }], h.auth);
+  assert.equal(shared.status, 'ok', JSON.stringify(shared.error || shared.validation));
+  const savesBefore = h.state.saves;
+  const refused = h.client.edit(id, [{ action: 'remove_field', fieldName: 'back_copy' }, { action: 'remove_flow', flowId: 'back' }], h.auth);
+  assert.equal(refused.status, 'error');
+  assert.equal(refused.saved, false);
+  assert.equal(refused.error.code, 'flow_in_use');
+  assert.match(refused.error.message, /^Nothing saved: flow back is still the flow of back \(button, page Requests\)\. .*remove_field.*update_field \{ fieldName, patch: \{ flow: /);
+  assert.deepEqual(clone(refused.error.flowsInUse), [{ flowId: 'back', usedBy: [{ name: 'back', id: start.form.formulaire.find(f => f.name === 'back').id, type: 'button', page: 'Requests' }] }]);
+  assert.equal(h.state.saves, savesBefore, 'nothing written');
+  assert.ok(h.state.forms[id].formulaire.some(f => f.name === 'back_copy'));
+  assert.equal(h.state.forms[id].flows.find(f => f.id === 'back').elements.length, 1);
+  // delete_flow, and a flow used by two kept buttons, name every component.
+  const both = h.client.edit(id, [{ action: 'delete_flow', flowId: 'back' }], h.auth);
+  assert.equal(both.error.code, 'flow_in_use');
+  assert.match(both.error.message, /flow back is still the flow of back \(button, page Requests\), back_copy \(button, page Home\)/);
+  // Allowed when the same edit removes the components, points them to another flow, or adds the flow back.
+  const repointed = h.client.edit(id, [{ action: 'update_field', fieldName: 'back_copy', patch: { flow: 'open' } }, { action: 'remove_field', fieldName: 'back' }, { action: 'remove_flow', flowId: 'back' }], h.auth);
+  assert.equal(repointed.status, 'ok', JSON.stringify(repointed.error || repointed.validation));
+  assert.ok(!repointed.form.flows.some(f => f.id === 'back'), 'no empty flow put back');
+  assert.equal(repointed.form.formulaire.find(f => f.name === 'back_copy').flow, 'open');
+  const replaced = h.client.edit(id, [{ action: 'remove_flow', flowId: 'open' }, { action: 'add_flow', flowId: 'open', name: 'Open', flowData: { elements: [{ type: 'push_page', targetPage: 'Requests' }] } }], h.auth);
+  assert.equal(replaced.status, 'ok', JSON.stringify(replaced.error || replaced.validation));
+  const removed = h.client.edit(id, [{ action: 'remove_field', fieldName: 'back_copy' }, { action: 'remove_field', fieldName: 'open' }, { action: 'remove_flow', flowId: 'open' }], h.auth);
+  assert.equal(removed.status, 'ok', JSON.stringify(removed.error || removed.validation));
+  assert.ok(!removed.form.flows.some(f => f.id === 'open'));
+});
+
 test('write guard preserves attachments and leaves legacy calls unchanged', () => {
   const ctx = {};
   vm.runInNewContext(fs.readFileSync(path.join(formsRoot, 'js/form_write_guard.js'), 'utf8'), ctx);
