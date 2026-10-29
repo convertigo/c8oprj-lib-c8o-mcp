@@ -287,7 +287,8 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       actionLabel: ctx.trimmed(rawUi.actionLabel || ""),
       relationFields: relationFields,
       fieldOptions: fieldOptions,
-      fieldDefaults: fieldDefaults
+      fieldDefaults: fieldDefaults,
+      listFilters: ctx.ensureArray(rawUi.listFilters)
     };
   }
 
@@ -482,6 +483,34 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
     return resolved;
   }
 
+  // The list filters with their columns resolved, their labels and the select options (given, or the field's
+  // fieldOptions); a field the entity lacks is reported with the other unknown names.
+  function resolveListFilters(ctx, entity, overrideUi, fieldLabels, unknown) {
+    var lookup = resolvedFieldLookup(ctx, entity);
+    var columnOf = function (token) {
+      var field = lookupByAliases(ctx, lookup, ctx.normalizedIdentifier(token));
+      if (!field) {
+        unknown.push(ctx.normalizedIdentifier(token));
+      }
+      return field ? field.column : "";
+    };
+    return ctx.ensureArray(overrideUi.listFilters).map(function (filter) {
+      if (!filter) {
+        return null;
+      }
+      if (filter.kind === "search") {
+        var columns = ctx.ensureArray(filter.fields).map(columnOf).filter(function (c) { return c.length; });
+        return columns.length ? { kind: "search", columns: columns, label: filter.label || "" } : null;
+      }
+      var column = columnOf(filter.field);
+      if (!column.length) {
+        return null;
+      }
+      var options = ctx.ensureArray(filter.options).length ? filter.options : ctx.ensureArray((overrideUi.fieldOptions || {})[column]);
+      return { kind: options.length ? "select" : "text", column: column, label: filter.label || fieldLabels[column] || column, options: ctx.clone(options) };
+    }).filter(function (filter) { return filter !== null; });
+  }
+
   C8O.crudUiMeta.entityUiConfig = function (ctx, projectName, facadePrefix, entity, entities) {
     var overrideUi = normalizeUiOverrideBlock(ctx, entity);
     var editableFields = ctx.ensureArray(entity && entity.fields).filter(function (field) {
@@ -575,6 +604,7 @@ C8O.crudUiMeta = C8O.crudUiMeta || {};
       editableFields: mappedEditableFields,
       relationFields: mappedRelationFields,
       fieldLabels: fieldLabels,
+      listFilters: resolveListFilters(ctx, entity, overrideUi, fieldLabels, unknownFieldRefs),
       unknownFieldRefs: unknownFieldRefs.filter(function (token, index) { return unknownFieldRefs.indexOf(token) === index; }),
       uniqueFields: uniqueFields
     };

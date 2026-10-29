@@ -48,6 +48,11 @@ Give the kit `ui.fieldOptions.<field>` (values, or `{value, label}` items, for e
 select instead of a text input. The create form starts from `ui.fieldDefaults.<field>`, else from the column default;
 `fields[].default` of upsert-crud also applies to a create that leaves the field out. No hand edit of the form.
 
+## List filters
+Give the kit `ui.listFilters` on the entity: `[{"field": "<field>", "label": "...", "options": [...]}]` is a select on that
+field (options default to its `ui.fieldOptions`), `[{"search": ["<field>", "<field>"], "label": "..."}]` a search in those
+fields. The list shows the loaded rows that pass them, updated as the user types or picks. No hand edit of the list panel.
+
 ## Real users (a login form)
 - The generated `auth_login` accepts any user name and the kit's login page signs in as demo. For real users, make the
   login sequence check the password and refuse with an error: an `IfStep` holding an `XMLErrorStep` (the message the

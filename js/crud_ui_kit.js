@@ -194,6 +194,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     "Opening the app": "Ouverture de l’application",
     "Please wait a moment.": "Veuillez patienter un instant.",
     "Preparing session": "Préparation de la session",
+    "All": "Tous",
+    "Search": "Rechercher",
     "Sign in": "Connexion",
     "Log in": "Se connecter",
     "User name": "Nom d’utilisateur",

@@ -551,7 +551,109 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     if (labelNode) {
       labelNode.children = buildListItemLabelChildren(ctx, projectName, config && config.listFields);
     }
+    applyListFilters(ctx, tree, ensureArray(ctx, config && config.listFilters));
     return markManagedClone(tree, targetName);
+  }
+
+  // ui.listFilters: the controls go above the list, which shows local.visibleRows, the loaded rows that pass the
+  // filters; it is computed when the rows load and when a filter changes (template expressions take no arrow function).
+  function applyListFilters(ctx, tree, filters) {
+    if (!filters.length) {
+      return;
+    }
+    var U = C8O.crudUi;
+    var nctx = {
+      trimmed: function (v) { return String(v == null ? "" : v).trim(); },
+      ensureArray: function (v) { return Array.isArray(v) ? v : (v == null ? [] : [v]); },
+      toBoolean: function (v, d) { return v == null ? d : (v === true || String(v).toLowerCase() === "true"); }
+    };
+    var conditions = filters.map(function (filter, index) {
+      var local = "this.local?.filter" + index;
+      if (filter.kind === "select") {
+        return "(!" + local + " || String(row?." + filter.column + " ?? '') === String(" + local + "))";
+      }
+      var columns = filter.kind === "search" ? filter.columns : [filter.column];
+      return "(!" + local + " || " + JSON.stringify(columns).replace(/"/g, "'") + ".some((c: string) => String(row?.[c] ?? '')" +
+        ".toLowerCase().indexOf(String(" + local + ").toLowerCase()) >= 0))";
+    });
+    var visible = "(this.local?.rows || []).filter((row: any) => " + conditions.join(" && ") + ")";
+    var setVisible = function (name) {
+      return U.setLocalActionNode(nctx, name, "visibleRows", visible);
+    };
+    // Every place that sets the rows sets the visible rows after them.
+    walkTree(tree, function (node) {
+      if (!node || !/SetLocalAction$/.test(String(node.className || "")) || !node.properties || !node.properties.Property ||
+        String(node.properties.Property.value) !== "rows") {
+        return;
+      }
+      node.children = ensureArray(ctx, node.children).filter(function (child) { return child && child.name !== "SetVisibleRows"; })
+        .concat([setVisible("SetVisibleRows")]);
+    });
+    // The list and its empty state read the visible rows.
+    walkTree(tree, function (node) {
+      var source = node && node.properties && node.properties.directiveSource;
+      if (!source || source.mode !== "SOURCE" || (node.name !== "Loop" && node.name !== "Empty")) {
+        return;
+      }
+      try {
+        var parsed = JSON.parse(source.value);
+        if (parsed && parsed.model && parsed.model.path === "?.rows") {
+          parsed.model.path = "?.visibleRows";
+          source.value = JSON.stringify(parsed);
+        }
+      } catch (_notJson) {}
+    });
+    var controls = filters.map(function (filter, index) {
+      var local = "filter" + index;
+      var store = U.setLocalActionNode(nctx, "StoreFilter", local, "event?.detail?.value ?? ''");
+      store.children = [setVisible("SetVisibleRows")];
+      if (filter.kind === "select") {
+        return {
+          className: "ngx.components.UIDynamicElement#Select",
+          name: "Filter" + index,
+          properties: {
+            Label: { mode: "PLAIN", value: filter.label || filter.column },
+            LabelPlacement: { mode: "PLAIN", value: "stacked" },
+            Interface: { mode: "PLAIN", value: "popover" }
+          },
+          children: [{
+            className: "ngx.components.UIDynamicElement#SelectOption", name: "OptionAll",
+            properties: { Value: { mode: "PLAIN", value: "" } }, children: [ctx.plainTextNode("Text", "All")]
+          }].concat(ensureArray(ctx, filter.options).map(function (option, optionIndex) {
+            return {
+              className: "ngx.components.UIDynamicElement#SelectOption", name: "Option" + (optionIndex + 1),
+              properties: { Value: { mode: "PLAIN", value: String(option.value) } },
+              children: [ctx.plainTextNode("Text", String(option.label || option.value))]
+            };
+          })).concat([U.controlEventNode(nctx, "EventonChange", [store], { eventName: "ionChange" })])
+        };
+      }
+      return {
+        className: "ngx.components.UIDynamicElement#Input",
+        name: "Filter" + index,
+        properties: {
+          Label: { mode: "PLAIN", value: filter.label || (filter.kind === "search" ? "Search" : filter.column) },
+          LabelPlacement: { mode: "PLAIN", value: "stacked" },
+          Type: { mode: "PLAIN", value: "search" }
+        },
+        children: [U.controlEventNode(nctx, "EventonInput", [store], { eventName: "ionInput" })]
+      };
+    });
+    var content = findTreeNodeByName(tree, "Content");
+    if (!content) {
+      return;
+    }
+    var children = ensureArray(ctx, content.children).filter(function (child) { return child && child.name !== "Filters"; });
+    var listAt = -1;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].name === "List") {
+        listAt = i;
+        break;
+      }
+    }
+    var filtersNode = { className: "ngx.components.UIDynamicElement#DivTag", name: "Filters", children: controls };
+    children.splice(listAt < 0 ? children.length : listAt, 0, filtersNode);
+    content.children = children;
   }
 
   function customizeEntityDetailCardTree(ctx, tree, targetName, config, projectName) {

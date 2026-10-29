@@ -41,7 +41,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_fastpath.md",
     "guideId": "convertigo/crud-fastpath",
-    "revision": 6,
+    "revision": 7,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -178,7 +178,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_edit_fastpath.md",
     "guideId": "convertigo/crud-edit-fastpath",
-    "revision": 11,
+    "revision": 12,
     "scopeTags": [
       "workflow",
       "recipe",
