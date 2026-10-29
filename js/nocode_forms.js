@@ -3002,6 +3002,29 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
   }
 
+  // Usage tests (29/10, test-nocode): a total read from a grouped grid was shown with a token on its cell
+  // (`<grid>.0.<aggregate>`) in a description; the text showed the cell's display HTML as text
+  // (« <div style="display:flex; …">1500.00</div> »): the viewer escapes a token's text unless its path names displayValue.
+  var CELL_TOKEN_ENDS = ["value", "displayValue"];
+  function validateCellTokens(form, warning) {
+    var byId = componentsById(form);
+    ensureArray(form.formulaire).forEach(function (item, index) {
+      var html = item && item.config && typeof item.config.html === "string" ? item.config.html : "";
+      var token = /\$\$START(\d+)(\{.*?\})END\1\$\$/g;
+      var match;
+      while ((match = token.exec(html))) {
+        var target = byId[match[1]];
+        if (!target || LIST_VIEW_TYPES.indexOf(target.type) < 0) { continue; }
+        var meta;
+        try { meta = JSON.parse(match[2]); } catch (_badPayload) { continue; }
+        var path = trimmed(meta && meta.c8opath).split(".").filter(function (segment) { return segment.length > 0; });
+        if (path[0] === target.name) { path.shift(); }
+        if (!path.length || CELL_TOKEN_ENDS.indexOf(path[path.length - 1]) >= 0) { continue; }
+        warning("grid_cell_token_text", "The text of " + (item.name || item.id) + " shows " + target.name + "." + path.join(".") + ", a cell of the " + target.type + " " + target.name + ": a cell is an object, and the text shows its display HTML as text (« <div style=…>1500.00</div> »). End the path with .value for the raw value, or .displayValue for the formatted cell", "/formulaire/" + index + "/config/html");
+      }
+    });
+  }
+
   function validateContextDefaults(form, issue, warning) {
     var fields = ensureArray(form.formulaire);
     var links = Object.create(null);
@@ -3653,6 +3676,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       validateContextDefaults(form, issue, warning);
       validateGeneratedLogic(form, warning);
       validateStickyPlacement(form, warning);
+      validateCellTokens(form, warning);
       eachConditionGroup(form, function (group, groupPath) {
         eachCondition(group, groupPath, function (cond, condPath) {
           if (!cond || typeof cond !== "object" || cond.subject !== "field") { return; }

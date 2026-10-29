@@ -2640,6 +2640,27 @@ test('validate warns about a sticky component placed after a list, which sticks 
   const before = api().compile(stickyPage(true), { tableIndex: linkTables });
   assert.deepEqual(clone(api().validate(before.form).validation.warnings).filter(w => w.code === 'sticky_below_list'), []);
 });
+// A token in a text on a grid cell without .value/.displayValue shows the cell's display HTML as text (usage tests,
+// 29/10: a total read from a grouped grid showed « <div style="display:flex; …">1500.00</div> »).
+test('validate warns about a text token on a grid cell that does not end with value or displayValue', () => {
+  const r = api().compile({ name: 'Cell token', pages: [{ name: 'Page', fields: [
+    { type: 'grid', name: 'totals', label: 'Totaux', source: { table: 7002, columns: ['Joueur', 'Points'] }, visibleIf: { never: true } },
+    { type: 'description', name: 'kpi_raw', description: '<p>Total</p>' },
+    { type: 'description', name: 'kpi_value', description: '<p>Total</p>' },
+    { type: 'description', name: 'kpi_display', description: '<p>Total</p>' },
+    { type: 'text', name: 'other', label: 'Autre' }
+  ] }] }, { tableIndex: linkTables });
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const form = clone(r.form);
+  const grid = byName(form, 'totals'), other = byName(form, 'other');
+  const token = (target, path) => '$$START' + target.id + JSON.stringify({ c8otype: 'path', c8opath: path, c8oPrettyPath: '', c8obuiltin: 'false', fakeId: 'fakeId1', c8oName: null }) + 'END' + target.id + '$$';
+  byName(form, 'kpi_raw').config.html = '<p>Total ' + token(grid, 'totals.0.sum_Points') + '</p>';
+  byName(form, 'kpi_value').config.html = '<p>Total ' + token(grid, 'totals.0.sum_Points.value') + ' ' + token(other, '') + '</p>';
+  byName(form, 'kpi_display').config.html = '<p>Total ' + token(grid, 'totals.Joueur.displayValue') + '</p>';
+  const warnings = clone(api().validate(form).validation.warnings).filter(w => w.code === 'grid_cell_token_text');
+  assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + form.formulaire.indexOf(byName(form, 'kpi_raw')) + '/config/html']);
+  assert.match(warnings[0].message, /^The text of kpi_raw shows totals\.0\.sum_Points, a cell of the grid totals: .*End the path with \.value/);
+});
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
 // config.defaultvalue, the viewer drew 1 and submitted 0.
 test('a slider compiled with bounds and no default starts at the bound nearest to the prototype default', () => {
