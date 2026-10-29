@@ -75,6 +75,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     };
   }
 
+  function scriptLiteralText(text) {
+    return String(text).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  }
+
   function placeholderMap(ctx, projectName, facadePrefix, entity, entities, targetComponentName) {
     var currentEntity = entity || {};
     var resolvedFacadePrefix = trimmed(ctx, facadePrefix || "crud") || "crud";
@@ -92,11 +96,13 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     replacements[TOKENS.ENTITY_SINGULAR] = singular;
     replacements[TOKENS.ENTITY_PLURAL] = plural;
     replacements[TOKENS.ENTITY_KEY] = entityKey;
-    replacements[TOKENS.DISPLAY_LABEL] = label;
+    // Both land inside single-quoted script literals ('Enregistrer l'intervention' broke the page build, usage tests
+    // 29/10): their quotes and backslashes are escaped.
+    replacements[TOKENS.DISPLAY_LABEL] = scriptLiteralText(label);
     replacements[TOKENS.ROUTE_SEGMENT] = routeSegment;
     replacements[TOKENS.PRIMARY_FIELD] = primaryField;
     replacements[TOKENS.SECONDARY_FIELD] = secondaryField;
-    replacements[TOKENS.ACTION_LABEL] = actionLabel;
+    replacements[TOKENS.ACTION_LABEL] = scriptLiteralText(actionLabel);
     replacements[TOKENS.FACADE_PREFIX] = resolvedFacadePrefix;
     if (trimmed(ctx, targetComponentName).length) {
       replacements[templateComponentName("EntityListPanel")] = targetComponentName;
@@ -2638,6 +2644,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
   C8O.crudUiTemplates.sourceProjectName = sourceProjectName;
   C8O.crudUiTemplates.templatePageName = templatePageName;
   C8O.crudUiTemplates.buildEntityPagesPageBundle = buildEntityPagesPageBundle;
+  C8O.crudUiTemplates.placeholderMap = placeholderMap;
   C8O.crudUiTemplates.refreshUiTemplates = function (ctx, options) {
     var currentOptions = options || {};
     var projectName = trimmed(ctx, currentOptions.project || sourceProjectName(ctx)) || sourceProjectName(ctx);

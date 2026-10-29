@@ -76,3 +76,16 @@ test('a save label that reads as opening a new record is reported, and the input
   assert.ok(!pattern.test('Enregistrer') && !pattern.test('Save intervention'));
   assert.match(read('js/schema_overrides_crud.js'), /ui\.actionLabel is the label of the edit form's save button/);
 });
+
+// "Enregistrer l'intervention" as actionLabel broke the page build: the label lands in a single-quoted script literal
+// (usage tests 29/10, S1 replay); the agent chose a label without apostrophe.
+test('labels that land in script literals keep their apostrophes', () => {
+  const context = { C8O: {} };
+  vm.createContext(context);
+  vm.runInContext(read('js/crud_ui_templates.js'), context);
+  const ctx2 = { trimmed: v => String(v == null ? '' : v).trim(), pluralize: v => v,
+    entityUiConfig: () => ({ actionLabel: "Enregistrer l'intervention" }), firstNonPrimaryField: () => null, secondPreviewField: () => null };
+  const map = context.C8O.crudUiTemplates.placeholderMap(ctx2, 'App', 'crud', { name: 'interventions', label: "Pièces d'origine", singular: 'intervention' }, []);
+  assert.equal(eval("'" + map.__ACTION_LABEL__ + "'"), "Enregistrer l'intervention");
+  assert.equal(eval("'" + map.__DISPLAY_LABEL__ + "'"), "Pièces d'origine");
+});
