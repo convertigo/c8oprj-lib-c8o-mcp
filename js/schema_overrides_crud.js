@@ -16,7 +16,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         spec: {
           type: "object",
-          description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations, seed, and UI options. On a database whose tables hold rows, the rows are kept and a field added to an entity becomes a new column, filled with its `default` (fields[].default); seed.reset:true resets the tables to the demo rows. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
+          description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations, seed, and UI options. On a database whose tables hold rows, the rows are kept and a field added to an entity becomes a new column, filled with its `default` (fields[].default); seed.reset:true resets the tables to the demo rows. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, ui.relationFields, ui.fieldOptions (fixed values shown as a select) and ui.fieldDefaults so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
           properties: {
             database: {
               type: "object",
@@ -96,7 +96,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         project: { type: "string", description: "Existing NGX project technical name." },
         entities: {
-          description: "Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections. Entity entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages UI shows better visible fields and relation controls without direct edits on managed CRUD-kit components. Relation controls default to select; set ui.relationFields.<field>.control=autocomplete to opt into the local autocomplete variant.",
+          description: "Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections. Entity entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages UI shows better visible fields and relation controls without direct edits on managed CRUD-kit components. Relation controls default to select; set ui.relationFields.<field>.control=autocomplete to opt into the local autocomplete variant. ui.actionLabel is the label of the edit form's save button (default \"Save <singular>\"), not of the button that opens a new record. A field with a fixed set of values becomes a select with ui.fieldOptions.<field> (an array of values, or of {value, label}); the create form starts from ui.fieldDefaults.<field>, else from the column default of the table.",
           oneOf: [
             { type: "string" },
             { type: "array", items: { type: "object", additionalProperties: true } },
@@ -128,6 +128,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
   function crudStatusOutputSchema() {
     return h().closedObjectSchema({
       status: { type: "string" },
+      message: { type: "string", description: "Set with status not_crud: why the CRUD rail does not apply and which tools to use." },
       project: { type: "string" },
       driverFamily: { type: "string" },
       connectorQname: { type: "string" },
@@ -211,6 +212,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
   function crudProofOutputSchema() {
     return h().closedObjectSchema({
       status: { type: "string" },
+      message: { type: "string", description: "Set with status not_crud: why the CRUD rail does not apply and which tools to use." },
       project: { type: "string" },
       driverFamily: { type: "string" },
       connectorQname: { type: "string" },

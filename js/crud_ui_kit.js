@@ -380,7 +380,8 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         primary: current ? ctx.toBoolean(current.primary, false) : column === "id",
         unique: current ? ctx.toBoolean(current.unique, false) : false,
         required: current ? ctx.toBoolean(current.required, false) : false,
-        references: current && current.references ? ctx.clone(current.references) : null
+        references: current && current.references ? ctx.clone(current.references) : null,
+        defaultValue: current && current.defaultValue !== null && current.defaultValue !== undefined ? current.defaultValue : null
       });
     }
     if (!hydratedFields.length) {
@@ -415,7 +416,38 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     for (var i = 0; i < list.length; i++) {
       hydrated.push(C8O.crudUiKit.hydrateUiEntityFromFacade(ctx, projectName, facadePrefix, list[i], result));
     }
+    C8O.crudUiKit.applyColumnDefaults(ctx, projectName, hydrated);
     return hydrated;
+  };
+
+  // The create form starts from the column defaults of the tables (JDBC metadata): the draft held '' for every field
+  // and the form saved '' over a default such as 'normale' (usage tests 29/10). Best effort: a database the probe
+  // cannot open leaves the drafts as they were; ui.fieldDefaults still wins.
+  C8O.crudUiKit.applyColumnDefaults = function (ctx, projectName, entities) {
+    try {
+      if (!C8O.crudBackend || typeof C8O.crudBackend.inspectDatabase !== "function") {
+        return;
+      }
+      var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName), false);
+      var connector = project ? C8O.crudBackend.findSqlConnectorInProject(ctx, project, "") : null;
+      if (!connector) {
+        return;
+      }
+      var inspection = C8O.crudBackend.inspectDatabase(ctx, connector, entities.map(function (entity) { return entity.name; }));
+      for (var e = 0; e < entities.length; e++) {
+        var table = inspection.tables ? inspection.tables[String(entities[e].name).toLowerCase()] : null;
+        var fields = table ? ctx.ensureArray(entities[e].fields) : [];
+        for (var f = 0; f < fields.length; f++) {
+          var column = table.columns[String(fields[f].column).toLowerCase()];
+          if (column && (fields[f].defaultValue === null || fields[f].defaultValue === undefined)) {
+            var columnDefault = C8O.crudBackend.specDefaultOfColumn(column);
+            if (columnDefault !== null) {
+              fields[f].defaultValue = String(columnDefault);
+            }
+          }
+        }
+      }
+    } catch (_noColumnDefaults) {}
   };
 
   function safeCommentText(ctx, dbo, fallback) {
@@ -774,7 +806,9 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       var sourceValue = ctx.formSourceValue(projectName, formPriority, column, "entityForm");
       var createVarQName = componentQName + ".Card.Content.Form.Submit1.WhenCreateMode.Create." + column;
       var updateVarQName = componentQName + ".Card.Content.Form.Submit1.WhenUpdateMode.Update." + column;
-      var controlQName = componentQName + ".Card.Content.Form.Field" + (i + 1) + "." + (field.relation ? "RelationSelect" : "Input");
+      var controlQName = componentQName + ".Card.Content.Form.Field" + (i + 1) + "." +
+        (field.relation ? "RelationSelect" : (field.options && field.options.length ? "OptionSelect" : "Input"));
+      var selectControl = !!field.relation || !!(field.options && field.options.length);
       if (ctx.resolveQName(controlQName, { optional: true })) {
         operations.push({
           type: "setProperties",
@@ -785,7 +819,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
               mode: "PLAIN",
               value: "not set"
             },
-            Value: field.relation
+            Value: selectControl
               ? ctx.localSourceValue(projectName, "?.draft?." + column, { suffix: " + ''" })
               : ctx.localSourceValue(projectName, "?.draft?." + column)
           }
@@ -1332,6 +1366,13 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       if (unknownRefs.length) {
         ctx.addWarning(result, "ui fields of " + entities[u].name + ": " + unknownRefs.join(", ") + " " + (unknownRefs.length > 1 ? "are" : "is") +
           " not a field of the entity and " + (unknownRefs.length > 1 ? "were" : "was") + " left out. Fields: " + fieldNames + ".");
+      }
+      // actionLabel names the form's save button: "Nouvelle intervention" there read as the button that opens a new
+      // record, and a verifier that clicked it to open the form saved an empty row (usage tests 29/10).
+      var saveLabel = ctx.trimmed(uiConfig.actionLabel || "");
+      if (/^(nouveau|nouvelle|nouvel|new|add|ajouter|cr[ée]er)\b/i.test(saveLabel)) {
+        ctx.addWarning(result, "ui.actionLabel \"" + saveLabel + "\" of " + entities[u].name + " labels the edit form's save button, " +
+          "where it reads as opening a new record: give the save label (Enregistrer, Save).");
       }
       // The fields come from the rows of the list sequence: one that returns the id alone gives pages with no value and
       // a form that edits nothing (usage tests 29/10, after an upsert-crud that regenerated the entity without fields).

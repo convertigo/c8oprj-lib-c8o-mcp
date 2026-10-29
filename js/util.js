@@ -927,6 +927,42 @@ C8O.requestable._countRows = function (connector, tables) {
   return out;
 };
 
+// A transaction that is not there (one deleted earlier in the conversation) reached the engine, whose
+// NullPointerException ("targetTransaction is null") said nothing of the cause (usage tests 29/10): name what is
+// missing and what exists.
+C8O.requestable.requireTransaction = function (executionPlan) {
+  function names(list) {
+    var out = [];
+    for (var i = 0; list != null && i < list.size() && out.length < 40; i++) {
+      out.push(String(list.get(i).getName()));
+    }
+    return out.join(', ');
+  }
+  var project = null;
+  try {
+    project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+  } catch (_noProject) {
+    project = null;
+  }
+  if (project == null) {
+    throw new Error('There is no project named ' + executionPlan.project + ' in the workspace.');
+  }
+  var connector = null;
+  try {
+    connector = project.getConnectorByName(executionPlan.connector);
+  } catch (_noConnector) {
+    connector = null;
+  }
+  if (connector == null) {
+    throw new Error('There is no connector named ' + executionPlan.connector + ' in project ' + executionPlan.project +
+      '. Its connectors: ' + (names(project.getConnectorsList()) || 'none') + '.');
+  }
+  if (connector.getTransactionByName(executionPlan.name) == null) {
+    throw new Error('There is no transaction named ' + executionPlan.name + ' in connector ' + executionPlan.connector +
+      ' of project ' + executionPlan.project + '. Its transactions: ' + (names(connector.getTransactionsList()) || 'none') + '.');
+  }
+};
+
 C8O.requestable.configureExecutor = function (executionPlan) {
   if (Packages.com.twinsoft.convertigo.engine.Engine.logEngine) {
     Packages.com.twinsoft.convertigo.engine.Engine.logEngine.debug('[tools_requestable_execute] configuring ' + (executionPlan && executionPlan.requestable ? executionPlan.requestable : 'n/a'));
@@ -1006,6 +1042,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
   if (!txStep) {
     throw new Error('CallTransaction step not found');
   }
+  C8O.requestable.requireTransaction(executionPlan);
   C8O.requestable.guardDataReset(executionPlan);
   txStep.setSourceTransaction(executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   C8O.requestable._clearVariables(txStep);

@@ -23,6 +23,18 @@ C8O.crudBackend = C8O.crudBackend || {};
     } catch (_ignoreDescription) {}
   }
 
+  // The default of a create variable: the value a caller that leaves the field out gets. The INSERT lists every
+  // column, so the column default never applied and a field left out was stored '' (usage tests 29/10: priorite ''
+  // instead of 'normale'). null removes a default the field no longer has.
+  function safeDefaultValue(variable, entry) {
+    if (!variable || typeof variable.setValueOrNull !== "function" || !entry || !Object.prototype.hasOwnProperty.call(entry, "defaultValue")) {
+      return;
+    }
+    try {
+      variable.setValueOrNull(entry.defaultValue === null || entry.defaultValue === undefined ? null : String(entry.defaultValue));
+    } catch (_ignoreDefaultValue) {}
+  }
+
   function applySequenceSecurity(ctx, requestable, accessibility, authenticatedContextRequired, result) {
     if (!ctx || !requestable || typeof ctx.applyUpdates !== "function") {
       return;
@@ -1423,22 +1435,33 @@ C8O.crudBackend = C8O.crudBackend || {};
         return byName;
       }
     }
+    // The SQL connector with the most transactions, the default one on a tie: the default connector of an app built
+    // from the NGX starter is the starter's placeholder (void, one transaction), not the app's database (usage tests
+    // 29/10: crud-status inspected it on a hand-made app).
+    var best = null;
+    var bestCount = -1;
+    var defaultConnector = null;
     try {
-      var defaultConnector = project.getDefaultConnector ? project.getDefaultConnector() : null;
-      if (defaultConnector && String(defaultConnector.getClass().getName()).indexOf("SqlConnector") !== -1) {
-        return defaultConnector;
-      }
+      defaultConnector = project.getDefaultConnector ? project.getDefaultConnector() : null;
     } catch (_ignoreDefaultSqlConnector) {}
     try {
       var connectors = project.getConnectorsList();
       for (var i = 0; i < connectors.size(); i++) {
         var connector = connectors.get(i);
-        if (connector && String(connector.getClass().getName()).indexOf("SqlConnector") !== -1) {
-          return connector;
+        if (!connector || String(connector.getClass().getName()).indexOf("SqlConnector") === -1) {
+          continue;
+        }
+        var count = 0;
+        try {
+          count = connector.getTransactionsList().size();
+        } catch (_noTransactions) {}
+        if (count > bestCount || (count === bestCount && connector === defaultConnector)) {
+          best = connector;
+          bestCount = count;
         }
       }
     } catch (_ignoreConnectorsList) {}
-    return null;
+    return best;
   };
 
   C8O.crudBackend.ensureSqlTransaction = function (ctx, connector, name, sqlQuery, autoCommit, result, options) {
@@ -1460,6 +1483,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
       safeDescription(variable, variableEntries[i].description || "");
       safeComment(variable, variableEntries[i].comment || "");
+      safeDefaultValue(variable, variableEntries[i]);
     }
     result.updated.push(tx.getFullQName ? String(tx.getFullQName()) : name);
     return tx;
@@ -1488,6 +1512,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
       safeDescription(variable, normalizedEntries[i].description || "");
       safeComment(variable, normalizedEntries[i].comment || "");
+      safeDefaultValue(variable, normalizedEntries[i]);
     }
     // These are all the variables of the container: a field dropped from the spec left its variable, which filtered
     // silently (preflight checks).
@@ -1505,6 +1530,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       }
       safeDescription(variable, normalizedEntries[i].description || "");
       safeComment(variable, normalizedEntries[i].comment || "");
+      safeDefaultValue(variable, normalizedEntries[i]);
     }
     // These are all the variables of the container: a field dropped from the spec left its variable, which filtered
     // silently (preflight checks).
@@ -1663,7 +1689,8 @@ C8O.crudBackend = C8O.crudBackend || {};
           continue;
         }
         var entityFieldDoc = fieldVariableDescription(ctx, spec, entity, entityField.column);
-        createVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc });
+        createVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc,
+          defaultValue: entityField.defaultValue === null || entityField.defaultValue === undefined ? null : entityField.defaultValue });
         updateVarsEntries.push({ name: entityField.column, description: entityFieldDoc, comment: entityFieldDoc });
       }
       updateVarsEntries.push({ name: entity.primaryField.column, description: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column), comment: fieldVariableDescription(ctx, spec, entity, entity.primaryField.column) });

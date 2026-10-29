@@ -729,12 +729,21 @@ include("js/tools_generators.js");
           if (str(f.helper).length) {
             props.HelperText = { mode: "PLAIN", value: str(f.helper) };
           }
-          if (f.value !== undefined) {
+          if (f.from !== undefined && str(f.from).length) {
+            // An edit form shows the record the page loaded: the control reads the page data, filled when the page's
+            // business sequence answers. A value computed at page enter came before that answer, so the form of a
+            // generated edit page never filled (usage tests 29/10).
+            props.Value = { mode: "SOURCE", local: "data." + str(f.from).replace(/^\.+/, "").replace(/^data\./, "") };
+          } else if (f.value !== undefined) {
             // The initial value is a TypeScript expression (new Date()..., c8oPage.navParams...): it is computed at page
             // enter into a local and the control reads that local. Written in the template, it broke the Angular build.
             var initLocal = "init" + pascal(f.name);
             locals[initLocal] = String(f.value);
             props.Value = { mode: "SOURCE", local: initLocal };
+            if (/(^|[^\w.])(c8oPage\.)?(local\??\.)?data\??\./.test(String(f.value))) {
+              warnings.push("form.fields " + str(f.name) + ": value is computed at page enter, before the page data arrives " +
+                "(and c8oPage.data is never set): write from: \"<path in the page data>\" to show the loaded record.");
+            }
           }
           if (f.disabled !== undefined && f.disabled !== false && str(f.disabled) !== "false") {
             // Read-only when the expression is true. Computed at page enter like value: written in the template, an
@@ -841,7 +850,10 @@ include("js/tools_generators.js");
     var currentRoot = appPages(app).filter(isRootPage)[0] || null;
     var makeRoot = askedRoot || !currentRoot;
 
-    var segment = str(spec.segment) || "path-to-" + name.toLowerCase();
+    // The route the user reads in the address bar: livre-modification, not the Studio's path-to-livremodification
+    // (usage tests 29/10, an app built with this tool).
+    var segment = str(spec.segment) || (name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "page");
     // In the menu by default: list and dashboard pages, which need no parameter; forms and details open from a page.
     var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard") : (spec.inMenu === true || String(spec.inMenu) === "true");
     var pageProps = { title: title, segment: segment, inAutoMenu: inMenu,

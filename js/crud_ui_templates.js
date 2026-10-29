@@ -385,7 +385,9 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       if (!column.length) {
         continue;
       }
-      entries.push(ctx.scriptLiteral(column) + ": ''");
+      // The column default (or ui.fieldDefaults): a create saved '' over it.
+      var draftDefault = field.defaultValue !== null && field.defaultValue !== undefined ? String(field.defaultValue) : "";
+      entries.push(ctx.scriptLiteral(column) + ": " + ctx.scriptLiteral(draftDefault));
       if (field.relation) {
         entries.push(ctx.scriptLiteral(column + "__label") + ": ''");
       }
@@ -516,7 +518,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         fieldNameExpression: ctx.scriptLiteral(trimmed(ctx, field.column || field.name || "")),
         fieldLabelExpression: ctx.scriptLiteral(trimmed(ctx, field.label || field.name || field.column || "Field")),
         requiredExpression: field.required === true ? "true" : "false",
-        relation: !!relation
+        relation: !!relation,
+        options: !relation && field.options && field.options.length ? field.options : null
       };
       if (relation) {
         var relatedEntity = typeof ctx.findEntityByName === "function" ? ctx.findEntityByName(entities, relation.entity) : null;
@@ -911,6 +914,36 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
     return relationSelectNode(ctx, config);
   }
 
+  // A field with a fixed set of values (ui.fieldOptions): a select with one option per value.
+  function optionSelectNode(ctx, config) {
+    var currentConfig = config || {};
+    var column = trimmed(ctx, currentConfig.column || "value");
+    var fieldLabelExpression = currentConfig.fieldLabelExpression || "this.FieldLabel";
+    return {
+      className: "ngx.components.UIDynamicElement#Select",
+      name: "OptionSelect",
+      properties: {
+        ControlName: { mode: "PLAIN", value: column },
+        Label: { mode: "SCRIPT", value: coalescedStringExpression(ctx, fieldLabelExpression, "Field") },
+        LabelPlacement: { mode: "PLAIN", value: "stacked" },
+        Interface: { mode: "PLAIN", value: "popover" },
+        Disabled: { mode: "PLAIN", value: "not set" },
+        Value: { mode: "SOURCE", value: localDraftSourceValue(ctx, TOKENS.PROJECT_NAME, column, { suffix: " + ''" }).value }
+      },
+      children: ensureArray(ctx, currentConfig.options).map(function (option, index) {
+        return {
+          className: "ngx.components.UIDynamicElement#SelectOption",
+          name: "Option" + (index + 1),
+          properties: {
+            Disabled: { mode: "PLAIN", value: "not set" },
+            Value: { mode: "PLAIN", value: String(option.value) }
+          },
+          children: [ctx.plainTextNode("Text", String(option.label || option.value))]
+        };
+      })
+    };
+  }
+
   function routeButtonNode(ctx, name, label, routerPath, options) {
     var extra = options && typeof options === "object" ? options : {};
     return ctx.entityPagesButtonNode(
@@ -985,7 +1018,7 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           ? ((trimmed(ctx, currentConfig.control || "select") === "autocomplete")
             ? relationAutocompleteNode(ctx, currentConfig)
             : relationSelectNode(ctx, currentConfig))
-          : textInputNode(ctx, currentConfig)
+          : (currentConfig.options ? optionSelectNode(ctx, currentConfig) : textInputNode(ctx, currentConfig))
       ]
     };
   }

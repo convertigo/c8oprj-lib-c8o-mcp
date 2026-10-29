@@ -1048,7 +1048,31 @@ C8O.crudProof = C8O.crudProof || {};
     } else {
       status.driverFamily = ctx.inferDriverFamilyFromConnector(connector);
     }
+    // An app built otherwise (by hand, or with the business sequence and page generators) has none of the CRUD rail:
+    // its status listed the kit's sequences, transactions and globals as missing, as if the app were a broken CRUD.
+    if (!hasCrudBusinessSequences(project, facadePrefix)) {
+      status.status = "not_crud";
+      status.message = "No " + facadePrefix + "_<verb>_<entity> business sequence: " + projectName + " was not built with " +
+        "upsert-crud, and the CRUD rail (upsert-crud, upsert-ngx-crud-kit, crud-proof) does not apply to it. Change it with " +
+        "the tools its objects come from: databaseobject-tree-get, sql-transaction-create, business-sequence-create, " +
+        "ngx-page-create, databaseobject-tree-apply.";
+    }
     return status;
+  }
+
+  function hasCrudBusinessSequences(project, prefix) {
+    var pattern = new RegExp("^" + String(prefix).replace(/[^A-Za-z0-9_]/g, "") + "_(list|count|read|create|update|delete)_");
+    try {
+      var sequences = project.getSequencesList();
+      for (var i = 0; i < sequences.size(); i++) {
+        if (pattern.test(String(sequences.get(i).getName()))) {
+          return true;
+        }
+      }
+    } catch (_noSequences) {
+      return true;
+    }
+    return false;
   }
 
   function refreshBuilderProbe(ctx, result, currentProbe) {
@@ -1080,6 +1104,10 @@ C8O.crudProof = C8O.crudProof || {};
 
     if (result.status === "not_found") {
       result.checks.push(proofCheck(ctx, "project", false, "Project was not found.", result.project));
+      return ctx.toJsonSafe ? ctx.toJsonSafe(result, { warnings: ctx.ensureWarnings(result), path: "$" }) : result;
+    }
+    if (result.status === "not_crud") {
+      result.checks.push(proofCheck(ctx, "crud-rail", false, result.message, result.project));
       return ctx.toJsonSafe ? ctx.toJsonSafe(result, { warnings: ctx.ensureWarnings(result), path: "$" }) : result;
     }
 

@@ -535,6 +535,38 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return "Live build for " + appName;
   }
 
+  function reloadOpenViewer(editorRef, segment) {
+    var reloaded = false;
+    try {
+      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      ConvertigoPlugin.syncExec(new Packages.java.lang.Runnable({ run: function () {
+        try {
+          if (editorRef.selectPage) {
+            editorRef.selectPage(null);
+            editorRef.selectPage(segment || null);
+            reloaded = true;
+          }
+        } catch (_ignoreSelect) {}
+      } }));
+    } catch (_ignoreReload) {}
+    return reloaded;
+  }
+
+  function viewerShowsNothing(browserState, projectRef) {
+    if (!browserState || browserState.hasBrowser !== true || browserState.hasError === true) {
+      return false;
+    }
+    var url = lower(browserState.currentUrl || browserState.locationHref || "");
+    if (!url.length || url === "about:blank") {
+      return true;
+    }
+    if (browserState.appRootHydrated === true || compactText(browserState.bodyTextSample || "").length > 0 ||
+      compactText(browserState.statusText || "").length > 0 || browserState.progress > 0) {
+      return false;
+    }
+    return readLiveBuildJob(liveBuildJobName(projectRef, String(projectRef.getName()))).active !== true;
+  }
+
   function readLiveBuildJob(jobName) {
     var state = {
       supported: false,
@@ -697,6 +729,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
                 result.editorState.browserRemoteDebuggingPort === browserDebugPort;
               if (editor != null) {
                 if (result.rootPageSegment.length && editor.selectPage) {
+                  // selectPage does nothing for the page the editor already has: a viewer left blank, or on a page that
+                  // shows nothing while no build runs, stayed so call after call (usage tests 29/10). It loads the base
+                  // URL first.
+                  if (viewerShowsNothing(readBrowserState(editor), projectRef)) {
+                    editor.selectPage(null);
+                    result.viewerReloaded = true;
+                  }
                   editor.selectPage(result.rootPageSegment);
                 }
                 if (browserDebugPort > 0 && result.editorState.browserRemoteDebuggingPort !== browserDebugPort) {
@@ -1103,6 +1142,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       snapshot.building !== true;
 
     var idleSince = 0;
+    var idleViewerReloaded = false;
     while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
       ready = refreshCurrentState();
       if (ready) {
@@ -1111,6 +1151,14 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (idleViewerWithoutApp) {
         idleSince = idleSince || java.lang.System.currentTimeMillis();
         if (java.lang.System.currentTimeMillis() - idleSince >= IDLE_VIEWER_STOP_MS) {
+          // The answer that pointed to a call without stateOnly was ignored: the agent kept polling and sleeping
+          // (usage tests 29/10). The open viewer loads the root page once (no build, no new editor), then the wait
+          // goes on; still nothing after that, the wait stops.
+          if (!idleViewerReloaded && editorRef != null) {
+            idleViewerReloaded = reloadOpenViewer(editorRef, rootPageSegmentValue);
+            idleSince = 0;
+            continue;
+          }
           break;
         }
       } else {

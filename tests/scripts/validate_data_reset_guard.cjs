@@ -53,3 +53,14 @@ test('requestable-execute takes allowDataReset, and upsert-crud passes it only f
   assert.match(backend, /\{ recordSchema: true, allowDataReset: !existingDatabase\.keep \}/);
   assert.match(backend, /if \(spec\.entities\.length && !existingDatabase\.keep\) \{\n\s*ctx\.requestablePayload\([^\n]*\{ allowDataReset: true \}\);/);
 });
+
+// Asked to get the cents of one row back, an agent deleted the table and inserted the demo rows again, with
+// allowDataReset:true on its first call (usage tests 29/10, S2 replay): the flag's description is what it reads then.
+test('the reset flag says a fix of values is an UPDATE, not a reset', () => {
+  const schema = read('js/schema_overrides.js');
+  const yaml = read('_c8oProject/sequences/tools_requestable_execute.yaml');
+  for (const text of [schema, yaml]) {
+    assert.match(text, /Set true only when the user's own words ask to empty or reset the data[^\n]*UPDATE the rows concerned/);
+  }
+  assert.match(read('resources/convertigo_crud_edit_fastpath.md'), /fixed with an UPDATE of the rows concerned/);
+});
