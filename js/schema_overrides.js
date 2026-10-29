@@ -846,6 +846,31 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  function nocodeFormListInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Part of the form name, matched without case nor accents (\"conges\" finds \"Demande de congés\"). Omit to list every form of the user."
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 40,
+          default: 20,
+          description: "Forms per answer: 20 by default, 40 at most. total counts them all; to count, one call is enough."
+        },
+        cursor: {
+          type: "string",
+          description: "nextCursor of the previous answer, with the same name, to read the next forms. Omit for the first ones."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      additionalProperties: false
+    };
+  }
+
   function nocodeBaserowViewProperty() {
     return {
       type: "string",
@@ -2538,6 +2563,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         required: ["id"],
         additionalProperties: false
       };
+    }
+    if (seq === "tools_nocode_form_list") {
+      return nocodeFormListInputSchema();
     }
     if (seq === "tools_nocode_form_contract_get") {
       return nocodeFormContractGetInputSchema();

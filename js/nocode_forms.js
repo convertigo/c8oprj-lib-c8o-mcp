@@ -885,6 +885,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         recovery: "If saved=true with status=partial and bindingFinalization.status=pending, the form already exists. Follow bindingFinalization.recovery: nocode-form-edit with [{action:'finalize_baserow_bindings'}] on the returned id. Do not call create again. This idempotent operation is restricted to the authenticated creator and does not change a different source owner's account."
       },
       editingLifecycle: {
+        find: "A form named without its id: nocode-form-list { name } (part of the name, no case nor accents) gives the id of each form of the user that matches, theirs and those shared with them, as the No Code Studio home lists them; read it with nocode-form-get. Its total answers how many forms or applications the user has. It never writes.",
         baserow: "New or changed bindings receive the existing form id and actual component id in the edit save. New bindings use the authenticated caller; existing binding owners are preserved. Unchanged legacy bindings are not rewritten.",
         concurrency: "Existing-form writes are conditional on the revision read. A conflict requires a fresh read and reconsideration of the edit, never a blind retry or a new create. This requires C8Oforms APIV2_updateFormulaireDocument with form_write_guard.js support.",
         navigation: "add_page inherits the adjacent page navigation unless navigationMode is explicit. custom disables automatic tabs and buttons; author entry/return flows."

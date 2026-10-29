@@ -8,7 +8,7 @@ C8O.nocodeToolPolicy = {
   },
   allows: function (sequence) {
     return [
-      "tools_nocode_form_get", "tools_nocode_form_contract_get",
+      "tools_nocode_form_get", "tools_nocode_form_list", "tools_nocode_form_contract_get",
       "tools_nocode_form_compile", "tools_nocode_form_validate",
       "tools_nocode_form_create", "tools_nocode_form_edit", "tools_nocode_form_update",
       "tools_nocode_form_publish", "tools_nocode_app_create", "tools_nocode_form_preview_capture",
