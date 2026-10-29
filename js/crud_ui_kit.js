@@ -1145,6 +1145,15 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       result
     );
     var entryPage = ensureEntryPage(ctx, projectName, options.entryPage || "Home", result);
+    // A field name the entity does not have was left out of the pages without a word: the field it meant disappeared.
+    for (var u = 0; u < entities.length && typeof ctx.entityUiConfig === "function"; u++) {
+      var unknownRefs = ctx.ensureArray((ctx.entityUiConfig(projectName, facadePrefix, entities[u], entities) || {}).unknownFieldRefs);
+      if (unknownRefs.length) {
+        ctx.addWarning(result, "ui fields of " + entities[u].name + ": " + unknownRefs.join(", ") + " " + (unknownRefs.length > 1 ? "are" : "is") +
+          " not a field of the entity and " + (unknownRefs.length > 1 ? "were" : "was") + " left out. Fields: " +
+          ctx.ensureArray(entities[u].fields).map(function (f) { return f.column || f.name; }).join(", ") + ".");
+      }
+    }
     var variant = ctx.trimmed(options.variant || "entity-pages").toLowerCase() || "entity-pages";
     var stage = ctx.trimmed(options.stage || "final").toLowerCase() || "final";
     var isMasterDetail = variant === "master-detail";
