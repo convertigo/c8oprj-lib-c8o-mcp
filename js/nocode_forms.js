@@ -5346,8 +5346,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // What the form tools answer an agent: the form without its empty values and empty condition groups, the write
   // without the CouchDB transport details (internal host and headers) and the authentication without the token
   // payload. Sources and actions stay exactly as saved, since an agent copies them into its edits. A three-page
-  // application went from 21 KB to 10 KB, for each create, edit and read.
-  var AGENT_VIEW_VERBATIM_KEYS = { sources: true, sourcesMarkers: true, sourcesCircles: true, sourcesPolygons: true, actions: true };
+  // application went from 21 KB to 10 KB, for each create, edit and read. config.contextDefault stays as saved too:
+  // nocode-form-validate compiles it again and compares with selfVar, and without its fallback "" every defaultFrom
+  // read back looked stale (29/10).
+  var AGENT_VIEW_VERBATIM_KEYS = { sources: true, sourcesMarkers: true, sourcesCircles: true, sourcesPolygons: true, actions: true, contextDefault: true };
   function agentView(value) {
     if (Array.isArray(value)) {
       return value.map(function (item) { return agentView(item); });
