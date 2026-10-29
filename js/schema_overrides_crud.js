@@ -128,6 +128,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
   function crudStatusOutputSchema() {
     return h().closedObjectSchema({
       status: { type: "string" },
+      message: { type: "string", description: "Set with status not_crud: why the CRUD rail does not apply and which tools to use." },
       project: { type: "string" },
       driverFamily: { type: "string" },
       connectorQname: { type: "string" },
@@ -211,6 +212,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
   function crudProofOutputSchema() {
     return h().closedObjectSchema({
       status: { type: "string" },
+      message: { type: "string", description: "Set with status not_crud: why the CRUD rail does not apply and which tools to use." },
       project: { type: "string" },
       driverFamily: { type: "string" },
       connectorQname: { type: "string" },

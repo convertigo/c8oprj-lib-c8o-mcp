@@ -1435,22 +1435,33 @@ C8O.crudBackend = C8O.crudBackend || {};
         return byName;
       }
     }
+    // The SQL connector with the most transactions, the default one on a tie: the default connector of an app built
+    // from the NGX starter is the starter's placeholder (void, one transaction), not the app's database (usage tests
+    // 29/10: crud-status inspected it on a hand-made app).
+    var best = null;
+    var bestCount = -1;
+    var defaultConnector = null;
     try {
-      var defaultConnector = project.getDefaultConnector ? project.getDefaultConnector() : null;
-      if (defaultConnector && String(defaultConnector.getClass().getName()).indexOf("SqlConnector") !== -1) {
-        return defaultConnector;
-      }
+      defaultConnector = project.getDefaultConnector ? project.getDefaultConnector() : null;
     } catch (_ignoreDefaultSqlConnector) {}
     try {
       var connectors = project.getConnectorsList();
       for (var i = 0; i < connectors.size(); i++) {
         var connector = connectors.get(i);
-        if (connector && String(connector.getClass().getName()).indexOf("SqlConnector") !== -1) {
-          return connector;
+        if (!connector || String(connector.getClass().getName()).indexOf("SqlConnector") === -1) {
+          continue;
+        }
+        var count = 0;
+        try {
+          count = connector.getTransactionsList().size();
+        } catch (_noTransactions) {}
+        if (count > bestCount || (count === bestCount && connector === defaultConnector)) {
+          best = connector;
+          bestCount = count;
         }
       }
     } catch (_ignoreConnectorsList) {}
-    return null;
+    return best;
   };
 
   C8O.crudBackend.ensureSqlTransaction = function (ctx, connector, name, sqlQuery, autoCommit, result, options) {

@@ -37,6 +37,19 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: 'crudStatusResult && crudStatusResult.status ? crudStatusResult.status : ""'
+  ↓message [steps.JsonFieldStep-1793310500001]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: message
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'crudStatusResult && crudStatusResult.message ? crudStatusResult.message : ""'
   ↓project [steps.JsonFieldStep-1773318301005]: 
     key: 
       - xmlizable: 
