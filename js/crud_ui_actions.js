@@ -501,7 +501,7 @@ C8O.crudUiActions = C8O.crudUiActions || {};
     ].join("\n");
   }
 
-  function buildEntityPagesActionStacksTree(ctx, projectName, facadePrefix, entities, stage) {
+  function buildEntityPagesActionStacksTree(ctx, projectName, facadePrefix, entities, stage, auth) {
     var qnames = [];
     var children = [];
     var ensureSessionQName = ctx.dashboardActionQName(projectName, "crud_ensure_session");
@@ -511,21 +511,31 @@ C8O.crudUiActions = C8O.crudUiActions || {};
       ctx.setGlobalActionNode("SetSessionReady", "crudSessionReady", "true")
     ]);
     qnames.push(ensureSessionQName);
+    // auth mode form: a page opened without a session goes to the login form instead of signing in as demo.
+    var sessionCheck = auth && auth.mode === "form"
+      ? ctx.ifActionNode(
+        "WhenSignedOut",
+        "this.global?.crudSessionReady === true",
+        [C8O.crudUi.navigatePageActionNode(ctx, "OpenLogin", "/login", "{}", "Ask for the user name and password.")],
+        {
+          negate: true,
+          comment: "Send a page opened without a signed-in session to the login form."
+        }
+      )
+      : ctx.ifActionNode(
+        "WhenSessionMissing",
+        "this.global?.crudSessionReady === true",
+        [loginNode],
+        {
+          negate: true,
+          comment: "Establish the generated auth session once, then trust the session cookie for the rest of the app."
+        }
+      );
     children.push(
       ctx.actionStackNode(
         "crud_ensure_session",
         [],
-        [
-          ctx.ifActionNode(
-            "WhenSessionMissing",
-            "this.global?.crudSessionReady === true",
-            [loginNode],
-            {
-              negate: true,
-              comment: "Establish the generated auth session once, then trust the session cookie for the rest of the app."
-            }
-          )
-        ],
+        [sessionCheck],
         "Ensure a generated authenticated session exists before CRUD business sequence calls."
       )
     );

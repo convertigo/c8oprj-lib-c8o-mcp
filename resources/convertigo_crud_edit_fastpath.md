@@ -48,6 +48,16 @@ Give the kit `ui.fieldOptions.<field>` (values, or `{value, label}` items, for e
 select instead of a text input. The create form starts from `ui.fieldDefaults.<field>`, else from the column default;
 `fields[].default` of upsert-crud also applies to a create that leaves the field out. No hand edit of the form.
 
+## Real users (a login form)
+- The generated `auth_login` accepts any user name and the kit's login page signs in as demo. For real users, make the
+  login sequence check the password and refuse with an error: an `IfStep` holding an `XMLErrorStep` (the message the
+  form shows) and a `ReturnStep`, before its `SetAuthenticatedUser` step. Or use the app's own login sequence.
+- Then run `upsert-ngx-crud-kit` with `stage: "final"` and `auth: "form"` (or `{"mode": "form", "sequence": "<login
+  sequence>", "userVariable": "<name>", "passwordVariable": "<name>"}`): the login page asks a user name and a password,
+  shows the refusal, and a page opened without a session goes to it. No hand-built form.
+- Check a sequence that needs what the login stores (the user, a role) with `requestable-execute` and
+  `before: [{"requestable": "<project>.<login sequence>", "variables": {...}}]`: the login and the call share one session.
+
 ## Language of the kit texts
 The kit writes its buttons, titles, states and messages in English unless `language` says otherwise. For a French
 app, or to translate pages the kit wrote in English, run `upsert-ngx-crud-kit` with `stage: "final"`,

@@ -111,6 +111,10 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         },
         facadePrefix: { type: "string", description: "CRUD business sequence prefix used for shell labels and future wiring." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
+        auth: {
+          description: "Sign-in of the pages: demo (default, the login page signs in as demo) or form, as a string or {mode: \"form\", sequence: \"auth_login\", userVariable: \"username\", passwordVariable: \"password\"}. With form the login page asks a user name and a password and calls that login sequence of the project (the generated auth_login, or the app's own once it checks the password); a page opened without a session goes to it. The sequence refuses with an error element (or success false and errors), whose message the form shows.",
+          oneOf: [{ type: "string" }, { type: "object", additionalProperties: true }]
+        },
         language: { type: "string", enum: ["en", "fr"], description: "Language of the texts the kit writes (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English." },
         runtimeEvidence: {
           description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",

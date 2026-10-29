@@ -459,6 +459,7 @@ C8O.crud = C8O.crud || {};
       buildDashboardPageLoadTree: buildDashboardPageLoadTree,
       buildSessionBootstrapPageRootTree: buildSessionBootstrapPageRootTree,
       buildSessionBootstrapPageLoadTree: buildSessionBootstrapPageLoadTree,
+      buildLoginFormPageTrees: buildLoginFormPageTrees,
       buildEntityPageRootTree: buildEntityPageRootTree,
       buildEntityPageShellTree: buildEntityPageShellTree,
       appendEntityPageRows: appendEntityPageRows,
@@ -1608,6 +1609,10 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiPages.buildSessionBootstrapPageLoadTree(crudUiPagesContext(), projectName, entryPage);
   }
 
+  function buildLoginFormPageTrees(projectName, entryPage, auth, baseRoot) {
+    return C8O.crudUiPages.buildLoginFormPageTrees(crudUiPagesContext(), projectName, entryPage, auth, baseRoot);
+  }
+
   function blankPageScriptContent() {
     return C8O.crudUiPages.blankPageScriptContent();
   }
@@ -1704,8 +1709,8 @@ C8O.crud = C8O.crud || {};
     return C8O.crudUiActions.buildEntityPagesDeleteActionScript(crudUiActionsContext(), config);
   }
 
-  function buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) {
-    return C8O.crudUiActions.buildEntityPagesActionStacksTree(crudUiActionsContext(), projectName, facadePrefix, entities, stage);
+  function buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage, auth) {
+    return C8O.crudUiActions.buildEntityPagesActionStacksTree(crudUiActionsContext(), projectName, facadePrefix, entities, stage, auth);
   }
 
   function buildEntityPagesLandingShellTree(projectName, entities, stage) {

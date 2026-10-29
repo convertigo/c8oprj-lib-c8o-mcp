@@ -194,6 +194,11 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     "Opening the app": "Ouverture de l’application",
     "Please wait a moment.": "Veuillez patienter un instant.",
     "Preparing session": "Préparation de la session",
+    "Sign in": "Connexion",
+    "Log in": "Se connecter",
+    "User name": "Nom d’utilisateur",
+    "Password": "Mot de passe",
+    "Sign-in refused.": "Connexion refusée.",
     "Error": "Erreur",
     "No primary value": "Aucune valeur",
     "No secondary value": "Aucune valeur",
@@ -408,6 +413,65 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       fields: hydratedFields,
       primaryField: primaryField
     };
+  };
+
+  // auth: "demo" (default: the login page signs in as demo) or "form" (a user name and password form calling the
+  // project's login sequence), as a string or {mode, sequence, userVariable, passwordVariable}.
+  C8O.crudUiKit.normalizeAuth = function (ctx, raw) {
+    var value = {};
+    try {
+      // A string ("form", or JSON text), a JS object, or the Java value an MCP argument can arrive as.
+      var text = raw == null ? "" : ctx.trimmed(String(raw));
+      if (text.length && text.charAt(0) !== "{" && text.charAt(0) !== "[") {
+        value = { mode: text };
+      } else if (text.length) {
+        value = C8O.util.parseObjectInput(raw, { label: "auth", allowEmpty: true });
+      }
+    } catch (_badAuth) {
+      value = {};
+    }
+    value = value || {};
+    var mode = ctx.trimmed(value.mode || "demo").toLowerCase();
+    return {
+      mode: mode === "form" ? "form" : "demo",
+      sequence: ctx.trimmed(value.sequence || "auth_login").replace(/^.*\./, "").replace(/^sq:/, "") || "auth_login",
+      userVariable: ctx.trimmed(value.userVariable || "username") || "username",
+      passwordVariable: ctx.trimmed(value.passwordVariable || "password") || "password"
+    };
+  };
+
+  // The nodes of the other auth mode go: an upsert merges, so a page switched to the form kept its demo sign-in (and the
+  // reverse). keep, in form mode: the children each part of the login page keeps.
+  C8O.crudUiKit.authCleanupQNames = function (ctx, projectName, auth, keep) {
+    var loginQName = ctx.sessionBootstrapPageQName(projectName);
+    var ensureQName = ctx.ngxAppQName(projectName) + ".crud_ensure_session";
+    var out = [ensureQName + (auth.mode === "form" ? ".WhenSessionMissing" : ".WhenSignedOut")];
+    if (auth.mode !== "form") {
+      ["Content.Grid.Row.Col.Card.CardContent.LoginUser", "Content.Grid.Row.Col.Card.CardContent.LoginPassword",
+        "Content.Grid.Row.Col.Card.CardContent.LoginErrorIf", "Content.Grid.Row.Col.Card.CardContent.SignIn",
+        "PageEvent.ClearLoginError", "PageEvent.WhenSignedInAlready"].forEach(function (path) {
+        out.push(loginQName + "." + path);
+      });
+      return out;
+    }
+    Object.keys(keep || {}).forEach(function (path) {
+      var parent = ctx.resolveQName(loginQName + "." + path, { optional: true });
+      if (!parent) {
+        return;
+      }
+      var wanted = {};
+      keep[path].forEach(function (name) { wanted[name] = true; });
+      try {
+        var children = parent.getDatabaseObjectChildren();
+        for (var i = 0; i < children.size(); i++) {
+          var name = String(children.get(i).getName());
+          if (!wanted[name]) {
+            out.push(loginQName + "." + path + "." + name);
+          }
+        }
+      } catch (_noChildren) {}
+    });
+    return out;
   };
 
   C8O.crudUiKit.hydrateUiEntitiesFromFacade = function (ctx, projectName, facadePrefix, entities, result) {
@@ -1382,6 +1446,11 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       }
     }
     var language = ctx.trimmed(options.language || "").toLowerCase().substring(0, 2);
+    var auth = C8O.crudUiKit.normalizeAuth(ctx, options.auth);
+    // In a script expression, out of reach of the translation of the kit texts.
+    auth.refusedText = language === "fr" ? "Connexion refusée." : "Sign-in refused.";
+    auth.userLabel = language === "fr" ? "Nom d’utilisateur" : "User name";
+    auth.passwordLabel = language === "fr" ? "Mot de passe" : "Password";
     var variant = ctx.trimmed(options.variant || "entity-pages").toLowerCase() || "entity-pages";
     var stage = ctx.trimmed(options.stage || "final").toLowerCase() || "final";
     var isMasterDetail = variant === "master-detail";
@@ -1409,7 +1478,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       : (isEntityPages ? ctx.buildEntityPagesSharedComponentsTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardSharedComponentsTree(projectName, entities, stage));
     var sharedActions = isMasterDetail
       ? ctx.buildCrmActionStacksTree(projectName, facadePrefix, stage)
-      : (isEntityPages ? ctx.buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage) : ctx.buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
+      : (isEntityPages ? ctx.buildEntityPagesActionStacksTree(projectName, facadePrefix, entities, stage, auth) : ctx.buildDashboardActionStacksTree(projectName, facadePrefix, entities, stage));
     // Entity page shared components encode the configured fields and relation controls.
     // Reapply them on final passes so UI hint changes cannot be masked by existing QNames.
     var reuseExistingSharedComponents = stage === "final" && !isEntityPages && ctx.everyQNameExists(sharedComponents.qnames);
@@ -1453,6 +1522,14 @@ C8O.crudUiKit = C8O.crudUiKit || {};
     result.runtimeEvidence.pageLoadTreeNodeCount = ctx.countTreeNodes(pageLoadTree.tree);
     var sessionBootstrapPageRoot = (pageTemplates && pageTemplates.loginPageTree) || ctx.buildSessionBootstrapPageRootTree(projectName, entryPage);
     var sessionBootstrapPageLoad = ctx.buildSessionBootstrapPageLoadTree(projectName, entryPage);
+    var authCleanupQNames = C8O.crudUiKit.authCleanupQNames(ctx, projectName, auth, null);
+    if (auth.mode === "form" && isEntityPages && typeof ctx.buildLoginFormPageTrees === "function") {
+      var loginForm = ctx.buildLoginFormPageTrees(projectName, entryPage, auth, sessionBootstrapPageRoot);
+      sessionBootstrapPageRoot = loginForm.root;
+      sessionBootstrapPageLoad = loginForm.load;
+      authCleanupQNames = C8O.crudUiKit.authCleanupQNames(ctx, projectName, auth, loginForm.keep);
+    }
+    result.runtimeEvidence.auth = { mode: auth.mode, sequence: projectName + "." + auth.sequence };
     var entityPageRoots = [];
     var entityPageShells = [];
     var entityPageLoads = [];
@@ -1550,7 +1627,7 @@ C8O.crudUiKit = C8O.crudUiKit || {};
         });
       }
     }
-    var cleanupOperations = cleanupQNames
+    var cleanupOperations = cleanupQNames.concat(authCleanupQNames)
       .filter(function (qname) {
         return !!ctx.resolveQName(qname, { optional: true });
       })
