@@ -1389,7 +1389,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         parentFieldId: { type: "string", description: "Parent field id when adding or moving a field inside a layout/container." },
         parentElementId: { type: "string", description: "Parent flow element id when adding or moving inside an if/loop/action container." },
         refKey: { type: "string", enum: ["childrenRefs", "childrenRefsElse"], description: "Flow child reference branch. Default childrenRefs." },
-        index: { type: "integer", minimum: 0, description: "Destination insertion index. Omit to append." },
+        index: { type: "integer", minimum: 0, description: "Destination place from 0: among the parent's children, or among the top-level components of the page for a field (a page or a flow element in its own list). Omit to append." },
+        before: { type: "string", description: "add_field, move_field: put the field just before this component (name or id), in its container when it has one." },
+        after: { type: "string", description: "add_field, move_field: put the field just after this component (name or id), in its container when it has one." },
         fromIndex: { type: "integer", minimum: 0, description: "Source index for move_page when no page identifier is supplied." },
         toIndex: { type: "integer", minimum: 0, description: "Destination index for move_page." },
         fromFlowId: { type: "string", description: "Source flow id for move_flow_element." },
@@ -2558,7 +2560,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         properties: {
           id: { type: "string", description: "Existing form document id from the current No Code context." },
           rev: { type: "string", description: "Optional document revision. Omit to read the latest saved version." },
-          find: { type: "string", description: "Optional word or text. Answers only the texts of the form a user sees that hold it (names of the form and pages, labels, texts, placeholders, choices, flow names, toast and alert messages), case and accents ignored, each with its path and its component or flow, instead of the whole form. Use it before changing a word everywhere." },
+          find: { type: "string", description: "Optional word or text. Answers only the texts of the form a user sees that hold it (names of the form and pages, labels, texts, placeholders, choices, flow names, toast and alert messages), case and accents ignored, each with its path, its component or flow and, when it is HTML or holds references, its stored value (raw) to patch, instead of the whole form. Use it before changing a word everywhere." },
           token: nocodeFormsTokenProperty()
         },
         required: ["id"],
