@@ -25,7 +25,10 @@ comment: |
     if (!String(deleteQName).trim().length) {
       throw new Error("qname (or target) is required.");
     }
-    var removal = C8O.dbo.removeObject({ qname: deleteQName });
+    // Never during a Studio tree reload the MCP asked (parallel deletes made overlapping reloads fail).
+    var removal = C8O.dbo.withStudioLock(function () {
+      return C8O.dbo.removeObject({ qname: deleteQName });
+    });
     
     var parentQNameText = removal.parentQName ? String(removal.parentQName) : "";
     var projectNameText = removal.projectName ? String(removal.projectName) : "";

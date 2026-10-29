@@ -19,7 +19,10 @@ comment: |
     var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
     var refreshFlag = C8O.util.toBoolean(refreshInput, true) === true;
     
-    var moveResult = C8O.dbo.moveObject({ qname: qname, target: target, position: position });
+    // Never during a Studio tree reload the MCP asked (see C8O.dbo.withStudioLock).
+    var moveResult = C8O.dbo.withStudioLock(function () {
+      return C8O.dbo.moveObject({ qname: qname, target: target, position: position });
+    });
     
     var classNameText = moveResult.className ? String(moveResult.className) : "";
     var qnameText = moveResult.qname ? String(moveResult.qname) : String(qname);

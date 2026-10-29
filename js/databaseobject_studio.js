@@ -4,7 +4,23 @@ if (typeof C8O === "undefined") {
 
 C8O.dbo = C8O.dbo || {};
 
+// One JVM-wide monitor for the Project Explorer reloads the MCP asks and for its deletes, renames and moves. An agent
+// ran four deletes in parallel: their reloads overlapped and failed with a NullPointerException in copyDatabaseObject,
+// the Studio opened modal error dialogs, and every engine request waited for the UI thread until someone clicked them
+// (usage tests 29/10). A reload now never starts during another reload or a mutation. The interned string is the same
+// Java object in every thread and every include.
+C8O.dbo.withStudioLock = function (fn) {
+  var lock = new java.lang.String("lib_ConvertigoMCP.studioTree").intern();
+  return new Packages.org.mozilla.javascript.Synchronizer(fn, lock)();
+};
+
 C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
+  return C8O.dbo.withStudioLock(function () {
+    return C8O.dbo._refreshStudioTreeByQName(targetQName, errors);
+  });
+};
+
+C8O.dbo._refreshStudioTreeByQName = function (targetQName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var System = java.lang.System;
 
