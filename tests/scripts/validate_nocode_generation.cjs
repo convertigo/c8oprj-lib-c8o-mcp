@@ -230,7 +230,7 @@ test('an expression may reach browser globals such as localStorage, which the co
   assert.doesNotMatch(source, /not guessed globals/);
   assert.match(source, /expressions: EXPRESSION_RUNTIME,/);
   assert.match(source, /availability: "Existing Forms TS expression context: fields, actions, api\. Use verified sources and correct return types\. A defaultFrom expression only reads: no side effects\. " \+ EXPRESSION_RUNTIME/);
-  const runtime = /var EXPRESSION_RUNTIME = "(.*)";\n/.exec(source)[1];
+  const runtime = /var EXPRESSION_RUNTIME = "(.*)" \+ GRID_VALUE;\n/.exec(source)[1];
   assert.match(runtime, /JavaScript run in the viewer page/);
   assert.match(runtime, /by default share through Baserow \(submit saveTo, then a grid or field source\) or a URL parameter/);
   assert.match(runtime, /Use localStorage only when the user asks for it, and say that it stays in one browser on one device/);
@@ -326,6 +326,22 @@ test('semantic edits persist contextual defaults and preserve unrelated sources'
   const before = clone(edited.form.formulaire[0].sources);
   const unrelated = h.client.edit(created.form._id, [{ action: 'update_field', fieldName: 'context_input', patch: { config: { placeholder: 'Your name' } } }], h.auth);
   assert.deepEqual(clone(unrelated.form.formulaire[0].sources), before);
+});
+test('the contract says what fields.<grid> holds for each returned_value and what a refresh does (6e89967b)', () => {
+  // 27/10 (Skyjo): a duplicate check compared the link cells of an all_the_data grid as raw values and stayed at 0;
+  // the agent could not see the shape of fields.<grid>. Shapes checked live on 29/10 (C8Oforms 2.2.0-beta457).
+  const grid = /var GRID_VALUE = "(.*)";\n/.exec(source)[1];
+  assert.match(grid, /row_selected \(the default\) gives the selected row as Baserow gives it, \{ id, order, <Column>: value \}/);
+  assert.match(grid, /a link or a multiple select a list of \{ id, value \}\), and \{\} while no row is selected/);
+  assert.match(grid, /all_the_data the list of the rows read \(1000 at most\), each cell wrapped as \{ value, displayValue \(its HTML\), type, displayName, technicalName \}/);
+  assert.match(grid, /read row\[\\"<Column>\\"\]\.value \(a link: a list of \{ id, value \}\), never the cell itself or its displayValue/);
+  assert.match(grid, /A reactive value is computed again when the rows of a grid it reads arrive/);
+  assert.match(grid, /An expression that throws shows a toast with its error in the preview of a draft, nothing in a published application/);
+  const contract = api().contract({ sections: ['contextualDefaults'] });
+  assert.match(JSON.stringify(contract), /all_the_data the list of the rows read/);
+  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  assert.match(skill, /`all_the_data`: the list of the rows read, each cell wrapped as `\{ value, displayValue, type, displayName, technicalName \}`/);
+  assert.match(skill, /send it back as `defaultFrom` with plain `fields\.<name>` references when it must change; never write tokens by hand/);
 });
 test('a defaultFrom field changes through defaultFrom: config.contextDefault is compiled, selfVar alone is refused (2ba0a64a)', () => {
   // 27/10 (Skyjo): the agent patched config.defaultFrom (stored as is), config.contextDefault (selfVar kept the old
