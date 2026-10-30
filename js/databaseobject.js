@@ -2064,11 +2064,30 @@ C8O.dbo._projectNameOf = function (dbo) {
   return "";
 };
 
+// The UIForm a control variable or element sits in, for the form short form.
+C8O.dbo._enclosingForm = function (dbo) {
+  var current = dbo;
+  for (var guard = 0; current && guard < 50; guard++) {
+    try {
+      if (/\.UIForm$/.test(String(current.getClass().getName()))) {
+        return current;
+      }
+    } catch (_ignoreClass) {}
+    try {
+      current = current.getParent ? current.getParent() : null;
+    } catch (_ignoreParent) {
+      current = null;
+    }
+  }
+  return null;
+};
+
 C8O.dbo._expandSmartSourceShorthand = function (rawSpec, dbo) {
   var spec = rawSpec;
   if (typeof spec === "string") {
     var trimmed = spec.trim();
-    if (trimmed.charAt(0) !== "{" || (trimmed.indexOf("\"local\"") < 0 && trimmed.indexOf("\"global\"") < 0)) {
+    if (trimmed.charAt(0) !== "{" || (trimmed.indexOf("\"local\"") < 0 && trimmed.indexOf("\"global\"") < 0 &&
+      trimmed.indexOf("\"form\"") < 0)) {
       return rawSpec;
     }
     try {
@@ -2082,14 +2101,43 @@ C8O.dbo._expandSmartSourceShorthand = function (rawSpec, dbo) {
   }
   var hasLocal = spec.local !== undefined && spec.local !== null;
   var hasGlobal = spec.global !== undefined && spec.global !== null;
-  if (!hasLocal && !hasGlobal) {
+  var hasForm = spec.form !== undefined && spec.form !== null && typeof spec.form !== "object";
+  if (!hasLocal && !hasGlobal && !hasForm) {
     return rawSpec;
   }
   if (spec.mode && String(spec.mode).toUpperCase() !== "SOURCE") {
-    throw new Error("NGX SmartSource short form (local/global) requires mode SOURCE.");
+    throw new Error("NGX SmartSource short form (local/global/form) requires mode SOURCE.");
   }
-  if (hasLocal && hasGlobal) {
-    throw new Error("NGX SmartSource short form takes either local or global, not both.");
+  if ((hasLocal ? 1 : 0) + (hasGlobal ? 1 : 0) + (hasForm ? 1 : 0) > 1) {
+    throw new Error("NGX SmartSource short form takes one of local, global or form.");
+  }
+  // {mode: SOURCE, form: "isbn"}: the value of a control of the form the object sits in. The full Form source needs the
+  // form's priority and identifier; an agent wrote form as a short form, got "the source resolves to an empty Angular
+  // expression", then copied the full JSON by hand (usage tests 30/10).
+  if (hasForm) {
+    var form = C8O.dbo._enclosingForm(dbo);
+    var formIdentifier = "";
+    try {
+      formIdentifier = form != null ? String(form.getIdentifier() || "").trim() : "";
+    } catch (_ignoreIdentifier) {}
+    if (form == null || !formIdentifier.length) {
+      throw new Error("NGX SmartSource short form form reads a control of the form the object sits in: " +
+        (form == null ? "no UIForm encloses it" : "its UIForm has no identifier") + ". Use local, or the full Form source.");
+    }
+    var control = String(spec.form).trim();
+    return { mode: "SOURCE", value: JSON.stringify({
+      filter: "Form",
+      project: C8O.dbo._projectNameOf(dbo),
+      input: "",
+      model: {
+        data: [{ priority: Number(String(form.priority)), identifier: formIdentifier }],
+        path: /^[?.\[]/.test(control) ? control : "?.controls?.['" + control.replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "']?.value",
+        prefix: spec.prefix != null ? String(spec.prefix) : "",
+        suffix: spec.suffix != null ? String(spec.suffix) : "",
+        custom: "",
+        useCustom: false
+      }
+    }) };
   }
   var source = {
     filter: hasLocal ? "Local" : "Global",
