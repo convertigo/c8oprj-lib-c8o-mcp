@@ -1,6 +1,11 @@
 // project-lint: one read-only pass over a project for the pitfalls seen in the supervised runs.
 // Each rule names what breaks and the fix; tree-apply warns on most of them at write time, this
 // tool finds them in objects already built. Result: {project, scanned, counts, findings}.
+// The security audit's rules, for SEC-ANONYMOUS-WRITE (include is the engine's; a unit test loads this file without it).
+if (typeof include === "function") {
+  include("js/security_audit_rules.js");
+  include("js/security_audit_collect.js");
+}
 (function () {
   C8O.lint = C8O.lint || {};
 
@@ -284,6 +289,27 @@
     var value = target && typeof target === "object" ? (String(target.mode).toLowerCase() === "plain" ? target.value : "")
       : (typeof target === "string" ? target.replace(/^plain:/, "") : "");
     return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
+  };
+
+  // The requestables anyone can call that write data, as the security audit sees them (the exposure findings it refuses to
+  // let an agent suppress): [{qname, message}]. Agents shipped such a job without ever running the audit (PCA eval m1 and
+  // m2: the anonymous reminder job wrote notifications), while every one of them runs project-lint.
+  C8O.lint.anonymousWrites = function (audit, projectName) {
+    if (!audit || typeof audit.collect !== "function" || typeof audit.evaluate !== "function" || typeof audit.suppressionGuard !== "function") {
+      return [];
+    }
+    var model = audit.collect(projectName, { includeEngine: false, includeFrontend: false });
+    var guard = audit.suppressionGuard(model);
+    var out = [];
+    var seen = {};
+    (audit.evaluate(model).findings || []).forEach(function (finding) {
+      var message = seen[finding.qname] ? "" : String(guard(finding) || "");
+      if (message.length) {
+        seen[finding.qname] = true;
+        out.push({ qname: String(finding.qname), message: message });
+      }
+    });
+    return out;
   };
 
   C8O.lint.run = function (projectName, options) {
@@ -643,6 +669,13 @@
       add("NGX-NO-ROOT-PAGE", "error", pages[0], "No page of the application is its root page (isRoot): the app opens on no route " +
         "(\"Cannot match any routes\").", "Set isRoot on the entry page: databaseobject-tree-apply {properties:{isRoot:true}} on it.");
     }
+
+    try {
+      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName())).forEach(function (w) {
+        add("SEC-ANONYMOUS-WRITE", "error", w.qname, w.message, "Private for a job only the scheduler or other sequences call; otherwise " +
+          "authenticatedContextRequired=true and a role check inside. project-security-audit gives the full report.");
+      });
+    } catch (_ignoreAudit) {}
 
     var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
     textReview.texts = shownOrder.length;
