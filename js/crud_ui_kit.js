@@ -981,9 +981,11 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.ActionsCol.DeleteVisible.Delete.Event.Delete.KeepDeleteResult.WhenDeleted.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.SecondaryActionCol.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.DangerActionCol.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.DangerActionCol.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
+      { qname: componentQName + ".Card.Content.Form.ActionsGrid.ActionsRow.DangerActionCol.DeleteVisible.Delete.Event.Delete.KeepDeleteResult.WhenDeleted.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" },
       { qname: componentQName + ".Card.Content.Cancel.Event.EmitCancelled", property: "data", value: "{ id: this.SelectedId, mode: this.Mode }" },
       { qname: componentQName + ".Card.Content.DeleteVisible.Delete.Event.Delete.id", property: "varValue", value: "this.SelectedId" },
       { qname: componentQName + ".Card.Content.DeleteVisible.Delete.Event.Delete.EmitDeleted", property: "data", value: "{ id: this.SelectedId }" }

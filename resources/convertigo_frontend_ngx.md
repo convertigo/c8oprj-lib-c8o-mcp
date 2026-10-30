@@ -330,6 +330,7 @@ Do not put a control directly under the page or a card without its `FormItem`, a
   - `model.data` holds exactly one entry `{"priority":<priority of the UIForm>,"identifier":"<identifier of the UIForm>"}`. `priority` is the `priority` of the `UIForm` node returned by `databaseobject-tree-get`, written as a JSON number. Without it the engine cannot link the SmartSource to its form (its source `form<priority>` is not produced);
   - `path` carries the value path `?.controls?.['<ControlName>']?.value`;
   - `prefix`, `suffix`, and `custom` stay empty and `useCustom` stays `false`.
+- Short form: `{"mode":"SOURCE","form":"email"}` on a variable inside the form (its submit event and action) is expanded by the MCP to this shape, with the priority and identifier of the enclosing `UIForm`; a path such as `?.controls?.['email']?.value` works too. Prefer it.
 - Do not write this JSON from memory. Read back a valid Form SmartSource of the same project with `databaseobject-tree-get` (`properties:"all"`), or copy one from Studio, and reproduce its exact shape; change only `priority`, `identifier`, and the `ControlName` in `path`. Its shape, for a form whose `UIForm` priority is `1790757878391` and identifier `loginForm`:
 
 ```json

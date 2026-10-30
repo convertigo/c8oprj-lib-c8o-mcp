@@ -1252,11 +1252,20 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
                                 comment: "Delete the selected row."
                               }
                             ),
-                            ctx.emitEventActionNode(
-                              "EmitDeleted",
-                              componentEventQName(templateComponentName("EntityEditForm"), "Deleted"),
-                              "script:{ id: this.SelectedId }",
-                              "Notify the page glue that the delete succeeded."
+                            // A delete the database refuses (a row others still reference) answers an error: it is shown
+                            // like a refused save, and Deleted is emitted only without one (usage tests 30/10).
+                            keepSaveResultNode(ctx, "KeepDeleteResult"),
+                            ctx.ifActionNode(
+                              "WhenDeleted",
+                              "!this.local?.lastSave?.error",
+                              [
+                                ctx.emitEventActionNode(
+                                  "EmitDeleted",
+                                  componentEventQName(templateComponentName("EntityEditForm"), "Deleted"),
+                                  "script:{ id: this.SelectedId }",
+                                  "Notify the page glue that the delete succeeded."
+                                )
+                              ]
                             )
                           ])
                         ])

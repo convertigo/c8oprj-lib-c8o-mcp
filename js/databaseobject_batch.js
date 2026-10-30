@@ -701,6 +701,27 @@ include("js/sql_dialect.js");
     };
   }
 
+  function beanClassExists(className) {
+    var text = String(className || "");
+    if (text.indexOf("#") !== -1) {
+      text = text.substring(0, text.indexOf("#"));
+    }
+    try {
+      Packages.java.lang.Class.forName(text);
+      return true;
+    } catch (_missing) {
+      return false;
+    }
+  }
+
+  function flushClassNameNotes(ctx, report) {
+    var notes = ctx.classNameNotes || [];
+    ctx.classNameNotes = [];
+    for (var i = 0; i < notes.length; i++) {
+      pushReportWarning(report, notes[i]);
+    }
+  }
+
   function createObject(ctx, parent, className, name, createContext, updatesForInstantiation) {
     if (!parent) {
       throw new Error("Parent is required");
@@ -733,8 +754,21 @@ include("js/sql_dialect.js");
         ")"
       );
     }
+    var sameName = !dbo && C8O.dbo.suggestBeanClasses ? C8O.dbo.suggestBeanClasses(normalizedClassName) : [];
+    // A class named with another package (connectors.SqlTransaction, sequences.RequestableVariable, steps.StepVariable)
+    // failed, and the agent sent the same call again before reading the answer: 6 of 12 failures of a usage run (30/10).
+    // When no class has that name and one bean class has its simple name, that one is created, and the answer says so.
+    if (!dbo && sameName.length === 1 && !beanClassExists(normalizedClassName)) {
+      try {
+        dbo = C8O.dbo.instantiateForCreate(C8O.util.toFqcn(sameName[0]), parent, updateHints);
+      } catch (_ignoreSameName) {
+        dbo = null;
+      }
+      if (dbo) {
+        ctx.classNameNotes = (ctx.classNameNotes || []).concat(["className " + className + " was read as " + sameName[0] + "."]);
+      }
+    }
     if (!dbo) {
-      var sameName = C8O.dbo.suggestBeanClasses ? C8O.dbo.suggestBeanClasses(normalizedClassName) : [];
       throw new Error(
         "Unable to instantiate class " + normalizedClassName +
         " (child=" + String(name || "") +
@@ -1445,6 +1479,7 @@ include("js/sql_dialect.js");
         }
         var childUpdates = parsePropertiesMap(childPatch.properties, [], childQName + ".properties");
         var createdChild = createObject(ctx, parentDbo, childClass, childName, null, childUpdates);
+        flushClassNameNotes(ctx, report);
         report.applied.push({
           action: "create",
           parentQName: parentQName,
@@ -1485,6 +1520,7 @@ include("js/sql_dialect.js");
 
         var recreateUpdates = parsePropertiesMap(childPatch.properties, [], childQName + ".properties");
         var recreated = createObject(ctx, parentDbo, childClass, childName, null, recreateUpdates);
+        flushClassNameNotes(ctx, report);
         report.applied.push({
           action: "create",
           parentQName: parentQName,
@@ -1599,6 +1635,7 @@ include("js/sql_dialect.js");
 
     var updates = parsePropertiesMap(op.properties, [], "create.properties");
     var created = createObject(ctx, createCtx.parent, className, name, createCtx, updates);
+    flushClassNameNotes(ctx, report);
     var createdQName = safeQName(created);
 
     report.applied.push({

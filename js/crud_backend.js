@@ -487,9 +487,9 @@ C8O.crudBackend = C8O.crudBackend || {};
       { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
   }
 
-  function buildCanonicalMutationPayload(ctx, sequence, txStep, result) {
+  function buildCanonicalMutationPayload(ctx, sequence, txStep, result, spec) {
     pruneNamedSteps(ctx, sequence, ["CopyPayload", "SqlOutput", "Total", "AffectedRows", "AffectedRowsText"], result);
-    ensureFacadeJsonField(
+    var message = ensureFacadeJsonField(
       ctx,
       sequence,
       "Message",
@@ -498,8 +498,40 @@ C8O.crudBackend = C8O.crudBackend || {};
       "string",
       result
     );
-    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "Message"], result,
+    var failureSteps = ensureWriteFailureCheck(ctx, sequence, txStep, result, spec);
+    for (var f = 0; f < failureSteps.length; f++) {
+      moveBefore(sequence, failureSteps[f], message);
+    }
+    pruneUnexpectedChildSteps(ctx, sequence, ["Call" + ctx.ucfirst(sequence.getName()), "WriteResult", "IfWriteFailed", "Message"], result,
       { keepBefore: "Call" + ctx.ucfirst(sequence.getName()) });
+  }
+
+  // A write the database refused (deleting a client its interventions still reference) answered ok, the database's
+  // refusal as its message: the page went on as if the row was deleted (SEQ-WRITE-UNCHECKED, usage tests 30/10). The
+  // call's document is read, and an error in it ends the sequence with that error (XMLErrorStep), as a required field does.
+  function ensureWriteFailureCheck(ctx, sequence, txStep, result, spec) {
+    var french = spec && spec.ui && String(spec.ui.language || "").toLowerCase() === "fr";
+    var read = ctx.ensureChild(sequence, "steps.JsonSourceStep", "WriteResult", result);
+    ctx.applyUpdates(read, {
+      sourceDefinition: [ctx.priorityOf(txStep), "./document"],
+      variableName: "writeResult"
+    }, result);
+    var check = ctx.ensureChild(sequence, "steps.IfStep", "IfWriteFailed", result);
+    ctx.applyUpdates(check, {
+      condition: "writeResult != null && writeResult.document != null && writeResult.document.error != null"
+    }, result);
+    var error = ctx.ensureChild(check, "steps.XMLErrorStep", "WriteError", result);
+    // A foreign key refusal names the table that still uses the row, in the words of the app, not the database's.
+    var stillUsed = french ? "Cet enregistrement est encore utilisé par " : "This record is still used by ";
+    ctx.applyUpdates(error, {
+      code: plainSmartType("1"),
+      message: { mode: "JS", value: "(function (e) { var m = String(e.message || e.details || ''); " +
+        "var t = /foreign key/i.test(m) ? /table:?\\s*\"?([A-Za-z_][\\w]*)\"?\\s*$/i.exec(m) : null; " +
+        "return t ? " + JSON.stringify(stillUsed) + " + t[1].toLowerCase() + '.' : (m || " +
+        JSON.stringify(french ? "L'enregistrement a échoué." : "The write failed.") + "); })(writeResult.document.error)" }
+    }, result);
+    ctx.ensureChild(check, "steps.ReturnStep", "StopAfterFailedWrite", result);
+    return [read, check];
   }
 
   function configurePublicSequencePayload(ctx, sequence, txStep, options, result) {
@@ -524,7 +556,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       case "create":
       case "update":
       case "delete":
-        buildCanonicalMutationPayload(ctx, sequence, txStep, result);
+        buildCanonicalMutationPayload(ctx, sequence, txStep, result, current.spec);
         return;
       default:
         return;
