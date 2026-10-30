@@ -437,6 +437,12 @@ C8O.sqlDialect = C8O.sqlDialect || {};
     { name: "RETURNING", from: "PostgreSQL", re: /\bRETURNING\s+[\w"*][\w".*]*/i, error: "unexpected token: RETURNING",
       fixes: { hsqldb: LAST_ID.hsqldb, sqlserver: LAST_ID.sqlserver + " (OUTPUT DELETED.id before WHERE for a DELETE)", oracle: LAST_ID.oracle } },
     { name: "ON CONFLICT", from: "PostgreSQL", re: /\bON\s+CONFLICT\b/i, error: "unexpected token: ON", fixes: but(UPSERT, "postgresql") },
+    // A column default goes before its constraints on HSQLDB and Oracle: "c INTEGER NOT NULL DEFAULT 30" fails, as an
+    // agent wrote it in an ALTER TABLE ... ADD COLUMN (usage tests 30/10).
+    { name: "NOT NULL DEFAULT", from: "PostgreSQL or MariaDB/MySQL", whole: true, literal: true,
+      re: /\bNOT\s+NULL\s+DEFAULT\s+('(?:[^']|'')*'|[\w.+\-]+(?:\s*\([^()]*\))?)/i, error: "unexpected token: DEFAULT",
+      message: function () { return "a column default goes before NOT NULL here"; },
+      fixes: each(function (m) { return "DEFAULT " + m[1] + " NOT NULL"; }, "hsqldb", "oracle") },
     { name: "ON DUPLICATE KEY UPDATE", from: "MariaDB/MySQL", re: /\bON\s+DUPLICATE\s+KEY\b/i, error: "unexpected token: ON", fixes: but(UPSERT, "mysql") },
     { name: "INSERT IGNORE", from: "MariaDB/MySQL", re: /\bINSERT\s+IGNORE\b/i, fixes: but(UPSERT, "mysql") },
     { name: "REPLACE INTO", from: "MariaDB/MySQL", re: /(^|;)\s*REPLACE\s+INTO\b/i, fixes: but(UPSERT, "mysql") },
