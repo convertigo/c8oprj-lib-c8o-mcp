@@ -1,6 +1,11 @@
 // project-lint: one read-only pass over a project for the pitfalls seen in the supervised runs.
 // Each rule names what breaks and the fix; tree-apply warns on most of them at write time, this
 // tool finds them in objects already built. Result: {project, scanned, counts, findings}.
+// The security audit's rules, for SEC-ANONYMOUS-WRITE (include is the engine's; a unit test loads this file without it).
+if (typeof include === "function") {
+  include("js/security_audit_rules.js");
+  include("js/security_audit_collect.js");
+}
 (function () {
   C8O.lint = C8O.lint || {};
 
@@ -272,6 +277,92 @@
     }
   };
 
+  // The requestable a CallSequence action calls, "Project.sequence", from its bean properties: {requestable: "plain:P.s"}
+  // in the YAML, {requestable: {mode, value}} in memory. "" for any other action.
+  C8O.lint.callTargetOf = function (bean) {
+    var name = String((bean && (bean.ionBean || bean.name)) || "");
+    if (!/^CallSequence(Action)?$/.test(name)) {
+      return "";
+    }
+    var props = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
+    var target = props.requestable;
+    var value = target && typeof target === "object" ? (String(target.mode).toLowerCase() === "plain" ? target.value : "")
+      : (typeof target === "string" ? target.replace(/^plain:/, "") : "");
+    return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
+  };
+
+  // Adds a finding to a list capped at max. A full list still takes an error, in place of its last finding that is not one:
+  // on a large app thousands of warnings filled the list before the errors were found (C8Oforms: 2707 i18n warnings hid
+  // its 4 SEC-ANONYMOUS-WRITE errors, counted but not listed).
+  C8O.lint.keepFinding = function (findings, finding, max) {
+    if (findings.length < max) {
+      findings.push(finding);
+      return;
+    }
+    if (finding.severity !== "error") {
+      return;
+    }
+    for (var i = findings.length - 1; i >= 0; i--) {
+      if (findings[i].severity !== "error") {
+        findings.splice(i, 1);
+        findings.push(finding);
+        return;
+      }
+    }
+  };
+
+  // A "public-write: <reason>" line in a requestable's comment: the reason, "" for a line without one, null without the line.
+  C8O.lint.publicWriteReason = function (comment) {
+    var match = /^[ \t]*public-write[ \t]*:(.*)$/im.exec(String(comment || ""));
+    return match ? match[1].trim() : null;
+  };
+
+  // The requestables anyone can call that write data, as the security audit sees them (the exposure findings it refuses to
+  // let an agent suppress): [{qname, message, severity, reason}]. Agents shipped such a job without ever running the audit
+  // (PCA eval m1 and m2: the anonymous reminder job wrote notifications), while every one of them runs project-lint.
+  // A public form or a webhook receiver writes for anyone by design: a "public-write: <reason>" line in its comment
+  // (commentOf(qname)) turns the error into a warning that is still reported, with the reason; a line without a reason
+  // changes nothing.
+  C8O.lint.anonymousWrites = function (audit, projectName, commentOf) {
+    if (!audit || typeof audit.collect !== "function" || typeof audit.evaluate !== "function" || typeof audit.suppressionGuard !== "function") {
+      return [];
+    }
+    var model = audit.collect(projectName, { includeEngine: false, includeFrontend: false });
+    var guard = audit.suppressionGuard(model);
+    var out = [];
+    var seen = {};
+    (audit.evaluate(model).findings || []).forEach(function (finding) {
+      var message = seen[finding.qname] ? "" : String(guard(finding) || "");
+      if (!message.length) {
+        return;
+      }
+      seen[finding.qname] = true;
+      var qname = String(finding.qname);
+      var reason = typeof commentOf === "function" ? C8O.lint.publicWriteReason(commentOf(qname)) : null;
+      if (reason === null) {
+        out.push({ qname: qname, message: message, severity: "error", reason: null });
+      } else if (!reason.length) {
+        out.push({ qname: qname, message: message + " Its public-write line gives no reason, so it stays an error.", severity: "error", reason: "" });
+      } else {
+        out.push({ qname: qname, message: message.replace(/: this risk cannot be accepted\.[\s\S]*$/, ".") +
+          " Declared public write: \"" + reason + "\".", severity: "warning", reason: reason });
+      }
+    });
+    return out;
+  };
+
+  // The comment of a requestable of the project from the audit's QName: "P.sequence" or "P.connector.transaction".
+  function requestableComment(project, qname) {
+    var parts = String(qname).split(".");
+    try {
+      var dbo = parts.length === 2 ? project.getSequenceByName(parts[1])
+        : (parts.length === 3 ? project.getConnectorByName(parts[1]).getTransactionByName(parts[2]) : null);
+      return dbo ? str(call(dbo, "getComment")) : "";
+    } catch (_noRequestable) {
+      return "";
+    }
+  }
+
   C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName || ""));
@@ -302,9 +393,8 @@
     function add(rule, severity, dbo, message, fix) {
       counts.byRule[rule] = (counts.byRule[rule] || 0) + 1;
       counts.bySeverity[severity] = (counts.bySeverity[severity] || 0) + 1;
-      if (findings.length < MAX_FINDINGS) {
-        findings.push({ rule: rule, severity: severity, qname: typeof dbo === "string" ? dbo : qnameOf(dbo), message: message, fix: fix });
-      }
+      C8O.lint.keepFinding(findings, { rule: rule, severity: severity, qname: typeof dbo === "string" ? dbo : qnameOf(dbo), message: message, fix: fix },
+        MAX_FINDINGS);
     }
 
     function lintSql(dbo) {
@@ -493,6 +583,21 @@
             // beanData is {ionBean, Prop: "plain:..."} in the YAML and {name, properties: {Prop: {mode, value}}} in memory,
             // where a property left unset holds false (or the text "not set"): a live lint read no Label of a form.
             var elementProps = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
+            // A page that calls a Private sequence works in the Studio, which does not enforce Private, and is refused on
+            // a server (PCA eval 30/10: the "run the reminder check" button of the admin dashboard called the Private job).
+            var callTarget = className === "UIDynamicAction" ? C8O.lint.callTargetOf(bean) : "";
+            if (callTarget.length) {
+              try {
+                var calledProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(callTarget.split(".")[0]);
+                var called = calledProject ? calledProject.getSequenceByName(callTarget.split(".")[1]) : null;
+                if (called && String(called.getAccessibility()) === "Private") {
+                  add("NGX-PRIVATE-CALL", "error", dbo, "The page calls " + callTarget + ", a Private sequence: the Studio runs it (it does not " +
+                    "enforce Private), a server refuses the call from the app.",
+                    "Make the called sequence Hidden with authenticatedContextRequired=true and a role check inside; a scheduled job can stay a " +
+                    "Private sequence that the page's sequence and the scheduler both call.");
+                }
+              } catch (_ignoreCallTarget) {}
+            }
             for (var bk in elementProps) {
               var bv = Object.prototype.hasOwnProperty.call(elementProps, bk) && TEXT_PROPERTIES.test(bk) ? elementProps[bk] : null;
               var plain = bv && typeof bv === "object" ? (String(bv.mode).toLowerCase() === "plain" ? bv.value : null)
@@ -614,6 +719,18 @@
       add("NGX-NO-ROOT-PAGE", "error", pages[0], "No page of the application is its root page (isRoot): the app opens on no route " +
         "(\"Cannot match any routes\").", "Set isRoot on the entry page: databaseobject-tree-apply {properties:{isRoot:true}} on it.");
     }
+
+    try {
+      var commentOf = function (qname) { return requestableComment(project, qname); };
+      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName()), commentOf).forEach(function (w) {
+        add("SEC-ANONYMOUS-WRITE", w.severity, w.qname, w.message, w.severity === "warning"
+          ? "Keep it only if anyone must be able to write here; the reviewer sees this warning on every lint."
+          : "Private for a job only the scheduler or other sequences call; otherwise authenticatedContextRequired=true and a role check " +
+            "inside. Only a write anyone must be able to make (a public form, a webhook receiver), never a job or an admin action, may " +
+            "say so with a line \"public-write: <reason>\" in its comment: it then stays reported as a warning. project-security-audit " +
+            "gives the full report.");
+      });
+    } catch (_ignoreAudit) {}
 
     var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
     textReview.texts = shownOrder.length;
