@@ -175,14 +175,24 @@ comment: Template source for the CRUD entity edit form.
                         - xmlizable: 
                           - ↑classname: com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType
                           - MobileSmartSourceType: script:this.SelectedId
-                    ↓EmitDeleted [ngx.components.UIDynamicEmit-1775818417350]: 
+                    ↓KeepDeleteResult [ngx.components.UIDynamicAction-1793330000101]: 
                       beanData: |
                         '{
-                         "ionBean": "EmitEventAction",
-                         "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Deleted",
-                         "data": "script:{ id: this.SelectedId }"
+                         "ionBean": "SetLocalAction",
+                         "Property": "plain:lastSave",
+                         "Value": "script:out"
                         }'
-                      comment: Notify the page glue that the delete succeeded.
+                      comment: 'Keep the save answer: its error is shown above the buttons.'
+                      ↓WhenDeleted [ngx.components.UIDynamicAction-1793330000103]: 
+                        beanData: '{"ionBean":"IfAction","condition":"script:!this.local?.lastSave?.error"}'
+                        ↓EmitDeleted [ngx.components.UIDynamicEmit-1775818417350]: 
+                          beanData: |
+                            '{
+                             "ionBean": "EmitEventAction",
+                             "event": "plain:__PROJECT_NAME__.Application.NgxApp.TplEntityEditForm.Deleted",
+                             "data": "script:{ id: this.SelectedId }"
+                            }'
+                          comment: Notify the page glue that the delete succeeded.
       ↓Submit1 [ngx.components.UIControlEvent-1775818417352]: 
         attrName: (ngSubmit)
         eventName: onSubmit
