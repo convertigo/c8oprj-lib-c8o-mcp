@@ -123,6 +123,7 @@ var SYSTEM_PROMPT = [
   "- You only observe and use the application like a user (log in, click, fill forms, as the paths say). You never change its code, configuration or files, and you never read its source: no fetch of scripts, bundles or routes, no study of how it is built.",
   "- When a step's precondition already holds (for example the app is already signed in and shows its home page), say so in the evidence and go on. When a step stays blocked after two attempts, mark its checks not_checked with what you saw and go to the next path: every path must get its turn. Each tool result ends with the time and turns used so far.",
   "- Walk each path once, exactly as written. Never repeat an action that changes data (save, declare, delete, submit...) to get a better result: the first outcome is the result. Retry only an action that did not happen (the tool returned an error), once, another way.",
+  "- A figure or text in a check, and in the summary, is the one read on the page that check is about: name that page, and never carry a value read on another page (an admin dashboard's counts are not the home page's).",
   "- Read the result right after the action that should produce it, and quote it exactly. A check passes only on evidence you saw: the exact text or value read, or what a screenshot shows. Anything different from what the path or check expects is a failure, even if it looks minor.",
   "- Be fast: a few tool calls per path; several independent tool calls may go in one turn. The page snapshot (accessibility tree) comes back after each click, navigation, key press and scroll. Use evaluate only for a value no other tool gives.",
   "- To see what lies below the screen, use scroll, then screenshot. Ionic apps scroll inside ion-content, not the body: a body with overflow hidden and a document as high as the screen are normal, never a defect; a full-page screenshot does not show such content.",
@@ -707,6 +708,33 @@ function layoutScan() {
 // ---------------------------------------------------------------------------------------------------------------
 // Tool execution
 
+// The Studio viewer keeps its build progress widget in the page after the build: a div holding a 100x100 canvas,
+// centered on the body. Above an Ionic overlay it takes the clicks: the options of an ion-select alert could not be
+// clicked and the verifier spent its step budget there (PCA eval 30/10). It only shows progress, so it lets clicks
+// through.
+async function releaseStudioProgress(page) {
+  await page.evaluate(function () {
+    Array.prototype.forEach.call(document.body ? document.body.children : [], function (el) {
+      var canvas = el.firstElementChild;
+      if (el.tagName === "DIV" && el.style.position === "absolute" && canvas && canvas.tagName === "CANVAS" &&
+        canvas.width === 100 && canvas.height === 100) {
+        el.style.pointerEvents = "none";
+      }
+    });
+  }).catch(function () {});
+}
+
+// The OK button of an open ion-alert (the default interface of ion-select): the choice applies only there.
+async function confirmOpenAlert(page, timeout) {
+  var ok = page.locator("ion-alert .alert-button-group button:not(.alert-button-role-cancel)").filter({ visible: true });
+  if (await ok.count() === 0) {
+    return false;
+  }
+  await ok.last().click({ timeout: timeout });
+  await sleep(300);
+  return true;
+}
+
 function createTools(state, config) {
   var page = function () { return state.page; };
   var t = config.actionTimeoutMs;
@@ -731,6 +759,7 @@ function createTools(state, config) {
       return { text: await ariaSnapshot(page(), SNAPSHOT_LIMIT), snapshot: true };
     },
     click: async function (args) {
+      await releaseStudioProgress(page());
       var found = await single(page(), args);
       await found.locator.click({ timeout: t });
       return withSnapshot("Clicked" + found.note + ".");
@@ -742,6 +771,7 @@ function createTools(state, config) {
       return { text: "Filled" + found.note + "." };
     },
     select: async function (args) {
+      await releaseStudioProgress(page());
       var found = await single(page(), args);
       var value = String(args.value == null ? "" : args.value);
       var tag = await found.locator.evaluate(function (el) { return el.tagName.toLowerCase(); });
@@ -753,13 +783,41 @@ function createTools(state, config) {
         }
         return { text: "Selected" + found.note + "." };
       }
-      // A custom select (ion-select, mat-select...): open it, then click the option text.
+      // A custom select (ion-select, mat-select...): open it, then click the option text. An ion-select opens an alert
+      // by default, which applies the choice only on its OK button and, left open, covers the page: every later click
+      // timed out until the verifier's step budget was gone (PCA eval 30/10). The alert is confirmed; an option that
+      // cannot be clicked is set on the ion-select as a user's choice would be (ionChange).
       await found.locator.click({ timeout: t });
       await sleep(300);
-      await page().getByText(value, { exact: true }).filter({ visible: true }).first().click({ timeout: t });
-      return withSnapshot("Opened the select and clicked the option" + found.note + ".");
+      try {
+        await page().getByText(value, { exact: true }).filter({ visible: true }).first().click({ timeout: t });
+      } catch (optionError) {
+        await page().keyboard.press("Escape").catch(function () {});
+        if (tag !== "ion-select") {
+          throw optionError;
+        }
+        var set = await found.locator.evaluate(function (el, wanted) {
+          var options = Array.prototype.slice.call(el.querySelectorAll("ion-select-option"));
+          var match = options.filter(function (o) {
+            return String(o.value) === wanted || String(o.textContent || "").trim() === wanted;
+          })[0];
+          if (!match) {
+            return { ok: false, options: options.map(function (o) { return String(o.textContent || "").trim(); }) };
+          }
+          el.value = match.value;
+          el.dispatchEvent(new CustomEvent("ionChange", { detail: { value: match.value }, bubbles: true }));
+          return { ok: true };
+        }, value);
+        if (!set.ok) {
+          throw new Error("No option \"" + value + "\" in this select. Its options: " + set.options.join(" | ") + ".");
+        }
+        return withSnapshot("Set the select to the option" + found.note + " (its list could not be clicked).");
+      }
+      var confirmed = await confirmOpenAlert(page(), t);
+      return withSnapshot("Opened the select and clicked the option" + (confirmed ? ", then OK" : "") + found.note + ".");
     },
     check: async function (args) {
+      await releaseStudioProgress(page());
       var found = await single(page(), args);
       var checked = args.checked !== false;
       try {
