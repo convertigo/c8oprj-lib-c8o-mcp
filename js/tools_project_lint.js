@@ -272,6 +272,20 @@
     }
   };
 
+  // The requestable a CallSequence action calls, "Project.sequence", from its bean properties: {requestable: "plain:P.s"}
+  // in the YAML, {requestable: {mode, value}} in memory. "" for any other action.
+  C8O.lint.callTargetOf = function (bean) {
+    var name = String((bean && (bean.ionBean || bean.name)) || "");
+    if (!/^CallSequence(Action)?$/.test(name)) {
+      return "";
+    }
+    var props = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
+    var target = props.requestable;
+    var value = target && typeof target === "object" ? (String(target.mode).toLowerCase() === "plain" ? target.value : "")
+      : (typeof target === "string" ? target.replace(/^plain:/, "") : "");
+    return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
+  };
+
   C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName || ""));
@@ -493,6 +507,21 @@
             // beanData is {ionBean, Prop: "plain:..."} in the YAML and {name, properties: {Prop: {mode, value}}} in memory,
             // where a property left unset holds false (or the text "not set"): a live lint read no Label of a form.
             var elementProps = bean.properties && typeof bean.properties === "object" ? bean.properties : bean;
+            // A page that calls a Private sequence works in the Studio, which does not enforce Private, and is refused on
+            // a server (PCA eval 30/10: the "run the reminder check" button of the admin dashboard called the Private job).
+            var callTarget = className === "UIDynamicAction" ? C8O.lint.callTargetOf(bean) : "";
+            if (callTarget.length) {
+              try {
+                var calledProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(callTarget.split(".")[0]);
+                var called = calledProject ? calledProject.getSequenceByName(callTarget.split(".")[1]) : null;
+                if (called && String(called.getAccessibility()) === "Private") {
+                  add("NGX-PRIVATE-CALL", "error", dbo, "The page calls " + callTarget + ", a Private sequence: the Studio runs it (it does not " +
+                    "enforce Private), a server refuses the call from the app.",
+                    "Make the called sequence Hidden with authenticatedContextRequired=true and a role check inside; a scheduled job can stay a " +
+                    "Private sequence that the page's sequence and the scheduler both call.");
+                }
+              } catch (_ignoreCallTarget) {}
+            }
             for (var bk in elementProps) {
               var bv = Object.prototype.hasOwnProperty.call(elementProps, bk) && TEXT_PROPERTIES.test(bk) ? elementProps[bk] : null;
               var plain = bv && typeof bv === "object" ? (String(bv.mode).toLowerCase() === "plain" ? bv.value : null)
