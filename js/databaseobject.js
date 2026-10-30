@@ -2107,6 +2107,41 @@ C8O.dbo._expandSmartSourceShorthand = function (rawSpec, dbo) {
   return { mode: "SOURCE", value: JSON.stringify(source) };
 };
 
+// A smart source written with its path beside model ({"filter":"Local","model":{"data":[...]},"path":"?.data?.items"})
+// reads local alone: a ForEach over it failed at run time (NG02200) and texts showed {{local}}, while tree-apply and
+// project-lint passed it (PCA eval 30/10). These model keys written beside it go back into it.
+C8O.dbo._SMART_SOURCE_MODEL_KEYS = ["path", "prefix", "suffix", "custom", "useCustom"];
+
+C8O.dbo._misplacedSmartSourceKeys = function (source) {
+  if (!source || typeof source !== "object" || !source.model || typeof source.model !== "object") {
+    return [];
+  }
+  return C8O.dbo._SMART_SOURCE_MODEL_KEYS.filter(function (key) {
+    var outside = source[key];
+    var inside = source.model[key];
+    return outside !== undefined && outside !== null && String(outside) !== "" &&
+      (inside === undefined || inside === null || String(inside) === "");
+  });
+};
+
+C8O.dbo._normalizeSmartSourceJson = function (text) {
+  var source = null;
+  try {
+    source = JSON.parse(String(text));
+  } catch (_notJson) {
+    return text;
+  }
+  var misplaced = C8O.dbo._misplacedSmartSourceKeys(source);
+  if (!misplaced.length) {
+    return text;
+  }
+  misplaced.forEach(function (key) {
+    source.model[key] = source[key];
+    delete source[key];
+  });
+  return JSON.stringify(source);
+};
+
 C8O.dbo._buildMobileSmartSourceType = function (spec) {
   var MobileSmartSourceType = Packages.com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType;
   var Mode = Packages.com.twinsoft.convertigo.beans.ngx.components.MobileSmartSourceType.Mode;
@@ -2178,6 +2213,7 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
     if (smartValue == null || smartValue.length === 0) {
       smartValue = "{}";
     }
+    smartValue = C8O.dbo._normalizeSmartSourceJson(smartValue);
   }
   smart.setSmartValue(smartValue);
   if (mode === Mode.SOURCE) {

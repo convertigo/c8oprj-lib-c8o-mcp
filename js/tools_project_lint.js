@@ -358,7 +358,35 @@
       }
     }
 
+    // A source with its path beside model reads local alone: {{local}} in a text, NG02200 in a ForEach (PCA eval 30/10).
+    function lintSourcePath(dbo, smart) {
+      var text = "";
+      try {
+        text = smart && typeof smart.getMode === "function" && String(smart.getMode()) === "SOURCE" ? str(smart.getSmartValue()) : "";
+      } catch (_ignoreSmart) {
+        text = "";
+      }
+      if (!text.length && /^source:/.test(str(smart))) {
+        text = str(smart).substring(7);
+      }
+      var source = null;
+      try {
+        source = text.length ? JSON.parse(text) : null;
+      } catch (_notJson) {
+        return;
+      }
+      var misplaced = C8O.dbo._misplacedSmartSourceKeys(source);
+      if (misplaced.length) {
+        add("NGX-SOURCE-PATH", "error", dbo, "The source has " + misplaced.join(", ") + " beside model, not in it: the template reads " +
+          (source.filter === "Global" ? "the shared object" : "local") + " alone (a ForEach fails with NG02200, a text shows the object).",
+          "Write it again with tree-apply, for example {mode: \"SOURCE\", local: \"" + String(source.path || "?.data?.items") + "\"}.");
+      }
+    }
+
     function lintNgx(dbo, className) {
+      if (className === "UIText" || className === "UIAttribute" || className === "UIControlDirective") {
+        lintSourcePath(dbo, call(dbo, className === "UIText" ? "getTextSmartType" : className === "UIAttribute" ? "getAttrSmartType" : "getSourceSmartType"));
+      }
       if (className === "UIText") {
         var text = smartText(call(dbo, "getTextSmartType") || call(dbo, "getTextValue"));
         if (call(dbo, "isI18n") === true && text.length) {
@@ -395,7 +423,7 @@
             "Write local?.x instead of c8oPage.local?.x.");
         }
       } else if (className === "UIControlDirective") {
-        var directive = str(call(dbo, "getDirectiveExpression")) + " " + smartText(call(dbo, "getDirectiveSource"));
+        var directive = str(call(dbo, "getDirectiveExpression")) + " " + smartText(call(dbo, "getSourceSmartType"));
         if (/\bc8oPage\./.test(directive)) {
           add("NGX-C8OPAGE-TEMPLATE", "error", dbo, "c8oPage in a directive: the page has no c8oPage member and fails at run time.",
             "Write local?.x instead of c8oPage.local?.x.");
