@@ -363,6 +363,12 @@
               "Read the variable by its JavaScript name: " + getMatch[1] + ".");
           }
         }
+        // A write checked in an IfStep condition (writeResult.document.error) was reported unchecked: only step
+        // expressions were read (usage tests 30/10).
+        var condition = str(call(step, "getCondition"));
+        if (condition.length) {
+          expressions.push(condition);
+        }
         if (className === "TransactionStep") {
           var target = str(call(step, "getSourceTransaction"));
           var targetName = target.substring(target.lastIndexOf(".") + 1);
