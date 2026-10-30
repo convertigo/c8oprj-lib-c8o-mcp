@@ -159,6 +159,7 @@
     var reasoningEffort = "low";
     var usages = [];
     var reviewed = 0;
+    var notReviewed = 0;
     var problems = 0;
     for (var g = 0; g < groups.length; g++) {
       var items = groups[g].items;
@@ -198,17 +199,22 @@
       if (response.status < 200 || response.status >= 300) {
         return { skipped: "gateway answered " + response.status + ": " + C8O.imageDescribe.redact(gatewayErrorText(response.body), key), usages: usages };
       }
-      var body = JSON.parse(response.body);
-      var usage = C8O.imageDescribe.usageOf(body, model, response.header("x-litellm-response-cost"), host.now() - started, response.header("x-litellm-call-id"));
-      usage.tool = "project-lint";
-      usages.push(usage);
-      var content = String((((body.choices || [])[0] || {}).message || {}).content || "");
-      var jsonText = content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1);
-      var answer = {};
-      try {
-        answer = JSON.parse(jsonText);
-      } catch (_badAnswer) {
-        answer = { issues: [] };
+      var answer = readReviewAnswer(response, started);
+      // mistral-large-4 at reasoning_effort low once spent its 4 000 tokens reasoning and answered nothing: the group
+      // counted as reviewed with no problem (PCA eval 30/10). A cut answer is asked again with more room, then left out.
+      if (answer === null) {
+        request.max_tokens = 12000;
+        started = host.now();
+        try {
+          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+        } catch (_retryFailed) {
+          response = null;
+        }
+        answer = response && response.status >= 200 && response.status < 300 ? readReviewAnswer(response, started) : null;
+      }
+      if (answer === null) {
+        notReviewed += items.length;
+        continue;
       }
       reviewed += items.length;
       var issues = Array.isArray(answer.issues) ? answer.issues : [];
@@ -224,7 +230,26 @@
           "Write \"" + str(issues[q].fixed).substring(0, 120) + "\".");
       }
     }
-    return { reviewed: reviewed, problems: problems, model: model, usages: usages };
+    var result = { reviewed: reviewed, problems: problems, model: model, usages: usages };
+    if (notReviewed > 0) {
+      result.notReviewed = notReviewed;
+      result.message = notReviewed + " texts were not reviewed: the model answer was cut twice.";
+    }
+    return result;
+
+    function readReviewAnswer(answered, since) {
+      var answerBody = JSON.parse(answered.body);
+      var usage = C8O.imageDescribe.usageOf(answerBody, model, answered.header("x-litellm-response-cost"), host.now() - since, answered.header("x-litellm-call-id"));
+      usage.tool = "project-lint";
+      usages.push(usage);
+      var content = String((((answerBody.choices || [])[0] || {}).message || {}).content || "");
+      try {
+        var parsed = JSON.parse(content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1));
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (_badAnswer) {
+        return null;
+      }
+    }
   };
 
   C8O.lint.run = function (projectName, options) {
@@ -306,9 +331,12 @@
       var alias = /\bAS\s+([a-z][A-Za-z0-9_]*)\b/.exec(query);
       var folding = D.aliasFolding(dialect);
       if (alias && folding && (folding !== "lower-cases" || /[A-Z]/.test(alias[1])) && /^\s*(SELECT|WITH)\b/i.test(query)) {
+        var folded = folding === "lower-cases" ? alias[1].toLowerCase() : alias[1].toUpperCase();
+        // The fix names the other side too: a kit sequence read ./row/TOTAL, and quoting "total" emptied its counter.
         add("SQL-ALIAS-CASE", "warning", dbo, "Unquoted alias " + alias[1] + ": " + (D.name(dialect) || "the database") + " " + folding +
-          " it (" + (folding === "lower-cases" ? alias[1].toLowerCase() : alias[1].toUpperCase()) + "), so row." + alias[1] + " is undefined.",
-          "Quote the aliases: AS \"" + alias[1] + "\".");
+          " it (" + folded + "), so row." + alias[1] + " is undefined.",
+          "Quote the aliases: AS \"" + alias[1] + "\". A step that already reads ./row/" + folded + " then reads nothing: quote AS \"" +
+          folded + "\" for it instead.");
       }
     }
 
@@ -355,7 +383,35 @@
       }
     }
 
+    // A source with its path beside model reads local alone: {{local}} in a text, NG02200 in a ForEach (PCA eval 30/10).
+    function lintSourcePath(dbo, smart) {
+      var text = "";
+      try {
+        text = smart && typeof smart.getMode === "function" && String(smart.getMode()) === "SOURCE" ? str(smart.getSmartValue()) : "";
+      } catch (_ignoreSmart) {
+        text = "";
+      }
+      if (!text.length && /^source:/.test(str(smart))) {
+        text = str(smart).substring(7);
+      }
+      var source = null;
+      try {
+        source = text.length ? JSON.parse(text) : null;
+      } catch (_notJson) {
+        return;
+      }
+      var misplaced = C8O.dbo._misplacedSmartSourceKeys(source);
+      if (misplaced.length) {
+        add("NGX-SOURCE-PATH", "error", dbo, "The source has " + misplaced.join(", ") + " beside model, not in it: the template reads " +
+          (source.filter === "Global" ? "the shared object" : "local") + " alone (a ForEach fails with NG02200, a text shows the object).",
+          "Write it again with tree-apply, for example {mode: \"SOURCE\", local: \"" + String(source.path || "?.data?.items") + "\"}.");
+      }
+    }
+
     function lintNgx(dbo, className) {
+      if (className === "UIText" || className === "UIAttribute" || className === "UIControlDirective") {
+        lintSourcePath(dbo, call(dbo, className === "UIText" ? "getTextSmartType" : className === "UIAttribute" ? "getAttrSmartType" : "getSourceSmartType"));
+      }
       if (className === "UIText") {
         var text = smartText(call(dbo, "getTextSmartType") || call(dbo, "getTextValue"));
         if (call(dbo, "isI18n") === true && text.length) {
@@ -392,7 +448,7 @@
             "Write local?.x instead of c8oPage.local?.x.");
         }
       } else if (className === "UIControlDirective") {
-        var directive = str(call(dbo, "getDirectiveExpression")) + " " + smartText(call(dbo, "getDirectiveSource"));
+        var directive = str(call(dbo, "getDirectiveExpression")) + " " + smartText(call(dbo, "getSourceSmartType"));
         if (/\bc8oPage\./.test(directive)) {
           add("NGX-C8OPAGE-TEMPLATE", "error", dbo, "c8oPage in a directive: the page has no c8oPage member and fails at run time.",
             "Write local?.x instead of c8oPage.local?.x.");

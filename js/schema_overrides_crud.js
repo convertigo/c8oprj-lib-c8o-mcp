@@ -96,7 +96,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         project: { type: "string", description: "Existing NGX project technical name." },
         entities: {
-          description: "Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections. Entity entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages UI shows better visible fields and relation controls without direct edits on managed CRUD-kit components. Relation controls default to select; set ui.relationFields.<field>.control=autocomplete to opt into the local autocomplete variant. ui.actionLabel is the label of the edit form's save button (default \"Save <singular>\"), not of the button that opens a new record. A field with a fixed set of values becomes a select with ui.fieldOptions.<field> (an array of values, or of {value, label}); the create form starts from ui.fieldDefaults.<field>, else from the column default of the table.",
+          description: "Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections. Entity entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages UI shows better visible fields and relation controls without direct edits on managed CRUD-kit components. Relation controls default to select; set ui.relationFields.<field>.control=autocomplete to opt into the local autocomplete variant. ui.actionLabel is the label of the edit form's save button (default \"Save <singular>\"), not of the button that opens a new record. A field with a fixed set of values becomes a select with ui.fieldOptions.<field> (an array of values, or of {value, label}); the create form starts from ui.fieldDefaults.<field>, else from the column default of the table. ui.listFilters filters the list: [{field, label, options} (a select; options default to the field's ui.fieldOptions), {search: [fields], label} (a text searched in those fields)].",
           oneOf: [
             { type: "string" },
             { type: "array", items: { type: "object", additionalProperties: true } },
@@ -111,6 +111,10 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         },
         facadePrefix: { type: "string", description: "CRUD business sequence prefix used for shell labels and future wiring." },
         entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
+        auth: {
+          description: "Sign-in of the pages: demo (default, the login page signs in as demo) or form, as a string or {mode: \"form\", sequence: \"auth_login\", userVariable: \"username\", passwordVariable: \"password\"}. With form the login page asks a user name and a password and calls that login sequence of the project (the generated auth_login, or the app's own once it checks the password); a page opened without a session goes to it. The sequence refuses with an error element (or success false and errors), whose message the form shows.",
+          oneOf: [{ type: "string" }, { type: "object", additionalProperties: true }]
+        },
         language: { type: "string", enum: ["en", "fr"], description: "Language of the texts the kit writes (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English." },
         runtimeEvidence: {
           description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",

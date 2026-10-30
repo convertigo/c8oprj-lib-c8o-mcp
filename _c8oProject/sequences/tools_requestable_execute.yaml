@@ -42,6 +42,7 @@ comment: |
         recordSchema: recordSchemaFlag,
         includeLogs: includeLogsFlag,
         allowDataReset: allowResetFlag === true,
+        before: typeof before === ''undefined'' ? null : before,
         startedAt: startedAt
     };
     if (authUser.length) {
@@ -115,13 +116,9 @@ comment: |
   comment: Build a compact requestable-execute response for MCP clients.
   expression: |
     'var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
-    // authenticatedUser is for this call only: give the session back as it was.
-    if (executionPlan && executionPlan.authenticatedUser) {
-        if (executionPlan.previousAuthenticatedUser) {
-            context.setAuthenticatedUser(executionPlan.previousAuthenticatedUser);
-        } else {
-            context.removeAuthenticatedUser();
-        }
+    // authenticatedUser and the session the before calls opened (a login) are for this call only: give them back.
+    if (C8O.requestable && C8O.requestable.endCall) {
+        C8O.requestable.endCall(executionPlan);
     }
     function _node(value) {
       if (value && typeof value.item === "function") {
@@ -213,7 +210,8 @@ comment: |
         // requestable-execute keeps no session for the next call (usage tests 29/10).
         if (/^Authentication required\b/.test(String(out.error.message || "")) && !(executionPlan && executionPlan.authenticatedUser)) {
           out.error.hint = "This sequence needs a signed-in user: call it again with authenticatedUser (the user name the login " +
-            "sequence sets, for example \"demo\"). A login sequence run by requestable-execute keeps no session for the next call.";
+            "sequence sets, for example \"demo\"), or with before: [{requestable: \"<project>.<login sequence>\", variables: {...}}] " +
+            "when it also needs what the login stores in the session (a role). A login run by an earlier call keeps no session.";
         }
         // A script error of the called sequence came as the generic "An exception occured while executing step", its
         // own message and the step only in details (preflight checks): lift both into the message.
@@ -271,6 +269,9 @@ comment: |
       return out;
     }
     requestableExecutionResult = _compactPayload(_json(requestableResponse));
+    if (executionPlan && executionPlan.beforeResults && executionPlan.beforeResults.length) {
+        requestableExecutionResult.before = executionPlan.beforeResults;
+    }
     // The payload (up to 24 000 characters) and the logs (up to 16 000) together passed 35 000 (preflight checks): the
     // logs keep the latest lines that fit beside the payload, 2 000 characters at least.
     try {
@@ -378,6 +379,9 @@ comment: |
 ↓allowDataReset [variables.RequestableVariable-1793300000001]: 
   comment: Set true only when the user's own words ask to empty or reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it. A request to fix values (cents lost, a wrong label) is not one: UPDATE the rows concerned; deleting and inserting the demo rows again loses the rows the user entered.
   description: Set true only when the user's own words ask to empty or reset the data: a transaction that empties or drops a table holding rows (DELETE without WHERE, TRUNCATE, DROP, the seed of an init_schema) is refused without it. A request to fix values (cents lost, a wrong label) is not one: UPDATE the rows concerned; deleting and inserting the demo rows again loses the rows the user entered.
+↓before [variables.RequestableVariable-1793320000001]: 
+  comment: Requestables to run first, in order, in the same session as this call: [{"requestable": "<project>.<login sequence>", "variables": {...}}]. Use it for a call that needs a session another requestable sets (a login that stores the user or a role): a login run by an earlier requestable-execute keeps no session for the next call. The call does not run when one of them answers an error; their session ends with the call.
+  description: Requestables to run first, in order, in the same session as this call: [{"requestable": "<project>.<login sequence>", "variables": {...}}]. Use it for a call that needs a session another requestable sets (a login that stores the user or a role): a login run by an earlier requestable-execute keeps no session for the next call. The call does not run when one of them answers an error; their session ends with the call.
 ↓ip [core.TestCase-1763981218508]: 
   ↓requestable [variables.TestCaseVariable-1763981219651]: 
     value: codex_test.http_demo.get_ip

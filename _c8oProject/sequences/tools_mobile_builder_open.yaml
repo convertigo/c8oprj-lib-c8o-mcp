@@ -23,8 +23,8 @@ responseTimeout: 120
   comment: Existing NGX project name.
   description: Existing NGX project name.
 ↓timeoutSec [variables.RequestableVariable-1772733053163]: 
-  comment: Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. Default 90; max 600.
-  description: Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. Default 90; max 600.
+  comment: Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. The wait of an agent call is at most 45 (a tool call longer than about a minute fails on the client side); while the answer says building, call again.
+  description: Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. The wait of an agent call is at most 45 (a tool call longer than about a minute fails on the client side); while the answer says building, call again.
   value: 90
 ↓logsLimit [variables.RequestableVariable-1772733053321]: 
   comment: Maximum builder log lines returned for diagnostics. Default 40; max 200.

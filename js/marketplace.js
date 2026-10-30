@@ -1162,6 +1162,15 @@ C8O.marketplace.importLibrary = function (options) {
     }
   }
 
+  // The answer named no folder: an agent searched the whole disk with mdfind and find for the project (PCA eval 30/10).
+  var projectDir = "";
+  try {
+    var dirProject = importedProject || C8O.marketplace.resolveProject(importedProjectName);
+    projectDir = dirProject != null ? String(dirProject.getDirPath()) : "";
+  } catch (_ignoreProjectDir) {
+    projectDir = "";
+  }
+
   var status = "ready";
   if (importStatus === "error") {
     status = "failed";
@@ -1183,6 +1192,7 @@ C8O.marketplace.importLibrary = function (options) {
     description: C8O.marketplace._trim(entry.description),
     topics: entry.topics || [],
     projectUrl: importedProjectName + "=" + usageUrl,
+    projectDir: projectDir,
     loadedBefore: loadedBefore,
     loadedAfter: loadedAfter,
     imported: imported,

@@ -33,6 +33,7 @@ comment: |
         cloneUrl: "",
         branch: "",
         projectUrl: "",
+        projectDir: "",
         loadedBefore: false,
         loadedAfter: false,
         imported: false,
@@ -190,6 +191,20 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: 'marketplaceImportResult && marketplaceImportResult.projectUrl ? marketplaceImportResult.projectUrl : ""'
+  ↓projectDir [steps.JsonFieldStep-1793330000001]: 
+    comment: Folder of the imported project on disk.
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: projectDir
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'marketplaceImportResult && marketplaceImportResult.projectDir ? marketplaceImportResult.projectDir : ""'
   ↓loadedBefore [steps.JsonFieldStep-1764302001020]: 
     key: 
       - xmlizable: 

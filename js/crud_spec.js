@@ -409,6 +409,29 @@ C8O.crudSpec = C8O.crudSpec || {};
       }
     }
 
+    // List filters, applied to the loaded rows: {field, label, options} is a select on one field (its options, or the
+    // field's fieldOptions), {search: [fields], label} a text searched in those fields. Agents edited the managed list
+    // panel by hand for a status filter and a title search, which a later kit run overwrites (usage tests 29/10, S3).
+    var listFilters = ctx.ensureArray(source.listFilters).map(function (item) {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      var searchFields = ctx.ensureArray(item.search).map(function (f) { return ctx.normalizedIdentifier(f); }).filter(function (f) { return f.length; });
+      if (searchFields.length) {
+        return { kind: "search", fields: searchFields, label: ctx.trimmed(item.label || "") };
+      }
+      var filterField = ctx.normalizedIdentifier(item.field || "");
+      if (!filterField.length) {
+        return null;
+      }
+      var filterOptions = ctx.ensureArray(item.options).map(function (option) {
+        var value = option && typeof option === "object" ? option.value : option;
+        var optionLabel = option && typeof option === "object" && option.label != null ? option.label : value;
+        return value == null ? null : { value: String(value), label: ctx.trimmed(String(optionLabel)) || String(value) };
+      }).filter(function (option) { return option !== null; });
+      return { kind: "select", field: filterField, label: ctx.trimmed(item.label || ""), options: filterOptions };
+    }).filter(function (item) { return item !== null; });
+
     return {
       listFields: normalizeFieldRefs(source.listFields),
       detailFields: normalizeFieldRefs(source.detailFields),
@@ -417,7 +440,8 @@ C8O.crudSpec = C8O.crudSpec || {};
       actionLabel: ctx.trimmed(source.actionLabel || ""),
       relationFields: relationFields,
       fieldOptions: fieldOptions,
-      fieldDefaults: fieldDefaults
+      fieldDefaults: fieldDefaults,
+      listFilters: listFilters
     };
   };
 

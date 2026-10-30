@@ -277,6 +277,13 @@ C8O.crudBackend = C8O.crudBackend || {};
     return ctx.normalizedIdentifier(fieldName || "").toUpperCase();
   }
 
+  // An alias the kit writes is quoted as its sequences read it (rawSqlOutputKey), so every database answers that name
+  // and project-lint has no unquoted alias to report: an agent quoted AS "total" after that warning and the counters
+  // read nothing (usage tests 30/10).
+  function sqlOutputAlias(ctx, name) {
+    return "\"" + rawSqlOutputKey(ctx, name) + "\"";
+  }
+
   function facadeRowFieldEntries(ctx, spec, entity) {
     var entries = [];
     var fields = ctx.ensureArray(entity && entity.fields);
@@ -888,7 +895,7 @@ C8O.crudBackend = C8O.crudBackend || {};
         labelField = ctx.normalizedIdentifier(relation.toField || "id");
       }
       joinLines.push("LEFT JOIN " + targetEntity.name + " " + joinAlias + " ON " + baseAlias + "." + relation.fromField + " = " + joinAlias + "." + relation.toField);
-      selectSegments.push(joinAlias + "." + labelField + " AS " + relationLabelAlias(ctx, relation));
+      selectSegments.push(joinAlias + "." + labelField + " AS " + sqlOutputAlias(ctx, relationLabelAlias(ctx, relation)));
     }
     var lines = [
       "SELECT " + selectSegments.join(", "),
@@ -1374,8 +1381,9 @@ C8O.crudBackend = C8O.crudBackend || {};
       if (crm && entity.name === crm.contacts.name) {
         return [
           "SELECT c." + columns.join(", c."),
-          ", co.name AS " + relationLabelAlias(ctx, { fromField: crm.relationField.column }),
-          ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
+          ", co.name AS " + sqlOutputAlias(ctx, relationLabelAlias(ctx, { fromField: crm.relationField.column })),
+          ", co.name AS " + sqlOutputAlias(ctx, "company_name") + ", co.city AS " + sqlOutputAlias(ctx, "company_city") +
+          ", co.industry AS " + sqlOutputAlias(ctx, "company_industry"),
           "FROM " + entity.name + " c",
           "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
           "ORDER BY c." + pk + " ASC"
@@ -1384,7 +1392,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       if (crm && entity.name === crm.companies.name) {
         return [
           "SELECT co." + columns.join(", co."),
-          ", (SELECT COUNT(*) FROM " + crm.contacts.name + " ct WHERE ct." + crm.relationField.column + " = co." + crm.companies.primaryField.column + ") AS contact_count",
+          ", (SELECT COUNT(*) FROM " + crm.contacts.name + " ct WHERE ct." + crm.relationField.column + " = co." + crm.companies.primaryField.column + ") AS " + sqlOutputAlias(ctx, "contact_count"),
           "FROM " + entity.name + " co",
           "ORDER BY co." + pk + " ASC"
         ].join("\n");
@@ -1395,7 +1403,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       });
     }
     if (verb === "count") {
-      return "SELECT COUNT(*) AS total\nFROM " + entity.name;
+      return "SELECT COUNT(*) AS " + sqlOutputAlias(ctx, "total") + "\nFROM " + entity.name;
     }
     if (verb === "read") {
       return buildJoinedSelectSql(ctx, spec, entity, {
@@ -1423,8 +1431,9 @@ C8O.crudBackend = C8O.crudBackend || {};
     var contactColumns = C8O.crudBackend.listColumns(ctx, crm.contacts);
     return [
       "SELECT c." + contactColumns.join(", c."),
-      ", co.name AS " + relationLabelAlias(ctx, { fromField: crm.relationField.column }),
-      ", co.name AS company_name, co.city AS company_city, co.industry AS company_industry",
+      ", co.name AS " + sqlOutputAlias(ctx, relationLabelAlias(ctx, { fromField: crm.relationField.column })),
+      ", co.name AS " + sqlOutputAlias(ctx, "company_name") + ", co.city AS " + sqlOutputAlias(ctx, "company_city") +
+          ", co.industry AS " + sqlOutputAlias(ctx, "company_industry"),
       "FROM " + crm.contacts.name + " c",
       "LEFT JOIN " + crm.companies.name + " co ON c." + crm.relationField.column + " = co." + crm.companies.primaryField.column,
       "WHERE c." + crm.relationField.column + " = {company_id}",

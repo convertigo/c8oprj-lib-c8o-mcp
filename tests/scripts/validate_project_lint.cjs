@@ -82,4 +82,27 @@ const refused = context.C8O.lint.reviewTexts({ host: { readKey: () => "sk-test",
   ["Gérer"], { "Gérer": ["P.a"] }, { values: {} }, add, null);
 assert.match(refused.skipped, /^gateway answered 400: top_p must be 1 when using greedy sampling\.$/);
 
+// An answer cut by max_tokens (mistral-large-4 at reasoning_effort low spent 3 999 of its 4 000 tokens reasoning, PCA eval
+// 30/10) counted its group as reviewed with no problem. It is asked again with more room, then left out and said so.
+const cutCalls = [];
+const cutOnce = context.C8O.lint.reviewTexts({ host: { readKey: () => "sk-test", now: () => 0, header: () => null,
+  post: (url, key, body) => {
+    cutCalls.push(JSON.parse(body));
+    const content = cutCalls.length === 1 ? "" : JSON.stringify({ language: "fr", issues: [{ id: 0, fixed: "Gérer", kind: "accents" }] });
+    return { status: 200, body: JSON.stringify({ choices: [{ message: { content }, finish_reason: cutCalls.length === 1 ? "length" : "stop" }] }), header: () => null };
+  } } }, ["Gerer"], { "Gerer": ["P.a"] }, { values: {} }, add, null);
+assert.strictEqual(cutCalls.length, 2);
+assert.strictEqual(cutCalls[0].max_tokens, 4000);
+assert.strictEqual(cutCalls[1].max_tokens, 12000);
+assert.strictEqual(cutOnce.reviewed, 1);
+assert.strictEqual(cutOnce.problems, 1);
+assert.strictEqual(cutOnce.notReviewed, undefined);
+assert.strictEqual(cutOnce.usages.length, 2);
+const cutTwice = context.C8O.lint.reviewTexts({ host: { readKey: () => "sk-test", now: () => 0, header: () => null,
+  post: () => ({ status: 200, body: JSON.stringify({ choices: [{ message: { content: "" }, finish_reason: "length" }] }), header: () => null }) } },
+  ["Gerer", "Version"], { "Gerer": ["P.a"], "Version": ["P.b"] }, { values: {} }, add, null);
+assert.strictEqual(cutTwice.reviewed, 0);
+assert.strictEqual(cutTwice.notReviewed, 2);
+assert.match(cutTwice.message, /^2 texts were not reviewed: the model answer was cut twice\.$/);
+
 console.log("project-lint boundary rules OK");

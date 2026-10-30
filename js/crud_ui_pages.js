@@ -289,6 +289,98 @@ C8O.crudUiPages = C8O.crudUiPages || {};
     };
   }
 
+  // auth mode form: the login page asks a user name and a password and calls the project's login sequence (the
+  // generated auth_login or the app's own), instead of signing in as demo. A task that needed real users rebuilt this
+  // form by hand with tree-apply and ran out of time (usage tests 29/10, S7). The call is a success when it answers no
+  // error (an error element, or success:false with errors); it then marks the session ready and opens the home page.
+  function buildLoginFormPageTrees(ctx, projectName, entryPage, auth, baseRoot) {
+    var U = C8O.crudUi;
+    var nctx = {
+      trimmed: function (v) { return String(v == null ? "" : v).trim(); },
+      ensureArray: function (v) { return Array.isArray(v) ? v : (v == null ? [] : [v]); },
+      toBoolean: function (v, d) { return v == null ? d : (v === true || String(v).toLowerCase() === "true"); }
+    };
+    var targetRoute = "/" + ctx.trimmed(entryPage || "home").toLowerCase();
+    var refused = "stack['DoLogin'].out?.error?.message || stack['DoLogin'].out?.errors?.[0]?.message || " +
+      ctx.scriptLiteral(auth.refusedText || "Sign-in refused.");
+    var signedIn = "!out?.error && !(out?.errors && out.errors.length) && out?.success !== false";
+    var storeError = U.setLocalActionNode(nctx, "StoreLoginError", "loginError", refused);
+    storeError.children = [U.customAsyncActionNode(nctx, "RefreshLoginView", "page.ref.detectChanges(); return true;", "Show the message now.")];
+    var call = U.callSequenceActionNode(nctx, "DoLogin", projectName + "." + auth.sequence, [
+      // Read in the action the way the page generator does: a Local SmartSource sent no variable from this click.
+      U.controlVariableNode(nctx, auth.userVariable, "c8oPage.local?.loginUser ?? ''", "The user name typed in the form."),
+      U.controlVariableNode(nctx, auth.passwordVariable, "c8oPage.local?.loginPassword ?? ''", "The password typed in the form.")
+    ], { cacheTtl: 0, comment: "Call the project's login sequence with what the user typed." });
+    call.children = nctx.ensureArray(call.children).concat([
+      U.ifActionNode(nctx, "WhenSignedIn", signedIn, [
+        U.setGlobalActionNode(nctx, "MarkSessionReady", "crudSessionReady", "true"),
+        // A new root: the pages opened before the sign-in had loaded nothing and would be shown again as they were.
+        U.rootPageActionNode(nctx, "OpenLanding", ctx.trimmed(entryPage || "Home") || "Home", null, "Signed in: open the home page anew.")
+      ], { comment: "The login answered no error." }),
+      U.ifActionNode(nctx, "WhenRefused", signedIn, [storeError], { negate: true, comment: "Show why the login was refused." })
+    ]);
+    function input(name, label, local, type) {
+      var props = {
+        ControlName: { mode: "PLAIN", value: local },
+        Label: { mode: "PLAIN", value: label },
+        LabelPlacement: { mode: "PLAIN", value: "stacked" },
+        DoubleBinding: { mode: "SOURCE", local: local }
+      };
+      if (type) {
+        props.Type = { mode: "PLAIN", value: type };
+      }
+      return { className: "ngx.components.UIDynamicElement#Input", name: name, properties: props };
+    }
+    var content = {
+      className: "ngx.components.UIDynamicElement#Content",
+      name: "Content",
+      properties: { Padding: { mode: "PLAIN", value: "ion-padding" } },
+      children: [{
+        className: "ngx.components.UIDynamicElement#Grid", name: "Grid", children: [{
+          className: "ngx.components.UIDynamicElement#GridRow", name: "Row", children: [{
+            className: "ngx.components.UIDynamicElement#GridCol", name: "Col", children: [{
+              className: "ngx.components.UIDynamicElement#Card", name: "Card", children: [
+                { className: "ngx.components.UIDynamicElement#CardHeader", name: "Header", children: [
+                  ctx.textElementNode("ngx.components.UIDynamicElement#CardTitle", "Title", ctx.plainTextNode("Text", "Sign in"))
+                ] },
+                { className: "ngx.components.UIDynamicElement#CardContent", name: "CardContent", children: [
+                  input("LoginUser", auth.userLabel || "User name", "loginUser", ""),
+                  input("LoginPassword", auth.passwordLabel || "Password", "loginPassword", "password"),
+                  U.ifDirectiveNode(nctx, "LoginErrorIf", "!!local?.loginError", [
+                    ctx.textElementNode("ngx.components.UIDynamicElement#Paragraph", "LoginError", ctx.scriptTextNode("Text", "local?.loginError"))
+                  ]),
+                  { className: "ngx.components.UIDynamicElement#Button", name: "SignIn",
+                    properties: { IonColor: { mode: "PLAIN", value: "primary" }, Expand: { mode: "PLAIN", value: "block" } },
+                    children: [ctx.plainTextNode("Text", "Log in"), U.controlEventNode(nctx, "EventonClick", [call], { eventName: "onClick" })] }
+                ] }
+              ]
+            }]
+          }]
+        }]
+      }]
+    };
+    var pageEvent = ctx.pageEventNode("PageEvent", "onWillEnter", [
+      U.setLocalActionNode(nctx, "ClearLoginError", "loginError", "''"),
+      U.ifActionNode(nctx, "WhenSignedInAlready", "this.global?.crudSessionReady === true", [
+        U.navigatePageActionNode(nctx, "OpenLandingAgain", targetRoute, "{}", "Already signed in: open the home page.")
+      ])
+    ], "Open the home page when the session is already signed in, else show the form.");
+    var root = JSON.parse(JSON.stringify(baseRoot || buildSessionBootstrapPageRootTree(ctx, projectName, entryPage)));
+    root.children = nctx.ensureArray(root.children).filter(function (child) {
+      return child && child.name !== "Content" && child.name !== "PageEvent";
+    }).concat([content, pageEvent]);
+    return {
+      root: root,
+      load: { qname: ctx.sessionBootstrapPageQName(projectName), legacyQNames: [], tree: { properties: {}, children: [pageEvent] } },
+      keep: {
+        "Content.Grid.Row.Col.Card.CardContent": ["LoginUser", "LoginPassword", "LoginErrorIf", "SignIn"],
+        "Content.Grid.Row.Col.Card.Header": ["Title"],
+        "Content.Grid.Row.Col.Card.Header.Title": ["Text"],
+        "PageEvent": ["ClearLoginError", "WhenSignedInAlready"]
+      }
+    };
+  }
+
   function landingRouteCardNode(ctx, entity) {
     var componentPrefix = ctx.pascalize(entity.name);
     return {
@@ -835,6 +927,7 @@ C8O.crudUiPages = C8O.crudUiPages || {};
   C8O.crudUiPages.buildEntityPagesLandingShellTree = buildEntityPagesLandingShellTree;
   C8O.crudUiPages.buildSessionBootstrapPageRootTree = buildSessionBootstrapPageRootTree;
   C8O.crudUiPages.buildSessionBootstrapPageLoadTree = buildSessionBootstrapPageLoadTree;
+  C8O.crudUiPages.buildLoginFormPageTrees = buildLoginFormPageTrees;
   C8O.crudUiPages.buildEntityPageShellTree = buildEntityPageShellTree;
   C8O.crudUiPages.appendEntityPageRows = appendEntityPageRows;
   C8O.crudUiPages.buildEntityPageRootTree = buildEntityPageRootTree;

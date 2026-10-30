@@ -46,6 +46,7 @@ comment: |
       facadePrefix: facadePrefix,
       entryPage: entryPage,
       language: (typeof language === ''undefined'' || language == null) ? '''' : String(language),
+      auth: (typeof auth === ''undefined'') ? null : auth,
       runtimeEvidence: parsedRuntimeEvidence
     });'
 ↓Result [steps.JsonObjectStep-1773318401003]: 
@@ -155,6 +156,9 @@ comment: |
 ↓language [variables.RequestableVariable-1793302000001]: 
   comment: Language of the texts the kit writes, fr or en (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English.
   description: Language of the texts the kit writes, fr or en (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English.
+↓auth [variables.RequestableVariable-1793320000002]: 
+  comment: Sign-in of the pages: demo (default, the login page signs in as demo) or form, as a string or {"mode": "form", "sequence": "auth_login", "userVariable": "username", "passwordVariable": "password"}. With form the login page asks a user name and a password and calls that login sequence of the project (the generated auth_login, or the app's own once it checks the password); a page opened without a session goes to it. The sequence refuses with an error element (or success false and errors), whose message the form shows.
+  description: Sign-in of the pages: demo (default, the login page signs in as demo) or form, as a string or {"mode": "form", "sequence": "auth_login", "userVariable": "username", "passwordVariable": "password"}. With form the login page asks a user name and a password and calls that login sequence of the project (the generated auth_login, or the app's own once it checks the password); a page opened without a session goes to it. The sequence refuses with an error element (or success false and errors), whose message the form shows.
 ↓runtimeEvidence [variables.RequestableVariable-1773318401015]: 
   comment: Optional runtime evidence object or JSON string used to surface live counts in the shell.
   description: Optional runtime evidence object or JSON string used to surface live counts in the shell.
