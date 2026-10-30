@@ -221,3 +221,27 @@ test('requestable-execute: other errors keep their shape', () => {
   assert.equal(step.error.cause, undefined);
   assert.equal(step.error.message, 'An exception occured while executing step');
 });
+
+test('a column default after NOT NULL is caught on HSQLDB and Oracle, with the order they take', () => {
+  // HSQLDB 2.7.4: "ALTER TABLE d ADD COLUMN v INTEGER NOT NULL DEFAULT 30" -> unexpected token: DEFAULT; DEFAULT 30 NOT NULL runs.
+  const [alter] = find('hsqldb', 'ALTER TABLE devis ADD COLUMN IF NOT EXISTS validite_jours INTEGER NOT NULL DEFAULT 30;');
+  assert.equal(alter.name, 'NOT NULL DEFAULT');
+  assert.equal(alter.expression, 'NOT NULL DEFAULT 30');
+  assert.equal(alter.fix, 'DEFAULT 30 NOT NULL');
+  assert.equal(alter.error, 'unexpected token: DEFAULT');
+  assert.equal(D.foreignSyntaxText(alter), 'NOT NULL DEFAULT 30: a column default goes before NOT NULL here: the call fails with "unexpected token: DEFAULT". Write DEFAULT 30 NOT NULL.');
+  const [text] = find('oracle', "CREATE TABLE t (statut VARCHAR(12) NOT NULL DEFAULT 'brouillon', n INTEGER)");
+  assert.equal(text.fix, "DEFAULT 'brouillon' NOT NULL");
+  assert.equal(find('hsqldb', 'CREATE TABLE t (d DATE NOT NULL DEFAULT CURRENT_DATE)')[0].fix, 'DEFAULT CURRENT_DATE NOT NULL');
+  for (const ok of ['ALTER TABLE t ADD COLUMN v INTEGER DEFAULT 30 NOT NULL', "SELECT 'NOT NULL DEFAULT 1' AS \"label\" FROM t"]) {
+    assert.deepEqual(names('hsqldb', ok), [], ok);
+  }
+  for (const other of ['postgresql', 'mysql', 'sqlserver']) {
+    assert.deepEqual(names(other, 'ALTER TABLE t ADD COLUMN v INTEGER NOT NULL DEFAULT 30'), [], other + ' takes both orders');
+  }
+});
+
+test('the HSQLDB error of a column default after NOT NULL comes back with the order to write', () => {
+  const hints = plain(D.errorHints('', 'unexpected token: DEFAULT', 'ALTER TABLE devis ADD COLUMN v INTEGER NOT NULL DEFAULT 30', {}));
+  assert.ok(hints.some(h => /Write DEFAULT 30 NOT NULL/.test(h)), JSON.stringify(hints));
+});

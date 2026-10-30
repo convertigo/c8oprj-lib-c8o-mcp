@@ -808,13 +808,7 @@ include("js/sql_dialect.js");
         var sibling = createContext && createContext.sibling ? safeQName(createContext.sibling) : "";
         throw new Error(shortClassName(dbo.getClass().getName()) + " cannot go under " + safeQName(parent) +
           " (" + shortClassName(parent.getClass().getName()) + ")" +
-          (placeMode !== "inside" && sibling.length ? ": at:\"" + placeMode + "\" places it next to " + sibling +
-            ", under that object's parent. To add it inside " + sibling + ", use at:\"inside\"; to place it before or after a child, target that child." :
-            (/(Transaction|Sequence)Step$/.test(String(parent.getClass().getName())) ? ": a call step only holds its variables. A step that reads its output (" +
-              "JsonSourceStep, SimpleStep, IfStep...) goes after it, under the same parent: target " + safeQName(parent) +
-              " with at:\"after\", or the parent with at:\"inside\"." :
-              (/StepVariable$/.test(String(dbo.getClass().getName())) ? ": a StepVariable passes a value to the requestable a TransactionStep or SequenceStep calls, " +
-                "so it only goes inside one of them. To declare or set a JavaScript variable, assign it in a SimpleStep (var x = ...;)." : "."))) +
+          placementHint(String(dbo.getClass().getName()), String(parent.getClass().getName()), safeQName(parent), placeMode, sibling) +
           " Engine: " + String(addError && addError.message ? addError.message : addError).replace(/^.*EngineException: /, ""));
       }
       if (createContext && createContext.mode && createContext.mode !== "inside" && createContext.sibling) {
@@ -834,6 +828,27 @@ include("js/sql_dialect.js");
     markDirty(ctx, parent);
     markDirty(ctx, dbo);
     return dbo;
+  }
+
+  // Why the engine refused an object under a parent, with the way to write it, for the refusal of a create.
+  function placementHint(className, parentClassName, parentQName, placeMode, sibling) {
+    if (placeMode !== "inside" && sibling.length) {
+      return ": at:\"" + placeMode + "\" places it next to " + sibling + ", under that object's parent. To add it inside " + sibling +
+        ", use at:\"inside\"; to place it before or after a child, target that child.";
+    }
+    if (/(Transaction|Sequence)Step$/.test(parentClassName)) {
+      return ": a call step only holds its variables. A step that reads its output (JsonSourceStep, SimpleStep, IfStep...) goes after " +
+        "it, under the same parent: target " + parentQName + " with at:\"after\", or the parent with at:\"inside\".";
+    }
+    if (!/StepVariable$/.test(className)) {
+      return ".";
+    }
+    // An agent declared the input of a SQL transaction as a StepVariable (usage tests 30/10).
+    return /\.(transactions|sequences)\.\w+$/.test(parentClassName)
+      ? ": a transaction or a sequence takes its inputs as RequestableVariable (className variables.RequestableVariable). A StepVariable " +
+        "only goes inside a TransactionStep or SequenceStep, to pass a value to the requestable that step calls."
+      : ": a StepVariable passes a value to the requestable a TransactionStep or SequenceStep calls, so it only goes inside one of " +
+        "them. To declare or set a JavaScript variable, assign it in a SimpleStep (var x = ...;).";
   }
 
   function deleteObject(ctx, qname) {
