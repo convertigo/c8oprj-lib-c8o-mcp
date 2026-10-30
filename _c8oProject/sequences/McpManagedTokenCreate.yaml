@@ -1,12 +1,12 @@
 accessibility: Hidden
 authenticatedContextRequired: true
-comment: Create a short-lived stateless MCP bearer token for the trusted integrated Assistant and Agent Bridge.
+comment: Create a managed MCP bearer token for the trusted integrated Assistant and Agent Bridge. With idleSeconds it is leased (valid while a turn uses it), else it has a fixed lifetime of ttlSeconds.
 ↓Execute [steps.SimpleStep-1788357809715]: 
   comment: Create a short-lived stateless MCP bearer token for the trusted integrated Assistant and Agent Bridge.
   expression: |
     org.apache.log4j.MDC.put("nolog", true);
     include("js/mcp_auth.js");
-    mcpTokenResult = C8O.mcpAuth.createManaged(context, label, ttlSeconds);
+    mcpTokenResult = C8O.mcpAuth.createManaged(context, label, ttlSeconds, idleSeconds);
 ↓Result [steps.JsonToXmlStep-1788357809734]: 
   jsonObject: 
     - xmlizable: 
@@ -25,6 +25,9 @@ comment: Create a short-lived stateless MCP bearer token for the trusted integra
   description: Diagnostic label embedded in the managed token.
   value: Convertigo Assistant
 ↓ttlSeconds [variables.RequestableVariable-1788357809770]: 
-  comment: Managed token lifetime in seconds, from 300 to 86400.
-  description: Managed token lifetime in seconds, from 300 to 86400.
+  comment: Managed token lifetime in seconds, from 300 to 86400, when idleSeconds is empty.
+  description: Managed token lifetime in seconds, from 300 to 86400, when idleSeconds is empty.
   value: 7200
+↓idleSeconds [variables.RequestableVariable-1793400000101]: 
+  comment: With a value (60 to 86400), the token is leased. It stays valid while a turn of its conversation uses it and ends this many seconds after the last activity, a restart of the engine or McpTokenRevoke. ttlSeconds is then ignored.
+  description: With a value (60 to 86400), the token is leased. It stays valid while a turn of its conversation uses it and ends this many seconds after the last activity, a restart of the engine or McpTokenRevoke. ttlSeconds is then ignored.

@@ -992,7 +992,7 @@ Bearer token to validate and install in the local agent configuration.
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpManagedTokenCreate
 
-Create a short-lived stateless MCP bearer token for the trusted integrated Assistant and Agent Bridge.
+Create a managed MCP bearer token for the trusted integrated Assistant and Agent Bridge. With idleSeconds it is leased (valid while a turn uses it), else it has a fixed lifetime of ttlSeconds.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -1018,7 +1018,15 @@ Diagnostic label embedded in the managed token.
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;ttlSeconds
 </td>
 <td>
-Managed token lifetime in seconds, from 300 to 86400.
+Managed token lifetime in seconds, from 300 to 86400, when idleSeconds is empty.
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;idleSeconds
+</td>
+<td>
+With a value (60 to 86400), the token is leased. It stays valid while a turn of its conversation uses it and ends this many seconds after the last activity, a restart of the engine or McpTokenRevoke. ttlSeconds is then ignored.
 </td>
 </tr>
 </table>
@@ -1071,12 +1079,12 @@ User-visible token label.
 List durable MCP token metadata for the current WEB_ADMIN session without exposing secrets.
 </p></blockquote></details>
 
-<details><summary><b>McpTokenRevoke</b> : Revoke a durable MCP token by moving its metadata out of the active token set</summary><blockquote><p>
+<details><summary><b>McpTokenRevoke</b> : Revoke a durable MCP token by moving its metadata out of the active token set, or end a leased managed token (managed_ id) by removing its lease</summary><blockquote><p>
 
 
 ## ![](https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/sequences/images/genericsequence_color_16x16.png?raw=true "GenericSequence") McpTokenRevoke
 
-Revoke a durable MCP token by moving its metadata out of the active token set.
+Revoke a durable MCP token by moving its metadata out of the active token set, or end a leased managed token (managed_ id) by removing its lease.
 
 <span style="color:DarkGoldenRod">Variables</span>
 
@@ -1094,7 +1102,7 @@ comment
 <img src="https://github.com/convertigo/convertigo/blob/develop/engine/src/com/twinsoft/convertigo/beans/variables/images/variable_color_16x16.png?raw=true "  alt="RequestableVariable" >&nbsp;tokenId
 </td>
 <td>
-Durable MCP token identifier.
+Durable MCP token identifier, or the managed_ id of a leased managed token.
 </td>
 </tr>
 </table>

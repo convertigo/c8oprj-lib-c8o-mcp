@@ -70,6 +70,7 @@ responseTimeout: 300
     var responseStatus = "200";
     var responseHasBody = true;
     var pingInline = false;
+    var tokenExpiredText = "";
     var mcpGuidanceWarning = "";
     var mcpArgumentWarning = "";
     var mcpOperatorNote = "";
@@ -80,6 +81,18 @@ responseTimeout: 300
   expression: |
     'include("js/mcp_auth.js");
     mcpAuthentication = C8O.mcpAuth.authenticateRequest(context);
+    // An expired managed token (signature checked, error.handshake) still opens a session: Vibe opens one per tool call
+    // (initialize, notifications/initialized, tools/call), and a 401 on initialize made it drop the Convertigo server with
+    // "The provided tool call failed" (PCA eval 29/10). Only the handshake runs; the tools/call reads the expiry below.
+    if (mcpAuthentication && mcpAuthentication.authenticated !== true && mcpAuthentication.error && mcpAuthentication.error.handshake === true) {
+      try {
+        var handshakeCall = JSON.parse(String(request));
+        var handshakeMethod = handshakeCall && typeof handshakeCall.method === "string" ? handshakeCall.method : "";
+        if (handshakeMethod === "initialize" || handshakeMethod === "ping" || /^notifications\//.test(handshakeMethod)) {
+          mcpAuthentication = { status: "ok", authenticated: true, kind: "managed", scope: "mcp:handshake", user: "", expiredHandshake: true };
+        }
+      } catch (_notAHandshake) {}
+    }
     if (mcpAuthentication && mcpAuthentication.retryable === true) {
       // The token could not be checked, it was not refused: its store could not be read. A 503 fails this call only, where
       // a 401 makes Vibe drop every Convertigo tool for the rest of its session.
@@ -99,6 +112,30 @@ responseTimeout: 300
       } catch (_ignoreRetryableNote) {}
     } else if (!mcpAuthentication || mcpAuthentication.authenticated !== true) {
       var authenticationError = mcpAuthentication && mcpAuthentication.error ? mcpAuthentication.error : {};
+      // An expired token on a tools/call is answered as the error of that tool (HTTP 200, isError) saying what to do: a 401
+      // made Vibe drop every Convertigo tool for the rest of its session, and the agent only read "The provided tool call
+      // failed" (PCA eval 29/10, 2 h into a turn).
+      var expiredToolCall = false;
+      if (/expired/.test(String(authenticationError.code || ""))) {
+        try {
+          var expiredCall = JSON.parse(String(request));
+          if (expiredCall && expiredCall.method === "tools/call" && (typeof expiredCall.id === "string" || typeof expiredCall.id === "number")) {
+            requestIdValue = expiredCall.id;
+            requestIdType = typeof expiredCall.id;
+            requestIdJson = JSON.stringify(expiredCall.id);
+            methodName = "tools/call";
+            tokenExpiredText = String(authenticationError.message || "MCP token expired.")
+              + (authenticationError.hint ? " " + authenticationError.hint : "")
+              + " Do not call Convertigo tools again in this turn: tell the user.";
+            expiredToolCall = true;
+          }
+        } catch (_notAToolCall) {}
+      }
+      if (expiredToolCall) {
+        try {
+          com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] MCP bearer refused (" + (authenticationError.code || "expired_token") + "), answered as the tool error: " + (authenticationError.message || ""));
+        } catch (_ignoreExpiredLog) {}
+      } else {
       parseError = {
         status: "401",
         code: -32001,
@@ -112,6 +149,7 @@ responseTimeout: 300
       try {
         com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] MCP bearer refused (" + (authenticationError.code || "unauthorized") + "): " + (authenticationError.message || ""));
       } catch (_ignoreAuthenticationLog) {}
+      }
     } else {
     if (("" + request).trim().length === 0) {
       parseError = { status: "400", code: -32700, message: "Empty request body" };
@@ -175,7 +213,9 @@ responseTimeout: 300
   ↓jElse [steps.ElseStep-1762187848346]: 
     ↓onParse [steps.SimpleStep-1762252495497]: 
       expression: |
-        'try {
+        'if (typeof tokenExpiredText === "string" && tokenExpiredText.length) {
+          // answered by TokenExpiredInline, nothing to route
+        } else try {
           include("js/mcp_endpoint_router.js");
         } catch (routeError) {
           callSequence = "mcp_error_response";
@@ -297,6 +337,65 @@ responseTimeout: 300
               - ↑mode: PLAIN
               - →→: result
       ↓ReturnPing [steps.ReturnStep-1792051200005]: 
+    ↓TokenExpiredInline [steps.IfStep-1793400000201]: 
+      comment: An expired token on a tools/call, answered as the tool's error with what to do (see Parse), without internal_call
+      condition: tokenExpiredText.length > 0
+      ↓result [steps.JsonObjectStep-1793400000203]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: result
+        ↓isError [steps.JsonFieldStep-1793400000205]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: isError
+          type: bool
+          value: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: JS
+                - →→: 'true'
+        ↓content [steps.JsonArrayStep-1793400000207]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: content
+          ↓object [steps.JsonObjectStep-1793400000209]: 
+            ↓type [steps.JsonFieldStep-1793400000211]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: type
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: text
+            ↓text [steps.JsonFieldStep-1793400000213]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: text
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: tokenExpiredText
+      ↓ReturnTokenExpired [steps.ReturnStep-1793400000215]: 
     ↓prepareCall [steps.SimpleStep-1762189043128]: 
       expression: |
         _sequence = callSequence;
