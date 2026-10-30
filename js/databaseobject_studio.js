@@ -4,20 +4,92 @@ if (typeof C8O === "undefined") {
 
 C8O.dbo = C8O.dbo || {};
 
-// One JVM-wide monitor for the Project Explorer reloads the MCP asks and for its deletes, renames and moves. An agent
-// ran four deletes in parallel: their reloads overlapped and failed with a NullPointerException in copyDatabaseObject,
-// the Studio opened modal error dialogs, and every engine request waited for the UI thread until someone clicked them
-// (usage tests 29/10). A reload now never starts during another reload or a mutation. The interned string is the same
-// Java object in every thread and every include.
-C8O.dbo.withStudioLock = function (fn) {
-  var lock = new java.lang.String("lib_ConvertigoMCP.studioTree").intern();
-  return new Packages.org.mozilla.javascript.Synchronizer(fn, lock)();
+// One JVM-wide lock for the project writes of the MCP (every batch: tree-apply, batch-call, generators, CRUD kit,
+// marketplace), its deletes, renames and moves, and the Project Explorer reloads it asks. An agent ran four deletes in
+// parallel: their reloads overlapped and failed with a NullPointerException in copyDatabaseObject, the Studio opened
+// modal error dialogs, and every engine request waited for the UI thread until someone clicked them (usage tests
+// 29/10). Two tree-apply calls in parallel under one NGX directive left its children list broken (30/10).
+// - Reentrant: a batch that moves an object or refreshes the tree takes it again in the same thread.
+// - Bounded: a call waits STUDIO_LOCK_WAIT_MS at most, then fails without changing anything, and names the write that
+//   holds it (a Studio dialog that blocks a refresh holds it too), instead of hanging past the client's timeout.
+// - JVM-wide, not per project: two Studios are two JVMs and never wait on each other; in one Studio a batch can write
+//   into several projects and the Project Explorer is one tree, so locks per project could cross and are not safe.
+// The ReentrantLock lives in the map the engine shares between projects, created once under an interned monitor.
+var STUDIO_LOCK_KEY = "lib_ConvertigoMCP.studioTree";
+var STUDIO_LOCK_WAIT_MS = 30000;
+
+C8O.dbo.studioLockStore = function () {
+  return Packages.com.twinsoft.convertigo.engine.Engine.theApp.getShareServerMap();
+};
+
+C8O.dbo.studioLock = function () {
+  var store = C8O.dbo.studioLockStore();
+  var lock = store.get(STUDIO_LOCK_KEY);
+  if (lock == null) {
+    lock = new Packages.org.mozilla.javascript.Synchronizer(function () {
+      var existing = store.get(STUDIO_LOCK_KEY);
+      if (existing == null) {
+        existing = new java.util.concurrent.locks.ReentrantLock();
+        store.set(STUDIO_LOCK_KEY, existing);
+      }
+      return existing;
+    }, new java.lang.String(STUDIO_LOCK_KEY).intern())();
+  }
+  return lock;
+};
+
+C8O.dbo.STUDIO_LOCK_BUSY = "studio_write_in_progress";
+
+// label: what the call writes, named to a call that waits too long ("tree-apply under Shop.Application...").
+C8O.dbo.withStudioLock = function (fn, label) {
+  var store = C8O.dbo.studioLockStore();
+  var lock = C8O.dbo.studioLock();
+  var acquired = false;
+  try {
+    acquired = lock.tryLock(STUDIO_LOCK_WAIT_MS, java.util.concurrent.TimeUnit.MILLISECONDS) === true;
+  } catch (_interrupted) {
+    acquired = false;
+  }
+  if (!acquired) {
+    var holder = null;
+    try {
+      holder = JSON.parse(String(store.get(STUDIO_LOCK_KEY + ".holder") || "null"));
+    } catch (_unreadableHolder) {}
+    var busy = new Error("Another write has held the projects of this Studio for more than " + (STUDIO_LOCK_WAIT_MS / 1000) +
+      " s" + (holder ? " (" + holder.what + ", for " + Math.round((Number(java.lang.System.currentTimeMillis()) - Number(holder.since)) / 1000) + " s)" : "") +
+      ": this call waited and changed nothing. Send it again in a moment; if it keeps failing, a Studio dialog may be waiting for an answer.");
+    busy.code = C8O.dbo.STUDIO_LOCK_BUSY;
+    throw busy;
+  }
+  var outermost = lock.getHoldCount() === 1;
+  if (outermost) {
+    store.set(STUDIO_LOCK_KEY + ".holder", JSON.stringify({ what: String(label || "a project write"), since: Number(java.lang.System.currentTimeMillis()) }));
+  }
+  try {
+    return fn();
+  } finally {
+    if (outermost) {
+      store.set(STUDIO_LOCK_KEY + ".holder", null);
+    }
+    lock.unlock();
+  }
 };
 
 C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
-  return C8O.dbo.withStudioLock(function () {
-    return C8O.dbo._refreshStudioTreeByQName(targetQName, errors);
-  });
+  try {
+    return C8O.dbo.withStudioLock(function () {
+      return C8O.dbo._refreshStudioTreeByQName(targetQName, errors);
+    }, "a Studio tree refresh of " + targetQName);
+  } catch (busy) {
+    if (!busy || busy.code !== C8O.dbo.STUDIO_LOCK_BUSY) {
+      throw busy;
+    }
+    // The write before it is done: only the Project Explorer is not refreshed.
+    if (errors && errors.push) {
+      errors.push({ name: "__studioRefresh__", message: String(busy.message) });
+    }
+    return { status: "skipped", message: "Refresh skipped: " + String(busy.message), qname: String(targetQName || ""), refreshed: false, executed: false };
+  }
 };
 
 C8O.dbo._refreshStudioTreeByQName = function (targetQName, errors) {
