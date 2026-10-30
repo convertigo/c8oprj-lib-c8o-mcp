@@ -159,6 +159,7 @@
     var reasoningEffort = "low";
     var usages = [];
     var reviewed = 0;
+    var notReviewed = 0;
     var problems = 0;
     for (var g = 0; g < groups.length; g++) {
       var items = groups[g].items;
@@ -198,17 +199,22 @@
       if (response.status < 200 || response.status >= 300) {
         return { skipped: "gateway answered " + response.status + ": " + C8O.imageDescribe.redact(gatewayErrorText(response.body), key), usages: usages };
       }
-      var body = JSON.parse(response.body);
-      var usage = C8O.imageDescribe.usageOf(body, model, response.header("x-litellm-response-cost"), host.now() - started, response.header("x-litellm-call-id"));
-      usage.tool = "project-lint";
-      usages.push(usage);
-      var content = String((((body.choices || [])[0] || {}).message || {}).content || "");
-      var jsonText = content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1);
-      var answer = {};
-      try {
-        answer = JSON.parse(jsonText);
-      } catch (_badAnswer) {
-        answer = { issues: [] };
+      var answer = readReviewAnswer(response, started);
+      // mistral-large-4 at reasoning_effort low once spent its 4 000 tokens reasoning and answered nothing: the group
+      // counted as reviewed with no problem (PCA eval 30/10). A cut answer is asked again with more room, then left out.
+      if (answer === null) {
+        request.max_tokens = 12000;
+        started = host.now();
+        try {
+          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+        } catch (_retryFailed) {
+          response = null;
+        }
+        answer = response && response.status >= 200 && response.status < 300 ? readReviewAnswer(response, started) : null;
+      }
+      if (answer === null) {
+        notReviewed += items.length;
+        continue;
       }
       reviewed += items.length;
       var issues = Array.isArray(answer.issues) ? answer.issues : [];
@@ -224,7 +230,26 @@
           "Write \"" + str(issues[q].fixed).substring(0, 120) + "\".");
       }
     }
-    return { reviewed: reviewed, problems: problems, model: model, usages: usages };
+    var result = { reviewed: reviewed, problems: problems, model: model, usages: usages };
+    if (notReviewed > 0) {
+      result.notReviewed = notReviewed;
+      result.message = notReviewed + " texts were not reviewed: the model answer was cut twice.";
+    }
+    return result;
+
+    function readReviewAnswer(answered, since) {
+      var answerBody = JSON.parse(answered.body);
+      var usage = C8O.imageDescribe.usageOf(answerBody, model, answered.header("x-litellm-response-cost"), host.now() - since, answered.header("x-litellm-call-id"));
+      usage.tool = "project-lint";
+      usages.push(usage);
+      var content = String((((answerBody.choices || [])[0] || {}).message || {}).content || "");
+      try {
+        var parsed = JSON.parse(content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1));
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (_badAnswer) {
+        return null;
+      }
+    }
   };
 
   C8O.lint.run = function (projectName, options) {
