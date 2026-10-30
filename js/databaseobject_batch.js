@@ -1809,7 +1809,17 @@ include("js/sql_dialect.js");
     return refreshResults;
   }
 
+  // One batch at a time, under the monitor of the Studio tree reloads, deletes, renames and moves. An agent sent two
+  // tree-apply calls in parallel under the same NGX directive (usage tests 30/10, r50): both created children, both were
+  // rolled back, and the children list of the directive (a LinkedList) was left with a null. Every later write under it
+  // and every build of the application sources of the project then failed with a NullPointerException.
   C8O.dbo.batchApply = function (args) {
+    return C8O.dbo.withStudioLock(function () {
+      return batchApplyUnlocked(args);
+    });
+  };
+
+  function batchApplyUnlocked(args) {
     var params = args || {};
     var startedAt = nowMillis();
 
@@ -2156,7 +2166,7 @@ include("js/sql_dialect.js");
       durationMs: finishedAt - startedAt,
       timestamp: finishedAt
     };
-  };
+  }
 
   C8O.dbo.computeBatchRefreshQName = function (batchResult) {
     function normalizeQName(value) {
