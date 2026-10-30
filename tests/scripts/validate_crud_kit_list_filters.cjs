@@ -68,3 +68,10 @@ test('an empty option names the all choice once, and the empty state reads the v
   assert.match(src, /\}\]\.concat\(valueOptions\.map\(/);
   assert.match(src, /parsed\.model\.suffix = "\?" \+ parsed\.model\.suffix;/);
 });
+
+// r44 (S3 replay): the counter said "Lignes : 5" under a filtered list of 1.
+test('with list filters the rows counter counts the rows shown', () => {
+  const kit = read('js/crud_ui_kit.js');
+  assert.match(kit, /var filtered = ctx\.ensureArray\(entity && entity\.ui && entity\.ui\.listFilters\)\.length > 0;/);
+  assert.match(kit, /textValue: ctx\.localSourceValue\(projectName, filtered \? "\?\.visibleRows" : "\?\.rows", \{\s*suffix: filtered \? "\?\.length" : "\.length"/);
+});
