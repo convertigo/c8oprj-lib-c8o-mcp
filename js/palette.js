@@ -733,3 +733,89 @@ C8O.palette.listEntries = function (options) {
     nextCursor: nextCursor
   };
 };
+
+// The palette-list answer stays under a size budget whatever the workspace holds. The shared components and actions of
+// the loaded projects grew it past the 30 000 characters an agent's client takes (33 051 with one app loaded, 83 650 with
+// C8Oforms). Over the budget, whole categories are left out, shared ones (largest first) before built-in ones, and named
+// with their count: a filter on that name lists them. The size is the one of the fields the answer gives for each item.
+C8O.palette.LIST_BUDGET = 24000;
+
+C8O.palette._listedSize = function (category) {
+  var items = category && category.items ? category.items : [];
+  var listed = [];
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i] || {};
+    listed.push({ name: it.name || "", className: it.className || "", shortDescription: it.shortDescription || "",
+      nameSuggestion: it.nameSuggestion || "", propertyCount: it.propertyCount || 0 });
+  }
+  return JSON.stringify({ name: category ? category.name || "" : "", items: listed }).length + 1;
+};
+
+C8O.palette.boundCategories = function (categories, budget) {
+  var all = categories || [];
+  var max = budget > 0 ? budget : C8O.palette.LIST_BUDGET;
+  var sized = all.map(function (category, index) {
+    var items = category && category.items ? category.items : [];
+    var shared = items.length > 0 && items.every(function (it) { return it && it.builtin === false; });
+    return { category: category, index: index, size: C8O.palette._listedSize(category), shared: shared, count: items.length };
+  });
+  var total = sized.reduce(function (sum, s) { return sum + s.size; }, 0);
+  var omitted = [];
+  var cut = [];
+  if (total > max) {
+    // A category larger than half the budget by itself is cut to its first items (a filter on its name would bring it
+    // back whole): the others are left out whole, and a filter on their name lists them.
+    sized.forEach(function (s) {
+      if (s.size <= max / 2) {
+        return;
+      }
+      var items = s.category.items.slice();
+      while (items.length > 1 && C8O.palette._listedSize({ name: s.category.name, items: items }) > max / 2) {
+        items.pop();
+      }
+      total -= s.size;
+      s.category = { name: s.category.name, type: s.category.type, items: items };
+      s.size = C8O.palette._listedSize(s.category);
+      total += s.size;
+      cut.push({ name: String(s.category.name || ""), listed: items.length, count: s.count });
+      s.cutDone = true;
+    });
+    var order = sized.slice().sort(function (a, b) {
+      if (a.shared !== b.shared) {
+        return a.shared ? -1 : 1;
+      }
+      if (!!a.cutDone !== !!b.cutDone) {
+        return a.cutDone ? 1 : -1;
+      }
+      return b.size - a.size || a.index - b.index;
+    });
+    for (var i = 0; i < order.length && total > max; i++) {
+      order[i].left = true;
+      total -= order[i].size;
+      omitted.push({ name: String(order[i].category.name || ""), shared: order[i].shared, count: order[i].count });
+      cut = cut.filter(function (c) { return c.name !== String(order[i].category.name || ""); });
+    }
+  }
+  var byName = function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0); };
+  omitted.sort(byName);
+  var omittedCount = omitted.reduce(function (sum, o) { return sum + o.count; }, 0)
+    + cut.reduce(function (sum, c) { return sum + c.count - c.listed; }, 0);
+  var parts = [];
+  if (omitted.length) {
+    parts.push(omitted.reduce(function (sum, o) { return sum + o.count; }, 0) + " entries in " + omitted.length + " categor"
+      + (omitted.length > 1 ? "ies" : "y") + " left out: " + omitted.map(function (o) { return o.name + " (" + o.count + (o.shared ? ", shared" : "") + ")"; }).join(", ")
+      + ". List one with the same target and filter set to its name (filter: \"" + omitted[0].name + "\")"
+      + (omitted.some(function (o) { return o.shared; }) ? "; a shared category holds the shared components and actions of a loaded project, named after it" : "") + ".");
+  }
+  if (cut.length) {
+    parts.push(cut.map(function (c) { return c.name + ": " + c.listed + " of " + c.count + " listed"; }).join(", ")
+      + ". Narrow with a filter on the entry name to see the others.");
+  }
+  return {
+    categories: sized.filter(function (s) { return !s.left; }).map(function (s) { return s.category; }),
+    omitted: omitted,
+    cut: cut,
+    omittedCount: omittedCount,
+    omittedText: parts.length ? "This answer is kept short. " + parts.join(" ") : ""
+  };
+};
