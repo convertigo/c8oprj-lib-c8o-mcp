@@ -306,9 +306,12 @@
       var alias = /\bAS\s+([a-z][A-Za-z0-9_]*)\b/.exec(query);
       var folding = D.aliasFolding(dialect);
       if (alias && folding && (folding !== "lower-cases" || /[A-Z]/.test(alias[1])) && /^\s*(SELECT|WITH)\b/i.test(query)) {
+        var folded = folding === "lower-cases" ? alias[1].toLowerCase() : alias[1].toUpperCase();
+        // The fix names the other side too: a kit sequence read ./row/TOTAL, and quoting "total" emptied its counter.
         add("SQL-ALIAS-CASE", "warning", dbo, "Unquoted alias " + alias[1] + ": " + (D.name(dialect) || "the database") + " " + folding +
-          " it (" + (folding === "lower-cases" ? alias[1].toLowerCase() : alias[1].toUpperCase()) + "), so row." + alias[1] + " is undefined.",
-          "Quote the aliases: AS \"" + alias[1] + "\".");
+          " it (" + folded + "), so row." + alias[1] + " is undefined.",
+          "Quote the aliases: AS \"" + alias[1] + "\". A step that already reads ./row/" + folded + " then reads nothing: quote AS \"" +
+          folded + "\" for it instead.");
       }
     }
 
