@@ -15,9 +15,13 @@ function world(answers) {
   const attributes = new Map([['existing', 1]]);
   function JavaMap() { this.m = {}; }
   JavaMap.prototype.put = function (k, v) { this.m[k] = v; };
+  const user = { name: null };
   const ctx = {
     C8O: {}, include() {}, java: { lang: { System: { currentTimeMillis: () => 1 } } },
     context: {
+      getAuthenticatedUser: () => user.name,
+      setAuthenticatedUser: name => { user.name = name; },
+      removeAuthenticatedUser: () => { user.name = null; },
       httpServletRequest: { id: 'current request' },
       httpSession: {
         getAttributeNames: () => { const keys = [...attributes.keys()]; let i = 0; return { hasMoreElements: () => i < keys.length, nextElement: () => keys[i++] }; },
@@ -42,7 +46,7 @@ function world(answers) {
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(root, 'js/util.js'), 'utf8'), ctx);
-  return { R: ctx.C8O.requestable, calls, attributes };
+  return { R: ctx.C8O.requestable, calls, attributes, user };
 }
 
 test('before requestables run first, in order, through the current request, and their session ends with the call', () => {
@@ -79,9 +83,42 @@ test('requestable-execute declares before, runs it before the call and ends its 
   const yaml = fs.readFileSync(path.join(root, '_c8oProject/sequences/tools_requestable_execute.yaml'), 'utf8');
   assert.match(yaml, /↓before \[variables\.RequestableVariable-\d+\]: \n  comment: Requestables to run first, in order, in the same session/);
   assert.match(yaml, /before: typeof before === ''undefined'' \? null : before,/);
-  assert.match(yaml, /if \(C8O\.requestable && C8O\.requestable\.endBefore\) \{\s*C8O\.requestable\.endBefore\(executionPlan\);/);
+  assert.match(yaml, /if \(C8O\.requestable && C8O\.requestable\.endCall\) \{\s*C8O\.requestable\.endCall\(executionPlan\);/);
   assert.match(yaml, /requestableExecutionResult\.before = executionPlan\.beforeResults;/);
   const util = fs.readFileSync(path.join(root, 'js/util.js'), 'utf8');
   assert.match(util, /throw new Error\('Execution plan is missing'\);\n  \}\n  C8O\.requestable\.runBefore\(executionPlan\);/);
   assert.match(fs.readFileSync(path.join(root, 'js/schema_overrides.js'), 'utf8'), /before: \{\n\s*description: "Requestables to run first/);
+});
+
+// Review of the before change (30/10): the session and the authenticated user were given back in the result step only,
+// and a before call or a target check that threw stopped the sequence first.
+test('a second before call that fails leaves nothing of the first in the session, and the user is given back', () => {
+  const { R, attributes, user } = world([{ sets: 'role' }, { error: { message: 'Not allowed' } }]);
+  user.name = 'alice';
+  const plan = { requestable: 'App.list_items', authenticatedUser: 'alice', previousAuthenticatedUser: null,
+    before: [{ requestable: 'App.login' }, { requestable: 'App.load_rights' }] };
+  assert.throws(() => R.configureExecutor(plan), /before\[1\] App\.load_rights answered an error: Not allowed\. App\.list_items was not run\./);
+  assert.deepEqual([...attributes.keys()], ['existing'], 'what the login stored is removed');
+  assert.equal(user.name, null, 'the authenticated user of the call is removed');
+
+  const back = world([{ sets: 'role' }, new Error('There is no sequence named "load_rights"')]);
+  back.user.name = 'alice';
+  const previous = { requestable: 'App.list_items', authenticatedUser: 'alice', previousAuthenticatedUser: 'bob',
+    before: [{ requestable: 'App.login' }, { requestable: 'App.load_rights' }] };
+  assert.throws(() => back.R.configureExecutor(previous), /before\[1\] App\.load_rights failed/);
+  assert.equal(back.user.name, 'bob', 'the user the session had before the call comes back');
+  assert.deepEqual([...back.attributes.keys()], ['existing']);
+});
+
+test('a target check that throws after the before calls gives the session back too, once', () => {
+  const { R, attributes, user } = world([{ sets: 'role' }]);
+  user.name = 'alice';
+  const plan = { requestable: 'App.nope', isSequence: true, authenticatedUser: 'alice', previousAuthenticatedUser: null,
+    before: [{ requestable: 'App.login' }] };
+  assert.throws(() => R.configureExecutor(plan));
+  assert.deepEqual([...attributes.keys()], ['existing']);
+  assert.equal(user.name, null);
+  user.name = 'carol';
+  R.endCall(plan);
+  assert.equal(user.name, 'carol', 'ended once: a later endCall changes nothing');
 });

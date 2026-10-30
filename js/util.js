@@ -1086,7 +1086,36 @@ C8O.requestable.requireTransaction = function (executionPlan) {
   }
 };
 
+// authenticatedUser and the session the before calls opened are for this call only. They were given back in the
+// result step alone: a before call or a target check that threw stopped the sequence first, and a login's user and
+// role stayed in the session (review of the before change, 30/10). Given back once, whichever way the call ends.
+C8O.requestable.endCall = function (executionPlan) {
+  if (!executionPlan || executionPlan.callEnded === true) {
+    return;
+  }
+  executionPlan.callEnded = true;
+  if (executionPlan.authenticatedUser) {
+    try {
+      if (executionPlan.previousAuthenticatedUser) {
+        context.setAuthenticatedUser(executionPlan.previousAuthenticatedUser);
+      } else {
+        context.removeAuthenticatedUser();
+      }
+    } catch (_ignoreUser) {}
+  }
+  C8O.requestable.endBefore(executionPlan);
+};
+
 C8O.requestable.configureExecutor = function (executionPlan) {
+  try {
+    return C8O.requestable._configureExecutor(executionPlan);
+  } catch (configureError) {
+    C8O.requestable.endCall(executionPlan);
+    throw configureError;
+  }
+};
+
+C8O.requestable._configureExecutor = function (executionPlan) {
   if (Packages.com.twinsoft.convertigo.engine.Engine.logEngine) {
     Packages.com.twinsoft.convertigo.engine.Engine.logEngine.debug('[tools_requestable_execute] configuring ' + (executionPlan && executionPlan.requestable ? executionPlan.requestable : 'n/a'));
   }
@@ -1156,7 +1185,7 @@ C8O.requestable.configureExecutor = function (executionPlan) {
         executionPlan.isSequence = true;
         executionPlan.connector = null;
         executionPlan.requestable = executionPlan.project + '.' + executionPlan.name;
-        return C8O.requestable.configureExecutor(executionPlan);
+        return C8O.requestable._configureExecutor(executionPlan);
       }
     } catch (_ignoreSequenceAlias) {}
   }

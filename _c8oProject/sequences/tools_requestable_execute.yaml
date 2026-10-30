@@ -116,17 +116,9 @@ comment: |
   comment: Build a compact requestable-execute response for MCP clients.
   expression: |
     'var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
-    // authenticatedUser is for this call only: give the session back as it was.
-    if (executionPlan && executionPlan.authenticatedUser) {
-        if (executionPlan.previousAuthenticatedUser) {
-            context.setAuthenticatedUser(executionPlan.previousAuthenticatedUser);
-        } else {
-            context.removeAuthenticatedUser();
-        }
-    }
-    // The session the before calls opened (a login) is for this call only too.
-    if (C8O.requestable && C8O.requestable.endBefore) {
-        C8O.requestable.endBefore(executionPlan);
+    // authenticatedUser and the session the before calls opened (a login) are for this call only: give them back.
+    if (C8O.requestable && C8O.requestable.endCall) {
+        C8O.requestable.endCall(executionPlan);
     }
     function _node(value) {
       if (value && typeof value.item === "function") {
