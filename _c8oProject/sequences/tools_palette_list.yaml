@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   List creatable palette entries
-  Returns palette items that can be created under a target parent, using Studio-compatible rules for built-in, shared, and NGX dynamic entries.
+  Returns palette items that can be created under a target parent, using Studio-compatible rules for built-in, shared, and NGX dynamic entries. A long answer leaves out whole categories, the shared ones of loaded projects first, and names them in hints.omitted: filter on a category name to list it.
 ↓IncludeHelpers [steps.SimpleStep-1763034294509]: 
   comment: Load shared palette helpers
   expression: include("js/palette.js");
@@ -283,6 +283,15 @@ comment: |
     resultInfo.nextCursor = resultInfo.hasMore ? (paletteNextCursor || String((paletteStartIndex || 0) + paletteItemCount)) : "";
     resultInfo.truncated = resultInfo.hasMore;
     resultInfo.totalMatches = paletteTotalMatches || (paletteStartIndex || 0) + paletteItemCount;'
+↓BoundAnswer [steps.SimpleStep-1793400000101]: 
+  comment: Keep the answer under its size budget whatever the workspace holds (whole categories left out, shared ones first, and named).
+  expression: |
+    'var bounded = C8O.palette.boundCategories(paletteCategories, C8O.palette.LIST_BUDGET);
+    paletteCategories = bounded.categories;
+    resultInfo.categories = paletteCategories.length;
+    resultInfo.returned = Math.max(0, paletteItemCount - bounded.omittedCount);
+    resultInfo.omittedCount = bounded.omittedCount;
+    resultInfo.omittedText = bounded.omittedText;'
 ↓BuildResult [steps.JsonObjectStep-1762338110026]: 
   key: 
     - xmlizable: 
@@ -476,6 +485,21 @@ comment: |
           - SmartType: 
             - ↑mode: JS
             - →→: '"Use describe.tool with arguments.className to fetch creation template and property hints." + (resultInfo && resultInfo.parentQName && String(resultInfo.parentQName).indexOf(".") === -1 ? " This lists what goes directly under a project: steps go under a sequence (target <project>.<sequence>), variables under a sequence or a transaction." : "") + (resultInfo && !resultInfo.parentQName ? " Without target, NGX components are listed by class only (ngx.components.UIText): their palette names, ngx.components.<Class>#<logicalId>, are listed for an NGX target such as <Project>.Application.NgxApp.pg:<Page>." : "")'
+    ↓OmittedIf [steps.IfStep-1793400000102]: 
+      condition: notEmpty(resultInfo && resultInfo.omittedText)
+      ↓Omitted [steps.JsonFieldStep-1793400000103]: 
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: omitted
+        value: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: resultInfo.omittedText
   ↓NextCursorIf [steps.IfStep-1763569773859]: 
     condition: notEmpty(resultInfo && resultInfo.nextCursor)
     ↓NextCursor [steps.JsonFieldStep-1763569779641]: 
