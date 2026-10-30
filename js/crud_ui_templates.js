@@ -599,6 +599,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
         var parsed = JSON.parse(source.value);
         if (parsed && parsed.model && parsed.model.path === "?.rows") {
           parsed.model.path = "?.visibleRows";
+          // visibleRows is set after the first render: "local?.visibleRows.length" threw on it (usage tests 30/10).
+          if (/^\.length\b/.test(String(parsed.model.suffix || ""))) {
+            parsed.model.suffix = "?" + parsed.model.suffix;
+          }
           source.value = JSON.stringify(parsed);
         }
       } catch (_notJson) {}
@@ -608,6 +612,10 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
       var store = U.setLocalActionNode(nctx, "StoreFilter", local, "event?.detail?.value ?? ''");
       store.children = [setVisible("SetVisibleRows")];
       if (filter.kind === "select") {
+        // An option with an empty value is the "all" choice the kit already writes: its label names it, and it is not
+        // written twice (an agent removed the duplicate by hand, usage tests 30/10).
+        var allOption = ensureArray(ctx, filter.options).filter(function (option) { return String(option.value) === ""; })[0];
+        var valueOptions = ensureArray(ctx, filter.options).filter(function (option) { return String(option.value) !== ""; });
         return {
           className: "ngx.components.UIDynamicElement#Select",
           name: "Filter" + index,
@@ -618,8 +626,8 @@ C8O.crudUiTemplates = C8O.crudUiTemplates || {};
           },
           children: [{
             className: "ngx.components.UIDynamicElement#SelectOption", name: "OptionAll",
-            properties: { Value: { mode: "PLAIN", value: "" } }, children: [ctx.plainTextNode("Text", "All")]
-          }].concat(ensureArray(ctx, filter.options).map(function (option, optionIndex) {
+            properties: { Value: { mode: "PLAIN", value: "" } }, children: [ctx.plainTextNode("Text", allOption ? String(allOption.label || "All") : "All")]
+          }].concat(valueOptions.map(function (option, optionIndex) {
             return {
               className: "ngx.components.UIDynamicElement#SelectOption", name: "Option" + (optionIndex + 1),
               properties: { Value: { mode: "PLAIN", value: String(option.value) } },

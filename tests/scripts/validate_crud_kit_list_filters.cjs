@@ -60,3 +60,11 @@ test('the list panel gets the controls, sets the visible rows wherever it sets t
   assert.equal(run({ rows, filter0: 'done' }).length, 1);
   assert.equal(run({ rows, filter1: 'FOU' })[0].titre, 'Four');
 });
+
+// r31 (S3 replay): a given empty option made a second "all" choice, and the empty state threw before the first rows.
+test('an empty option names the all choice once, and the empty state reads the visible rows safely', () => {
+  const src = read('js/crud_ui_templates.js');
+  assert.match(src, /var allOption = ensureArray\(ctx, filter\.options\)\.filter\(function \(option\) \{ return String\(option\.value\) === ""; \}\)\[0\];/);
+  assert.match(src, /\}\]\.concat\(valueOptions\.map\(/);
+  assert.match(src, /parsed\.model\.suffix = "\?" \+ parsed\.model\.suffix;/);
+});
