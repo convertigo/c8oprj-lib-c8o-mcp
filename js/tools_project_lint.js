@@ -291,10 +291,19 @@ if (typeof include === "function") {
     return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
   };
 
+  // A "public-write: <reason>" line in a requestable's comment: the reason, "" for a line without one, null without the line.
+  C8O.lint.publicWriteReason = function (comment) {
+    var match = /^[ \t]*public-write[ \t]*:(.*)$/im.exec(String(comment || ""));
+    return match ? match[1].trim() : null;
+  };
+
   // The requestables anyone can call that write data, as the security audit sees them (the exposure findings it refuses to
-  // let an agent suppress): [{qname, message}]. Agents shipped such a job without ever running the audit (PCA eval m1 and
-  // m2: the anonymous reminder job wrote notifications), while every one of them runs project-lint.
-  C8O.lint.anonymousWrites = function (audit, projectName) {
+  // let an agent suppress): [{qname, message, severity, reason}]. Agents shipped such a job without ever running the audit
+  // (PCA eval m1 and m2: the anonymous reminder job wrote notifications), while every one of them runs project-lint.
+  // A public form or a webhook receiver writes for anyone by design: a "public-write: <reason>" line in its comment
+  // (commentOf(qname)) turns the error into a warning that is still reported, with the reason; a line without a reason
+  // changes nothing.
+  C8O.lint.anonymousWrites = function (audit, projectName, commentOf) {
     if (!audit || typeof audit.collect !== "function" || typeof audit.evaluate !== "function" || typeof audit.suppressionGuard !== "function") {
       return [];
     }
@@ -304,13 +313,35 @@ if (typeof include === "function") {
     var seen = {};
     (audit.evaluate(model).findings || []).forEach(function (finding) {
       var message = seen[finding.qname] ? "" : String(guard(finding) || "");
-      if (message.length) {
-        seen[finding.qname] = true;
-        out.push({ qname: String(finding.qname), message: message });
+      if (!message.length) {
+        return;
+      }
+      seen[finding.qname] = true;
+      var qname = String(finding.qname);
+      var reason = typeof commentOf === "function" ? C8O.lint.publicWriteReason(commentOf(qname)) : null;
+      if (reason === null) {
+        out.push({ qname: qname, message: message, severity: "error", reason: null });
+      } else if (!reason.length) {
+        out.push({ qname: qname, message: message + " Its public-write line gives no reason, so it stays an error.", severity: "error", reason: "" });
+      } else {
+        out.push({ qname: qname, message: message.replace(/: this risk cannot be accepted\.[\s\S]*$/, ".") +
+          " Declared public write: \"" + reason + "\".", severity: "warning", reason: reason });
       }
     });
     return out;
   };
+
+  // The comment of a requestable of the project from the audit's QName: "P.sequence" or "P.connector.transaction".
+  function requestableComment(project, qname) {
+    var parts = String(qname).split(".");
+    try {
+      var dbo = parts.length === 2 ? project.getSequenceByName(parts[1])
+        : (parts.length === 3 ? project.getConnectorByName(parts[1]).getTransactionByName(parts[2]) : null);
+      return dbo ? str(call(dbo, "getComment")) : "";
+    } catch (_noRequestable) {
+      return "";
+    }
+  }
 
   C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
@@ -671,9 +702,14 @@ if (typeof include === "function") {
     }
 
     try {
-      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName())).forEach(function (w) {
-        add("SEC-ANONYMOUS-WRITE", "error", w.qname, w.message, "Private for a job only the scheduler or other sequences call; otherwise " +
-          "authenticatedContextRequired=true and a role check inside. project-security-audit gives the full report.");
+      var commentOf = function (qname) { return requestableComment(project, qname); };
+      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName()), commentOf).forEach(function (w) {
+        add("SEC-ANONYMOUS-WRITE", w.severity, w.qname, w.message, w.severity === "warning"
+          ? "Keep it only if anyone must be able to write here; the reviewer sees this warning on every lint."
+          : "Private for a job only the scheduler or other sequences call; otherwise authenticatedContextRequired=true and a role check " +
+            "inside. Only a write anyone must be able to make (a public form, a webhook receiver), never a job or an admin action, may " +
+            "say so with a line \"public-write: <reason>\" in its comment: it then stays reported as a warning. project-security-audit " +
+            "gives the full report.");
       });
     } catch (_ignoreAudit) {}
 

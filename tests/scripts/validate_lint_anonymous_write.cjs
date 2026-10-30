@@ -63,9 +63,51 @@ test('without the audit helpers the lint reports nothing of the kind', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(C8O.lint.anonymousWrites({ evaluate() {} }, 'P'))), []);
 });
 
-test('project-lint loads the audit rules and adds SEC-ANONYMOUS-WRITE as an error', () => {
+// A public form or a webhook receiver writes for anyone by design: "public-write: <reason>" in its comment makes the finding a
+// warning that is still reported with the reason; without a reason it stays an error.
+function auditOf(C8O) {
+  return Object.assign({}, C8O.securityAudit, { collect: () => pcaApp() });
+}
+
+test('no public-write line: an error', () => {
+  const C8O = load();
+  const [f] = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(auditOf(C8O), 'P', () => 'Daily reminder job.')));
+  assert.equal(f.severity, 'error');
+  assert.equal(f.reason, null);
+  assert.match(f.message, /this risk cannot be accepted/);
+});
+
+test('a public-write line with a reason: a warning that quotes the reason', () => {
+  const C8O = load();
+  const comments = { 'P.reminder_runDaily': 'Public contact form.\npublic-write: anyone may leave a message, rate limited upstream' };
+  const [f] = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(auditOf(C8O), 'P', q => comments[q] || '')));
+  assert.equal(f.severity, 'warning');
+  assert.equal(f.reason, 'anyone may leave a message, rate limited upstream');
+  assert.match(f.message, /^P\.reminder_runDaily can be called without authentication and writes data through P\.db\.w_notification_insert \(SQL INSERT\)\. Declared public write: "anyone may leave a message, rate limited upstream"\.$/);
+});
+
+test('a public-write line without a reason: still an error', () => {
+  const C8O = load();
+  for (const comment of ['public-write:', 'Job.\n  public-write :   ']) {
+    const [f] = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(auditOf(C8O), 'P', () => comment)));
+    assert.equal(f.severity, 'error', comment);
+    assert.equal(f.reason, '');
+    assert.match(f.message, /Its public-write line gives no reason, so it stays an error\.$/);
+  }
+});
+
+test('the public-write line is read on a line of its own', () => {
+  const C8O = load();
+  assert.equal(C8O.lint.publicWriteReason('Webhook receiver.\nPUBLIC-WRITE: signed by the sender'), 'signed by the sender');
+  assert.equal(C8O.lint.publicWriteReason('see the public-write: policy'), null, 'not at the start of a line');
+  assert.equal(C8O.lint.publicWriteReason(''), null);
+  assert.equal(C8O.lint.publicWriteReason(null), null);
+});
+
+test('project-lint loads the audit rules and adds SEC-ANONYMOUS-WRITE with the severity of each finding', () => {
   const source = read('js/tools_project_lint.js');
   assert.match(source, /^if \(typeof include === "function"\) \{\n  include\("js\/security_audit_rules\.js"\);\n  include\("js\/security_audit_collect\.js"\);\n\}$/m);
-  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\)\)\.forEach/);
-  assert.match(source, /add\("SEC-ANONYMOUS-WRITE", "error", w\.qname, w\.message,/);
+  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\), commentOf\)\.forEach/);
+  assert.match(source, /add\("SEC-ANONYMOUS-WRITE", w\.severity, w\.qname, w\.message,/);
+  assert.match(source, /say so with a line \\"public-write: <reason>\\" in its comment/);
 });
