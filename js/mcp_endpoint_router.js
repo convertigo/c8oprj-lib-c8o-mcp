@@ -1,6 +1,7 @@
 // Centralized dispatcher for MCP requests (initialize/tools/prompts/etc.).
 include("js/nocode_tool_policy.js");
 include("js/gateway_tool_policy.js");
+include("js/mcp_repeated_failures.js");
 var paramsJson = "{}";
 try {
   paramsJson = JSON.stringify(paramsObject);
@@ -574,6 +575,13 @@ if (methodName === "initialize") {
     mcpGuidanceWarning = "";
   }
   toolArgs = C8O.guidance.stripToolArguments(toolArgs);
+  // The answer of this call says when an identical call of the session already failed the same way; keying it never
+  // fails the call.
+  try {
+    mcpCallKey = C8O.mcpRepeat.callKey(toolNameRaw, toolArgs);
+  } catch (_ignoreCallKey) {
+    mcpCallKey = "";
+  }
   var targetSequence = "";
   var mappingError = null;
   var normalizedRequestedTool = String(toolNameRaw || "").trim().toLowerCase();

@@ -290,7 +290,7 @@ test('an argument a tool does not take is named in the answer, with the argument
   const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
   assert.match(endpoint, /var mcpArgumentWarning = "";/);
   assert.match(endpoint, /↓ArgumentWarningIf \[steps\.IfStep-1792407700001\]/, 'structuredContent carries it too');
-  assert.match(endpoint, /\(result, mcpGuidanceWarning, mcpArgumentWarning, mcpOperatorNote\)/, 'and the text content');
+  assert.match(endpoint, /\(result, mcpGuidanceWarning, mcpArgumentWarning, mcpOperatorNote, mcpRepeatNote\)/, 'and the text content');
 });
 
 test('a supervisor note reaches the agent in its next successful tool answer, once', () => {
@@ -558,15 +558,16 @@ test('requestable-execute sets the variables of its call step on its own run onl
   assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
 });
 
-test('every output schema takes the argumentWarning and operatorNote the endpoint adds to an answer', () => {
+test('every output schema takes the argumentWarning, operatorNote and repeatedFailure the endpoint adds to an answer', () => {
   const ctx = { C8O: {}, include() {} };
   vm.runInNewContext(read('js/schema_overrides.js'), ctx);
   const tight = ctx.C8O.schemaOverrides.decorateOutput('tools_databaseobject_tree_get', { type: 'object', additionalProperties: false,
     properties: { rootQName: { type: 'string' } } });
   assert.equal(tight.properties.argumentWarning.type, 'string');
   assert.equal(tight.properties.operatorNote.type, 'string');
+  assert.equal(tight.properties.repeatedFailure.type, 'string');
   const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
-  for (const key of ['argumentWarning', 'operatorNote']) {
+  for (const key of ['argumentWarning', 'operatorNote', 'repeatedFailure']) {
     assert.match(endpoint, new RegExp('↓' + key + ' \\[steps\\.JsonFieldStep-'), key + ' is a top-level field of structuredContent');
   }
 });

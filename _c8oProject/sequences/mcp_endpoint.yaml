@@ -17,7 +17,15 @@ responseTimeout: 300
     } catch (_ignoreSessionRearm) {}
     
     var TOOL_CALL_INTERRUPTED = /Parent context stopped|already been invalidated|Session already invalidated/i;
-    function formatToolErrorObject(err) {
+    // repeatNote: set when an identical call of the same MCP session already failed with this error (js/mcp_repeated_failures.js).
+    function formatToolErrorObject(err, repeatNote) {
+      var lifted = liftToolError(err);
+      if (repeatNote != null && String(repeatNote).length > 0) {
+        lifted.repeatedFailure = String(repeatNote);
+      }
+      return lifted;
+    }
+    function liftToolError(err) {
       err = err && err.error ? err.error : (err || {});
       var probe = [err.message, err.details, err.exception, err.context].join("\n");
       if (TOOL_CALL_INTERRUPTED.test(probe)) {
@@ -28,8 +36,8 @@ responseTimeout: 300
       var message = scriptError && scriptError[1] ? scriptError[1].trim() : (err.message || "Tool call failed");
       return { code: err.code || "", message: message, details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} };
     }
-    function formatToolErrorText(err) {
-      return JSON.stringify(formatToolErrorObject(err));
+    function formatToolErrorText(err, repeatNote) {
+      return JSON.stringify(formatToolErrorObject(err, repeatNote));
     }
     
     const Engine = Packages.com.twinsoft.convertigo.engine.Engine;
@@ -74,6 +82,8 @@ responseTimeout: 300
     var mcpGuidanceWarning = "";
     var mcpArgumentWarning = "";
     var mcpOperatorNote = "";
+    var mcpCallKey = "";
+    var mcpRepeatNote = "";
     var mcpErrorsAsResult = false;
     var mcpAuthentication = null;
     '
@@ -428,6 +438,9 @@ responseTimeout: 300
                 - java.lang.String: 
                   - ↑value: ./document/error
           variableName: toolError
+        ↓NoteRepeatedFailure [steps.SimpleStep-1793350000001]: 
+          comment: Says when an identical call of the same MCP session already failed with this error.
+          expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.errorSignature(formatToolErrorObject(toolError)));
         ↓result [steps.JsonObjectStep-1782105694329]: 
           key: 
             - xmlizable: 
@@ -482,7 +495,7 @@ responseTimeout: 300
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                     - SmartType: 
                       - ↑mode: JS
-                      - →→: formatToolErrorText(toolError)
+                      - →→: formatToolErrorText(toolError, mcpRepeatNote)
           ↓structuredContent [steps.JsonObjectStep-1782105694341]: 
             key: 
               - xmlizable: 
@@ -497,7 +510,7 @@ responseTimeout: 300
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                   - SmartType: 
                     - ↑mode: JS
-                    - →→: formatToolErrorObject(toolError)
+                    - →→: formatToolErrorObject(toolError, mcpRepeatNote)
               key: 
                 - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -559,6 +572,9 @@ responseTimeout: 300
                 - java.lang.String: 
                   - ↑value: ./document/*[@originalKeyName='error']|./document/result[count(*)=1]/error|./document/*[@originalKeyName='result' and count(*)=1]/*[@originalKeyName='error']
           variableName: toolError
+        ↓NoteRepeatedFailure [steps.SimpleStep-1793350000003]: 
+          comment: Says when an identical call of the same MCP session already failed with this error.
+          expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.errorSignature(formatToolErrorObject(toolError)));
         ↓result [steps.JsonObjectStep-1782105694654]: 
           key: 
             - xmlizable: 
@@ -613,7 +629,7 @@ responseTimeout: 300
                     - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                     - SmartType: 
                       - ↑mode: JS
-                      - →→: formatToolErrorText(toolError)
+                      - →→: formatToolErrorText(toolError, mcpRepeatNote)
           ↓structuredContent [steps.JsonObjectStep-1782105694666]: 
             key: 
               - xmlizable: 
@@ -628,7 +644,7 @@ responseTimeout: 300
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                   - SmartType: 
                     - ↑mode: JS
-                    - →→: formatToolErrorObject(toolError)
+                    - →→: formatToolErrorObject(toolError, mcpRepeatNote)
               key: 
                 - xmlizable: 
                   - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
@@ -692,6 +708,9 @@ responseTimeout: 300
                 - java.lang.String: 
                   - ↑value: ./document/*[@originalKeyName='result']
           variableName: result
+        ↓NoteRepeatedFailure [steps.SimpleStep-1793350000005]: 
+          comment: Says when an identical call of the same MCP session already failed with this error; a call that worked forgets its failures.
+          expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.failureOf(result));
         ↓result [steps.JsonObjectStep-1762256093362]: 
           key: 
             - xmlizable: 
@@ -734,7 +753,7 @@ responseTimeout: 300
                       - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
                       - SmartType: 
                         - ↑mode: JS
-                        - →→: '(function (value, warning, argumentWarning, operatorNote) { if ((argumentWarning != null && String(argumentWarning).length > 0) || (operatorNote != null && String(operatorNote).length > 0)) { var withWarning = {}; if (operatorNote != null && String(operatorNote).length > 0) { withWarning.operatorNote = String(operatorNote); } if (argumentWarning != null && String(argumentWarning).length > 0) { withWarning.argumentWarning = String(argumentWarning); } if (value !== null && typeof value === "object" && !(value instanceof Array)) { for (var k in value) { withWarning[k] = value[k]; } } else { withWarning.result = value; } value = withWarning; } if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning, mcpArgumentWarning, mcpOperatorNote)'
+                        - →→: '(function (value, warning, argumentWarning, operatorNote, repeatedFailure) { if ((argumentWarning != null && String(argumentWarning).length > 0) || (operatorNote != null && String(operatorNote).length > 0) || (repeatedFailure != null && String(repeatedFailure).length > 0)) { var withWarning = {}; if (operatorNote != null && String(operatorNote).length > 0) { withWarning.operatorNote = String(operatorNote); } if (argumentWarning != null && String(argumentWarning).length > 0) { withWarning.argumentWarning = String(argumentWarning); } if (repeatedFailure != null && String(repeatedFailure).length > 0) { withWarning.repeatedFailure = String(repeatedFailure); } if (value !== null && typeof value === "object" && !(value instanceof Array)) { for (var k in value) { withWarning[k] = value[k]; } } else { withWarning.result = value; } value = withWarning; } if (warning == null || String(warning).length === 0) { return JSON.stringify(value); } return JSON.stringify({ convertigoGuidanceWarning: String(warning), guidance: "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.", result: value }); })(result, mcpGuidanceWarning, mcpArgumentWarning, mcpOperatorNote, mcpRepeatNote)'
           ↓structuredContent [steps.JsonObjectStep-1762256231591]: 
             key: 
               - xmlizable: 
@@ -772,6 +791,21 @@ responseTimeout: 300
                     - SmartType: 
                       - ↑mode: JS
                       - →→: mcpArgumentWarning
+            ↓RepeatedFailureIf [steps.IfStep-1793350000007]: 
+              condition: mcpRepeatNote !== null && mcpRepeatNote !== undefined && String(mcpRepeatNote).length > 0
+              ↓repeatedFailure [steps.JsonFieldStep-1793350000009]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: repeatedFailure
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: mcpRepeatNote
             ↓CopyResult [steps.XMLCopyStep-1762256686684]: 
               sourceDefinition: 
                 - xmlizable: 
