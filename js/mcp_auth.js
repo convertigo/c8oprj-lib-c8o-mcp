@@ -40,6 +40,25 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   var STORE_READ_ATTEMPTS = 4;
   var STORE_READ_PAUSE_MS = 25;
 
+  // A managed token of the Tigo panel lasts as long as its conversation works, not a fixed time: a turn can run for
+  // hours (PCA eval 29/10: GLM lost every Convertigo tool 2 h into its turn, the token had a fixed 2 h expiry and only
+  // the next message renewed it). A token created with idleSeconds is leased: its JWT exp only caps its life
+  // (LEASE_MAX_SECONDS) and the engine keeps a lease that ends idleSeconds after the last activity. Every call it
+  // authenticates slides the lease, and so does the Agent Bridge of the engine on the events of a running turn (a long
+  // tool or a wait without MCP call). The leases live in the store the server shares between projects: a restart of the
+  // engine ends every leased token, and revoke() ends one at once.
+  // Store contract, also read by the Agent Bridge and the Assistant: context.server.get(MANAGED_LEASES_KEY) is a
+  // java.util.concurrent.ConcurrentHashMap from the token id (JWT kid) to a JSON string {idleMs, expiresAt, maxAt}. An
+  // update replaces the exact previous string (replace(key, old, new)), so a removed or ended lease never comes back.
+  // The leases live in the memory of the engine that issued the token: on a server of several nodes, a call must reach
+  // that node (the Agent Bridge calls the MCP of its own engine on localhost).
+  var MANAGED_LEASES_KEY = "lib_ConvertigoMCP.managedTokenLeases";
+  var LEASE_MAX_SECONDS = 7 * 86400;
+  var MIN_LEASE_IDLE_SECONDS = 60;
+  var LEASE_SLIDE_MIN_MS = 30000;
+  var MANAGED_EXPIRED_HINT = "Send a new message in the Tigo panel: it renews the authorization. The work done so far is kept.";
+  var DURABLE_EXPIRED_HINT = "Create a new MCP token in the lib_ConvertigoMCP token page and put it in the client configuration.";
+
   function trim(value) {
     return value === null || typeof value === "undefined"
       ? ""
@@ -437,45 +456,154 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     }
   }
 
-  function createManaged(contextObject, label, ttlSeconds) {
+  function sharedStore(contextObject) {
+    try {
+      if (contextObject && contextObject.server) {
+        return contextObject.server;
+      }
+    } catch (_ignoreContextServer) {}
+    try {
+      if (typeof server !== "undefined" && server) {
+        return server;
+      }
+    } catch (_ignoreServer) {}
+    return null;
+  }
+
+  // context.server has no putIfAbsent: the first lease of the engine creates the map, once.
+  function managedLeases(contextObject, create) {
+    var store = sharedStore(contextObject);
+    if (!store) {
+      return null;
+    }
+    var leases = store.get(MANAGED_LEASES_KEY);
+    if (leases == null && create === true) {
+      leases = new Packages.org.mozilla.javascript.Synchronizer(function () {
+        if (store.get(MANAGED_LEASES_KEY) == null) {
+          store.set(MANAGED_LEASES_KEY, new Packages.java.util.concurrent.ConcurrentHashMap());
+        }
+        return store.get(MANAGED_LEASES_KEY);
+      }, store)();
+    }
+    return leases;
+  }
+
+  function readLease(leases, tokenId) {
+    var text = leases == null ? null : leases.get(tokenId);
+    if (text == null) {
+      return null;
+    }
+    try {
+      return { text: text, lease: JSON.parse(String(text)) };
+    } catch (_unreadableLease) {
+      return null;
+    }
+  }
+
+  // Moves the end of a live lease to nowMs + its idle time (within its cap). An ended lease stays ended, and a lease
+  // removed meanwhile is not written again.
+  function slideLease(leases, tokenId, nowMs) {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      var current = readLease(leases, tokenId);
+      if (current === null || !(nowMs < Number(current.lease.expiresAt))) {
+        return current === null ? null : current.lease;
+      }
+      var next = nowMs + Number(current.lease.idleMs);
+      if (Number(current.lease.maxAt) > 0) {
+        next = Math.min(next, Number(current.lease.maxAt));
+      }
+      if (next - Number(current.lease.expiresAt) < LEASE_SLIDE_MIN_MS) {
+        return current.lease;
+      }
+      current.lease.expiresAt = next;
+      if (leases.replace(tokenId, current.text, JSON.stringify(current.lease))) {
+        return current.lease;
+      }
+    }
+    var latest = readLease(leases, tokenId);
+    return latest === null ? null : latest.lease;
+  }
+
+  // ttlSeconds alone: a token with a fixed expiry, as before (the callers that do not know leases). With idleSeconds:
+  // a leased token (see MANAGED_LEASES_KEY); ttlSeconds is then ignored.
+  function createManaged(contextObject, label, ttlSeconds, idleSeconds) {
     try {
       requireWebAdmin(contextObject);
-      var lifetime = boundedInteger(ttlSeconds, DEFAULT_MANAGED_SECONDS, MIN_MANAGED_SECONDS, MAX_MANAGED_SECONDS);
-      var nowSeconds = Math.floor(java.lang.System.currentTimeMillis() / 1000);
+      var leased = trim(idleSeconds).length > 0 && trim(idleSeconds) !== "0";
+      var idle = leased ? boundedInteger(idleSeconds, DEFAULT_MANAGED_SECONDS, MIN_LEASE_IDLE_SECONDS, MAX_MANAGED_SECONDS) : 0;
+      var lifetime = leased ? LEASE_MAX_SECONDS : boundedInteger(ttlSeconds, DEFAULT_MANAGED_SECONDS, MIN_MANAGED_SECONDS, MAX_MANAGED_SECONDS);
+      var nowMs = java.lang.System.currentTimeMillis();
+      var nowSeconds = Math.floor(nowMs / 1000);
       var tokenId = "managed_" + String(UUID.randomUUID()).replace(/-/g, "");
-      var token = buildToken(
-        { alg: "HS256", typ: "JWT", kid: tokenId },
-        {
-          iss: ISSUER,
-          aud: AUDIENCE,
-          sub: currentAdminUser(contextObject),
-          jti: String(UUID.randomUUID()),
-          kind: "managed",
-          label: tokenLabel(label, "Convertigo Assistant"),
-          scope: "mcp:full",
-          iat: nowSeconds,
-          nbf: nowSeconds,
-          exp: nowSeconds + lifetime
-        },
-        signingKey()
-      );
+      var payload = {
+        iss: ISSUER,
+        aud: AUDIENCE,
+        sub: currentAdminUser(contextObject),
+        jti: String(UUID.randomUUID()),
+        kind: "managed",
+        label: tokenLabel(label, "Convertigo Assistant"),
+        scope: "mcp:full",
+        iat: nowSeconds,
+        nbf: nowSeconds,
+        exp: nowSeconds + lifetime
+      };
+      var expiresAtMs = (nowSeconds + lifetime) * 1000;
+      if (leased) {
+        var leases = managedLeases(contextObject, true);
+        if (leases == null) {
+          throw new Error("The server store that keeps the MCP token leases is not available.");
+        }
+        payload.lease = "turn";
+        expiresAtMs = nowMs + idle * 1000;
+        leases.put(tokenId, JSON.stringify({ idleMs: idle * 1000, expiresAt: expiresAtMs, maxAt: (nowSeconds + lifetime) * 1000 }));
+      }
+      var token = buildToken({ alg: "HS256", typ: "JWT", kid: tokenId }, payload, signingKey());
+      var tokenInfo = {
+        id: tokenId,
+        name: tokenLabel(label, "Convertigo Assistant"),
+        kind: "managed",
+        scope: "mcp:full",
+        createdAt: isoDate(nowSeconds * 1000),
+        expiresAt: isoDate(expiresAtMs),
+        status: "active"
+      };
+      if (leased) {
+        tokenInfo.lease = { idleSeconds: idle, maxExpiresAt: isoDate((nowSeconds + lifetime) * 1000), leasesKey: MANAGED_LEASES_KEY };
+      }
       return {
         status: "ok",
         token: token,
-        tokenInfo: {
-          id: tokenId,
-          name: tokenLabel(label, "Convertigo Assistant"),
-          kind: "managed",
-          scope: "mcp:full",
-          createdAt: isoDate(nowSeconds * 1000),
-          expiresAt: isoDate((nowSeconds + lifetime) * 1000),
-          status: "active"
-        },
+        tokenInfo: tokenInfo,
         mcpUrl: endpointUrl(contextObject)
       };
     } catch (error) {
       return createResultError(error.code || "managed_token_creation_failed", String(error.message || error));
     }
+  }
+
+  // An expired managed token (its signature checked) is refused with handshake: the endpoint still lets it open an MCP
+  // session (initialize, notifications), because Vibe opens one per tool call and a 401 on initialize made it drop the
+  // Convertigo server with "The provided tool call failed"; the tool call that follows reads why, and what to do.
+  function managedExpired(message) {
+    var refusal = invalid("expired_token", message, MANAGED_EXPIRED_HINT);
+    refusal.error.handshake = true;
+    return refusal;
+  }
+
+  // A leased managed token is refused once its lease is gone (revoked, or the engine restarted) or ended (no activity
+  // for its idle time). Otherwise this call slides it.
+  function checkManagedLease(contextObject, tokenId) {
+    var leases = managedLeases(contextObject, false);
+    var lease = leases == null || !tokenId.length ? null : slideLease(leases, tokenId, java.lang.System.currentTimeMillis());
+    if (lease === null) {
+      return managedExpired("MCP token expired: this engine holds no lease for it any more (revoked, or the engine "
+        + "restarted since it was issued).");
+    }
+    if (!(java.lang.System.currentTimeMillis() < Number(lease.expiresAt))) {
+      return managedExpired("MCP token expired: its conversation used it last at " + isoDate(Number(lease.expiresAt) - Number(lease.idleMs))
+        + " and a token stays valid " + Math.round(Number(lease.idleMs) / 60000) + " min without a turn using it.");
+    }
+    return null;
   }
 
   function filesIn(directory) {
@@ -564,6 +692,14 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   function revoke(contextObject, tokenId) {
     try {
       requireWebAdmin(contextObject);
+      // A leased managed token (see MANAGED_LEASES_KEY) ends with its lease.
+      if (/^managed_[0-9a-f]{32}$/.test(trim(tokenId))) {
+        var leases = managedLeases(contextObject, false);
+        var removed = leases != null && leases.remove(trim(tokenId)) != null;
+        return removed
+          ? { status: "ok", token: { id: trim(tokenId), kind: "managed", status: "revoked", revokedAt: isoDate(java.lang.System.currentTimeMillis()) } }
+          : createResultError("token_not_found", "No leased managed MCP token with this id on this engine (already revoked, ended with a restart, or created without a lease).");
+      }
       var roots = tokenRoots();
       var active = null;
       var revokedExisting = null;
@@ -697,8 +833,9 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     }
   }
 
-  function invalid(code, message) {
-    return {
+  // hint: what the user does about it, for a token that expired (the endpoint shows it to the agent).
+  function invalid(code, message, hint) {
+    var result = {
       status: "error",
       authenticated: false,
       error: {
@@ -706,6 +843,10 @@ C8O.mcpAuth = C8O.mcpAuth || {};
         message: String(message || "MCP token is invalid.")
       }
     };
+    if (trim(hint).length) {
+      result.error.hint = String(hint);
+    }
+    return result;
   }
 
   // Not a refusal: the token could not be checked, because its store could not be read or C8Oforms could not run its
@@ -832,13 +973,6 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     if (String(payload.iss || "") !== ISSUER || String(payload.aud || "") !== AUDIENCE) {
       return invalid("invalid_token_claims", "The MCP bearer token issuer or audience is invalid.");
     }
-    var nowSeconds = Math.floor(java.lang.System.currentTimeMillis() / 1000);
-    if (payload.exp !== null && typeof payload.exp !== "undefined" && nowSeconds >= Number(payload.exp)) {
-      return invalid("expired_token", "The MCP bearer token has expired.");
-    }
-    if (payload.nbf !== null && typeof payload.nbf !== "undefined" && nowSeconds < Number(payload.nbf)) {
-      return invalid("token_not_yet_valid", "The MCP bearer token is not valid yet.");
-    }
     var signingInput = parts[0] + "." + parts[1];
     var key = readStore(function () {
       try {
@@ -856,14 +990,34 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     if (!signaturesEqual(parts[2], expected)) {
       return invalid("invalid_token_signature", "The MCP bearer token signature is invalid.");
     }
+    // The dates are checked once the signature is: an expired managed token is one this engine issued, and it may still
+    // open a session to read why it is refused (see managedExpired).
+    var nowSeconds = Math.floor(java.lang.System.currentTimeMillis() / 1000);
+    if (payload.exp !== null && typeof payload.exp !== "undefined" && nowSeconds >= Number(payload.exp)) {
+      var expiredMessage = "MCP token expired: it reached its expiry date (" + isoDate(Number(payload.exp) * 1000) + ").";
+      return trim(payload.kind) === "managed"
+        ? managedExpired(expiredMessage)
+        : invalid("expired_token", expiredMessage, DURABLE_EXPIRED_HINT);
+    }
+    if (payload.nbf !== null && typeof payload.nbf !== "undefined" && nowSeconds < Number(payload.nbf)) {
+      return invalid("token_not_yet_valid", "The MCP bearer token is not valid yet.");
+    }
     var kind = trim(payload.kind) || "durable";
     if (kind === "managed") {
+      var managedId = safeIdentifier(header.kid);
+      if (trim(payload.lease) === "turn") {
+        var leaseRefusal = checkManagedLease(contextObject, managedId);
+        if (leaseRefusal !== null) {
+          return leaseRefusal;
+        }
+      }
       return {
         status: "ok",
         authenticated: true,
         kind: "managed",
         scope: trim(payload.scope) || "mcp:full",
         user: trim(payload.sub),
+        tokenId: managedId,
         payload: payload
       };
     }
@@ -905,7 +1059,7 @@ C8O.mcpAuth = C8O.mcpAuth || {};
       }
       var recordExpiration = parseIsoDate(record.expiresAt);
       if (recordExpiration > 0 && java.lang.System.currentTimeMillis() >= recordExpiration) {
-        return invalid("expired_token", "The MCP bearer token has expired.");
+        return invalid("expired_token", "MCP token expired: it reached its expiry date (" + isoDate(recordExpiration) + ").", DURABLE_EXPIRED_HINT);
       }
       updateLastUsed(file, record, java.lang.System.currentTimeMillis());
       return {

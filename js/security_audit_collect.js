@@ -50,6 +50,11 @@ C8O.securityAudit = C8O.securityAudit || {};
   var PASSWORD_JS = /passw|pwd/i;
   var PASSWORD_CRYPTO_JS = /OpenBSDBCrypt|BCrypt|Argon2|PBKDF2|SCrypt|SecretKeyFactory|MessageDigest|DigestUtils|Mac\s*\.\s*getInstance/;
   var REMOVE_USER_JS = /removeAuthenticatedUser\s*\(/;
+  var SET_USER_JS = /setAuthenticatedUser\s*\(/;
+  // Statements that change data; string literals and comments are left out before the test.
+  var SQL_WRITE = /\b(INSERT\s+INTO|UPDATE\s+[\w."`\[\]]+\s+SET|DELETE\s+FROM|MERGE\s+INTO|REPLACE\s+INTO|TRUNCATE|DROP\s+(?:TABLE|SCHEMA|VIEW|INDEX)|CREATE\s+(?:TABLE|SCHEMA|VIEW|INDEX)|ALTER\s+TABLE)\b/gi;
+  // CouchDB / FullSync transactions that write (a POST that only queries, like _find, does not).
+  var COUCH_WRITE_CLASS = /^(?:Post(?!Find|AllDocs|View|Changes|Session)|Put|Delete|Purge|Reset)\w*Transaction$/;
   var END_SESSION_JS = /httpSession\s*\.\s*invalidate\s*\(|terminateSession\s*\(/;
 
   var FRONTEND_PATTERNS = [
@@ -134,8 +139,27 @@ C8O.securityAudit = C8O.securityAudit || {};
       weakPasswordHash: WEAK_HASH_JS.test(text) && PASSWORD_JS.test(text),
       managesPassword: PASSWORD_CRYPTO_JS.test(text) && PASSWORD_JS.test(text),
       removesUser: REMOVE_USER_JS.test(text),
+      setsUser: SET_USER_JS.test(text),
       endsSession: END_SESSION_JS.test(text)
     };
+  };
+
+  // What a transaction writes: the SQL statements that change data, or the CouchDB / FullSync write it is.
+  api.transactionWrites = function (className, sqlQuery) {
+    var writes = [];
+    var text = str(sqlQuery).replace(/'(?:[^']|'')*'/g, "''").replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ");
+    var match = null;
+    SQL_WRITE.lastIndex = 0;
+    while ((match = SQL_WRITE.exec(text)) !== null) {
+      var verb = "SQL " + match[1].toUpperCase().replace(/\s+.*$/, "");
+      if (writes.indexOf(verb) === -1) {
+        writes.push(verb);
+      }
+    }
+    if (COUCH_WRITE_CLASS.test(str(className))) {
+      writes.push("CouchDB " + str(className).replace(/Transaction$/, ""));
+    }
+    return writes;
   };
 
   api.rawSqlPlaceholders = function (query) {
@@ -387,6 +411,7 @@ C8O.securityAudit = C8O.securityAudit || {};
     if (has(tx, "getSqlQuery")) {
       r.rawSqlPlaceholders = api.rawSqlPlaceholders(call(tx, "getSqlQuery", ""));
     }
+    r.writes = api.transactionWrites(r.requestableClass, has(tx, "getSqlQuery") ? call(tx, "getSqlQuery", "") : "");
     if (has(tx, "getAllowedUriOverride")) {
       r.allowedUriOverride = str(call(tx, "getAllowedUriOverride", "deny"));
       r.allowUndeclaredHeaderOverride = call(tx, "isAllowUndeclaredHeaderOverride", false) === true;

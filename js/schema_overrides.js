@@ -616,15 +616,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         limit: integerSchema(1, 1000, 200, "Maximum findings listed. 1 to 1000; default 200. Summary counts stay complete."),
         suppress: {
           type: "array",
-          description: "Accepted risks. Matching findings stay listed with suppressed=true and no longer lower the score. Omit qname to accept every finding of the rule.",
+          description: "Accepted risks, each with its reason. Matching findings stay listed with suppressed=true and no longer lower score and grade; rawScore and rawGrade still count them. Omit qname to accept every finding of the rule. An exposure finding on a requestable anyone can call that writes data is not suppressed: suppressRefused says why and how to fix it.",
           items: {
             type: "object",
             properties: {
               ruleId: { type: "string", description: "Rule id such as EXP-03." },
               qname: { type: "string", description: "Exact finding qname." },
-              reason: { type: "string", description: "Why the risk is accepted." }
+              reason: { type: "string", description: "Why the risk is accepted. Required: an entry without reason is not applied." }
             },
-            required: ["ruleId"],
+            required: ["ruleId", "reason"],
             additionalProperties: false
           }
         }
@@ -647,7 +647,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       anonymousReachable: { type: "boolean" },
       requestable: { type: "string" },
       suppressed: { type: "boolean" },
-      suppressionReason: { type: "string" }
+      suppressionReason: { type: "string" },
+      suppressionRefused: { type: "string", description: "Why a matching accepted risk did not suppress this finding." }
     });
   }
 
@@ -674,9 +675,22 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       projectVersion: { type: "string" },
       rulesetVersion: { type: "string" },
       auditedAt: { type: "string" },
-      score: { type: "number", description: "0 to 100; 100 means no active finding." },
+      score: { type: "number", description: "0 to 100; 100 means no active finding. Accepted risks (suppress) do not count." },
       grade: grade,
-      gradeCappedBy: { type: "string" },
+      gradeCappedBy: { type: "string", description: "critical-finding (an active critical finding caps the grade at D) or refused-suppression (an active finding whose suppression was refused caps it at B)." },
+      rawScore: { type: "number", description: "The score as if nothing were suppressed." },
+      rawGrade: { type: "string", enum: ["A", "B", "C", "D", "F"], description: "The grade as if nothing were suppressed: report it next to grade." },
+      rawGradeCappedBy: { type: "string" },
+      suppressRefused: {
+        type: "array",
+        description: "Accepted risks not applied: an entry without reason, or an exposure finding on a requestable anyone can call that writes data (it stays active).",
+        items: openObjectSchema({
+          ruleId: { type: "string" },
+          qname: { type: "string" },
+          reason: { type: "string" },
+          refused: { type: "string" }
+        })
+      },
       summary: openObjectSchema({
         critical: { type: "number" },
         high: { type: "number" },
@@ -709,6 +723,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         score: { type: "number" },
         grade: grade,
         gradeCappedBy: { type: "string" },
+        rawScore: { type: "number" },
+        rawGrade: grade,
         studioMode: { type: "boolean" },
         rules: { type: "array", items: securityRuleCheckSchema() },
         findings: { type: "array", items: securityFindingSchema() }

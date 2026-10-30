@@ -47,6 +47,7 @@ Each flow authenticates the session with a provider-prefixed user id: `google:<s
 2. **Configure with symbols, server side.** Client ids, endpoints, redirect URIs, scopes, and SMTP settings are symbols. Secrets use a name ending with `.secret` and no default value that holds the real secret.
 3. **Expose public configuration through a configuration sequence.** Symbols are resolved on the server only; NGX pages and TypeScript never see them. The client gets `client_id`, the authorization endpoint, the redirect URI, the scopes, and a per-login `state`/`nonce` from a configuration sequence, as the libraries already do (`lib_FranceConnect.getConfiguration`, `lib_OAuth.GetOAuthCredentials`). Rules for that sequence:
    - `Hidden`, anonymous by design (the client calls it before login). Record its `EXP-02` audit finding with `suppress` and the reason.
+   - It writes no data: the audit refuses to suppress an exposure finding on a requestable anyone can call that writes data.
    - It returns public values only. Never a `.secret` symbol, never a token.
    - It generates `state` and `nonce` with `SecureRandom` and keeps them in the session; the login sequence checks them once and removes them.
    - Never hard-code a client id or an identity-provider URL in NGX code.
