@@ -291,6 +291,26 @@ if (typeof include === "function") {
     return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
   };
 
+  // Adds a finding to a list capped at max. A full list still takes an error, in place of its last finding that is not one:
+  // on a large app thousands of warnings filled the list before the errors were found (C8Oforms: 2707 i18n warnings hid
+  // its 4 SEC-ANONYMOUS-WRITE errors, counted but not listed).
+  C8O.lint.keepFinding = function (findings, finding, max) {
+    if (findings.length < max) {
+      findings.push(finding);
+      return;
+    }
+    if (finding.severity !== "error") {
+      return;
+    }
+    for (var i = findings.length - 1; i >= 0; i--) {
+      if (findings[i].severity !== "error") {
+        findings.splice(i, 1);
+        findings.push(finding);
+        return;
+      }
+    }
+  };
+
   // A "public-write: <reason>" line in a requestable's comment: the reason, "" for a line without one, null without the line.
   C8O.lint.publicWriteReason = function (comment) {
     var match = /^[ \t]*public-write[ \t]*:(.*)$/im.exec(String(comment || ""));
@@ -373,9 +393,8 @@ if (typeof include === "function") {
     function add(rule, severity, dbo, message, fix) {
       counts.byRule[rule] = (counts.byRule[rule] || 0) + 1;
       counts.bySeverity[severity] = (counts.bySeverity[severity] || 0) + 1;
-      if (findings.length < MAX_FINDINGS) {
-        findings.push({ rule: rule, severity: severity, qname: typeof dbo === "string" ? dbo : qnameOf(dbo), message: message, fix: fix });
-      }
+      C8O.lint.keepFinding(findings, { rule: rule, severity: severity, qname: typeof dbo === "string" ? dbo : qnameOf(dbo), message: message, fix: fix },
+        MAX_FINDINGS);
     }
 
     function lintSql(dbo) {
