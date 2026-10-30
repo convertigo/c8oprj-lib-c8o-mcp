@@ -567,6 +567,35 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return readLiveBuildJob(liveBuildJobName(projectRef, String(projectRef.getName()))).active !== true;
   }
 
+  // The FlashUpdate launcher of a mobile build ("Convertigo FlashUpdate", "Launching Application", "Checking for
+  // updates", a black page) never shows the application: a viewer left on it read "building" for 15 min while the dev
+  // server answered, and the agent polled 20 times (PCA eval 30/10). Sent to the application root page, it showed it.
+  function viewerOnLauncherPage(browserState) {
+    if (!browserState || browserState.hasBrowser !== true) {
+      return false;
+    }
+    var text = lower((browserState.title || "") + " " + (browserState.statusText || "") + " " + (browserState.bodyTextSample || ""));
+    return text.indexOf("convertigo flashupdate") !== -1 || text.indexOf("checking for updates") !== -1 ||
+      text.indexOf("launching application") !== -1;
+  }
+
+  function navigateOpenViewer(editorRef, url) {
+    var navigated = false;
+    try {
+      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
+      ConvertigoPlugin.syncExec(new Packages.java.lang.Runnable({ run: function () {
+        try {
+          var browser = readPrivateField(editorRef, "c8oBrowser");
+          if (browser != null && browser.loadURL) {
+            browser.loadURL(url);
+            navigated = true;
+          }
+        } catch (_ignoreNavigate) {}
+      } }));
+    } catch (_ignoreNavigateExec) {}
+    return navigated;
+  }
+
   function readLiveBuildJob(jobName) {
     var state = {
       supported: false,
@@ -941,6 +970,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var terminalBuildObserved = false;
     var viewerHydrating = false;
     var idleViewerWithoutApp = false;
+    var viewerLauncherLeft = false;
+    var viewerLauncherHome = "";
     var readinessDecision = {
       ready: false,
       viewerReady: false,
@@ -1100,6 +1131,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       var currentDebugPortMatched = browserDebugPortValue <= 0 || currentDebugPort === browserDebugPortValue;
       var currentBrowserControlReady = currentDebugPortMatched && isBrowserControlReady(editorState, browserState, candidateViewerBaseUrl);
       var candidateReachable = candidateUrl.length > 0 && urlReachable(candidateUrl, 1500);
+      if (candidateReachable && !viewerLauncherLeft && editorRef != null && viewerOnLauncherPage(browserState)) {
+        viewerLauncherHome = deriveViewerHomeUrl(candidateViewerBaseUrl, candidateUrl, rootPageSegmentValue);
+        if (viewerLauncherHome.length && navigateOpenViewer(editorRef, viewerLauncherHome)) {
+          viewerLauncherLeft = true;
+          browserState = readBrowserState(editorRef);
+        }
+      }
       var currentViewerReady = candidateReachable &&
         hasViewerReadyEvidence(snapshot, editorState, browserState, candidateNodeUrl) === true;
       var waitingForViewerHydration = waitValue === true &&
@@ -1230,6 +1268,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var compileState = readinessDecision && readinessDecision.compileState ? readinessDecision.compileState : "unknown";
     var readyReason = readinessDecision && readinessDecision.readyReason ? readinessDecision.readyReason : "";
 
+    var viewerOnLauncher = ready !== true && viewerOnLauncherPage(browserState);
     var waited = waitValue === true && timeoutSecValue > 0;
     var status = ready
       ? "ready"
@@ -1286,6 +1325,16 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       : (status === "building" && idleViewerWithoutApp
         ? { tool: "mobile-builder-open", arguments: { project: projectName, stateOnly: false, wait: true } }
         : null);
+    if (viewerOnLauncher && status !== "compile_error") {
+      message = "The Studio viewer shows the Convertigo FlashUpdate launcher page (" +
+        compactText(browserState.currentUrl || browserState.locationHref || "") + "), not the application" +
+        (viewerLauncherLeft ? ", and stayed on it after it was sent to " + viewerLauncherHome : "") +
+        ". Call mobile-builder-open with forceRestart true; polling with stateOnly does not leave that page.";
+      nextAction = { tool: "mobile-builder-open", arguments: { project: projectName, forceRestart: true, wait: true, timeoutSec: 45 } };
+    } else if (viewerLauncherLeft) {
+      message = message + " The viewer was on the Convertigo FlashUpdate launcher page and was sent to " + viewerLauncherHome +
+        (ready ? "." : ": call mobile-builder-open with stateOnly true and wait true to read the application.");
+    }
     if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
@@ -1305,6 +1354,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       ready: ready,
       viewerReady: viewerReady,
       viewerHydrating: viewerHydrating,
+      viewerOnLauncherPage: viewerOnLauncher,
+      viewerLauncherLeft: viewerLauncherLeft,
       compileState: compileState,
       buildObserved: buildJobObserved === true || terminalBuildObserved === true,
       readyReason: readyReason,

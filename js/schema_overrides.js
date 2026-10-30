@@ -2187,6 +2187,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       ready: { type: "boolean", description: "True when the live viewer is usable and no currently observed build signal still blocks it. This does not imply compileState=success." },
       viewerReady: { type: "boolean", description: "True when a reachable live viewer has rendered DOM evidence; a responding URL with an empty app-root is not ready." },
       viewerHydrating: { type: "boolean", description: "True when the live URL responds but the Studio viewer application DOM is still empty." },
+      viewerOnLauncherPage: { type: "boolean", description: "True when the Studio viewer still shows the Convertigo FlashUpdate launcher page instead of the application: follow nextAction (forceRestart), do not poll." },
+      viewerLauncherLeft: { type: "boolean", description: "True when this call found the viewer on the FlashUpdate launcher page and sent it to viewerHomeUrl." },
       compileState: { type: "string", enum: ["unknown", "building", "success", "failed", "not_required"], description: "Compilation evidence observed by this call, independent from viewer/browser readiness." },
       buildObserved: { type: "boolean", description: "True when this call observed a Studio live-build job or terminal compiler signal." },
       readyReason: { type: "string", enum: ["", "compiled", "generation_no_change", "browser_control_ready", "viewer_ready"], description: "Evidence that allowed the call to stop waiting." },
