@@ -7,6 +7,12 @@
  * One constructor at a time per project: the run holds the lock "project:<name>", and while it runs the MCP router
  * refuses the writes of anyone else to that project (see projectWriteBlocked). The report lists the objects created and
  * modified (QNames), the checks run, the open issues and the project files written during the run.
+ *
+ * inputs.pack "flow" (set by the relay of the convertigo-flow server, never chosen by the model there) runs the session
+ * with the convertigo-flow server alone, the same token and headers, on one side of the project (inputs.scope backend
+ * or frontend): one constructor per side, so the two sides of a parallel build run at the same time. Its lock is
+ * "flow:<project>:<scope>", and its session sends X-Convertigo-Subagent-Scope, by which that server refuses its writes
+ * to the other side.
  */
 if (typeof C8O === "undefined") { var C8O = {}; }
 C8O.constructorRunner = C8O.constructorRunner || {};
@@ -19,9 +25,56 @@ C8O.constructorRunner = C8O.constructorRunner || {};
   // The tools a constructor never calls: no sub-agent of its own, no browser proof.
   api.DISABLED_TOOLS = ["Convertigo_subagent-run", "Convertigo_browser-verify", "Convertigo_project-delete"];
 
+  // The pack whose server the session of inputs.pack "flow" keeps, the sides it may own, and the tools it never calls:
+  // the main agent's (sub-agents, browser proofs, save, project creation and removal, imports, schedules, reports),
+  // the shell and the file writers (its sources go through the server's tools), and the other side's own tools.
+  api.FLOW_SERVER = "convertigo-flow";
+  api.FLOW_SCOPES = ["backend", "frontend"];
+  api.FLOW_DISABLED_TOOLS = ["subagent-run", "browser-verify", "report-create", "project-save", "flow-project-bootstrap",
+    "flow-project-remove", "marketplace-import", "scheduler-apply"].map(function (tool) { return api.FLOW_SERVER + "_" + tool; })
+    .concat(["bash", "git_bash", "powershell", "write_file", "edit", "task"]);
+  api.FLOW_SCOPE_DISABLED_TOOLS = {
+    backend: [api.FLOW_SERVER + "_frontend-svelte-*"],
+    frontend: ["flow-block-mock", "flow-schema-reset", "flow-sync-inputs", "flow-object-remove", "flow-fullsync-scaffold"]
+      .map(function (tool) { return api.FLOW_SERVER + "_" + tool; })
+  };
+
   function inputsOf(params) {
     return C8O.subagents.objectArg(params.inputs);
   }
+
+  // The pack of a constructor call: null for the Convertigo MCP, else {pack, scope, server}.
+  api.packOf = function (inputs) {
+    inputs = inputs || {};
+    var pack = str(inputs.pack).toLowerCase();
+    if (!pack.length || pack === "convertigo") {
+      return null;
+    }
+    if (pack !== "flow") {
+      throw new Error("Unknown pack " + str(inputs.pack) + ": a constructor builds with the Convertigo MCP (no pack) or with pack flow.");
+    }
+    var scope = str(inputs.scope).toLowerCase();
+    if (api.FLOW_SCOPES.indexOf(scope) < 0) {
+      throw new Error("A constructor of pack flow needs inputs.scope " + api.FLOW_SCOPES.join(" or ") + ": the side of the project it owns.");
+    }
+    return { pack: "flow", scope: scope, server: api.FLOW_SERVER };
+  };
+
+  // Does a Vibe config.toml declare this MCP server ([[mcp_servers]] name = "<server>")?
+  api.declaresServer = function (text, server) {
+    var name = str(server).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("^\\s*name\\s*=\\s*[\"']" + name + "[\"']\\s*$", "m").test(String(text || ""));
+  };
+
+  // The environment variable of the bearer of that server in a Vibe config.toml (its static auth), by default
+  // CONVERTIGO_MCP_TOKEN.
+  api.mcpTokenEnvOf = function (text, server) {
+    text = String(text || "");
+    var name = str(server).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    var at = text.search(new RegExp("^\\s*name\\s*=\\s*[\"']" + name + "[\"']", "m"));
+    var env = /api_key_env\s*=\s*"([^"]+)"/.exec(text.substring(Math.max(0, at)));
+    return env ? env[1] : "CONVERTIGO_MCP_TOKEN";
+  };
 
   api.runner = {
     prepare: function (params, profile, ctx, host) {
@@ -38,14 +91,16 @@ C8O.constructorRunner = C8O.constructorRunner || {};
       if (!bearer.length) {
         throw new Error("The constructor works with the caller's MCP bearer, and this call has none.");
       }
-      var template = host.vibeTemplate(str(params.conversationId));
+      var pack = api.packOf(inputs);
+      var template = host.vibeTemplate(str(params.conversationId), pack ? pack.server : "Convertigo");
       var env = {};
       env[template.mcpTokenEnv] = bearer;
       return {
         command: [host.nodePath(), host.runnerScript()],
         env: env,
-        lockKey: "project:" + project,
+        lockKey: pack ? "flow:" + project + ":" + pack.scope : "project:" + project,
         task: str(params.task),
+        meta: pack ? { pack: pack.pack, scope: pack.scope } : {},
         config: {
           vibeBin: host.vibeBin(),
           templateHome: template.home,
@@ -59,13 +114,16 @@ C8O.constructorRunner = C8O.constructorRunner || {};
           maxSteps: profile.limits.maxSteps,
           timeBudgetMs: profile.limits.timeBudgetSec * 1000,
           maxCostUsd: profile.limits.maxCostUsd,
-          disabledTools: api.DISABLED_TOOLS
+          server: pack ? pack.server : "Convertigo",
+          pack: pack ? pack.pack : "",
+          scope: pack ? pack.scope : "",
+          disabledTools: pack ? api.FLOW_DISABLED_TOOLS.concat(api.FLOW_SCOPE_DISABLED_TOOLS[pack.scope]) : api.DISABLED_TOOLS
         }
       };
     },
     toResult: function (output, run, root) {
       var report = output.report || {};
-      return {
+      var result = {
         status: "finished",
         runId: run.runId,
         profile: run.profile,
@@ -87,6 +145,11 @@ C8O.constructorRunner = C8O.constructorRunner || {};
         durationMs: Number(output.durationMs) || 0,
         usage: C8O.subagents.usageOf(output.usage, run, output.usage && output.usage.tool)
       };
+      if (str(run.scope).length) {
+        result.report.pack = str(run.pack);
+        result.report.scope = str(run.scope);
+      }
+      return result;
     }
   };
 
@@ -131,31 +194,35 @@ C8O.constructorRunner = C8O.constructorRunner || {};
       return String(new File(new File(new File(String(project.getDirPath())), "node"), "vibe_subagent_runner.cjs").getPath());
     };
     // The conversation's Vibe home names it in X-Convertigo-Conversation-Id; without one, the most recent user home.
-    host.vibeTemplate = function (conversationId) {
+    // The home must declare the MCP server the session keeps (Convertigo, or the server of the call's pack).
+    host.vibeTemplate = function (conversationId, server) {
+      server = str(server) || "Convertigo";
       var homes = new File(new File(new File(workspace, "agents"), "vibe"), "homes-convertigo");
       var users = new File(homes, "users").listFiles();
       var best = null, bestTime = -1, owned = null;
+      var declares = function (config) { return server === "Convertigo" || api.declaresServer(read(config), server); };
       for (var u = 0; users !== null && u < users.length; u++) {
         var userHome = new File(users[u], ".vibe-home");
-        if (new File(userHome, "config.toml").isFile() && userHome.lastModified() > bestTime) {
+        var userConfig = new File(userHome, "config.toml");
+        if (userConfig.isFile() && userHome.lastModified() > bestTime && declares(userConfig)) {
           best = userHome;
           bestTime = userHome.lastModified();
         }
         var conversations = new File(users[u], "conversations").listFiles();
         for (var c = 0; conversationId.length && owned === null && conversations !== null && c < conversations.length; c++) {
           var config = new File(new File(conversations[c], ".vibe-home"), "config.toml");
-          if (config.isFile() && read(config).indexOf('"' + conversationId + '"') >= 0) {
+          if (config.isFile() && read(config).indexOf('"' + conversationId + '"') >= 0 && declares(config)) {
             owned = config.getParentFile();
           }
         }
       }
       var home = owned || best;
       if (home === null) {
-        throw new Error("No Tigo Vibe home in this Studio to build the constructor's home from: start a Tigo conversation with Vibe once.");
+        throw new Error(server === "Convertigo"
+          ? "No Tigo Vibe home in this Studio to build the constructor's home from: start a Tigo conversation with Vibe once."
+          : "No Tigo Vibe home with the " + server + " server in this Studio to build the constructor's home from: start a Tigo conversation with Vibe on such a project once.");
       }
-      var text = read(new File(home, "config.toml"));
-      var env = /api_key_env\s*=\s*"([^"]+)"/.exec(text.substring(Math.max(0, text.indexOf('name = "Convertigo"'))));
-      return { home: String(home.getPath()), mcpTokenEnv: env ? env[1] : "CONVERTIGO_MCP_TOKEN" };
+      return { home: String(home.getPath()), mcpTokenEnv: api.mcpTokenEnvOf(read(new File(home, "config.toml")), server) };
     };
     return host;
   };

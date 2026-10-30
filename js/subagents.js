@@ -221,8 +221,11 @@ C8O.subagents = C8O.subagents || {};
           task: run.task,
           elapsedMs: Math.max(0, host.now() - run.startedAt),
           activity: activityOf(run),
+          // A constructor of one side of a project (pack flow) lets the other side run at the same time.
           message: "The sub-agent is still working. Call the same tool again with this runId alone to wait for its report; " +
-            "do not start another sub-agent on the same browser or project meanwhile."
+            (str(run.scope).length
+              ? "do not start another constructor on the " + str(run.scope) + " of this project meanwhile."
+              : "do not start another sub-agent on the same browser or project meanwhile.")
         };
       }
       host.sleep(1000);
@@ -230,8 +233,8 @@ C8O.subagents = C8O.subagents || {};
     }
   };
 
-  // runner: { prepare(params, profile, ctx, host) -> {command[], env, stdin, lockKey, task, extra}, toResult(output, run,
-  // root) }. host: readKey(), readSettings(), newRun(prefix) -> {runId, outDir}, lock(key, runId, budgetMs) -> lockFile,
+  // runner: { prepare(params, profile, ctx, host) -> {command[], env, stdin, lockKey, task, meta, config}, toResult(output, run,
+  // root) }; meta (pack, scope) goes to run.json. host: readKey(), readSettings(), newRun(prefix) -> {runId, outDir}, lock(key, runId, budgetMs) -> lockFile,
   // unlock(file), start(command[], env, stdinText, outDir, meta), readRun(runId), workspaceRoot(), now(), sleep(ms).
   api.run = function (params, host, runners, options) {
     params = params || {};
@@ -268,17 +271,23 @@ C8O.subagents = C8O.subagents || {};
     for (var name in prepared.env || {}) {
       env[name] = prepared.env[name];
     }
+    var meta = {
+      runId: run.runId,
+      profile: profile.name,
+      runner: profile.runner,
+      model: profile.model,
+      task: str(prepared.task).substring(0, 500),
+      limits: profile.limits,
+      conversationId: str(params.conversationId),
+      lockFile: config.lockFile
+    };
+    ["pack", "scope"].forEach(function (key) {
+      if (prepared.meta && str(prepared.meta[key]).length) {
+        meta[key] = str(prepared.meta[key]);
+      }
+    });
     try {
-      host.start(prepared.command, env, JSON.stringify(config), run.outDir, {
-        runId: run.runId,
-        profile: profile.name,
-        runner: profile.runner,
-        model: profile.model,
-        task: str(prepared.task).substring(0, 500),
-        limits: profile.limits,
-        conversationId: str(params.conversationId),
-        lockFile: config.lockFile
-      });
+      host.start(prepared.command, env, JSON.stringify(config), run.outDir, meta);
     } catch (e) {
       host.unlock(config.lockFile);
       throw e;
@@ -522,6 +531,8 @@ C8O.subagents = C8O.subagents || {};
           model: str(meta.model),
           task: str(meta.task),
           limits: meta.limits || {},
+          pack: str(meta.pack),
+          scope: str(meta.scope),
           output: outFile.isFile() ? readText(outFile) : "",
           alive: alive,
           startedAt: Number(meta.startedAt || 0),

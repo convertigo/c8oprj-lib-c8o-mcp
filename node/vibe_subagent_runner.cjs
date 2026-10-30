@@ -4,7 +4,8 @@
  * fresh context, in a Vibe home of its own built in the run folder from the user's Tigo home: the profile's model, the
  * Convertigo MCP server only (the caller's bearer, a header naming the run), the Convertigo skill and the profile's
  * rules. Vibe enforces the limits (--max-turns, --max-price, --time-limit). The constructor profile builds a lot in one
- * project through the Convertigo MCP.
+ * project through the Convertigo MCP; with pack "flow", one side of the project (scope backend or frontend) through the
+ * convertigo-flow server alone, which its X-Convertigo-Subagent-Scope header confines to that side.
  *
  * Input: one JSON object on stdin (see normalizeConfig). Secrets come only from the environment (the gateway key and
  * the MCP bearer, under the names the template config uses) and are never written to the run folder.
@@ -45,6 +46,10 @@ function normalizeConfig(raw) {
     callId: str(raw.callId) || "build-" + Date.now().toString(36),
     usageTool: str(raw.usageTool) || "subagent-run",
     lockFile: str(raw.lockFile),
+    // The MCP server the session keeps, and for the pack flow the side of the project it owns.
+    server: str(raw.server) || "Convertigo",
+    pack: str(raw.pack),
+    scope: str(raw.scope).toLowerCase(),
     disabledTools: Array.isArray(raw.disabledTools) ? raw.disabledTools.map(str).filter(Boolean) : []
   };
 }
@@ -64,14 +69,50 @@ var CONSTRUCTOR_RULES = [
   "- Your last message is the report: a few sentences, then one fenced json block {\"verdict\": \"done\" | \"partial\" | \"failed\", \"summary\": \"...\", \"created\": [\"<QName>\", ...], \"modified\": [\"<QName>\", ...], \"checks\": [{\"check\": \"...\", \"status\": \"passed\" | \"failed\", \"evidence\": \"...\"}], \"openIssues\": [\"...\"]}. QNames are exact, copied from the tool results."
 ].join("\n");
 
+// The rules of a constructor of pack flow: one side of a parallel build, the other side built at the same time.
+var FLOW_SCOPE_RULES = {
+  backend: [
+    "- You own the backend: the Flows, the project blocks, `engine.yaml` (`config.*`), the backend resources and the tests. Read the `convertigo-flow-backend` skill. Fill the Flows of the contract without changing their inputs or output fields; a change the pages would see goes in openIssues for the main agent. Never write frontend sources.",
+    "- Prove each Flow with `code-run` on the contract inputs, checking the output fields, then `code-promote` it."
+  ],
+  frontend: [
+    "- You own the frontend: the `_flow/frontbuilder` sources, the theme and the assets. Read the `convertigo-flow-frontend-svelte` skill. Bind to the Flows as the contract says: they already return demo-shaped data. A missing or wrong field goes in openIssues (`backend needs: <Flow> <field> <why>`); bind what exists, never hard-code it, never add or change a Flow, never write `engine.yaml`.",
+    "- Prove the pages with `frontend-svelte-action` `dev.sync` without errors (`flow-app-progress` when a binding is in doubt)."
+  ]
+};
+
+function flowConstructorRules(scope) {
+  return [
+    "# Constructor sub-agent (" + scope + ")",
+    "",
+    "You are a constructor sub-agent of Tigo, the Convertigo assistant, in a parallel build: the main agent set the contract (the data model, the Flows with their inputs and output fields, `docs/generated/PROGRESS.md`) and handed you the " + scope + " of the project with a fresh context, while another constructor builds the other side. Build exactly your lot, prove it, and report.",
+    "",
+    "- Your one MCP server is `convertigo-flow`. Start with the `convertigo-flow-mcp` skill, then the skill of your side and the guides they name, not more. Read the project's `docs/generated/PROGRESS.md` once with `flow-resource-get`: it is the contract.",
+    "- Work only in the project named in the task. Every read and write goes through the `convertigo-flow` tools: no shell, no file tools."
+  ].concat(FLOW_SCOPE_RULES[scope] || []).concat([
+    "- Writes are revision-checked: on a revision or hash conflict, read the source again and redo your change on the new revision, never overwrite. The server refuses your writes to the other side.",
+    "- The main agent integrates, saves the project, runs the browser proofs, writes `PROGRESS.md` and starts the sub-agents: do none of these.",
+    "- When something blocks you, stop and say what and why instead of working around the task.",
+    "- The main agent already set this session up: do not stop on a guidance version difference between the skill and the MCP; mention it in openIssues and go on.",
+    "- Your last message is the report: a few sentences, then one fenced json block {\"verdict\": \"done\" | \"partial\" | \"failed\", \"summary\": \"...\", \"created\": [\"<Flow qname or source path>\", ...], \"modified\": [\"<Flow qname or source path>\", ...], \"checks\": [{\"check\": \"...\", \"status\": \"passed\" | \"failed\", \"evidence\": \"...\"}], \"openIssues\": [\"...\"]}. Names are exact, copied from the tool results."
+  ]).join("\n");
+}
+
+function rulesOf(config) {
+  return config.pack === "flow" ? flowConstructorRules(config.scope) : CONSTRUCTOR_RULES;
+}
+
 function buildTask(config) {
   var lines = [];
   lines.push("Project: " + config.project);
+  if (config.scope.length) {
+    lines.push("Scope: " + config.scope);
+  }
   lines.push("");
   lines.push("Task:");
   lines.push(config.task);
   var inputs = config.inputs || {};
-  var keys = Object.keys(inputs).filter(function (k) { return k !== "project"; });
+  var keys = Object.keys(inputs).filter(function (k) { return k !== "project" && k !== "pack" && k !== "scope"; });
   if (keys.length) {
     lines.push("");
     lines.push("Inputs:");
@@ -90,9 +131,9 @@ function buildTask(config) {
   return lines.join("\n");
 }
 
-// The child Vibe home: the template's config with the profile model as active model, the Convertigo MCP server only
-// (Playwright and other servers removed) with a header naming the run, the skill, the prompts and AGENTS.md with the
-// profile rules. Hooks and history are not copied.
+// The child Vibe home: the template's config with the profile model as active model, the MCP server of the pack only
+// (Convertigo by default; Playwright and other servers removed) with a header naming the run, the skills, the prompts
+// and AGENTS.md with the profile rules. Hooks and history are not copied.
 function buildHome(config, home) {
   fs.mkdirSync(home, { recursive: true });
   var source = fs.readFileSync(path.join(config.templateHome, "config.toml"), "utf8");
@@ -101,7 +142,7 @@ function buildHome(config, home) {
   try {
     agents = fs.readFileSync(path.join(config.templateHome, "AGENTS.md"), "utf8");
   } catch (_noAgents) {}
-  fs.writeFileSync(path.join(home, "AGENTS.md"), agents + (agents.length ? "\n\n" : "") + CONSTRUCTOR_RULES + "\n");
+  fs.writeFileSync(path.join(home, "AGENTS.md"), agents + (agents.length ? "\n\n" : "") + rulesOf(config) + "\n");
   ["skills", "prompts"].forEach(function (dir) {
     var from = path.join(config.templateHome, dir);
     if (fs.existsSync(from)) {
@@ -111,8 +152,15 @@ function buildHome(config, home) {
   fs.writeFileSync(path.join(home, "trusted_folders.toml"), "trusted = [" + JSON.stringify(config.workdir) + "]\n");
 }
 
-// Edits the template config.toml text: active_model, MCP servers other than Convertigo dropped, a run header added.
+// Edits the template config.toml text: active_model, MCP servers other than the pack's dropped, a run header added
+// (and the scope header of a constructor of pack flow).
 function childConfig(text, config) {
+  var server = str(config.server) || "Convertigo";
+  var serverName = new RegExp("^\\s*name\\s*=\\s*[\"']" + server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[\"']", server === "Convertigo" ? "i" : "");
+  var runHeaders = ['"X-Convertigo-Subagent-Run" = ' + JSON.stringify(config.callId)];
+  if (str(config.scope).length) {
+    runHeaders.push('"X-Convertigo-Subagent-Scope" = ' + JSON.stringify(str(config.scope)));
+  }
   var lines = String(text).split(/\r?\n/);
   var out = [];
   var blocks = [];
@@ -132,7 +180,7 @@ function childConfig(text, config) {
     var block = blocks[i];
     var header = block.header || "";
     if (header === "[[mcp_servers]]") {
-      keepServer = block.lines.some(function (l) { return /^\s*name\s*=\s*["']Convertigo["']/i.test(l); });
+      keepServer = block.lines.some(function (l) { return serverName.test(l); });
     } else if (!/^\[mcp_servers\./.test(header)) {
       keepServer = true;
     }
@@ -140,7 +188,7 @@ function childConfig(text, config) {
       continue;
     }
     if (header === "[mcp_servers.auth.headers]") {
-      block.lines.splice(1, 0, '"X-Convertigo-Subagent-Run" = ' + JSON.stringify(config.callId));
+      Array.prototype.splice.apply(block.lines, [1, 0].concat(runHeaders));
     }
     out = out.concat(block.lines);
   }
@@ -152,7 +200,7 @@ function childConfig(text, config) {
   }
   // An inline http_headers / headers table instead of [mcp_servers.auth.headers]: add the run header there.
   if (result.indexOf("X-Convertigo-Subagent-Run") < 0) {
-    result = result.replace(/^(\s*headers\s*=\s*\{)/m, '$1 "X-Convertigo-Subagent-Run" = ' + JSON.stringify(config.callId) + ",");
+    result = result.replace(/^(\s*headers\s*=\s*\{)/m, function (open) { return open + " " + runHeaders.join(", ") + ","; });
   }
   return result;
 }
@@ -471,6 +519,7 @@ module.exports = {
   modelPrices: modelPrices,
   tokenCost: tokenCost,
   run: run,
+  rulesOf: rulesOf,
   CONSTRUCTOR_RULES: CONSTRUCTOR_RULES
 };
 
