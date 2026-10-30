@@ -716,13 +716,16 @@ C8O.crudUiKit = C8O.crudUiKit || {};
       subtitleQName = componentQName + ".Card.Header.Subtitle.SubtitleText";
     }
     if (ctx.resolveQName(subtitleQName, { optional: true })) {
+      // With list filters the counter counts the rows shown, not the rows loaded (an agent noted "Lignes : 5" under a
+      // filtered list of 1, usage tests 30/10); visibleRows is set after the first load.
+      var filtered = ctx.ensureArray(entity && entity.ui && entity.ui.listFilters).length > 0;
       operations.push({
         type: "setProperties",
         opId: "list_panel_binding_" + ctx.normalizedIdentifier(entityName + "_Rows"),
         qname: subtitleQName,
         properties: {
-          textValue: ctx.localSourceValue(projectName, "?.rows", {
-            suffix: ".length"
+          textValue: ctx.localSourceValue(projectName, filtered ? "?.visibleRows" : "?.rows", {
+            suffix: filtered ? "?.length" : ".length"
           })
         }
       });
