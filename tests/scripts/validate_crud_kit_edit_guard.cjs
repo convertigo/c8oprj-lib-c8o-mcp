@@ -66,3 +66,16 @@ test('tree-apply refuses unless override, internal callers only warn, and the an
   assert.match(read('js/tools_databaseobject_tree_get.js'), /treeManagedBy = "upsert-ngx-crud-kit";/);
   assert.match(read('js/crud_proof.js'), /status\.ui\.managedBy = "upsert-ngx-crud-kit";\n\s*status\.ui\.kitHints = /);
 });
+
+// r45: mistral-large-4 read "tree-apply asks for override: true" in crud-status and passed override on its first write,
+// without trying the kit option. The read answers do not name the way around; only the refusal does.
+test('tree-get and crud-status give the kit hints without naming override', () => {
+  const get = read('js/tools_databaseobject_tree_get.js');
+  const status = read('js/crud_proof.js');
+  const getHints = get.slice(get.indexOf('treeKitHints = "`"'), get.indexOf('C8O.crudUiRefresh.kitHintText();', get.indexOf('treeKitHints = "`"')));
+  const statusHints = status.slice(status.indexOf('status.ui.kitHints ='), status.indexOf('C8O.crudUiRefresh.kitHintText();', status.indexOf('status.ui.kitHints =')));
+  assert.ok(getHints.length > 0 && statusHints.length > 0);
+  assert.doesNotMatch(getHints, /override/);
+  assert.doesNotMatch(statusHints, /override/);
+  assert.doesNotMatch(refresh().kitHintText(), /override/);
+});
