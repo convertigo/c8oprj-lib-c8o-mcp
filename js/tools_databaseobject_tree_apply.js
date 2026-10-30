@@ -43,6 +43,7 @@ var dryRunInput = (typeof dryRun !== "undefined") ? dryRun : false;
 var refreshInput = (typeof refresh !== "undefined") ? refresh : true;
 var triggerMobileBuilderInput = (typeof triggerMobileBuilder !== "undefined") ? triggerMobileBuilder : true;
 var revealInput = (typeof reveal !== "undefined") ? reveal : false;
+var overrideInput = (typeof override !== "undefined") ? asBoolean(override, false) === true : false;
 
 var targetInput = asTrimmed(target);
 if (!targetInput.length) {
@@ -373,7 +374,8 @@ treeApplyResult = C8O.dbo.batchApply({
   triggerMobileBuilder: triggerMobileBuilderInput,
   resumeFrom: resumeFromInput,
   executionId: executionIdInput,
-  dryRun: dryRunInput
+  dryRun: dryRunInput,
+  managedGuard: overrideInput ? "warn" : "refuse"
 });
 
 if (treeApplyInputErrors.length > 0) {
