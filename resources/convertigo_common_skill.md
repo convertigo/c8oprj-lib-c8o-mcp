@@ -148,7 +148,7 @@ Every model step pays the whole conversation again: a build driven in one contex
 - Symbols are resolved on the server only, never in NGX. The client receives public settings (client id, authorization endpoint, redirect URI, scopes, `state`/`nonce`) from a configuration sequence that never returns a secret or a token.
 - Login business sequences pass only user-provided values from the client (authorization `code` and `state`, or email and password). Client ids, redirect URIs, endpoints, secrets, and email content come from symbols on `StepVariable` values, never from client input.
 - Logout runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep`, and the client calls it with `__disableAutologin=true`.
-- Finish with `project-security-audit`; an anonymous configuration or login sequence is recorded with `suppress` and its reason, never left unexplained.
+- Finish with `project-security-audit`; an anonymous configuration or login sequence is recorded with `suppress` and its reason, never left unexplained. Report `grade` and `rawGrade` together. A sequence anyone can call that writes data is fixed, never suppressed: `Private` when only other sequences or the scheduler run it (a scheduled job runs a `Private` sequence), else `authenticatedContextRequired=true` with a role check.
 
 ## Viewer and mobile builder rule
 

@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Audit the security of a Convertigo project
-  Statically audits one project (exposure, authentication, secrets, injection, dangerous steps, transport, session, references, NGX frontend and engine settings) and returns sourced findings with a deterministic 0-100 score and an A-F grade. Read-only; secret values are never returned, only their literal/symbol/empty status.
+  Statically audits one project (exposure, authentication, secrets, injection, dangerous steps, transport, session, references, NGX frontend and engine settings) and returns sourced findings with a deterministic 0-100 score and an A-F grade, and the raw score and grade before the accepted risks (suppress). Read-only; secret values are never returned, only their literal/symbol/empty status.
 ↓IncludeHelpers [steps.SimpleStep-1790616258202]: 
   comment: Load the audit rules and the project collector.
   expression: |
@@ -110,6 +110,47 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: auditResult.gradeCappedBy
+  ↓rawScore [steps.JsonFieldStep-1793400000301]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rawScore
+    type: number
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.rawScore
+  ↓rawGrade [steps.JsonFieldStep-1793400000303]: 
+    comment: The grade as if nothing were suppressed, to report next to grade.
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rawGrade
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.rawGrade
+  ↓rawGradeCappedBy [steps.JsonFieldStep-1793400000305]: 
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: rawGradeCappedBy
+    value: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.rawGradeCappedBy
   ↓summary [steps.JsonToXmlStep-1790616258224]: 
     jsonObject: 
       - xmlizable: 
@@ -191,6 +232,22 @@ comment: |
           - SmartType: 
             - ↑mode: PLAIN
             - →→: engine
+  ↓IfSuppressRefused [steps.IfStep-1793400000307]: 
+    comment: The accepted risks not applied, with why (no reason, or an anonymous requestable that writes data).
+    condition: auditResult.suppressRefused != null
+    ↓suppressRefused [steps.JsonToXmlStep-1793400000309]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: auditResult.suppressRefused
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: suppressRefused
   ↓scoreModel [steps.JsonToXmlStep-1790616258236]: 
     jsonObject: 
       - xmlizable: 
@@ -250,8 +307,8 @@ comment: |
   description: Maximum findings listed. 1 to 1000; default 200. Summary counts stay complete.
   value: 200
 ↓suppress [variables.RequestableVariable-1790616258252]: 
-  comment: Accepted risks as a JSON array of {ruleId, qname?, reason}. Matching findings stay listed with suppressed=true and no longer lower the score.
-  description: Accepted risks as a JSON array of {ruleId, qname?, reason}. Matching findings stay listed with suppressed=true and no longer lower the score.
+  comment: Accepted risks as a JSON array of {ruleId, qname?, reason}, the reason required. Matching findings stay listed with suppressed=true and no longer lower score and grade; rawScore and rawGrade still count them. An exposure finding on a requestable anyone can call that writes data is not suppressed (suppressRefused says why).
+  description: Accepted risks as a JSON array of {ruleId, qname?, reason}, the reason required. Matching findings stay listed with suppressed=true and no longer lower score and grade; rawScore and rawGrade still count them. An exposure finding on a requestable anyone can call that writes data is not suppressed (suppressRefused says why).
 ↓SelfAudit [core.TestCase]: 
   ↓project [variables.TestCaseVariable-1790616258255]: 
     value: lib_ConvertigoMCP

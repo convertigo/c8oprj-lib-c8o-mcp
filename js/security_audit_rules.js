@@ -30,7 +30,8 @@ C8O.securityAudit = C8O.securityAudit || {};
   ];
   api.LIMITATIONS = [
     "Static analysis: custom JavaScript, handlers and TypeScript are pattern-scanned, not executed.",
-    "Authentication performed inside JavaScript (for example a bearer check) is not recognized; acknowledge such findings with suppress.",
+    "Authentication performed inside JavaScript (for example a bearer check) is not recognized; acknowledge such findings with suppress, except an exposure finding on a requestable that writes data: it cannot be suppressed, verify the check yourself and report it.",
+    "Writes are the SQL statements that change data and the CouchDB / FullSync writes of the transactions a requestable reaches through SequenceStep and TransactionStep calls; writes made in JavaScript are not seen.",
     "Anonymous reachability follows SequenceStep and TransactionStep calls inside the audited project only; calls built in JavaScript or into other projects are not followed.",
     "Engine checks describe the engine running this audit, which may differ from the production server.",
     "The Studio does not enforce Private: in Studio mode every requestable runs when called from outside, so an anonymous call that succeeds in the Studio does not mean a Private requestable is exposed. This audit reads the accessibility a server applies.",
@@ -471,7 +472,8 @@ C8O.securityAudit = C8O.securityAudit || {};
     return {
       findings: findings,
       engineFindings: evaluateEngine(model),
-      reachableCount: Object.keys(reach.reachable).length
+      reachableCount: Object.keys(reach.reachable).length,
+      reach: reach
     };
   };
 
@@ -492,19 +494,121 @@ C8O.securityAudit = C8O.securityAudit || {};
     return out;
   };
 
-  api.applySuppressions = function (findings, suppress) {
+  // The data a requestable writes, itself or through the requestables it calls (SequenceStep and TransactionStep calls
+  // inside the project): [{ qname, writes }] of the writing transactions.
+  api.writesReachedFrom = function (model, qname) {
+    var byQName = {};
+    var requestables = arr(model.requestables);
+    for (var i = 0; i < requestables.length; i++) {
+      byQName[requestables[i].qname] = requestables[i];
+    }
+    var seen = {};
+    var out = [];
+    var queue = [qname];
+    while (queue.length) {
+      var current = byQName[queue.shift()];
+      if (!current || seen[current.qname]) {
+        continue;
+      }
+      seen[current.qname] = true;
+      if (arr(current.writes).length) {
+        out.push({ qname: current.qname, writes: arr(current.writes).slice() });
+      }
+      queue = queue.concat(arr(current.calls));
+    }
+    return out;
+  };
+
+  // Requestables that open or close the user's session (a SetAuthenticatedUser, LDAP authentication, RemoveAuthenticatedUser
+  // or RemoveSession step, or the same calls in a JavaScript step): a login or a logout is anonymous by design.
+  api.sessionEntryPoints = function (model) {
+    var out = {};
+    var steps = arr(model.steps);
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      var signals = s.signals || {};
+      if (s.enabled !== false && (s.kind === "setAuthenticatedUser" || s.kind === "ldapAuth" || s.kind === "removeUser" || s.kind === "endSession"
+          || signals.setsUser === true || signals.removesUser === true || signals.endsSession === true)) {
+        out[s.owner] = true;
+      }
+    }
+    return out;
+  };
+
+  /*
+   * An accepted risk needs its reason, and an exposure finding on a requestable that anyone can call and that writes data
+   * cannot be accepted: agents silenced such findings and reported an A (PCA eval 29/10: a Public reminder job that wrote
+   * notifications, without authentication, suppressed into a grade of 100). The finding stays active, and the answer says
+   * why in suppressRefused. A login or a logout (sessionEntryPoints) may still be accepted: it is anonymous by design.
+   */
+  var WRITE_GUARDED_RULES = { "EXP-01": true, "EXP-02": true, "EXP-03": true };
+
+  api.suppressionGuard = function (model) {
+    var entryPoints = api.sessionEntryPoints(model);
+    return function (finding) {
+      if (!WRITE_GUARDED_RULES[finding.ruleId] || finding.anonymousReachable !== true || entryPoints[finding.qname] === true) {
+        return "";
+      }
+      var writes = api.writesReachedFrom(model, finding.qname);
+      if (!writes.length) {
+        return "";
+      }
+      var named = writes.slice(0, 3).map(function (w) { return w.qname + " (" + w.writes.join(", ") + ")"; }).join(", ")
+        + (writes.length > 3 ? " and " + (writes.length - 3) + " more" : "");
+      return finding.qname + " can be called without authentication and writes data through " + named
+        + ": this risk cannot be accepted. Make it Private if only other requestables or the scheduler call it, or set "
+        + "authenticatedContextRequired=true and check the role inside.";
+    };
+  };
+
+  // Applies the accepted risks: { findings, refused }. refused lists the entries not applied (no reason) and the findings a
+  // matching entry could not silence (guard), with why.
+  api.suppress = function (findings, suppress, guard) {
     var rules = api.normalizeSuppress(suppress);
+    var refused = [];
+    for (var r = 0; r < rules.length; r++) {
+      if (!rules[r].reason.replace(/\s+/g, "").length) {
+        refused.push({ ruleId: rules[r].ruleId, qname: rules[r].qname, refused: "A suppression needs a reason: why the risk is accepted." });
+      }
+    }
     for (var i = 0; i < findings.length; i++) {
       var f = findings[i];
       for (var j = 0; j < rules.length; j++) {
         if (rules[j].ruleId === f.ruleId && (!rules[j].qname.length || rules[j].qname === f.qname)) {
+          if (!rules[j].reason.replace(/\s+/g, "").length) {
+            break;
+          }
+          var refusal = typeof guard === "function" ? guard(f) : "";
+          if (refusal.length) {
+            f.suppressionRefused = refusal;
+            refused.push({ ruleId: f.ruleId, qname: f.qname, reason: rules[j].reason, refused: refusal });
+            break;
+          }
           f.suppressed = true;
           f.suppressionReason = rules[j].reason;
           break;
         }
       }
     }
-    return findings;
+    return { findings: findings, refused: refused };
+  };
+
+  api.applySuppressions = function (findings, suppress, guard) {
+    return api.suppress(findings, suppress, guard).findings;
+  };
+
+  // The score of the findings as if nothing were suppressed.
+  api.rawScore = function (findings) {
+    return api.score(findings.map(function (f) {
+      var copy = {};
+      for (var key in f) {
+        if (Object.prototype.hasOwnProperty.call(f, key)) {
+          copy[key] = f[key];
+        }
+      }
+      copy.suppressed = false;
+      return copy;
+    }));
   };
 
   api.gradeFor = function (score) {
@@ -733,8 +837,10 @@ C8O.securityAudit = C8O.securityAudit || {};
     var minRank = api.severityRank(opts.minSeverity || "low");
     var limit = opts.limit > 0 ? opts.limit : 200;
     var evaluation = api.evaluate(model);
-    var findings = api.sortFindings(api.applySuppressions(evaluation.findings, opts.suppress));
+    var suppression = api.suppress(evaluation.findings, opts.suppress, api.suppressionGuard(model));
+    var findings = api.sortFindings(suppression.findings);
     var scored = api.score(findings);
+    var raw = api.rawScore(findings);
     var rules = api.ruleChecks(model, findings, scored, false);
     scored.summary.rules = rules.counts;
     var listed = findings.filter(function (f) { return api.severityRank(f.severity) >= minRank; });
@@ -746,6 +852,9 @@ C8O.securityAudit = C8O.securityAudit || {};
       score: scored.score,
       grade: scored.grade,
       gradeCappedBy: scored.gradeCappedBy,
+      rawScore: raw.score,
+      rawGrade: raw.grade,
+      rawGradeCappedBy: raw.gradeCappedBy,
       summary: scored.summary,
       categories: scored.categories,
       rules: api.notableRules(rules.checks, opts),
@@ -766,13 +875,20 @@ C8O.securityAudit = C8O.securityAudit || {};
       limitations: api.LIMITATIONS.slice(),
       warnings: (model.warnings || []).slice(0, 20)
     };
+    if (suppression.refused.length) {
+      report.suppressRefused = suppression.refused;
+    }
     if (opts.includeEngine !== false && model.engine && model.engine.available === true) {
-      var engineFindings = api.sortFindings(api.applySuppressions(evaluation.engineFindings, opts.suppress));
+      var engineSuppression = api.suppress(evaluation.engineFindings, opts.suppress, null);
+      var engineFindings = api.sortFindings(engineSuppression.findings);
       var engineScore = api.score(engineFindings);
+      var engineRaw = api.rawScore(engineFindings);
       report.engine = {
         score: engineScore.score,
         grade: engineScore.grade,
         gradeCappedBy: engineScore.gradeCappedBy,
+        rawScore: engineRaw.score,
+        rawGrade: engineRaw.grade,
         studioMode: model.engine.studioMode === true,
         rules: api.notableRules(api.ruleChecks(model, engineFindings, engineScore, true).checks, opts),
         findings: engineFindings
