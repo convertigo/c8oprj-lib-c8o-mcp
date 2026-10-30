@@ -623,13 +623,15 @@ C8O.securityAudit = C8O.securityAudit || {};
   /*
    * Deterministic score: each rule deducts the sum of its findings' weights, capped by
    * the cap of the rule's most severe finding. Suppressed findings deduct nothing.
-   * Any active critical finding caps the grade at D.
+   * Any active critical finding caps the grade at D, and an active finding whose suppression was refused (anonymous
+   * write, see suppressionGuard) caps it at B: "good, with one known exposure", not an A.
    */
   api.score = function (findings) {
     var byRule = {};
     var ruleOrder = [];
     var summary = { critical: 0, high: 0, medium: 0, low: 0, info: 0, suppressed: 0, byCategory: {} };
     var hasCritical = false;
+    var hasRefused = false;
     for (var i = 0; i < findings.length; i++) {
       var f = findings[i];
       if (f.suppressed === true) {
@@ -640,6 +642,9 @@ C8O.securityAudit = C8O.securityAudit || {};
       summary.byCategory[f.category] = (summary.byCategory[f.category] || 0) + 1;
       if (f.severity === "critical") {
         hasCritical = true;
+      }
+      if (f.suppressionRefused) {
+        hasRefused = true;
       }
       if (!byRule[f.ruleId]) {
         byRule[f.ruleId] = { category: f.category, sum: 0, maxRank: 0 };
@@ -662,9 +667,13 @@ C8O.securityAudit = C8O.securityAudit || {};
     var score = Math.max(0, 100 - total);
     var grade = api.gradeFor(score);
     var cappedBy = "";
-    if (hasCritical && api.GRADE_BANDS.map(function (b) { return b.grade; }).indexOf(grade) < 3) {
+    var bands = api.GRADE_BANDS.map(function (b) { return b.grade; });
+    if (hasCritical && bands.indexOf(grade) < 3) {
       grade = "D";
       cappedBy = "critical-finding";
+    } else if (hasRefused && bands.indexOf(grade) < 1) {
+      grade = "B";
+      cappedBy = "refused-suppression";
     }
     var categories = [];
     for (var c = 0; c < api.CATEGORIES.length; c++) {
@@ -813,7 +822,7 @@ C8O.securityAudit = C8O.securityAudit || {};
       weights: api.WEIGHTS,
       perRuleCaps: api.RULE_CAPS,
       gradeBands: api.GRADE_BANDS,
-      gradeCap: "Any active critical finding caps the grade at D."
+      gradeCap: "Any active critical finding caps the grade at D. An active finding whose suppression was refused (suppressRefused) caps it at B."
     };
   };
 

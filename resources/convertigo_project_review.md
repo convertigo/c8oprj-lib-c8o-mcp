@@ -47,7 +47,7 @@ In client-facing reports, avoid internal implementation jargon such as `YAML`, `
 ## Core workflow
 
 1. Identify the project roots and look for prior reviews if the user mentioned them.
-   For a security review, run `project-security-audit({project})` first: it returns sourced findings, a 0-100 score and an A-F grade, and never returns secret values. Verify each finding before reporting it, and pass risks the user accepts (for example authentication checked in JavaScript) through `suppress` with a reason. Report `grade` and `rawGrade` together: `grade` leaves the accepted risks out. A finding the audit refuses to suppress (`suppressRefused`: a requestable anyone can call that writes data) is a defect to fix, not a risk to accept.
+   For a security review, run `project-security-audit({project})` first: it returns sourced findings, a 0-100 score and an A-F grade, and never returns secret values. Verify each finding before reporting it, and pass risks the user accepts (for example authentication checked in JavaScript) through `suppress` with a reason. Report `grade` and `rawGrade` together: `grade` leaves the accepted risks out. A finding the audit refuses to suppress (`suppressRefused`: a requestable anyone can call that writes data) is a defect to fix, not a risk to accept, and it caps the grade at B (`gradeCappedBy: refused-suppression`).
 2. Inventory the current project before judging it:
    - backend: connectors, transactions, sequences, references
    - frontend: pages, shared components, shared actions, menus, references

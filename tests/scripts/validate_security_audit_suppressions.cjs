@@ -143,3 +143,32 @@ test('the tool says it: reason required, the raw grade and the refusals in its s
   assert.match(read('resources/convertigo_project_review.md'), /Report `grade` and `rawGrade` together/);
   assert.match(read('resources/convertigo_common_skill.md'), /A sequence anyone can call that writes data is fixed, never suppressed/);
 });
+
+test('an active finding whose suppression was refused caps the grade at B, whatever the score', () => {
+  const audit = loadAudit();
+  // one Public job that writes, nothing else to find
+  const app = model({ requestables: [seq('reminder_run', 'Public', false, ['P.db.w_notification_insert']), seq('poste_list', 'Hidden', true, []),
+    tx('w_notification_insert', ['SQL INSERT'])] });
+  const suppress = [{ ruleId: 'EXP-01', qname: 'P.reminder_run', reason: 'Scheduled job, run by the engine scheduler.' }];
+  const report = audit.buildReport(app, { suppress, minSeverity: 'info' });
+  assert.equal(report.score, 90, 'one high finding left');
+  assert.equal(report.grade, 'B', 'not the A of a score of 90');
+  assert.equal(report.gradeCappedBy, 'refused-suppression');
+  assert.match(report.scoreModel.gradeCap, /caps it at B/);
+  assert.equal(report.rawGrade, 'B', 'the raw grade counts the same finding');
+  // the same finding not suppressed at all: an A for a score of 90, as before
+  const plain = audit.buildReport(app, { minSeverity: 'info' });
+  assert.equal(plain.score, 90);
+  assert.equal(plain.grade, 'A');
+  assert.equal(plain.gradeCappedBy, '');
+  // a lower score keeps its own grade, a critical finding still caps at D
+  const lower = audit.score([{ ruleId: 'EXP-01', severity: 'high', category: 'exposure', suppressionRefused: 'x' },
+    { ruleId: 'EXP-02', severity: 'high', category: 'exposure' }, { ruleId: 'INJ-01', severity: 'high', category: 'injection' }]);
+  assert.equal(lower.score, 70);
+  assert.equal(lower.grade, 'C', 'the cap never raises a grade');
+  assert.equal(lower.gradeCappedBy, '');
+  const critical = audit.score([{ ruleId: 'EXP-01', severity: 'high', category: 'exposure', suppressionRefused: 'x' }, { ruleId: 'SEC-01', severity: 'critical', category: 'secrets' }]);
+  assert.equal(critical.grade, 'D');
+  assert.equal(critical.gradeCappedBy, 'critical-finding');
+  assert.match(read('resources/convertigo_project_review.md'), /caps the grade at B \(`gradeCappedBy: refused-suppression`\)/);
+});

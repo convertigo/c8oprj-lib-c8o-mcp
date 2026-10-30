@@ -673,7 +673,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       auditedAt: { type: "string" },
       score: { type: "number", description: "0 to 100; 100 means no active finding. Accepted risks (suppress) do not count." },
       grade: grade,
-      gradeCappedBy: { type: "string" },
+      gradeCappedBy: { type: "string", description: "critical-finding (an active critical finding caps the grade at D) or refused-suppression (an active finding whose suppression was refused caps it at B)." },
       rawScore: { type: "number", description: "The score as if nothing were suppressed." },
       rawGrade: { type: "string", enum: ["A", "B", "C", "D", "F"], description: "The grade as if nothing were suppressed: report it next to grade." },
       rawGradeCappedBy: { type: "string" },
