@@ -256,7 +256,9 @@ include("js/mobile_builder_cycle.js");
     if (!info) {
       return "";
     }
-    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` may be overwritten or break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel/ui.relationFields hints instead, and its language option (stage final, language \"fr\") to translate the texts the kit wrote.";
+    // The list named the hints of the first kit only: an agent built status and search filters by hand in a managed list
+    // panel, which the next kit run overwrites, while ui.listFilters does it (usage tests 30/10).
+    return "Direct edits on CRUD-kit-managed UI object `" + info.qname + "` are overwritten by the next kit run and may break generated TS/Angular code. Prefer `upsert-ngx-crud-kit` with entity ui hints instead: listFields, detailFields, formFields, fieldLabels, actionLabel, relationFields, fieldOptions (a select of fixed values), fieldDefaults, listFilters (status select and text search above the list); its auth option (\"form\": a real login page) and its language option (stage final, language \"fr\") to translate the texts the kit wrote.";
   }
 
   function collectManagedCrudCleanupQNames(ctx, ngxApp, expectedQNames) {

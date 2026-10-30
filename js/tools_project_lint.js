@@ -161,8 +161,18 @@
     var reviewed = 0;
     var notReviewed = 0;
     var problems = 0;
+    // The review runs inside the tool call, which a client fails after about a minute (Vibe: mcp_transport_failed on a
+    // project-lint of 103 texts, usage tests 30/10). Past the budget the groups left are not reviewed, and said so.
+    var reviewBudgetMs = Number(options.textReviewBudgetMs) > 0 ? Number(options.textReviewBudgetMs) : 35000;
+    var reviewDeadline = host.now() + reviewBudgetMs;
+    var outOfTime = false;
     for (var g = 0; g < groups.length; g++) {
       var items = groups[g].items;
+      if (host.now() >= reviewDeadline) {
+        outOfTime = true;
+        notReviewed += items.length;
+        continue;
+      }
       var lines = [];
       for (var it = 0; it < items.length; it++) {
         lines.push(it + "\t" + items[it].text.replace(/[\t\r\n]+/g, " ").substring(0, 300));
@@ -185,15 +195,22 @@
       }
       var started = host.now();
       var response;
+      // A call never runs far past the budget: the time left, plus room for one answer.
+      var callTimeoutMs = Math.min(120000, Math.max(5000, reviewDeadline + 15000 - host.now()));
       try {
-        response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+        response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), callTimeoutMs);
         if (response.status === 400 && request.reasoning_effort && /reasoning_effort/i.test(String(response.body || ""))) {
           // A model that takes no reasoning level: the next calls go without one.
           reasoningEffort = "";
           delete request.reasoning_effort;
-          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), callTimeoutMs);
         }
       } catch (postError) {
+        if (host.now() >= reviewDeadline) {
+          outOfTime = true;
+          notReviewed += items.length;
+          continue;
+        }
         return { skipped: "gateway call failed: " + C8O.imageDescribe.redact(String(postError), key), usages: usages };
       }
       if (response.status < 200 || response.status >= 300) {
@@ -202,11 +219,12 @@
       var answer = readReviewAnswer(response, started);
       // mistral-large-4 at reasoning_effort low once spent its 4 000 tokens reasoning and answered nothing: the group
       // counted as reviewed with no problem (PCA eval 30/10). A cut answer is asked again with more room, then left out.
-      if (answer === null) {
+      if (answer === null && host.now() < reviewDeadline) {
         request.max_tokens = 12000;
         started = host.now();
         try {
-          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), 120000);
+          response = host.post(C8O.imageDescribe.GATEWAY_URL + "/chat/completions", key, JSON.stringify(request),
+            Math.min(120000, Math.max(5000, reviewDeadline + 15000 - host.now())));
         } catch (_retryFailed) {
           response = null;
         }
@@ -233,7 +251,9 @@
     var result = { reviewed: reviewed, problems: problems, model: model, usages: usages };
     if (notReviewed > 0) {
       result.notReviewed = notReviewed;
-      result.message = notReviewed + " texts were not reviewed: the model answer was cut twice.";
+      result.message = notReviewed + " texts were not reviewed: " + (outOfTime
+        ? "the review stopped after " + Math.round(reviewBudgetMs / 1000) + " s, so the lint answers before the client gives up. Run project-lint again to review them."
+        : "the model answer was cut twice.");
     }
     return result;
 

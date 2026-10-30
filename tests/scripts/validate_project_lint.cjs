@@ -105,4 +105,36 @@ assert.strictEqual(cutTwice.reviewed, 0);
 assert.strictEqual(cutTwice.notReviewed, 2);
 assert.match(cutTwice.message, /^2 texts were not reviewed: the model answer was cut twice\.$/);
 
+// The review ran inside the tool call past the client's minute: Vibe failed project-lint with mcp_transport_failed (usage
+// tests 30/10). Past its budget, the groups left are not reviewed and the answer says so.
+let clock = 0;
+const slowCalls = [];
+const slow = context.C8O.lint.reviewTexts({ textReviewBudgetMs: 35000, host: { readKey: () => "sk-test", now: () => clock, header: () => null,
+  post: (url, key, body) => {
+    slowCalls.push(JSON.parse(body));
+    clock += 20000;
+    return { status: 200, body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ language: "fr", issues: [] }) } }] }), header: () => null };
+  } } }, ["Gerer"], { "Gerer": ["P.a"] },
+  { files: ["es", "it", "de"], keys: {}, values: { es: [{ key: "a", text: "Hola" }], it: [{ key: "a", text: "Ciao" }], de: [{ key: "a", text: "Hallo" }] } }, add, null);
+assert.strictEqual(slowCalls.length, 2, "two groups fit in the budget");
+assert.strictEqual(slow.reviewed, 2);
+assert.strictEqual(slow.notReviewed, 2);
+assert.match(slow.message, /^2 texts were not reviewed: the review stopped after 35 s, so the lint answers before the client gives up\. Run project-lint again to review them\.$/);
+
+// A call that times out past the budget leaves its group unreviewed, it does not skip the whole review.
+let clock2 = 0;
+const timeouts = [];
+const timedOut = context.C8O.lint.reviewTexts({ textReviewBudgetMs: 35000, host: { readKey: () => "sk-test", now: () => clock2, header: () => null,
+  post: (url, key, body, timeoutMs) => {
+    timeouts.push(timeoutMs);
+    if (timeouts.length === 1) { clock2 += 30000; return { status: 200, body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ issues: [] }) } }] }), header: () => null }; }
+    clock2 += timeoutMs;
+    throw new Error("Read timed out");
+  } } }, ["Gerer"], { "Gerer": ["P.a"] }, { files: ["es"], keys: {}, values: { es: [{ key: "a", text: "Hola" }] } }, add, null);
+assert.strictEqual(timeouts[0], 50000, "budget plus room for one answer");
+assert.strictEqual(timeouts[1], 20000, "the time left, plus room");
+assert.strictEqual(timedOut.reviewed, 1);
+assert.strictEqual(timedOut.notReviewed, 1);
+assert.match(timedOut.message, /the review stopped after 35 s/);
+
 console.log("project-lint boundary rules OK");

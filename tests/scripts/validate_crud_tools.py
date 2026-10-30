@@ -605,7 +605,7 @@ def validate_managed_warning(url, project, entity, artifact):
     artifact["steps"].append({"tool": "databaseobject-tree-apply-managed-warning", "target": target_qname, "result": warning_result})
     warnings = warning_result.get("warnings") or []
     assert_true(
-        any("Prefer `upsert-ngx-crud-kit` with entity ui.listFields/ui.detailFields/ui.formFields/ui.fieldLabels/ui.actionLabel/ui.relationFields hints instead." in str(item) for item in warnings),
+        any("Prefer `upsert-ngx-crud-kit` with entity ui hints instead" in str(item) and "listFilters" in str(item) for item in warnings),
         f"Managed CRUD warning not returned for {target_qname}: {warnings}",
     )
 
