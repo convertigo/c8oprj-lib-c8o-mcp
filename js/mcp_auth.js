@@ -50,6 +50,8 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   // Store contract, also read by the Agent Bridge and the Assistant: context.server.get(MANAGED_LEASES_KEY) is a
   // java.util.concurrent.ConcurrentHashMap from the token id (JWT kid) to a JSON string {idleMs, expiresAt, maxAt}. An
   // update replaces the exact previous string (replace(key, old, new)), so a removed or ended lease never comes back.
+  // The leases live in the memory of the engine that issued the token: on a server of several nodes, a call must reach
+  // that node (the Agent Bridge calls the MCP of its own engine on localhost).
   var MANAGED_LEASES_KEY = "lib_ConvertigoMCP.managedTokenLeases";
   var LEASE_MAX_SECONDS = 7 * 86400;
   var MIN_LEASE_IDLE_SECONDS = 60;
