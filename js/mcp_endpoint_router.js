@@ -348,6 +348,32 @@ function applyAgentArgumentDefaults(sequenceName, args) {
   return args;
 }
 
+// A client fails a tool call that has not answered in about a minute (Vibe: mcp_timeout, "The provided tool call
+// failed"; Codex: tool_timeout_sec 60 by default). mobile-builder-open waited 90 s by default: waits of 90 then 60 s
+// failed one after the other (PCA eval 30/10). An agent's wait stays under that; the answer still says building and the
+// agent calls again. Internal callers (crud-proof) do not come through here.
+var AGENT_MAX_WAIT_SEC = {
+  tools_mobile_builder_open: 45
+};
+
+function capAgentWait(sequenceName, args) {
+  var cap = AGENT_MAX_WAIT_SEC[sequenceName];
+  if (!cap || !args || typeof args !== "object" || String(args.wait) === "false") {
+    return "";
+  }
+  var asked = args.timeoutSec === undefined || args.timeoutSec === null || String(args.timeoutSec).trim() === ""
+    ? null
+    : Number(args.timeoutSec);
+  if (asked !== null && !(asked > cap)) {
+    return "";
+  }
+  args.timeoutSec = cap;
+  return asked === null
+    ? ""
+    : "timeoutSec " + asked + " was lowered to " + cap + ": a tool call longer than about a minute fails on the client side. " +
+      "While the answer says building, call again.";
+}
+
 function applyArgumentAliases(sequenceName, args) {
   var aliases = ARGUMENT_ALIASES[sequenceName];
   if (!aliases || !args || typeof args !== "object") {
@@ -708,6 +734,10 @@ if (methodName === "initialize") {
       responseStatus = "200";
       callVariables = applyAgentArgumentDefaults(targetSequence, coerceToolArguments(applyArgumentAliases(targetSequence, toolArgs || {}), targetSequence, requestable));
       mcpArgumentWarning = unknownArgumentsWarning(targetSequence, requestable, toolArgs || {});
+      var waitCapNote = capAgentWait(targetSequence, callVariables);
+      if (waitCapNote.length) {
+        mcpArgumentWarning = mcpArgumentWarning ? mcpArgumentWarning + " " + waitCapNote : waitCapNote;
+      }
       // Sub-agents drive the same viewer as the agent's Playwright MCP (the conversation's debug port) and are recorded
       // under the conversation.
       var subagentSequence = targetSequence === "tools_browser_verify" || targetSequence === "tools_subagent_run";

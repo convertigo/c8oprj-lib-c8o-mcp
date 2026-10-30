@@ -382,7 +382,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: { type: "string", description: "Existing NGX project name. Use the exact project technical name; do not invent prefixes or date suffixes." },
-        timeoutSec: { type: "integer", minimum: 0, maximum: 600, default: 90, description: "Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. Default 90; max 600." },
+        timeoutSec: { type: "integer", minimum: 0, maximum: 600, default: 45, description: "Seconds to wait for readiness when wait=true. Use 0 for a non-blocking poll. At most 45 (a longer wait is lowered: a tool call longer than about a minute fails on the client side); while the answer says building, call again." },
         logsLimit: { type: "integer", minimum: 5, maximum: 200, default: 40, description: "Maximum builder log lines returned for diagnostics. Default 40; max 200." },
         forceRestart: {
           type: "boolean",

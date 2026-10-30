@@ -1304,8 +1304,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
               ? ("Mobile builder is still building: " + compactText(browserState.statusText))
               : (waitValue === true
                 ? (viewerHomeUrl.length
-                  ? "Mobile builder is still building; the viewer URL is available, but compilation did not reach a terminal state before the timeout."
-                  : "Mobile builder is still building and did not expose the browser URL before the timeout.")
+                  ? "Mobile builder is still building; the viewer URL is available, but compilation did not reach a terminal state before the timeout. Call mobile-builder-open again with stateOnly true and wait true."
+                  : "Mobile builder is still building and did not expose the browser URL before the timeout. Call mobile-builder-open again with stateOnly true and wait true.")
                 : "Mobile builder is building; call again with wait=true or stateOnly=true to poll readiness."))
           )
           : (status === "starting"
