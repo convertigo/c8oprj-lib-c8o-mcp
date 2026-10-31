@@ -186,6 +186,10 @@ function load(world) {
           return { status: 'ok', summary: {}, errors: [], operations: [], warnings: world.applyWarnings ? world.applyWarnings(args.operations) : [] };
         },
         saveProject: () => ({ saved: true }),
+        reloadForLibraryComponents: (projectName, payload) => {
+          world.reloads = (world.reloads || []).concat([projectName + ' ' + JSON.stringify(payload)]);
+          return world.reloadAnswer || '';
+        },
         refreshStudioTreeByQName: () => ({}),
         triggerMobileBuilderRefresh: () => ({ triggered: true })
       }
@@ -1509,7 +1513,7 @@ test('a second page completes AppLayout with the rules of the classes it uses, o
 // A marketplace where the grid library can be imported (or fails to), and the library project it loads.
 function withGridLibrary(world, opts) {
   const o = opts || {};
-  const calls = { imported: [], referenced: [], reloaded: [] };
+  const calls = { imported: [], referenced: [] };
   const lib = bean('lib_ExtendedComponents_ui_ngx', 'com.twinsoft.convertigo.beans.core.Project');
   const libApp = bean('Application', 'x.ApplicationComponent', bean('MobileApplication', 'x.MobileApplication', lib));
   lib.getMobileApplication = () => ({ getApplicationComponent: () => libApp });
@@ -1526,8 +1530,7 @@ function withGridLibrary(world, opts) {
     },
     resolveProject: name => (name === 'lib_ExtendedComponents_ui_ngx' && loaded ? lib : null),
     getProjectReferenceMap: () => ({ lower: o.referenced ? { lib_extendedcomponents_ui_ngx: { referenceName: 'lib_ExtendedComponents_ui_ngx' } } : {} }),
-    addReference: (target, library) => { calls.referenced.push(target + '->' + library); return { referenceAdded: true, warnings: [] }; },
-    reloadAfterNewReference: (target, library) => { calls.reloaded.push(target); return { reloaded: true, message: target + ' was reloaded so that the Mobile Builder writes the shared components of ' + library + ' into the app.' }; }
+    addReference: (target, library) => { calls.referenced.push(target + '->' + library); return { referenceAdded: true, warnings: [] }; }
   };
   if (o.referenced) {
     loaded = true;
@@ -1542,12 +1545,15 @@ const gridList = extra => Object.assign({ item: 'p', title: 'numeroPoste', title
 test('a list asked as a grid uses the AG Grid of lib_ExtendedComponents_ui_ngx, imported and referenced when missing', () => {
   const world = makeWorld();
   const calls = withGridLibrary(world);
+  world.reloadAnswer = 'App was reloaded so that the Mobile Builder writes the library components its pages now use (lib_ExtendedComponents_ui_ngx.agGrid).';
   const G = load(world);
   const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', authRedirect: 'Login',
     list: gridList({ grid: { csv: true, pageSize: 50 }, onItem: { page: 'Login', data: { id: 'id' } } }) });
-  // The app is reloaded after the page is saved: the Mobile Builder writes a new library's shared components only then.
-  assert.deepEqual(plain(calls), { imported: ['lib_ExtendedComponents_ui_ngx'], referenced: ['App->lib_ExtendedComponents_ui_ngx'], reloaded: ['App'] });
-  assert.match(out.warnings.join(' '), /App was reloaded so that the Mobile Builder writes the shared components of lib_ExtendedComponents_ui_ngx/);
+  // After the page is saved, the app is reloaded when its build lacks the grid: the Mobile Builder writes a library's
+  // shared component only when the app loads.
+  assert.deepEqual(plain(calls), { imported: ['lib_ExtendedComponents_ui_ngx'], referenced: ['App->lib_ExtendedComponents_ui_ngx'] });
+  assert.deepEqual(plain(world.reloads), ['App {"sharedcomponent":"lib_ExtendedComponents_ui_ngx.MobileApplication.Application.agGrid"}']);
+  assert.match(out.warnings.join(' '), /App was reloaded so that the Mobile Builder writes the library components its pages now use/);
   assert.deepEqual(plain(out.library), { name: 'lib_ExtendedComponents_ui_ngx', status: 'imported and referenced',
     sharedComponent: 'lib_ExtendedComponents_ui_ngx.MobileApplication.Application.agGrid' });
   assert.match(out.listRendering[0], /^list: AG Grid of lib_ExtendedComponents_ui_ngx \(grid asked\)/);
@@ -1600,7 +1606,8 @@ test('a list of five cells or more gets the grid without asking; a referenced li
   const calls = withGridLibrary(world, { referenced: true });
   const G = load(world);
   const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: gridList() });
-  assert.deepEqual(plain(calls), { imported: [], referenced: [], reloaded: [] });
+  assert.deepEqual(plain(calls), { imported: [], referenced: [] });
+  assert.equal(world.reloads.length, 1, 'a referenced library may still lack the component in the build: the helper checks');
   assert.equal(out.library.status, 'referenced');
   assert.match(out.listRendering[0], /\(5 cells\): sorting, filtering and paging in the grid/);
   assert.ok(nodesOf(world, 'Postes').RecGrid);

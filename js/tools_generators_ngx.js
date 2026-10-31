@@ -1499,12 +1499,11 @@ include("js/tools_generators_ngx_theme.js");
     }
     var rootPage = makeRoot ? name : String(currentRoot.getName());
     var finish = session.finish(page);
-    // A library referenced just now reaches the Mobile Builder only once the app is loaded again (marketplace.js).
-    var reload = null;
-    if (gridLibrary && !gridLibrary.error && gridLibrary.status !== "referenced" && finish.saved) {
-      reload = C8O.marketplace.reloadAfterNewReference(projectName, gridLibrary.library);
-      if (reload.message.length) {
-        session.warnings.push(reload.message);
+    // The grid reaches the build only once the app is loaded again, when the app never used it (databaseobject_batch.js).
+    if (gridLibrary && !gridLibrary.error && finish.saved) {
+      var reload = C8O.dbo.reloadForLibraryComponents(projectName, { sharedcomponent: gridLibrary.sharedComponent });
+      if (reload.length) {
+        session.warnings.push(reload);
       }
     }
     var menuLabel = inMenu ? G.addMenuTranslation(projectDbo, title) : null;
