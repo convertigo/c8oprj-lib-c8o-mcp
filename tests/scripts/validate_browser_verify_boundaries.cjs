@@ -54,3 +54,13 @@ test('download proof uses an actual browser download, filename and bytes',async(
   assert.equal(typeof tools.download,'function');
   assert.match((await tools.download({target:'button "Download"'})).text,/export.csv \(16 bytes\)/);
 });
+
+
+test('display-only proof cannot validate requested business actions',async()=>{
+ const f=fixture();
+ const fetch=async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{
+ id:'finish',type:'function',function:{name:'finish',arguments:JSON.stringify({verdict:'passed',checks:[{id:'C1',check:'Approved',status:'passed',evidence:'Buttons Send, Refuse, Cancel and Download are visible'}]})}
+ }]}}]})});
+ const answer=await agent.run({...cfg,paths:['Send, refuse, cancel and download']},{key:'fake',playwright:f.playwright,fetch});
+ assert.equal(answer.report.verdict,'partial');assert.match(answer.report.checks[0].evidence,/no successful action observed for send, refuse, cancel, download/);
+});

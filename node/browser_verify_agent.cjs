@@ -784,6 +784,11 @@ function createTools(state, config) {
   async function withSnapshot(prefix) {
     assertApplication(page().url());
     await settle(page());
+    if (state.runtimeErrors && state.runtimeErrors.length) {
+      var error = new Error("Application runtime error: " + state.runtimeErrors.join("; "));
+      error.code = "APPLICATION_ROUTE_FAILED";
+      throw error;
+    }
     return { text: prefix + "\n" + await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT), snapshot: true };
   }
 
@@ -1145,6 +1150,23 @@ function normalizeReport(args, config, shots, pendingFailures) {
   return report;
 }
 
+function missingBusinessActions(config, trace) {
+  var requested = (config.paths || []).map(function (p) { return str(p.steps || p); }).join(" ");
+  var kinds = [
+    {name: "send", pattern: /\b(?:send|submit|envoyer|envoi|soumettre)\b/i},
+    {name: "refuse", pattern: /\b(?:refuse|reject|refuser|refus)\b/i},
+    {name: "cancel", pattern: /\b(?:cancel|annuler|annulation)\b/i},
+    {name: "download", pattern: /\b(?:download|télécharger|téléchargement|telecharger)\b/i}
+  ];
+  return kinds.filter(function (kind) {
+    return kind.pattern.test(requested) && !trace.some(function (entry) {
+      if (entry.failed) return false;
+      if (kind.name === "download") return entry.tool === "download";
+      return /^(click|press)$/.test(entry.tool) && kind.pattern.test(str(entry.args && entry.args.target));
+    });
+  }).map(function (kind) { return kind.name; });
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Loop
 
@@ -1159,7 +1181,10 @@ async function run(rawConfig, deps) {
   var gateway = createGateway(config, key, deps.fetch || fetch);
   var browserState = await openBrowser(config, deps.playwright);
   try {
-  var state = { page: browserState.page, screenshots: [] };
+  var state = { page: browserState.page, screenshots: [], runtimeErrors: [] };
+  if (typeof state.page.on === "function") state.page.on("pageerror", function (error) {
+    state.runtimeErrors.push(cut(shortError(error), 1500));
+  });
   var pendingFailures = {};
   var tools = createTools(state, config);
   var messages = [
@@ -1236,6 +1261,8 @@ async function run(rawConfig, deps) {
       var callStarted = Date.now();
       var outcome;
       if (name === "finish" && args) {
+        var missing = missingBusinessActions(config, trace);
+        if (missing.length) pendingFailures.business = "Business path incomplete: no successful action observed for " + missing.join(", ") + ". Use the requested controls, including confirmation, and verify their outcome.";
         report = normalizeReport(args, config, state.screenshots, pendingFailures);
         outcome = { text: "Report received." };
       } else if (!args) {
@@ -1257,7 +1284,7 @@ async function run(rawConfig, deps) {
           }
         }
       }
-      trace.push({ turn: turns, tool: name, args: summarizeArgs(args), ms: Date.now() - callStarted, result: cut(outcome.text, 160).replace(/\s+/g, " ") });
+      trace.push({ turn: turns, tool: name, args: summarizeArgs(args), failed: /^Error:/.test(outcome.text), ms: Date.now() - callStarted, result: cut(outcome.text, 160).replace(/\s+/g, " ") });
       logActivity(config, { at: Date.now(), turn: turns, text: activityText(name, args, outcome) });
       var progress = "\n[" + Math.round((Date.now() - started) / 1000) + " s of " + Math.round(config.timeBudgetMs / 1000) +
         " s, turn " + turns + " of " + config.maxSteps + "]";
