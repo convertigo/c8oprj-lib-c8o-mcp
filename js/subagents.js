@@ -72,6 +72,15 @@ C8O.subagents = C8O.subagents || {};
     return Math.max(min, Math.min(max, parsed));
   }
 
+  api.busyError = function (lockKey, runId) {
+    var error = new Error("A sub-agent is already running on " + lockKey + ". Collect its report before starting another.");
+    error.code = "SUBAGENT_BUSY";
+    error.details = {lockKey: String(lockKey), runId: str(runId) || null};
+    error.hint = str(runId) ? "Call subagent-run with runId alone: " + str(runId) + "."
+      : "Read the current sub-agent activity to recover runId, then call subagent-run with runId alone.";
+    return error;
+  };
+
   api.str = str;
 
   // An object argument as a plain JS object: the MCP router passes it to the sequence as JSON text (a Java string in
@@ -433,8 +442,7 @@ C8O.subagents = C8O.subagents || {};
           if (Number(holder.expiresAt || 0) < java.lang.System.currentTimeMillis() || !holderRun.exists || !holderRun.alive) {
             lockFile["delete"]();
           } else {
-            throw new Error("Another sub-agent (" + holder.runId + ") is working on " + lockKey + ": call the tool with runId " +
-              holder.runId + " to wait for its report.");
+            throw api.busyError(lockKey, holder.runId);
           }
         }
         var content = JSON.stringify({ runId: runId, expiresAt: java.lang.System.currentTimeMillis() + timeBudgetMs + LOCK_GRACE_MS });
@@ -442,7 +450,8 @@ C8O.subagents = C8O.subagents || {};
           Files.write(lockFile.toPath(), new java.lang.String(content).getBytes("UTF-8"),
             java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
         } catch (_busy) {
-          throw new Error("Another sub-agent is starting on " + lockKey + ": wait for its report.");
+          var starting = host.readLock(lockKey);
+          throw api.busyError(lockKey, starting && starting.runId);
         }
         return String(lockFile.getPath());
       },

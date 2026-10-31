@@ -781,7 +781,7 @@ function createTools(state, config) {
     }
   }
 
-  async function withSnapshot(prefix) {
+  async function withSnapshot(prefix, navigation) {
     assertApplication(page().url());
     await settle(page());
     if (state.runtimeErrors && state.runtimeErrors.length) {
@@ -789,7 +789,21 @@ function createTools(state, config) {
       error.code = "APPLICATION_ROUTE_FAILED";
       throw error;
     }
-    return { text: prefix + "\n" + await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT), snapshot: true };
+    var snapshot = await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT);
+    if (navigation) {
+      var dom = typeof page().content === "function" ? await page().content() : snapshot;
+      var identity = page().url() + "\n" + require("node:crypto").createHash("sha256").update(dom).digest("hex");
+      state.unchangedReloads = state.lastNavigationSnapshot === identity ? (state.unchangedReloads || 0) + 1 : 0;
+      state.lastNavigationSnapshot = identity;
+      if (state.unchangedReloads >= 2) {
+        var frozen = new Error("Application DOM unchanged after two reloads. Stop reloading; inspect the action bindings and browser console. " +
+          (state.consoleMessages || []).map(function (entry) { return entry.type + ": " + entry.text; }).join("; "));
+        frozen.code = "APPLICATION_FROZEN";
+        throw frozen;
+      }
+    }
+    var consoleText = (state.consoleMessages || []).map(function (entry) { return entry.type + ": " + entry.text; }).join("\n");
+    return { text: prefix + "\n" + snapshot + (consoleText ? "\nBrowser console:\n" + consoleText : ""), snapshot: true };
   }
 
   return {
@@ -802,7 +816,7 @@ function createTools(state, config) {
       assertApplication(absolute);
       var response = await page().goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
       await inspectResponse(response);
-      return withSnapshot("Navigated.");
+      return withSnapshot("Navigated.", true);
     },
     download: async function (args) {
       assertApplication(page().url());
@@ -1181,9 +1195,20 @@ async function run(rawConfig, deps) {
   var gateway = createGateway(config, key, deps.fetch || fetch);
   var browserState = await openBrowser(config, deps.playwright);
   try {
-  var state = { page: browserState.page, screenshots: [], runtimeErrors: [] };
+  var state = { page: browserState.page, screenshots: [], runtimeErrors: [], consoleMessages: [] };
   if (typeof state.page.on === "function") state.page.on("pageerror", function (error) {
     state.runtimeErrors.push(cut(shortError(error), 1500));
+  });
+  if (typeof state.page.on === "function") state.page.on("console", function (message) {
+    var type = message.type();
+    if (type !== "warning" && type !== "warn" && type !== "error") return;
+    var entry = {type: type, text: cut(message.text(), 1500)};
+    state.consoleMessages.push(entry);
+    if (state.consoleMessages.length > 50) state.consoleMessages.shift();
+    if (type === "error" || /stopped at action/i.test(entry.text)) {
+      state.runtimeErrors.push(entry.text);
+      if (state.runtimeErrors.length > 50) state.runtimeErrors.shift();
+    }
   });
   var pendingFailures = {};
   var tools = createTools(state, config);
@@ -1279,7 +1304,7 @@ async function run(rawConfig, deps) {
         } catch (e) {
           pendingFailures[name + JSON.stringify(args)] = name + ": " + shortError(e);
           outcome = { text: "Error: " + shortError(e) };
-          if (/^(VIEWER_STOPPED|APPLICATION_ROUTE_FAILED|APPLICATION_BOUNDARY)$/.test(e.code || "")) {
+          if (/^(VIEWER_STOPPED|APPLICATION_ROUTE_FAILED|APPLICATION_BOUNDARY|APPLICATION_FROZEN)$/.test(e.code || "")) {
             report = normalizeReport({ verdict: "partial", summary: shortError(e) }, config, state.screenshots, pendingFailures);
             stopReason = e.code;
           }
@@ -1307,7 +1332,8 @@ async function run(rawConfig, deps) {
     report = normalizeReport({ verdict: "partial", summary: "The verification agent did not send a report within its budget.", checks: [] }, config, state.screenshots);
   }
   var result = {
-    report: report,
+    report: Object.assign(report, {consoleMessages: state.consoleMessages}),
+    consoleMessages: state.consoleMessages,
     screenshots: state.screenshots.map(function (s) { return { name: s.name, file: s.file, url: s.url }; }),
     finalUrl: state.page.url(),
     startUrl: browserState.startUrl,

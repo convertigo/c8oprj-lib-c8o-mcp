@@ -74,3 +74,22 @@ test('a late pageerror also prevents a passed finish report',async()=>{
  const answer=await agent.run({...cfg,paths:['Read the status']},{key:'fake',playwright:f.playwright,fetch});
  assert.equal(answer.report.verdict,'partial');assert.match(answer.report.checks[0].evidence,/Cannot read properties of null/);
 });
+
+test('console warning that stops an action ends verification before a model call',async()=>{
+ const f=fixture();let consoleEvent;f.page.on=(name,callback)=>{if(name==='console')consoleEvent=callback;};
+ const goto=f.page.goto;f.page.goto=async url=>{const response=await goto(url);consoleEvent({type:()=> 'warning',text:()=> 'stopped at action hasSession: Code expressions are not supported in action values'});return response;};
+ const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch:async()=>{throw Error('must not call model');}});
+ assert.equal(answer.turns,0);assert.match(answer.report.summary,/stopped at action/);assert.equal(answer.report.consoleMessages[0].type,'warning');
+});
+test('console warnings are visible to the model and included in its final report',async()=>{
+ const f=fixture();let consoleEvent;f.page.on=(name,callback)=>{if(name==='console')consoleEvent=callback;};
+ const goto=f.page.goto;f.page.goto=async url=>{const response=await goto(url);consoleEvent({type:()=> 'warning',text:()=> 'A useful browser warning'});return response;};
+ let turn=0;const fetch=async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{id:String(++turn),type:'function',function:turn===1?{name:'navigate',arguments:JSON.stringify({url:cfg.url})}:{name:'finish',arguments:'{"verdict":"partial","checks":[]}'}}]}}]})});
+ const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch});
+ assert.equal(answer.report.consoleMessages.length,2);assert.equal(answer.consoleMessages[0].text,'A useful browser warning');
+});
+test('two reloads of the same DOM stop a frozen verification',async()=>{
+ const f=fixture();let calls=0;const fetch=async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{id:String(++calls),type:'function',function:{name:'navigate',arguments:JSON.stringify({url:cfg.url})}}]}}]})});
+ const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch});
+ assert.equal(calls,2);assert.equal(answer.stopReason,'APPLICATION_FROZEN');assert.match(answer.report.summary,/two reloads/);
+});

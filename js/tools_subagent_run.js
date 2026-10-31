@@ -33,6 +33,12 @@ C8O.subagentRun = C8O.subagentRun || {};
     if (!auth.authenticated || auth.kind === "nocode" || auth.scope !== "mcp:full") {
       throw new Error("A full Convertigo MCP bearer token is required");
     }
-    return api.run(params, C8O.constructorRunner.extendHost(C8O.browserVerify.javaHost(), contextObject));
+    try {
+      return api.run(params, C8O.constructorRunner.extendHost(C8O.browserVerify.javaHost(), contextObject));
+    } catch (error) {
+      if (!error || error.code !== "SUBAGENT_BUSY") throw error;
+      return {ok: false, status: "busy", runId: error.details.runId,
+        error: {code: error.code, message: error.message, details: error.details, hint: error.hint}};
+    }
   };
 })(C8O.subagentRun);
