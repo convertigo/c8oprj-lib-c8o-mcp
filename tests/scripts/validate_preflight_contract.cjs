@@ -558,6 +558,18 @@ test('requestable-execute sets the variables of its call step on its own run onl
   assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
 });
 
+test('requestable-execute passes an array variable as one JSON array text, not one variable per item', () => {
+  const source = read('js/util.js');
+  const fnOf = name => { const at = source.indexOf('C8O.requestable.' + name + ' = '); return source.slice(at, source.indexOf('\n};\n', at) + 3); };
+  const { Step, Packages, java } = stepWorld();
+  const ctx = { C8O: { requestable: {} }, Packages, java, JSON, Object };
+  vm.runInNewContext(['_ownVariableOrder', '_clearVariables', '_addVariables'].map(fnOf).join(''), ctx);
+  const callStep = new Step().clone();
+  ctx.C8O.requestable._clearVariables(callStep);
+  ctx.C8O.requestable._addVariables(callStep, { ids: ['1', '2'], filter: { a: 1 }, day: '2026-01-02' });
+  assert.deepEqual(callStep.vars.map(v => [v.name, v.value]), [['ids', '["1","2"]'], ['filter', '{"a":1}'], ['day', '2026-01-02']]);
+});
+
 test('every output schema takes the argumentWarning, operatorNote and repeatedFailure the endpoint adds to an answer', () => {
   const ctx = { C8O: {}, include() {} };
   vm.runInNewContext(read('js/schema_overrides.js'), ctx);

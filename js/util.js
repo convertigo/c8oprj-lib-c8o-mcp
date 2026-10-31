@@ -771,11 +771,9 @@ C8O.requestable._addVariables = function (step, map) {
     try {
       this[key] = value;
     } catch (_ignoreAssign) {}
-    if (Object.prototype.toString.call(value) === '[object Array]') {
-      for (var i = 0; i < value.length; i++) {
-        addSingle(key, value[i]);
-      }
-    } else if (typeof value === 'object') {
+    // An array is one variable holding its JSON text, as a Flow input of type array reads it: one variable per
+    // item, all with the same name, gave the call its first item only.
+    if (typeof value === 'object') {
       addSingle(key, JSON.stringify(value));
     } else {
       addSingle(key, value);
