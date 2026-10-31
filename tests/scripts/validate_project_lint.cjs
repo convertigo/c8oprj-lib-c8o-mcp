@@ -137,4 +137,14 @@ assert.strictEqual(timedOut.reviewed, 1);
 assert.strictEqual(timedOut.notReviewed, 1);
 assert.match(timedOut.message, /the review stopped after 35 s/);
 
+// An app whose styles give no primary but the starter's (or Ionic's) default was never given its own look (31/10).
+const theme = context.C8O.lint.defaultTheme;
+const starterLight = ":root, :root.force-light {\n  --ion-color-primary: #2563eb;\n  --ion-color-primary-rgb: 37,99,235;\n}";
+const starterDark = "@media (prefers-color-scheme: dark) { :root:not(.force-light) { --ion-color-primary: #60a5fa; } }";
+assert.match(theme([{ name: "LightTheme", css: starterLight }, { name: "AutoDarkTheme", css: starterDark }, { name: "AppLayout", css: ".app-page { padding: 16px; }" }]),
+  /^The app keeps the starter's default theme \(primary #2563eb\): no app style gives it its own colors/);
+assert.match(theme([]), /^The app keeps the starter's default theme: no app style/);
+assert.strictEqual(theme([{ name: "LightTheme", css: starterLight }, { name: "AppTheme", css: "html:root, :root.force-light {\n  --ion-color-primary: #1f4e79;\n}" }]), "");
+assert.strictEqual(theme([{ name: "LightTheme", css: starterLight.replace("#2563eb", "#E30613") }]), "", "a starter theme edited by hand counts");
+
 console.log("project-lint boundary rules OK");
