@@ -291,6 +291,27 @@ if (typeof include === "function") {
     return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
   };
 
+  // The primary colors a framework or the NGX starter ships: an app whose styles declare no other one was never given a
+  // visual identity (31/10: every agent-built app showed the starter's blue).
+  var DEFAULT_PRIMARIES = ["#2563eb", "#60a5fa", "#3b82f6", "#0054e9", "#3880ff", "#4d8dff", "#428cff"];
+
+  // The finding message for the app-level styles [{name, css}], or "" when one of them gives the app its own primary color.
+  C8O.lint.defaultTheme = function (styles) {
+    var declared = [];
+    (styles || []).forEach(function (style) {
+      String(style.css || "").replace(/--ion-color-primary\s*:\s*(#[0-9a-fA-F]{3,8})\b/g, function (_m, color) {
+        declared.push(color.toLowerCase());
+        return _m;
+      });
+    });
+    var own = declared.filter(function (c) { return DEFAULT_PRIMARIES.indexOf(c) < 0; });
+    if (own.length) {
+      return "";
+    }
+    return "The app keeps the starter's default theme" + (declared.length ? " (primary " + declared[0] + ")" : "") + ": no app style gives it its own " +
+      "colors, and it follows the browser's light or dark mode, so it looks like every other generated app.";
+  };
+
   // Adds a finding to a list capped at max. A full list still takes an error, in place of its last finding that is not one:
   // on a large app thousands of warnings filled the list before the errors were found (C8Oforms: 2707 i18n warnings hid
   // its 4 SEC-ANONYMOUS-WRITE errors, counted but not listed).
@@ -661,6 +682,8 @@ if (typeof include === "function") {
     // Objects a reader of the project needs explained, kept without a comment; and the starter's own page.
     var uncommented = { sequence: [], transaction: [], connector: [], page: [] };
     var pages = [];
+    var appStyles = [];
+    var appComponent = null;
     var queue = [project];
     while (queue.length) {
       var dbo = queue.shift();
@@ -683,6 +706,16 @@ if (typeof include === "function") {
       }
       if (/^(UI|PageComponent)/.test(className)) {
         lintNgx(dbo, className);
+      }
+      if (className === "ApplicationComponent") {
+        appComponent = dbo;
+      }
+      if ((className === "UIStyle" || className === "UITheme") && appComponent && qnameOf(dbo.getParent()) === qnameOf(appComponent)) {
+        var styleCss = "";
+        try {
+          styleCss = String(dbo.getStyleContent().getString());
+        } catch (_noCss) {}
+        appStyles.push({ name: String(dbo.getName()), css: styleCss });
       }
       var next = C8O.dbo.getDirectChildren(dbo);
       for (var i = 0; i < next.length; i++) {
@@ -713,6 +746,15 @@ if (typeof include === "function") {
         (call(starter, "isInAutoMenu") === true ? " and in its menu" : "") + (isRoot(starter) ? ", and the app opens on it (isRoot)" : "") + ".",
         (isRoot(starter) ? "First make the entry page the root (databaseobject-tree-apply {properties:{isRoot:true}} on it), then delete " +
           "Page with databaseobject-delete" : "Delete it with databaseobject-delete") + ", or turn it into the application's real home page.");
+    }
+    // The app's own pages built on the starter's look: the default blue, light or dark as the browser says.
+    if (appComponent && pages.some(function (p) { return p !== starter; })) {
+      var themeMessage = C8O.lint.defaultTheme(appStyles);
+      if (themeMessage.length) {
+        add("NGX-DEFAULT-THEME", "warning", appComponent, themeMessage,
+          "Choose the tokens before the pages: ngx-theme-apply with the user's brand color, or the preset that fits the app (institutional, modern, dense), " +
+          "light for a business app. See Visual design in convertigo-frontend-ngx.");
+      }
     }
     // Without a root page the app opens on no route: the viewer stayed on /home, "Cannot match any routes" (run 13a F-09).
     if (pages.length && !pages.some(isRoot)) {

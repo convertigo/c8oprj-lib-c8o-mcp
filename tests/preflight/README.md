@@ -17,7 +17,7 @@ The bearer comes from `CONVERTIGO_MCP_TOKEN`, else from the `convertigo` proxy e
 ## MCP contract (`contract_live.py`)
 
 It builds `PfContract` with the tools an agent uses (starter import, connector, `sql-transaction-create`,
-`business-sequence-create`, `ngx-page-create`, tree-apply, rename, move, `batch-call`, `upsert-crud`...), then checks:
+`business-sequence-create`, `ngx-theme-apply`, `ngx-page-create`, tree-apply, rename, move, `batch-call`, `upsert-crud`...), then checks:
 
 - **qnames**: right after each call, every string of the answer shaped like a QName of the project opens with
   `databaseobject-tree-get`; QName lists (`created`, `updated`, `touchedQNames`...) hold QNames only; at the end,

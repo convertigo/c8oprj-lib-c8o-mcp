@@ -32,7 +32,8 @@ function agentOutput(extra) {
         { id: 'C1', path: 'Path 1', check: 'List shown', status: 'passed', evidence: 'Postes à déclarer, 3 rows', screenshot: '/ws/.playwright-mcp/verify/v1/list.png' },
         { id: 'C2', path: 'Path 2', check: 'Both À jour', status: 'failed', evidence: 'Poste RH: En attente', screenshot: '/ws/.playwright-mcp/verify/v1/after.png' }
       ],
-      visualDefects: [{ severity: 'minor', description: 'Declarer without accent', location: 'button', screenshot: '/ws/.playwright-mcp/verify/v1/after.png' }]
+      visualDefects: [{ severity: 'minor', description: 'Declarer without accent', location: 'button', screenshot: '/ws/.playwright-mcp/verify/v1/after.png' }],
+      designSuggestions: [{ aspect: 'color', suggestion: 'The toolbar keeps the default blue: give the app its brand color.', location: 'every page', screenshot: '/ws/.playwright-mcp/verify/v1/list.png' }]
     },
     screenshots: [{ name: 'list', file: '/ws/.playwright-mcp/verify/v1/list.png', url: 'http://localhost:4200/postes' }],
     finalUrl: 'http://localhost:4200/postes',
@@ -134,6 +135,9 @@ test('a verification runs the agent with the key in its environment only and ret
   assert.equal(result.checks[1].status, 'failed');
   assert.equal(result.checks[0].screenshot, '.playwright-mcp/verify/v1/list.png');
   assert.equal(result.visualDefects[0].screenshot, '.playwright-mcp/verify/v1/after.png');
+  // The aesthetic review comes next to the functional result, with its screenshot path relative too.
+  assert.deepEqual(plain(result.designSuggestions), [{ aspect: 'color', suggestion: 'The toolbar keeps the default blue: give the app its brand color.',
+    location: 'every page', screenshot: '.playwright-mcp/verify/v1/list.png' }]);
   assert.deepEqual(plain(result.screenshots), [{ name: 'list', path: '.playwright-mcp/verify/v1/list.png', url: 'http://localhost:4200/postes' }]);
   assert.equal(result.reportFile, 'subagents/' + RUN + '/report.json');
   assert.equal(result.modelCalls, 6);
@@ -597,4 +601,23 @@ test('gateway: a named tool refused in tool_choice falls back to required', asyn
   const gateway = agent.createGateway(config, KEY, async (url, init) => { sent.push(JSON.parse(init.body)); return replies.shift(); });
   await gateway.complete([{ role: 'user', content: 'x' }], { toolChoice: { type: 'function', function: { name: 'finish' } } });
   assert.deepEqual(sent.map(b => b.tool_choice), [{ type: 'function', function: { name: 'finish' } }, 'required']);
+});
+
+test('design suggestions are advice: kept apart, normalized, and never change the verdict (31/10)', () => {
+  const shots = [{ name: 'home', file: '/out/home.png' }];
+  const report = agent.normalizeReport({ verdict: 'passed', summary: 's', checks: [{ check: 'a', status: 'passed', evidence: 'e' }],
+    designSuggestions: [{ aspect: 'hierarchy', suggestion: 'Make the page title larger than the section titles.', location: 'Home', screenshot: 'home' },
+      { aspect: 'mood', suggestion: 'Rows are cramped.' }, { aspect: 'color', suggestion: '' }] }, {}, shots);
+  assert.equal(report.verdict, 'passed');
+  assert.deepEqual(report.visualDefects, []);
+  assert.deepEqual(report.designSuggestions, [
+    { aspect: 'hierarchy', suggestion: 'Make the page title larger than the section titles.', location: 'Home', screenshot: '/out/home.png' },
+    { aspect: 'other', suggestion: 'Rows are cramped.', location: '', screenshot: '' }]);
+  const many = agent.normalizeReport({ verdict: 'passed', checks: [], designSuggestions: Array.from({ length: 12 }, (_, i) => ({ suggestion: 's' + i })) }, {}, []);
+  assert.equal(many.designSuggestions.length, 8);
+  const finish = agent.TOOLS.find(t => t.function.name === 'finish').function.parameters;
+  assert.ok(finish.properties.designSuggestions, 'the finish tool takes the design suggestions');
+  assert.deepEqual(finish.required, ['verdict', 'summary', 'checks'], 'they stay optional');
+  assert.match(agent.SYSTEM_PROMPT, /designSuggestions: visual hierarchy .*alignment .*density .*contrast .*consistency .*color/);
+  assert.match(agent.SYSTEM_PROMPT, /never a failure: it does not change a check, the verdict or the visual defects/);
 });

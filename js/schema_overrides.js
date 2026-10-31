@@ -1945,7 +1945,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       elapsedMs: { type: "number" },
       activity: subagentActivitySchema(),
       message: { type: "string" },
-      report: { type: "object", additionalProperties: true, description: "The profile's report. verifier: verdict, summary, checks, visualDefects, screenshots, finalUrl." },
+      report: { type: "object", additionalProperties: true, description: "The profile's report. verifier: verdict, summary, checks, visualDefects, designSuggestions (aesthetic advice, never part of the verdict), screenshots, finalUrl." },
       reportFile: { type: "string", description: "Full report with the step trace, relative to the Studio user workspace." },
       stopReason: { type: "string", description: "finished, or the budget (step, time, cost) that ended the run." },
       modelCalls: { type: "number" },
@@ -1981,6 +1981,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         items: closedObjectSchema({
           severity: { type: "string", enum: ["blocking", "major", "minor"] },
           description: { type: "string" },
+          location: { type: "string" },
+          screenshot: shot
+        })
+      },
+      designSuggestions: {
+        type: "array",
+        description: "Aesthetic review of the pages seen (hierarchy, alignment, density, contrast, consistency, color): advice only, never part of the verdict.",
+        items: closedObjectSchema({
+          aspect: { type: "string", enum: ["hierarchy", "alignment", "density", "contrast", "consistency", "color", "typography", "other"] },
+          suggestion: { type: "string" },
           location: { type: "string" },
           screenshot: shot
         })
@@ -2161,10 +2171,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         vars: open("Extra business sequence variables: {variable: \"TypeScript expression\"}, e.g. {status: \"'LATE'\"}."),
         filters: openArray("List filters bound to locals filter<Name> and passed to the business sequence variable of the same name: [{name:\"search\", label, type:\"search\"|\"text\"|\"date\"|\"select\", options:[{value, label}] (fixed ones, such as {value:\"\", label:\"All\"}), optionsFrom:{items:\"owners\" (path in the page business sequence data), item, value:\"id\", label:\"name\"}, value}]. A Filter button reloads the list (cacheTtl 0)."),
         filterLabel: { type: "string", description: "Text of the filter button, in the app's language (English default \"Filter\")." },
-        list: open("List page: {items:\"items\" (path in out.data), item:\"row\", title:\"orderNumber\", subtitle, note, badge:{field, labels:{CODE:\"Label\"}, colors:{CODE:\"success\"}}, empty (text when there is no row, English default \"No record.\"), onItem:{page, kind:\"push\", data:{id:\"id\"}}, select:{field:\"id\", actions:[{label, page, kind, data:{ids:\"selection\"}} | {label, sequence, vars:{ids:\"selection\"}, page}]} (a checkbox per row; \"selection\" is the comma-separated list of the checked keys; the buttons stay disabled until a row is checked)}. A field is a path in the row or {field, labels, prefix, suffix}."),
+        list: open("List page: {items:\"items\" (path in out.data), item:\"row\", title:\"orderNumber\", subtitle, note, badge:{field, labels:{CODE:\"Label\"}, colors:{CODE:\"success\"} (without colors, each code takes the color its label says: success for done or valid, danger for late or refused, warning for waiting, medium for inactive; the result gives badgeColors)}, columns:[{label, field, labels?, prefix?, suffix?}] (a table on a wide screen: a header row and aligned cells, label and value lines on a phone; with titleLabel, the header of the title column, noteLabel and badgeLabel), empty (text when there is no row, English default \"No record.\"), emptyIcon (ionicons name shown above it), onItem:{page, kind:\"push\", data:{id:\"id\"}}, select:{field:\"id\", actions:[{label, page, kind, data:{ids:\"selection\"}} | {label, sequence, vars:{ids:\"selection\"}, page}]} (a checkbox per row; \"selection\" is the comma-separated list of the checked keys; the buttons stay disabled until a row is checked)}. A field is a path in the row or {field, labels, prefix, suffix}."),
         detail: open("Detail page: {record:\"order\" (path in out.data, optional), fields:[{label, field, labels?}]} rendered as a label/value list."),
         form: open("Form page: {submit:\"order_submit\", fields:[{name (the submit variable), label, type: text|email|password|number|tel|url|date|time|textarea|select|toggle, required, helper, value (TypeScript initial value, computed at page enter: new Date()..., c8oPage.navParams... are fine), from (path in the page business sequence data, e.g. \"livre.titre\": an edit form shows the record the page loaded; value cannot, it is computed before the data arrives), disabled (true, or a TypeScript condition computed at page enter like value, e.g. \"!!c8oPage.navParams?.data?.ids\": the field is read-only and still submitted; never write c8oPage in a control property yourself, the template has no c8oPage), options:[{value,label}] | optionsFrom:{items:\"items\" (path in the page business sequence data), item, value:\"id\", label:\"orderNumber\"}, multiple (sent comma-separated), maxLength, rows}], vars:{variable:\"TypeScript\"} (variables not in the form), success:{message (English default \"Saved.\"), page, kind:\"root\"|\"push\"|\"pop\", data}, cancel:{page, kind} | false, submitLabel (default \"Save\"), cancelLabel (default \"Cancel\")}. Give every text in the app's language: the defaults are English and the result warns when one was used. Submit: UIForm onSubmit > CallSequenceAction with Form SmartSources > toast and navigation, or the first error message."),
-        dashboard: open("Dashboard page: {kpis:[{label, field:\"counters.activeOrders\"}], sections:[{heading, items:\"late\", item, title, subtitle, note, badge, empty} | {heading, record:\"lastRun\", fields:[{label, field}]}]}."),
+        dashboard: open("Dashboard page: {kpis:[{label, field:\"counters.activeOrders\", icon:\"cart-outline\" (ionicons name; default after the accent, \"none\" for none), color:\"primary\"|\"secondary\"|\"tertiary\"|\"success\"|\"warning\"|\"danger\"|\"medium\" (accent of the card; default from the words of the label: danger for late, success for done, else primary)}], sections:[{heading, items:\"late\", item, title, subtitle, note, badge, columns, empty} | {heading, record:\"lastRun\", fields:[{label, field}]}]}."),
         actions: openArray("Buttons under the content: [{label, page, kind:\"push\"|\"root\"|\"pop\", data:{key:\"TypeScript\"} (navParams of the next page), sequence (called first, e.g. auth_loginDemo), vars:{variable:\"TypeScript\"} (variables of that sequence), fill, color}]. With a sequence the navigation happens only when it answers success, else its first error is shown. A page with only a heading and buttons (login, home) is kind detail without sequence nor detail."),
         authRedirect: { type: "string", description: "Entry page opened with RootPageAction when the business sequence answers a lost-session code or Authentication required." },
         authCodes: { type: "array", items: { type: "string" }, description: "Codes treated as a lost session; default UNAUTHENTICATED, the business-sequence-create default; give the same code as business-sequence-create's errors.unauthenticated when it was changed." },
@@ -2174,7 +2184,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         inMenu: { type: "boolean", description: "Entry in the app menu. Default: true for list and dashboard pages, false for forms and details (they need parameters)." },
         root: { type: "boolean", description: "true: this page is the entry page of the app (isRoot), the one it opens on, in place of the current one (the starter page Page at first). An app with no root page gets the new page as root; the result gives rootPage." },
         segment: { type: "string", description: "Route segment; default the page name in lower case, words joined by a dash (LivreModification: livre-modification)." },
-        icon: { type: "string", description: "Menu icon (ionicons name)." }
+        icon: { type: "string", description: "Menu icon: the base ionicons name (people, calendar, cart); the menu adds -outline or -sharp. Default: list, grid, create or document-text after the kind." },
+        theme: open("Theme tokens written to the app-level UIStyle AppTheme with this page, as ngx-theme-apply takes them: {preset:\"institutional\"|\"modern\"|\"dense\", primary:\"#hex\" (the brand color), secondary, tertiary, background, surface, text, radius, density:\"comfortable\"|\"compact\", toolbar:\"primary\"|\"surface\"|\"dark\", mode:\"light\"|\"auto\"|\"dark\", font, appName}. Without it, an app whose styles still have the starter's colors gets the default preset; an app with a primary color of its own keeps its look.")
       },
       required: ["project", "name", "kind"],
       additionalProperties: false
@@ -2528,6 +2539,31 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
     if (seq === "tools_sql_transaction_create" || seq === "tools_business_sequence_create" || seq === "tools_ngx_page_create") {
       return generatorInputSchema(seq);
+    }
+
+    if (seq === "tools_ngx_theme_apply") {
+      var hexColor = function (description) { return { type: "string", pattern: "^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", description: description }; };
+      return {
+        type: "object",
+        properties: {
+          project: { type: "string", description: "Application project (exact technical name)." },
+          preset: { type: "string", enum: ["institutional", "modern", "dense"], default: "institutional", description: "Starting point of the tokens. institutional: deep blue-grey primary, colored toolbar, small radius. modern: violet primary, white toolbar, rounded cards, soft shadows. dense: teal primary, dark toolbar, compact spacing and type for data screens. The other arguments override it." },
+          primary: hexColor("The brand color (the user's or the organization's), e.g. #e30613: primary of the app and color of a primary toolbar. A color too light for texts on the surface is darkened for texts and buttons; the toolbar keeps it."),
+          secondary: hexColor("Secondary color."),
+          tertiary: hexColor("Tertiary color, an accent."),
+          background: hexColor("Page background of the light theme."),
+          surface: hexColor("Background of lists, cards, forms and panels of the light theme."),
+          text: hexColor("Text color of the light theme."),
+          radius: { type: "integer", minimum: 0, maximum: 32, description: "Corner radius in pixels (cards, lists, buttons)." },
+          density: { type: "string", enum: ["comfortable", "compact"], description: "Spacing and type scale; compact for screens full of data." },
+          toolbar: { type: "string", enum: ["primary", "surface", "dark"], description: "Page toolbars: the brand color, white with a border, or dark." },
+          mode: { type: "string", enum: ["light", "auto", "dark"], default: "light", description: "light: the app stays light in a dark browser (business apps). auto: it follows the browser. dark: dark unless the user switches. The dark palette is always written and readable." },
+          font: { type: "string", description: "CSS font-family list. Default: the starter's IBM Plex Sans, then system fonts." },
+          appName: { type: "string", description: "Name shown in the menu header instead of the starter's Navigation." }
+        },
+        required: ["project"],
+        additionalProperties: false
+      };
     }
 
     if (seq === "tools_image_describe") {

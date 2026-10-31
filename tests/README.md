@@ -74,7 +74,11 @@ name, outputs) and its generated JavaScript, run in a sandbox for the role,
 perimeter, required, logic and write paths, including a failing write. They
 also cover the list, dashboard and form pages (no c8oPage in templates, every
 business sequence variable passed, Form SmartSources on the created UIForm priority,
-AppLayout created or completed) and the all-or-nothing rollback. A live run on
+AppLayout created or completed) and the all-or-nothing rollback, and the visual
+design: `ngx-theme-apply` (`js/tools_generators_ngx_theme.js`: the AppTheme palette
+with its contrast, the light or dark mode on GetThemeAction and its ApplyTheme
+child), the default theme of a new app, KPI icons and accents, badge colors read
+from the status words, table lists, empty states and menu icons. A live run on
 a Studio is still the proof that the engine accepts the trees and that the
 pages build: `requestable-execute` on each business sequence, a production build, and a
 browser check.

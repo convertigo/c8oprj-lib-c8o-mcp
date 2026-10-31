@@ -1,0 +1,77 @@
+accessibility: Private
+comment: |
+  Set the visual identity of an NGX app
+  Writes the app-level UIStyle AppTheme from a few tokens (preset, brand color, radius, density, toolbar, light or dark): the Ionic color variables with their contrast, shade and tint, background, text and step colors, and the --app-* spacing, type and surface tokens the ngx-page-create classes read; sets the mode on the starter GetThemeAction. LightTheme, AutoDarkTheme and TailwindTheme stay underneath.
+↓Include [steps.SimpleStep-1793450000101]: 
+  expression: include("js/tools_generators_ngx_theme.js");
+↓Run [steps.SimpleStep-1793450000102]: 
+  expression: 'var generatorResult = C8O.generators.ngxThemeApply({project: project, preset: preset, primary: primary, secondary: secondary, tertiary: tertiary, background: background, surface: surface, text: text, radius: radius, density: density, toolbar: toolbar, mode: mode, font: font, appName: appName});'
+↓result [steps.JsonToXmlStep-1793450000103]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: generatorResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1793450000001]: 
+  comment: 'Application project (exact technical name).'
+  description: 'Application project (exact technical name).'
+  value: ''
+↓preset [variables.RequestableVariable-1793450000002]: 
+  comment: 'institutional (default), modern or dense: the starting point of the tokens.'
+  description: 'institutional (default), modern or dense: the starting point of the tokens.'
+  value: ''
+↓primary [variables.RequestableVariable-1793450000003]: 
+  comment: 'Brand color, a hex color such as #1f4e79: primary of the app and color of the toolbar.'
+  description: 'Brand color, a hex color such as #1f4e79: primary of the app and color of the toolbar.'
+  value: ''
+↓secondary [variables.RequestableVariable-1793450000004]: 
+  comment: 'Secondary color, hex.'
+  description: 'Secondary color, hex.'
+  value: ''
+↓tertiary [variables.RequestableVariable-1793450000005]: 
+  comment: 'Tertiary (accent) color, hex.'
+  description: 'Tertiary (accent) color, hex.'
+  value: ''
+↓background [variables.RequestableVariable-1793450000006]: 
+  comment: 'Page background, hex.'
+  description: 'Page background, hex.'
+  value: ''
+↓surface [variables.RequestableVariable-1793450000007]: 
+  comment: 'Background of lists, cards and forms, hex.'
+  description: 'Background of lists, cards and forms, hex.'
+  value: ''
+↓text [variables.RequestableVariable-1793450000008]: 
+  comment: 'Text color, hex.'
+  description: 'Text color, hex.'
+  value: ''
+↓radius [variables.RequestableVariable-1793450000009]: 
+  comment: 'Corner radius in pixels, 0 to 32.'
+  description: 'Corner radius in pixels, 0 to 32.'
+  value: ''
+↓density [variables.RequestableVariable-1793450000010]: 
+  comment: 'comfortable or compact.'
+  description: 'comfortable or compact.'
+  value: ''
+↓toolbar [variables.RequestableVariable-1793450000011]: 
+  comment: 'primary (brand color), surface (white) or dark.'
+  description: 'primary (brand color), surface (white) or dark.'
+  value: ''
+↓mode [variables.RequestableVariable-1793450000012]: 
+  comment: 'light (default), auto (follows the browser) or dark.'
+  description: 'light (default), auto (follows the browser) or dark.'
+  value: ''
+↓font [variables.RequestableVariable-1793450000013]: 
+  comment: 'CSS font-family list.'
+  description: 'CSS font-family list.'
+  value: ''
+↓appName [variables.RequestableVariable-1793450000014]: 
+  comment: 'Name shown in the menu header instead of the starter key Navigation.'
+  description: 'Name shown in the menu header instead of the starter key Navigation.'
+  value: ''

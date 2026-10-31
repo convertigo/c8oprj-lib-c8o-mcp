@@ -26,4 +26,9 @@ assert.match(sequenceSource, /responseDetail: \(typeof responseDetail !== "undef
 assert.match(sequenceSource, /↓reveal \[variables\.RequestableVariable-/);
 assert.match(sequenceSource, /↓responseDetail \[variables\.RequestableVariable-/);
 
+// The compact answer of a generator keeps what tells the look of the app: the theme written and the badge colors read
+// from the status words (31/10); ngx-theme-apply is compacted like the other generators.
+assert.match(batchSource, /GENERATOR_SEQUENCES = \{[^}]*tools_ngx_page_create: true,\s*tools_ngx_theme_apply: true \}/);
+assert.match(batchSource, /"created", "style", "theme", "preset", "mode", "badgeColors", "warnings", "errors"\]\.forEach/);
+
 console.log("batch reveal and compact response contract tests passed");
