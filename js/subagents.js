@@ -292,7 +292,7 @@ C8O.subagents = C8O.subagents || {};
     tools_databaseobject_tree_apply: true, tools_databaseobject_delete: true, tools_databaseobject_move: true,
     tools_databaseobject_rename: true, tools_batch_call: true, tools_project_save: true, tools_project_reload: true,
     tools_project_js_set: true, tools_upsert_crud: true, tools_upsert_ngx_crud_kit: true, tools_sql_transaction_create: true,
-    tools_business_sequence_create: true, tools_facade_create: true, tools_ngx_page_create: true, tools_marketplace_import: true, tools_requestable_stub_set: true,
+    tools_business_sequence_create: true, tools_facade_create: true, tools_ngx_page_create: true, tools_ngx_theme_apply: true, tools_marketplace_import: true, tools_requestable_stub_set: true,
     tools_scheduler_apply: true
   };
 

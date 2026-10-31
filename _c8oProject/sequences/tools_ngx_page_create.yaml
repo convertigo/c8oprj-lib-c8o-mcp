@@ -1,11 +1,11 @@
 accessibility: Private
 comment: |
   Create an NGX page with the Basic presentation patterns
-  Creates a list, detail, form or dashboard page from a page spec: page-enter event with locals and a CallSequenceAction of its facade, lost-session redirect, record lists, label/value lists, KPI grid, UIForm with Form SmartSources, toast and navigation, local?.x templates, and the AppLayout style created or completed. All or nothing.
+  Creates a list, detail, form or dashboard page from a page spec: page-enter event with locals and a CallSequenceAction of its facade, lost-session redirect, record lists or tables, label/value lists, KPI cards, empty states, UIForm with Form SmartSources, toast and navigation, local?.x templates, and the AppLayout style created or completed; a new app gets the default theme (AppTheme). All or nothing.
 ↓Include [steps.SimpleStep-1792270100034]: 
   expression: include("js/tools_generators_ngx.js");
 ↓Run [steps.SimpleStep-1792270100035]: 
-  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, sequence: sequence, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home, comment: comment, root: root});'
+  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, sequence: sequence, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home, comment: comment, root: root, theme: theme});'
 ↓result [steps.JsonToXmlStep-1792270100036]: 
   jsonObject: 
     - xmlizable: 
@@ -118,4 +118,8 @@ comment: |
 ↓root [variables.RequestableVariable-1792440000001]: 
   comment: 'true: this page is the entry page of the app (isRoot), the one it opens on.'
   description: 'true: this page is the entry page of the app (isRoot), the one it opens on.'
+  value: ''
+↓theme [variables.RequestableVariable-1793450000051]: 
+  comment: 'Theme tokens of ngx-theme-apply written to AppTheme with this page: {preset, primary, radius, density, toolbar, mode, appName}.'
+  description: 'Theme tokens of ngx-theme-apply written to AppTheme with this page: {preset, primary, radius, density, toolbar, mode, appName}.'
   value: ''

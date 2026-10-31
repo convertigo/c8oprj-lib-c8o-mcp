@@ -2,10 +2,11 @@
  * ngx-page-create: a list, detail, form or dashboard page built with the patterns of the "Basic presentation"
  * section of convertigo_frontend_ngx and the NGX pages of convertigo_recipe_multipage_app: page-enter event
  * with locals and a CallSequenceAction of the data business sequence, lost-session redirect, record and label/value
- * lists, KPI grid, UIForm with Form SmartSources, toast and navigation, and the AppLayout style.
+ * lists, KPI cards, table lists, empty states, UIForm with Form SmartSources, toast and navigation, and the AppLayout style.
+ * The AppLayout classes read the tokens of AppTheme (js/tools_generators_ngx_theme.js), which a new app gets with its first page.
  * Uses the validation and all-or-nothing helpers of js/tools_generators.js.
  */
-include("js/tools_generators.js");
+include("js/tools_generators_ngx_theme.js");
 
 (function () {
   var G = C8O.generators;
@@ -16,20 +17,73 @@ include("js/tools_generators.js");
 
   // --- NGX page ----------------------------------------------------------------------------------
 
+  // The classes of the generated pages. They read the tokens of AppTheme (ngx-theme-apply) and keep a plain fallback, so an
+  // app without AppTheme still renders. An existing AppLayout is only completed with the rules it lacks (by selector).
+  var ACCENTS = ["primary", "secondary", "tertiary", "success", "warning", "danger", "medium"];
+  var SURFACE = "var(--app-surface, var(--ion-item-background, #fff))";
+  var BORDER = "1px solid var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2)))";
+  var MUTED = "var(--app-muted, var(--ion-color-medium, #64748b))";
   var APP_LAYOUT_RULES = [
-    [".app-page", ".app-page { max-width: 960px; margin: 0 auto; padding: 16px; }"],
-    [".app-section", ".app-section { margin: 24px 0 8px; }"],
-    [".app-filters", ".app-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; align-items: end; margin-bottom: 12px; }"],
+    [".app-page", ".app-page { max-width: 1120px; margin: 0 auto; padding: var(--app-space-5, 24px) var(--app-space-4, 16px) var(--app-space-6, 32px); }"],
+    [".app-title", ".app-title { margin: 0 0 var(--app-space-4, 16px); font-size: var(--app-font-size-2xl, 28px); font-weight: var(--app-heading-weight, 650); letter-spacing: -0.02em; line-height: 1.2; }"],
+    [".app-section", ".app-section { margin: var(--app-space-6, 32px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-lg, 18px); font-weight: var(--app-heading-weight, 650); }"],
+    [".app-filters", ".app-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--app-space-3, 12px); align-items: end; " +
+      "margin-bottom: var(--app-space-4, 16px); padding: var(--app-space-3, 12px) var(--app-space-4, 16px); background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); }"],
     [".app-filter", ".app-filter { flex: 1 1 180px; min-width: 160px; }"],
-    [".app-kpis", ".app-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }"],
-    [".app-kpi", ".app-kpi { padding: 16px; border-radius: 12px; background: var(--ion-color-step-50, rgba(127,127,127,0.08)); }"],
-    [".app-kpi-value", ".app-kpi-value { display: block; font-size: 28px; font-weight: 600; }"],
-    [".app-kpi-label", ".app-kpi-label { display: block; opacity: 0.7; margin-top: 4px; }"],
-    [".app-actions", ".app-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }"],
-    [".app-empty", ".app-empty { opacity: 0.7; padding: 8px 0; }"],
-    [".app-error", ".app-error { color: var(--ion-color-danger, #c0392b); padding: 8px 0; }"],
-    [".app-badge", ".app-badge { margin-left: 8px; }"]
-  ];
+    [".app-kpis", ".app-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--app-space-3, 12px); }"],
+    [".app-kpi", ".app-kpi { --app-accent: var(--ion-color-primary, #2563eb); --app-accent-rgb: var(--ion-color-primary-rgb, 37,99,235); padding: var(--app-space-4, 16px); " +
+      "border-radius: var(--app-radius-lg, 12px); background: " + SURFACE + "; border: " + BORDER + "; border-left: 4px solid var(--app-accent); box-shadow: var(--app-shadow-sm, none); }"],
+    [".app-kpi.app-kpi-iconed", ".app-kpi.app-kpi-iconed { display: grid; grid-template-columns: auto 1fr; grid-template-areas: \"icon value\" \"icon label\"; column-gap: var(--app-space-3, 12px); align-items: center; }"],
+    [".app-kpi-icon", ".app-kpi-icon { grid-area: icon; width: 44px; height: 44px; padding: 11px; box-sizing: border-box; font-size: 22px; border-radius: var(--app-radius, 10px); " +
+      "color: var(--app-accent, var(--ion-color-primary)); background: rgba(var(--app-accent-rgb, var(--ion-color-primary-rgb)), 0.12); }"],
+    [".app-kpi-value", ".app-kpi-value { grid-area: value; display: block; font-size: var(--app-font-size-2xl, 28px); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }"],
+    [".app-kpi-label", ".app-kpi-label { grid-area: label; display: block; margin-top: var(--app-space-1, 4px); font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"]
+  ].concat(ACCENTS.map(function (c) {
+    return [".app-accent-" + c, ".app-accent-" + c + " { --app-accent: var(--ion-color-" + c + "); --app-accent-rgb: var(--ion-color-" + c + "-rgb); }"];
+  })).concat([
+    [".app-list", ".app-list { margin: 0; padding: 0; background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); overflow: hidden; box-shadow: var(--app-shadow-sm, none); }"],
+    [".app-list ion-item", ".app-list ion-item { --min-height: var(--app-row-height, 52px); }"],
+    [".app-list ion-note", ".app-list ion-note { font-size: var(--app-font-size-sm, 14px); }"],
+    // Label and value: the value is what the reader looks for, the label stays muted. :root and the class outrank Ionic's
+    // scoped label color (.item .sc-ion-label-md-h) and TailwindTheme's dark label color.
+    [".app-fields ion-note", ".app-fields ion-note { color: var(--ion-text-color, inherit); font-size: var(--app-font-size-base, 16px); font-weight: 600; }\n" +
+      ":root .app-fields ion-label.app-field-label { color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); }"],
+    [".app-form", ".app-form { max-width: 720px; padding: var(--app-space-4, 16px); background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); }"],
+    [".app-form > ion-button", ".app-form > ion-button { margin: var(--app-space-4, 16px) var(--app-space-2, 8px) 0 0; }"],
+    [".app-actions", ".app-actions { display: flex; flex-wrap: wrap; gap: var(--app-space-2, 8px); margin-top: var(--app-space-4, 16px); }"],
+    [".app-empty-state", ".app-empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--app-space-2, 8px); padding: var(--app-space-6, 32px) var(--app-space-4, 16px); " +
+      "text-align: center; border: 1px dashed var(--app-border, var(--ion-border-color, rgba(127,127,127,0.3))); border-radius: var(--app-radius-lg, 12px); background: var(--app-surface-2, transparent); }"],
+    [".app-empty-icon", ".app-empty-icon { font-size: 40px; color: var(--ion-color-primary, #2563eb); opacity: 0.75; }"],
+    [".app-empty", ".app-empty { margin: 0; color: " + MUTED + "; }"],
+    [".app-error", ".app-error { color: var(--ion-color-danger, #c0392b); padding: var(--app-space-3, 12px) var(--app-space-4, 16px); margin: 0 0 var(--app-space-4, 16px); " +
+      "background: rgba(var(--ion-color-danger-rgb, 192,57,43), 0.08); border: 1px solid rgba(var(--ion-color-danger-rgb, 192,57,43), 0.25); border-radius: var(--app-radius, 8px); }"],
+    [".app-badge", ".app-badge { margin-inline: var(--app-space-2, 8px); padding: 4px 10px; border-radius: 999px; font-size: var(--app-font-size-xs, 12px); font-weight: 600; letter-spacing: 0.01em; }"],
+    // A colored badge is a soft pill: its color at 14 % behind a darker (light theme) or lighter (dark theme) text.
+    ["ion-badge.app-badge.ion-color", "ion-badge.app-badge.ion-color { background: rgba(var(--ion-color-base-rgb), 0.14); color: color-mix(in srgb, var(--ion-color-base) 70%, #000); }\n" +
+      ":root.force-dark ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); }\n" +
+      "@media (prefers-color-scheme: dark) { :root:not(.force-light) ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); } }"],
+    // Table layout of a list with columns: a header row and aligned cells on a wide screen, label and value lines on a phone.
+    [".app-row", ".app-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px var(--app-space-4, 16px); align-items: center; width: 100%; padding: var(--app-space-1, 4px) 0; }"],
+    [".app-cell", ".app-cell { min-width: 0; overflow-wrap: anywhere; }\n" +
+      ".app-cell:not(.app-cell-main) { display: flex; justify-content: space-between; gap: var(--app-space-3, 12px); }\n" +
+      ".app-cell:not(.app-cell-main)[data-label]::before { content: attr(data-label); color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); }"],
+    [".app-cell-main", ".app-cell-main { font-weight: 600; }"],
+    [".app-cell-sub", ".app-cell-sub { display: block; font-weight: 400; font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"],
+    [".app-table-head", ".app-table-head { display: none; --detail-icon-opacity: 0; }"],
+    // Ionic stretches a checkbox in an item over the whole row (it acts as the row's label): it pushed the texts to the middle.
+    [".app-has-select ion-checkbox.in-item", ".app-has-select ion-checkbox.in-item { flex: 0 0 auto; width: auto; margin-inline-end: var(--app-space-3, 12px); }\n" +
+      ".app-table ion-checkbox.in-item { margin-inline-end: 0; }"],
+    [".app-has-select .app-row", ".app-has-select .app-row { grid-template-columns: 24px minmax(0, 1fr); }\n" +
+      ".app-has-select .app-row > :not(ion-checkbox) { grid-column: 2; }"],
+    ["@media (min-width: 768px) { .app-table-head", "@media (min-width: 768px) { .app-table-head { display: block; --background: var(--app-surface-2, transparent); } " +
+      ".app-table-head .app-cell { font-size: var(--app-font-size-xs, 12px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: " + MUTED + "; } " +
+      ".app-cell:not(.app-cell-main) { display: block; } .app-cell:not(.app-cell-main)[data-label]::before { content: none; } " +
+      ".app-has-select .app-row > :not(ion-checkbox) { grid-column: auto; } " +
+      [2, 3, 4, 5, 6, 7, 8].map(function (n) {
+        var cols = "minmax(0, 2fr) repeat(" + (n - 1) + ", minmax(0, 1fr))";
+        return ".app-cols-" + n + " { grid-template-columns: " + cols + "; } .app-has-select .app-cols-" + n + " { grid-template-columns: 24px " + cols + "; }";
+      }).join(" ") + " }"]
+  ]);
 
   function nx(bean, name, props, children) {
     var node = { className: "ngx.components.UIDynamicElement#" + bean, name: name, properties: props || {} };
@@ -62,6 +116,83 @@ include("js/tools_generators.js");
   function attr(attrName, nodeName, value) {
     return { className: "ngx.components.UIAttribute#UIAttribute", name: nodeName, properties: { attrName: attrName, attrValue: { mode: "SCRIPT", value: value } } };
   }
+
+  function plainAttr(attrName, nodeName, value) {
+    return { className: "ngx.components.UIAttribute#UIAttribute", name: nodeName, properties: { attrName: attrName, attrValue: { mode: "PLAIN", value: String(value) } } };
+  }
+
+  // The menu adds -outline (iOS) or -sharp (Android) to a page icon: a page icon is the base ionicons name. Other icons
+  // keep their name; only a name made of lower-case words joined by dashes is accepted.
+  function menuIcon(name) {
+    var n = str(name).trim().toLowerCase();
+    return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(n) ? n : "";
+  }
+
+  // The classes a generated tree uses (its class attributes).
+  function usedClasses(node, out) {
+    out = out || {};
+    if (node && /UIAttribute/.test(String(node.className)) && node.properties && node.properties.attrName === "class") {
+      String(node.properties.attrValue && node.properties.attrValue.value || "").split(/\s+/).forEach(function (c) {
+        if (c.length) {
+          out[c] = true;
+        }
+      });
+    }
+    ((node && node.children) || []).forEach(function (child) { usedClasses(child, out); });
+    return out;
+  }
+
+  // Words of a status code or label and the color they mean, in the languages the apps are written in. Checked in this
+  // order: a word of a later group inside an earlier phrase ("non conforme", "pas a jour") is the earlier group's.
+  var STATUS_WORDS = [
+    ["medium", ["inactive", "inactif", "inactiv", "archived", "archive", "archivee", "disabled", "desactive", "desactivee", "deactivated", "suspended", "suspendu",
+      "closed", "ferme", "fermee", "clos", "close", "cancelled", "canceled", "annule", "annulee", "unknown", "inconnu", "none", "aucun", "n a"]],
+    ["danger", ["late", "overdue", "retard", "en retard", "error", "erreur", "failed", "failure", "echec", "echoue", "rejected", "rejete", "rejetee", "refused", "refuse",
+      "refusee", "denied", "ko", "expired", "expire", "expiree", "blocked", "bloque", "bloquee", "critical", "critique", "urgent", "missing", "manquant", "lost", "perdu",
+      "non conforme", "not compliant", "non compliant", "pas a jour", "not up to date", "out of date", "outdated", "obsolete", "hors delai", "invalid", "invalide",
+      "depasse", "depassee", "exceeded"]],
+    ["warning", ["pending", "en attente", "attente", "waiting", "to do", "todo", "a faire", "draft", "brouillon", "soon", "bientot", "a venir", "upcoming", "due", "echeance",
+      "in progress", "en cours", "ongoing", "review", "a valider", "to validate", "to review", "a verifier", "partial", "partiel", "partielle", "warning", "attention",
+      "reminder", "relance", "a relancer", "to remind", "reserved", "reserve", "reservee", "on hold", "submitted", "soumis", "new request"]],
+    ["success", ["ok", "done", "fait", "active", "actif", "valid", "valide", "validee", "approved", "approuve", "approuvee", "accepted", "accepte", "acceptee",
+      "completed", "complete", "termine", "terminee", "paid", "paye", "payee", "up to date", "a jour", "published", "publie", "publiee", "delivered", "livre", "livree",
+      "available", "disponible", "success", "succes", "reussi", "resolved", "resolu", "compliant", "conforme", "signed", "signe", "returned", "rendu", "yes", "oui"]],
+    ["primary", ["open", "ouvert", "ouverte", "new", "nouveau", "nouvelle", "info", "information", "planned", "planifie", "scheduled", "programme",
+      "on loan", "en pret", "prete", "borrowed", "emprunte", "in use", "en service", "assigned", "assigne", "affecte"]]
+  ];
+
+  function statusWords(text) {
+    var plain = String(text || "").toLowerCase();
+    try {
+      plain = String(java.text.Normalizer.normalize(plain, java.text.Normalizer.Form.NFD)).replace(/[\u0300-\u036f]/g, "");
+    } catch (_noJava) {
+      plain = typeof plain.normalize === "function" ? plain.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : plain;
+    }
+    return " " + plain.replace(/[^a-z0-9]+/g, " ").trim() + " ";
+  }
+
+  G.statusColor = function (code, label) {
+    var words = statusWords(code + " " + (label || ""));
+    for (var g = 0; g < STATUS_WORDS.length; g++) {
+      for (var w = 0; w < STATUS_WORDS[g][1].length; w++) {
+        if (words.indexOf(" " + STATUS_WORDS[g][1][w] + " ") >= 0) {
+          return STATUS_WORDS[g][0];
+        }
+      }
+    }
+    return "";
+  };
+
+  // A color per code of a labels map; a code no word explains takes the next accent, so two of them never look alike.
+  G.statusColors = function (labels) {
+    var out = {};
+    var spare = ["primary", "tertiary", "secondary"];
+    var next = 0;
+    Object.keys(labels).forEach(function (code) {
+      out[code] = G.statusColor(code, labels[code]) || spare[next++ % spare.length];
+    });
+    return out;
+  };
 
   function directive(name, kind, props, children) {
     var p = props || {};
@@ -274,7 +405,7 @@ include("js/tools_generators.js");
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
     ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "actions", "heading",
-      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment"].forEach(function (k) {
+      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
         spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
@@ -313,6 +444,18 @@ include("js/tools_generators.js");
       errors.push("sequence is required for a " + kind + " page: the business sequence the page calls at page enter " +
         "(a page with only a heading and buttons, such as a login or home page, is a detail page without sequence nor detail).");
     }
+    // theme: the tokens of ngx-theme-apply, written to AppTheme with this page (checked before anything is created).
+    var themeSpec = spec.theme;
+    if (themeSpec !== undefined) {
+      if (!isObj(themeSpec)) {
+        errors.push("theme must be an object: {preset, primary, secondary, tertiary, radius, density, toolbar, mode, font, appName} (see ngx-theme-apply).");
+        themeSpec = undefined;
+      } else {
+        var themeErrors = [];
+        G.themeTokens(themeSpec, themeErrors);
+        themeErrors.forEach(function (e) { errors.push("theme: " + e); });
+      }
+    }
     var params = list(spec.params).map(str);
     params.forEach(function (p) {
       if (!IDENT.test(p)) {
@@ -324,7 +467,8 @@ include("js/tools_generators.js");
     var authCodes = list(spec.authCodes || ["UNAUTHENTICATED"]).map(str);
     var authRedirect = str(spec.authRedirect);
     var used = {};
-    var classesUsed = { ".app-page": 1, ".app-error": 1 };
+    // Badge colors read from the status words, given back so the agent can check them (list.badge.colors overrides).
+    var derivedColors = {};
     // pageWillEnter sets these locals while Angular checks the page that the menu or a link opens: a binding whose value
     // changes then (undefined -> null) throws NG0100 in dev on every generated page (run 9a). The conditions are written so
     // that the first render already reads the values set here: !!local?.error, and an unset loading counts as loading.
@@ -436,7 +580,8 @@ include("js/tools_generators.js");
       warnings.push("authRedirect " + authRedirect + " is not a page of " + projectName + " yet: create it before the build.");
     }
 
-    // Record list: List > ForEach > ListItem > Label (h3 + p) + Note + Badge.
+    // Record list: List > ForEach > ListItem > Label (h3 + p) + Note + Badge; with columns, a table: a header row and one
+    // row of aligned cells per record on a wide screen, label and value lines on a phone.
     function recordList(prefix, spec2, label) {
       if (!isObj(spec2)) {
         errors.push(label + " must be an object.");
@@ -451,22 +596,75 @@ include("js/tools_generators.js");
         errors.push(label + ".title is required (the main field of a row).");
       }
       var rowField = function (f) { return field(f, item); };
-      var labelChildren = [nx("Heading3", "Main", {}, [expr(valueExpr(rowField, spec2.title))])];
-      if (spec2.subtitle !== undefined) {
-        labelChildren.push(nx("Paragraph", "Second", {}, [expr(valueExpr(rowField, spec2.subtitle))]));
-      }
-      var rowChildren = [nx("Label", "Lb", {}, labelChildren)];
+      var badgeNode = null;
       if (spec2.badge !== undefined) {
         var badge = isObj(spec2.badge) ? spec2.badge : { field: spec2.badge };
-        var badgeChildren = [cls("app-badge"), expr(valueExpr(rowField, badge))];
-        if (isObj(badge.colors)) {
-          badgeChildren.push(attr("[color]", "Attr_color", colorExpr(rowField(badge.field), badge.colors)));
+        // Without colors, the codes of labels get the color their words say (G.statusColor); colors overrides it.
+        var badgeColors = isObj(badge.colors) ? badge.colors : (isObj(badge.labels) ? G.statusColors(badge.labels) : null);
+        if (badgeColors && !isObj(badge.colors)) {
+          derivedColors[label + ".badge"] = badgeColors;
         }
-        classesUsed[".app-badge"] = 1;
-        rowChildren.push(nx("Badge", "Status", {}, badgeChildren));
+        var badgeChildren = [cls("app-badge"), expr(valueExpr(rowField, badge))];
+        if (badgeColors) {
+          badgeChildren.push(attr("[color]", "Attr_color", colorExpr(rowField(badge.field), badgeColors)));
+        }
+        badgeNode = nx("Badge", "Status", {}, badgeChildren);
       }
-      if (spec2.note !== undefined) {
-        rowChildren.push(nx("Note", "Nt", { IonSlot: { mode: "PLAIN", value: "end" } }, [expr(valueExpr(rowField, spec2.note))]));
+      var columns = spec2.columns;
+      if (columns !== undefined && (!Array.isArray(columns) || !columns.length)) {
+        errors.push(label + ".columns must be a non-empty array of {label, field, labels?, prefix?, suffix?}.");
+        columns = undefined;
+      }
+      var rowChildren;
+      var head = null;
+      if (columns === undefined) {
+        var labelChildren = [nx("Heading3", "Main", {}, [expr(valueExpr(rowField, spec2.title))])];
+        if (spec2.subtitle !== undefined) {
+          labelChildren.push(nx("Paragraph", "Second", {}, [expr(valueExpr(rowField, spec2.subtitle))]));
+        }
+        rowChildren = [nx("Label", "Lb", {}, labelChildren)];
+        if (badgeNode) {
+          rowChildren.push(badgeNode);
+        }
+        if (spec2.note !== undefined) {
+          rowChildren.push(nx("Note", "Nt", { IonSlot: { mode: "PLAIN", value: "end" } }, [expr(valueExpr(rowField, spec2.note))]));
+        }
+      } else {
+        var titleLabel = textOr(spec2.titleLabel, "Name", label + ".titleLabel");
+        var headLabels = [titleLabel];
+        var mainCell = [cls("app-cell app-cell-main"), plainAttr("data-label", "Attr_label", titleLabel), expr(valueExpr(rowField, spec2.title))];
+        if (spec2.subtitle !== undefined) {
+          mainCell.push(nx("SpanTag", "Second", {}, [cls("app-cell-sub"), expr(valueExpr(rowField, spec2.subtitle))]));
+        }
+        var cells = [nx("SpanTag", "Main", {}, mainCell)];
+        var usedCells = { Main: true };
+        var cell = function (base, cellLabel, children) {
+          headLabels.push(cellLabel);
+          return nx("SpanTag", uniqueName(base, usedCells), {}, [cls("app-cell")].concat(cellLabel.length ? [plainAttr("data-label", "Attr_label", cellLabel)] : []).concat(children));
+        };
+        columns.forEach(function (c, ci) {
+          var col = isObj(c) ? c : { field: c };
+          if (!str(col.field).length || !str(col.label).length) {
+            errors.push(label + ".columns[" + ci + "] must be {label, field, labels?, prefix?, suffix?}.");
+            return;
+          }
+          cells.push(cell("C" + pascal(str(col.field).split(".").pop()), str(col.label), [expr(valueExpr(rowField, col))]));
+        });
+        if (spec2.note !== undefined) {
+          cells.push(cell("NoteCell", str(spec2.noteLabel), [expr(valueExpr(rowField, spec2.note))]));
+        }
+        if (badgeNode) {
+          cells.push(cell("StatusCell", str(spec2.badgeLabel), [badgeNode]));
+        }
+        if (cells.length > 8) {
+          warnings.push(label + ".columns: " + cells.length + " cells in a row; a wide screen aligns 8 at most, keep the columns that matter.");
+        }
+        var rowClass = "app-row app-cols-" + Math.min(8, cells.length);
+        rowChildren = [nx("DivTag", "Cells", {}, [cls(rowClass)].concat(cells))];
+        var usedHeads = {};
+        head = nx("ListItem", "Head", {}, [cls("app-table-head"), nx("DivTag", "HeadRow", {}, [cls(rowClass)].concat(headLabels.map(function (h) {
+          return nx("SpanTag", uniqueName("H" + (pascal(h) || "Cell"), usedHeads), {}, [cls("app-cell")].concat(h.length ? [txt(h)] : []));
+        })))]);
       }
       var itemProps = {};
       // Multiple selection: a checkbox per row adds or removes the row key in the local selected (an array of strings),
@@ -485,13 +683,20 @@ include("js/tools_generators.js");
         var keyInAction = "'' + scope." + field(keyPath, item);
         // ion-checkbox has no slot property (IonSlot is only on ion-note): first in the row, it sits at the start.
         // Its click stops there: it reached the row, whose onItem opened the next page on every check (run 13b F-09).
-        rowChildren.unshift(nx("CheckBox", "Pick", {
+        var pick = nx("CheckBox", "Pick", {
           Checked: { mode: "SCRIPT", value: "(local?.selected || []).indexOf(" + keyInTemplate + ") >= 0" } }, [
           { className: "ngx.components.UIAttribute#UIAttribute", name: "Attr_stopClick",
             properties: { attrName: "(click)", attrValue: { mode: "PLAIN", value: "$event.stopPropagation()" } } },
           controlEvent("EventonChange", "ionChange", [setLocal("Toggle", "selected",
             "((s: any[], v: string) => s.indexOf(v) >= 0 ? s.filter((x: any) => x !== v) : s.concat([v]))((c8oPage.local.selected || []).slice(), " + keyInAction + ")")])
-        ]));
+        ]);
+        if (head) {
+          // In a table the checkbox is the first cell of the grid, and the header row keeps its place empty: the columns align.
+          rowChildren[0].children.splice(1, 0, pick);
+          head.children[1].children.splice(1, 0, nx("SpanTag", "HPick", {}, [cls("app-cell app-cell-pick")]));
+        } else {
+          rowChildren.unshift(pick);
+        }
       }
       if (isObj(spec2.onItem)) {
         if (!childNamed(app, str(spec2.onItem.page))) {
@@ -499,13 +704,25 @@ include("js/tools_generators.js");
         }
         itemProps.Button = { mode: "PLAIN", value: "true" };
         itemProps.Detail = { mode: "PLAIN", value: "true" };
+        if (head) {
+          // The header row takes the same chevron, hidden, so that its cells keep the width of the rows' cells.
+          head.properties.Detail = { mode: "PLAIN", value: "true" };
+        }
         rowChildren.push(controlEvent("EventonClick", "onClick", [navAction("Open", spec2.onItem, item)]));
       }
-      classesUsed[".app-empty"] = 1;
       var empty = textOr(spec2.empty, "No record.", label + ".empty");
+      // Empty state: an icon and the sentence, in a dashed panel (a search icon on a filtered list).
+      var emptyIcon = menuIcon(str(spec2.emptyIcon)) || (filters.length ? "search-outline" : "file-tray-outline");
+      var listChildren = [cls("app-list" + (columns !== undefined ? " app-table" : "") + (selectSpec ? " app-has-select" : ""))];
+      if (head) {
+        listChildren.push(head);
+      }
+      listChildren.push(forEach(prefix + "ForEach", itemsPath, item, [nx("ListItem", "Row", itemProps, rowChildren)]));
       var blocks = [
-        ifDirective(prefix + "IfEmpty", "local?.loading === false && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])]),
-        nx("List", prefix + "List", {}, [forEach(prefix + "ForEach", itemsPath, item, [nx("ListItem", "Row", itemProps, rowChildren)])])
+        ifDirective(prefix + "IfEmpty", "local?.loading === false && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("DivTag", "EmptyState", {}, [
+          cls("app-empty-state"), nx("Icon", "EmptyIcon", { IconName: { mode: "PLAIN", value: emptyIcon } }, [cls("app-empty-icon")]),
+          nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])])]),
+        nx("List", prefix + "List", {}, listChildren)
       ];
       if (selectSpec) {
         var selActions = list(selectSpec.actions);
@@ -527,16 +744,16 @@ include("js/tools_generators.js");
         return null;
       }
       var usedItems = {};
-      return nx("List", name, { Lines: { mode: "PLAIN", value: "none" } }, fields.map(function (f, i) {
+      return nx("List", name, { Lines: { mode: "PLAIN", value: "none" } }, [cls("app-list app-fields")].concat(fields.map(function (f, i) {
         if (!isObj(f) || !str(f.field).length) {
           errors.push(label + "[" + i + "] must be {label, field, labels?}.");
           return nx("ListItem", "F" + i, {}, []);
         }
         return nx("ListItem", uniqueName("F" + pascal(f.field), usedItems), {}, [
-          nx("Label", "Lb", {}, [txt(str(f.label) || str(f.field))]),
+          nx("Label", "Lb", {}, [cls("app-field-label"), txt(str(f.label) || str(f.field))]),
           nx("Note", "Nt", { IonSlot: { mode: "PLAIN", value: "end" } }, [expr(valueExpr(function (p) { return localPath(base + "." + p); }, f))])
         ]);
-      }));
+      })));
     }
 
     // "selection" in data or vars is the comma-separated list of the selected rows (see recordList select).
@@ -557,7 +774,6 @@ include("js/tools_generators.js");
       if (!actions.length) {
         return null;
       }
-      classesUsed[".app-actions"] = 1;
       var usedButtons = {};
       return nx("DivTag", "Actions", {}, [cls("app-actions")].concat(actions.map(function (a, i) {
         if (!isObj(a) || !str(a.label).length) {
@@ -627,7 +843,9 @@ include("js/tools_generators.js");
     var content = [cls("app-page")];
     var headingText = spec.heading !== undefined ? str(spec.heading) : title;
     if (headingText.length) {
-      content.push(heading("Title", 2, headingText));
+      var titleNode = heading("Title", 2, headingText);
+      titleNode.children.unshift(cls("app-title"));
+      content.push(titleNode);
     }
     var formPlan = null;
     if (kind === "list") {
@@ -636,7 +854,6 @@ include("js/tools_generators.js");
         errors.push("list is required for a list page: {items, title, subtitle?, note?, badge?, empty?, onItem?}.");
       }
       if (filterNodes.length) {
-        classesUsed[".app-filters"] = classesUsed[".app-filter"] = 1;
         filterNodes.push(nx("Button", "BtnFilter", {}, [txt(textOr(spec.filterLabel, "Filter", "filterLabel")),
           controlEvent("EventonClick", "onClick", [dataCall("Reload", 0)])]));
         content.push(nx("DivTag", "Filters", {}, [cls("app-filters")].concat(filterNodes)));
@@ -668,16 +885,25 @@ include("js/tools_generators.js");
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         var kpis = list(dash.kpis);
         if (kpis.length) {
-          classesUsed[".app-kpis"] = classesUsed[".app-kpi"] = classesUsed[".app-kpi-value"] = classesUsed[".app-kpi-label"] = 1;
           var usedKpis = {};
           content.push(nx("DivTag", "Kpis", {}, [cls("app-kpis")].concat(kpis.map(function (k, i) {
             if (!isObj(k) || !str(k.field).length) {
-              errors.push("dashboard.kpis[" + i + "] must be {label, field}.");
+              errors.push("dashboard.kpis[" + i + "] must be {label, field, icon?, color?}.");
               return txt("");
             }
-            return nx("DivTag", uniqueName("Kpi" + pascal(k.field.split(".").pop()), usedKpis), {}, [cls("app-kpi"),
+            // A card per counter: an optional icon in a tinted square, an accent color (left border and icon).
+            var kpiIcon = menuIcon(str(k.icon));
+            var kpiColor = str(k.color);
+            if (kpiColor.length && ACCENTS.indexOf(kpiColor) < 0) {
+              errors.push("dashboard.kpis[" + i + "].color must be " + ACCENTS.join(", ") + ".");
+            }
+            var kpiChildren = [cls("app-kpi" + (kpiIcon.length ? " app-kpi-iconed" : "") + (kpiColor.length ? " app-accent-" + kpiColor : ""))];
+            if (kpiIcon.length) {
+              kpiChildren.push(nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: kpiIcon } }, [cls("app-kpi-icon")]));
+            }
+            return nx("DivTag", uniqueName("Kpi" + pascal(k.field.split(".").pop()), usedKpis), {}, kpiChildren.concat([
               nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr("(" + localPath("data." + k.field) + " ?? 0)")]),
-              nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]);
+              nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]));
           }))));
         }
         list(dash.sections).forEach(function (s, i) {
@@ -686,7 +912,6 @@ include("js/tools_generators.js");
             return;
           }
           var prefix = "S" + (i + 1);
-          classesUsed[".app-section"] = 1;
           content.push(nx("Heading3", prefix + "Title", {}, [cls("app-section"), txt(str(s.heading || s.label) || ("Section " + (i + 1)))]));
           if (Array.isArray(s.fields)) {
             var sbase = "data." + str(s.record);
@@ -811,7 +1036,7 @@ include("js/tools_generators.js");
         }
         formChildren.push(nx("SubmitButton", "BtnSubmit", { IonColor: { mode: "PLAIN", value: "primary" } }, [txt(textOr(form.submitLabel, "Save", "form.submitLabel"))]));
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
-        content.push({ className: "ngx.components.UIForm#UIForm", name: "Form", properties: { identifier: identifier }, children: formChildren });
+        content.push({ className: "ngx.components.UIForm#UIForm", name: "Form", properties: { identifier: identifier }, children: [cls("app-form")].concat(formChildren) });
         var success = isObj(form.success) ? form.success : {};
         if (str(success.page).length && !childNamed(app, str(success.page))) {
           warnings.push("form.success.page " + success.page + " is not a page of " + projectName + " yet: create it before the build.");
@@ -859,8 +1084,18 @@ include("js/tools_generators.js");
     var pageProps = { title: title, segment: segment, inAutoMenu: inMenu,
       comment: str(spec.comment) || (upperFirst(kind) + " page \"" + title + "\"" + (facade.length ? ", data from " + projectName + "." + facade : "") +
         (formPlan ? ", submits " + projectName + "." + formPlan.submit : "") + ". Generated by ngx-page-create.") };
-    if (str(spec.icon).length) {
-      pageProps.icon = str(spec.icon);
+    // The menu shows an icon per page: the one given (its base name, the menu adds -outline or -sharp), else one for the kind.
+    var givenIcon = str(spec.icon).trim();
+    var icon = menuIcon(givenIcon.replace(/-(outline|sharp)$/, ""));
+    if (givenIcon.length && icon !== givenIcon) {
+      warnings.push(icon.length ? "icon " + givenIcon + ": the menu adds -outline or -sharp itself, so the page icon is " + icon + "."
+        : "icon " + givenIcon + " is not an ionicons name (lower-case words joined by dashes, such as people or calendar): the icon of a " + kind + " page is used.");
+    }
+    if (!icon.length && inMenu) {
+      icon = { list: "list", dashboard: "grid", form: "create", detail: "document-text" }[kind];
+    }
+    if (icon.length) {
+      pageProps.icon = icon;
     }
     // Header navigation: the menu button (shown when the app has a menu), the back button (shown when there is a page to
     // go back to, else it opens the home page when one is given), the title, and a home button.
@@ -900,7 +1135,11 @@ include("js/tools_generators.js");
     // AppLayout: created when missing, completed with the rules this page uses.
     var style = childNamed(app, "AppLayout");
     var styleStatus = "kept";
-    var neededRules = APP_LAYOUT_RULES.filter(function (r) { return classesUsed[r[0]]; });
+    var used = usedClasses(pageNode);
+    var neededRules = APP_LAYOUT_RULES.filter(function (r) {
+      var tokens = r[0].match(/\.app-[a-z0-9-]+/g) || [];
+      return tokens.length > 0 && tokens.every(function (t) { return used[t.substring(1)] === true; });
+    });
     if (!style) {
       session.create(appQName, { className: "ngx.components.UIStyle#UIStyle", name: "AppLayout",
         properties: { styleContent: APP_LAYOUT_RULES.map(function (r) { return r[1]; }).join("\n") + "\n" } });
@@ -995,6 +1234,29 @@ include("js/tools_generators.js");
       session.warnings.push("The application still opens on the starter page Page: give root:true to the entry page (a login page...) " +
         "before deleting Page, or the app has no root page.");
     }
+    // The visual identity: the theme given, else the default preset for a new app (its first generated page). An app
+    // that already had pages keeps its look: changing it is ngx-theme-apply's job.
+    var hadTheme = !!childNamed(app, "AppTheme");
+    var themeApplied = null;
+    try {
+      if (themeSpec !== undefined) {
+        themeApplied = G.applyTheme(projectDbo, app, themeSpec, session, tool);
+      } else if (!hadTheme && styleStatus === "created") {
+        themeApplied = G.applyTheme(projectDbo, app, {}, session, tool);
+        session.warnings.push("The app had no AppTheme: the default preset " + themeApplied.preset + " (" + themeApplied.tokens.brand + ", " + themeApplied.mode +
+          ") was applied. Give the app its own identity with ngx-theme-apply (the user's brand color, or the preset that fits: " +
+          Object.keys(G.THEME_PRESETS).join(", ") + ") before the other pages.");
+      } else if (!hadTheme) {
+        session.warnings.push("The app has no AppTheme: it shows the starter's default blue and follows the browser's light or dark mode. " +
+          "ngx-theme-apply gives it its colors, toolbar, spacing and light mode.");
+      }
+    } catch (themeError) {
+      session.rollback();
+      throw themeError;
+    }
+    if (themeApplied) {
+      themeApplied.warnings.forEach(function (w) { session.warnings.push(w); });
+    }
     var rootPage = makeRoot ? name : String(currentRoot.getName());
     var finish = session.finish(page);
     var menuLabel = inMenu ? G.addMenuTranslation(projectDbo, title) : null;
@@ -1004,6 +1266,8 @@ include("js/tools_generators.js");
       kind: kind,
       created: session.created,
       style: "AppLayout " + styleStatus,
+      theme: themeApplied ? themeApplied.style + " (preset " + themeApplied.preset + ", primary " + themeApplied.tokens.brand + ", mode " + themeApplied.mode + ")"
+        : (hadTheme ? "AppTheme kept" : "none"),
       rootPage: rootPage,
       locals: Object.keys(locals),
       calls: (facade.length ? [projectName + "." + facade + " at page enter" + (filters.length ? " and on the filter button" : "")] : [])
@@ -1011,6 +1275,7 @@ include("js/tools_generators.js");
       saved: finish.saved,
       mobileBuilder: finish.mobileBuilder,
       menuLabel: menuLabel,
+      badgeColors: Object.keys(derivedColors).length ? derivedColors : undefined,
       warnings: (defaulted.length ? ["English default texts were used for " + defaulted.join(", ") +
         ": if the app is in another language, change those texts on the page, or delete it and create it again with these fields in that language."] : [])
         .concat(warnings, session.warnings),

@@ -91,6 +91,7 @@ class Contract:
                   "inputs": ["search"], "reads": [{"name": "items", "transaction": "q_items"}]})
         self.call("business sequence (write)", "business-sequence-create", {"project": P, "name": "item_save", "logic": "App.itemSave",
                   "auth": False, "inputs": ["label"], "writes": [{"name": "save", "transaction": "w_item_insert"}]})
+        self.call("theme", "ngx-theme-apply", {"project": P, "preset": "modern", "primary": "#e30613", "appName": "Contract"})
         self.call("list page", "ngx-page-create", {"project": P, "name": "Items", "kind": "list", "title": "Items", "sequence": "item_list",
                   "list": {"items": "items", "item": "it", "title": "label", "subtitle": "owner"}})
         self.call("form page", "ngx-page-create", {"project": P, "name": "ItemForm", "kind": "form", "title": "New item",
@@ -387,6 +388,7 @@ class Contract:
             ("business sequence existing name", "business-sequence-create", {"project": P, "name": "item_list", "logic": "App.itemList",
                                                                              "auth": False}),
             ("page lower-case name", "ngx-page-create", {"project": P, "name": "lowercase", "kind": "list", "sequence": "item_list"}),
+            ("theme unknown preset", "ngx-theme-apply", {"project": P, "preset": "nope", "primary": "#e30613"}),
             ("js-get missing file", "project-js-get", {"project": P, "filename": "nope.js"}),
             ("js-set unknown project", "project-js-set", {"project": NOP, "filename": "a.js", "content": "var a;"}),
             ("lint unknown project", "project-lint", {"project": NOP, "checkTexts": False}),

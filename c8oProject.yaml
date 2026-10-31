@@ -63,6 +63,7 @@
   ↓tools_marketplace_list [sequences.GenericSequence]: 🗏 sequences/tools_marketplace_list.yaml
   ↓tools_mobile_builder_open [sequences.GenericSequence]: 🗏 sequences/tools_mobile_builder_open.yaml
   ↓tools_ngx_page_create [sequences.GenericSequence]: 🗏 sequences/tools_ngx_page_create.yaml
+  ↓tools_ngx_theme_apply [sequences.GenericSequence]: 🗏 sequences/tools_ngx_theme_apply.yaml
   ↓tools_nocode_app_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_app_create.yaml
   ↓tools_nocode_baserow_catalog_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_catalog_list.yaml
   ↓tools_nocode_baserow_rows_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_rows_list.yaml

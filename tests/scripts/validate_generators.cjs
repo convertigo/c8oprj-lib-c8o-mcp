@@ -14,6 +14,7 @@ const root = path.resolve(__dirname, '../..');
 const sources = {
   'js/sql_dialect.js': fs.readFileSync(path.join(root, 'js/sql_dialect.js'), 'utf8'),
   'js/tools_generators.js': fs.readFileSync(path.join(root, 'js/tools_generators.js'), 'utf8'),
+  'js/tools_generators_ngx_theme.js': fs.readFileSync(path.join(root, 'js/tools_generators_ngx_theme.js'), 'utf8'),
   'js/tools_generators_ngx.js': fs.readFileSync(path.join(root, 'js/tools_generators_ngx.js'), 'utf8')
 };
 
@@ -68,6 +69,17 @@ function makeWorld(options) {
   const appComp = bean('NgxApp', 'com.twinsoft.convertigo.beans.ngx.components.ApplicationComponent', bean('Application', 'x.MobileApplication', project));
   project.getMobileApplication = () => ({ getApplicationComponent: () => appComp });
   bean('Login', 'x.PageComponent', appComp);
+  if (opts.starter !== false) {
+    const appEvent = bean('AppEvent', 'com.twinsoft.convertigo.beans.ngx.components.UIAppEvent', appComp);
+    const getTheme = bean('GetTheme', 'com.twinsoft.convertigo.beans.ngx.components.UIDynamicAction', appEvent, { useSystem: { mode: 'PLAIN', value: 'true' } });
+    getTheme.getIonBean = () => ({ getName: () => 'GetThemeAction' });
+    const menu = bean('Menu', 'x.UIDynamicMenu', appComp);
+    bean('Text', 'x.UIText', bean('BarTitle', 'x.UIDynamicElement', bean('ToolBar', 'x.UIDynamicElement', bean('Header', 'x.UIDynamicElement', menu))),
+      { textValue: { mode: 'PLAIN', value: 'Navigation' }, i18n: true });
+  }
+  if (opts.theme) {
+    bean('AppTheme', 'x.UIStyle', appComp, { styleContent: opts.theme });
+  }
   if (opts.style) {
     bean('AppLayout', 'x.UIStyle', appComp, { styleContent: opts.style });
   }
@@ -842,7 +854,10 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   assert.equal(out.style, 'AppLayout created');
   // The default route is the page name, not the Studio's path-to-<name> (usage tests 29/10).
   assert.equal(creates(world, 'ngx.components.PageComponent#PageComponent')[0].properties.segment, 'postes');
-  assert.deepEqual(plain(out.created), ['App.Application.NgxApp.AppLayout', 'App.Application.NgxApp.Postes']);
+  // A new app gets the default theme with its first page (31/10: every generated app had the starter's blue).
+  assert.deepEqual(plain(out.created), ['App.Application.NgxApp.AppLayout', 'App.Application.NgxApp.Postes', 'App.Application.NgxApp.AppTheme',
+    'App.Application.NgxApp.AppEvent.GetTheme.ApplyTheme']);
+  assert.match(out.theme, /^AppTheme created \(preset institutional, primary #1f4e79, mode light\)$/);
   assert.match(out.warnings.join(' '), /onItem\.page Detail is not a page of App yet/);
   assert.match(out.warnings[0], /^English default texts were used for .*list\.empty "No record\."/);
   assert.match(out.warnings[0], /filterLabel "Filter"/);
@@ -1237,4 +1252,217 @@ test('a form field shows the record the page loaded with from, and a value that 
   assert.deepEqual(plain(titre.properties.Value), { mode: 'SOURCE', local: 'data.livre.titre' });
   assert.match(out.warnings.join(' '), /form\.fields source: value is computed at page enter, before the page data arrives/);
   assert.doesNotMatch(out.warnings.join(' '), /form\.fields commentaire/);
+});
+
+// --- visual design (31/10: every agent-built app had the same plain look) --------------------------------
+
+function nodesOf(world, name) {
+  const nodes = {};
+  walk(world.ops.filter(op => op.type === 'create' && op.name === name)[0], n => { if (n.name && !nodes[n.name]) nodes[n.name] = n; });
+  return nodes;
+}
+
+function classOf(node) {
+  const attr = (node.children || []).filter(c => c.name === 'Attr_class')[0];
+  return attr ? attr.properties.attrValue.value : '';
+}
+
+test('ngx-theme-apply writes AppTheme from a preset and a brand color, and sets the light mode on GetThemeAction', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxThemeApply({ project: 'App', preset: 'modern', primary: '#E30613', appName: 'Suivi des postes' });
+  assert.equal(out.status, 'ok');
+  assert.equal(out.style, 'AppTheme created');
+  assert.equal(out.mode, 'light');
+  const css = find(world.project, 'App.Application.NgxApp.AppTheme').props.styleContent;
+  // Every color with its companions, the brand as primary, light by default and a readable dark scheme.
+  assert.match(css, /html:root, :root\.force-light \{\n  --ion-color-primary: #e30613;\n  --ion-color-primary-rgb: 227,6,19;\n  --ion-color-primary-contrast: #ffffff;/);
+  assert.match(css, /--ion-color-primary-shade: #c80511;/);
+  assert.match(css, /--ion-color-primary-tint: #e61f2b;/);
+  assert.match(css, /:root\.force-dark \{[^}]*--ion-color-primary: #[0-9a-f]{6};[^}]*color-scheme: dark;/);
+  assert.match(css, /@media \(prefers-color-scheme: dark\) \{\n  :root:not\(\.force-dark\) \{/, 'light mode stays light in a dark browser');
+  assert.match(css, /--ion-background-color-step-500: /);
+  assert.match(css, /--app-radius: 14px;/);
+  assert.match(css, /--app-space-4: 16px;/);
+  assert.match(css, /ion-header ion-toolbar \{ --background: var\(--app-toolbar-background\)/);
+  // The starter's themes set the page colors on the elements too: the scheme repeats them there (31/10, mixed dark capture).
+  assert.match(css, /:root\.force-dark body,\n:root\.force-dark ion-app,\n:root\.force-dark ion-content,\n:root\.force-dark ion-menu \{\n  --ion-background-color: #[0-9a-f]{6};/);
+  assert.match(css, /ion-header ion-toolbar ion-button\.in-toolbar, /);
+  assert.match(css, /ion-header ion-toolbar ion-icon \{ color: var\(--app-toolbar-color\); \}/);
+  assert.ok(out.contrast.light.textOnBackground >= 7 && out.contrast.dark.textOnBackground >= 7, JSON.stringify(out.contrast));
+  assert.ok(out.contrast.dark.primaryOnSurface >= 4.5 && out.contrast.light.primaryButtonText >= 4.5, JSON.stringify(out.contrast));
+  const getTheme = find(world.project, 'App.Application.NgxApp.AppEvent.GetTheme');
+  assert.deepEqual(plain(getTheme.props.useSystem), { mode: 'PLAIN', value: 'false' });
+  assert.deepEqual(plain(getTheme.props.fallbackDark), { mode: 'PLAIN', value: 'false' });
+  // GetThemeAction sets the root class only through the code of a SetThemeAction the app holds: the starter's one left
+  // with the starter page, so the generated apps never had force-light or force-dark (31/10 captures).
+  const apply = find(world.project, 'App.Application.NgxApp.AppEvent.GetTheme.ApplyTheme');
+  assert.equal(apply.javaClass, 'ngx.components.UIDynamicAction#SetThemeAction');
+  assert.deepEqual(plain(apply.props.dark), { mode: 'SCRIPT', value: '!!out?.dark' });
+  assert.deepEqual(plain(apply.props.persist), { mode: 'PLAIN', value: 'false' });
+  assert.match(out.modeAction, /ApplyTheme sets the root class$/);
+  const title = find(world.project, 'App.Application.NgxApp.Menu.Header.ToolBar.BarTitle.Text');
+  assert.equal(title.props.textValue.value, 'Suivi des postes');
+  assert.equal(title.props.i18n, false);
+  // A second call rewrites it: auto follows the browser.
+  const again = G.ngxThemeApply({ project: 'App', preset: 'dense', mode: 'auto' });
+  assert.equal(again.style, 'AppTheme updated');
+  const css2 = find(world.project, 'App.Application.NgxApp.AppTheme').props.styleContent;
+  assert.match(css2, /--ion-color-primary: #0b7285;/);
+  assert.match(css2, /@media \(prefers-color-scheme: dark\) \{\n  :root:not\(\.force-light\) \{/);
+  assert.match(css2, /--app-space-4: 12px;/, 'dense is compact');
+  assert.deepEqual(plain(getTheme.props.useSystem), { mode: 'PLAIN', value: 'true' });
+  assert.equal(getTheme.children.filter(c => c.name.indexOf('ApplyTheme') === 0).length, 1, 'ApplyTheme is created once');
+});
+
+test('ngx-theme-apply keeps texts readable with a light brand color and refuses bad tokens', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxThemeApply({ project: 'App', primary: '#ffd400', mode: 'dark' });
+  assert.match(out.warnings.join(' '), /primary #ffd400 reads at 1\.\d+:1 on the surface: #[0-9a-f]{6} is used for texts/);
+  assert.ok(out.contrast.light.primaryOnSurface >= 4.5, JSON.stringify(out.contrast.light));
+  assert.equal(out.tokens.light.toolbar, '#ffd400', 'the toolbar keeps the brand');
+  assert.equal(out.tokens.light.toolbarText, '#17212e', 'dark text on a yellow toolbar');
+  const css = find(world.project, 'App.Application.NgxApp.AppTheme').props.styleContent;
+  assert.match(css, /html:root, :root\.force-dark \{/);
+  assert.deepEqual(plain(find(world.project, 'App.Application.NgxApp.AppEvent.GetTheme').props.fallbackDark), { mode: 'PLAIN', value: 'true' });
+  assert.throws(() => G.ngxThemeApply({ project: 'App', preset: 'fancy', primary: 'red', radius: '40', toolbar: 'gradient', font: 'x; color: red' }),
+    e => /preset must be institutional, modern, dense/.test(e.message) && /primary must be a hex color/.test(e.message) &&
+      /radius must be a whole number/.test(e.message) && /toolbar must be primary, surface, dark/.test(e.message) && /font must be a CSS font-family/.test(e.message));
+});
+
+test('ngx-page-create applies a given theme, and leaves an app that has pages without one as it is', () => {
+  const world = makeWorld({ style: '.app-page { padding: 4px; }\n' });
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.equal(out.theme, 'none');
+  assert.match(out.warnings.join(' '), /no AppTheme: it shows the starter's default blue/);
+  assert.equal(find(world.project, 'App.Application.NgxApp.AppTheme'), null);
+  const themed = G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list', theme: { preset: 'dense', primary: '#7a1f5c' },
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.match(themed.theme, /^AppTheme created \(preset dense, primary #7a1f5c, mode light\)$/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Plist3', kind: 'list', sequence: 'poste_list', theme: { preset: 'nope' },
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } }), /theme: preset must be/);
+  assert.equal(find(world.project, 'App.Application.NgxApp.Plist3'), null);
+});
+
+test('generated pages carry the design classes: title, list and field panels, form panel, empty state with an icon', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', filters: [{ name: 'recherche', label: 'Recherche' }], filterLabel: 'Filtrer',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun poste.' } });
+  let nodes = nodesOf(world, 'Plist');
+  assert.equal(classOf(nodes.Title), 'app-title');
+  assert.equal(classOf(nodes.RecList), 'app-list');
+  assert.equal(classOf(nodes.EmptyState), 'app-empty-state');
+  assert.equal(nodes.EmptyIcon.properties.IconName.value, 'search-outline', 'a filtered list shows a search icon');
+  assert.equal(nodes.EmptyText.children[1].properties.textValue.value, 'Aucun poste.');
+  G.ngxPageCreate({ project: 'App', name: 'Det', kind: 'detail', sequence: 'poste_list', detail: { fields: [{ label: 'N°', field: 'numeroPoste' }] } });
+  assert.equal(classOf(nodesOf(world, 'Det').Fields), 'app-list app-fields');
+  assert.equal(classOf(nodesOf(world, 'Det').Lb), 'app-field-label');
+  G.ngxPageCreate({ project: 'App', name: 'DeclForm', kind: 'form', form: { submit: 'declaration_declare', fields: [{ name: 'commentaire', label: 'Commentaire' }],
+    submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' } } });
+  assert.equal(classOf(nodesOf(world, 'DeclForm').Form), 'app-form');
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-title \{[^}]*var\(--app-font-size-2xl, 28px\)/);
+  assert.match(css, /\.app-list \{[^}]*var\(--app-surface, var\(--ion-item-background, #fff\)\)/);
+  assert.match(css, /\.app-empty-state \{/);
+  // The value rule comes after the generic list note rule, which it must outrank (31/10 capture: 14px values).
+  assert.ok(css.indexOf('.app-list ion-note {') < css.indexOf('.app-fields ion-note {'));
+});
+
+test('dashboard KPIs take an icon and an accent color', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: { kpis: [
+    { label: 'Postes', field: 'compteurs.postes', icon: 'briefcase-outline', color: 'primary' }, { label: 'En retard', field: 'compteurs.retard', color: 'danger' },
+    { label: 'Total', field: 'compteurs.total' }] } });
+  const nodes = nodesOf(world, 'Dash');
+  assert.equal(classOf(nodes.KpiPostes), 'app-kpi app-kpi-iconed app-accent-primary');
+  assert.equal(nodes.KpiPostes.children[1].properties.IconName.value, 'briefcase-outline');
+  assert.equal(classOf(nodes.KpiPostes.children[1]), 'app-kpi-icon');
+  assert.equal(classOf(nodes.KpiRetard), 'app-kpi app-accent-danger');
+  assert.equal(classOf(nodes.KpiTotal), 'app-kpi');
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Dash2', kind: 'dashboard', sequence: 'poste_list',
+    dashboard: { kpis: [{ label: 'X', field: 'x', color: 'pink' }] } }), /kpis\[0\]\.color must be primary, secondary, tertiary, success, warning, danger, medium/);
+});
+
+test('a badge with labels and no colors gets the colors its status words say, colors still win', () => {
+  const G = load(makeWorld());
+  assert.deepEqual(plain(G.statusColors({ A_JOUR: 'À jour', RETARD: 'En retard', A_RELANCER: 'À relancer', INACTIF: 'Inactif', X: 'Zone 1', Y: 'Zone 2' })),
+    { A_JOUR: 'success', RETARD: 'danger', A_RELANCER: 'warning', INACTIF: 'medium', X: 'primary', Y: 'tertiary' });
+  assert.equal(G.statusColor('NC', 'Non conforme'), 'danger');
+  assert.equal(G.statusColor('OVERDUE', 'Overdue'), 'danger');
+  assert.equal(G.statusColor('AVAILABLE', 'Available'), 'success');
+  assert.equal(G.statusColor('2', 'Pas à jour'), 'danger');
+  assert.equal(G.statusColor('P', 'Pendiente'), '');
+  assert.equal(G.statusColor('ON_LOAN', 'On loan'), 'primary', 'in use is information, not a warning');
+  const world = makeWorld();
+  const G2 = load(world);
+  const out = G2.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun', badge: { field: 'statut', labels: { OK: 'Validé', KO: 'Refusé' } } } });
+  assert.deepEqual(plain(out.badgeColors), { 'list.badge': { OK: 'success', KO: 'danger' } });
+  assert.match(nodesOf(world, 'Plist').Attr_color.properties.attrValue.value, /p\?\.statut === 'OK' \? 'success' : p\?\.statut === 'KO' \? 'danger' : 'medium'/);
+  const given = G2.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun', badge: { field: 'statut', labels: { OK: 'Validé' }, colors: { OK: 'tertiary' } } } });
+  assert.equal(given.badgeColors, undefined);
+});
+
+test('a list with columns renders as a table: a header row, aligned cells with their label for the phone', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', subtitle: 'libelle',
+    titleLabel: 'Poste', columns: [{ label: 'Service', field: 'service' }, { label: 'Échéance', field: 'dateEcheance', prefix: 'le ' }], badgeLabel: 'Statut',
+    badge: { field: 'statut', labels: { A: 'À jour' } }, empty: 'Aucun', select: { field: 'id', actions: [{ label: 'Déclarer', page: 'Login' }] } } });
+  const nodes = nodesOf(world, 'Plist');
+  assert.equal(classOf(nodes.RecList), 'app-list app-table app-has-select');
+  assert.equal(classOf(nodes.Head), 'app-table-head');
+  assert.deepEqual(plain(nodes.HeadRow.children.slice(2).map(c => (c.children[1] ? c.children[1].properties.textValue.value : ''))), ['Poste', 'Service', 'Échéance', 'Statut']);
+  assert.equal(classOf(nodes.Cells), 'app-row app-cols-4');
+  assert.equal(nodes.Main.children[2].properties.textValue.value, "(p?.numeroPoste ?? '')");
+  assert.equal(nodes.Second.children[1].properties.textValue.value, "(p?.libelle ?? '')");
+  assert.equal(nodes.CDateEcheance.children[1].properties.attrValue.value, 'Échéance');
+  assert.equal(nodes.StatusCell.children[2].name, 'Status');
+  // The checkbox is the first cell of the grid and the header keeps its place: the columns align (31/10 capture).
+  assert.deepEqual(plain(nodes.Cells.children.slice(1, 3).map(c => c.name)), ['Pick', 'Main']);
+  assert.equal(nodes.HeadRow.children[1].name, 'HPick');
+  assert.equal(nodes.Head.properties.Detail, undefined, 'no row click, no chevron to mirror');
+  assert.equal(out.warnings.join(' ').indexOf('titleLabel'), -1);
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-cols-4 \{ grid-template-columns: minmax\(0, 2fr\) repeat\(3, minmax\(0, 1fr\)\); \}/);
+  assert.match(css, /\.app-has-select \.app-cols-4 \{ grid-template-columns: 24px minmax\(0, 2fr\)/);
+  assert.match(css, /\.app-has-select ion-checkbox\.in-item \{ flex: 0 0 auto; width: auto;/, 'the checkbox no longer stretches over the row');
+  // With a row click, the header mirrors the hidden chevron.
+  G.ngxPageCreate({ project: 'App', name: 'Plist3', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', titleLabel: 'Poste',
+    columns: [{ label: 'S', field: 'service' }], empty: 'Aucun', onItem: { page: 'Login', data: { id: 'id' } } } });
+  assert.deepEqual(plain(nodesOf(world, 'Plist3').Head.properties.Detail), { mode: 'PLAIN', value: 'true' });
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list',
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun', columns: [{ field: 'service' }] } }), /list\.columns\[0\] must be \{label, field/);
+});
+
+test('a menu page gets an icon for its kind, and a given icon loses the suffix the menu adds', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.equal(world.ops.filter(op => op.name === 'Plist')[0].properties.icon, 'list');
+  const out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', icon: 'stats-chart-outline',
+    dashboard: { kpis: [{ label: 'A', field: 'a' }] } });
+  assert.equal(world.ops.filter(op => op.name === 'Dash')[0].properties.icon, 'stats-chart');
+  assert.match(out.warnings.join(' '), /icon stats-chart-outline: the menu adds -outline or -sharp itself, so the page icon is stats-chart\./);
+  G.ngxPageCreate({ project: 'App', name: 'DeclForm', kind: 'form', form: { submit: 'declaration_declare', fields: [{ name: 'commentaire', label: 'C' }],
+    submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' } } });
+  assert.equal(world.ops.filter(op => op.name === 'DeclForm')[0].properties.icon, undefined, 'a page out of the menu gets no icon');
+});
+
+test('a second page completes AppLayout with the rules of the classes it uses, once', () => {
+  const world = makeWorld({ style: '.app-page { padding: 4px; }\n.app-error { color: red; }\n' });
+  const G = load(world);
+  const spec = { kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun', titleLabel: 'Poste', columns: [{ label: 'S', field: 'service' }] } };
+  const out = G.ngxPageCreate(Object.assign({ project: 'App', name: 'Plist' }, spec));
+  assert.match(out.style, /^AppLayout completed with .*\.app-list.*@media \(min-width: 768px\) \{ \.app-table-head/);
+  assert.doesNotMatch(out.style, /\.app-kpi/);
+  const again = G.ngxPageCreate(Object.assign({ project: 'App', name: 'Plist2' }, spec));
+  assert.equal(again.style, 'AppLayout kept');
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.equal(css.split('@media (min-width: 768px)').length, 2);
 });

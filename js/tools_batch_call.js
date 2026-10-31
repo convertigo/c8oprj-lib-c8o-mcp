@@ -611,14 +611,15 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
   // The generators answer with their whole contract (inputs, logic signature, error codes, next step): 23
   // business-sequence-create calls in one batch made about 10 000 tokens (run 8g). Compact keeps what a batch
   // needs to go on; responseDetail:"full" or a single call of the tool gives the rest.
-  var GENERATOR_SEQUENCES = { tools_business_sequence_create: true, tools_sql_transaction_create: true, tools_ngx_page_create: true };
+  var GENERATOR_SEQUENCES = { tools_business_sequence_create: true, tools_sql_transaction_create: true, tools_ngx_page_create: true,
+    tools_ngx_theme_apply: true };
 
   function compactGeneratorPayload(payload) {
     if (!payload || typeof payload !== "object") {
       return payload;
     }
     var compact = {};
-    ["status", "sequence", "qname", "requestable", "page", "segment", "created", "warnings", "errors"].forEach(function (key) {
+    ["status", "sequence", "qname", "requestable", "page", "segment", "created", "style", "theme", "preset", "mode", "badgeColors", "warnings", "errors"].forEach(function (key) {
       if (payload[key] !== undefined) {
         compact[key] = payload[key];
       }

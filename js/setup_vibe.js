@@ -205,6 +205,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_sql-transaction-create",
       "Convertigo_business-sequence-create",
       "Convertigo_ngx-page-create",
+      "Convertigo_ngx-theme-apply",
       "Convertigo_upsert-crud",
       "Convertigo_upsert-ngx-crud-kit",
       "Convertigo_rag-query"
