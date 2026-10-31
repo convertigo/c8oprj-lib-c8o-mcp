@@ -165,12 +165,21 @@ test('no answer: 40 s per call, the same call keeps the same card, 5 minutes ref
   assert.equal(first.status, 'awaiting_confirmation');
   assert.match(first.message, /Call nocode-form-edit again with exactly the same arguments/);
   assert.equal(w.clock.slept, 40000);
+  // the card stays open 5 minutes, and ending the turn closes it
+  assert.equal(first.secondsLeft, 260);
+  assert.match(first.message, /open 260 s more/);
+  assert.match(first.message, /Do not end your turn while the card is open: the end of the turn closes it and nothing is saved/);
   // the agent calls again, its keys in another order and the operations as an array: the same change
   const again = { token: 'x', operations: JSON.parse(EDIT.operations), id: EDIT.id };
   let answer = null;
+  const left = [];
   for (let calls = 0; calls < 10 && (!answer || answer.status === 'awaiting_confirmation'); calls++) {
     answer = w.run('tools_nocode_form_edit', again);
+    if (answer.status === 'awaiting_confirmation') {
+      left.push(answer.secondsLeft);
+    }
   }
+  assert.deepEqual(left.slice(0, 3), [220, 180, 140], 'the time left goes down call after call');
   assert.equal(w.assistant.requests().length, 0);
   assert.equal(answer.status, 'refused');
   assert.equal(answer.reason, 'no_answer');
