@@ -203,6 +203,7 @@ C8O.browserVerify = C8O.browserVerify || {};
           summary: str(report.summary),
           checks: (report.checks || []).map(mapShot),
           visualDefects: (report.visualDefects || []).map(mapShot),
+          designSuggestions: (report.designSuggestions || []).map(mapShot),
           screenshots: (output.screenshots || []).map(function (s) {
             return { name: str(s.name), path: rel(s.file), url: str(s.url) };
           }),
@@ -242,6 +243,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       summary: report.summary,
       checks: report.checks,
       visualDefects: report.visualDefects,
+      designSuggestions: report.designSuggestions || [],
       screenshots: report.screenshots,
       reportFile: result.reportFile,
       finalUrl: report.finalUrl,

@@ -129,7 +129,8 @@ var SYSTEM_PROMPT = [
   "- To see what lies below the screen, use scroll, then screenshot. Ionic apps scroll inside ion-content, not the body: a body with overflow hidden and a document as high as the screen are normal, never a defect; a full-page screenshot does not show such content.",
   "- Targets: copy them from the snapshot as role \"name\" (for example button \"Save\" or textbox \"Email\"), or use text=Some text, label=Email, placeholder=Search, or a CSS selector. Add nth (0-based) when several elements match.",
   "- On each page or state a check depends on: take a screenshot and LOOK at it, run layout_check, and read every visible text. Report as visual defects: texts glued together without a space, overlapping elements, cut or overflowing text, unreadable or low-contrast text, misaligned or broken layout, empty areas where data is expected, error messages or raw technical values shown to the user, and, for French text, every word missing its accent (for example Declarer for Déclarer, selection for sélection, Comptabilite for Comptabilité, a jour for à jour). layout_check lists geometric suspects: a hidden-text entry means a text is covered by another element (a card over a title, a block over a button), report it when the screenshot shows that text missing or partly covered; keep the other suspects a screenshot confirms.",
-  "- Finish with the finish tool, in the language of the paths: one entry per acceptance check (or per path when there is none), and every visual defect seen. Keep it short.",
+  "- Also review the look of the pages you saw, as a designer would, and give it as designSuggestions: visual hierarchy (one clear page title, sections and key figures that stand out), alignment (columns, edges, labels and values, buttons), density (cramped or empty areas, row height), contrast (texts, badges and buttons, in the theme shown), consistency (the same colors, radius, spacing and button styles from page to page) and color (a framework default color left as is, colors that mean nothing, status colors that do not match the status). At most 6, the most useful first, each one concrete: what to change and where. A suggestion is advice, never a failure: it does not change a check, the verdict or the visual defects, and it never makes you walk a page again.",
+  "- Finish with the finish tool, in the language of the paths: one entry per acceptance check (or per path when there is none), every visual defect seen, and the design suggestions. Keep it short.",
 ].join("\n");
 
 function buildTask(config) {
@@ -227,6 +228,20 @@ var TOOLS = [
           screenshot: { type: "string" }
         },
         required: ["description"]
+      }
+    },
+    designSuggestions: {
+      type: "array",
+      description: "Aesthetic review, advice only: never a failure, never part of the verdict.",
+      items: {
+        type: "object",
+        properties: {
+          aspect: { type: "string", enum: ["hierarchy", "alignment", "density", "contrast", "consistency", "color", "typography", "other"] },
+          suggestion: { type: "string", description: "What to change, concretely." },
+          location: { type: "string", description: "Page and area." },
+          screenshot: { type: "string" }
+        },
+        required: ["suggestion"]
       }
     }
   }, ["verdict", "summary", "checks"])
@@ -1023,6 +1038,7 @@ function normalizeReport(args, config, shots) {
   }
   var checks = Array.isArray(args.checks) ? args.checks : [];
   var defects = Array.isArray(args.visualDefects) ? args.visualDefects : [];
+  var suggestions = Array.isArray(args.designSuggestions) ? args.designSuggestions : [];
   var report = {
     verdict: /^(passed|failed|partial)$/.test(str(args.verdict)) ? str(args.verdict) : "partial",
     summary: str(args.summary),
@@ -1045,7 +1061,17 @@ function normalizeReport(args, config, shots) {
         location: str(d.location),
         screenshot: shotPath(d.screenshot)
       };
-    })
+    }),
+    // Advice only: kept apart from the checks and the defects, and left out of the verdict below.
+    designSuggestions: suggestions.slice(0, 8).map(function (d) {
+      d = d || {};
+      return {
+        aspect: /^(hierarchy|alignment|density|contrast|consistency|color|typography)$/.test(str(d.aspect)) ? str(d.aspect) : "other",
+        suggestion: str(d.suggestion || d.description),
+        location: str(d.location),
+        screenshot: shotPath(d.screenshot)
+      };
+    }).filter(function (d) { return d.suggestion.length > 0; })
   };
   // A failed check or a blocking defect never yields a passed verdict.
   if (report.verdict === "passed" && (report.checks.some(function (c) { return c.status !== "passed"; }) ||
@@ -1212,7 +1238,7 @@ function summarizeArgs(args) {
   }
   var out = {};
   for (var k in args) {
-    if (k === "checks" || k === "visualDefects" || k === "summary") {
+    if (k === "checks" || k === "visualDefects" || k === "designSuggestions" || k === "summary") {
       continue;
     }
     out[k] = typeof args[k] === "string" ? cut(args[k], 120) : args[k];

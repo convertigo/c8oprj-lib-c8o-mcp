@@ -1945,7 +1945,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       elapsedMs: { type: "number" },
       activity: subagentActivitySchema(),
       message: { type: "string" },
-      report: { type: "object", additionalProperties: true, description: "The profile's report. verifier: verdict, summary, checks, visualDefects, screenshots, finalUrl." },
+      report: { type: "object", additionalProperties: true, description: "The profile's report. verifier: verdict, summary, checks, visualDefects, designSuggestions (aesthetic advice, never part of the verdict), screenshots, finalUrl." },
       reportFile: { type: "string", description: "Full report with the step trace, relative to the Studio user workspace." },
       stopReason: { type: "string", description: "finished, or the budget (step, time, cost) that ended the run." },
       modelCalls: { type: "number" },
@@ -1981,6 +1981,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         items: closedObjectSchema({
           severity: { type: "string", enum: ["blocking", "major", "minor"] },
           description: { type: "string" },
+          location: { type: "string" },
+          screenshot: shot
+        })
+      },
+      designSuggestions: {
+        type: "array",
+        description: "Aesthetic review of the pages seen (hierarchy, alignment, density, contrast, consistency, color): advice only, never part of the verdict.",
+        items: closedObjectSchema({
+          aspect: { type: "string", enum: ["hierarchy", "alignment", "density", "contrast", "consistency", "color", "typography", "other"] },
+          suggestion: { type: "string" },
           location: { type: "string" },
           screenshot: shot
         })
