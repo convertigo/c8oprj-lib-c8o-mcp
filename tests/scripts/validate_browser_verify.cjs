@@ -629,3 +629,13 @@ test('design suggestions are advice: kept apart, normalized, and never change th
   assert.match(agent.SYSTEM_PROMPT, /designSuggestions: visual hierarchy .*alignment .*density .*contrast .*consistency .*color/);
   assert.match(agent.SYSTEM_PROMPT, /never a failure: it does not change a check, the verdict or the visual defects/);
 });
+
+test('Flow gateway verification ensures dev before starting and adopts its current URL', () => {
+  const api=load(); const order=[];
+  const f=host({ensureDev:(project)=>{order.push(project);return {ok:true,openUrl:'http://localhost:28080/convertigo/gw/live/'};}});
+  api.run({browserDebugPort:45991,paths:['Send, refuse, cancel, download'],inputs:{project:'App',url:'http://localhost:28080/convertigo/gw/stale/'}},f.h);
+  assert.deepEqual(order,['App']);assert.equal(f.seen.starts[0].config.url,'http://localhost:28080/convertigo/gw/live/');
+  const dead=host({ensureDev:()=>({ok:false,message:'Vite failed'})});
+  assert.throws(()=>api.run({browserDebugPort:45991,paths:['x'],inputs:{project:'App',url:'http://localhost:28080/convertigo/gw/stale/'}},dead.h),/visualiseur arrêté/);
+  assert.equal(dead.seen.starts.length,0);
+});

@@ -120,6 +120,7 @@ C8O.browserVerify = C8O.browserVerify || {};
     }
     return {
       url: str(pick("url")),
+      project: str(pick("project")),
       viewport: api.parseViewport(pick("viewport")),
       paths: paths,
       checks: api.parseList(pick("checks"), "checks", MAX_CHECKS),
@@ -135,6 +136,16 @@ C8O.browserVerify = C8O.browserVerify || {};
       if (!inputs.paths.length) {
         throw new Error("paths is required: the paths to walk and check, in plain language, for example " +
           "[\"Log in as the demo user, open the orders list, check that 3 orders are shown\"].");
+      }
+      if (/\/gw\//.test(inputs.url)) {
+        if (!inputs.project.length || typeof host.ensureDev !== "function") {
+          throw new Error("A Flow dev viewer requires inputs.project (the application project) to run dev.ensure before verification.");
+        }
+        var ensured = host.ensureDev(inputs.project, params);
+        if (!ensured || ensured.ok !== true || ensured.pending === true) {
+          throw new Error("visualiseur arrêté: dev.ensure did not make the application ready. " + str(ensured && ensured.message));
+        }
+        inputs.url = str(ensured.openUrl) || inputs.url;
       }
       var reasoning = str(params.reasoning).toLowerCase();
       if (reasoning.length && reasoning !== "none" && reasoning !== "high") {
@@ -274,6 +285,20 @@ C8O.browserVerify = C8O.browserVerify || {};
     var host = sa().javaHost();
     var workspace = new File(String(Engine.USER_WORKSPACE_PATH)).getCanonicalFile();
     var windows = String(java.lang.System.getProperty("os.name")).toLowerCase().indexOf("win") >= 0;
+
+    host.ensureDev = function (projectName, params) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(projectName)) throw new Error("Invalid inputs.project.");
+      var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName, false);
+      if (project == null || project.getFlowEngine() == null) throw new Error("No Flow engine for inputs.project " + projectName + ".");
+      var options = {project: projectName, origin: "mcp", wait: true,
+        action: {id: "frontbuilder.svelte.dev.start"},
+        targetObject: {kind: "frontendBuilder", type: "svelte", path: "frontends.svelte"}};
+      var port = parseInt(str(params.browserDebugPort), 10);
+      if (port >= 1024 && port <= 65535) options.browserDebugPort = port;
+      var bridge = new Packages.com.twinsoft.convertigo.engine.flow.FlowEngineBridge();
+      return JSON.parse(String(bridge.contextAction(project.getFlowEngine(),
+        new Packages.org.codehaus.jettison.json.JSONObject(JSON.stringify(options)))));
+    };
 
     // The managed agent hosts send their conversation's viewer debug port in X-Convertigo-Viewer-Debug-Port; the MCP
     // router passes it as browserDebugPort. An explicit cdpEndpoint (loopback only) is the fallback.

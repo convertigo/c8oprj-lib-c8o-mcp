@@ -1,0 +1,56 @@
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const agent = require(process.env.BROWSER_VERIFY_AGENT_PATH || '../../node/browser_verify_agent.cjs');
+const root = path.resolve(__dirname, '../../.night-tests');
+fs.mkdirSync(root, {recursive:true});
+function fixture(status = 200) {
+  let url = 'http://localhost:28080/convertigo/gw/ticket/';
+  const navigated = [];
+  const file = path.join(root, 'download.txt'); fs.writeFileSync(file, 'requested export');
+  const locator = {count:async()=>1,filter:()=>locator,first:()=>locator,nth:()=>locator,
+    click:async()=>{}, ariaSnapshot:async()=>'TypeError: Cannot read properties of null (reading user)',
+    waitFor:async()=>{throw new Error('Timeout 10000ms exceeded waiting for Approved');}};
+  const page = {url:()=>url, title:async()=> 'Demo', locator:()=>locator, getByRole:()=>locator, getByText:()=>locator,
+    waitForLoadState:async()=>{}, goto:async next=>{url=next;navigated.push(next);return {status:()=>status};},
+    waitForEvent:async()=>({failure:async()=>null,path:async()=>file,suggestedFilename:()=> 'export.csv'})};
+  return {page,navigated,playwright:{chromium:{connectOverCDP:async()=>({contexts:()=>[{pages:()=>[page]}]})}}};
+}
+const cfg = {url:'http://localhost:28080/convertigo/gw/ticket/',actionTimeoutMs:10,outDir:root,paths:['Send the request'],checks:['Approved'],cdpEndpoint:'http://127.0.0.1:45991'};
+test('navigation stays within the application gateway, never dashboards or another origin',async()=>{
+  const f=fixture(), tools=agent.createTools({page:f.page,screenshots:[]},cfg);
+  for(const url of ['/convertigo/dashboard/','/convertigo/admin/','http://elsewhere.invalid/','/convertigo/gw/other/'])
+    await assert.rejects(tools.navigate({url}),/outside the application/);
+  assert.equal(f.navigated.length,0);
+});
+test('stopped viewer is reported before any model call, with no alternative navigation',async()=>{
+  const f=fixture(404);let calls=0;
+  const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch:async()=>{calls++;throw Error('must not call model');}});
+  assert.equal(calls,0);assert.match(answer.report.summary,/visualiseur arrêté/);
+  assert.equal(answer.report.verdict,'partial');assert.equal(f.navigated.length,1);
+});
+test('first-render 500 returns its visible diagnostic immediately',async()=>{
+  const f=fixture(500);
+  const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch:async()=>{throw Error('must not call model');}});
+  assert.match(answer.report.summary,/HTTP 500.*TypeError/s);assert.equal(answer.report.verdict,'partial');
+});
+test('a timed out wait cannot be validated by the model',async()=>{
+  const f=fixture();let turn=0;
+  const fetch=async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{
+    id:String(++turn),type:'function',function: turn===1 ? {name:'wait_for',arguments:'{"text":"Approved"}'} :
+      {name:'finish',arguments:JSON.stringify({verdict:'passed',checks:[{id:'C1',check:'Approved',status:'passed',evidence:'Approved'}]})}
+  }]}}]})});
+  const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch});
+  assert.equal(answer.report.verdict,'partial');assert.equal(answer.report.checks[0].status,'not_checked');
+  assert.match(answer.report.checks[0].evidence,/Timeout/);
+});
+test('omitted requested checks make a passed verdict partial',()=>{
+  const answer=agent.normalizeReport({verdict:'passed',checks:[]},cfg,[]);
+  assert.equal(answer.verdict,'partial');assert.equal(answer.checks[0].status,'not_checked');
+});
+test('download proof uses an actual browser download, filename and bytes',async()=>{
+  const f=fixture(),tools=agent.createTools({page:f.page,screenshots:[]},cfg);
+  assert.equal(typeof tools.download,'function');
+  assert.match((await tools.download({target:'button "Download"'})).text,/export.csv \(16 bytes\)/);
+});

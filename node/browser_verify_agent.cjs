@@ -122,6 +122,8 @@ var SYSTEM_PROMPT = [
   "Rules:",
   "- You only observe and use the application like a user (log in, click, fill forms, as the paths say). You never change its code, configuration or files, and you never read its source: no fetch of scripts, bundles or routes, no study of how it is built.",
   "- When a step's precondition already holds (for example the app is already signed in and shows its home page), say so in the evidence and go on. When a step stays blocked after two attempts, mark its checks not_checked with what you saw and go to the next path: every path must get its turn. Each tool result ends with the time and turns used so far.",
+  "- Requested business actions (send, refuse, cancel, download) must actually run, including their confirmation and resulting state. Seeing a button is not a proof. For downloads use download and cite its filename and byte count. An expired wait is not a successful check; mark it not_checked unless a later successful observation proves that same condition.",
+  "- Stay inside the application URL and its gateway path. Never search the Convertigo dashboard, administration console or alternative deployments. A gateway 404 means visualiseur arrêté: stop immediately.",
   "- Walk each path once, exactly as written. Never repeat an action that changes data (save, declare, delete, submit...) to get a better result: the first outcome is the result. Retry only an action that did not happen (the tool returned an error), once, another way.",
   "- A figure or text in a check, and in the summary, is the one read on the page that check is about: name that page, and never carry a value read on another page (an admin dashboard's counts are not the home page's).",
   "- Read the result right after the action that should produce it, and quote it exactly. A check passes only on evidence you saw: the exact text or value read, or what a screenshot shows. Anything different from what the path or check expects is a failure, even if it looks minor.",
@@ -165,6 +167,7 @@ var TOOLS = [
   tool("navigate", "Open a URL in the current tab. Returns the page snapshot.", {
     url: { type: "string", description: "Absolute URL, or a path relative to the current page." }
   }, ["url"]),
+  tool("download", "Click the requested download and prove that the browser received a nonempty file. Returns the suggested filename and byte count.", targetProps({}), ["target"]),
   tool("snapshot", "Accessibility tree of the current page (roles, names, values), with its URL and title.", {}, []),
   tool("click", "Click an element. Returns the page snapshot after the click.", targetProps({}), ["target"]),
   tool("fill", "Type a value into an input or textarea (replaces its content).", targetProps({
@@ -754,8 +757,32 @@ function createTools(state, config) {
   var page = function () { return state.page; };
   var t = config.actionTimeoutMs;
   var shots = state.screenshots;
+  var appUrl = config.url || page().url();
+  function assertApplication(url) {
+    var app = new URL(appUrl), candidate = new URL(url);
+    var gateway = /^(.*\/gw\/[^/]+\/)/.exec(app.pathname + (app.pathname.endsWith("/") ? "" : "/"));
+    if (candidate.origin !== app.origin || /\/convertigo\/(?:admin|dashboard)(?:\/|$)/.test(candidate.pathname) ||
+        gateway && candidate.pathname !== gateway[1].slice(0, -1) && !candidate.pathname.startsWith(gateway[1])) {
+      var error = new Error("Navigation outside the application refused: " + candidate.href);
+      error.code = "APPLICATION_BOUNDARY";
+      throw error;
+    }
+  }
+  async function inspectResponse(response) {
+    assertApplication(page().url());
+    if (response && response.status() >= 400) {
+      var status = response.status();
+      var message = status === 404 && /\/gw\//.test(page().url())
+        ? "visualiseur arrêté (HTTP 404). Run dev.ensure for the application project before verifying."
+        : "Application route failed (HTTP " + status + "). " + await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT);
+      var error = new Error(message);
+      error.code = status === 404 ? "VIEWER_STOPPED" : "APPLICATION_ROUTE_FAILED";
+      throw error;
+    }
+  }
 
   async function withSnapshot(prefix) {
+    assertApplication(page().url());
     await settle(page());
     return { text: prefix + "\n" + await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT), snapshot: true };
   }
@@ -767,8 +794,23 @@ function createTools(state, config) {
         throw new Error("url is required.");
       }
       var absolute = new URL(target, page().url() && /^https?:/.test(page().url()) ? page().url() : (config.url || undefined)).href;
-      await page().goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      assertApplication(absolute);
+      var response = await page().goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await inspectResponse(response);
       return withSnapshot("Navigated.");
+    },
+    download: async function (args) {
+      assertApplication(page().url());
+      var found = await single(page(), args);
+      var pending = page().waitForEvent("download", { timeout: t });
+      var download = await Promise.all([pending, found.locator.click({ timeout: t })]);
+      var item = download[0];
+      var failure = await item.failure();
+      if (failure) throw new Error("Download failed: " + failure);
+      var file = await item.path();
+      var bytes = file ? fs.statSync(file).size : 0;
+      if (!bytes) throw new Error("Download is empty: " + item.suggestedFilename());
+      return { text: "Downloaded " + item.suggestedFilename() + " (" + bytes + " bytes)." };
     },
     snapshot: async function () {
       return { text: await ariaSnapshot(page(), SNAPSHOT_LIMIT), snapshot: true };
@@ -1034,7 +1076,7 @@ function parseArgs(text) {
   }
 }
 
-function normalizeReport(args, config, shots) {
+function normalizeReport(args, config, shots, pendingFailures) {
   var known = {};
   shots.forEach(function (s) {
     known[s.name] = s.file;
@@ -1080,6 +1122,21 @@ function normalizeReport(args, config, shots) {
       };
     }).filter(function (d) { return d.suggestion.length > 0; })
   };
+  // Requested checks cannot disappear when the budget expires, nor pass over a failed wait/action.
+  var expected = Array.isArray(config.checks) && config.checks.length ? config.checks : (config.paths || []).map(function (p) { return p.steps; });
+  expected.forEach(function (check, index) {
+    var id = (config.checks && config.checks.length ? "C" : "P") + (index + 1);
+    if (!report.checks.some(function (c) { return c.id === id || c.check === check; })) {
+      report.checks.push({ id: id, check: check, status: "not_checked", evidence: "No evidence returned for this requested check.", screenshot: "", path: "" });
+    }
+  });
+  var unresolved = Object.values(pendingFailures || {});
+  report.checks.forEach(function (c) {
+    if (c.status === "passed" && (!c.evidence || unresolved.length)) {
+      c.status = "not_checked";
+      c.evidence = "Proof incomplete. " + unresolved.join("; ") + (c.evidence ? " Claimed evidence: " + c.evidence : "");
+    }
+  });
   // A failed check or a blocking defect never yields a passed verdict.
   if (report.verdict === "passed" && (report.checks.some(function (c) { return c.status !== "passed"; }) ||
     report.visualDefects.some(function (d) { return d.severity === "blocking"; }))) {
@@ -1103,6 +1160,7 @@ async function run(rawConfig, deps) {
   var browserState = await openBrowser(config, deps.playwright);
   try {
   var state = { page: browserState.page, screenshots: [] };
+  var pendingFailures = {};
   var tools = createTools(state, config);
   var messages = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -1116,6 +1174,16 @@ async function run(rawConfig, deps) {
   var forcing = false;
   var stopReason = "";
 
+  // Load the application before spending a model call. A stopped gateway or a broken first render is a terminal
+  // platform/application diagnostic, never a reason to explore a different Convertigo surface.
+  if (config.url) {
+    try { await tools.navigate({ url: config.url }); }
+    catch (e) {
+      pendingFailures.preflight = shortError(e);
+      report = normalizeReport({ verdict: "partial", summary: shortError(e) }, config, state.screenshots, pendingFailures);
+      stopReason = e.code || "application unavailable";
+    }
+  }
   while (!report) {
     var elapsed = Date.now() - started;
     // The last turns are kept for the report: the step, time or cost budget ends the walk a little before its limit.
@@ -1168,7 +1236,7 @@ async function run(rawConfig, deps) {
       var callStarted = Date.now();
       var outcome;
       if (name === "finish" && args) {
-        report = normalizeReport(args, config, state.screenshots);
+        report = normalizeReport(args, config, state.screenshots, pendingFailures);
         outcome = { text: "Report received." };
       } else if (!args) {
         outcome = { text: name === "finish" && choice.finish_reason === "length"
@@ -1179,8 +1247,14 @@ async function run(rawConfig, deps) {
       } else {
         try {
           outcome = await tools[name](args);
+          delete pendingFailures[name + JSON.stringify(args)];
         } catch (e) {
+          pendingFailures[name + JSON.stringify(args)] = name + ": " + shortError(e);
           outcome = { text: "Error: " + shortError(e) };
+          if (/^(VIEWER_STOPPED|APPLICATION_ROUTE_FAILED|APPLICATION_BOUNDARY)$/.test(e.code || "")) {
+            report = normalizeReport({ verdict: "partial", summary: shortError(e) }, config, state.screenshots, pendingFailures);
+            stopReason = e.code;
+          }
         }
       }
       trace.push({ turn: turns, tool: name, args: summarizeArgs(args), ms: Date.now() - callStarted, result: cut(outcome.text, 160).replace(/\s+/g, " ") });
@@ -1197,6 +1271,7 @@ async function run(rawConfig, deps) {
         toolMessage._snapshot = true;
       }
       messages.push(toolMessage);
+      if (report) break;
     }
   }
 
