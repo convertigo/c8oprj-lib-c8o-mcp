@@ -213,6 +213,7 @@ C8O.browserVerify = C8O.browserVerify || {};
           verdict: str(report.verdict) || "partial",
           summary: str(report.summary),
           checks: (report.checks || []).map(mapShot),
+          network: report.network || [],
           visualDefects: (report.visualDefects || []).map(mapShot),
           designSuggestions: (report.designSuggestions || []).map(mapShot),
           screenshots: (output.screenshots || []).map(function (s) {

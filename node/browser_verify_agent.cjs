@@ -129,7 +129,8 @@ var SYSTEM_PROMPT = [
   "- Read the result right after the action that should produce it, and quote it exactly. A check passes only on evidence you saw: the exact text or value read, or what a screenshot shows. Anything different from what the path or check expects is a failure, even if it looks minor.",
   "- Be fast: a few tool calls per path; several independent tool calls may go in one turn. The page snapshot (accessibility tree) comes back after each click, navigation, key press and scroll. Use evaluate only for a value no other tool gives.",
   "- To see what lies below the screen, use scroll, then screenshot. Ionic apps scroll inside ion-content, not the body: a body with overflow hidden and a document as high as the screen are normal, never a defect; a full-page screenshot does not show such content.",
-  "- Targets: copy them from the snapshot as role \"name\" (for example button \"Save\" or textbox \"Email\"), or use text=Some text, label=Email, placeholder=Search, or a CSS selector. Add nth (0-based) when several elements match.",
+  "- Targets: copy role \"name\" from the snapshot. For a button in one row use row \"exact distinguishing row text\" button \"Save\", or within: row \"text\" with target: button \"Save\". Never substitute a page-wide first button for a failed row target.",
+  "- Every passed check must cite evidenceRefs (A... journal tool IDs, or N... network IDs), observedText copied exactly from those results (or a registered screenshot), and actionRefs for its claimed business actions. State expectedErrorCode for a check that expects a Flow refusal. Unsupported claims are downgraded to not_checked.",
   "- On each page or state a check depends on: take a screenshot and LOOK at it, run layout_check, and read every visible text. Report as visual defects: texts glued together without a space, overlapping elements, cut or overflowing text, unreadable or low-contrast text, misaligned or broken layout, empty areas where data is expected, error messages or raw technical values shown to the user, and, for French text, every word missing its accent (for example Declarer for Déclarer, selection for sélection, Comptabilite for Comptabilité, a jour for à jour). layout_check lists geometric suspects: a hidden-text entry means a text is covered by another element (a card over a title, a block over a button), report it when the screenshot shows that text missing or partly covered; keep the other suspects a screenshot confirms.",
   "- Also review the look of the pages you saw, as a designer would, and give it as designSuggestions: visual hierarchy (one clear page title, sections and key figures that stand out), alignment (columns, edges, labels and values, buttons), density (cramped or empty areas, row height), contrast (texts, badges and buttons, in the theme shown), consistency (the same colors, radius, spacing and button styles from page to page) and color (a framework default color left as is, colors that mean nothing, status colors that do not match the status). At most 6, the most useful first, each one concrete: what to change and where. A suggestion is advice, never a failure: it does not change a check, the verdict or the visual defects, and it never makes you walk a page again.",
   "- Finish with the finish tool, in the language of the paths: one entry per acceptance check (or per path when there is none), every visual defect seen, and the design suggestions. Keep it short.",
@@ -216,6 +217,10 @@ var TOOLS = [
           status: { type: "string", enum: ["passed", "failed", "not_checked"] },
           evidence: { type: "string", description: "What was seen: exact text, value, or screenshot finding." },
           screenshot: { type: "string", description: "Screenshot name that shows it, if any." }
+          ,evidenceRefs: {type: "array", items: {type: "string"}, description: "Observed tool A... or network N... IDs supporting this check."}
+          ,actionRefs: {type: "array", items: {type: "string"}, description: "Journal IDs of the actions claimed by this check."}
+          ,observedText: {type: "string", description: "Exact excerpt from the cited observation, not a paraphrase."}
+          ,expectedErrorCode: {type: "string", description: "Only for a check expecting the observed Flow refusal code."}
         },
         required: ["check", "status", "evidence"]
       }
@@ -265,6 +270,7 @@ function targetProps(extra) {
   var props = {
     target: { type: "string", description: "role=button[name=\"...\"], text=..., label=..., placeholder=..., or a CSS selector." },
     nth: { type: "integer", description: "0-based index when several elements match." }
+    ,within: {type: "string", description: "Containing row or listitem, e.g. row \"Book title\"; it must be unique."}
   };
   for (var key in extra) {
     props[key] = extra[key];
@@ -503,7 +509,10 @@ function locate(page, target, nth) {
   }
   var locator;
   var match;
-  if ((match = /^([a-z]+)\s+"((?:[^"\\]|\\.)*)"(?:\s*\[.*\])?$/.exec(text)) && ARIA_ROLES.test(match[1])) {
+  if ((match = /^(row|listitem)\s+"((?:[^"\\]|\\.)*)"\s+([a-z]+)\s+"((?:[^"\\]|\\.)*)"$/.exec(text)) && ARIA_ROLES.test(match[3])) {
+    locator = page.getByRole(match[1], {name: match[2].replace(/\\(.)/g, "$1")})
+      .getByRole(match[3], {name: match[4].replace(/\\(.)/g, "$1"), exact: true});
+  } else if ((match = /^([a-z]+)\s+"((?:[^"\\]|\\.)*)"(?:\s*\[.*\])?$/.exec(text)) && ARIA_ROLES.test(match[1])) {
     // The snapshot notation: button "Save", textbox "Email".
     locator = page.getByRole(match[1], { name: match[2].replace(/\\(.)/g, "$1") });
   } else if ((match = /^label=(.+)$/i.exec(text))) {
@@ -532,11 +541,14 @@ function unquote(text) {
 }
 
 async function single(page, args) {
-  var found = locate(page, args.target, args.nth);
+  var scope = args.within ? locate(page, args.within).locator : page;
+  if (args.within && await scope.count() !== 1) throw new Error("The containing row must match exactly one element; refine within.");
+  var found = locate(scope, args.target, args.nth);
   if (found.nth !== null) {
     return { locator: found.locator, note: "" };
   }
   var count = await found.locator.count();
+  if ((args.within || /^(row|listitem)\s+"/.test(str(args.target))) && count > 1) throw new Error("Ambiguous row target; refine the row text or provide nth.");
   if (count === 0) {
     // Not attached yet: let the action wait for it.
     return { locator: found.locator.first(), note: "" };
@@ -1095,7 +1107,7 @@ function parseArgs(text) {
   }
 }
 
-function normalizeReport(args, config, shots, pendingFailures) {
+function normalizeReport(args, config, shots, pendingFailures, trace, network) {
   var known = {};
   shots.forEach(function (s) {
     known[s.name] = s.file;
@@ -1118,7 +1130,10 @@ function normalizeReport(args, config, shots, pendingFailures) {
         check: str(c.check),
         status: /^(passed|failed|not_checked)$/.test(str(c.status)) ? str(c.status) : "not_checked",
         evidence: str(c.evidence),
-        screenshot: shotPath(c.screenshot)
+        screenshot: shotPath(c.screenshot),
+        evidenceRefs: Array.isArray(c.evidenceRefs) ? c.evidenceRefs.map(str) : [],
+        actionRefs: Array.isArray(c.actionRefs) ? c.actionRefs.map(str) : [],
+        observedText: str(c.observedText), expectedErrorCode: str(c.expectedErrorCode)
       };
     }),
     visualDefects: defects.slice(0, 30).map(function (d) {
@@ -1145,15 +1160,33 @@ function normalizeReport(args, config, shots, pendingFailures) {
   var expected = Array.isArray(config.checks) && config.checks.length ? config.checks : (config.paths || []).map(function (p) { return p.steps; });
   expected.forEach(function (check, index) {
     var id = (config.checks && config.checks.length ? "C" : "P") + (index + 1);
-    if (!report.checks.some(function (c) { return c.id === id || c.check === check; })) {
+    var matching = report.checks.find(function (c) { return c.id === id || c.check === check; });
+    if (matching) matching.check = check;
+    else {
       report.checks.push({ id: id, check: check, status: "not_checked", evidence: "No evidence returned for this requested check.", screenshot: "", path: "" });
     }
   });
   var unresolved = Object.values(pendingFailures || {});
   report.checks.forEach(function (c) {
-    if (c.status === "passed" && (!c.evidence || unresolved.length)) {
+    var issues = unresolved.slice();
+    if (c.status === "passed") {
+      var observations = (trace || []).concat(network || []), cited = c.evidenceRefs.map(function(id) { return observations.find(function(entry) { return entry.id === id; }); });
+      if (!cited.length || cited.some(function(entry) { return !entry; })) issues.push("cite actual journal evidenceRefs");
+      if (!c.screenshot || !shots.some(function(shot) { return shot.file === c.screenshot; })) {
+        if (!c.observedText || !cited.some(function(entry) { return entry && String(entry.result || entry.message || entry.errorCode || "").includes(c.observedText); })) issues.push("observedText must quote the cited observation");
+      }
+      var actions = c.actionRefs.map(function(id) { return (trace || []).find(function(entry) { return entry.id === id; }); });
+      if (new Set(c.actionRefs).size !== c.actionRefs.length) issues.push("actionRefs must cite distinct journal actions");
+      if (actions.some(function(entry) { return !entry || entry.failed || !/^(click|press|fill|select|check|download)$/.test(entry.tool); })) issues.push("claimed action is absent or failed in the journal");
+      if (/\b(?:click|clicked|borrow|emprunt\w*|submit|send|refus\w*|annul\w*|download|created|deleted)\b/i.test(c.check + " " + c.evidence) && !actions.length) issues.push("cite actionRefs for the claimed business action");
+      var errors = (network || []).filter(function(entry) { return entry.failed && c.actionRefs.indexOf(entry.action) >= 0; });
+      if (errors.some(function(entry) { return !c.expectedErrorCode || entry.errorCode !== c.expectedErrorCode; })) issues.push("the cited action received a Flow/network error: " + errors.map(function(entry) { return entry.errorCode || entry.status; }).join(", "));
+      if (c.expectedErrorCode && !cited.some(function(entry) { return entry && entry.errorCode === c.expectedErrorCode; })) issues.push("expectedErrorCode was not observed in the cited network evidence");
+      if (c.expectedErrorCode && !/refus|reject|denied|forbidden|limit|bloqu|interdit/i.test(str(c.check))) issues.push("the requested check does not expect a refusal; its text cannot be replaced by the verifier");
+    }
+    if (c.status === "passed" && (!c.evidence || issues.length)) {
       c.status = "not_checked";
-      c.evidence = "Proof incomplete. " + unresolved.join("; ") + (c.evidence ? " Claimed evidence: " + c.evidence : "");
+      c.evidence = "Proof incomplete. " + issues.join("; ") + (c.evidence ? " Claimed evidence: " + c.evidence : "");
     }
   });
   // A failed check or a blocking defect never yields a passed verdict.
@@ -1195,7 +1228,26 @@ async function run(rawConfig, deps) {
   var gateway = createGateway(config, key, deps.fetch || fetch);
   var browserState = await openBrowser(config, deps.playwright);
   try {
-  var state = { page: browserState.page, screenshots: [], runtimeErrors: [], consoleMessages: [] };
+  var state = { page: browserState.page, screenshots: [], runtimeErrors: [], consoleMessages: [], network: [], networkTasks: [], requests: new WeakMap() };
+  if (typeof state.page.on === "function") state.page.on("request", function(request) {
+    state.requests.set(request, state.activeActionId || "");
+  });
+  if (typeof state.page.on === "function") state.page.on("response", function(response) {
+    var request = typeof response.request === "function" ? response.request() : null;
+    var action = request && state.requests.has(request) ? state.requests.get(request) : state.activeActionId || state.lastActionId || "";
+    var task = (async function() {
+      try {
+        var url = new URL(response.url());
+        if (url.origin !== new URL(config.url).origin || !/\/projects\/|\.json(?:$|\/)/.test(url.pathname) || state.network.length >= 100) return;
+        var data = await response.json(), error = data && (data.error || data.document && data.document.error);
+        var fact = {id: "N" + (state.network.length + 1), action: action, url: url.pathname, status: response.status(),
+          failed: response.status() >= 400 || !!error, errorCode: error ? String(error.code || "FLOW_ERROR") : "", message: error ? cut(String(error.message || ""), 1200) : "HTTP " + response.status()};
+        state.network.push(fact);
+        logActivity(config, {id: fact.id, action: action, at: Date.now(), turn: turns || 0, text: "Network " + fact.url + ": " + (fact.errorCode || fact.message)});
+      } catch (_nonJsonResponse) {}
+    })();
+    state.networkTasks.push(task);
+  });
   if (typeof state.page.on === "function") state.page.on("pageerror", function (error) {
     state.runtimeErrors.push(cut(shortError(error), 1500));
   });
@@ -1286,10 +1338,12 @@ async function run(rawConfig, deps) {
       var callStarted = Date.now();
       var outcome;
       if (name === "finish" && args) {
+        await Promise.allSettled(state.networkTasks);
         if (state.runtimeErrors.length) pendingFailures.runtime = "Application runtime error: " + state.runtimeErrors.join("; ");
         var missing = missingBusinessActions(config, trace);
         if (missing.length) pendingFailures.business = "Business path incomplete: no successful action observed for " + missing.join(", ") + ". Use the requested controls, including confirmation, and verify their outcome.";
-        report = normalizeReport(args, config, state.screenshots, pendingFailures);
+        report = normalizeReport(args, config, state.screenshots, pendingFailures, trace, state.network);
+        report.network = state.network;
         outcome = { text: "Report received." };
       } else if (!args) {
         outcome = { text: name === "finish" && choice.finish_reason === "length"
@@ -1299,6 +1353,8 @@ async function run(rawConfig, deps) {
         outcome = { text: "Error: unknown tool " + name + "." };
       } else {
         try {
+          state.activeActionId = "A" + (trace.length + 1);
+          state.lastActionId = state.activeActionId;
           outcome = await tools[name](args);
           delete pendingFailures[name + JSON.stringify(args)];
         } catch (e) {
@@ -1310,14 +1366,17 @@ async function run(rawConfig, deps) {
           }
         }
       }
-      trace.push({ turn: turns, tool: name, args: summarizeArgs(args), failed: /^Error:/.test(outcome.text), ms: Date.now() - callStarted, result: cut(outcome.text, 160).replace(/\s+/g, " ") });
-      logActivity(config, { at: Date.now(), turn: turns, text: activityText(name, args, outcome) });
+      var observationId = "A" + (trace.length + 1);
+      state.activeActionId = "";
+      trace.push({ id: observationId, turn: turns, tool: name, args: summarizeArgs(args), failed: /^Error:/.test(outcome.text), ms: Date.now() - callStarted, result: cut(outcome.text, 1200) });
+      logActivity(config, { id: observationId, at: Date.now(), turn: turns, text: activityText(name, args, outcome) });
       var progress = "\n[" + Math.round((Date.now() - started) / 1000) + " s of " + Math.round(config.timeBudgetMs / 1000) +
         " s, turn " + turns + " of " + config.maxSteps + "]";
-      var toolMessage = { role: "tool", tool_call_id: call.id, content: outcome.text + progress };
+      var networkText = state.network.filter(function(entry) { return entry.action === observationId; }).map(function(entry) { return entry.id + " " + entry.url + ": " + (entry.errorCode || entry.message); }).join("\n");
+      var toolMessage = { role: "tool", tool_call_id: call.id, content: "Observation " + observationId + "\n" + outcome.text + (networkText ? "\nNetwork:\n" + networkText : "") + progress };
       if (outcome.image) {
         toolMessage.content = [
-          { type: "text", text: outcome.text + progress },
+          { type: "text", text: "Observation " + observationId + "\n" + outcome.text + progress },
           { type: "image_url", image_url: { url: "data:image/png;base64," + outcome.image } }
         ];
       } else if (outcome.snapshot) {
