@@ -216,13 +216,13 @@ var TOOLS = [
           check: { type: "string" },
           status: { type: "string", enum: ["passed", "failed", "not_checked"] },
           evidence: { type: "string", description: "What was seen: exact text, value, or screenshot finding." },
-          screenshot: { type: "string", description: "Screenshot name that shows it, if any." }
-          ,evidenceRefs: {type: "array", items: {type: "string"}, description: "Observed tool A... or network N... IDs supporting this check."}
-          ,actionRefs: {type: "array", items: {type: "string"}, description: "Journal IDs of the actions claimed by this check."}
-          ,observedText: {type: "string", description: "Exact excerpt from the cited observation, not a paraphrase."}
-          ,expectedErrorCode: {type: "string", description: "Only for a check expecting the observed Flow refusal code."}
+          screenshot: { type: "string", description: "Screenshot name that shows it, if any." },
+          evidenceRefs: {type: "array", items: {type: "string"}, description: "Observed tool A... or network N... IDs supporting this check."},
+          actionRefs: {type: "array", items: {type: "string"}, description: "Journal IDs of the actions claimed by this check; [] for a display-only check."},
+          observedText: {type: "string", description: "Exact excerpt from the cited observation, not a paraphrase."},
+          expectedErrorCode: {type: "string", description: "Only for a check expecting the observed Flow refusal code."}
         },
-        required: ["check", "status", "evidence"]
+        required: ["check", "status", "evidence", "evidenceRefs", "actionRefs"]
       }
     },
     visualDefects: {
@@ -269,8 +269,8 @@ function tool(name, description, properties, required) {
 function targetProps(extra) {
   var props = {
     target: { type: "string", description: "role=button[name=\"...\"], text=..., label=..., placeholder=..., or a CSS selector." },
-    nth: { type: "integer", description: "0-based index when several elements match." }
-    ,within: {type: "string", description: "Containing row or listitem, e.g. row \"Book title\"; it must be unique."}
+    nth: { type: "integer", description: "0-based index when several elements match." },
+    within: {type: "string", description: "Containing row or listitem, e.g. row \"Book title\"; it must be unique."}
   };
   for (var key in extra) {
     props[key] = extra[key];
@@ -1342,7 +1342,11 @@ async function run(rawConfig, deps) {
       var callStarted = Date.now();
       var outcome;
       if (name === "finish" && args) {
-        await Promise.allSettled(state.networkTasks);
+        var evidenceTimer;
+        var networkComplete = await Promise.race([Promise.allSettled(state.networkTasks).then(function() { return true; }),
+          new Promise(function(resolve) { evidenceTimer = setTimeout(function() { resolve(false); }, 1500); })]);
+        clearTimeout(evidenceTimer);
+        if (!networkComplete) pendingFailures.network = "Network evidence is incomplete: a response body did not finish inside the evidence deadline.";
         if (state.runtimeErrors.length) pendingFailures.runtime = "Application runtime error: " + state.runtimeErrors.join("; ");
         var missing = missingBusinessActions(config, trace);
         if (missing.length) pendingFailures.business = "Business path incomplete: no successful action observed for " + missing.join(", ") + ". Use the requested controls, including confirmation, and verify their outcome.";
