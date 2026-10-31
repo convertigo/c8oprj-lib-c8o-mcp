@@ -50,6 +50,7 @@ comment: |
     marketplaceListEntries = entries;
     marketplaceListSuggestions = C8O.marketplace.annotateEntries(listResult.suggestions || [], {});
     marketplaceListWarnings = listResult.warnings || [];
+    marketplaceListCapabilities = listResult.capabilities || [];
     marketplaceListTimestamp = java.lang.System.currentTimeMillis();'
 ↓result [steps.JsonObjectStep-1764301001002]: 
   key: 
@@ -505,6 +506,21 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'entryItem && entryItem.status ? entryItem.status : ""'
+        ↓IfUse [steps.IfStep-1809000000001]: 
+          condition: entryItem != null && entryItem.use != null && String(entryItem.use).length > 0
+          ↓use [steps.JsonFieldStep-1809000000002]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: use
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: String(entryItem.use)
         ↓sharedComponentCount [steps.JsonFieldStep-17643010010411]: 
           key: 
             - xmlizable: 
@@ -921,6 +937,21 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.actionArguments && item.actionArguments.library ? item.actionArguments.library : ""'
+  ↓IfCapabilities [steps.IfStep-1809000000003]: 
+    condition: marketplaceListCapabilities != null && marketplaceListCapabilities.length > 0
+    ↓capabilities [steps.JsonToXmlStep-1809000000004]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: marketplaceListCapabilities
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: capabilities
   ↓warnings [steps.JsonArrayStep-1772722301002]: 
     key: 
       - xmlizable: 
