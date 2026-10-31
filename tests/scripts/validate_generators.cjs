@@ -1500,3 +1500,82 @@ test('a second page completes AppLayout with the rules of the classes it uses, o
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
   assert.equal(css.split('@media (min-width: 768px)').length, 2);
 });
+
+// --- PCA run 3 frictions (F-P-16 to F-P-19) ------------------------------------------------------------
+
+test('a table whose columns repeat the title, subtitle, note and status keeps one cell each, all with a header (F-P-16)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const labels = { A: 'À jour', R: 'En retard' };
+  const out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', subtitle: 'libelle',
+    note: 'dateEcheance', empty: 'Aucun', badge: { field: 'statut', labels },
+    columns: [{ label: 'Numéro', field: 'numeroPoste' }, { label: 'Libellé', field: 'libelle' }, { label: 'Service', field: 'service' },
+      { label: 'Échéance', field: 'dateEcheance' }, { label: 'Statut', field: 'statutLibelle' }] } });
+  const nodes = nodesOf(world, 'Plist');
+  const heads = nodes.HeadRow.children.slice(1).map(c => c.children[1].properties.textValue.value);
+  assert.deepEqual(plain(heads), ['Numéro', 'Service', 'Échéance', 'Statut'], 'the title column takes the label of its repeated column, no English "Name"');
+  assert.equal(classOf(nodes.Cells), 'app-row app-cols-4');
+  assert.deepEqual(plain(nodes.Cells.children.slice(1).map(c => c.name)), ['Main', 'CService', 'CDateEcheance', 'StatusCell']);
+  assert.equal(nodes.StatusCell.children[2].name, 'Status', 'the status column shows the badge');
+  assert.equal(nodes.NoteCell, undefined, 'the note is the Échéance column');
+  assert.match(out.warnings.join(' '), /columns\[0\] numeroPoste is the title, shown in the title column; columns\[1\] libelle is the subtitle.*columns\[4\] statutLibelle shows the badge statut/);
+  assert.doesNotMatch(out.warnings.join(' '), /titleLabel "Name"/);
+  // A note and a badge without column nor label go in the title cell: no column without header.
+  G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', titleLabel: 'Poste',
+    note: 'dateEcheance', badge: { field: 'statut', labels }, empty: 'Aucun', columns: [{ label: 'Service', field: 'service' }] } });
+  const n2 = nodesOf(world, 'Plist2');
+  assert.deepEqual(plain(n2.Main.children.slice(2).map(c => c.name)), ['Text', 'Status', 'NoteSub']);
+  assert.deepEqual(plain(n2.HeadRow.children.slice(1).map(c => c.children[1].properties.textValue.value)), ['Poste', 'Service']);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Plist3', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun',
+    columns: [{ label: 'Service', field: 'service' }] } }), /list\.titleLabel is required with columns: the header of the title column, in the app's language/);
+  const many = Array.from({ length: 8 }, (_, i) => ({ label: 'C' + i, field: 'f' + i }));
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Plist4', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', titleLabel: 'Poste',
+    empty: 'Aucun', columns: many } }), /list\.columns: 9 cells in a row \(the title column and 8 others\): a table shows 8 at most/);
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-cell \{ min-width: 0; overflow-wrap: break-word; \}/, 'no letter-by-letter wrap');
+});
+
+test('a select whose options the page sequence must return says so, and the page shows when they are missing (F-P-17)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'PosteForm', kind: 'form', sequence: 'poste_list', form: { submit: 'declaration_declare',
+    submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' },
+    fields: [{ name: 'source', label: 'RPCA', type: 'select', optionsFrom: { items: 'rpcas', value: 'id', label: 'nom', empty: 'Aucun RPCA à choisir.' } },
+      { name: 'commentaire', label: 'Commentaire' }] } });
+  assert.match(out.warnings.join(' '), /form\.fields\[0\]\.optionsFrom: the options are local\?\.data\?\.rpcas, so the answer of poste_list must hold data\.rpcas \(check it with requestable-execute\); without it the select stays empty and the page shows "Aucun RPCA à choisir\."/);
+  const form = nodesOf(world, 'PosteForm').Form;
+  assert.deepEqual(plain(form.children.slice(1, 4).map(c => c.name)), ['FiSource', 'IfSourceNoOption', 'FiCommentaire']);
+  const notice = form.children[2];
+  assert.equal(notice.properties.directiveExpression, 'local?.loading === false && !(local?.data?.rpcas?.length)');
+  assert.equal(notice.children[0].children[1].properties.textValue.value, 'Aucun RPCA à choisir.');
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'NoSeqForm', kind: 'form', form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler',
+    success: { message: 'OK' }, fields: [{ name: 'source', label: 'RPCA', type: 'select', optionsFrom: { items: 'rpcas' } }] } }),
+  /form\.fields\[0\]\.optionsFrom reads the page data, but the page has no sequence: give sequence, the business sequence whose answer holds data\.rpcas/);
+});
+
+test('a badge on a row without its field is hidden, not an empty pill (F-P-18)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: { kpis: [{ label: 'A', field: 'a' }],
+    sections: [{ heading: 'À relancer', items: 'aRelancer', item: 'p', title: 'numeroPoste', badge: { field: 'statut', labels: { A: 'À jour' } }, empty: 'Aucun' }] } });
+  const hidden = nodesOf(world, 'Dash').Status.children.filter(c => c.name === 'Attr_hidden')[0];
+  assert.deepEqual(plain(hidden.properties), { attrName: '[hidden]', attrValue: { mode: 'SCRIPT', value: "(p?.statut ?? '') === ''" } });
+});
+
+test('list, KPI and option paths are read in the data of the answer, whatever base they are written from (F-P-19)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: {
+    kpis: [{ label: 'Postes', field: 'data.compteurs.postes' }, { label: 'Actifs', field: 'compteurs.actifs' }],
+    sections: [{ heading: 'Liste', items: 'out.data.items', item: 'p', title: 'numeroPoste', empty: 'Aucun' }, { heading: 'Job', record: 'local?.data?.job', fields: [{ label: 'Date', field: 'date' }] }] } });
+  const nodes = nodesOf(world, 'Dash');
+  assert.equal(nodes.Value.children[1].properties.textValue.value, '(local?.data?.compteurs?.postes ?? 0)');
+  assert.deepEqual(plain(nodes.S1ForEach.properties.directiveSource), { mode: 'SOURCE', local: 'data.items' });
+  assert.equal(nodes.S2IfRecord.properties.directiveExpression, 'local?.data?.job');
+  assert.deepEqual(plain(out.bindings), { 'dashboard.kpis[0].field': 'local?.data?.compteurs?.postes', 'dashboard.kpis[1].field': 'local?.data?.compteurs?.actifs',
+    'dashboard.sections[0].items': 'local?.data?.items', 'dashboard.sections[1].record': 'local?.data?.job' });
+  assert.match(out.warnings.join(' '), /dashboard\.kpis\[0\]\.field "data\.compteurs\.postes": the paths are read in the data of the answer of poste_list, so "compteurs\.postes" \(local\?\.data\?\.compteurs\?\.postes\)/);
+  const list = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { items: 'data.items', item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.deepEqual(plain(nodesOf(world, 'Plist').RecForEach.properties.directiveSource), { mode: 'SOURCE', local: 'data.items' });
+  assert.equal(list.bindings['list.items'], 'local?.data?.items');
+});

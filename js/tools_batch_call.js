@@ -619,7 +619,7 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       return payload;
     }
     var compact = {};
-    ["status", "sequence", "qname", "requestable", "page", "segment", "created", "style", "theme", "preset", "mode", "badgeColors", "warnings", "errors"].forEach(function (key) {
+    ["status", "sequence", "qname", "requestable", "page", "segment", "created", "style", "theme", "preset", "mode", "badgeColors", "bindings", "warnings", "errors"].forEach(function (key) {
       if (payload[key] !== undefined) {
         compact[key] = payload[key];
       }
