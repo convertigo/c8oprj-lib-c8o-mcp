@@ -1331,12 +1331,17 @@ test('ngx-theme-apply keeps texts readable with a light brand color and refuses 
       /radius must be a whole number/.test(e.message) && /toolbar must be primary, surface, dark/.test(e.message) && /font must be a CSS font-family/.test(e.message));
 });
 
-test('ngx-page-create applies a given theme, and leaves an app that has pages without one as it is', () => {
-  const world = makeWorld({ style: '.app-page { padding: 4px; }\n' });
+test('ngx-page-create applies a given theme, the default one while the app has the starter colors, and keeps an app\'s own colors', () => {
+  // An AppLayout written by hand before the first generated page does not keep the starter's blue (31/10 re-run rule).
+  const handLayout = makeWorld({ style: '.app-page { padding: 4px; }\n' });
+  const out0 = load(handLayout).ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.match(out0.theme, /^AppTheme created \(preset institutional/);
+  assert.match(out0.warnings.join(' '), /The app still had the starter's colors: the default preset institutional/);
+  const world = makeWorld({ style: '.app-page { padding: 4px; }\n:root { --ion-color-primary: #2563eb; }\n.brand { --ion-color-primary: #7A1F5C; }\n' });
   const G = load(world);
   const out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
-  assert.equal(out.theme, 'none');
-  assert.match(out.warnings.join(' '), /no AppTheme: it shows the starter's default blue/);
+  assert.equal(out.theme, 'none', 'an app with a primary of its own keeps its look');
+  assert.doesNotMatch(out.warnings.join(' '), /AppTheme|starter's colors/);
   assert.equal(find(world.project, 'App.Application.NgxApp.AppTheme'), null);
   const themed = G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list', theme: { preset: 'dense', primary: '#7a1f5c' },
     list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
@@ -1371,18 +1376,25 @@ test('generated pages carry the design classes: title, list and field panels, fo
   assert.ok(css.indexOf('.app-list ion-note {') < css.indexOf('.app-fields ion-note {'));
 });
 
-test('dashboard KPIs take an icon and an accent color', () => {
+test('dashboard KPIs take an icon and an accent color, and get them from their label when the spec gives none', () => {
   const world = makeWorld();
   const G = load(world);
   G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: { kpis: [
-    { label: 'Postes', field: 'compteurs.postes', icon: 'briefcase-outline', color: 'primary' }, { label: 'En retard', field: 'compteurs.retard', color: 'danger' },
-    { label: 'Total', field: 'compteurs.total' }] } });
+    { label: 'Postes', field: 'compteurs.postes', icon: 'briefcase-outline', color: 'tertiary' }, { label: 'X', field: 'compteurs.retard', color: 'danger' },
+    { label: 'Total', field: 'compteurs.total' }, { label: 'À jour', field: 'compteurs.aJour' }, { label: 'En retard', field: 'compteurs.late' },
+    { label: 'À relancer', field: 'compteurs.relance', icon: 'none' }] } });
   const nodes = nodesOf(world, 'Dash');
-  assert.equal(classOf(nodes.KpiPostes), 'app-kpi app-kpi-iconed app-accent-primary');
+  assert.equal(classOf(nodes.KpiPostes), 'app-kpi app-kpi-iconed app-accent-tertiary');
   assert.equal(nodes.KpiPostes.children[1].properties.IconName.value, 'briefcase-outline');
   assert.equal(classOf(nodes.KpiPostes.children[1]), 'app-kpi-icon');
-  assert.equal(classOf(nodes.KpiRetard), 'app-kpi app-accent-danger');
-  assert.equal(classOf(nodes.KpiTotal), 'app-kpi');
+  // A spec that says nothing about the look still gets a card per counter with a meaningful accent (31/10 re-run rule).
+  assert.equal(classOf(nodes.KpiRetard), 'app-kpi app-kpi-iconed app-accent-danger');
+  assert.equal(nodes.KpiRetard.children[1].properties.IconName.value, 'alert-circle-outline');
+  assert.equal(classOf(nodes.KpiTotal), 'app-kpi app-kpi-iconed app-accent-primary');
+  assert.equal(nodes.KpiTotal.children[1].properties.IconName.value, 'stats-chart-outline');
+  assert.equal(classOf(nodes.KpiAJour), 'app-kpi app-kpi-iconed app-accent-success');
+  assert.equal(classOf(nodes.KpiLate), 'app-kpi app-kpi-iconed app-accent-danger');
+  assert.equal(classOf(nodes.KpiRelance), 'app-kpi app-accent-warning', 'icon none: no icon');
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Dash2', kind: 'dashboard', sequence: 'poste_list',
     dashboard: { kpis: [{ label: 'X', field: 'x', color: 'pink' }] } }), /kpis\[0\]\.color must be primary, secondary, tertiary, success, warning, danger, medium/);
 });

@@ -365,6 +365,30 @@ include("js/tools_generators.js");
     return !res || res.status === "failed" || (res.errors && res.errors.length) ? batchErrors(res).join(" | ") || "failed" : "";
   }
 
+  // The primary colors a framework or the NGX starter ships (the same list as NGX-DEFAULT-THEME in js/tools_project_lint.js).
+  var DEFAULT_PRIMARIES = ["#2563eb", "#60a5fa", "#3b82f6", "#0054e9", "#3880ff", "#4d8dff", "#428cff"];
+
+  // True when no app-level style gives the app a primary color of its own: it still looks like the starter.
+  G.hasStarterColors = function (app) {
+    var own = false;
+    directChildren(app).forEach(function (child) {
+      if (!/UIStyle|UITheme/.test(String(child.getClass().getName()))) {
+        return;
+      }
+      var css = "";
+      try {
+        css = String(child.getStyleContent().getString());
+      } catch (_noCss) {}
+      css.replace(/--ion-color-primary\s*:\s*(#[0-9a-fA-F]{3,8})\b/g, function (m, color) {
+        if (DEFAULT_PRIMARIES.indexOf(color.toLowerCase()) < 0) {
+          own = true;
+        }
+        return m;
+      });
+    });
+    return !own;
+  };
+
   // Writes AppTheme (created or replaced) and the mode, in an app already resolved. Used by ngx-theme-apply and by
   // ngx-page-create (default preset of a new app). Returns the description of what was done.
   G.applyTheme = function (projectDbo, app, spec, session, tool) {

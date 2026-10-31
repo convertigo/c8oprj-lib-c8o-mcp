@@ -20,6 +20,9 @@ include("js/tools_generators_ngx_theme.js");
   // The classes of the generated pages. They read the tokens of AppTheme (ngx-theme-apply) and keep a plain fallback, so an
   // app without AppTheme still renders. An existing AppLayout is only completed with the rules it lacks (by selector).
   var ACCENTS = ["primary", "secondary", "tertiary", "success", "warning", "danger", "medium"];
+  // The icon of a KPI card that gives none, after its accent.
+  var KPI_ICONS = { success: "checkmark-circle-outline", danger: "alert-circle-outline", warning: "time-outline", medium: "pause-circle-outline",
+    primary: "stats-chart-outline", secondary: "stats-chart-outline", tertiary: "stats-chart-outline" };
   var SURFACE = "var(--app-surface, var(--ion-item-background, #fff))";
   var BORDER = "1px solid var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2)))";
   var MUTED = "var(--app-muted, var(--ion-color-medium, #64748b))";
@@ -891,13 +894,16 @@ include("js/tools_generators_ngx_theme.js");
               errors.push("dashboard.kpis[" + i + "] must be {label, field, icon?, color?}.");
               return txt("");
             }
-            // A card per counter: an optional icon in a tinted square, an accent color (left border and icon).
-            var kpiIcon = menuIcon(str(k.icon));
-            var kpiColor = str(k.color);
-            if (kpiColor.length && ACCENTS.indexOf(kpiColor) < 0) {
+            // A card per counter: an icon in a tinted square and an accent color (left border and icon). Not given, the
+            // label says them: "En retard" is danger with an alert icon, "À jour" success with a check; icon "none" has none.
+            var said = G.statusColor(str(k.label) || str(k.field), "");
+            var kpiColor = str(k.color) || said || "primary";
+            if (ACCENTS.indexOf(kpiColor) < 0) {
               errors.push("dashboard.kpis[" + i + "].color must be " + ACCENTS.join(", ") + ".");
             }
-            var kpiChildren = [cls("app-kpi" + (kpiIcon.length ? " app-kpi-iconed" : "") + (kpiColor.length ? " app-accent-" + kpiColor : ""))];
+            var kpiIcon = k.icon === undefined || k.icon === null || str(k.icon) === "" ? (KPI_ICONS[kpiColor] || KPI_ICONS.primary)
+              : (str(k.icon) === "none" ? "" : menuIcon(str(k.icon)));
+            var kpiChildren = [cls("app-kpi" + (kpiIcon.length ? " app-kpi-iconed" : "") + " app-accent-" + kpiColor)];
             if (kpiIcon.length) {
               kpiChildren.push(nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: kpiIcon } }, [cls("app-kpi-icon")]));
             }
@@ -1234,21 +1240,19 @@ include("js/tools_generators_ngx_theme.js");
       session.warnings.push("The application still opens on the starter page Page: give root:true to the entry page (a login page...) " +
         "before deleting Page, or the app has no root page.");
     }
-    // The visual identity: the theme given, else the default preset for a new app (its first generated page). An app
-    // that already had pages keeps its look: changing it is ngx-theme-apply's job.
+    // The visual identity: the theme given, else the default preset for an app that still shows the starter's colors,
+    // whatever made its AppLayout (an agent wrote it by hand before the first generated page). An app whose styles give
+    // it a primary color of its own keeps its look: changing it is ngx-theme-apply's job.
     var hadTheme = !!childNamed(app, "AppTheme");
     var themeApplied = null;
     try {
       if (themeSpec !== undefined) {
         themeApplied = G.applyTheme(projectDbo, app, themeSpec, session, tool);
-      } else if (!hadTheme && styleStatus === "created") {
+      } else if (!hadTheme && G.hasStarterColors(app)) {
         themeApplied = G.applyTheme(projectDbo, app, {}, session, tool);
-        session.warnings.push("The app had no AppTheme: the default preset " + themeApplied.preset + " (" + themeApplied.tokens.brand + ", " + themeApplied.mode +
-          ") was applied. Give the app its own identity with ngx-theme-apply (the user's brand color, or the preset that fits: " +
-          Object.keys(G.THEME_PRESETS).join(", ") + ") before the other pages.");
-      } else if (!hadTheme) {
-        session.warnings.push("The app has no AppTheme: it shows the starter's default blue and follows the browser's light or dark mode. " +
-          "ngx-theme-apply gives it its colors, toolbar, spacing and light mode.");
+        session.warnings.push("The app still had the starter's colors: the default preset " + themeApplied.preset + " (" + themeApplied.tokens.brand + ", " +
+          themeApplied.mode + ") was applied. Give the app its own identity with ngx-theme-apply (the user's brand color, or the preset that fits: " +
+          Object.keys(G.THEME_PRESETS).join(", ") + ").");
       }
     } catch (themeError) {
       session.rollback();
