@@ -64,3 +64,13 @@ test('display-only proof cannot validate requested business actions',async()=>{
  const answer=await agent.run({...cfg,paths:['Send, refuse, cancel and download']},{key:'fake',playwright:f.playwright,fetch});
  assert.equal(answer.report.verdict,'partial');assert.match(answer.report.checks[0].evidence,/no successful action observed for send, refuse, cancel, download/);
 });
+
+
+test('a late pageerror also prevents a passed finish report',async()=>{
+ const f=fixture();let pageError;f.page.on=(name,callback)=>{if(name==='pageerror')pageError=callback;};
+ const fetch=async()=>{pageError(new Error('Cannot read properties of null (reading user)'));return {ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{
+ id:'finish',type:'function',function:{name:'finish',arguments:JSON.stringify({verdict:'passed',checks:[{id:'C1',check:'Approved',status:'passed',evidence:'Approved'}]})}
+ }]}}]})};};
+ const answer=await agent.run({...cfg,paths:['Read the status']},{key:'fake',playwright:f.playwright,fetch});
+ assert.equal(answer.report.verdict,'partial');assert.match(answer.report.checks[0].evidence,/Cannot read properties of null/);
+});

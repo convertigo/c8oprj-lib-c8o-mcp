@@ -1261,6 +1261,7 @@ async function run(rawConfig, deps) {
       var callStarted = Date.now();
       var outcome;
       if (name === "finish" && args) {
+        if (state.runtimeErrors.length) pendingFailures.runtime = "Application runtime error: " + state.runtimeErrors.join("; ");
         var missing = missingBusinessActions(config, trace);
         if (missing.length) pendingFailures.business = "Business path incomplete: no successful action observed for " + missing.join(", ") + ". Use the requested controls, including confirmation, and verify their outcome.";
         report = normalizeReport(args, config, state.screenshots, pendingFailures);
