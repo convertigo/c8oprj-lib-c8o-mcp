@@ -48,6 +48,19 @@ An NGX palette entry is named `ngx.components.<Class>#<logicalId>`, always writt
 - The exact names come from `palette-list` with an NGX parent as `target` (`<Project>.Application.NgxApp.pg:<Page>`, or the component that will hold the new one) and one word as `filter` (`button`, `card`). Pass the returned `className` unchanged to `palette-describe` and `databaseobject-tree-apply`. Without `target`, `palette-list` lists the built-in entries and the NGX classes without their logical id, which are not palette names.
 - When a palette tool answers `Palette entry not found` or `Database object not found`, take one of the close entries it lists, or list the parent once. Do not try another guessed name.
 
+## Visual design
+
+An app built only for readability looks like every other generated app: the starter's blue, raw lists, dark in a dark browser. Give it a deliberate look, with palette objects and styles only (no `UICustom`, no inline style).
+
+- **Choose the tokens before the pages.** Right after the starter import, call `ngx-theme-apply` once: the user's brand color as `primary` when they gave one (a logo, a website, a charter), and the preset that fits the app: `institutional` (administration, public services, internal tools: deep blue-grey, colored toolbar, small radius), `modern` (product or consumer app: violet, white toolbar, rounded cards), `dense` (back-office screens full of tables: teal, dark toolbar, compact). Give `appName` for the menu header. It writes the app-level `UIStyle` `AppTheme` (Ionic colors with their contrast, shade and tint, background, text, the `--app-*` tokens) and keeps the starter's `LightTheme`, `AutoDarkTheme` and `TailwindTheme` underneath. `ngx-page-create` takes the same tokens as `theme`.
+- **Never leave the default blue by accident.** The first `ngx-page-create` of a new app applies the `institutional` preset and says so in its warnings: that is a fallback, not a choice. `project-lint` reports `NGX-DEFAULT-THEME` for an app that kept the starter's colors.
+- **Light by default for a business app**; `mode: "dark"` only when the user asks for it, `"auto"` when the app must follow the device. The dark palette is always written and its contrast is checked: look at one page in each (the starter's theme switch, or `localStorage` `c8o-theme-dark` set to `true` before the page loads).
+- **Visual hierarchy.** One page title, sections that stand out, key figures as KPI cards (`dashboard.kpis[].icon` and `.color`), status badges whose color says the status: `ngx-page-create` derives it from the words of `badge.labels` (done or valid: success, late or refused: danger, waiting: warning, inactive: medium) and gives it back as `badgeColors`; give `badge.colors` when the words do not say it.
+- **Layout.** A list sits in a panel; a list whose rows carry more than three values gets `list.columns` (a table with a header row on a wide screen, label and value lines on a phone). Details are label/value lists, forms sit in a panel at most 720px wide, buttons are grouped. Every empty state has an icon (`emptyIcon`) and a sentence.
+- **App shell.** The page toolbars take the theme's toolbar color, each menu page has an icon (`icon`, the base ionicons name such as `people` or `calendar`: the menu adds `-outline` or `-sharp`), the menu header shows `appName`.
+- **Consistency.** Hand-written rules read the tokens: spacing `--app-space-1` to `--app-space-6`, type `--app-font-size-xs` to `--app-font-size-2xl`, `--app-radius-sm`, `--app-radius`, `--app-radius-lg`, surfaces `--app-surface`, `--app-surface-2`, `--app-muted`, `--app-border`, colors `--ion-color-<name>`. Never a fixed color or pixel size the theme already gives.
+- **Check it.** `browser-verify` returns `designSuggestions`; check a phone width (`viewport: "mobile"`) as well as the desktop.
+
 ## Basic presentation
 
 Wiring makes a page work; these patterns make it readable. Checked in a production build: each one renders as described. `ngx-page-create` builds list, detail, form and dashboard pages with them (see `convertigo-recipe-multipage-app`, Generators); apply them by hand to the pages it does not cover.
@@ -56,31 +69,21 @@ Wiring makes a page work; these patterns make it readable. Checked in a producti
 - Section: `UIDynamicElement#Heading2` with a `UIText` child, then the section content. Never a bare `UIText` as a title.
 - List of records: `List` > `UIControlDirective` (`ForEach`) > `ListItem` > `Label` (`Heading3` for the main field, `Paragraph` for the secondary one) and a `Note` for the value shown on the right (date, status, amount). Never one `UIText` per row joined with " • ".
 - Label and value (record details, form summary): a `List` with `lines` `none`, one `ListItem` per field, with a `Label` (the label) and a `Note` (the value).
-- Counters or KPIs: a `DivTag` with a grid class holding one `DivTag` per counter, each with two `SpanTag`, the value and the label, each with its own class.
+- Counters or KPIs: a `DivTag` with a grid class holding one `DivTag` per counter (a card), each with an optional `Icon` and two `SpanTag`, the value and the label, each with its own class. Give each card an accent color that means something (danger for late, success for done).
 - Record card: `Card` > `CardHeader` (`CardTitle`, `CardSubTitle`) > `CardContent` with the label/value list, then a `DivTag` with an actions class holding the `Button`s.
-- Status: a `Badge` (or `Chip`) with a color class, next to the title, not glued inside a sentence.
+- Status: a `Badge` (or `Chip`) whose color follows the status (success, warning, danger, medium), next to the title, not glued inside a sentence.
+- Empty state: an `Icon` and one sentence that says what is missing or what to do, in a `DivTag`, never a bare "No data".
 - Write every visible text in the user's language with its accents (« Créer une commande », « Übersicht », « Configuración »). Convertigo objects are UTF-8 and accents render as typed; never strip them to ASCII. `project-lint` proofreads the shown texts and the i18n files and reports what is misspelled or missing its accents.
 - A `UIText` with `i18n` true, such as the toolbar title of the starter page, is a translation key, not a text: without an entry in the app's i18n files the page shows the key with spaces turned into underscores (« Suivi_des_mises_a_jour… »). When you write the text yourself, set `i18n` to false in the same patch.
-- Create one app-level `UIStyle` (for example `AppLayout`) in the first UI lot, before the pages, and put the shared layout classes there. Write a CSS rule only for markup the tree really produces: `.counter b` styles nothing if the value is a bare `UIText`.
-
-Minimal `AppLayout`:
-
-```css
-.app-page { max-width: 960px; margin: 0 auto; padding: 16px; }
-.app-section { margin: 24px 0 8px; }
-.app-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-.app-kpi { padding: 16px; border-radius: 12px; background: var(--ion-color-step-50, rgba(127,127,127,0.08)); }
-.app-kpi-value { display: block; font-size: 28px; font-weight: 600; }
-.app-kpi-label { display: block; opacity: 0.7; margin-top: 4px; }
-.app-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-```
+- The shared classes live in one app-level `UIStyle` named `AppLayout`, which `ngx-page-create` creates with its first page and completes with the rules each page uses: `app-page` (the page content), `app-title`, `app-section`, `app-list` (a list in a panel), `app-fields` (label/value), `app-table-head`, `app-row`, `app-cell` (a table), `app-kpis`, `app-kpi` with `app-kpi-icon` and `app-accent-<color>`, `app-badge`, `app-form`, `app-actions`, `app-empty-state`, `app-error`. On a page built by hand, use these classes; create `AppLayout` yourself only when no generated page made it. Write a CSS rule only for markup the tree really produces: `.counter b` styles nothing if the value is a bare `UIText`.
+- A rule you write yourself reads the theme tokens (see Visual design) instead of fixed values: `padding: var(--app-space-4); border-radius: var(--app-radius); color: var(--app-muted)`.
 
 Wrap the page content in a `DivTag` with class `app-page`. A text-only Playwright proof does not see glued texts or a missing layout: look at the page itself (a screenshot) before calling a UI lot done.
 
 Before you call a UI lot done, check each page you built, functionally and visually, with one verifier sub-agent run, `subagent-run({profile:"verifier", ...})` or its shortcut `browser-verify` (see Validation and evidence in the common skill):
 - Pass the `viewerHomeUrl` as `url`, one plain-language path per user journey through the new pages (log in, open the list, create or edit, read the result), the acceptance criteria as `checks` with the exact expected texts, and demo accounts or expected values as `hints`.
-- Its vision sub-agent drives the viewer, looks at every page it reaches and reports failed checks and visual defects: texts glued together without a separator, overlapping or cut-off elements, missing accents, empty or unreadable areas, raw technical values.
-- Fix what it reports in the source objects, rebuild, and verify the affected paths again. Do not drive the page click by click yourself.
+- Its vision sub-agent drives the viewer, looks at every page it reaches and reports failed checks and visual defects: texts glued together without a separator, overlapping or cut-off elements, missing accents, empty or unreadable areas, raw technical values. Next to them it gives `designSuggestions`, an aesthetic review (hierarchy, alignment, density, contrast, consistency, color): advice that never fails a check.
+- Fix what it reports in the source objects, rebuild, and verify the affected paths again. Apply the design suggestions that fit the app. Do not drive the page click by click yourself.
 - Only when no verifier is available: save a screenshot with `browser_take_screenshot({filename:"check-<page>.png"})` and, if your model cannot read images (GLM models of the Convertigo gateway), ask `image-describe` about readability, glued, cut-off or overlapping texts and empty areas.
 
 ## NGX mental model
