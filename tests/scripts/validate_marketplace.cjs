@@ -107,6 +107,23 @@ assert.strictEqual(r.nextCursor, "1");
 r = M.list({ search: "liste", limit: 1, cursor: "1" });
 assert.strictEqual(r.entries[0].name, "lib_TreeTable", "the next page goes on after the libraries");
 
+// A new reference reaches the Mobile Builder only after the NGX app is loaded again: saved, then reloaded.
+const done = [];
+context.C8O.dbo.saveProject = p => { done.push('save ' + p.getName()); return { saved: true }; };
+context.C8O.dbo.reloadProject = name => { done.push('reload ' + name); return { reloaded: true, message: '' }; };
+const ngxApp = { getName: () => 'Shop', getMobileApplication: () => ({ getApplicationComponent: () => ({}) }) };
+const backend = { getName: () => 'Api', getMobileApplication: () => null };
+M.resolveProject = name => ({ Shop: ngxApp, Api: backend }[name] || null);
+let reload = M.reloadAfterNewReference('Shop', 'lib_ExtendedComponents_ui_ngx');
+assert.deepStrictEqual(done, ['save Shop', 'reload Shop']);
+assert.match(reload.message, /Shop was reloaded so that the Mobile Builder writes the shared components of lib_ExtendedComponents_ui_ngx/);
+reload = M.reloadAfterNewReference('Api', 'lib_csv_response');
+assert.strictEqual(reload.reloaded, false, 'a project without NGX app is not reloaded');
+assert.strictEqual(done.length, 2);
+const importSeq = fs.readFileSync(path.join(root, "_c8oProject", "sequences", "tools_marketplace_import.yaml"), "utf8");
+assert.ok(/referenceResult\.referenceAdded === true\) \{\s*var reloadAfter = C8O\.marketplace\.reloadAfterNewReference\(referenceTarget/.test(importSeq),
+  "marketplace-import reloads the app after a new reference");
+
 // The answer says to browse with cursor: the router passes it to the sequence variable _nextCursor.
 const router = fs.readFileSync(path.join(root, "js", "mcp_endpoint_router.js"), "utf8");
 const aliases = vm.runInNewContext("(" + /var ARGUMENT_ALIASES = (\{[\s\S]*?\n\});/.exec(router)[1] + ")").tools_marketplace_list;

@@ -1246,6 +1246,35 @@ C8O.marketplace.addReference = function (targetProjectName, libraryName, project
   return out;
 };
 
+// The Mobile Builder writes the shared components of a library into an NGX app only when the app project is loaded:
+// after a new reference, a page using one failed to compile ("Could not resolve ../../components/<library>.<component>/...")
+// until the app was reloaded (Studio 8.4, 31/10). The app is saved, then reloaded, so the next build has them.
+C8O.marketplace.reloadAfterNewReference = function (targetProjectName, libraryName) {
+  var target = C8O.marketplace.resolveProject(targetProjectName);
+  var hasApp = false;
+  try {
+    hasApp = target != null && target.getMobileApplication() != null && target.getMobileApplication().getApplicationComponent() != null;
+  } catch (_noApp) {
+    hasApp = false;
+  }
+  if (!hasApp) {
+    return { reloaded: false, message: "" };
+  }
+  if (typeof C8O.dbo.reloadProject !== "function") {
+    include("js/databaseobject.js");
+  }
+  var errors = [];
+  C8O.dbo.saveProject(target, errors);
+  var name = String(target.getName());
+  var result = C8O.dbo.reloadProject(name, errors);
+  return {
+    reloaded: result.reloaded === true,
+    message: result.reloaded === true
+      ? name + " was reloaded so that the Mobile Builder writes the shared components of " + libraryName + " into the app."
+      : "Reload " + name + " (project-reload) before building a page that uses a shared component of " + libraryName + ": " + result.message
+  };
+};
+
 C8O.marketplace.resolveEntry = function (options) {
   var opts = C8O.marketplace.normalizeListOptions(options || {});
   var projectToken = C8O.marketplace._trim(opts.project);

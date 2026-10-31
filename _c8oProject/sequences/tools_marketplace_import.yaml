@@ -61,6 +61,12 @@ comment: |
       marketplaceImportResult.referenceName = referenceResult.referenceName;
       marketplaceImportResult.referenceProjectUrl = referenceResult.referenceProjectUrl;
       marketplaceImportResult.warnings = (marketplaceImportResult.warnings || []).concat(referenceResult.warnings);
+      if (referenceResult.referenceAdded === true) {
+        var reloadAfter = C8O.marketplace.reloadAfterNewReference(referenceTarget, marketplaceImportResult.library);
+        if (reloadAfter.message.length) {
+          marketplaceImportResult.warnings.push(reloadAfter.message);
+        }
+      }
     }
     marketplaceImportRefresh = marketplaceImportResult && marketplaceImportResult.refresh === true;
     marketplaceImportTargetQName = marketplaceImportResult && marketplaceImportResult.targetProject ? String(marketplaceImportResult.targetProject) : "";
