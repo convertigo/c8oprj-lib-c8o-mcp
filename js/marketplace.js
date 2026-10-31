@@ -970,6 +970,26 @@ C8O.marketplace.getProjectSharedCatalog = function (projectOrName) {
         entry.variableCount = 0;
       }
     }
+    // The inputs and events a page gives the component (UIUseVariable, UIControlEvent of that name): the readme of a
+    // library with many components is cut before most of them (lib_ExtendedComponents_ui_ngx: agGrid's 44 variables).
+    if (kind === "sharedComponent" && component.getAllChildren) {
+      try {
+        var children = component.getAllChildren();
+        var inputs = [];
+        var events = [];
+        for (var c = 0; c < children.size(); c++) {
+          var child = children.get(c);
+          var childClass = String(child.getClass().getName());
+          if (/\.UICompVariable$/.test(childClass)) {
+            inputs.push(String(child.getName()));
+          } else if (/\.UICompEvent$/.test(childClass)) {
+            events.push(String(child.getName()));
+          }
+        }
+        entry.variables = inputs;
+        entry.events = events;
+      } catch (_ignoreChildren) {}
+    }
     return entry;
   }
 

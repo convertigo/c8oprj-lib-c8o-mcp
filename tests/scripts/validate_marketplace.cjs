@@ -124,6 +124,20 @@ const importSeq = fs.readFileSync(path.join(root, "_c8oProject", "sequences", "t
 assert.ok(/referenceResult\.referenceAdded === true\) \{\s*var reloadAfter = C8O\.marketplace\.reloadAfterNewReference\(referenceTarget/.test(importSeq),
   "marketplace-import reloads the app after a new reference");
 
+// marketplace-describe lists the inputs and events of each shared component: the readme of a library with many
+// components is cut before most of them.
+const jlist = items => ({ size: () => items.length, get: i => items[i] });
+const child = (name, cls) => ({ getName: () => name, getClass: () => ({ getName: () => "com.twinsoft.convertigo.beans.ngx.components." + cls }) });
+const grid = { getName: () => "agGrid", getQName: () => "lib_X.MobileApplication.Application.agGrid", getFullQName: () => "", isEnabled: () => true,
+  isExposed: () => true, getComment: () => "grid", getVariables: () => jlist([1, 2]),
+  getAllChildren: () => jlist([child("columnDefs", "UICompVariable"), child("rowData", "UICompVariable"), child("RowClicked", "UICompEvent"),
+    child("Attr", "UIAttribute")]) };
+const libProject = { getMobileApplication: () => ({ getApplicationComponent: () => ({ getSharedComponentList: () => jlist([grid]) }) }) };
+M.resolveProject = () => libProject;
+const sharedCatalog = M.getProjectSharedCatalog("lib_X");
+assert.deepStrictEqual([...sharedCatalog.sharedComponents[0].variables], ["columnDefs", "rowData"]);
+assert.deepStrictEqual([...sharedCatalog.sharedComponents[0].events], ["RowClicked"]);
+
 // The answer says to browse with cursor: the router passes it to the sequence variable _nextCursor.
 const router = fs.readFileSync(path.join(root, "js", "mcp_endpoint_router.js"), "utf8");
 const aliases = vm.runInNewContext("(" + /var ARGUMENT_ALIASES = (\{[\s\S]*?\n\});/.exec(router)[1] + ")").tools_marketplace_list;
