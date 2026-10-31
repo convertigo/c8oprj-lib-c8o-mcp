@@ -404,14 +404,19 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     return { status: "refused", saved: false, reason: reason, tool: tool, message: messages[reason] || messages.no_answer };
   }
 
-  function awaiting(tool, request) {
+  // An agent that stopped calling after a few waits ended its turn saying the card still waited, while the end of the
+  // turn had closed it (usage tests 31/10): the answer gives the time the card stays open and what ending the turn does.
+  function awaiting(tool, request, now) {
+    var left = Math.max(0, Math.ceil((Number(request.expiresAt || 0) - now) / 1000));
     return {
       status: "awaiting_confirmation",
       saved: false,
       tool: tool,
       requestId: request.id,
-      message: "The change waits for the user's answer on the confirmation card of the Tigo panel. Call " + tool +
-        " again with exactly the same arguments to keep waiting, and change nothing else meanwhile."
+      secondsLeft: left,
+      message: "The change waits for the user's answer on the confirmation card of the Tigo panel, open " + left +
+        " s more. Call " + tool + " again with exactly the same arguments to keep waiting, and change nothing else" +
+        " meanwhile. Do not end your turn while the card is open: the end of the turn closes it and nothing is saved."
     };
   }
 
@@ -499,7 +504,7 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
         continue;
       }
       if (now >= until) {
-        return awaiting(tool, current);
+        return awaiting(tool, current, now);
       }
       host.sleep(POLL_MS);
     }
