@@ -1551,6 +1551,8 @@ test('a list asked as a grid uses the AG Grid of lib_ExtendedComponents_ui_ngx, 
   assert.deepEqual(plain(out.library), { name: 'lib_ExtendedComponents_ui_ngx', status: 'imported and referenced',
     sharedComponent: 'lib_ExtendedComponents_ui_ngx.MobileApplication.Application.agGrid' });
   assert.match(out.listRendering[0], /^list: AG Grid of lib_ExtendedComponents_ui_ngx \(grid asked\)/);
+  assert.match(out.listRendering[0], /in the dev viewer only, the library's CSV button logs an NG0100 .* absent from a production build/,
+    'the agent does not chase a library defect in its page');
   const nodes = nodesOf(world, 'Postes');
   assert.equal(nodes.RecList, undefined, 'no native list');
   assert.equal(classOf(nodes.RecGridBox), 'app-grid app-grid-clickable');

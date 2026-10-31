@@ -811,7 +811,7 @@ include("js/tools_generators_ngx_theme.js");
         return blocks;
       }
       var gridBlocks = [blocks[0], gridNode(prefix, spec2, label, gridChoice, item, itemsPath, selectSpec, empty)].concat(blocks.slice(2));
-      gridPlans.push({ mode: gridChoice.mode, label: label, cells: gridChoice.cells, nativeBlocks: blocks, gridBlocks: gridBlocks, local: gridChoice.local,
+      gridPlans.push({ mode: gridChoice.mode, label: label, cells: gridChoice.cells, csv: gridChoice.csv || gridChoice.xlsx, nativeBlocks: blocks, gridBlocks: gridBlocks, local: gridChoice.local,
         use: gridBlocks[1].children[1].children[0] });
       return gridBlocks;
     }
@@ -1527,7 +1527,9 @@ include("js/tools_generators_ngx_theme.js");
       library: gridLibrary && !gridLibrary.error ? { name: gridLibrary.library, status: gridLibrary.status, sharedComponent: gridLibrary.sharedComponent } : undefined,
       listRendering: gridPlans.length && !(gridLibrary && gridLibrary.error)
         ? gridPlans.map(function (gp) { return gp.label + ": AG Grid of " + GRID_LIBRARY + " (" + (gp.mode === "asked" ? "grid asked" : gp.cells + " cells") +
-          "): sorting, filtering and paging in the grid, " + "CSV export with grid.csv" + "; local " + gp.local + " holds its columns."; })
+          "): sorting, filtering and paging in the grid, " + (gp.csv ? "a CSV button (in the dev viewer only, the library's CSV button logs an " +
+          "NG0100 ExpressionChangedAfterItHasBeenChecked error: a defect of the library, not of the page, absent from a production build)" : "CSV export with grid.csv") +
+          "; local " + gp.local + " holds its columns."; })
         : (gridHints.length ? gridHints.map(function (h) { return h + ": native table. The AG Grid of " + GRID_LIBRARY + " (marketplace library, a " +
           "standard Convertigo component) sorts, filters, pages and exports it: create the page again with " + h + ".grid true (" + h + ".grid {csv:true} for a CSV button)."; })
         : undefined),
